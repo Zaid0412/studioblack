@@ -141,6 +141,11 @@ export default function NotificationsPage() {
   );
 }
 
+/**
+ * Formats an ISO timestamp as a short 12-hour time string (e.g. "2:30 PM").
+ *
+ * Used in notification list items to show when each notification arrived.
+ */
 function formatTimeShort(timestamp: string): string {
   const date = new Date(timestamp);
   return date.toLocaleTimeString("en-US", {

@@ -213,6 +213,15 @@ export default function DashboardPage() {
   );
 }
 
+/**
+ * Converts an ISO timestamp into a human-readable relative time string.
+ *
+ * Returns localised labels via the supplied `t` function:
+ * - < 1 hour  → "Just now"
+ * - < 24 hours → "X hours ago"
+ * - < 7 days  → "X days ago"
+ * - ≥ 7 days  → formatted date (e.g. "Mar 9")
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatTimeAgo(timestamp: string, t: (key: string, values?: any) => string): string {
   const now = new Date();

@@ -8,6 +8,12 @@ interface ThemeProviderProps {
   children: React.ReactNode;
 }
 
+/**
+ * Applies a {@link Theme}'s colour tokens as CSS custom properties on `:root`.
+ *
+ * Wrap the app in this provider so all Tailwind utilities that reference
+ * `var(--bg-primary)`, `var(--accent)`, etc. resolve to the active theme.
+ */
 export function ThemeProvider({
   theme = defaultTheme,
   children,

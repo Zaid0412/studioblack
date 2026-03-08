@@ -1,7 +1,9 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
+/** Available visual styles for Button. */
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+/** Available size presets for Button. */
 type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -26,6 +28,12 @@ const sizeStyles: Record<ButtonSize, string> = {
   lg: "text-sm px-8 py-3 gap-2",
 };
 
+/**
+ * Themed button primitive.
+ *
+ * Supports four variants (`primary`, `secondary`, `ghost`, `danger`) and
+ * three sizes (`sm`, `md`, `lg`). Forwards a ref to the underlying `<button>`.
+ */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
     return (

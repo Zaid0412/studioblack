@@ -16,6 +16,12 @@ const sizeStyles: Record<AvatarSize, string> = {
   xl: "w-16 h-16 text-xl",
 };
 
+/**
+ * Circular avatar displaying either an image or initials.
+ *
+ * When `src` is provided an `<img>` is rendered; otherwise a coloured
+ * circle with the user's initials is shown using the accent colour.
+ */
 export function Avatar({ initials, size = "md", src, className }: AvatarProps) {
   if (src) {
     return (

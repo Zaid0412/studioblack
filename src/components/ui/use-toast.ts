@@ -3,7 +3,10 @@
 import * as React from "react";
 import type { ToastActionElement, ToastProps } from "./toast";
 
+/** Maximum number of toasts visible at once. */
 const TOAST_LIMIT = 3;
+
+/** Milliseconds before a dismissed toast is removed from the DOM. */
 const TOAST_REMOVE_DELAY = 5000;
 
 type ToasterToast = ToastProps & {
@@ -22,6 +25,7 @@ const actionTypes = {
 
 let count = 0;
 
+/** Generate a unique auto-incrementing ID for each toast. */
 function genId() {
   count = (count + 1) % Number.MAX_SAFE_INTEGER;
   return count.toString();
@@ -53,6 +57,7 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** Schedule a toast for removal after {@link TOAST_REMOVE_DELAY} ms. */
 function addToRemoveQueue(toastId: string) {
   if (toastTimeouts.has(toastId)) return;
 
@@ -64,6 +69,7 @@ function addToRemoveQueue(toastId: string) {
   toastTimeouts.set(toastId, timeout);
 }
 
+/** Pure reducer managing the toast list state. */
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "ADD_TOAST":
@@ -112,6 +118,7 @@ function reducer(state: State, action: Action): State {
 const listeners: Array<(state: State) => void> = [];
 let memoryState: State = { toasts: [] };
 
+/** Dispatch an action and notify all subscribed listeners. */
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action);
   listeners.forEach((listener) => listener(memoryState));
@@ -119,6 +126,11 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">;
 
+/**
+ * Imperatively show a toast notification.
+ *
+ * @returns An object with `id`, `dismiss`, and `update` helpers.
+ */
 function toast({ ...props }: Toast) {
   const id = genId();
 
@@ -141,6 +153,11 @@ function toast({ ...props }: Toast) {
   return { id, dismiss, update };
 }
 
+/**
+ * React hook that subscribes to the global toast state.
+ *
+ * Returns the current list of toasts plus `toast()` and `dismiss()` helpers.
+ */
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 

@@ -1,5 +1,6 @@
 import type { Theme } from "./index";
 
+/** The default dark theme — StudioBlack's signature look. */
 const defaultTheme: Theme = {
   name: "StudioBlack",
   colors: {

@@ -20,6 +20,16 @@ interface SidebarProps {
   variant?: "architect" | "client";
 }
 
+/**
+ * Application sidebar with role-adaptive navigation.
+ *
+ * Renders different nav items depending on the `variant`:
+ * - `"architect"` — full navigation including team management and audit history.
+ * - `"client"` — reduced navigation scoped to client-facing features.
+ *
+ * Nav items are conditionally included based on the feature flags in
+ * `src/config/features.ts`.
+ */
 export function Sidebar({ variant = "architect" }: SidebarProps) {
   const t = useTranslations("nav");
   const unread = getUnreadNotificationCount();

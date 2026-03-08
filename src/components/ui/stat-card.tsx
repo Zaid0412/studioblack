@@ -10,6 +10,12 @@ interface StatCardProps {
   trend?: "up" | "down" | "neutral";
 }
 
+/**
+ * Dashboard metric card displaying a label, large value, optional icon, and trend.
+ *
+ * The `trend` prop controls the colour of the `change` text:
+ * `"up"` → green, `"down"` → red, `"neutral"` → muted.
+ */
 export function StatCard({ label, value, icon: Icon, change, trend }: StatCardProps) {
   return (
     <Card>

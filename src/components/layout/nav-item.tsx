@@ -12,6 +12,11 @@ interface NavItemProps {
   badge?: number;
 }
 
+/**
+ * Sidebar navigation link with icon, label, and optional notification badge.
+ *
+ * Highlights automatically when the current pathname matches `href`.
+ */
 export function NavItem({ href, label, icon: Icon, badge }: NavItemProps) {
   const pathname = usePathname();
   const isActive =

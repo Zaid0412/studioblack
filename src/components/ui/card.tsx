@@ -7,6 +7,12 @@ interface CardProps {
   onClick?: () => void;
 }
 
+/**
+ * General-purpose content card with optional hover and click behaviour.
+ *
+ * When `onClick` is provided the card receives `role="button"` and `tabIndex`
+ * for keyboard accessibility.
+ */
 export function Card({ children, className, hover, onClick }: CardProps) {
   return (
     <div

@@ -372,14 +372,29 @@ export const comments: Comment[] = [
 ];
 
 // ─── Helpers ───
+
+/**
+ * Look up a project by its unique ID.
+ * @param id - The project ID to search for.
+ * @returns The matching Project, or `undefined` if not found.
+ */
 export function getProjectById(id: string): Project | undefined {
   return projects.find((p) => p.id === id);
 }
 
+/**
+ * Look up a user by their unique ID.
+ * @param id - The user ID to search for.
+ * @returns The matching User, or `undefined` if not found.
+ */
 export function getUserById(id: string): User | undefined {
   return users.find((u) => u.id === id);
 }
 
+/**
+ * Count unread notifications for the badge in the sidebar.
+ * @returns Number of notifications where `read` is `false`.
+ */
 export function getUnreadNotificationCount(): number {
   return notifications.filter((n) => !n.read).length;
 }

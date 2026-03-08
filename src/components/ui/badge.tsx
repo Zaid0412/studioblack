@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import type { DesignStatus, ProjectStatus } from "@/types";
 
+/** All supported badge colour variants (maps to design-status + semantic tokens). */
 type BadgeVariant =
   | "draft"
   | "submitted"
@@ -38,6 +39,12 @@ const variantStyles: Record<BadgeVariant, string> = {
   error: "bg-error/20 text-error",
 };
 
+/**
+ * Coloured pill badge for displaying statuses and labels.
+ *
+ * Variants map directly to design-status tokens and semantic colours defined
+ * in the theme, so they stay in sync automatically.
+ */
 export function Badge({ variant = "draft", children, className }: BadgeProps) {
   return (
     <span
@@ -52,7 +59,12 @@ export function Badge({ variant = "draft", children, className }: BadgeProps) {
   );
 }
 
-// Helper to map status types to badge variants
+/**
+ * Convert a DesignStatus or ProjectStatus string to its matching BadgeVariant.
+ *
+ * Because both enums share the same string values as BadgeVariant this is a
+ * simple cast, but the function adds type-safety at call sites.
+ */
 export function statusToBadgeVariant(
   status: DesignStatus | ProjectStatus
 ): BadgeVariant {

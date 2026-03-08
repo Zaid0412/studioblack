@@ -10,6 +10,11 @@ interface ToggleSwitchProps {
   disabled?: boolean;
 }
 
+/**
+ * iOS-style toggle switch with optional label and description.
+ *
+ * Uses `role="switch"` and `aria-checked` for screen-reader support.
+ */
 export function ToggleSwitch({
   checked,
   onChange,

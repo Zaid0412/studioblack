@@ -7,6 +7,12 @@ interface PageHeaderProps {
   className?: string;
 }
 
+/**
+ * Standard page header with a title, optional subtitle, and action buttons.
+ *
+ * Used at the top of every main content page to provide consistent heading
+ * layout and a slot for primary actions (e.g. "New Project" button).
+ */
 export function PageHeader({
   title,
   subtitle,

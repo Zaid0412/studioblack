@@ -10,6 +10,12 @@ import {
   ToastViewport,
 } from "./toast";
 
+/**
+ * Global toast renderer — mount once in the root layout.
+ *
+ * Reads from the shared toast state via `useToast` and renders each active
+ * toast with a close button, title, and description.
+ */
 export function Toaster() {
   const { toasts } = useToast();
 

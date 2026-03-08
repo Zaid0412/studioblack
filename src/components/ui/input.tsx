@@ -6,6 +6,12 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
+/**
+ * Themed text input with optional label and error message.
+ *
+ * Generates an `id` from the label when none is provided so the `<label>`
+ * and `<input>` are always linked for accessibility.
+ */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");

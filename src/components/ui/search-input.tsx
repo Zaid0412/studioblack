@@ -8,6 +8,11 @@ interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
   containerClassName?: string;
 }
 
+/**
+ * Text input pre-styled with a search (magnifying-glass) icon on the left.
+ *
+ * Forwards a ref to the underlying `<input>` element.
+ */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ className, containerClassName, ...props }, ref) => {
     return (
