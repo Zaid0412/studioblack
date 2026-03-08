@@ -66,6 +66,15 @@ export default function DashboardPage() {
     edit: FolderOpen,
   };
 
+  const activityColors: Record<string, string> = {
+    upload: "bg-status-submitted/10 text-status-submitted",
+    review: "bg-info/10 text-info",
+    approval: "bg-success/10 text-success",
+    comment: "bg-accent/10 text-accent",
+    create: "bg-warning/10 text-warning",
+    edit: "bg-status-draft/10 text-text-secondary",
+  };
+
   // Upcoming deadlines from projects
   const deadlines = projects
     .filter((p) => p.status === "active")
@@ -123,8 +132,8 @@ export default function DashboardPage() {
                   key={activity.id}
                   className="flex items-start gap-3 rounded-lg p-3 hover:bg-bg-elevated/50 transition-colors"
                 >
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-bg-elevated shrink-0 mt-0.5">
-                    <Icon className="w-4 h-4 text-text-secondary" />
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5 ${activityColors[activity.type] || "bg-bg-elevated text-text-secondary"}`}>
+                    <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -174,7 +183,7 @@ export default function DashboardPage() {
                     {project.client}
                   </span>
                   <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Calendar className="w-3 h-3" />
+                    <Calendar className="w-3 h-3 text-warning" />
                     <span>
                       {new Date(project.deadline).toLocaleDateString("en-US", {
                         month: "short",

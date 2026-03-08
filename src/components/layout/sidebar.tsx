@@ -110,7 +110,7 @@ export function Sidebar({ variant = "architect" }: SidebarProps) {
             </span>
           </div>
           <button
-            className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
+            className="p-1.5 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
             title={t("logout")}
           >
             <LogOut className="h-4 w-4" />

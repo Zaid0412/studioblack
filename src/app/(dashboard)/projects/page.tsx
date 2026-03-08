@@ -136,7 +136,7 @@ export default function ProjectsPage() {
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-1.5 text-sm text-text-secondary">
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Calendar className="w-3.5 h-3.5 text-warning" />
                     {new Date(project.deadline).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",

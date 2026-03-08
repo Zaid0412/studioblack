@@ -86,7 +86,7 @@ export default function ProjectDetailPage({
               </Badge>
             </div>
             <div className="flex items-center gap-2 text-text-muted">
-              <Calendar className="w-3.5 h-3.5" />
+              <Calendar className="w-3.5 h-3.5 text-warning" />
               <span>
                 {t("duePrefix")}{" "}
                 {new Date(project.deadline).toLocaleDateString("en-US", {

@@ -36,6 +36,9 @@ const defaultTheme: Theme = {
     error: "#EF4444",
     info: "#3B82F6",
   },
+  font: {
+    sans: '"Inter", ui-sans-serif, system-ui, sans-serif',
+  },
 };
 
 export default defaultTheme;

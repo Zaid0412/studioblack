@@ -96,7 +96,7 @@ export default function ClientDashboardPage() {
                     ))}
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Calendar className="w-3 h-3" />
+                    <Calendar className="w-3 h-3 text-warning" />
                     {new Date(project.deadline).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
