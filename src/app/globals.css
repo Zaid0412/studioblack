@@ -112,12 +112,6 @@ body {
   background: var(--border-light);
 }
 
-/* ─── Native date-picker calendar icon ─── */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(78%) sepia(60%) saturate(1000%) hue-rotate(5deg) brightness(104%);
-  cursor: pointer;
-}
-
 /* ─── Focus ring ─── */
 *:focus-visible {
   outline: 2px solid var(--accent);

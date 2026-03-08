@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, X } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 
@@ -68,7 +69,7 @@ export default function CreateProjectPage() {
             />
           </div>
 
-          <Input label={t("deadline")} type="date" />
+          <DatePicker label={t("deadline")} placeholder={t("deadlinePlaceholder")} />
 
           {/* Design Sections */}
           <div className="flex flex-col gap-3 mt-2">

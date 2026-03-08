@@ -162,6 +162,7 @@
     "description": "Description",
     "descriptionPlaceholder": "Brief project description...",
     "deadline": "Deadline",
+    "deadlinePlaceholder": "Pick a date",
     "assignTeam": "Assign Team",
     "inviteClient": "Invite Client",
     "designSections": "Design Sections",

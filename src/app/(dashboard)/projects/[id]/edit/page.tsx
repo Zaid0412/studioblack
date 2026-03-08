@@ -7,6 +7,7 @@ import { ArrowLeft, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Card } from "@/components/ui/card";
 import {
   Dialog,
@@ -81,9 +82,8 @@ export default function EditProjectPage({
               rows={3}
             />
           </div>
-          <Input
+          <DatePicker
             label={t("deadline")}
-            type="date"
             defaultValue={project.deadline}
           />
 
