@@ -30,10 +30,7 @@ export default function DesignUploadPage({
         {t("backTo", { name: project?.name || "project" })}
       </button>
 
-      <PageHeader
-        title={t("title")}
-        subtitle={project?.name}
-      />
+      <PageHeader title={t("title")} subtitle={project?.name} />
 
       {/* Upload dropzone */}
       <div className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border-light bg-bg-secondary p-12 hover:border-accent/50 transition-colors cursor-pointer">
@@ -44,9 +41,7 @@ export default function DesignUploadPage({
           <p className="text-sm font-medium text-text-primary">
             {t("dropzone")}
           </p>
-          <p className="text-xs text-text-muted mt-1">
-            {t("dropzoneHint")}
-          </p>
+          <p className="text-xs text-text-muted mt-1">{t("dropzoneHint")}</p>
         </div>
       </div>
 

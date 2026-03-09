@@ -28,7 +28,9 @@ function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
       className={`${dims} ${rounded} object-contain`}
     />
   ) : (
-    <div className={`flex items-center justify-center ${dims} ${rounded} bg-accent`}>
+    <div
+      className={`flex items-center justify-center ${dims} ${rounded} bg-accent`}
+    >
       <span className={`${textSize} font-bold text-text-on-accent`}>
         {branding.appName.charAt(0)}
       </span>

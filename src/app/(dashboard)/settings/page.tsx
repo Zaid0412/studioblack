@@ -49,10 +49,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <Input
-              label={t("fullName")}
-              defaultValue={currentUser.name}
-            />
+            <Input label={t("fullName")} defaultValue={currentUser.name} />
             <Input
               label={t("email")}
               type="email"

@@ -49,8 +49,7 @@ export default function ProjectsPage() {
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.client.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter =
-      activeFilter === "all" || p.status === activeFilter;
+    const matchesFilter = activeFilter === "all" || p.status === activeFilter;
     return matchesSearch && matchesFilter;
   });
 

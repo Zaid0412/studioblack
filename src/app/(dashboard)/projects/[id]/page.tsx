@@ -3,13 +3,7 @@
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  Calendar,
-  Upload,
-  Eye,
-  ArrowLeft,
-  Edit,
-} from "lucide-react";
+import { Calendar, Upload, Eye, ArrowLeft, Edit } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
@@ -159,24 +153,17 @@ export default function ProjectDetailPage({
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <Badge
-                          variant={statusToBadgeVariant(section.status)}
-                        >
+                        <Badge variant={statusToBadgeVariant(section.status)}>
                           {section.status
                             .split("-")
-                            .map(
-                              (w) =>
-                                w.charAt(0).toUpperCase() + w.slice(1)
-                            )
+                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
                             .join(" ")}
                         </Badge>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() =>
-                            router.push(
-                              `/projects/${id}/review/${section.id}`
-                            )
+                            router.push(`/projects/${id}/review/${section.id}`)
                           }
                         >
                           <Eye className="w-4 h-4" />

@@ -27,7 +27,8 @@ function Calendar({
         months: "flex flex-col sm:flex-row gap-4",
         month: "flex flex-col gap-4",
         month_caption: "flex items-center justify-center",
-        caption_label: "text-sm font-medium text-text-primary flex-1 text-center",
+        caption_label:
+          "text-sm font-medium text-text-primary flex-1 text-center",
         nav: "contents",
         button_previous:
           "inline-flex items-center justify-center h-7 w-7 rounded-md border-0 bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer order-first",
@@ -46,7 +47,8 @@ function Calendar({
         today:
           "[&>.rdp-day_button]:border [&>.rdp-day_button]:border-accent/50",
         outside: "[&>.rdp-day_button]:text-text-muted/40",
-        disabled: "[&>.rdp-day_button]:text-text-muted/30 [&>.rdp-day_button]:cursor-not-allowed",
+        disabled:
+          "[&>.rdp-day_button]:text-text-muted/30 [&>.rdp-day_button]:cursor-not-allowed",
         hidden: "invisible",
         ...classNames,
       }}

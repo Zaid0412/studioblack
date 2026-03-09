@@ -3,7 +3,14 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Send, MessageSquare } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Send,
+  MessageSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -123,9 +130,7 @@ export default function DesignReviewPage({
             <div className="w-64 h-80 rounded-lg border-2 border-dashed border-border-default flex items-center justify-center">
               <span className="text-sm">{t("pdfPreview")}</span>
             </div>
-            <span className="text-xs">
-              {t("pdfPreviewHint")}
-            </span>
+            <span className="text-xs">{t("pdfPreviewHint")}</span>
           </div>
         </div>
 
@@ -143,30 +148,29 @@ export default function DesignReviewPage({
                 description={te("commentsDescription")}
                 className="py-8"
               />
-            ) : comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Avatar
-                    initials={comment.author.initials}
-                    size="sm"
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-semibold text-text-primary">
-                      {comment.author.name}
-                    </span>
-                    <span className="text-[11px] text-text-muted">
-                      {formatTimeAgo(comment.createdAt, tc)}
-                    </span>
+            ) : (
+              comments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Avatar initials={comment.author.initials} size="sm" />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-semibold text-text-primary">
+                        {comment.author.name}
+                      </span>
+                      <span className="text-[11px] text-text-muted">
+                        {formatTimeAgo(comment.createdAt, tc)}
+                      </span>
+                    </div>
                   </div>
+                  <p className="text-[13px] text-text-secondary leading-relaxed">
+                    {comment.content}
+                  </p>
                 </div>
-                <p className="text-[13px] text-text-secondary leading-relaxed">
-                  {comment.content}
-                </p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Comment input */}
@@ -216,7 +220,10 @@ export default function DesignReviewPage({
  * - ≥ 24 hours → "X days ago"
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatTimeAgo(timestamp: string, t: (key: string, values?: any) => string): string {
+function formatTimeAgo(
+  timestamp: string,
+  t: (key: string, values?: any) => string
+): string {
   const now = new Date();
   const date = new Date(timestamp);
   const diffMs = now.getTime() - date.getTime();

@@ -79,8 +79,7 @@ export default function DashboardPage() {
   const deadlines = projects
     .filter((p) => p.status === "active")
     .sort(
-      (a, b) =>
-        new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+      (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
     )
     .slice(0, 3);
 
@@ -110,9 +109,7 @@ export default function DashboardPage() {
             >
               {stat.value}
             </span>
-            <span className={`text-xs ${stat.changeColor}`}>
-              {stat.change}
-            </span>
+            <span className={`text-xs ${stat.changeColor}`}>{stat.change}</span>
           </div>
         ))}
       </div>
@@ -132,7 +129,9 @@ export default function DashboardPage() {
                   key={activity.id}
                   className="flex items-start gap-3 rounded-lg p-3 hover:bg-bg-elevated/50 transition-colors"
                 >
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5 ${activityColors[activity.type] || "bg-bg-elevated text-text-secondary"}`}>
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5 ${activityColors[activity.type] || "bg-bg-elevated text-text-secondary"}`}
+                  >
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1">
@@ -175,9 +174,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-semibold text-text-primary">
                       {project.name}
                     </span>
-                    <Badge variant={project.status}>
-                      {project.status}
-                    </Badge>
+                    <Badge variant={project.status}>{project.status}</Badge>
                   </div>
                   <span className="text-xs text-text-secondary">
                     {project.client}
@@ -223,7 +220,10 @@ export default function DashboardPage() {
  * - ≥ 7 days  → formatted date (e.g. "Mar 9")
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function formatTimeAgo(timestamp: string, t: (key: string, values?: any) => string): string {
+function formatTimeAgo(
+  timestamp: string,
+  t: (key: string, values?: any) => string
+): string {
   const now = new Date();
   const date = new Date(timestamp);
   const diffMs = now.getTime() - date.getTime();

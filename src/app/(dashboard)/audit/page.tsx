@@ -52,10 +52,12 @@ export default function AuditPage() {
   // Group by date
   const grouped = filtered.reduce(
     (acc, activity) => {
-      const dateKey = new Date(activity.timestamp).toLocaleDateString(
-        "en-US",
-        { weekday: "long", month: "long", day: "numeric", year: "numeric" }
-      );
+      const dateKey = new Date(activity.timestamp).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
       if (!acc[dateKey]) acc[dateKey] = [];
       acc[dateKey].push(activity);
       return acc;
@@ -107,52 +109,54 @@ export default function AuditPage() {
                   />
                 </td>
               </tr>
-            ) : filtered.map((activity) => {
-              const Icon = activityIcons[activity.type] || FolderOpen;
-              return (
-                <tr
-                  key={activity.id}
-                  className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
-                >
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-text-muted" />
-                      <span className="text-sm font-medium text-text-primary">
-                        {activity.action}
+            ) : (
+              filtered.map((activity) => {
+                const Icon = activityIcons[activity.type] || FolderOpen;
+                return (
+                  <tr
+                    key={activity.id}
+                    className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-text-muted" />
+                        <span className="text-sm font-medium text-text-primary">
+                          {activity.action}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm text-text-secondary">
+                        {activity.user}
                       </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-sm text-text-secondary">
-                      {activity.user}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-sm text-text-secondary">
-                      {activity.project}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-sm text-text-muted">
-                      {activity.details}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-xs text-text-muted">
-                      {new Date(activity.timestamp).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }
-                      )}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm text-text-secondary">
+                        {activity.project}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm text-text-muted">
+                        {activity.details}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-text-muted">
+                        {new Date(activity.timestamp).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

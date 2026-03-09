@@ -28,11 +28,7 @@ export function Avatar({ initials, size = "md", src, className }: AvatarProps) {
       <img
         src={src}
         alt={initials}
-        className={cn(
-          "rounded-full object-cover",
-          sizeStyles[size],
-          className
-        )}
+        className={cn("rounded-full object-cover", sizeStyles[size], className)}
       />
     );
   }

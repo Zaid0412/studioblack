@@ -32,9 +32,7 @@ export default async function RootLayout({
       <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
-            <TooltipProvider delayDuration={300}>
-              {children}
-            </TooltipProvider>
+            <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
             <Toaster />
           </ThemeProvider>
         </NextIntlClientProvider>

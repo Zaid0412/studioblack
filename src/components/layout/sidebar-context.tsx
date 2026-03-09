@@ -10,7 +10,9 @@ interface SidebarContextValue {
   toggle: () => void;
 }
 
-const SidebarContext = createContext<SidebarContextValue | undefined>(undefined);
+const SidebarContext = createContext<SidebarContextValue | undefined>(
+  undefined
+);
 
 /**
  * Provides sidebar collapse state to the layout tree.
