@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   ClipboardCheck,
@@ -35,13 +36,19 @@ const typeColors: Record<string, string> = {
   team: "bg-status-draft/10 text-text-secondary",
 };
 
+/**
+ *
+ */
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
   const te = useTranslations("emptyStates");
 
   // Group by date
-  const today = new Date().toDateString();
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const today = useMemo(() => new Date().toDateString(), []);
+  const yesterday = useMemo(
+    () => new Date(new Date().getTime() - 86400000).toDateString(),
+    []
+  );
 
   const groups: { label: string; items: typeof notifications }[] = [
     {

@@ -10,6 +10,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getProjectById } from "@/data/mock";
 
+/**
+ *
+ */
 export default function DesignUploadPage({
   params,
 }: {
@@ -83,7 +86,13 @@ export default function DesignUploadPage({
                     </span>
                   </div>
                 </div>
-                <Badge variant={section.status as any}>
+                <Badge
+                  variant={
+                    section.status as React.ComponentProps<
+                      typeof Badge
+                    >["variant"]
+                  }
+                >
                   {section.status
                     .split("-")
                     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

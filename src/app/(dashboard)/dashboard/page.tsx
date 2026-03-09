@@ -19,6 +19,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { activities, projects, currentUser } from "@/data/mock";
 
+/**
+ *
+ */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
@@ -219,10 +222,11 @@ export default function DashboardPage() {
  * - < 7 days  → "X days ago"
  * - ≥ 7 days  → formatted date (e.g. "Mar 9")
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function formatTimeAgo(
   timestamp: string,
-  t: (key: string, values?: any) => string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: (key: string, values?: Record<string, any>) => string
 ): string {
   const now = new Date();
   const date = new Date(timestamp);

@@ -23,6 +23,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
 import { comments, getProjectById } from "@/data/mock";
 
+/**
+ *
+ */
 export default function DesignReviewPage({
   params,
 }: {
@@ -54,7 +57,11 @@ export default function DesignReviewPage({
             {section?.name || "Design"} — v{section?.version || 1}
           </span>
           {section && (
-            <Badge variant={section.status as any}>
+            <Badge
+              variant={
+                section.status as React.ComponentProps<typeof Badge>["variant"]
+              }
+            >
               {section.status
                 .split("-")
                 .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -219,10 +226,11 @@ export default function DesignReviewPage({
  * - < 24 hours → "X hours ago"
  * - ≥ 24 hours → "X days ago"
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 function formatTimeAgo(
   timestamp: string,
-  t: (key: string, values?: any) => string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  t: (key: string, values?: Record<string, any>) => string
 ): string {
   const now = new Date();
   const date = new Date(timestamp);
