@@ -2,8 +2,9 @@
 
 import { use, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, AlertTriangle, Send } from "lucide-react";
+import { CheckCircle2, AlertTriangle, Send, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { comments } from "@/data/mock";
@@ -16,6 +17,7 @@ export default function ClientReviewPage({
 }) {
   const { designId } = use(params);
   const t = useTranslations("clientReview");
+  const te = useTranslations("emptyStates");
   const [newComment, setNewComment] = useState("");
   const [decision, setDecision] = useState<
     "none" | "approved" | "changes"
@@ -90,7 +92,14 @@ export default function ClientReviewPage({
             <h3 className="text-sm font-semibold text-text-primary">
               {t("comments")} ({comments.length})
             </h3>
-            {comments.map((comment) => (
+            {comments.length === 0 ? (
+              <EmptyState
+                icon={MessageSquare}
+                title={te("commentsTitle")}
+                description={te("commentsDescription")}
+                className="py-8"
+              />
+            ) : comments.map((comment) => (
               <div
                 key={comment.id}
                 className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"

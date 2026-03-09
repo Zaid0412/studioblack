@@ -9,8 +9,10 @@ import {
   MessageSquare,
   Star,
   FolderOpen,
+  Search,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import { activities } from "@/data/mock";
@@ -36,6 +38,7 @@ const activityBadge: Record<string, string> = {
 
 export default function AuditPage() {
   const t = useTranslations("audit");
+  const te = useTranslations("emptyStates");
   const [search, setSearch] = useState("");
 
   const filtered = activities.filter(
@@ -94,7 +97,17 @@ export default function AuditPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((activity) => {
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState
+                    icon={Search}
+                    title={te("auditTitle")}
+                    description={te("auditDescription")}
+                  />
+                </td>
+              </tr>
+            ) : filtered.map((activity) => {
               const Icon = activityIcons[activity.type] || FolderOpen;
               return (
                 <tr

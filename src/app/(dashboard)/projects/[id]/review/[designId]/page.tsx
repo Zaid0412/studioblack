@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Send } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, XCircle, Send, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
 import { comments, getProjectById } from "@/data/mock";
 
@@ -24,6 +25,7 @@ export default function DesignReviewPage({
   const router = useRouter();
   const t = useTranslations("designReview");
   const tc = useTranslations("common");
+  const te = useTranslations("emptyStates");
   const [newComment, setNewComment] = useState("");
   const project = getProjectById(id);
   const section = project?.designSections.find((s) => s.id === designId);
@@ -134,7 +136,14 @@ export default function DesignReviewPage({
             <h3 className="text-sm font-semibold text-text-primary">
               {t("comments")} ({comments.length})
             </h3>
-            {comments.map((comment) => (
+            {comments.length === 0 ? (
+              <EmptyState
+                icon={MessageSquare}
+                title={te("commentsTitle")}
+                description={te("commentsDescription")}
+                className="py-8"
+              />
+            ) : comments.map((comment) => (
               <div
                 key={comment.id}
                 className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"

@@ -50,7 +50,9 @@
     "notifications": "Notifications",
     "settings": "Settings",
     "audit": "Audit History",
-    "logout": "Log Out"
+    "logout": "Log Out",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -261,5 +263,24 @@
     "active": "Active",
     "completed": "Completed",
     "archived": "Archived"
+  },
+  "emptyStates": {
+    "projectsTitle": "No projects found",
+    "projectsDescription": "Try adjusting your search or filters, or create a new project to get started.",
+    "projectsAction": "New Project",
+    "designSectionsTitle": "No design sections yet",
+    "designSectionsDescription": "Upload your first design to get started with reviews.",
+    "designSectionsAction": "Upload Design",
+    "notificationsTitle": "All caught up",
+    "notificationsDescription": "You have no notifications right now. We'll let you know when something needs your attention.",
+    "auditTitle": "No matching activity",
+    "auditDescription": "Try a different search term to find the activity you're looking for.",
+    "teamTitle": "No team members",
+    "teamDescription": "Invite your first team member to start collaborating on projects.",
+    "teamAction": "Invite Member",
+    "clientProjectsTitle": "No projects yet",
+    "clientProjectsDescription": "You'll see your projects here once your architect shares them with you.",
+    "commentsTitle": "No comments yet",
+    "commentsDescription": "Be the first to leave feedback on this design."
   }
 }

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
 import { notifications } from "@/data/mock";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ const typeColors: Record<string, string> = {
 
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
+  const te = useTranslations("emptyStates");
 
   // Group by date
   const today = new Date().toDateString();
@@ -85,7 +87,13 @@ export default function NotificationsPage() {
       />
 
       <div className="flex flex-col gap-6">
-        {groups.map((group) => (
+        {groups.length === 0 ? (
+          <EmptyState
+            icon={Bell}
+            title={te("notificationsTitle")}
+            description={te("notificationsDescription")}
+          />
+        ) : groups.map((group) => (
           <div key={group.label} className="flex flex-col gap-1">
             <h3 className="text-xs font-medium text-text-muted uppercase tracking-wider px-1 mb-2">
               {group.label}

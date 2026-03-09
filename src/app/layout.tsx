@@ -22,6 +22,13 @@ export default async function RootLayout({
 
   return (
     <html lang={locale}>
+      <head>
+        {/* Fontshare: Satoshi (body) + Cabinet Grotesk (headings) */}
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>

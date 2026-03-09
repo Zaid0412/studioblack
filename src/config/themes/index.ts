@@ -13,6 +13,8 @@ export interface Theme {
   font?: {
     /** Primary sans-serif stack used for body and UI text. */
     sans: string;
+    /** Display / heading font stack (falls back to `sans` when unset). */
+    heading?: string;
   };
 }
 

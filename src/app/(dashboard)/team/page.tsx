@@ -1,9 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { UserPlus, Mail, FolderOpen, MoreHorizontal } from "lucide-react";
+import { UserPlus, Mail, FolderOpen, MoreHorizontal, Users } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import { teamMembers } from "@/data/mock";
 
 export default function TeamPage() {
   const t = useTranslations("team");
+  const te = useTranslations("emptyStates");
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
@@ -25,6 +27,14 @@ export default function TeamPage() {
         }
       />
 
+      {teamMembers.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title={te("teamTitle")}
+          description={te("teamDescription")}
+          action={{ label: te("teamAction"), onClick: () => {} }}
+        />
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {teamMembers.map((member) => (
           <Card key={member.id}>
@@ -85,6 +95,7 @@ export default function TeamPage() {
           </Card>
         ))}
       </div>
+      )}
     </div>
   );
 }

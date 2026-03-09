@@ -10,12 +10,14 @@ import {
   Edit,
   Upload,
   Trash2,
+  FolderOpen,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/search-input";
 import { Avatar } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
@@ -31,6 +33,7 @@ type FilterTab = "all" | ProjectStatus;
 
 export default function ProjectsPage() {
   const t = useTranslations("projects");
+  const te = useTranslations("emptyStates");
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
@@ -214,11 +217,16 @@ export default function ProjectsPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-5 py-12 text-center text-sm text-text-muted"
-                >
-                  {t("noProjects")}
+                <td colSpan={6}>
+                  <EmptyState
+                    icon={FolderOpen}
+                    title={te("projectsTitle")}
+                    description={te("projectsDescription")}
+                    action={{
+                      label: te("projectsAction"),
+                      href: "/projects/new",
+                    }}
+                  />
                 </td>
               </tr>
             )}

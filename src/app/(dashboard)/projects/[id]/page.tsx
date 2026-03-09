@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getProjectById } from "@/data/mock";
 
 export default function ProjectDetailPage({
@@ -26,6 +27,7 @@ export default function ProjectDetailPage({
   const router = useRouter();
   const t = useTranslations("projectDetail");
   const tc = useTranslations("common");
+  const te = useTranslations("emptyStates");
   const project = getProjectById(id);
 
   if (!project) {
@@ -129,9 +131,15 @@ export default function ProjectDetailPage({
               {t("designSections")}
             </h3>
             {project.designSections.length === 0 ? (
-              <p className="text-sm text-text-muted py-8 text-center">
-                {t("emptyDesignSections")}
-              </p>
+              <EmptyState
+                icon={Upload}
+                title={te("designSectionsTitle")}
+                description={te("designSectionsDescription")}
+                action={{
+                  label: te("designSectionsAction"),
+                  href: `/projects/${id}/upload`,
+                }}
+              />
             ) : (
               <div className="flex flex-col gap-3">
                 {project.designSections.map((section) => (

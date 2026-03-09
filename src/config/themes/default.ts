@@ -38,7 +38,8 @@ const defaultTheme: Theme = {
     info: "#3B82F6",
   },
   font: {
-    sans: '"Inter", ui-sans-serif, system-ui, sans-serif',
+    sans: '"Satoshi", ui-sans-serif, system-ui, sans-serif',
+    heading: '"Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif',
   },
 };
 

@@ -31,7 +31,8 @@
   --info: #3B82F6;
 
   --sidebar-width: 240px;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif;
 
   /* ─── Radix / shadcn animation tokens ─── */
   --radius: 0.75rem;
@@ -75,8 +76,9 @@
   /* Spacing */
   --spacing-sidebar: var(--sidebar-width);
 
-  /* Font */
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  /* Fonts */
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
 
   /* Radius */
   --radius-lg: var(--radius);
@@ -91,6 +93,11 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Heading font ─── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
 }
 
 /* ─── Scrollbar (dark theme) ─── */

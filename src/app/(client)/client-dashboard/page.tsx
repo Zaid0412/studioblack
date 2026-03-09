@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { projects, activities } from "@/data/mock";
@@ -17,6 +18,7 @@ import { projects, activities } from "@/data/mock";
 export default function ClientDashboardPage() {
   const t = useTranslations("clientDashboard");
   const tc = useTranslations("common");
+  const te = useTranslations("emptyStates");
   const router = useRouter();
 
   const stats = [
@@ -64,6 +66,13 @@ export default function ClientDashboardPage() {
         <h2 className="text-lg font-bold text-text-primary">
           {t("myProjects")}
         </h2>
+        {projects.length === 0 ? (
+          <EmptyState
+            icon={FolderOpen}
+            title={te("clientProjectsTitle")}
+            description={te("clientProjectsDescription")}
+          />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.slice(0, 4).map((project) => (
             <Card
@@ -107,6 +116,7 @@ export default function ClientDashboardPage() {
             </Card>
           ))}
         </div>
+        )}
       </div>
 
       {/* Recent Activity */}
