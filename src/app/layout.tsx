@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   description: branding.subtitle,
 };
 
+/** Root layout with theme provider, i18n, and toast context. */
 export default async function RootLayout({
   children,
 }: Readonly<{

@@ -36,9 +36,7 @@ const typeColors: Record<string, string> = {
   team: "bg-status-draft/10 text-text-secondary",
 };
 
-/**
- *
- */
+/** Notifications feed grouped by date. */
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
   const te = useTranslations("emptyStates");

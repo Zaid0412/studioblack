@@ -1,3 +1,4 @@
+/** Minimal layout wrapper for auth pages. */
 export default function AuthLayout({
   children,
 }: {

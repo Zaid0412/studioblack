@@ -19,9 +19,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { activities, projects, currentUser } from "@/data/mock";
 
-/**
- *
- */
+/** Architect dashboard with stats, projects, and activity feed. */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");

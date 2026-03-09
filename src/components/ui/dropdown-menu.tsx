@@ -174,6 +174,7 @@ const DropdownMenuSeparator = React.forwardRef<
 ));
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
 
+/** Inline shortcut hint text displayed beside a menu item. */
 function DropdownMenuShortcut({
   className,
   ...props

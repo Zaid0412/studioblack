@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getProjectById } from "@/data/mock";
 
+/** Project detail page with designs and activity. */
 export default function ProjectDetailPage({
   params,
 }: {

@@ -6,16 +6,16 @@ import { CheckCircle2, AlertTriangle, Send, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { comments } from "@/data/mock";
 import { branding } from "@/config/branding";
 
+/** Client design review page with approval/comments panel. */
 export default function ClientReviewPage({
   params,
 }: {
   params: Promise<{ designId: string }>;
 }) {
-  const { designId } = use(params);
+  use(params);
   const t = useTranslations("clientReview");
   const te = useTranslations("emptyStates");
   const [newComment, setNewComment] = useState("");
@@ -29,6 +29,7 @@ export default function ClientReviewPage({
       <div className="flex items-center justify-between px-6 py-3 border-b border-border-default bg-bg-secondary shrink-0">
         <div className="flex items-center gap-3">
           {branding.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={branding.logoUrl}
               alt={branding.appName}

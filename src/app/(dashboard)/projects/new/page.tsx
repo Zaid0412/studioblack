@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 
+/** Create new project form. */
 export default function CreateProjectPage() {
   const router = useRouter();
   const t = useTranslations("createProject");

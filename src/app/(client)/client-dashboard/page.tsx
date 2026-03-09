@@ -15,6 +15,7 @@ import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { projects, activities } from "@/data/mock";
 
+/** Client-facing dashboard with project stats and activity. */
 export default function ClientDashboardPage() {
   const t = useTranslations("clientDashboard");
   const tc = useTranslations("common");

@@ -31,6 +31,7 @@ import type { ProjectStatus } from "@/types";
 
 type FilterTab = "all" | ProjectStatus;
 
+/** Projects list with status filter tabs and search. */
 export default function ProjectsPage() {
   const t = useTranslations("projects");
   const te = useTranslations("emptyStates");

@@ -3,16 +3,14 @@
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Upload, FileText, Clock } from "lucide-react";
+import { ArrowLeft, Upload, FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getProjectById } from "@/data/mock";
 
-/**
- *
- */
+/** Design file upload page with existing versions list. */
 export default function DesignUploadPage({
   params,
 }: {

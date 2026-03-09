@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/use-toast";
 import { currentUser } from "@/data/mock";
 
+/** User profile and preferences settings. */
 export default function SettingsPage() {
   const t = useTranslations("settings");
   const [emailNotif, setEmailNotif] = useState(true);

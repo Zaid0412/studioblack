@@ -23,9 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
 import { comments, getProjectById } from "@/data/mock";
 
-/**
- *
- */
+/** Design review workspace with annotation tools and comments. */
 export default function DesignReviewPage({
   params,
 }: {

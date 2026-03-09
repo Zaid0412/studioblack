@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { teamMembers } from "@/data/mock";
 
+/** Team members directory with invite functionality. */
 export default function TeamPage() {
   const t = useTranslations("team");
   const te = useTranslations("emptyStates");

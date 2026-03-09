@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
 
+/** Layout for architect dashboard with full sidebar navigation. */
 export default function DashboardLayout({
   children,
 }: {

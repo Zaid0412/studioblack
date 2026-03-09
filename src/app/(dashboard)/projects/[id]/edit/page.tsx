@@ -22,6 +22,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { getProjectById } from "@/data/mock";
 
+/** Project settings and edit form. */
 export default function EditProjectPage({
   params,
 }: {

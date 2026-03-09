@@ -14,9 +14,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
-import { Badge } from "@/components/ui/badge";
 import { activities } from "@/data/mock";
-import { cn } from "@/lib/utils";
 
 const activityIcons: Record<string, typeof Upload> = {
   upload: Upload,
@@ -27,15 +25,7 @@ const activityIcons: Record<string, typeof Upload> = {
   edit: FolderOpen,
 };
 
-const activityBadge: Record<string, string> = {
-  upload: "info",
-  review: "warning",
-  approval: "success",
-  comment: "draft",
-  create: "info",
-  edit: "draft",
-};
-
+/** Audit history page with searchable activity table. */
 export default function AuditPage() {
   const t = useTranslations("audit");
   const te = useTranslations("emptyStates");
@@ -47,22 +37,6 @@ export default function AuditPage() {
       a.user.toLowerCase().includes(search.toLowerCase()) ||
       a.project.toLowerCase().includes(search.toLowerCase()) ||
       a.details.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Group by date
-  const grouped = filtered.reduce(
-    (acc, activity) => {
-      const dateKey = new Date(activity.timestamp).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(activity);
-      return acc;
-    },
-    {} as Record<string, typeof activities>
   );
 
   return (
