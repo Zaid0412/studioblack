@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   ClipboardCheck,
@@ -35,13 +36,17 @@ const typeColors: Record<string, string> = {
   team: "bg-status-draft/10 text-text-secondary",
 };
 
+/** Notifications feed grouped by date. */
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
   const te = useTranslations("emptyStates");
 
   // Group by date
-  const today = new Date().toDateString();
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  const today = useMemo(() => new Date().toDateString(), []);
+  const yesterday = useMemo(
+    () => new Date(new Date().getTime() - 86400000).toDateString(),
+    []
+  );
 
   const groups: { label: string; items: typeof notifications }[] = [
     {
@@ -93,57 +98,59 @@ export default function NotificationsPage() {
             title={te("notificationsTitle")}
             description={te("notificationsDescription")}
           />
-        ) : groups.map((group) => (
-          <div key={group.label} className="flex flex-col gap-1">
-            <h3 className="text-xs font-medium text-text-muted uppercase tracking-wider px-1 mb-2">
-              {group.label}
-            </h3>
-            {group.items.map((notification) => {
-              const Icon = typeIcons[notification.type] || Bell;
-              return (
-                <div
-                  key={notification.id}
-                  className={cn(
-                    "flex items-start gap-3 rounded-lg px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50",
-                    !notification.read && "bg-bg-secondary"
-                  )}
-                >
+        ) : (
+          groups.map((group) => (
+            <div key={group.label} className="flex flex-col gap-1">
+              <h3 className="text-xs font-medium text-text-muted uppercase tracking-wider px-1 mb-2">
+                {group.label}
+              </h3>
+              {group.items.map((notification) => {
+                const Icon = typeIcons[notification.type] || Bell;
+                return (
                   <div
+                    key={notification.id}
                     className={cn(
-                      "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
-                      typeColors[notification.type]
+                      "flex items-start gap-3 rounded-lg px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50",
+                      !notification.read && "bg-bg-secondary"
                     )}
                   >
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "text-sm",
-                          !notification.read
-                            ? "font-semibold text-text-primary"
-                            : "font-medium text-text-secondary"
-                        )}
-                      >
-                        {notification.title}
-                      </span>
-                      {!notification.read && (
-                        <div className="w-2 h-2 rounded-full bg-accent shrink-0" />
+                    <div
+                      className={cn(
+                        "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
+                        typeColors[notification.type]
                       )}
+                    >
+                      <Icon className="w-4 h-4" />
                     </div>
-                    <span className="text-xs text-text-muted line-clamp-1">
-                      {notification.description}
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "text-sm",
+                            !notification.read
+                              ? "font-semibold text-text-primary"
+                              : "font-medium text-text-secondary"
+                          )}
+                        >
+                          {notification.title}
+                        </span>
+                        {!notification.read && (
+                          <div className="w-2 h-2 rounded-full bg-accent shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-xs text-text-muted line-clamp-1">
+                        {notification.description}
+                      </span>
+                    </div>
+                    <span className="text-xs text-text-muted shrink-0 mt-0.5">
+                      {formatTimeShort(notification.createdAt)}
                     </span>
                   </div>
-                  <span className="text-xs text-text-muted shrink-0 mt-0.5">
-                    {formatTimeShort(notification.createdAt)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                );
+              })}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

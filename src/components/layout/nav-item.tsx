@@ -51,9 +51,7 @@ export function NavItem({
       )}
     >
       <span className="relative shrink-0">
-        <Icon
-          className={cn("h-[18px] w-[18px]", isActive && "text-accent")}
-        />
+        <Icon className={cn("h-[18px] w-[18px]", isActive && "text-accent")} />
         {badge !== undefined && badge > 0 && (
           <span
             className={cn(

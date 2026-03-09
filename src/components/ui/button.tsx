@@ -12,8 +12,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary:
-    "bg-accent text-text-on-accent hover:bg-accent-hover font-semibold",
+  primary: "bg-accent text-text-on-accent hover:bg-accent-hover font-semibold",
   secondary:
     "bg-transparent text-text-primary border border-border-light hover:bg-bg-elevated font-medium",
   ghost:
@@ -35,7 +34,10 @@ const sizeStyles: Record<ButtonSize, string> = {
  * three sizes (`sm`, `md`, `lg`). Forwards a ref to the underlying `<button>`.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "md", children, ...props }, ref) => {
+  (
+    { className, variant = "primary", size = "md", children, ...props },
+    ref
+  ) => {
     return (
       <button
         ref={ref}

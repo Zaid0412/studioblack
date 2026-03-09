@@ -25,14 +25,11 @@ const sizeStyles: Record<AvatarSize, string> = {
 export function Avatar({ initials, size = "md", src, className }: AvatarProps) {
   if (src) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={initials}
-        className={cn(
-          "rounded-full object-cover",
-          sizeStyles[size],
-          className
-        )}
+        className={cn("rounded-full object-cover", sizeStyles[size], className)}
       />
     );
   }

@@ -16,7 +16,13 @@ interface StatCardProps {
  * The `trend` prop controls the colour of the `change` text:
  * `"up"` → green, `"down"` → red, `"neutral"` → muted.
  */
-export function StatCard({ label, value, icon: Icon, change, trend }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  icon: Icon,
+  change,
+  trend,
+}: StatCardProps) {
   return (
     <Card>
       <div className="flex items-start justify-between">

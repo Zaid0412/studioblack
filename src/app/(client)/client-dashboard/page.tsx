@@ -15,6 +15,7 @@ import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { projects, activities } from "@/data/mock";
 
+/** Client-facing dashboard with project stats and activity. */
 export default function ClientDashboardPage() {
   const t = useTranslations("clientDashboard");
   const tc = useTranslations("common");
@@ -73,49 +74,49 @@ export default function ClientDashboardPage() {
             description={te("clientProjectsDescription")}
           />
         ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {projects.slice(0, 4).map((project) => (
-            <Card
-              key={project.id}
-              hover
-              onClick={() => router.push(`/projects/${project.id}`)}
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-text-primary">
-                    {project.name}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {projects.slice(0, 4).map((project) => (
+              <Card
+                key={project.id}
+                hover
+                onClick={() => router.push(`/projects/${project.id}`)}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-text-primary">
+                      {project.name}
+                    </span>
+                    <Badge variant={statusToBadgeVariant(project.status)}>
+                      {project.status.charAt(0).toUpperCase() +
+                        project.status.slice(1)}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-text-secondary">
+                    {project.description}
                   </span>
-                  <Badge variant={statusToBadgeVariant(project.status)}>
-                    {project.status.charAt(0).toUpperCase() +
-                      project.status.slice(1)}
-                  </Badge>
-                </div>
-                <span className="text-xs text-text-secondary">
-                  {project.description}
-                </span>
-                <div className="flex items-center justify-between pt-2 border-t border-border-default">
-                  <div className="flex -space-x-2">
-                    {project.team.slice(0, 3).map((member) => (
-                      <Avatar
-                        key={member.id}
-                        initials={member.initials}
-                        size="sm"
-                        className="ring-2 ring-bg-secondary"
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Calendar className="w-3 h-3 text-warning" />
-                    {new Date(project.deadline).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                  <div className="flex items-center justify-between pt-2 border-t border-border-default">
+                    <div className="flex -space-x-2">
+                      {project.team.slice(0, 3).map((member) => (
+                        <Avatar
+                          key={member.id}
+                          initials={member.initials}
+                          size="sm"
+                          className="ring-2 ring-bg-secondary"
+                        />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                      <Calendar className="w-3 h-3 text-warning" />
+                      {new Date(project.deadline).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
 

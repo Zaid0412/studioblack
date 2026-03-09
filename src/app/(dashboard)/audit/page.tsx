@@ -14,9 +14,7 @@ import {
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
-import { Badge } from "@/components/ui/badge";
 import { activities } from "@/data/mock";
-import { cn } from "@/lib/utils";
 
 const activityIcons: Record<string, typeof Upload> = {
   upload: Upload,
@@ -27,15 +25,7 @@ const activityIcons: Record<string, typeof Upload> = {
   edit: FolderOpen,
 };
 
-const activityBadge: Record<string, string> = {
-  upload: "info",
-  review: "warning",
-  approval: "success",
-  comment: "draft",
-  create: "info",
-  edit: "draft",
-};
-
+/** Audit history page with searchable activity table. */
 export default function AuditPage() {
   const t = useTranslations("audit");
   const te = useTranslations("emptyStates");
@@ -47,20 +37,6 @@ export default function AuditPage() {
       a.user.toLowerCase().includes(search.toLowerCase()) ||
       a.project.toLowerCase().includes(search.toLowerCase()) ||
       a.details.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Group by date
-  const grouped = filtered.reduce(
-    (acc, activity) => {
-      const dateKey = new Date(activity.timestamp).toLocaleDateString(
-        "en-US",
-        { weekday: "long", month: "long", day: "numeric", year: "numeric" }
-      );
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(activity);
-      return acc;
-    },
-    {} as Record<string, typeof activities>
   );
 
   return (
@@ -107,52 +83,54 @@ export default function AuditPage() {
                   />
                 </td>
               </tr>
-            ) : filtered.map((activity) => {
-              const Icon = activityIcons[activity.type] || FolderOpen;
-              return (
-                <tr
-                  key={activity.id}
-                  className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
-                >
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-2">
-                      <Icon className="w-4 h-4 text-text-muted" />
-                      <span className="text-sm font-medium text-text-primary">
-                        {activity.action}
+            ) : (
+              filtered.map((activity) => {
+                const Icon = activityIcons[activity.type] || FolderOpen;
+                return (
+                  <tr
+                    key={activity.id}
+                    className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <Icon className="w-4 h-4 text-text-muted" />
+                        <span className="text-sm font-medium text-text-primary">
+                          {activity.action}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm text-text-secondary">
+                        {activity.user}
                       </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-sm text-text-secondary">
-                      {activity.user}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-sm text-text-secondary">
-                      {activity.project}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-sm text-text-muted">
-                      {activity.details}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className="text-xs text-text-muted">
-                      {new Date(activity.timestamp).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        }
-                      )}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm text-text-secondary">
+                        {activity.project}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-sm text-text-muted">
+                        {activity.details}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="text-xs text-text-muted">
+                        {new Date(activity.timestamp).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          }
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

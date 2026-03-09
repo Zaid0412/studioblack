@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
 
+/** Layout for client portal with client-variant sidebar. */
 export default function ClientLayout({
   children,
 }: {

@@ -11,6 +11,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
 
+/** Create new project form. */
 export default function CreateProjectPage() {
   const router = useRouter();
   const t = useTranslations("createProject");
@@ -53,10 +54,7 @@ export default function CreateProjectPage() {
             label={t("projectName")}
             placeholder={t("projectNamePlaceholder")}
           />
-          <Input
-            label={t("client")}
-            placeholder={t("clientPlaceholder")}
-          />
+          <Input label={t("client")} placeholder={t("clientPlaceholder")} />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
@@ -69,7 +67,10 @@ export default function CreateProjectPage() {
             />
           </div>
 
-          <DatePicker label={t("deadline")} placeholder={t("deadlinePlaceholder")} />
+          <DatePicker
+            label={t("deadline")}
+            placeholder={t("deadlinePlaceholder")}
+          />
 
           {/* Design Sections */}
           <div className="flex flex-col gap-3 mt-2">

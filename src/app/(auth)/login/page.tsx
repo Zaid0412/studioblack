@@ -13,7 +13,8 @@ import { features } from "@/config/features";
  * configured in branding, or a coloured square with the first letter of the
  * app name as a fallback.
  *
- * @param size - `"sm"` (32×32) for compact contexts, `"md"` (40×40) for the
+ * @param root0 - Component props.
+ * @param root0.size - `"sm"` (32×32) for compact contexts, `"md"` (40×40) for the
  *   login hero panel.
  */
 function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
@@ -22,13 +23,16 @@ function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
   const rounded = size === "sm" ? "rounded-md" : "rounded-lg";
 
   return branding.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={branding.logoUrl}
       alt={branding.appName}
       className={`${dims} ${rounded} object-contain`}
     />
   ) : (
-    <div className={`flex items-center justify-center ${dims} ${rounded} bg-accent`}>
+    <div
+      className={`flex items-center justify-center ${dims} ${rounded} bg-accent`}
+    >
       <span className={`${textSize} font-bold text-text-on-accent`}>
         {branding.appName.charAt(0)}
       </span>
@@ -36,6 +40,7 @@ function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
   );
 }
 
+/** Login page with email/password and optional magic-link. */
 export default function LoginPage() {
   const t = useTranslations("auth");
   const router = useRouter();

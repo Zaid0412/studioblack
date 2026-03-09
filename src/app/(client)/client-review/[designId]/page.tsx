@@ -6,22 +6,22 @@ import { CheckCircle2, AlertTriangle, Send, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { comments } from "@/data/mock";
 import { branding } from "@/config/branding";
 
+/** Client design review page with approval/comments panel. */
 export default function ClientReviewPage({
   params,
 }: {
   params: Promise<{ designId: string }>;
 }) {
-  const { designId } = use(params);
+  use(params);
   const t = useTranslations("clientReview");
   const te = useTranslations("emptyStates");
   const [newComment, setNewComment] = useState("");
-  const [decision, setDecision] = useState<
-    "none" | "approved" | "changes"
-  >("none");
+  const [decision, setDecision] = useState<"none" | "approved" | "changes">(
+    "none"
+  );
 
   return (
     <div className="flex flex-col h-screen -m-8">
@@ -29,7 +29,12 @@ export default function ClientReviewPage({
       <div className="flex items-center justify-between px-6 py-3 border-b border-border-default bg-bg-secondary shrink-0">
         <div className="flex items-center gap-3">
           {branding.logoUrl ? (
-            <img src={branding.logoUrl} alt={branding.appName} className="h-7 w-7 rounded-md object-contain" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={branding.logoUrl}
+              alt={branding.appName}
+              className="h-7 w-7 rounded-md object-contain"
+            />
           ) : (
             <div className="flex items-center justify-center w-7 h-7 rounded-md bg-accent">
               <span className="text-sm font-bold text-text-on-accent">
@@ -41,9 +46,7 @@ export default function ClientReviewPage({
             {branding.appName}
           </span>
           <div className="h-5 w-px bg-border-default mx-2" />
-          <span className="text-sm text-text-secondary">
-            {t("title")}
-          </span>
+          <span className="text-sm text-text-secondary">{t("title")}</span>
         </div>
       </div>
 
@@ -99,27 +102,29 @@ export default function ClientReviewPage({
                 description={te("commentsDescription")}
                 className="py-8"
               />
-            ) : comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Avatar initials={comment.author.initials} size="sm" />
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-semibold text-text-primary">
-                      {comment.author.name}
-                    </span>
-                    <span className="text-[11px] text-text-muted">
-                      {new Date(comment.createdAt).toLocaleDateString()}
-                    </span>
+            ) : (
+              comments.map((comment) => (
+                <div
+                  key={comment.id}
+                  className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Avatar initials={comment.author.initials} size="sm" />
+                    <div className="flex flex-col">
+                      <span className="text-[13px] font-semibold text-text-primary">
+                        {comment.author.name}
+                      </span>
+                      <span className="text-[11px] text-text-muted">
+                        {new Date(comment.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
+                  <p className="text-[13px] text-text-secondary leading-relaxed">
+                    {comment.content}
+                  </p>
                 </div>
-                <p className="text-[13px] text-text-secondary leading-relaxed">
-                  {comment.content}
-                </p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* Comment input */}

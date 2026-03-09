@@ -57,6 +57,7 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
+/** Flex column container for dialog title and description. */
 function DialogHeader({
   className,
   ...props
@@ -70,6 +71,7 @@ function DialogHeader({
 }
 DialogHeader.displayName = "DialogHeader";
 
+/** Right-aligned container for dialog action buttons. */
 function DialogFooter({
   className,
   ...props
