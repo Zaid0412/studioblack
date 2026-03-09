@@ -190,7 +190,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="cursor-default">
-                  <Avatar initials={user.initials} size="sm" />
+                  <Avatar initials={user.initials} size="sm" src={user.avatar} />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">
@@ -215,7 +215,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <Avatar initials={user.initials} size="sm" />
+            <Avatar initials={user.initials} size="sm" src={user.avatar} />
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-medium text-text-primary truncate">
                 {user.name}
