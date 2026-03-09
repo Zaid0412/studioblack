@@ -2,8 +2,8 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dev",
-      "runtimeExecutable": "npm",
+      "name": "studioblack",
+      "runtimeExecutable": "C:\\nvm4w\\nodejs\\npm.cmd",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
     }

@@ -22,6 +22,7 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import { getProjectById } from "@/data/mock";
 
+/** Project settings and edit form. */
 export default function EditProjectPage({
   params,
 }: {
@@ -67,10 +68,7 @@ export default function EditProjectPage({
           }}
           className="flex flex-col gap-5"
         >
-          <Input
-            label={t("projectName")}
-            defaultValue={project.name}
-          />
+          <Input label={t("projectName")} defaultValue={project.name} />
           <Input label={t("client")} defaultValue={project.client} />
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
@@ -82,10 +80,7 @@ export default function EditProjectPage({
               rows={3}
             />
           </div>
-          <DatePicker
-            label={t("deadline")}
-            defaultValue={project.deadline}
-          />
+          <DatePicker label={t("deadline")} defaultValue={project.deadline} />
 
           <div className="flex items-center gap-3 mt-4">
             <Button type="submit">{t("saveChanges")}</Button>
@@ -106,7 +101,9 @@ export default function EditProjectPage({
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>{t("deleteTitle", { name: project.name })}</DialogTitle>
+                  <DialogTitle>
+                    {t("deleteTitle", { name: project.name })}
+                  </DialogTitle>
                   <DialogDescription>
                     {t("deleteDescription")}
                   </DialogDescription>
@@ -121,7 +118,9 @@ export default function EditProjectPage({
                       setDeleteOpen(false);
                       toast({
                         title: t("deletedToast"),
-                        description: t("deletedDescription", { name: project.name }),
+                        description: t("deletedDescription", {
+                          name: project.name,
+                        }),
                         variant: "error",
                       });
                       router.push("/projects");

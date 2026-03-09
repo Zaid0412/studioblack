@@ -3,13 +3,14 @@
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Upload, FileText, Clock } from "lucide-react";
+import { ArrowLeft, Upload, FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getProjectById } from "@/data/mock";
 
+/** Design file upload page with existing versions list. */
 export default function DesignUploadPage({
   params,
 }: {
@@ -30,10 +31,7 @@ export default function DesignUploadPage({
         {t("backTo", { name: project?.name || "project" })}
       </button>
 
-      <PageHeader
-        title={t("title")}
-        subtitle={project?.name}
-      />
+      <PageHeader title={t("title")} subtitle={project?.name} />
 
       {/* Upload dropzone */}
       <div className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border-light bg-bg-secondary p-12 hover:border-accent/50 transition-colors cursor-pointer">
@@ -44,9 +42,7 @@ export default function DesignUploadPage({
           <p className="text-sm font-medium text-text-primary">
             {t("dropzone")}
           </p>
-          <p className="text-xs text-text-muted mt-1">
-            {t("dropzoneHint")}
-          </p>
+          <p className="text-xs text-text-muted mt-1">{t("dropzoneHint")}</p>
         </div>
       </div>
 
@@ -88,7 +84,13 @@ export default function DesignUploadPage({
                     </span>
                   </div>
                 </div>
-                <Badge variant={section.status as any}>
+                <Badge
+                  variant={
+                    section.status as React.ComponentProps<
+                      typeof Badge
+                    >["variant"]
+                  }
+                >
                   {section.status
                     .split("-")
                     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

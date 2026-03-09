@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   description: branding.subtitle,
 };
 
+/** Root layout with theme provider, i18n, and toast context. */
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -32,9 +33,7 @@ export default async function RootLayout({
       <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
-            <TooltipProvider delayDuration={300}>
-              {children}
-            </TooltipProvider>
+            <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
             <Toaster />
           </ThemeProvider>
         </NextIntlClientProvider>

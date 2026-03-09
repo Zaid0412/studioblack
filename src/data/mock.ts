@@ -250,7 +250,7 @@ export const notifications: Notification[] = [
     id: "n3",
     title: "New comment",
     description:
-      'James Wilson commented on Marina Bay Offices — Structural Plans',
+      "James Wilson commented on Marina Bay Offices — Structural Plans",
     type: "comment",
     read: false,
     createdAt: "2026-03-07T16:45:00Z",
@@ -268,8 +268,7 @@ export const notifications: Notification[] = [
   {
     id: "n5",
     title: "Design uploaded",
-    description:
-      "New version of Landscape Design uploaded for Tech Park Plaza",
+    description: "New version of Landscape Design uploaded for Tech Park Plaza",
     type: "upload",
     read: true,
     createdAt: "2026-03-06T14:20:00Z",

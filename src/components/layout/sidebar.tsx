@@ -112,6 +112,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
       {/* Logo */}
       <div className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden">
         {branding.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={branding.logoUrl}
             alt={branding.appName}

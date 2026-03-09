@@ -11,6 +11,7 @@ import { branding } from "@/config/branding";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/auth-client";
 
+/** Login page with email/password and optional magic-link. */
 export default function LoginPage() {
   const t = useTranslations("auth");
   const router = useRouter();

@@ -39,6 +39,7 @@ function deriveInitials(name: string): string {
     .slice(0, 2);
 }
 
+/** User profile and preferences settings. */
 export default function SettingsPage() {
   const t = useTranslations("settings");
   const router = useRouter();
