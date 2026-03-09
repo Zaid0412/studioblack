@@ -10,6 +10,7 @@ import { BrandLogo } from "@/components/ui/brand-logo";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/auth-client";
 
+/** Registration page with name, email, and password fields. */
 export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();

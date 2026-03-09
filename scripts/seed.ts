@@ -6,7 +6,7 @@
  *
  * Prerequisites:
  *   1. Valid DATABASE_URL in .env.local (Supabase Postgres connection string)
- *   2. Database tables created via `npx @better-auth/cli migrate`
+ *   2. Database tables created via `npx \@better-auth/cli migrate`
  *
  * Creates two users:
  *   - alex@studioblack.com (architect) → logs in to /dashboard
@@ -77,9 +77,13 @@ async function seed() {
       );
 
       console.log(`✅ ${u.email} — ${u.role} (${u.initials})`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle duplicate email gracefully
-      const msg = err?.message || err?.body?.message || String(err);
+      const e = err as Record<string, unknown>;
+      const msg =
+        (e?.message as string) ||
+        ((e?.body as Record<string, unknown>)?.message as string) ||
+        String(err);
       if (msg.includes("already") || msg.includes("exists")) {
         console.log(`⏭️  ${u.email} — already exists, skipping`);
       } else {

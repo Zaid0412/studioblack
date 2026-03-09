@@ -5,7 +5,8 @@ import { branding } from "@/config/branding";
  * configured in branding, or a coloured square with the first letter of the
  * app name as a fallback.
  *
- * @param size - `"sm"` (32×32) for compact contexts, `"md"` (40×40) for the
+ * @param props - Component props.
+ * @param props.size - `"sm"` (32×32) for compact contexts, `"md"` (40×40) for the
  *   auth hero panel.
  */
 export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {

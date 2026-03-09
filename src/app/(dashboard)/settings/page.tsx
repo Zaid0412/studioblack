@@ -57,6 +57,7 @@ export default function SettingsPage() {
       setRole((session.user.role as string) ?? "architect");
       setAvatarUrl(session.user.image ?? undefined);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
   }, [session?.user?.name, session?.user?.role, session?.user?.image]);
 
   const initials = deriveInitials(name);

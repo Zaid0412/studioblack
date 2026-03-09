@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 1 * 1024 * 1024; // 1 MB
 
+/** Upload a new avatar image to Supabase Storage and return its public URL. */
 export async function POST(request: NextRequest) {
   // 1. Auth check
   const session = await auth.api.getSession({
