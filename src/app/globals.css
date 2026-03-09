@@ -75,8 +75,8 @@
   --color-info: var(--info);
 
   /* Danger */
-  --color-danger: #EF4444;
-  --color-danger-hover: #DC2626;
+  --color-danger: #ef4444;
+  --color-danger-hover: #dc2626;
   --color-danger-muted: rgba(239, 68, 68, 0.15);
   --color-danger-border: rgba(239, 68, 68, 0.4);
 

@@ -191,7 +191,11 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="cursor-default">
-                  <Avatar initials={user.initials} size="sm" src={user.avatar} />
+                  <Avatar
+                    initials={user.initials}
+                    size="sm"
+                    src={user.avatar}
+                  />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">

@@ -90,7 +90,9 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-7 max-w-[1200px]">
       {/* Header */}
       <PageHeader
-        title={t("greeting", { name: session?.user?.name?.split(" ")[0] ?? "" })}
+        title={t("greeting", {
+          name: session?.user?.name?.split(" ")[0] ?? "",
+        })}
         subtitle={t("overviewSubtitle")}
         actions={
           <Button onClick={() => router.push("/projects/new")}>

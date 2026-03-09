@@ -57,15 +57,13 @@ export default function SettingsPage() {
       setRole((session.user.role as string) ?? "architect");
       setAvatarUrl(session.user.image ?? undefined);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
   }, [session?.user?.name, session?.user?.role, session?.user?.image]);
 
   const initials = deriveInitials(name);
   const email = session?.user?.email ?? "";
 
-  const handleAvatarChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -218,12 +216,7 @@ export default function SettingsPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <Input
-              label={t("email")}
-              type="email"
-              value={email}
-              disabled
-            />
+            <Input label={t("email")} type="email" value={email} disabled />
 
             {/* Role dropdown */}
             <div className="flex flex-col gap-1.5">
@@ -292,9 +285,7 @@ export default function SettingsPage() {
               {t("deleteAccount")}
             </h3>
           </div>
-          <p className="text-sm text-text-muted">
-            {t("deleteAccountDesc")}
-          </p>
+          <p className="text-sm text-text-muted">{t("deleteAccountDesc")}</p>
           <Separator className="bg-danger-border" />
           <Button
             className="self-start bg-danger hover:bg-danger-hover text-white"

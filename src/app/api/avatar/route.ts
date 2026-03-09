@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
   const path = `${session.user.id}/avatar.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error } = await getSupabaseAdmin().storage
-    .from("avatars")
+  const { error } = await getSupabaseAdmin()
+    .storage.from("avatars")
     .upload(path, buffer, {
       contentType: file.type,
       upsert: true,
@@ -48,8 +48,8 @@ export async function POST(request: NextRequest) {
   }
 
   // 5. Build public URL with cache buster
-  const { data } = getSupabaseAdmin().storage
-    .from("avatars")
+  const { data } = getSupabaseAdmin()
+    .storage.from("avatars")
     .getPublicUrl(path);
   const url = `${data.publicUrl}?t=${Date.now()}`;
 

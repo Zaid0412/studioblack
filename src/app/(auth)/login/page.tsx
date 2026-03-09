@@ -105,9 +105,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-            {errorMsg && (
-              <p className="text-sm text-red-500">{errorMsg}</p>
-            )}
+            {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
 
             <Button type="submit" className="w-full mt-2" disabled={isLoading}>
               {isLoading ? t("signingIn") : t("signIn")}
