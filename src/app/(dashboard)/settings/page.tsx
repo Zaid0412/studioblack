@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Camera, Trash2 } from "lucide-react";
+import { Camera, Lock, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,10 @@ export default function SettingsPage() {
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
@@ -147,6 +151,42 @@ export default function SettingsPage() {
 
   const openFilePicker = () => fileInputRef.current?.click();
 
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: "Error",
+        description: t("passwordMismatch"),
+        variant: "error",
+      });
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await authClient.changePassword({
+        currentPassword,
+        newPassword,
+        revokeOtherSessions: false,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      toast({
+        title: t("passwordChanged"),
+        description: t("passwordChangedDesc"),
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: t("passwordChangeError"),
+        variant: "error",
+      });
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -244,6 +284,60 @@ export default function SettingsPage() {
             disabled={isSaving}
           >
             {isSaving ? t("saving") : t("saveProfile")}
+          </Button>
+        </div>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <div className="flex flex-col gap-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Lock className="w-4 h-4 text-text-muted" />
+              <h3 className="text-base font-semibold text-text-primary">
+                {t("changePassword")}
+              </h3>
+            </div>
+            <p className="text-sm text-text-muted">{t("changePasswordDesc")}</p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <Input
+              label={t("currentPassword")}
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <Input
+              label={t("newPassword")}
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <Input
+              label={t("confirmNewPassword")}
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <Separator />
+
+          <Button
+            className="self-start"
+            onClick={handleChangePassword}
+            disabled={
+              !currentPassword ||
+              !newPassword ||
+              !confirmNewPassword ||
+              isChangingPassword
+            }
+          >
+            {isChangingPassword ? t("updatingPassword") : t("updatePassword")}
           </Button>
         </div>
       </Card>

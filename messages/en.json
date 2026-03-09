@@ -260,7 +260,18 @@
     "deleteForever": "Delete permanently",
     "deleting": "Deleting...",
     "deleteError": "Could not delete account. Check your password and try again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "changePassword": "Change Password",
+    "changePasswordDesc": "Update your account password. You'll need your current password to make changes.",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "updatePassword": "Update Password",
+    "updatingPassword": "Updating...",
+    "passwordChanged": "Password changed",
+    "passwordChangedDesc": "Your password has been updated successfully.",
+    "passwordMismatch": "New passwords do not match.",
+    "passwordChangeError": "Could not update password. Check your current password and try again."
   },
   "audit": {
     "title": "Audit History",
