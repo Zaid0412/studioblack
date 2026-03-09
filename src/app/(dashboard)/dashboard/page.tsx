@@ -17,13 +17,15 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { activities, projects, currentUser } from "@/data/mock";
+import { activities, projects } from "@/data/mock";
+import { authClient } from "@/lib/auth-client";
 
 /** Architect dashboard with stats, projects, and activity feed. */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
   const router = useRouter();
+  const { data: session } = authClient.useSession();
 
   const stats = [
     {
@@ -88,7 +90,7 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-7 max-w-[1200px]">
       {/* Header */}
       <PageHeader
-        title={t("greeting", { name: currentUser.name.split(" ")[0] })}
+        title={t("greeting", { name: session?.user?.name?.split(" ")[0] ?? "" })}
         subtitle={t("overviewSubtitle")}
         actions={
           <Button onClick={() => router.push("/projects/new")}>

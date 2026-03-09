@@ -28,16 +28,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
-
-function deriveInitials(name: string): string {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+import { deriveInitials } from "@/lib/utils";
 
 /** User profile and preferences settings. */
 export default function SettingsPage() {

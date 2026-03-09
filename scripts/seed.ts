@@ -24,18 +24,20 @@ import path from "path";
 // Load .env.local BEFORE any other imports that read process.env
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
+const SEED_PASSWORD = process.env.SEED_PASSWORD ?? "password123";
+
 const users = [
   {
     name: "Alex Morgan",
     email: "alex@studioblack.com",
-    password: "password123",
+    password: SEED_PASSWORD,
     role: "architect",
     initials: "AM",
   },
   {
     name: "Emily Chen",
     email: "emily@client.com",
-    password: "password123",
+    password: SEED_PASSWORD,
     role: "client",
     initials: "EC",
   },

@@ -3,17 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
+import { deriveInitials } from "@/lib/utils";
 import type { User } from "@/types";
-
-/** Derive 1–2 character initials from a full name. */
-function deriveInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 /**
  * Dashboard layout — protected, architect/admin only.
