@@ -41,7 +41,9 @@
     "heroSubtitle": "Streamlined architectural design review & approval",
     "welcomeBack": "Welcome back",
     "signInSubtitle": "Sign in to your account to continue",
-    "clientHint": "Are you a client? Check your email for a review link."
+    "clientHint": "Are you a client? Check your email for a review link.",
+    "signingIn": "Signing in...",
+    "invalidCredentials": "Invalid email or password. Please try again."
   },
   "nav": {
     "dashboard": "Dashboard",

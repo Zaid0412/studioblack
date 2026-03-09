@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
+import { authClient } from "@/lib/auth-client";
 
 /**
  * Renders the application logo — either an `<img>` when a `logoUrl` is
@@ -41,16 +42,31 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock auth — navigate to dashboard
-    router.push("/dashboard");
-  };
+    setIsLoading(true);
+    setErrorMsg("");
 
-  const handleMagicLink = () => {
-    // Mock magic link — navigate to dashboard
-    router.push("/dashboard");
+    const { data, error } = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    if (error) {
+      setErrorMsg(t("invalidCredentials"));
+      setIsLoading(false);
+      return;
+    }
+
+    // Role-based redirect
+    if (data?.user?.role === "client") {
+      router.push("/client-dashboard");
+    } else {
+      router.push("/dashboard");
+    }
   };
 
   return (
@@ -114,8 +130,12 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-            <Button type="submit" className="w-full mt-2">
-              {t("signIn")}
+            {errorMsg && (
+              <p className="text-sm text-red-500">{errorMsg}</p>
+            )}
+
+            <Button type="submit" className="w-full mt-2" disabled={isLoading}>
+              {isLoading ? t("signingIn") : t("signIn")}
             </Button>
           </form>
 
@@ -132,7 +152,7 @@ export default function LoginPage() {
               <Button
                 variant="secondary"
                 className="w-full"
-                onClick={handleMagicLink}
+                disabled={isLoading}
               >
                 {t("magicLink")}
               </Button>
