@@ -25,10 +25,7 @@ export default function LoginPage() {
   // Redirect authenticated users after a brief delay
   useEffect(() => {
     if (!session?.user) return;
-    const timeout = setTimeout(() => {
       router.push("/dashboard");
-    }, 2000);
-    return () => clearTimeout(timeout);
   }, [session?.user, router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
