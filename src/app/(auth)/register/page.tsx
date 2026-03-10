@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandLogo } from "@/components/ui/brand-logo";
@@ -14,12 +15,22 @@ import { authClient } from "@/lib/auth-client";
 export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const { data: session } = authClient.useSession();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Redirect authenticated users after a brief delay
+  useEffect(() => {
+    if (!session?.user) return;
+    const timeout = setTimeout(() => {
+      router.push("/dashboard");
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [session?.user, router]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,63 +107,77 @@ export default function RegisterPage() {
             </span>
           </div>
 
-          <h2 className="text-2xl font-bold text-text-primary mb-2">
-            {t("createAccount")}
-          </h2>
-          <p className="text-sm text-text-secondary mb-8">
-            {t("createAccountSubtitle")}
-          </p>
+          {session?.user ? (
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <h2 className="text-2xl font-bold text-text-primary">
+                {t("alreadySignedIn")}
+              </h2>
+              <p className="text-sm text-text-muted flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t("redirecting")}
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold text-text-primary mb-2">
+                {t("createAccount")}
+              </h2>
+              <p className="text-sm text-text-secondary mb-8">
+                {t("createAccountSubtitle")}
+              </p>
 
-          <form onSubmit={handleSignUp} className="flex flex-col gap-5">
-            <Input
-              label={t("fullName")}
-              type="text"
-              placeholder={t("namePlaceholder")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-            <Input
-              label={t("email")}
-              type="email"
-              placeholder={t("emailPlaceholder")}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              label={t("password")}
-              type="password"
-              placeholder={t("passwordPlaceholder")}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <Input
-              label={t("confirmPassword")}
-              type="password"
-              placeholder={t("confirmPasswordPlaceholder")}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
+              <form onSubmit={handleSignUp} className="flex flex-col gap-5">
+                <Input
+                  label={t("fullName")}
+                  type="text"
+                  placeholder={t("namePlaceholder")}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+                <Input
+                  label={t("email")}
+                  type="email"
+                  placeholder={t("emailPlaceholder")}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <Input
+                  label={t("password")}
+                  type="password"
+                  placeholder={t("passwordPlaceholder")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <Input
+                  label={t("confirmPassword")}
+                  type="password"
+                  placeholder={t("confirmPasswordPlaceholder")}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
 
-            {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
+                {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
 
-            <Button type="submit" className="w-full mt-2" disabled={isLoading}>
-              {isLoading ? t("signingUp") : t("signUp")}
-            </Button>
-          </form>
+                <Button type="submit" className="w-full mt-2" disabled={isLoading}>
+                  {isLoading ? t("signingUp") : t("signUp")}
+                </Button>
+              </form>
 
-          <p className="text-sm text-text-muted text-center mt-8">
-            {t("haveAccount")}{" "}
-            <Link
-              href="/login"
-              className="text-accent hover:underline font-medium"
-            >
-              {t("signInLink")}
-            </Link>
-          </p>
+              <p className="text-sm text-text-muted text-center mt-8">
+                {t("haveAccount")}{" "}
+                <Link
+                  href="/login"
+                  className="text-accent hover:underline font-medium"
+                >
+                  {t("signInLink")}
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

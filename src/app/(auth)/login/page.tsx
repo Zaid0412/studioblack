@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandLogo } from "@/components/ui/brand-logo";
@@ -15,10 +16,20 @@ import { authClient } from "@/lib/auth-client";
 export default function LoginPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const { data: session } = authClient.useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Redirect authenticated users after a brief delay
+  useEffect(() => {
+    if (!session?.user) return;
+    const timeout = setTimeout(() => {
+      router.push("/dashboard");
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [session?.user, router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,65 +93,79 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <h2 className="text-2xl font-bold text-text-primary mb-2">
-            {t("welcomeBack")}
-          </h2>
-          <p className="text-sm text-text-secondary mb-8">
-            {t("signInSubtitle")}
-          </p>
-
-          <form onSubmit={handleSignIn} className="flex flex-col gap-5">
-            <Input
-              label={t("email")}
-              type="email"
-              placeholder={t("emailPlaceholder")}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Input
-              label={t("password")}
-              type="password"
-              placeholder={t("passwordPlaceholder")}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-
-            {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
-
-            <Button type="submit" className="w-full mt-2" disabled={isLoading}>
-              {isLoading ? t("signingIn") : t("signIn")}
-            </Button>
-          </form>
-
-          {features.magicLink && (
+          {session?.user ? (
+            <div className="flex flex-col items-center text-center gap-4 py-8">
+              <h2 className="text-2xl font-bold text-text-primary">
+                {t("alreadySignedIn")}
+              </h2>
+              <p className="text-sm text-text-muted flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                {t("redirecting")}
+              </p>
+            </div>
+          ) : (
             <>
-              <div className="flex items-center gap-4 my-6">
-                <div className="flex-1 h-px bg-border-default" />
-                <span className="text-xs text-text-muted">
-                  {t("orContinueWith")}
-                </span>
-                <div className="flex-1 h-px bg-border-default" />
-              </div>
+              <h2 className="text-2xl font-bold text-text-primary mb-2">
+                {t("welcomeBack")}
+              </h2>
+              <p className="text-sm text-text-secondary mb-8">
+                {t("signInSubtitle")}
+              </p>
 
-              <Button
-                variant="secondary"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {t("magicLink")}
-              </Button>
+              <form onSubmit={handleSignIn} className="flex flex-col gap-5">
+                <Input
+                  label={t("email")}
+                  type="email"
+                  placeholder={t("emailPlaceholder")}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <Input
+                  label={t("password")}
+                  type="password"
+                  placeholder={t("passwordPlaceholder")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+
+                {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
+
+                <Button type="submit" className="w-full mt-2" disabled={isLoading}>
+                  {isLoading ? t("signingIn") : t("signIn")}
+                </Button>
+              </form>
+
+              {features.magicLink && (
+                <>
+                  <div className="flex items-center gap-4 my-6">
+                    <div className="flex-1 h-px bg-border-default" />
+                    <span className="text-xs text-text-muted">
+                      {t("orContinueWith")}
+                    </span>
+                    <div className="flex-1 h-px bg-border-default" />
+                  </div>
+
+                  <Button
+                    variant="secondary"
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {t("magicLink")}
+                  </Button>
+                </>
+              )}
+
+              <p className="text-sm text-text-muted text-center mt-8">
+                {t("noAccount")}{" "}
+                <Link
+                  href="/register"
+                  className="text-accent hover:underline font-medium"
+                >
+                  {t("signUpLink")}
+                </Link>
+              </p>
             </>
           )}
-
-          <p className="text-sm text-text-muted text-center mt-8">
-            {t("noAccount")}{" "}
-            <Link
-              href="/register"
-              className="text-accent hover:underline font-medium"
-            >
-              {t("signUpLink")}
-            </Link>
-          </p>
         </div>
       </div>
     </div>

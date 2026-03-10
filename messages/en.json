@@ -58,7 +58,9 @@
     "haveAccount": "Already have an account?",
     "noAccount": "Don't have an account?",
     "signUpLink": "Sign up",
-    "signInLink": "Sign in"
+    "signInLink": "Sign in",
+    "alreadySignedIn": "You're already signed in",
+    "redirecting": "Redirecting to your dashboard..."
   },
   "nav": {
     "dashboard": "Dashboard",

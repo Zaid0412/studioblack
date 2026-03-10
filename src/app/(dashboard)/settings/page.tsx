@@ -282,7 +282,7 @@ export default function SettingsPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <Input label={t("email")} type="email" value={email} disabled />
+            <Input label={t("email")} type="email" value={email} disabled className="cursor-not-allowed" />
 
             {/* Role dropdown */}
             <div className="flex flex-col gap-1.5">
