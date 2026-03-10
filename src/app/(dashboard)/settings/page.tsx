@@ -207,7 +207,9 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const { error } = await authClient.deleteUser({ password: deletePassword });
+      const { error } = await authClient.deleteUser({
+        password: deletePassword,
+      });
       if (error) {
         toast({
           title: "Error",
@@ -282,7 +284,13 @@ export default function SettingsPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <Input label={t("email")} type="email" value={email} disabled className="cursor-not-allowed" />
+            <Input
+              label={t("email")}
+              type="email"
+              value={email}
+              disabled
+              className="cursor-not-allowed"
+            />
 
             {/* Role dropdown */}
             <div className="flex flex-col gap-1.5">
