@@ -119,6 +119,7 @@ export default function LoginPage() {
                   placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
                 <Input
                   label={t("password")}
@@ -126,6 +127,7 @@ export default function LoginPage() {
                   placeholder={t("passwordPlaceholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
 
                 {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}

@@ -47,7 +47,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 
-  // 5. Build public URL with cache buster
+  // 5. Remove old avatars with different extensions
+  const allExts = ["jpeg", "png", "webp"];
+  const staleFiles = allExts
+    .filter((e) => e !== ext)
+    .map((e) => `${session.user.id}/avatar.${e}`);
+  await getSupabaseAdmin().storage.from("avatars").remove(staleFiles);
+
+  // 6. Build public URL with cache buster
   const { data } = getSupabaseAdmin()
     .storage.from("avatars")
     .getPublicUrl(path);

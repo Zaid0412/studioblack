@@ -36,7 +36,11 @@ export default function RegisterPage() {
     e.preventDefault();
     setErrorMsg("");
 
-    // Client-side validation: passwords must match
+    // Client-side validation
+    if (password.length < 8) {
+      setErrorMsg(t("passwordTooShort"));
+      return;
+    }
     if (password !== confirmPassword) {
       setErrorMsg(t("passwordMismatch"));
       return;

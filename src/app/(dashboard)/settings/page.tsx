@@ -73,16 +73,16 @@ export default function SettingsPage() {
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       toast({
-        title: "Invalid file type",
-        description: "Please use JPG, PNG, or WebP.",
+        title: t("invalidFileType"),
+        description: t("invalidFileTypeDesc"),
         variant: "error",
       });
       return;
     }
     if (file.size > 1 * 1024 * 1024) {
       toast({
-        title: "File too large",
-        description: "Maximum size is 1 MB.",
+        title: t("fileTooLarge"),
+        description: t("fileTooLargeDesc"),
         variant: "error",
       });
       return;
@@ -113,13 +113,13 @@ export default function SettingsPage() {
 
       toast({
         title: t("savedToast"),
-        description: "Avatar updated.",
+        description: t("avatarUpdated"),
         variant: "success",
       });
     } catch {
       toast({
         title: "Error",
-        description: "Could not upload avatar.",
+        description: t("avatarUploadError"),
         variant: "error",
       });
     } finally {
