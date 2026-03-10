@@ -99,7 +99,7 @@ export default function SettingsPage() {
       });
       if (!res.ok) {
         const body = await res.json();
-        throw new Error(body.error || "Upload failed");
+        throw new Error(body.error || t("uploadFailed"));
       }
 
       const { url } = await res.json();
@@ -118,7 +118,7 @@ export default function SettingsPage() {
       });
     } catch {
       toast({
-        title: "Error",
+        title: t("error"),
         description: t("avatarUploadError"),
         variant: "error",
       });
@@ -140,8 +140,8 @@ export default function SettingsPage() {
       });
     } catch {
       toast({
-        title: "Error",
-        description: "Could not save profile. Please try again.",
+        title: t("error"),
+        description: t("saveProfileError"),
         variant: "error",
       });
     } finally {
@@ -154,7 +154,7 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     if (newPassword !== confirmNewPassword) {
       toast({
-        title: "Error",
+        title: t("error"),
         description: t("passwordMismatch"),
         variant: "error",
       });
@@ -163,7 +163,7 @@ export default function SettingsPage() {
 
     if (newPassword.length < 8) {
       toast({
-        title: "Error",
+        title: t("error"),
         description: t("passwordTooShort"),
         variant: "error",
       });
@@ -179,7 +179,7 @@ export default function SettingsPage() {
       });
       if (error) {
         toast({
-          title: "Error",
+          title: t("error"),
           description: t("passwordChangeError"),
           variant: "error",
         });
@@ -195,7 +195,7 @@ export default function SettingsPage() {
       });
     } catch {
       toast({
-        title: "Error",
+        title: t("error"),
         description: t("passwordChangeError"),
         variant: "error",
       });
@@ -212,7 +212,7 @@ export default function SettingsPage() {
       });
       if (error) {
         toast({
-          title: "Error",
+          title: t("error"),
           description: t("deleteError"),
           variant: "error",
         });
@@ -222,7 +222,7 @@ export default function SettingsPage() {
       router.push("/login");
     } catch {
       toast({
-        title: "Error",
+        title: t("error"),
         description: t("deleteError"),
         variant: "error",
       });
@@ -273,7 +273,7 @@ export default function SettingsPage() {
                 disabled={isUploading}
                 className="text-xs text-accent hover:text-accent-hover transition-colors cursor-pointer text-left"
               >
-                {isUploading ? "Uploading..." : t("changeAvatar")}
+                {isUploading ? t("uploading") : t("changeAvatar")}
               </button>
             </div>
           </div>

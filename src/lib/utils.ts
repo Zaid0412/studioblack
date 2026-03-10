@@ -13,11 +13,12 @@ export function cn(...inputs: ClassValue[]) {
 
 /** Derive 1–2 character initials from a full name. */
 export function deriveInitials(name: string): string {
-  return name
+  const initials = name
     .split(" ")
     .filter(Boolean)
     .map((n) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
+  return initials || "?";
 }
