@@ -25,7 +25,7 @@ export default function LoginPage() {
   // Redirect authenticated users after a brief delay
   useEffect(() => {
     if (!session?.user) return;
-      router.push("/dashboard");
+    router.push("/dashboard");
   }, [session?.user, router]);
 
   const handleSignIn = async (e: React.FormEvent) => {
