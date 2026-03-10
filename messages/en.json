@@ -271,6 +271,7 @@
     "passwordChanged": "Password changed",
     "passwordChangedDesc": "Your password has been updated successfully.",
     "passwordMismatch": "New passwords do not match.",
+    "passwordTooShort": "New password must be at least 8 characters.",
     "passwordChangeError": "Could not update password. Check your current password and try again."
   },
   "audit": {

@@ -161,13 +161,30 @@ export default function SettingsPage() {
       return;
     }
 
+    if (newPassword.length < 8) {
+      toast({
+        title: "Error",
+        description: t("passwordTooShort"),
+        variant: "error",
+      });
+      return;
+    }
+
     setIsChangingPassword(true);
     try {
-      await authClient.changePassword({
+      const { error } = await authClient.changePassword({
         currentPassword,
         newPassword,
         revokeOtherSessions: false,
       });
+      if (error) {
+        toast({
+          title: "Error",
+          description: t("passwordChangeError"),
+          variant: "error",
+        });
+        return;
+      }
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
@@ -190,7 +207,16 @@ export default function SettingsPage() {
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      await authClient.deleteUser({ password: deletePassword });
+      const { error } = await authClient.deleteUser({ password: deletePassword });
+      if (error) {
+        toast({
+          title: "Error",
+          description: t("deleteError"),
+          variant: "error",
+        });
+        setIsDeleting(false);
+        return;
+      }
       router.push("/login");
     } catch {
       toast({
