@@ -19,13 +19,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
-import { currentUser, getUnreadNotificationCount } from "@/data/mock";
+import { getUnreadNotificationCount } from "@/data/mock";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import type { User } from "@/types";
 
 interface SidebarProps {
   variant?: "architect" | "client";
+  user: User;
 }
 
 /**
@@ -43,10 +47,16 @@ interface SidebarProps {
  * Nav items are conditionally included based on the feature flags in
  * `src/config/features.ts`.
  */
-export function Sidebar({ variant = "architect" }: SidebarProps) {
+export function Sidebar({ variant = "architect", user }: SidebarProps) {
   const t = useTranslations("nav");
+  const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
   const unread = getUnreadNotificationCount();
+
+  const handleLogout = async () => {
+    await authClient.signOut();
+    router.push("/login");
+  };
 
   const architectNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
@@ -181,19 +191,24 @@ export function Sidebar({ variant = "architect" }: SidebarProps) {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="cursor-default">
-                  <Avatar initials={currentUser.initials} size="sm" />
+                  <Avatar
+                    initials={user.initials}
+                    size="sm"
+                    src={user.avatar}
+                  />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="right">
                 <div className="flex flex-col">
-                  <span className="font-medium">{currentUser.name}</span>
-                  <span className="text-text-muted">{currentUser.email}</span>
+                  <span className="font-medium">{user.name}</span>
+                  <span className="text-text-muted">{user.email}</span>
                 </div>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
+                  onClick={handleLogout}
                   className="p-1.5 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
                   aria-label={t("logout")}
                 >
@@ -205,16 +220,17 @@ export function Sidebar({ variant = "architect" }: SidebarProps) {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <Avatar initials={currentUser.initials} size="sm" />
+            <Avatar initials={user.initials} size="sm" src={user.avatar} />
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-medium text-text-primary truncate">
-                {currentUser.name}
+                {user.name}
               </span>
               <span className="text-xs text-text-muted truncate">
-                {currentUser.email}
+                {user.email}
               </span>
             </div>
             <button
+              onClick={handleLogout}
               className="p-1.5 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
               title={t("logout")}
             >

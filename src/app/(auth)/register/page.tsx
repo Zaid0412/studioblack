@@ -9,42 +9,63 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { branding } from "@/config/branding";
-import { features } from "@/config/features";
 import { authClient } from "@/lib/auth-client";
 
-/** Login page with email/password and optional magic-link. */
-export default function LoginPage() {
+/** Registration page with name, email, and password fields. */
+export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();
   const { data: session } = authClient.useSession();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   // Redirect authenticated users after a brief delay
   useEffect(() => {
     if (!session?.user) return;
-    router.push("/dashboard");
+    const timeout = setTimeout(() => {
+      router.push("/dashboard");
+    }, 2000);
+    return () => clearTimeout(timeout);
   }, [session?.user, router]);
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setErrorMsg("");
 
-    const { data, error } = await authClient.signIn.email({
+    // Client-side validation
+    if (password.length < 8) {
+      setErrorMsg(t("passwordTooShort"));
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMsg(t("passwordMismatch"));
+      return;
+    }
+
+    setIsLoading(true);
+
+    const { data, error } = await authClient.signUp.email({
+      name,
       email,
       password,
     });
 
     if (error) {
-      setErrorMsg(t("invalidCredentials"));
+      const msg = error.message?.toLowerCase() ?? "";
+      if (msg.includes("already") || msg.includes("exist")) {
+        setErrorMsg(t("emailInUse"));
+      } else {
+        setErrorMsg(t("registrationError"));
+      }
       setIsLoading(false);
       return;
     }
 
-    // Role-based redirect
+    // Sign-up creates a session — redirect based on role
     if (data?.user?.role === "client") {
       router.push("/client-dashboard");
     } else {
@@ -79,7 +100,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Login Form — Right */}
+      {/* Register Form — Right */}
       <div className="flex-1 flex items-center justify-center bg-bg-primary px-8">
         <div className="w-full max-w-sm">
           {/* Mobile logo (hidden on desktop) */}
@@ -103,13 +124,21 @@ export default function LoginPage() {
           ) : (
             <>
               <h2 className="text-2xl font-bold text-text-primary mb-2">
-                {t("welcomeBack")}
+                {t("createAccount")}
               </h2>
               <p className="text-sm text-text-secondary mb-8">
-                {t("signInSubtitle")}
+                {t("createAccountSubtitle")}
               </p>
 
-              <form onSubmit={handleSignIn} className="flex flex-col gap-5">
+              <form onSubmit={handleSignUp} className="flex flex-col gap-5">
+                <Input
+                  label={t("fullName")}
+                  type="text"
+                  placeholder={t("namePlaceholder")}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
                 <Input
                   label={t("email")}
                   type="email"
@@ -126,6 +155,14 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+                <Input
+                  label={t("confirmPassword")}
+                  type="password"
+                  placeholder={t("confirmPasswordPlaceholder")}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
 
                 {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
 
@@ -134,37 +171,17 @@ export default function LoginPage() {
                   className="w-full mt-2"
                   disabled={isLoading}
                 >
-                  {isLoading ? t("signingIn") : t("signIn")}
+                  {isLoading ? t("signingUp") : t("signUp")}
                 </Button>
               </form>
 
-              {features.magicLink && (
-                <>
-                  <div className="flex items-center gap-4 my-6">
-                    <div className="flex-1 h-px bg-border-default" />
-                    <span className="text-xs text-text-muted">
-                      {t("orContinueWith")}
-                    </span>
-                    <div className="flex-1 h-px bg-border-default" />
-                  </div>
-
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    disabled={isLoading}
-                  >
-                    {t("magicLink")}
-                  </Button>
-                </>
-              )}
-
               <p className="text-sm text-text-muted text-center mt-8">
-                {t("noAccount")}{" "}
+                {t("haveAccount")}{" "}
                 <Link
-                  href="/register"
+                  href="/login"
                   className="text-accent hover:underline font-medium"
                 >
-                  {t("signUpLink")}
+                  {t("signInLink")}
                 </Link>
               </p>
             </>

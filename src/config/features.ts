@@ -5,7 +5,7 @@
  * disabling a feature hides it cleanly without breaking anything.
  */
 export const features = {
-  magicLink: true,
+  magicLink: false,
   teamManagement: true,
   auditHistory: true,
   clientPortal: true,

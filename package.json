@@ -10,7 +10,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run lint && npm run format:check && tsc --noEmit"
+    "check": "npm run lint && npm run format:check && tsc --noEmit",
+    "seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -23,13 +24,16 @@
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@supabase/supabase-js": "^2.99.0",
     "better-auth": "^1.5.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.3.1",
     "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "next-intl": "^4.8.3",
+    "pg": "^8.20.0",
     "react": "19.2.3",
     "react-day-picker": "^9.14.0",
     "react-dom": "19.2.3",
@@ -37,9 +41,9 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.17.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.18.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
@@ -48,7 +52,6 @@
     "eslint-plugin-jsdoc": "^62.7.1",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "wrangler": "^4.71.0"
+    "typescript": "^5"
   }
 }
