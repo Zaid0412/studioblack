@@ -26,7 +26,6 @@ import { features } from "@/config/features";
 import { getUnreadNotificationCount } from "@/data/mock";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/components/theme-provider";
 import type { User } from "@/types";
 
 interface SidebarProps {
@@ -53,7 +52,6 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
-  const { mode } = useTheme();
   const unread = getUnreadNotificationCount();
 
   const handleLogout = async () => {
@@ -122,10 +120,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
           <img
             src={branding.logoUrl}
             alt={branding.appName}
-            className={cn(
-              "h-8 w-8 rounded-md object-contain shrink-0",
-              mode === "light" && "bg-[#1a1a1a] p-1"
-            )}
+            className="h-8 w-8 rounded-md object-contain shrink-0 bg-logo-bg p-1"
           />
         ) : (
           <div className="flex items-center justify-center w-8 h-8 rounded-md bg-accent shrink-0">

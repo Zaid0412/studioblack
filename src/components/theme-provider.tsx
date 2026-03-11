@@ -25,23 +25,44 @@ const STORAGE_KEY = "studioblack-theme";
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
+/** All CSS custom-property keys ever set, so we can clean up stale vars. */
+let appliedKeys: string[] = [];
+
 /* ─── Helper: apply tokens to :root ─── */
-function applyTheme(theme: Theme) {
+function applyTheme(theme: Theme, mode: ThemeMode) {
   const root = document.documentElement;
 
+  // Remove stale vars from a previous theme that may have had extra keys
+  for (const key of appliedKeys) {
+    root.style.removeProperty(`--${key}`);
+  }
+
   // Apply color tokens
+  const keys: string[] = [];
   for (const [key, value] of Object.entries(theme.colors)) {
     root.style.setProperty(`--${key}`, value);
+    keys.push(key);
   }
 
   // Apply font tokens
   if (theme.font) {
     if (theme.font.sans) {
       root.style.setProperty("--font-sans", theme.font.sans);
+      keys.push("font-sans");
     }
     if (theme.font.heading) {
       root.style.setProperty("--font-heading", theme.font.heading);
+      keys.push("font-heading");
     }
+  }
+
+  appliedKeys = keys;
+
+  // Keep data-theme attr in sync (used by CSS fallback to prevent FOUC)
+  if (mode === "light") {
+    root.setAttribute("data-theme", "light");
+  } else {
+    root.removeAttribute("data-theme");
   }
 }
 
@@ -71,8 +92,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   // Apply CSS custom properties whenever mode changes
   useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+    applyTheme(theme, mode);
+  }, [theme, mode]);
 
   const toggleTheme = useCallback(() => {
     setMode((prev) => {

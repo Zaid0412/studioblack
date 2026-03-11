@@ -17,15 +17,18 @@ const lightTheme: Theme = {
     // Text
     "text-primary": "#111111",
     "text-secondary": "#555555",
-    "text-muted": "#999999",
+    "text-muted": "#767676",
     "text-on-accent": "#0D0D0D",
 
     // Borders
     border: "#D4D4D4",
     "border-light": "#BFBFBF",
 
+    // Misc
+    "logo-bg": "#1A1A1A",
+
     // Status
-    "status-draft": "#999999",
+    "status-draft": "#767676",
     "status-submitted": "#2563EB",
     "status-approved-arch": "#16A34A",
     "status-approved-client": "#C9A30C",

@@ -1,6 +1,9 @@
 import type { Theme } from "./index";
 
-/** The default dark theme — StudioBlack's signature look. */
+/**
+ * The default dark theme — StudioBlack's signature look.
+ * Keep in sync with the :root block in src/app/globals.css.
+ */
 const defaultTheme: Theme = {
   name: "StudioBlack",
   colors: {
@@ -23,6 +26,9 @@ const defaultTheme: Theme = {
     // Borders
     border: "#333333",
     "border-light": "#444444",
+
+    // Misc
+    "logo-bg": "transparent",
 
     // Status
     "status-draft": "#666666",

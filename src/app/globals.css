@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-/* ─── Default theme variables (overridden by ThemeProvider at runtime) ─── */
+/* ─── Default (dark) theme variables — keep in sync with src/config/themes/default.ts ─── */
 :root {
   --bg-primary: #0d0d0d;
   --bg-secondary: #1a1a1a;
@@ -35,6 +35,8 @@
   --danger-muted: rgba(239, 68, 68, 0.15);
   --danger-border: rgba(239, 68, 68, 0.4);
 
+  --logo-bg: transparent;
+
   --sidebar-width: 240px;
   --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
   --font-heading:
@@ -42,6 +44,44 @@
 
   /* ─── Radix / shadcn animation tokens ─── */
   --radius: 0.75rem;
+}
+
+/* ─── Light theme overrides — keep in sync with src/config/themes/light.ts ─── */
+/* Applied instantly via data-theme attr (blocking script) to prevent FOUC */
+:root[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-elevated: #ebebeb;
+  --bg-input: #e0e0e0;
+
+  --accent: #c9a30c;
+  --accent-hover: #b08e0a;
+
+  --text-primary: #111111;
+  --text-secondary: #555555;
+  --text-muted: #767676;
+  --text-on-accent: #0d0d0d;
+
+  --border: #d4d4d4;
+  --border-light: #bfbfbf;
+
+  --status-draft: #767676;
+  --status-submitted: #2563eb;
+  --status-approved-arch: #16a34a;
+  --status-approved-client: #c9a30c;
+  --status-changes: #d97706;
+
+  --success: #16a34a;
+  --warning: #d97706;
+  --error: #dc2626;
+  --info: #2563eb;
+
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-muted: rgba(220, 38, 38, 0.1);
+  --danger-border: rgba(220, 38, 38, 0.3);
+
+  --logo-bg: #1a1a1a;
 }
 
 /* ─── Tailwind v4 theme extension ─── */
@@ -85,6 +125,9 @@
   --color-danger-muted: var(--danger-muted);
   --color-danger-border: var(--danger-border);
 
+  /* Misc */
+  --color-logo-bg: var(--logo-bg);
+
   /* Spacing */
   --spacing-sidebar: var(--sidebar-width);
 
@@ -117,7 +160,7 @@ h6 {
   font-family: var(--font-heading);
 }
 
-/* ─── Scrollbar (dark theme) ─── */
+/* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
