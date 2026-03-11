@@ -72,13 +72,25 @@ export default function CreateProjectPage() {
                 <SelectValue placeholder={t("categoryPlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="residential">{t("categoryResidential")}</SelectItem>
-                <SelectItem value="commercial">{t("categoryCommercial")}</SelectItem>
-                <SelectItem value="healthcare">{t("categoryHealthcare")}</SelectItem>
-                <SelectItem value="hospitality">{t("categoryHospitality")}</SelectItem>
-                <SelectItem value="institutional">{t("categoryInstitutional")}</SelectItem>
+                <SelectItem value="residential">
+                  {t("categoryResidential")}
+                </SelectItem>
+                <SelectItem value="commercial">
+                  {t("categoryCommercial")}
+                </SelectItem>
+                <SelectItem value="healthcare">
+                  {t("categoryHealthcare")}
+                </SelectItem>
+                <SelectItem value="hospitality">
+                  {t("categoryHospitality")}
+                </SelectItem>
+                <SelectItem value="institutional">
+                  {t("categoryInstitutional")}
+                </SelectItem>
                 <SelectItem value="retail">{t("categoryRetail")}</SelectItem>
-                <SelectItem value="workspace">{t("categoryWorkspace")}</SelectItem>
+                <SelectItem value="workspace">
+                  {t("categoryWorkspace")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
