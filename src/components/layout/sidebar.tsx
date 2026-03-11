@@ -19,12 +19,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
 import { getUnreadNotificationCount } from "@/data/mock";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 import type { User } from "@/types";
 
 interface SidebarProps {
@@ -51,6 +53,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
+  const { mode } = useTheme();
   const unread = getUnreadNotificationCount();
 
   const handleLogout = async () => {
@@ -110,13 +113,19 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden">
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden"
+      >
         {branding.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={branding.logoUrl}
             alt={branding.appName}
-            className="h-8 w-8 rounded-md object-contain shrink-0"
+            className={cn(
+              "h-8 w-8 rounded-md object-contain shrink-0",
+              mode === "light" && "bg-[#1a1a1a] p-1"
+            )}
           />
         ) : (
           <div className="flex items-center justify-center w-8 h-8 rounded-md bg-accent shrink-0">
@@ -133,7 +142,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
         >
           {branding.appName}
         </span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav

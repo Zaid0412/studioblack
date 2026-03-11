@@ -36,6 +36,12 @@ const defaultTheme: Theme = {
     warning: "#F59E0B",
     error: "#EF4444",
     info: "#3B82F6",
+
+    // Danger
+    danger: "#EF4444",
+    "danger-hover": "#DC2626",
+    "danger-muted": "rgba(239, 68, 68, 0.15)",
+    "danger-border": "rgba(239, 68, 68, 0.4)",
   },
   font: {
     sans: '"Satoshi", ui-sans-serif, system-ui, sans-serif',

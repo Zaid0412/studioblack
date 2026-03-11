@@ -29,12 +29,14 @@ import {
 } from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
 import { deriveInitials } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 
 /** User profile and preferences settings. */
 export default function SettingsPage() {
   const t = useTranslations("settings");
   const router = useRouter();
   const { data: session } = authClient.useSession();
+  const { mode, toggleTheme } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -44,7 +46,6 @@ export default function SettingsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -398,8 +399,8 @@ export default function SettingsPage() {
           <ToggleSwitch
             label={t("darkMode")}
             description={t("darkModeDesc")}
-            checked={darkMode}
-            onChange={setDarkMode}
+            checked={mode === "dark"}
+            onChange={() => toggleTheme()}
           />
         </div>
       </Card>

@@ -30,6 +30,11 @@
   --error: #ef4444;
   --info: #3b82f6;
 
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-muted: rgba(239, 68, 68, 0.15);
+  --danger-border: rgba(239, 68, 68, 0.4);
+
   --sidebar-width: 240px;
   --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
   --font-heading:
@@ -75,10 +80,10 @@
   --color-info: var(--info);
 
   /* Danger */
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-danger-muted: rgba(239, 68, 68, 0.15);
-  --color-danger-border: rgba(239, 68, 68, 0.4);
+  --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
+  --color-danger-muted: var(--danger-muted);
+  --color-danger-border: var(--danger-border);
 
   /* Spacing */
   --spacing-sidebar: var(--sidebar-width);
