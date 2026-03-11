@@ -1,4 +1,6 @@
 import { betterAuth } from "better-auth";
+import { organization } from "better-auth/plugins";
+import { createAccessControl } from "better-auth/plugins/access";
 import { Pool } from "pg";
 
 /**
@@ -12,6 +14,44 @@ function getBaseURL(): string {
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }
+
+/**
+ * Access-control statements for the organisation plugin.
+ *
+ * Each key is a resource, each value lists the allowed actions.
+ * Roles below map to PRD definitions:
+ *   PM        → creates users & projects, full control
+ *   Architect → updates projects, uploads/attaches docs
+ *   Client    → reviews, approves, attaches docs
+ */
+const statements = {
+  project: ["create", "read", "update", "delete"],
+  design: ["upload", "submit", "approve", "request-changes"],
+  member: ["create", "read", "update", "remove"],
+} as const;
+
+export const ac = createAccessControl(statements);
+
+/** PM = "admin" in better-auth terms (owner is auto-granted all). */
+const adminRole = ac.newRole({
+  project: ["create", "read", "update", "delete"],
+  design: ["upload", "submit", "approve", "request-changes"],
+  member: ["create", "read", "update", "remove"],
+});
+
+/** Architect = "member" in better-auth terms. */
+const memberRole = ac.newRole({
+  project: ["read", "update"],
+  design: ["upload", "submit"],
+  member: ["read"],
+});
+
+/** Client — custom role added on top of the defaults. */
+const clientRole = ac.newRole({
+  project: ["read"],
+  design: ["approve", "request-changes"],
+  member: ["read"],
+});
 
 /**
  * Server-side Better Auth instance.
@@ -38,7 +78,7 @@ export const auth = betterAuth({
       role: {
         type: "string",
         required: false,
-        defaultValue: "architect",
+        defaultValue: "pm",
         input: false,
       },
       initials: {
@@ -49,4 +89,14 @@ export const auth = betterAuth({
       },
     },
   },
+  plugins: [
+    organization({
+      ac,
+      roles: {
+        admin: adminRole,
+        member: memberRole,
+        client: clientRole,
+      },
+    }),
+  ],
 });

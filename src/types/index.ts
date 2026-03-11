@@ -1,5 +1,5 @@
 /** Roles available to authenticated users. */
-export type UserRole = "architect" | "client" | "admin";
+export type UserRole = "pm" | "architect" | "client";
 
 /** A registered user in the platform. */
 export interface User {

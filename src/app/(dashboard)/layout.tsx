@@ -7,11 +7,11 @@ import { deriveInitials } from "@/lib/utils";
 import type { User } from "@/types";
 
 /**
- * Dashboard layout — protected, architect/admin only.
+ * Dashboard layout — protected, PM and architect only.
  *
  * Performs full session validation via `auth.api.getSession()` (DB lookup).
  * Redirects unauthenticated users to `/login` and clients to `/client-dashboard`.
- * Passes the authenticated user to the Sidebar as a typed `User` prop.
+ * Passes the authenticated user to the Sidebar with the correct role variant.
  */
 export default async function DashboardLayout({
   children,
@@ -31,6 +31,8 @@ export default async function DashboardLayout({
     redirect("/client-dashboard");
   }
 
+
+
   const user: User = {
     id: session.user.id,
     name: session.user.name,
@@ -43,7 +45,7 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar variant="architect" user={user} />
+        <Sidebar variant={user.role === "pm" ? "pm" : "architect"} user={user} />
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </SidebarProvider>

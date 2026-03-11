@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   FolderOpen,
   Users,
+  Building2,
   Bell,
   Settings,
   History,
@@ -29,7 +30,7 @@ import { cn } from "@/lib/utils";
 import type { User } from "@/types";
 
 interface SidebarProps {
-  variant?: "architect" | "client";
+  variant?: "pm" | "architect" | "client";
   user: User;
 }
 
@@ -37,7 +38,8 @@ interface SidebarProps {
  * Application sidebar with role-adaptive navigation.
  *
  * Renders different nav items depending on the `variant`:
- * - `"architect"` — full navigation including team management and audit history.
+ * - `"pm"` — full navigation including team management and audit history.
+ * - `"architect"` — project-focused navigation without team management.
  * - `"client"` — reduced navigation scoped to client-facing features.
  *
  * Supports a collapsed (icon-only) mode toggled via `useSidebar()`.
@@ -48,7 +50,7 @@ interface SidebarProps {
  * Nav items are conditionally included based on the feature flags in
  * `src/config/features.ts`.
  */
-export function Sidebar({ variant = "architect", user }: SidebarProps) {
+export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
@@ -59,9 +61,10 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
     router.push("/login");
   };
 
-  const architectNav = [
+  const pmNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/organisation", label: t("organisation"), icon: Building2 },
     ...(features.teamManagement
       ? [{ href: "/team", label: t("team"), icon: Users }]
       : []),
@@ -79,6 +82,22 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
     ...(features.auditHistory
       ? [{ href: "/audit", label: t("audit"), icon: History }]
       : []),
+  ];
+
+  const architectNav = [
+    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
+    { href: "/projects", label: t("projects"), icon: FolderOpen },
+    ...(features.notifications
+      ? [
+          {
+            href: "/notifications",
+            label: t("notifications"),
+            icon: Bell,
+            badge: unread,
+          },
+        ]
+      : []),
+    { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
   const clientNav = [
@@ -101,7 +120,8 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
-  const navItems = variant === "client" ? clientNav : architectNav;
+  const navMap = { pm: pmNav, architect: architectNav, client: clientNav };
+  const navItems = navMap[variant];
 
   return (
     <aside

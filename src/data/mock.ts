@@ -12,7 +12,7 @@ export const currentUser: User = {
   id: "u1",
   name: "Alex Morgan",
   email: "alex@studioblack.com",
-  role: "architect",
+  role: "pm",
   initials: "AM",
 };
 

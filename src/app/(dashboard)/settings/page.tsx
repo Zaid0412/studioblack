@@ -43,7 +43,7 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
-  const [role, setRole] = useState("architect");
+  const [role, setRole] = useState("pm");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -62,7 +62,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (session?.user) {
       setName(session.user.name ?? "");
-      setRole((session.user.role as string) ?? "architect");
+      setRole((session.user.role as string) ?? "pm");
       setAvatarUrl(session.user.image ?? undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
@@ -306,9 +306,9 @@ export default function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pm">Project Manager</SelectItem>
                   <SelectItem value="architect">Architect</SelectItem>
                   <SelectItem value="client">Client</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

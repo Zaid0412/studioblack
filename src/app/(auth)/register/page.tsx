@@ -69,6 +69,7 @@ export default function RegisterPage() {
     if (data?.user?.role === "client") {
       router.push("/client-dashboard");
     } else {
+      // PM and architect both go to /dashboard — layout handles onboarding redirect
       router.push("/dashboard");
     }
   };
