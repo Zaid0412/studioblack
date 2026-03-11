@@ -22,8 +22,14 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
       <head>
+        {/* Block FOUC: apply data-theme before first paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("studioblack-theme")==="light"){document.documentElement.setAttribute("data-theme","light")}}catch(e){}`,
+          }}
+        />
         {/* Fontshare: Satoshi (body) + Cabinet Grotesk (headings) */}
         <link
           href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap"

@@ -27,14 +27,19 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { useLocale } from "next-intl";
 import { authClient } from "@/lib/auth-client";
+import { setLocale } from "@/lib/locale";
 import { deriveInitials } from "@/lib/utils";
+import { useTheme } from "@/components/theme-provider";
 
 /** User profile and preferences settings. */
 export default function SettingsPage() {
   const t = useTranslations("settings");
   const router = useRouter();
   const { data: session } = authClient.useSession();
+  const { mode, toggleTheme } = useTheme();
+  const currentLocale = useLocale();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -44,7 +49,6 @@ export default function SettingsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -398,9 +402,36 @@ export default function SettingsPage() {
           <ToggleSwitch
             label={t("darkMode")}
             description={t("darkModeDesc")}
-            checked={darkMode}
-            onChange={setDarkMode}
+            checked={mode === "dark"}
+            onChange={() => toggleTheme()}
           />
+
+          {/* Language selector */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium text-text-primary">
+                {t("language")}
+              </span>
+              <span className="text-xs text-text-muted">
+                {t("languageDesc")}
+              </span>
+            </div>
+            <Select
+              value={currentLocale}
+              onValueChange={async (value) => {
+                await setLocale(value);
+                window.location.reload();
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="tr">Türkçe</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </Card>
 
@@ -451,7 +482,7 @@ export default function SettingsPage() {
               <Input
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder="DELETE"
+                placeholder={t("deleteConfirmWord")}
                 autoComplete="off"
               />
             </div>
@@ -479,7 +510,9 @@ export default function SettingsPage() {
               className="bg-danger hover:bg-danger-hover text-white"
               onClick={handleDeleteAccount}
               disabled={
-                deleteConfirm !== "DELETE" || !deletePassword || isDeleting
+                deleteConfirm !== t("deleteConfirmWord") ||
+                !deletePassword ||
+                isDeleting
               }
             >
               {isDeleting ? t("deleting") : t("deleteForever")}

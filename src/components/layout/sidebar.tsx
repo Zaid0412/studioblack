@@ -19,6 +19,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
@@ -110,13 +111,16 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden">
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden"
+      >
         {branding.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={branding.logoUrl}
             alt={branding.appName}
-            className="h-8 w-8 rounded-md object-contain shrink-0"
+            className="h-8 w-8 rounded-md object-contain shrink-0 bg-logo-bg p-1"
           />
         ) : (
           <div className="flex items-center justify-center w-8 h-8 rounded-md bg-accent shrink-0">
@@ -133,7 +137,7 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
         >
           {branding.appName}
         </span>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav
