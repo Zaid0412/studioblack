@@ -156,7 +156,7 @@ export default function OrganisationPage() {
       const msg =
         error.code === "ORGANIZATION_ALREADY_EXISTS"
           ? t("alreadyExists")
-          : error.message ?? t("createError");
+          : (error.message ?? t("createError"));
       toast({
         title: tc("error") ?? "Error",
         description: msg,

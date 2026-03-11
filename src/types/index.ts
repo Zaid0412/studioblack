@@ -105,7 +105,14 @@ export interface Notification {
   /** Longer explanatory text. */
   description: string;
   /** Category used to pick the icon and colour in the UI. */
-  type: "review" | "comment" | "approval" | "upload" | "deadline" | "team" | "invitation";
+  type:
+    | "review"
+    | "comment"
+    | "approval"
+    | "upload"
+    | "deadline"
+    | "team"
+    | "invitation";
   /** Whether the user has already seen this notification. */
   read: boolean;
   /** ISO-8601 creation timestamp. */

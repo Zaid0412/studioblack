@@ -29,9 +29,9 @@ export default function NotificationsPage() {
   const [invitationNotifs, setInvitationNotifs] = useState<Notification[]>([]);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   // Track real invitation IDs for accept/reject (maps notification.id → invitationId)
-  const [pendingInviteIds, setPendingInviteIds] = useState<
-    Map<string, string>
-  >(new Map());
+  const [pendingInviteIds, setPendingInviteIds] = useState<Map<string, string>>(
+    new Map()
+  );
 
   const roleLabel = (role: string) => {
     if (role === "owner") return t("roleOwner");

@@ -31,8 +31,6 @@ export default async function DashboardLayout({
     redirect("/client-dashboard");
   }
 
-
-
   const user: User = {
     id: session.user.id,
     name: session.user.name,
@@ -45,7 +43,10 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar variant={user.role === "pm" ? "pm" : "architect"} user={user} />
+        <Sidebar
+          variant={user.role === "pm" ? "pm" : "architect"}
+          user={user}
+        />
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
     </SidebarProvider>
