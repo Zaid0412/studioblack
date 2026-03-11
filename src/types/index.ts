@@ -20,6 +20,16 @@ export interface User {
 /** Lifecycle stages of an architectural project. */
 export type ProjectStatus = "draft" | "active" | "completed" | "archived";
 
+/** Architectural project categories. */
+export type ProjectCategory =
+  | "residential"
+  | "commercial"
+  | "healthcare"
+  | "hospitality"
+  | "institutional"
+  | "retail"
+  | "workspace";
+
 /** A top-level architectural project containing one or more design sections. */
 export interface Project {
   id: string;
@@ -27,6 +37,8 @@ export interface Project {
   name: string;
   /** Name of the client organisation. */
   client: string;
+  /** Architectural category of the project. */
+  category: ProjectCategory;
   status: ProjectStatus;
   /** ISO-8601 date string representing the delivery deadline. */
   deadline: string;
