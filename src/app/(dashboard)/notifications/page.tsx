@@ -27,6 +27,7 @@ export default function NotificationsPage() {
 
   const router = useRouter();
   const [invitationNotifs, setInvitationNotifs] = useState<Notification[]>([]);
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   // Track real invitation IDs for accept/reject (maps notification.id → invitationId)
   const [pendingInviteIds, setPendingInviteIds] = useState<
     Map<string, string>
@@ -52,16 +53,10 @@ export default function NotificationsPage() {
         for (const inv of received) {
           if (inv.status !== "pending") continue;
           const notifId = `recv-${inv.id}`;
-          const roleName =
-            inv.role === "admin"
-              ? "Project Manager"
-              : inv.role === "member"
-                ? "Architect"
-                : (inv.role ?? "Member");
           allNotifs.push({
             id: notifId,
             title: t("invitationReceived"),
-            description: `${inv.organizationName ?? inv.organizationId} — ${roleName}`,
+            description: `${inv.organizationName ?? inv.organizationId} — ${roleLabel(inv.role ?? "member")}`,
             type: "invitation",
             read: false,
             createdAt: new Date(inv.createdAt).toISOString(),
@@ -76,16 +71,10 @@ export default function NotificationsPage() {
       if (orgData?.invitations) {
         for (const inv of orgData.invitations) {
           if (inv.status !== "pending") continue;
-          const roleName =
-            inv.role === "admin"
-              ? "Project Manager"
-              : inv.role === "member"
-                ? "Architect"
-                : (inv.role ?? "Member");
           allNotifs.push({
             id: `sent-${inv.id}`,
             title: t("invitationSent"),
-            description: `${inv.email} — ${roleName}`,
+            description: `${inv.email} — ${roleLabel(inv.role ?? "member")}`,
             type: "invitation",
             read: false,
             createdAt: new Date(inv.createdAt).toISOString(),
@@ -104,10 +93,16 @@ export default function NotificationsPage() {
   const handleAcceptInvite = async (notifId: string) => {
     const invitationId = pendingInviteIds.get(notifId);
     if (!invitationId) return;
+    setLoadingIds((prev) => new Set(prev).add(notifId));
     const { error } = await authClient.organization.acceptInvitation({
       invitationId,
     });
     if (error) {
+      setLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(notifId);
+        return next;
+      });
       toast({
         title: t("acceptError"),
         description: error.message ?? "",
@@ -120,7 +115,6 @@ export default function NotificationsPage() {
       description: t("invitationAcceptedDesc"),
       variant: "success",
     });
-    // Remove from list and refresh to update sidebar/org data
     setInvitationNotifs((prev) => prev.filter((n) => n.id !== notifId));
     setPendingInviteIds((prev) => {
       const next = new Map(prev);
@@ -128,14 +122,20 @@ export default function NotificationsPage() {
       return next;
     });
     window.dispatchEvent(new Event("notifications-changed"));
-    router.refresh();
+    router.push("/organisation");
   };
 
   const handleRejectInvite = async (notifId: string) => {
     const invitationId = pendingInviteIds.get(notifId);
     if (!invitationId) return;
+    setLoadingIds((prev) => new Set(prev).add(notifId));
     const { error } = await authClient.organization.rejectInvitation({
       invitationId,
+    });
+    setLoadingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(notifId);
+      return next;
     });
     if (error) {
       toast({
@@ -274,16 +274,20 @@ export default function NotificationsPage() {
                         <div className="flex gap-2 mt-1.5">
                           <Button
                             size="sm"
+                            disabled={loadingIds.has(notification.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAcceptInvite(notification.id);
                             }}
                           >
-                            {t("accept")}
+                            {loadingIds.has(notification.id)
+                              ? "..."
+                              : t("accept")}
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
+                            disabled={loadingIds.has(notification.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleRejectInvite(notification.id);

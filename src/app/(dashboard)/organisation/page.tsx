@@ -443,6 +443,17 @@ export default function OrganisationPage() {
                         {roleLabel(inv.role ?? "member")}
                       </span>
                     </div>
+                    <span className="text-xs text-text-muted shrink-0">
+                      {(() => {
+                        const days = Math.ceil(
+                          (new Date(inv.expiresAt).getTime() - Date.now()) /
+                            86400000
+                        );
+                        if (days < 0) return t("expired");
+                        if (days === 0) return t("expiresToday");
+                        return t("expiresIn", { count: days });
+                      })()}
+                    </span>
                     <Badge variant="warning">{t("pending")}</Badge>
                     <button
                       onClick={() => handleCancelInvitation(inv.id)}
@@ -506,7 +517,11 @@ export default function OrganisationPage() {
             </Button>
             <Button
               onClick={handleInvite}
-              disabled={isInviting || !inviteEmail.trim()}
+              disabled={
+                isInviting ||
+                !inviteEmail.trim() ||
+                !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())
+              }
             >
               {isInviting ? t("sending") : t("sendInvite")}
             </Button>
