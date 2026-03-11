@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { organization } from "better-auth/plugins";
-import { createAccessControl } from "better-auth/plugins/access";
 import { Pool } from "pg";
 
 /**
@@ -16,50 +15,18 @@ function getBaseURL(): string {
 }
 
 /**
- * Access-control statements for the organisation plugin.
- *
- * Each key is a resource, each value lists the allowed actions.
- * Roles below map to PRD definitions:
- *   PM        → creates users & projects, full control
- *   Architect → updates projects, uploads/attaches docs
- *   Client    → reviews, approves, attaches docs
- */
-const statements = {
-  project: ["create", "read", "update", "delete"],
-  design: ["upload", "submit", "approve", "request-changes"],
-  member: ["create", "read", "update", "remove"],
-} as const;
-
-export const ac = createAccessControl(statements);
-
-/** PM = "admin" in better-auth terms (owner is auto-granted all). */
-const adminRole = ac.newRole({
-  project: ["create", "read", "update", "delete"],
-  design: ["upload", "submit", "approve", "request-changes"],
-  member: ["create", "read", "update", "remove"],
-});
-
-/** Architect = "member" in better-auth terms. */
-const memberRole = ac.newRole({
-  project: ["read", "update"],
-  design: ["upload", "submit"],
-  member: ["read"],
-});
-
-/** Client — custom role added on top of the defaults. */
-const clientRole = ac.newRole({
-  project: ["read"],
-  design: ["approve", "request-changes"],
-  member: ["read"],
-});
-
-/**
  * Server-side Better Auth instance.
  *
  * Uses Supabase PostgreSQL as the database (same for dev and production).
  * Custom `role` and `initials` fields are stored on the `user` table.
  * Both fields have `input: false` so they cannot be set via the public
  * sign-up/sign-in API — only via the seed script or direct DB operations.
+ *
+ * Organisation plugin roles map to PRD definitions:
+ *   owner  → PM who created the org (auto-assigned, full access)
+ *   admin  → other PMs invited later
+ *   member → Architects (update projects, upload docs)
+ *   client → Clients (review, approve, attach docs)
  */
 export const auth = betterAuth({
   baseURL: getBaseURL(),
@@ -91,11 +58,11 @@ export const auth = betterAuth({
   },
   plugins: [
     organization({
-      ac,
-      roles: {
-        admin: adminRole,
-        member: memberRole,
-        client: clientRole,
+      async sendInvitationEmail({ email, organization, inviter }) {
+        // TODO: Replace with real email service (Resend, SendGrid, etc.)
+        console.log(
+          `[Invitation] ${inviter.user.name} invited ${email} to ${organization.name}`
+        );
       },
     }),
   ],

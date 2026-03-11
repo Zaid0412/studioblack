@@ -242,7 +242,20 @@
     "yesterday": "Dün",
     "earlier": "Daha Önce",
     "allCaughtUpToast": "Hepsi tamam!",
-    "allCaughtUpDescription": "Tüm bildirimler okundu olarak işaretlendi."
+    "allCaughtUpDescription": "Tüm bildirimler okundu olarak işaretlendi.",
+    "invitationSent": "Davet gönderildi",
+    "invitationReceived": "Bir organizasyona davet edildiniz",
+    "accept": "Kabul Et",
+    "reject": "Reddet",
+    "invitationAccepted": "Davet kabul edildi",
+    "invitationAcceptedDesc": "Organizasyona katıldınız.",
+    "invitationRejected": "Davet reddedildi",
+    "invitationRejectedDesc": "Davet reddedildi.",
+    "acceptError": "Davet kabul edilemedi",
+    "rejectError": "Davet reddedilemedi",
+    "roleOwner": "Sahip",
+    "rolePM": "Proje Yöneticisi",
+    "roleArchitect": "Mimar"
   },
   "settings": {
     "title": "Kullanıcı Ayarları",

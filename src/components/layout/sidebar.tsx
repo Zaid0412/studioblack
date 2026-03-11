@@ -1,10 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   FolderOpen,
-  Users,
   Building2,
   Bell,
   Settings,
@@ -24,7 +24,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
-import { getUnreadNotificationCount } from "@/data/mock";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types";
@@ -54,7 +53,34 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
-  const unread = getUnreadNotificationCount();
+
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    async function fetchUnread() {
+      let count = 0;
+      // Invitations received by this user
+      const { data: received } =
+        await authClient.organization.listUserInvitations();
+      count += received?.filter((inv) => inv.status === "pending").length ?? 0;
+      // Invitations sent by org owner (pending responses)
+      const { data: orgData } =
+        await authClient.organization.getFullOrganization();
+      if (orgData?.invitations) {
+        count += orgData.invitations.filter(
+          (inv) => inv.status === "pending"
+        ).length;
+      }
+      setUnread(count);
+    }
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 10000);
+    const handleRefresh = () => fetchUnread();
+    window.addEventListener("notifications-changed", handleRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-changed", handleRefresh);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -65,9 +91,6 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/organisation", label: t("organisation"), icon: Building2 },
-    ...(features.teamManagement
-      ? [{ href: "/team", label: t("team"), icon: Users }]
-      : []),
     ...(features.notifications
       ? [
           {
@@ -87,6 +110,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const architectNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/organisation", label: t("organisation"), icon: Building2 },
     ...(features.notifications
       ? [
           {

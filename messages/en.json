@@ -242,7 +242,20 @@
     "yesterday": "Yesterday",
     "earlier": "Earlier",
     "allCaughtUpToast": "All caught up!",
-    "allCaughtUpDescription": "All notifications have been marked as read."
+    "allCaughtUpDescription": "All notifications have been marked as read.",
+    "invitationSent": "Invitation sent",
+    "invitationReceived": "You've been invited to an organisation",
+    "accept": "Accept",
+    "reject": "Decline",
+    "invitationAccepted": "Invitation accepted",
+    "invitationAcceptedDesc": "You've joined the organisation.",
+    "invitationRejected": "Invitation declined",
+    "invitationRejectedDesc": "The invitation has been declined.",
+    "acceptError": "Failed to accept invitation",
+    "rejectError": "Failed to decline invitation",
+    "roleOwner": "Owner",
+    "rolePM": "Project Manager",
+    "roleArchitect": "Architect"
   },
   "settings": {
     "title": "User Settings",

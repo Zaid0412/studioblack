@@ -1,45 +1,171 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import {
-  ClipboardCheck,
-  MessageSquare,
-  CheckCircle2,
-  Upload,
-  Calendar,
-  Users,
-  Bell,
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { UserPlus, Bell } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
-import { notifications } from "@/data/mock";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import type { Notification } from "@/types";
 
 const typeIcons: Record<string, typeof Bell> = {
-  review: ClipboardCheck,
-  comment: MessageSquare,
-  approval: CheckCircle2,
-  upload: Upload,
-  deadline: Calendar,
-  team: Users,
+  invitation: UserPlus,
 };
 
 const typeColors: Record<string, string> = {
-  review: "bg-info/10 text-info",
-  comment: "bg-accent/10 text-accent",
-  approval: "bg-success/10 text-success",
-  upload: "bg-status-submitted/10 text-status-submitted",
-  deadline: "bg-warning/10 text-warning",
-  team: "bg-status-draft/10 text-text-secondary",
+  invitation: "bg-accent/10 text-accent",
 };
 
 /** Notifications feed grouped by date. */
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
   const te = useTranslations("emptyStates");
+
+  const router = useRouter();
+  const [invitationNotifs, setInvitationNotifs] = useState<Notification[]>([]);
+  // Track real invitation IDs for accept/reject (maps notification.id → invitationId)
+  const [pendingInviteIds, setPendingInviteIds] = useState<
+    Map<string, string>
+  >(new Map());
+
+  const roleLabel = (role: string) => {
+    if (role === "owner") return t("roleOwner");
+    if (role === "admin") return t("rolePM");
+    if (role === "member") return t("roleArchitect");
+    return role;
+  };
+
+  // Fetch invitations — both sent (org owner) and received (invited user)
+  useEffect(() => {
+    async function loadInvitations() {
+      const allNotifs: Notification[] = [];
+      const idMap = new Map<string, string>();
+
+      // 1. Invitations received by this user (pending acceptance)
+      const { data: received } =
+        await authClient.organization.listUserInvitations();
+      if (received) {
+        for (const inv of received) {
+          if (inv.status !== "pending") continue;
+          const notifId = `recv-${inv.id}`;
+          const roleName =
+            inv.role === "admin"
+              ? "Project Manager"
+              : inv.role === "member"
+                ? "Architect"
+                : (inv.role ?? "Member");
+          allNotifs.push({
+            id: notifId,
+            title: t("invitationReceived"),
+            description: `${inv.organizationName ?? inv.organizationId} — ${roleName}`,
+            type: "invitation",
+            read: false,
+            createdAt: new Date(inv.createdAt).toISOString(),
+          });
+          idMap.set(notifId, inv.id);
+        }
+      }
+
+      // 2. Invitations sent by org owner
+      const { data: orgData } =
+        await authClient.organization.getFullOrganization();
+      if (orgData?.invitations) {
+        for (const inv of orgData.invitations) {
+          if (inv.status !== "pending") continue;
+          const roleName =
+            inv.role === "admin"
+              ? "Project Manager"
+              : inv.role === "member"
+                ? "Architect"
+                : (inv.role ?? "Member");
+          allNotifs.push({
+            id: `sent-${inv.id}`,
+            title: t("invitationSent"),
+            description: `${inv.email} — ${roleName}`,
+            type: "invitation",
+            read: false,
+            createdAt: new Date(inv.createdAt).toISOString(),
+          });
+        }
+      }
+
+      setInvitationNotifs(allNotifs);
+      setPendingInviteIds(idMap);
+    }
+    loadInvitations();
+    const interval = setInterval(loadInvitations, 10000);
+    return () => clearInterval(interval);
+  }, [t]);
+
+  const handleAcceptInvite = async (notifId: string) => {
+    const invitationId = pendingInviteIds.get(notifId);
+    if (!invitationId) return;
+    const { error } = await authClient.organization.acceptInvitation({
+      invitationId,
+    });
+    if (error) {
+      toast({
+        title: t("acceptError"),
+        description: error.message ?? "",
+        variant: "error",
+      });
+      return;
+    }
+    toast({
+      title: t("invitationAccepted"),
+      description: t("invitationAcceptedDesc"),
+      variant: "success",
+    });
+    // Remove from list and refresh to update sidebar/org data
+    setInvitationNotifs((prev) => prev.filter((n) => n.id !== notifId));
+    setPendingInviteIds((prev) => {
+      const next = new Map(prev);
+      next.delete(notifId);
+      return next;
+    });
+    window.dispatchEvent(new Event("notifications-changed"));
+    router.refresh();
+  };
+
+  const handleRejectInvite = async (notifId: string) => {
+    const invitationId = pendingInviteIds.get(notifId);
+    if (!invitationId) return;
+    const { error } = await authClient.organization.rejectInvitation({
+      invitationId,
+    });
+    if (error) {
+      toast({
+        title: t("rejectError"),
+        description: error.message ?? "",
+        variant: "error",
+      });
+      return;
+    }
+    toast({
+      title: t("invitationRejected"),
+      description: t("invitationRejectedDesc"),
+    });
+    setInvitationNotifs((prev) => prev.filter((n) => n.id !== notifId));
+    setPendingInviteIds((prev) => {
+      const next = new Map(prev);
+      next.delete(notifId);
+      return next;
+    });
+    window.dispatchEvent(new Event("notifications-changed"));
+  };
+
+  const notifications: Notification[] = useMemo(
+    () =>
+      [...invitationNotifs].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [invitationNotifs]
+  );
 
   // Group by date
   const today = useMemo(() => new Date().toDateString(), []);
@@ -48,7 +174,7 @@ export default function NotificationsPage() {
     []
   );
 
-  const groups: { label: string; items: typeof notifications }[] = [
+  const groups: { label: string; items: Notification[] }[] = [
     {
       label: t("today"),
       items: notifications.filter(
@@ -79,12 +205,15 @@ export default function NotificationsPage() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() =>
+            onClick={() => {
+              setInvitationNotifs((prev) =>
+                prev.map((n) => ({ ...n, read: true }))
+              );
               toast({
                 title: t("allCaughtUpToast"),
                 description: t("allCaughtUpDescription"),
-              })
-            }
+              });
+            }}
           >
             {t("markAllRead")}
           </Button>
@@ -141,6 +270,29 @@ export default function NotificationsPage() {
                       <span className="text-xs text-text-muted line-clamp-1">
                         {notification.description}
                       </span>
+                      {pendingInviteIds.has(notification.id) && (
+                        <div className="flex gap-2 mt-1.5">
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAcceptInvite(notification.id);
+                            }}
+                          >
+                            {t("accept")}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRejectInvite(notification.id);
+                            }}
+                          >
+                            {t("reject")}
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <span className="text-xs text-text-muted shrink-0 mt-0.5">
                       {formatTimeShort(notification.createdAt)}

@@ -84,18 +84,23 @@ export default function OrganisationPage() {
   const [orgSlug, setOrgSlug] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
+  // Current user's role in the org
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("architect");
+  const [inviteRole, setInviteRole] = useState("member");
   const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
-    loadOrg();
+    loadOrg(true);
+    const interval = setInterval(() => loadOrg(), 10000);
+    return () => clearInterval(interval);
   }, []);
 
-  async function loadOrg() {
-    setLoading(true);
+  async function loadOrg(showLoading = false) {
+    if (showLoading) setLoading(true);
 
     // First try to get the active org
     let { data } = await authClient.organization.getFullOrganization();
@@ -122,6 +127,15 @@ export default function OrganisationPage() {
       });
       setMembers((data.members as OrgMember[]) ?? []);
       setInvitations((data.invitations as OrgInvitation[]) ?? []);
+
+      // Determine current user's role in the org
+      const session = await authClient.getSession();
+      if (session.data?.user) {
+        const me = (data.members as OrgMember[])?.find(
+          (m) => m.userId === session.data!.user.id
+        );
+        setCurrentUserRole(me?.role ?? null);
+      }
     }
     setLoading(false);
   }
@@ -169,6 +183,12 @@ export default function OrganisationPage() {
   const handleInvite = async () => {
     if (!activeOrg) return;
     setIsInviting(true);
+
+    // Ensure active org is set on the session before inviting
+    await authClient.organization.setActive({
+      organizationId: activeOrg.id,
+    });
+
     const { error } = await authClient.organization.inviteMember({
       email: inviteEmail.trim(),
       role: inviteRole as "admin" | "member",
@@ -189,7 +209,7 @@ export default function OrganisationPage() {
       variant: "success",
     });
     setInviteEmail("");
-    setInviteRole("architect");
+    setInviteRole("member");
     setInviteOpen(false);
     setIsInviting(false);
     await loadOrg();
@@ -245,9 +265,8 @@ export default function OrganisationPage() {
 
   const roleLabel = (role: string) => {
     if (role === "owner") return t("roleOwner");
-    if (role === "pm") return t("rolePM");
-    if (role === "architect") return t("roleArchitect");
-    if (role === "client") return t("roleClient");
+    if (role === "admin") return t("rolePM");
+    if (role === "member") return t("roleArchitect");
     return role;
   };
 
@@ -317,10 +336,12 @@ export default function OrganisationPage() {
         title={t("title")}
         subtitle={activeOrg.name}
         actions={
-          <Button onClick={() => setInviteOpen(true)}>
-            <UserPlus className="w-4 h-4 mr-2" />
-            {t("inviteMember")}
-          </Button>
+          currentUserRole === "owner" ? (
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              {t("inviteMember")}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -373,7 +394,7 @@ export default function OrganisationPage() {
                     {roleLabel(member.role)}
                   </span>
                 </div>
-                {member.role !== "owner" && (
+                {member.role !== "owner" && currentUserRole === "owner" && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer">
@@ -443,7 +464,7 @@ export default function OrganisationPage() {
           setInviteOpen(open);
           if (!open) {
             setInviteEmail("");
-            setInviteRole("architect");
+            setInviteRole("member");
           }
         }}
       >
@@ -469,8 +490,8 @@ export default function OrganisationPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="architect">{t("roleArchitect")}</SelectItem>
-                  <SelectItem value="client">{t("roleClient")}</SelectItem>
+                  <SelectItem value="admin">{t("rolePM")}</SelectItem>
+                  <SelectItem value="member">{t("roleArchitect")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
