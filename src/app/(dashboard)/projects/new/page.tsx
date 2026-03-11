@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 
 /** Create new project form. */
@@ -55,6 +62,26 @@ export default function CreateProjectPage() {
             placeholder={t("projectNamePlaceholder")}
           />
           <Input label={t("client")} placeholder={t("clientPlaceholder")} />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("category")}
+            </label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder={t("categoryPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="residential">{t("categoryResidential")}</SelectItem>
+                <SelectItem value="commercial">{t("categoryCommercial")}</SelectItem>
+                <SelectItem value="healthcare">{t("categoryHealthcare")}</SelectItem>
+                <SelectItem value="hospitality">{t("categoryHospitality")}</SelectItem>
+                <SelectItem value="institutional">{t("categoryInstitutional")}</SelectItem>
+                <SelectItem value="retail">{t("categoryRetail")}</SelectItem>
+                <SelectItem value="workspace">{t("categoryWorkspace")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
