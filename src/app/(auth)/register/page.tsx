@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,12 @@ import { authClient } from "@/lib/auth-client";
 export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitationId");
+  const inviteEmail = searchParams.get("email");
   const { data: session } = authClient.useSession();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(inviteEmail ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -63,6 +66,18 @@ export default function RegisterPage() {
       }
       setIsLoading(false);
       return;
+    }
+
+    // If there's a pending invitation, accept it automatically
+    if (invitationId) {
+      try {
+        await authClient.organization.acceptInvitation({
+          invitationId,
+        });
+      } catch {
+        // Invitation may have expired or been cancelled — continue anyway
+        console.warn("Could not auto-accept invitation");
+      }
     }
 
     // Sign-up creates a session — redirect based on role
@@ -146,6 +161,8 @@ export default function RegisterPage() {
                   placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  readOnly={!!inviteEmail}
+                  className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
                   required
                 />
                 <Input

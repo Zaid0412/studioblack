@@ -36,8 +36,10 @@ export function NavItem({
   isCollapsed,
 }: NavItemProps) {
   const pathname = usePathname();
+  // Exact match for dashboard roots, startsWith for everything else
+  const isDashboardRoot = href === "/dashboard" || href === "/client-dashboard";
   const isActive =
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+    pathname === href || (!isDashboardRoot && pathname.startsWith(href + "/"));
 
   const link = (
     <Link

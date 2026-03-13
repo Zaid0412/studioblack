@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import {
   MoreHorizontal,
   Calendar,
@@ -11,6 +12,7 @@ import {
   Upload,
   Trash2,
   FolderOpen,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -26,8 +28,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { projects } from "@/data/mock";
+import { deriveInitials } from "@/lib/utils";
 import type { ProjectStatus } from "@/types";
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  client_name: string | null;
+  client_email: string | null;
+  category: string;
+  status: ProjectStatus;
+  deadline: string | null;
+  created_at: string;
+  architect_ids: string[] | null;
+}
 
 type FilterTab = "all" | ProjectStatus;
 
@@ -38,6 +52,53 @@ export default function ProjectsPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function init() {
+      const { data: session } = await authClient.getSession();
+      if (!session?.user) return;
+
+      // Derive effective role from org membership
+      const orgId = session.session.activeOrganizationId;
+      if (orgId) {
+        try {
+          const { data: org } =
+            await authClient.organization.getFullOrganization();
+          const me = org?.members?.find(
+            (m: { userId: string }) => m.userId === session.user.id
+          );
+          if (me?.role === "owner" || me?.role === "admin") {
+            setUserRole("pm");
+          } else if (me?.role === "member") {
+            setUserRole("architect");
+          } else {
+            setUserRole(session.user.role ?? null);
+          }
+        } catch {
+          setUserRole(session.user.role ?? null);
+        }
+      } else {
+        setUserRole(session.user.role ?? null);
+      }
+
+      // Fetch projects
+      try {
+        const res = await fetch("/api/projects");
+        if (res.ok) {
+          setProjects(await res.json());
+        }
+      } catch {
+        setProjects([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    init();
+  }, []);
 
   const filters: { key: FilterTab; label: string }[] = [
     { key: "all", label: t("filterAll") },
@@ -47,9 +108,10 @@ export default function ProjectsPage() {
   ];
 
   const filtered = projects.filter((p) => {
+    const client = p.client_name || p.client_email || "";
     const matchesSearch =
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.client.toLowerCase().includes(search.toLowerCase());
+      client.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = activeFilter === "all" || p.status === activeFilter;
     return matchesSearch && matchesFilter;
   });
@@ -60,9 +122,11 @@ export default function ProjectsPage() {
         title={t("title")}
         subtitle={t("subtitle")}
         actions={
-          <Button onClick={() => router.push("/projects/new")}>
-            {t("newProject")}
-          </Button>
+          userRole === "pm" ? (
+            <Button onClick={() => router.push("/projects/new")}>
+              {t("newProject")}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -115,120 +179,134 @@ export default function ProjectsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((project) => (
-              <tr
-                key={project.id}
-                className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors cursor-pointer"
-                onClick={() => router.push(`/projects/${project.id}`)}
-              >
-                <td className="px-5 py-4">
-                  <span className="text-sm font-semibold text-text-primary">
-                    {project.name}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-sm text-text-secondary">
-                    {project.client}
-                  </span>
-                </td>
-                <td className="px-5 py-4">
-                  <Badge variant={statusToBadgeVariant(project.status)}>
-                    {project.status.charAt(0).toUpperCase() +
-                      project.status.slice(1)}
-                  </Badge>
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-1.5 text-sm text-text-secondary">
-                    <Calendar className="w-3.5 h-3.5 text-warning" />
-                    {new Date(project.deadline).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex -space-x-2">
-                    {project.team.slice(0, 3).map((member) => (
-                      <Avatar
-                        key={member.id}
-                        initials={member.initials}
-                        size="sm"
-                        className="ring-2 ring-bg-secondary"
-                      />
-                    ))}
-                    {project.team.length > 3 && (
-                      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-bg-elevated text-xs text-text-muted ring-2 ring-bg-secondary">
-                        +{project.team.length - 3}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td className="px-5 py-4 text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}`);
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                        {t("viewProject")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}/edit`);
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                        {t("editProject")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}/upload`);
-                        }}
-                      >
-                        <Upload className="w-4 h-4" />
-                        {t("uploadDesign")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        destructive
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        {t("deleteProject")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-12 text-center">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-text-muted" />
                 </td>
               </tr>
-            ))}
-            {filtered.length === 0 && (
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={6}>
                   <EmptyState
                     icon={FolderOpen}
                     title={te("projectsTitle")}
                     description={te("projectsDescription")}
-                    action={{
-                      label: te("projectsAction"),
-                      href: "/projects/new",
-                    }}
+                    action={
+                      userRole === "pm"
+                        ? {
+                            label: te("projectsAction"),
+                            href: "/projects/new",
+                          }
+                        : undefined
+                    }
                   />
                 </td>
               </tr>
+            ) : (
+              filtered.map((project) => (
+                <tr
+                  key={project.id}
+                  className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                >
+                  <td className="px-5 py-4">
+                    <span className="text-sm font-semibold text-text-primary">
+                      {project.name}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-sm text-text-secondary">
+                      {project.client_name || project.client_email || "—"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <Badge variant={statusToBadgeVariant(project.status)}>
+                      {project.status.charAt(0).toUpperCase() +
+                        project.status.slice(1)}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-4">
+                    {project.deadline ? (
+                      <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+                        <Calendar className="w-3.5 h-3.5 text-warning" />
+                        {new Date(project.deadline).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" }
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-text-muted">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex -space-x-2">
+                      {(project.architect_ids || []).slice(0, 3).map((id) => (
+                        <Avatar
+                          key={id}
+                          initials={deriveInitials(id)}
+                          size="sm"
+                          className="ring-2 ring-bg-secondary"
+                        />
+                      ))}
+                      {(project.architect_ids?.length ?? 0) > 3 && (
+                        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-bg-elevated text-xs text-text-muted ring-2 ring-bg-secondary">
+                          +{(project.architect_ids?.length ?? 0) - 3}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/projects/${project.id}`);
+                          }}
+                        >
+                          <Eye className="w-4 h-4" />
+                          {t("viewProject")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/projects/${project.id}/edit`);
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                          {t("editProject")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/projects/${project.id}/upload`);
+                          }}
+                        >
+                          <Upload className="w-4 h-4" />
+                          {t("uploadDesign")}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          destructive
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {t("deleteProject")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

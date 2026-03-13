@@ -44,11 +44,19 @@ export default function CreateProjectPage() {
     t("defaultSectionElevations"),
   ]);
 
+  // Form fields
+  const [projectName, setProjectName] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
+  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Org members (architects) for assignment
   const [architects, setArchitects] = useState<OrgMember[]>([]);
   const [selectedArchitects, setSelectedArchitects] = useState<string[]>([]);
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
-  const [clientEmail, setClientEmail] = useState("");
 
   useEffect(() => {
     async function loadArchitects() {
@@ -100,14 +108,46 @@ export default function CreateProjectPage() {
 
       <Card>
         <form
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
-            toast({
-              title: t("createdToast"),
-              description: t("createdDescription"),
-              variant: "success",
-            });
-            router.push("/projects");
+            if (!projectName.trim() || !category) return;
+            setIsSubmitting(true);
+            try {
+              const res = await fetch("/api/projects", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: projectName.trim(),
+                  clientName: clientName.trim() || undefined,
+                  clientEmail: clientEmail.trim() || undefined,
+                  category,
+                  description: description.trim() || undefined,
+                  deadline: deadline?.toISOString().split("T")[0],
+                  architectIds: selectedArchitects.length
+                    ? selectedArchitects
+                    : undefined,
+                }),
+              });
+              if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Failed to create project");
+              }
+              toast({
+                title: t("createdToast"),
+                description: t("createdDescription"),
+                variant: "success",
+              });
+              router.push("/projects");
+            } catch (err) {
+              toast({
+                title: tc("error") ?? "Error",
+                description:
+                  err instanceof Error ? err.message : "Failed to create project",
+                variant: "error",
+              });
+            } finally {
+              setIsSubmitting(false);
+            }
           }}
           className="flex flex-col gap-5"
         >
@@ -118,14 +158,21 @@ export default function CreateProjectPage() {
           <Input
             label={t("projectName")}
             placeholder={t("projectNamePlaceholder")}
+            value={projectName}
+            onChange={(e) => setProjectName(e.target.value)}
           />
-          <Input label={t("client")} placeholder={t("clientPlaceholder")} />
+          <Input
+            label={t("client")}
+            placeholder={t("clientPlaceholder")}
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+          />
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
               {t("category")}
             </label>
-            <Select>
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
                 <SelectValue placeholder={t("categoryPlaceholder")} />
               </SelectTrigger>
@@ -159,6 +206,8 @@ export default function CreateProjectPage() {
             </label>
             <textarea
               placeholder={t("descriptionPlaceholder")}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               rows={3}
             />
@@ -167,6 +216,8 @@ export default function CreateProjectPage() {
           <DatePicker
             label={t("deadline")}
             placeholder={t("deadlinePlaceholder")}
+            value={deadline}
+            onChange={setDeadline}
           />
 
           {/* Assign Team */}
@@ -304,7 +355,12 @@ export default function CreateProjectPage() {
           </div>
 
           <div className="flex gap-3 mt-4">
-            <Button type="submit">{t("createButton")}</Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting || !projectName.trim() || !category}
+            >
+              {isSubmitting ? tc("loading") : t("createButton")}
+            </Button>
             <Button
               type="button"
               variant="secondary"

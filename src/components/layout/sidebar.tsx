@@ -11,6 +11,7 @@ import {
   History,
   LogOut,
   ChevronsLeft,
+  CheckSquare,
 } from "lucide-react";
 import { NavItem } from "./nav-item";
 import { useSidebar } from "./sidebar-context";
@@ -55,26 +56,40 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const { isCollapsed, toggle } = useSidebar();
 
   const [unread, setUnread] = useState(0);
+  const [orgName, setOrgName] = useState<string | null>(null);
   useEffect(() => {
-    async function fetchUnread() {
+    async function fetchOrgData() {
       let count = 0;
       // Invitations received by this user
       const { data: received } =
         await authClient.organization.listUserInvitations();
       count += received?.filter((inv) => inv.status === "pending").length ?? 0;
-      // Invitations sent by org owner (pending responses)
+      // Invitations sent by org owner (pending responses) + org name
       const { data: orgData } =
         await authClient.organization.getFullOrganization();
-      if (orgData?.invitations) {
-        count += orgData.invitations.filter(
-          (inv) => inv.status === "pending"
-        ).length;
+      if (orgData) {
+        setOrgName(orgData.name);
+        if (orgData.invitations) {
+          count += orgData.invitations.filter(
+            (inv) => inv.status === "pending"
+          ).length;
+        }
+      }
+      // Add unread DB notifications count
+      try {
+        const res = await fetch("/api/notifications?unread=true");
+        if (res.ok) {
+          const { count: dbCount } = await res.json();
+          count += dbCount;
+        }
+      } catch {
+        // ignore
       }
       setUnread(count);
     }
-    fetchUnread();
-    const interval = setInterval(fetchUnread, 10000);
-    const handleRefresh = () => fetchUnread();
+    fetchOrgData();
+    const interval = setInterval(fetchOrgData, 10000);
+    const handleRefresh = () => fetchOrgData();
     window.addEventListener("notifications-changed", handleRefresh);
     return () => {
       clearInterval(interval);
@@ -110,6 +125,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const architectNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     { href: "/organisation", label: t("organisation"), icon: Building2 },
     ...(features.notifications
       ? [
@@ -130,18 +146,22 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       label: t("dashboard"),
       icon: LayoutDashboard,
     },
-    { href: "/projects", label: t("projects"), icon: FolderOpen },
+    {
+      href: "/client-dashboard/projects",
+      label: t("projects"),
+      icon: FolderOpen,
+    },
     ...(features.notifications
       ? [
           {
-            href: "/notifications",
+            href: "/client-dashboard/notifications",
             label: t("notifications"),
             icon: Bell,
             badge: unread,
           },
         ]
       : []),
-    { href: "/settings", label: t("settings"), icon: Settings },
+    { href: "/client-dashboard/settings", label: t("settings"), icon: Settings },
   ];
 
   const navMap = { pm: pmNav, architect: architectNav, client: clientNav };
@@ -182,6 +202,38 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
           {branding.appName}
         </span>
       </Link>
+
+      {/* Organisation name */}
+      {orgName && (
+        <div
+          className={cn(
+            "border-b border-border-default pb-3 mb-1 transition-all duration-200",
+            isCollapsed ? "px-2" : "px-4"
+          )}
+        >
+          {isCollapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/organisation"
+                  className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-elevated text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <Building2 className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{orgName}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Link
+              href="/organisation"
+              className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors group"
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-xs font-medium truncate">{orgName}</span>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav

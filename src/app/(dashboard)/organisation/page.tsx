@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import {
   Building2,
@@ -9,7 +9,9 @@ import {
   Crown,
   Shield,
   User as UserIcon,
+  LogOut,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +69,7 @@ interface OrgInvitation {
 export default function OrganisationPage() {
   const t = useTranslations("organisation");
   const tc = useTranslations("common");
+  const router = useRouter();
 
   // Org state
   const [activeOrg, setActiveOrg] = useState<{
@@ -87,19 +90,17 @@ export default function OrganisationPage() {
   // Current user's role in the org
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
+  // Leave org dialog
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+
   // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [isInviting, setIsInviting] = useState(false);
 
-  useEffect(() => {
-    loadOrg(true);
-    const interval = setInterval(() => loadOrg(), 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function loadOrg(showLoading = false) {
+  const loadOrg = async (showLoading = false) => {
     if (showLoading) setLoading(true);
 
     // First try to get the active org
@@ -138,7 +139,13 @@ export default function OrganisationPage() {
       }
     }
     setLoading(false);
-  }
+  };
+
+  useEffect(() => {
+    loadOrg(true);
+    const interval = setInterval(() => loadOrg(), 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const generateSlug = (name: string) =>
     name
@@ -255,6 +262,45 @@ export default function OrganisationPage() {
     await loadOrg();
   };
 
+  const handleLeaveOrg = async () => {
+    if (!activeOrg) return;
+    setIsLeaving(true);
+
+    // Get current session to find own member ID
+    const session = await authClient.getSession();
+    if (!session.data?.user) {
+      setIsLeaving(false);
+      return;
+    }
+    const me = members.find((m) => m.userId === session.data!.user.id);
+    if (!me) {
+      setIsLeaving(false);
+      return;
+    }
+
+    const { error } = await authClient.organization.removeMember({
+      memberIdOrEmail: me.id,
+    });
+    setIsLeaving(false);
+    setLeaveDialogOpen(false);
+
+    if (error) {
+      toast({
+        title: tc("error") ?? "Error",
+        description: error.message ?? "Failed to leave organisation",
+        variant: "error",
+      });
+      return;
+    }
+
+    toast({
+      title: "Left organisation",
+      description: `You have left ${activeOrg.name}`,
+      variant: "success",
+    });
+    router.push("/dashboard");
+  };
+
   const roleIcon = (role: string) => {
     if (role === "owner" || role === "pm")
       return <Crown className="w-3.5 h-3.5" />;
@@ -336,12 +382,24 @@ export default function OrganisationPage() {
         title={t("title")}
         subtitle={activeOrg.name}
         actions={
-          currentUserRole === "owner" ? (
-            <Button onClick={() => setInviteOpen(true)}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              {t("inviteMember")}
-            </Button>
-          ) : undefined
+          <div className="flex gap-2">
+            {(currentUserRole === "owner" || currentUserRole === "admin") && (
+              <Button onClick={() => setInviteOpen(true)}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                {t("inviteMember")}
+              </Button>
+            )}
+            {currentUserRole === "member" && (
+              <Button
+                variant="secondary"
+                onClick={() => setLeaveDialogOpen(true)}
+                className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Leave Organisation
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -394,7 +452,7 @@ export default function OrganisationPage() {
                     {roleLabel(member.role)}
                   </span>
                 </div>
-                {member.role !== "owner" && currentUserRole === "owner" && (
+                {member.role !== "owner" && currentUserRole === "owner" || currentUserRole === "admin" && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer">
@@ -524,6 +582,39 @@ export default function OrganisationPage() {
               }
             >
               {isInviting ? t("sending") : t("sendInvite")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave organisation dialog */}
+      <Dialog
+        open={leaveDialogOpen}
+        onOpenChange={(open) => setLeaveDialogOpen(open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave Organisation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to leave {activeOrg.name}? You will lose
+              access to all projects and data in this organisation.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setLeaveDialogOpen(false)}
+              disabled={isLeaving}
+            >
+              {tc("cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleLeaveOrg}
+              disabled={isLeaving}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isLeaving ? "Leaving..." : "Leave Organisation"}
             </Button>
           </DialogFooter>
         </DialogContent>

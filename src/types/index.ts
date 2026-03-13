@@ -112,7 +112,10 @@ export interface Notification {
     | "upload"
     | "deadline"
     | "team"
-    | "invitation";
+    | "invitation"
+    | "task_assigned"
+    | "review_requested"
+    | "review_submitted";
   /** Whether the user has already seen this notification. */
   read: boolean;
   /** ISO-8601 creation timestamp. */

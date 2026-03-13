@@ -55,7 +55,6 @@ export default function SettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Sync form state when session loads
@@ -212,7 +211,7 @@ export default function SettingsPage() {
     setIsDeleting(true);
     try {
       const { error } = await authClient.deleteUser({
-        password: deletePassword,
+        callbackURL: "/login",
       });
       if (error) {
         toast({
@@ -463,7 +462,6 @@ export default function SettingsPage() {
           setDeleteOpen(open);
           if (!open) {
             setDeleteConfirm("");
-            setDeletePassword("");
           }
         }}
       >
@@ -486,13 +484,6 @@ export default function SettingsPage() {
                 autoComplete="off"
               />
             </div>
-            <Input
-              label={t("enterPassword")}
-              type="password"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              autoComplete="current-password"
-            />
           </div>
           <DialogFooter>
             <Button
@@ -500,7 +491,6 @@ export default function SettingsPage() {
               onClick={() => {
                 setDeleteOpen(false);
                 setDeleteConfirm("");
-                setDeletePassword("");
               }}
               disabled={isDeleting}
             >
@@ -511,7 +501,6 @@ export default function SettingsPage() {
               onClick={handleDeleteAccount}
               disabled={
                 deleteConfirm !== t("deleteConfirmWord") ||
-                !deletePassword ||
                 isDeleting
               }
             >
