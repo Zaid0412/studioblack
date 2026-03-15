@@ -146,18 +146,41 @@ export async function getProjectById(projectId: string) {
   return { ...project, phases, members };
 }
 
-/** Get tasks for a phase. */
-export async function getPhaseTasks(phaseId: string) {
+/** Get tasks for a phase, scoped to a project for security. */
+export async function getPhaseTasks(phaseId: string, projectId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT t.*, u.name AS assigned_name
      FROM phase_task t
+     JOIN project_phase pp ON pp.id = t.phase_id
      LEFT JOIN "user" u ON u.id = t.assigned_to
-     WHERE t.phase_id = $1
+     WHERE t.phase_id = $1 AND pp.project_id = $2
      ORDER BY t.created_at`,
-    [phaseId]
+    [phaseId, projectId]
   );
   return rows;
+}
+
+/** Verify a phase belongs to a project. */
+export async function verifyPhaseOwnership(phaseId: string, projectId: string): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT 1 FROM project_phase WHERE id = $1 AND project_id = $2`,
+    [phaseId, projectId]
+  );
+  return rows.length > 0;
+}
+
+/** Verify a task belongs to a project (via its phase). */
+export async function verifyTaskOwnership(taskId: string, projectId: string): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT 1 FROM phase_task t
+     JOIN project_phase pp ON pp.id = t.phase_id
+     WHERE t.id = $1 AND pp.project_id = $2`,
+    [taskId, projectId]
+  );
+  return rows.length > 0;
 }
 
 /** Get comments for a project/phase/task. */

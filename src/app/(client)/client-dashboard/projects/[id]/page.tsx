@@ -25,6 +25,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { deriveInitials } from "@/lib/utils";
 
 interface Phase {
@@ -535,49 +536,47 @@ export default function ClientProjectDetailPage({
       )}
 
       {/* Request Changes Dialog */}
-      {changesDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="w-full max-w-md rounded-xl border border-border-default bg-bg-secondary p-6 flex flex-col gap-4 shadow-xl">
-            <h3 className="text-base font-semibold text-text-primary">
-              Request Changes
-            </h3>
-            <p className="text-sm text-text-muted">
+      <Dialog open={changesDialogOpen} onOpenChange={setChangesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Changes</DialogTitle>
+            <DialogDescription>
               Describe what changes you&apos;d like the architect to make.
-            </p>
-            <textarea
-              value={changesComment}
-              onChange={(e) => setChangesComment(e.target.value)}
-              placeholder="Please describe the changes you need..."
-              className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-              rows={4}
-              autoFocus
-            />
-            <div className="flex gap-3 justify-end">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  setChangesDialogOpen(false);
-                  setChangesComment("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={async () => {
-                  await handleDecision("changes_requested", changesComment);
-                  setChangesDialogOpen(false);
-                  setChangesComment("");
-                }}
-                disabled={submittingDecision}
-              >
-                {submittingDecision ? "Submitting..." : "Submit"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            value={changesComment}
+            onChange={(e) => setChangesComment(e.target.value)}
+            placeholder="Please describe the changes you need..."
+            className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            rows={4}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setChangesDialogOpen(false);
+                setChangesComment("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                await handleDecision("changes_requested", changesComment);
+                setChangesDialogOpen(false);
+                setChangesComment("");
+              }}
+              disabled={submittingDecision}
+            >
+              {submittingDecision ? "Submitting..." : "Submit"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Final approval banner */}
       {project.status === "completed" && (

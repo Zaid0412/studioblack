@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess } from "@/lib/queries";
+import { hasProjectAccess, verifyTaskOwnership } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { createNotification, createNotificationsForTeam } from "@/lib/notifications";
 
@@ -29,6 +29,11 @@ export async function POST(
   const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const taskOwned = await verifyTaskOwnership(taskId, id);
+  if (!taskOwned) {
+    return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
   }
 
   const { action, comment } = await req.json();
@@ -68,15 +73,10 @@ export async function POST(
 
   // If client left a comment, insert it
   if (comment?.trim()) {
-    const { rows: [phase] } = await pool.query(
-      `SELECT id FROM project_phase WHERE id = $1`,
-      [existing.phase_id]
-    );
-
     await pool.query(
       `INSERT INTO comment (project_id, phase_id, task_id, user_id, content)
        VALUES ($1, $2, $3, $4, $5)`,
-      [id, phase?.id || existing.phase_id, taskId, session.user.id, comment.trim()]
+      [id, existing.phase_id, taskId, session.user.id, comment.trim()]
     );
   }
 

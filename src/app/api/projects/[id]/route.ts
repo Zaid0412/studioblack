@@ -4,6 +4,9 @@ import { headers } from "next/headers";
 import { getProjectById, hasProjectAccess } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 
+const VALID_PROJECT_STATUSES = ["draft", "active", "completed", "archived"];
+const VALID_CATEGORIES = ["residential", "commercial", "healthcare", "hospitality", "institutional", "retail", "workspace"];
+
 /** GET /api/projects/[id] — get project details. */
 export async function GET(
   _req: NextRequest,
@@ -64,6 +67,14 @@ export async function PATCH(
   }
 
   const body = await req.json();
+
+  if (body.status !== undefined && !VALID_PROJECT_STATUSES.includes(body.status)) {
+    return NextResponse.json({ error: "Invalid project status" }, { status: 400 });
+  }
+  if (body.category !== undefined && !VALID_CATEGORIES.includes(body.category)) {
+    return NextResponse.json({ error: "Invalid project category" }, { status: 400 });
+  }
+
   const pool = getPool();
 
   // Build dynamic update

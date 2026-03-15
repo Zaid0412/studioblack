@@ -65,7 +65,7 @@ export async function POST(
     const clientName = project.client_name || project.client_email.split("@")[0];
     await pool.query(
       `INSERT INTO "user" (id, name, email, role, email_verified, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, 'client', true, now(), now())`,
+       VALUES (gen_random_uuid(), $1, $2, 'client', false, now(), now())`,
       [clientName, project.client_email]
     );
   }

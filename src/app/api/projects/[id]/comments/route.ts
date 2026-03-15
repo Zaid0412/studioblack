@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getComments, hasProjectAccess } from "@/lib/queries";
+import { getComments, hasProjectAccess, verifyPhaseOwnership, verifyTaskOwnership } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { createNotificationsForTeam, createNotificationForClient } from "@/lib/notifications";
 
@@ -50,6 +50,23 @@ export async function POST(
   const { content, phaseId, taskId } = await req.json();
   if (!content?.trim()) {
     return NextResponse.json({ error: "Content is required" }, { status: 400 });
+  }
+
+  if (content.trim().length > 5000) {
+    return NextResponse.json({ error: "Comment too long (max 5000 characters)" }, { status: 400 });
+  }
+
+  if (phaseId) {
+    const phaseOwned = await verifyPhaseOwnership(phaseId, id);
+    if (!phaseOwned) {
+      return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+    }
+  }
+  if (taskId) {
+    const taskOwned = await verifyTaskOwnership(taskId, id);
+    if (!taskOwned) {
+      return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+    }
   }
 
   const pool = getPool();

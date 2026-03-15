@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   AlertTriangle,
   ListChecks,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,17 @@ import { toast } from "@/components/ui/use-toast";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/types";
+
+interface DbNotificationRow {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  read: boolean;
+  created_at: string;
+  project_id: string | null;
+  project_name: string | null;
+}
 
 const typeIcons: Record<string, typeof Bell> = {
   invitation: UserPlus,
@@ -49,6 +61,7 @@ export default function NotificationsPage() {
   const router = useRouter();
   const [invitationNotifs, setInvitationNotifs] = useState<Notification[]>([]);
   const [dbNotifs, setDbNotifs] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
   const [pendingInviteIds, setPendingInviteIds] = useState<Map<string, string>>(
     new Map()
@@ -103,9 +116,10 @@ export default function NotificationsPage() {
 
       setInvitationNotifs(allNotifs);
       setPendingInviteIds(idMap);
+      setLoading(false);
     }
     loadInvitations();
-    const interval = setInterval(loadInvitations, 10000);
+    const interval = setInterval(loadInvitations, 30000);
     return () => clearInterval(interval);
   }, [t]);
 
@@ -117,8 +131,7 @@ export default function NotificationsPage() {
         if (!res.ok) return;
         const rows = await res.json();
         setDbNotifs(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rows.map((r: any) => ({
+          rows.map((r: DbNotificationRow) => ({
             id: r.id,
             type: r.type,
             title: r.title,
@@ -133,7 +146,7 @@ export default function NotificationsPage() {
       }
     }
     loadDbNotifs();
-    const interval = setInterval(loadDbNotifs, 15000);
+    const interval = setInterval(loadDbNotifs, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -286,7 +299,11 @@ export default function NotificationsPage() {
       />
 
       <div className="flex flex-col gap-6">
-        {groups.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+          </div>
+        ) : groups.length === 0 ? (
           <EmptyState
             icon={Bell}
             title={te("notificationsTitle")}
@@ -308,6 +325,9 @@ export default function NotificationsPage() {
                       !notification.read && "bg-bg-secondary"
                     )}
                     onClick={() => handleNotificationClick(notification)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleNotificationClick(notification); } }}
                   >
                     <div
                       className={cn(

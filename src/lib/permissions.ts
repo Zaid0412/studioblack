@@ -1,3 +1,4 @@
+// TODO: Wire this into API routes to replace ad-hoc role checks
 import { createAccessControl } from "better-auth/plugins/access";
 import {
   defaultStatements,

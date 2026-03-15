@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/sidebar-context";
 import { deriveInitials } from "@/lib/utils";
+import { ErrorBoundary } from "@/components/error-boundary";
 import type { User } from "@/types";
 
 /**
@@ -100,7 +101,7 @@ export default async function DashboardLayout({
           variant={user.role === "pm" ? "pm" : "architect"}
           user={user}
         />
-        <main className="flex-1 overflow-y-auto p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto p-8"><ErrorBoundary>{children}</ErrorBoundary></main>
       </div>
     </SidebarProvider>
   );

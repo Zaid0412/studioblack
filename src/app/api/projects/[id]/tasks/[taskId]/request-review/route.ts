@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess } from "@/lib/queries";
+import { hasProjectAccess, verifyTaskOwnership } from "@/lib/queries";
 import { getPool } from "@/lib/db";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationForClient } from "@/lib/notifications";
 
 /** POST /api/projects/[id]/tasks/[taskId]/request-review — mark task for client review. */
@@ -27,6 +27,11 @@ export async function POST(
   const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const taskOwned = await verifyTaskOwnership(taskId, id);
+  if (!taskOwned) {
+    return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
   }
 
   const pool = getPool();
@@ -54,16 +59,12 @@ export async function POST(
 
   // Send notification to client if email exists
   if (project?.client_email) {
-    const body = await req.json().catch(() => ({}));
-    const message = (body as { message?: string }).message || "";
-
     await sendNotificationEmail(
       project.client_email,
       `Review Requested: ${task.title}`,
       `
-        <p>A task in your project <strong>${project.name}</strong> requires your review.</p>
-        <p><strong>Task:</strong> ${task.title}</p>
-        ${message ? `<p><strong>Note:</strong> ${message}</p>` : ""}
+        <p>A task in your project <strong>${escapeHtml(project.name)}</strong> requires your review.</p>
+        <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>
         <p>Please log in to your project dashboard to review and provide feedback.</p>
       `
     ).catch(() => {

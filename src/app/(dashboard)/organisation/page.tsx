@@ -143,7 +143,7 @@ export default function OrganisationPage() {
 
   useEffect(() => {
     loadOrg(true);
-    const interval = setInterval(() => loadOrg(), 10000);
+    const interval = setInterval(() => loadOrg(), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -452,7 +452,7 @@ export default function OrganisationPage() {
                     {roleLabel(member.role)}
                   </span>
                 </div>
-                {member.role !== "owner" && currentUserRole === "owner" || currentUserRole === "admin" && (
+                {(member.role !== "owner") && (currentUserRole === "owner" || currentUserRole === "admin") && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer">

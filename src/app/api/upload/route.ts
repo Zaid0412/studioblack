@@ -28,9 +28,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+
+  // Validate file type
+  const BLOCKED_EXTENSIONS = [".exe", ".bat", ".cmd", ".sh", ".ps1", ".msi", ".dll", ".com", ".scr"];
+  const BLOCKED_TYPES = ["application/x-executable", "application/x-msdownload"];
+  const ext = "." + safeName.split(".").pop()?.toLowerCase();
+  if (BLOCKED_EXTENSIONS.includes(ext) || BLOCKED_TYPES.includes(file.type)) {
+    return NextResponse.json(
+      { error: "File type not allowed." },
+      { status: 400 }
+    );
+  }
+
   const supabase = getSupabaseAdmin();
   const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const path = `${session.user.id}/${timestamp}-${safeName}`;
 
   const arrayBuffer = await file.arrayBuffer();

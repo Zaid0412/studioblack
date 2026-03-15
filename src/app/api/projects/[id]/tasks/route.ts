@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess, getPhaseTasks } from "@/lib/queries";
+import { hasProjectAccess, getPhaseTasks, verifyPhaseOwnership, verifyTaskOwnership } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
+
+const VALID_TASK_STATUSES = ["pending", "in_progress", "completed"];
 
 /** GET /api/projects/[id]/tasks?phaseId=... — list tasks for a phase. */
 export async function GET(
@@ -26,7 +28,12 @@ export async function GET(
     return NextResponse.json({ error: "phaseId is required" }, { status: 400 });
   }
 
-  const tasks = await getPhaseTasks(phaseId);
+  const phaseOwned = await verifyPhaseOwnership(phaseId, id);
+  if (!phaseOwned) {
+    return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+  }
+
+  const tasks = await getPhaseTasks(phaseId, id);
   return NextResponse.json(tasks);
 }
 
@@ -58,6 +65,11 @@ export async function POST(
       { error: "phaseId and title are required" },
       { status: 400 }
     );
+  }
+
+  const phaseOwned = await verifyPhaseOwnership(phaseId, id);
+  if (!phaseOwned) {
+    return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
   }
 
   const pool = getPool();
@@ -110,6 +122,18 @@ export async function PATCH(
 
   if (!taskId) {
     return NextResponse.json({ error: "taskId is required" }, { status: 400 });
+  }
+
+  const taskOwned = await verifyTaskOwnership(taskId, id);
+  if (!taskOwned) {
+    return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+  }
+
+  if (status !== undefined && !VALID_TASK_STATUSES.includes(status)) {
+    return NextResponse.json(
+      { error: `Invalid status. Must be one of: ${VALID_TASK_STATUSES.join(", ")}` },
+      { status: 400 }
+    );
   }
 
   const pool = getPool();

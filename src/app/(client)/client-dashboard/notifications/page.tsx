@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ClipboardCheck,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,17 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/types";
+
+interface DbNotificationRow {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  read: boolean;
+  created_at: string;
+  project_id: string | null;
+  project_name: string | null;
+}
 
 const typeIcons: Record<string, typeof Bell> = {
   comment: MessageSquare,
@@ -41,6 +53,7 @@ export default function ClientNotificationsPage() {
   const router = useRouter();
 
   const [dbNotifs, setDbNotifs] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadDbNotifs() {
@@ -49,8 +62,7 @@ export default function ClientNotificationsPage() {
         if (!res.ok) return;
         const rows = await res.json();
         setDbNotifs(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          rows.map((r: any) => ({
+          rows.map((r: DbNotificationRow) => ({
             id: r.id,
             type: r.type,
             title: r.title,
@@ -60,12 +72,13 @@ export default function ClientNotificationsPage() {
             projectId: r.project_id,
           }))
         );
+        setLoading(false);
       } catch {
         // ignore
       }
     }
     loadDbNotifs();
-    const interval = setInterval(loadDbNotifs, 15000);
+    const interval = setInterval(loadDbNotifs, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -150,7 +163,11 @@ export default function ClientNotificationsPage() {
       />
 
       <div className="flex flex-col gap-6">
-        {groups.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+          </div>
+        ) : groups.length === 0 ? (
           <EmptyState
             icon={Bell}
             title={te("notificationsTitle")}
@@ -172,6 +189,9 @@ export default function ClientNotificationsPage() {
                       !notification.read && "bg-bg-secondary"
                     )}
                     onClick={() => handleNotificationClick(notification)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleNotificationClick(notification); } }}
                   >
                     <div
                       className={cn(

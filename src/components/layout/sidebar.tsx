@@ -88,7 +88,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       setUnread(count);
     }
     fetchOrgData();
-    const interval = setInterval(fetchOrgData, 10000);
+    const interval = setInterval(fetchOrgData, 30000);
     const handleRefresh = () => fetchOrgData();
     window.addEventListener("notifications-changed", handleRefresh);
     return () => {

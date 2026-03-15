@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { hasProjectAccess } from "@/lib/queries";
 import { getPool } from "@/lib/db";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationsForTeam } from "@/lib/notifications";
 
 /** GET /api/projects/[id]/approvals — list approval records. */
@@ -75,12 +75,21 @@ export async function POST(
     [id, phaseId || null, session.user.id, decision, comment || ""]
   );
 
-  // If client approved the entire project (no phaseId), update project status
-  if (decision === "approved" && !phaseId) {
-    await pool.query(
-      `UPDATE project SET status = 'completed', updated_at = now() WHERE id = $1`,
+  // Only mark project as completed when all phases have been approved
+  if (decision === "approved") {
+    const { rows: [phaseCheck] } = await pool.query(
+      `SELECT COUNT(*) AS total,
+              COUNT(*) FILTER (WHERE pp.status = 'completed') AS done
+       FROM project_phase pp WHERE pp.project_id = $1`,
       [id]
     );
+    const allPhasesComplete = Number(phaseCheck.total) > 0 && Number(phaseCheck.done) === Number(phaseCheck.total);
+    if (allPhasesComplete || !phaseId) {
+      await pool.query(
+        `UPDATE project SET status = 'completed', updated_at = now() WHERE id = $1`,
+        [id]
+      );
+    }
   }
 
   // Send email notifications to PM and architects on the project
@@ -106,10 +115,10 @@ export async function POST(
       : `Changes Requested: ${projectName}`;
 
     const body = decision === "approved"
-      ? `<p><strong>${clientName}</strong> has approved the project <strong>${projectName}</strong>.</p>
+      ? `<p><strong>${escapeHtml(clientName)}</strong> has approved the project <strong>${escapeHtml(projectName)}</strong>.</p>
          <p style="color: #16a34a; font-weight: 600;">✓ Final Approval Recorded</p>`
-      : `<p><strong>${clientName}</strong> has requested changes on the project <strong>${projectName}</strong>.</p>
-         ${comment ? `<p style="color: #666;">Comment: "${comment}"</p>` : ""}`;
+      : `<p><strong>${escapeHtml(clientName)}</strong> has requested changes on the project <strong>${escapeHtml(projectName)}</strong>.</p>
+         ${comment ? `<p style="color: #666;">Comment: "${escapeHtml(comment)}"</p>` : ""}`;
 
     for (const recipient of teamEmails) {
       sendNotificationEmail(recipient.email, subject, body);

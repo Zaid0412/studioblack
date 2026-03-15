@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getAttachments, hasProjectAccess } from "@/lib/queries";
+import { getAttachments, hasProjectAccess, verifyPhaseOwnership, verifyTaskOwnership } from "@/lib/queries";
 import { getPool } from "@/lib/db";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationsForTeam, createNotificationForClient } from "@/lib/notifications";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
@@ -57,6 +57,19 @@ export async function POST(
     );
   }
 
+  if (phaseId) {
+    const phaseOwned = await verifyPhaseOwnership(phaseId, id);
+    if (!phaseOwned) {
+      return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+    }
+  }
+  if (taskId) {
+    const taskOwned = await verifyTaskOwnership(taskId, id);
+    if (!taskOwned) {
+      return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+    }
+  }
+
   const pool = getPool();
   const { rows: [attachment] } = await pool.query(
     `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description)
@@ -75,9 +88,9 @@ export async function POST(
     if (proj?.client_email) {
       const uploaderName = session.user.name || session.user.email;
       const subject = `New Design Uploaded: ${proj.name}`;
-      const body = `<p><strong>${uploaderName}</strong> has uploaded a new file to your project <strong>${proj.name}</strong>.</p>
-        <p style="color: #666;">File: ${fileName}</p>
-        ${description ? `<p style="color: #666;">Description: ${description}</p>` : ""}
+      const body = `<p><strong>${escapeHtml(uploaderName)}</strong> has uploaded a new file to your project <strong>${escapeHtml(proj.name)}</strong>.</p>
+        <p style="color: #666;">File: ${escapeHtml(fileName)}</p>
+        ${description ? `<p style="color: #666;">Description: ${escapeHtml(description)}</p>` : ""}
         <p style="margin-top: 16px;"><a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/client-dashboard/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
       sendNotificationEmail(proj.client_email, subject, body);
     }
