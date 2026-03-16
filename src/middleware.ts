@@ -39,6 +39,6 @@ export const config = {
      * - /_next/static and /_next/image (Next.js internals)
      * - Static file extensions (images, fonts, favicon, etc.)
      */
-    "/((?!login|register|api/auth|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
+    "/((?!login|register|api/auth|api/proxy-file|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
   ],
 };

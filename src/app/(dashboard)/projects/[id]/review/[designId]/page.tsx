@@ -1,25 +1,11 @@
 "use client";
 
-import { use, useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import {
   ArrowLeft,
-  ChevronUp,
-  ChevronDown,
-  ChevronRight,
-  Minus,
-  Plus,
-  Maximize,
-  MousePointer2,
-  Highlighter,
-  SquareDashed,
-  Pencil,
-  StickyNote,
-  Eraser,
-  Info,
-  Pin,
-  MessageSquare,
   Download,
   ExternalLink,
   Ellipsis,
@@ -29,6 +15,9 @@ import {
   X,
   MessageCircle,
   Loader2,
+  Camera,
+  Printer,
+  Maximize,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -80,14 +69,42 @@ function isPdf(fileName: string): boolean {
   return getFileExtension(fileName) === "pdf";
 }
 
-const ANNOTATION_TOOLS = [
-  { icon: MousePointer2, label: "Select" },
-  { icon: Highlighter, label: "Highlight" },
-  { icon: SquareDashed, label: "Area Select" },
-  { icon: Pencil, label: "Draw" },
-  { icon: StickyNote, label: "Text Note" },
-  { icon: Eraser, label: "Eraser" },
-] as const;
+/** EmbedPDF dark theme matching StudioBlack design tokens. */
+const EMBEDPDF_THEME = {
+  preference: "dark" as const,
+  dark: {
+    accent: {
+      primary: "#F5C518",
+      primaryHover: "#D4A912",
+      primaryForeground: "#0D0D0D",
+    },
+    background: {
+      app: "#1A1A1A",
+      surface: "#242424",
+      surfaceAlt: "#1A1A1A",
+      elevated: "#2A2A2A",
+      input: "#2A2A2A",
+    },
+    foreground: {
+      primary: "#FFFFFF",
+      secondary: "#A0A0A0",
+      muted: "#666666",
+    },
+    border: {
+      default: "#333333",
+    },
+  },
+};
+
+/** Hide features from EmbedPDF that we handle in our own toolbar. */
+const DISABLED_CATEGORIES = [
+  "document-menu",
+  "document-print",
+  "document-open",
+  "document-close",
+  "document-export",
+  "document-protect",
+];
 
 /** Design review workspace with file viewer, annotation tools, and comments panel. */
 export default function DesignReviewPage({
@@ -100,24 +117,97 @@ export default function DesignReviewPage({
   const t = useTranslations("designReview");
   const tc = useTranslations("common");
 
+  const [activeFileId, setActiveFileId] = useState(designId);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [phaseFiles, setPhaseFiles] = useState<Attachment[]>([]);
   const [phaseName, setPhaseName] = useState<string>("");
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
-  const [activeToolIndex, setActiveToolIndex] = useState(0);
   const [commentsOpen, setCommentsOpen] = useState(true);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [reviewingAs, setReviewingAs] = useState<
     "approved" | "rejected" | null
   >(null);
+  const viewerRef = useRef<PDFViewerRef>(null);
 
-  const fetchAttachment = useCallback(async () => {
-    const res = await fetch(`/api/projects/${id}/attachments/${designId}`);
-    if (!res.ok) return null;
-    return (await res.json()) as Attachment;
-  }, [id, designId]);
+  // Close more menu on click outside
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
+        setMoreMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [moreMenuOpen]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function getPlugin(name: string): Promise<any> {
+    const registry = await viewerRef.current?.registry;
+    if (!registry) return null;
+    return registry.getPlugin(name)?.provides?.() ?? null;
+  }
+
+  async function handlePrint() {
+    try {
+      (await getPlugin("print"))?.print();
+    } catch (err) {
+      console.error("[handlePrint]", err);
+    }
+  }
+
+  async function handleScreenshot() {
+    try {
+      const capture = await getPlugin("capture");
+      if (!capture) return;
+      capture.toggleMarqueeCapture();
+    } catch (err) {
+      console.error("[handleScreenshot]", err);
+    }
+  }
+
+  async function handleFullscreen() {
+    try {
+      (await getPlugin("fullscreen"))?.toggleFullscreen();
+    } catch (err) {
+      console.error("[handleFullscreen]", err);
+    }
+  }
+
+  async function handleDownload() {
+    if (!attachment) return;
+    try {
+      const res = await fetch(
+        `/api/proxy-file?url=${encodeURIComponent(attachment.file_url)}`
+      );
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = attachment.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[handleDownload]", err);
+    }
+  }
+
+  const fetchAttachment = useCallback(
+    async (fileId: string) => {
+      const res = await fetch(`/api/projects/${id}/attachments/${fileId}`);
+      if (!res.ok) return null;
+      return (await res.json()) as Attachment;
+    },
+    [id]
+  );
 
   const fetchComments = useCallback(async () => {
     const res = await fetch(`/api/projects/${id}/comments`);
@@ -147,40 +237,60 @@ export default function DesignReviewPage({
     [id]
   );
 
+  const isInitialLoad = useRef(true);
+
+  // Fetch attachment + sidebar data whenever activeFileId changes
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      setLoading(true);
-      const [att, cmts] = await Promise.all([
-        fetchAttachment(),
-        fetchComments(),
-      ]);
+      const isFirst = isInitialLoad.current;
+      if (isFirst) {
+        isInitialLoad.current = false;
+        setLoading(true);
+      }
+
+      const att = await fetchAttachment(activeFileId);
       if (cancelled) return;
       setAttachment(att);
-      setComments(cmts);
 
-      if (att?.phase_id) {
-        const [files, name] = await Promise.all([
-          fetchPhaseFiles(att.phase_id),
-          fetchPhaseName(att.phase_id),
-        ]);
+      if (isFirst) {
+        const cmts = await fetchComments();
         if (cancelled) return;
-        setPhaseFiles(files);
-        setPhaseName(name);
+        setComments(cmts);
+
+        if (att?.phase_id) {
+          const [files, name] = await Promise.all([
+            fetchPhaseFiles(att.phase_id),
+            fetchPhaseName(att.phase_id),
+          ]);
+          if (cancelled) return;
+          setPhaseFiles(files);
+          setPhaseName(name);
+        }
       }
+
+      if (!isFirst && activeFileId !== designId) {
+        window.history.replaceState(
+          null,
+          "",
+          `/projects/${id}/review/${activeFileId}`
+        );
+      }
+
       setLoading(false);
     }
     load();
     return () => {
       cancelled = true;
     };
-  }, [fetchAttachment, fetchComments, fetchPhaseFiles, fetchPhaseName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFileId]);
 
   async function handleReview(status: "approved" | "rejected") {
     setReviewingAs(status);
     try {
       const res = await fetch(
-        `/api/projects/${id}/attachments/${designId}/review`,
+        `/api/projects/${id}/attachments/${activeFileId}/review`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -203,7 +313,7 @@ export default function DesignReviewPage({
             : t("rejectedDescription"),
         variant: status === "approved" ? "success" : "error",
       });
-      const updated = await fetchAttachment();
+      const updated = await fetchAttachment(activeFileId);
       if (updated) setAttachment(updated);
     } finally {
       setReviewingAs(null);
@@ -241,15 +351,21 @@ export default function DesignReviewPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full -m-8">
-        <Loader2 className="w-6 h-6 animate-spin text-[#A0A0A0]" />
+      <div
+        className="flex items-center justify-center -m-8"
+        style={{ height: "calc(100vh)" }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
       </div>
     );
   }
 
   if (!attachment) {
     return (
-      <div className="flex flex-col items-center justify-center h-full -m-8 gap-4">
+      <div
+        className="flex flex-col items-center justify-center -m-8 gap-4"
+        style={{ height: "calc(100vh)" }}
+      >
         <FileText className="w-12 h-12 text-[#666666]" />
         <p className="text-[#A0A0A0] text-sm">Attachment not found</p>
         <Button
@@ -268,15 +384,15 @@ export default function DesignReviewPage({
   const fileUrl = attachment.file_url;
 
   return (
-    <div className="flex h-full -m-8">
+    <div className="flex -m-8" style={{ height: "calc(100vh)" }}>
       {/* 1. Thumbnail Panel */}
       <div className="w-16 shrink-0 bg-[#0D0D0D] py-4 px-2 flex flex-col items-center gap-2 overflow-y-auto">
         {phaseFiles.map((file) => {
-          const isActive = file.id === designId;
+          const isActive = file.id === activeFileId;
           return (
             <button
               key={file.id}
-              onClick={() => router.push(`/projects/${id}/review/${file.id}`)}
+              onClick={() => setActiveFileId(file.id)}
               className={`w-12 h-14 rounded-sm flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
                 isActive
                   ? "bg-[#1A1A1A] border-2 border-[#F5C518]"
@@ -295,162 +411,162 @@ export default function DesignReviewPage({
 
       {/* 2. Center Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* 2a. Toolbar */}
-        <div className="h-12 shrink-0 bg-[#1A1A1A] border-b border-[#333333] px-4 flex items-center justify-between gap-4">
-          {/* Left: Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm min-w-0">
+        {/* 2a. App toolbar — blends with EmbedPDF toolbar below */}
+        <div className="h-10 shrink-0 bg-[#1A1A1A] px-3 flex items-center justify-between gap-2">
+          {/* Left: Back + filename */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               onClick={() => router.push(`/projects/${id}`)}
-              className="text-white hover:text-[#A0A0A0] transition-colors cursor-pointer shrink-0"
+              className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer shrink-0"
+              title="Back to project"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <span className="text-[#A0A0A0] shrink-0">Design</span>
-            <ChevronRight className="w-3 h-3 text-[#A0A0A0] shrink-0" />
-            {phaseName && (
-              <>
-                <span className="text-[#A0A0A0] truncate">{phaseName}</span>
-                <ChevronRight className="w-3 h-3 text-[#A0A0A0] shrink-0" />
-              </>
-            )}
-            <span className="text-white font-bold truncate">{fileName}</span>
+            <span className="text-white text-[13px] font-medium truncate">
+              {fileName}
+            </span>
           </div>
 
-          {/* Right: Toolbar actions */}
-          <div className="flex items-center gap-4 shrink-0">
-            {/* Page nav */}
-            <div className="flex items-center gap-1">
-              <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
-                <ChevronUp className="w-4 h-4" />
-              </button>
-              <span className="text-[#A0A0A0] text-xs whitespace-nowrap">
-                1 / 1
-              </span>
-              <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
-                <ChevronDown className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="w-px h-5 bg-[#333333]" />
-
-            {/* Zoom */}
-            <div className="flex items-center gap-1">
-              <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
-                <Minus className="w-4 h-4" />
-              </button>
-              <span className="text-[#A0A0A0] text-xs">100%</span>
-              <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
-                <Plus className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="w-px h-5 bg-[#333333]" />
-
-            {/* Maximize */}
-            <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
-              <Maximize className="w-4 h-4" />
+          {/* Right: Utility + Approve/Reject */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              className={`cursor-pointer transition-colors ${commentsOpen ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+              onClick={async () => {
+                const willOpen = !commentsOpen;
+                setCommentsOpen(willOpen);
+                try {
+                  const plugin = await getPlugin("annotation");
+                  plugin?.setActiveTool(willOpen ? "textComment" : null);
+                } catch (err) {
+                  console.error("[toggleComment]", err);
+                }
+              }}
+              title="Toggle comments panel"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleScreenshot}
+              className="text-[#A0A0A0] hover:text-white cursor-pointer"
+              title="Screenshot"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleDownload}
+              className="text-[#A0A0A0] hover:text-white cursor-pointer"
+              title="Download file"
+            >
+              <Download className="w-4 h-4" />
             </button>
 
-            <div className="w-px h-5 bg-[#333333]" />
-
-            {/* Annotation tools */}
-            <div className="flex items-center bg-[#242424] rounded-md p-1 gap-0.5">
-              {ANNOTATION_TOOLS.map((tool, idx) => {
-                const Icon = tool.icon;
-                const isActive = idx === activeToolIndex;
-                return (
-                  <button
-                    key={tool.label}
-                    onClick={() => setActiveToolIndex(idx)}
-                    className={`w-7 h-7 flex items-center justify-center rounded cursor-pointer transition-colors ${
-                      isActive
-                        ? "bg-[#F5C518] text-[#0D0D0D]"
-                        : "text-[#A0A0A0] hover:text-white"
-                    }`}
-                    title={tool.label}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="w-px h-5 bg-[#333333]" />
-
-            {/* Utility icons */}
-            <div className="flex items-center gap-2">
-              <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
-                <Info className="w-4 h-4" />
-              </button>
-              <button className="text-[#F5C518] cursor-pointer">
-                <Pin className="w-4 h-4" />
-              </button>
+            {/* More options dropdown */}
+            <div className="relative" ref={moreMenuRef}>
               <button
                 className="text-[#A0A0A0] hover:text-white cursor-pointer"
-                onClick={() => setCommentsOpen(!commentsOpen)}
+                title="More options"
+                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
               >
-                <MessageSquare className="w-4 h-4" />
-              </button>
-              <a
-                href={fileUrl}
-                download
-                className="text-[#A0A0A0] hover:text-white"
-              >
-                <Download className="w-4 h-4" />
-              </a>
-              <a
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#A0A0A0] hover:text-white"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-              <button className="text-[#A0A0A0] hover:text-white cursor-pointer">
                 <Ellipsis className="w-4 h-4" />
               </button>
+              {moreMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-[#242424] border border-[#333333] rounded-lg shadow-xl py-1 z-50">
+                  <button
+                    onClick={() => {
+                      handlePrint();
+                      setMoreMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleFullscreen();
+                      setMoreMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                  >
+                    <Maximize className="w-4 h-4" />
+                    Fullscreen
+                  </button>
+                  <a
+                    href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMoreMenuOpen(false)}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open in new tab
+                  </a>
+                </div>
+              )}
             </div>
 
             <div className="w-px h-5 bg-[#333333]" />
 
-            {/* Approve / Reject */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleReview("approved")}
-                disabled={reviewingAs !== null}
-                className="flex items-center gap-1.5 border border-[#22C55E] text-[#22C55E] rounded-lg px-3.5 py-2 text-sm font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {reviewingAs === "approved" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4" />
-                )}
-                {t("approve")}
-              </button>
-              <button
-                onClick={() => handleReview("rejected")}
-                disabled={reviewingAs !== null}
-                className="flex items-center gap-1.5 border border-[#EF4444] text-[#EF4444] rounded-lg px-3.5 py-2 text-sm font-medium hover:bg-[#EF4444]/10 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {reviewingAs === "rejected" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )}
-                {t("reject")}
-              </button>
-            </div>
+            <button
+              onClick={() => handleReview("approved")}
+              disabled={reviewingAs !== null}
+              className="flex items-center gap-1 border border-[#22C55E] text-[#22C55E] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {reviewingAs === "approved" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              )}
+              {t("approve")}
+            </button>
+            <button
+              onClick={() => handleReview("rejected")}
+              disabled={reviewingAs !== null}
+              className="flex items-center gap-1 border border-[#EF4444] text-[#EF4444] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#EF4444]/10 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {reviewingAs === "rejected" ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <XCircle className="w-3.5 h-3.5" />
+              )}
+              {t("reject")}
+            </button>
           </div>
         </div>
 
         {/* 2b. Document Viewer */}
-        <div className="flex-1 bg-[#1A1A1A] overflow-hidden flex items-center justify-center">
+        <div
+          className={`flex-1 min-h-0 bg-[#1A1A1A] overflow-hidden ${isPdf(fileName) ? "relative" : "flex items-center justify-center"}`}
+        >
           {isPdf(fileName) ? (
-            <iframe
-              src={fileUrl}
-              className="w-full h-full border-0"
-              title={fileName}
-            />
+            <div className="absolute inset-0">
+              <PDFViewer
+                key={activeFileId}
+                ref={viewerRef}
+                style={{ width: "100%", height: "100%" }}
+                config={{
+                  src: `/api/proxy-file?url=${encodeURIComponent(fileUrl)}`,
+                  wasmUrl: "/pdfium.wasm",
+                  worker: false,
+                  theme: EMBEDPDF_THEME,
+                  tabBar: "never",
+                  disabledCategories: DISABLED_CATEGORIES,
+                  annotations: {
+                    annotationAuthor: "StudioBlack User",
+                    autoCommit: true,
+                    selectAfterCreate: true,
+                  },
+                  permissions: {
+                    enforceDocumentPermissions: false,
+                    overrides: {
+                      print: true,
+                      copyContents: true,
+                      modifyAnnotations: true,
+                    },
+                  },
+                }}
+              />
+            </div>
           ) : isImage(fileName) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

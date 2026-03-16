@@ -101,7 +101,9 @@ export default async function DashboardLayout({
           variant={user.role === "pm" ? "pm" : "architect"}
           user={user}
         />
-        <main className="flex-1 overflow-y-auto p-8"><ErrorBoundary>{children}</ErrorBoundary></main>
+        <main className="flex-1 min-h-0 overflow-y-auto p-8">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </SidebarProvider>
   );
