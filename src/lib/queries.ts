@@ -1,15 +1,24 @@
 import { getPool } from "@/lib/db";
 
-/** The 8 fixed project phases — auto-created for every new project. */
+/** The 6 fixed project phases (file categories) — auto-created for every new project. */
 export const PROJECT_PHASES = [
-  "2D Layout + Look & Feel",
-  "3D Design Development & Budgetary BOQ",
-  "Services & Working Drawings",
-  "Material Selections",
-  "Detailed BOQ & Contractor Finalization",
-  "Site Work",
-  "Vendor & Accessories",
-  "Final Handover",
+  "2D Layout / Adaptation",
+  "3D Layout / Adaptation",
+  "Production Files",
+  "Section View",
+  "Plumbing Section View",
+  "Floor Plans",
+] as const;
+
+/** The 7 high-level workflow steps — auto-created for every new project. */
+export const PROJECT_STEPS = [
+  "Recce",
+  "Design",
+  "BOQ",
+  "Order",
+  "Work Progress",
+  "Snag",
+  "Finance",
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -28,7 +37,7 @@ interface CreateProjectInput {
   architectIds?: string[];
 }
 
-/** Create a project + 8 phases + member assignments in a single transaction. */
+/** Create a project + 6 phases + 7 steps + member assignments in a single transaction. */
 export async function createProjectWithPhases(input: CreateProjectInput) {
   const pool = getPool();
   const client = await pool.connect();
@@ -37,7 +46,9 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
     await client.query("BEGIN");
 
     // Insert project
-    const { rows: [project] } = await client.query(
+    const {
+      rows: [project],
+    } = await client.query(
       `INSERT INTO project (name, client_name, client_email, category, description, deadline, org_id, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
@@ -53,11 +64,24 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
       ]
     );
 
-    // Insert all 8 phases
+    // Insert 7 workflow steps
+    const stepIds: string[] = [];
+    for (let i = 0; i < PROJECT_STEPS.length; i++) {
+      const {
+        rows: [step],
+      } = await client.query(
+        `INSERT INTO project_step (project_id, name, step_order) VALUES ($1, $2, $3) RETURNING id`,
+        [project.id, PROJECT_STEPS[i], i + 1]
+      );
+      stepIds.push(step.id);
+    }
+
+    // Insert all 6 phases (linked to the "Design" step by default)
+    const designStepId = stepIds[1]; // "Design" is step index 1
     for (let i = 0; i < PROJECT_PHASES.length; i++) {
       await client.query(
-        `INSERT INTO project_phase (project_id, name, phase_order) VALUES ($1, $2, $3)`,
-        [project.id, PROJECT_PHASES[i], i + 1]
+        `INSERT INTO project_phase (project_id, name, phase_order, step_id) VALUES ($1, $2, $3, $4)`,
+        [project.id, PROJECT_PHASES[i], i + 1, designStepId]
       );
     }
 
@@ -125,10 +149,9 @@ export async function getProjectsByClientEmail(email: string) {
 /** Get a single project by ID with phases. */
 export async function getProjectById(projectId: string) {
   const pool = getPool();
-  const { rows: [project] } = await pool.query(
-    `SELECT * FROM project WHERE id = $1`,
-    [projectId]
-  );
+  const {
+    rows: [project],
+  } = await pool.query(`SELECT * FROM project WHERE id = $1`, [projectId]);
   if (!project) return null;
 
   const { rows: phases } = await pool.query(
@@ -143,7 +166,12 @@ export async function getProjectById(projectId: string) {
     [projectId]
   );
 
-  return { ...project, phases, members };
+  const { rows: steps } = await pool.query(
+    `SELECT * FROM project_step WHERE project_id = $1 ORDER BY step_order`,
+    [projectId]
+  );
+
+  return { ...project, phases, members, steps };
 }
 
 /** Get tasks for a phase, scoped to a project for security. */
@@ -162,7 +190,10 @@ export async function getPhaseTasks(phaseId: string, projectId: string) {
 }
 
 /** Verify a phase belongs to a project. */
-export async function verifyPhaseOwnership(phaseId: string, projectId: string): Promise<boolean> {
+export async function verifyPhaseOwnership(
+  phaseId: string,
+  projectId: string
+): Promise<boolean> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT 1 FROM project_phase WHERE id = $1 AND project_id = $2`,
@@ -172,7 +203,10 @@ export async function verifyPhaseOwnership(phaseId: string, projectId: string): 
 }
 
 /** Verify a task belongs to a project (via its phase). */
-export async function verifyTaskOwnership(taskId: string, projectId: string): Promise<boolean> {
+export async function verifyTaskOwnership(
+  taskId: string,
+  projectId: string
+): Promise<boolean> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT 1 FROM phase_task t
@@ -277,6 +311,132 @@ export async function getTasksByAssignee(userId: string) {
   );
   return rows;
 }
+
+// ---------------------------------------------------------------------------
+// Workflow Steps
+// ---------------------------------------------------------------------------
+
+/** Get workflow steps for a project. */
+export async function getProjectSteps(projectId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT * FROM project_step WHERE project_id = $1 ORDER BY step_order`,
+    [projectId]
+  );
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Attachment queries (versioning + review)
+// ---------------------------------------------------------------------------
+
+/** Get attachments for a specific phase, with uploader info. */
+export async function getAttachmentsByPhaseId(
+  phaseId: string,
+  projectId: string
+) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name
+     FROM attachment a
+     JOIN "user" u ON u.id = a.uploaded_by
+     LEFT JOIN "user" r ON r.id = a.reviewed_by
+     WHERE a.phase_id = $1 AND a.project_id = $2
+     ORDER BY a.created_at DESC`,
+    [phaseId, projectId]
+  );
+  return rows;
+}
+
+/** Get a single attachment by ID. */
+export async function getAttachmentById(
+  attachmentId: string,
+  projectId: string
+) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT a.*, u.name AS uploaded_by_name, r.name AS reviewed_by_name
+     FROM attachment a
+     JOIN "user" u ON u.id = a.uploaded_by
+     LEFT JOIN "user" r ON r.id = a.reviewed_by
+     WHERE a.id = $1 AND a.project_id = $2`,
+    [attachmentId, projectId]
+  );
+  return row || null;
+}
+
+/** Get all versions of a file (by version_group). */
+export async function getAttachmentVersionHistory(versionGroup: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT a.*, u.name AS uploaded_by_name
+     FROM attachment a
+     JOIN "user" u ON u.id = a.uploaded_by
+     WHERE a.version_group = $1
+     ORDER BY a.version DESC`,
+    [versionGroup]
+  );
+  return rows;
+}
+
+/** Update the review status of an attachment. */
+export async function updateAttachmentReviewStatus(
+  attachmentId: string,
+  status: string,
+  reviewedBy: string
+) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `UPDATE attachment SET review_status = $1, reviewed_by = $2 WHERE id = $3 RETURNING *`,
+    [status, reviewedBy, attachmentId]
+  );
+  return row;
+}
+
+/** Upload a new version of an existing file (same version_group, incremented version). */
+export async function uploadNewVersion(
+  versionGroup: string,
+  fileUrl: string,
+  fileName: string,
+  uploadedBy: string,
+  projectId: string,
+  phaseId: string | null
+) {
+  const pool = getPool();
+  // Get the current max version for this group
+  const {
+    rows: [{ max }],
+  } = await pool.query(
+    `SELECT COALESCE(MAX(version), 0) AS max FROM attachment WHERE version_group = $1`,
+    [versionGroup]
+  );
+  const nextVersion = (max as number) + 1;
+  const {
+    rows: [row],
+  } = await pool.query(
+    `INSERT INTO attachment (project_id, phase_id, uploaded_by, file_url, file_name, version, version_group)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING *`,
+    [
+      projectId,
+      phaseId,
+      uploadedBy,
+      fileUrl,
+      fileName,
+      nextVersion,
+      versionGroup,
+    ]
+  );
+  return row;
+}
+
+// ---------------------------------------------------------------------------
+// Access control
+// ---------------------------------------------------------------------------
 
 /** Check if a user has access to a project (org member or client). */
 export async function hasProjectAccess(

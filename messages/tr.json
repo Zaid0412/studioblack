@@ -113,7 +113,17 @@
     "viewProject": "Projeyi Görüntüle",
     "editProject": "Projeyi Düzenle",
     "uploadDesign": "Tasarım Yükle",
-    "deleteProject": "Projeyi Sil"
+    "deleteProject": "Projeyi Sil",
+    "category": "Kategori",
+    "stage": "Aşama",
+    "estimate": "Tahmin",
+    "updated": "Güncellendi",
+    "filterInProgress": "Devam Eden",
+    "filterReviewPending": "İnceleme Bekleyen",
+    "filterApproved": "Onaylanan",
+    "showingProjects": "{start}-{end} / {total} proje gösteriliyor",
+    "allStatus": "Tüm Durumlar",
+    "sortBy": "Sırala"
   },
   "projectDetail": {
     "title": "Proje Detayı",
@@ -123,11 +133,20 @@
     "uploadDesign": "Tasarım Yükle",
     "viewReview": "İncelemeyi Gör",
     "editButton": "Düzenle",
-    "clientLabel": "Müşteri:",
-    "statusLabel": "Durum:",
+    "clientLabel": "Müşteri",
+    "statusLabel": "Durum",
     "duePrefix": "Son tarih",
     "uploadedBy": "Yükleyen",
-    "emptyDesignSections": "Henüz tasarım bölümü yok. Başlamak için ilk tasarımınızı yükleyin."
+    "emptyDesignSections": "Henüz tasarım bölümü yok. Başlamak için ilk tasarımınızı yükleyin.",
+    "breadcrumbProjects": "Projeler",
+    "architects": "Mimarlar",
+    "created": "Oluşturulma",
+    "sections": "Bölümler",
+    "designReview": "Tasarım İnceleme",
+    "actionsButton": "İşlemler",
+    "fileName": "Dosya Adı",
+    "fileType": "Dosya Türü",
+    "uploadedOn": "Yüklenme Tarihi"
   },
   "designReview": {
     "title": "Tasarım İnceleme",

@@ -113,7 +113,17 @@
     "viewProject": "View Project",
     "editProject": "Edit Project",
     "uploadDesign": "Upload Design",
-    "deleteProject": "Delete Project"
+    "deleteProject": "Delete Project",
+    "category": "Category",
+    "stage": "Stage",
+    "estimate": "Estimate",
+    "updated": "Updated",
+    "filterInProgress": "In Progress",
+    "filterReviewPending": "Review Pending",
+    "filterApproved": "Approved",
+    "showingProjects": "Showing {start}-{end} of {total} projects",
+    "allStatus": "All Status",
+    "sortBy": "Sort by"
   },
   "projectDetail": {
     "title": "Project Detail",
@@ -123,11 +133,20 @@
     "uploadDesign": "Upload Design",
     "viewReview": "View Review",
     "editButton": "Edit",
-    "clientLabel": "Client:",
-    "statusLabel": "Status:",
+    "clientLabel": "Client",
+    "statusLabel": "Status",
     "duePrefix": "Due",
     "uploadedBy": "Uploaded by",
-    "emptyDesignSections": "No design sections yet. Upload your first design to get started."
+    "emptyDesignSections": "No design sections yet. Upload your first design to get started.",
+    "breadcrumbProjects": "Projects",
+    "architects": "Architects",
+    "created": "Created",
+    "sections": "Sections",
+    "designReview": "Design Review",
+    "actionsButton": "Actions",
+    "fileName": "Name of File",
+    "fileType": "Type of File",
+    "uploadedOn": "Uploaded On"
   },
   "designReview": {
     "title": "Design Review",
