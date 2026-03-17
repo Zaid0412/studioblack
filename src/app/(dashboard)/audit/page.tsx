@@ -2,28 +2,12 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  Upload,
-  ClipboardCheck,
-  CheckCircle2,
-  MessageSquare,
-  Star,
-  FolderOpen,
-  Search,
-} from "lucide-react";
+import { FolderOpen, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { activities } from "@/data/mock";
-
-const activityIcons: Record<string, typeof Upload> = {
-  upload: Upload,
-  review: ClipboardCheck,
-  approval: CheckCircle2,
-  comment: MessageSquare,
-  create: Star,
-  edit: FolderOpen,
-};
+import { activityIcons } from "@/lib/activity-constants";
 
 /** Audit history page with searchable activity table. */
 export default function AuditPage() {

@@ -162,3 +162,123 @@ export interface StatCard {
   /** Directional indicator that determines the change colour. */
   trend?: "up" | "down" | "neutral";
 }
+
+// ---------------------------------------------------------------------------
+// DB-facing types (used by dashboard pages)
+// ---------------------------------------------------------------------------
+
+/** Attachment record from the database. */
+export interface DbAttachment {
+  id: string;
+  file_url: string;
+  file_name: string;
+  description: string;
+  phase_id: string | null;
+  uploaded_by: string;
+  uploaded_by_name: string;
+  created_at: string;
+  version?: number;
+  version_group?: string;
+  review_status?: string;
+  reviewed_by_name?: string | null;
+  versions?: DbAttachment[];
+}
+
+/** Comment record from the database. */
+export interface DbComment {
+  id: string;
+  content: string;
+  user_id: string;
+  user_name: string;
+  user_role: string;
+  created_at: string;
+}
+
+/** Phase record from the database. */
+export interface DbPhase {
+  id: string;
+  name: string;
+  phase_order: number;
+  status?: string;
+}
+
+/** Workflow step record. */
+export interface DbStep {
+  id: string;
+  name: string;
+  step_order: number;
+  status: string;
+}
+
+/** Project team member record. */
+export interface DbMember {
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+/** Full project detail from the API. */
+export interface DbProjectDetail {
+  id: string;
+  name: string;
+  client_name: string | null;
+  client_email: string | null;
+  category: string;
+  status: string;
+  description: string;
+  deadline: string | null;
+  created_at: string;
+  phases: DbPhase[];
+  members: DbMember[];
+  steps?: DbStep[];
+}
+
+/** Project row from the projects list API. */
+export interface DbProjectRow {
+  id: string;
+  name: string;
+  client_name: string | null;
+  client_email: string | null;
+  category: string;
+  status: ProjectStatus;
+  deadline: string | null;
+  created_at: string;
+  updated_at?: string;
+  architect_ids: string[] | null;
+}
+
+/** Organisation member from better-auth. */
+export interface OrgMember {
+  id: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+  };
+}
+
+/** Organisation invitation from better-auth. */
+export interface OrgInvitation {
+  id: string;
+  email: string;
+  role: string | null;
+  status: string;
+  expiresAt: Date;
+}
+
+/** DB notification row from the notifications API. */
+export interface DbNotificationRow {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  read: boolean;
+  created_at: string;
+  project_id: string | null;
+  project_name: string | null;
+}

@@ -1,514 +1,64 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
-import { Camera, Lock, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
-import { ToggleSwitch } from "@/components/ui/toggle-switch";
-import { Separator } from "@/components/ui/separator";
-import { toast } from "@/components/ui/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { useLocale } from "next-intl";
-import { authClient } from "@/lib/auth-client";
-import { setLocale } from "@/lib/locale";
-import { deriveInitials } from "@/lib/utils";
-import { useTheme } from "@/components/theme-provider";
+import { useSettings } from "./_hooks/use-settings";
+import { ProfileSection } from "./_components/profile-section";
+import { PasswordSection } from "./_components/password-section";
+import { PreferencesSection } from "./_components/preferences-section";
+import { DangerZoneSection } from "./_components/danger-zone-section";
 
 /** User profile and preferences settings. */
 export default function SettingsPage() {
   const t = useTranslations("settings");
-  const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const { mode, toggleTheme } = useTheme();
-  const currentLocale = useLocale();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("pm");
-  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [emailNotif, setEmailNotif] = useState(true);
-  const [pushNotif, setPushNotif] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Sync form state when session loads
-  useEffect(() => {
-    if (session?.user) {
-      setName(session.user.name ?? "");
-      setRole((session.user.role as string) ?? "pm");
-      setAvatarUrl(session.user.image ?? undefined);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
-  }, [session?.user?.name, session?.user?.role, session?.user?.image]);
-
-  const initials = deriveInitials(name);
-  const email = session?.user?.email ?? "";
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast({
-        title: t("invalidFileType"),
-        description: t("invalidFileTypeDesc"),
-        variant: "error",
-      });
-      return;
-    }
-    if (file.size > 1 * 1024 * 1024) {
-      toast({
-        title: t("fileTooLarge"),
-        description: t("fileTooLargeDesc"),
-        variant: "error",
-      });
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/avatar", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error || t("uploadFailed"));
-      }
-
-      const { url } = await res.json();
-
-      // Save URL to user.image via better-auth
-      await authClient.updateUser({ image: url });
-
-      setAvatarUrl(url);
-      // Refresh server components so sidebar picks up the new avatar
-      router.refresh();
-
-      toast({
-        title: t("savedToast"),
-        description: t("avatarUpdated"),
-        variant: "success",
-      });
-    } catch {
-      toast({
-        title: t("error"),
-        description: t("avatarUploadError"),
-        variant: "error",
-      });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      await authClient.updateUser({ name });
-      router.refresh();
-      toast({
-        title: t("savedToast"),
-        description: t("savedDescription"),
-        variant: "success",
-      });
-    } catch {
-      toast({
-        title: t("error"),
-        description: t("saveProfileError"),
-        variant: "error",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const openFilePicker = () => fileInputRef.current?.click();
-
-  const handleChangePassword = async () => {
-    if (newPassword !== confirmNewPassword) {
-      toast({
-        title: t("error"),
-        description: t("passwordMismatch"),
-        variant: "error",
-      });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast({
-        title: t("error"),
-        description: t("passwordTooShort"),
-        variant: "error",
-      });
-      return;
-    }
-
-    setIsChangingPassword(true);
-    try {
-      const { error } = await authClient.changePassword({
-        currentPassword,
-        newPassword,
-        revokeOtherSessions: false,
-      });
-      if (error) {
-        toast({
-          title: t("error"),
-          description: t("passwordChangeError"),
-          variant: "error",
-        });
-        return;
-      }
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmNewPassword("");
-      toast({
-        title: t("passwordChanged"),
-        description: t("passwordChangedDesc"),
-        variant: "success",
-      });
-    } catch {
-      toast({
-        title: t("error"),
-        description: t("passwordChangeError"),
-        variant: "error",
-      });
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setIsDeleting(true);
-    try {
-      const { error } = await authClient.deleteUser({
-        callbackURL: "/login",
-      });
-      if (error) {
-        toast({
-          title: t("error"),
-          description: t("deleteError"),
-          variant: "error",
-        });
-        setIsDeleting(false);
-        return;
-      }
-      router.push("/login");
-    } catch {
-      toast({
-        title: t("error"),
-        description: t("deleteError"),
-        variant: "error",
-      });
-      setIsDeleting(false);
-    }
-  };
+  const settings = useSettings();
 
   return (
     <div className="flex flex-col gap-6 max-w-[700px]">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
-      {/* Profile section */}
-      <Card>
-        <div className="flex flex-col gap-6">
-          <h3 className="text-base font-semibold text-text-primary">
-            {t("profile")}
-          </h3>
+      <ProfileSection
+        name={settings.name}
+        setName={settings.setName}
+        role={settings.role}
+        setRole={settings.setRole}
+        email={settings.email}
+        initials={settings.initials}
+        avatarUrl={settings.avatarUrl}
+        isSaving={settings.isSaving}
+        isUploading={settings.isUploading}
+        fileInputRef={settings.fileInputRef}
+        handleAvatarChange={settings.handleAvatarChange}
+        handleSave={settings.handleSave}
+        openFilePicker={settings.openFilePicker}
+      />
 
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handleAvatarChange}
-          />
+      <PasswordSection
+        currentPassword={settings.currentPassword}
+        setCurrentPassword={settings.setCurrentPassword}
+        newPassword={settings.newPassword}
+        setNewPassword={settings.setNewPassword}
+        confirmNewPassword={settings.confirmNewPassword}
+        setConfirmNewPassword={settings.setConfirmNewPassword}
+        isChangingPassword={settings.isChangingPassword}
+        handleChangePassword={settings.handleChangePassword}
+      />
 
-          {/* Avatar */}
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0">
-              <div className={isUploading ? "opacity-50" : ""}>
-                <Avatar initials={initials} size="xl" src={avatarUrl} />
-              </div>
-              <button
-                onClick={openFilePicker}
-                disabled={isUploading}
-                className="absolute bottom-0 right-0 flex items-center justify-center w-7 h-7 rounded-full bg-bg-elevated border border-border-default text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-sm font-medium text-text-primary truncate">
-                {name}
-              </span>
-              <button
-                onClick={openFilePicker}
-                disabled={isUploading}
-                className="text-xs text-accent hover:text-accent-hover transition-colors cursor-pointer text-left"
-              >
-                {isUploading ? t("uploading") : t("changeAvatar")}
-              </button>
-            </div>
-          </div>
+      <PreferencesSection
+        emailNotif={settings.emailNotif}
+        setEmailNotif={settings.setEmailNotif}
+        pushNotif={settings.pushNotif}
+        setPushNotif={settings.setPushNotif}
+      />
 
-          <div className="flex flex-col gap-4">
-            <Input
-              label={t("fullName")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Input
-              label={t("email")}
-              type="email"
-              value={email}
-              disabled
-              className="cursor-not-allowed"
-            />
-
-            {/* Role dropdown */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-primary">
-                {t("role")}
-              </label>
-              <Select value={role} onValueChange={setRole} disabled>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pm">Project Manager</SelectItem>
-                  <SelectItem value="architect">Architect</SelectItem>
-                  <SelectItem value="client">Client</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Separator />
-
-          <Button
-            className="self-start"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? t("saving") : t("saveProfile")}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Change Password */}
-      <Card>
-        <div className="flex flex-col gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Lock className="w-4 h-4 text-text-muted" />
-              <h3 className="text-base font-semibold text-text-primary">
-                {t("changePassword")}
-              </h3>
-            </div>
-            <p className="text-sm text-text-muted">{t("changePasswordDesc")}</p>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <Input
-              label={t("currentPassword")}
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-            <Input
-              label={t("newPassword")}
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-            <Input
-              label={t("confirmNewPassword")}
-              type="password"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-          </div>
-
-          <Separator />
-
-          <Button
-            className="self-start"
-            onClick={handleChangePassword}
-            disabled={
-              !currentPassword ||
-              !newPassword ||
-              !confirmNewPassword ||
-              isChangingPassword
-            }
-          >
-            {isChangingPassword ? t("updatingPassword") : t("updatePassword")}
-          </Button>
-        </div>
-      </Card>
-
-      {/* Preferences */}
-      <Card>
-        <div className="flex flex-col gap-5">
-          <h3 className="text-base font-semibold text-text-primary">
-            {t("preferences")}
-          </h3>
-
-          <ToggleSwitch
-            label={t("emailNotifications")}
-            description={t("emailNotificationsDesc")}
-            checked={emailNotif}
-            onChange={setEmailNotif}
-          />
-          <ToggleSwitch
-            label={t("pushNotifications")}
-            description={t("pushNotificationsDesc")}
-            checked={pushNotif}
-            onChange={setPushNotif}
-          />
-          <ToggleSwitch
-            label={t("darkMode")}
-            description={t("darkModeDesc")}
-            checked={mode === "dark"}
-            onChange={() => toggleTheme()}
-          />
-
-          {/* Language selector */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-text-primary">
-                {t("language")}
-              </span>
-              <span className="text-xs text-text-muted">
-                {t("languageDesc")}
-              </span>
-            </div>
-            <Select
-              value={currentLocale}
-              onValueChange={async (value) => {
-                await setLocale(value);
-                window.location.reload();
-              }}
-            >
-              <SelectTrigger className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="tr">Türkçe</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </Card>
-
-      {/* Danger zone */}
-      <div className="rounded-xl border border-danger-border bg-danger-muted p-5">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <Trash2 className="w-5 h-5 text-danger" />
-            <h3 className="text-base font-semibold text-danger">
-              {t("deleteAccount")}
-            </h3>
-          </div>
-          <p className="text-sm text-text-muted">{t("deleteAccountDesc")}</p>
-          <Separator className="bg-danger-border" />
-          <Button
-            className="self-start bg-danger hover:bg-danger-hover text-white"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            {t("deleteAccount")}
-          </Button>
-        </div>
-      </div>
-
-      {/* Delete confirmation dialog */}
-      <Dialog
-        open={deleteOpen}
-        onOpenChange={(open) => {
-          setDeleteOpen(open);
-          if (!open) {
-            setDeleteConfirm("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-danger">
-              {t("deleteConfirmTitle")}
-            </DialogTitle>
-            <DialogDescription>{t("deleteConfirmDesc")}</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-primary">
-                {t("typeDelete")}
-              </label>
-              <Input
-                value={deleteConfirm}
-                onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder={t("deleteConfirmWord")}
-                autoComplete="off"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setDeleteOpen(false);
-                setDeleteConfirm("");
-              }}
-              disabled={isDeleting}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              className="bg-danger hover:bg-danger-hover text-white"
-              onClick={handleDeleteAccount}
-              disabled={
-                deleteConfirm !== t("deleteConfirmWord") ||
-                isDeleting
-              }
-            >
-              {isDeleting ? t("deleting") : t("deleteForever")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DangerZoneSection
+        deleteOpen={settings.deleteOpen}
+        setDeleteOpen={settings.setDeleteOpen}
+        deleteConfirm={settings.deleteConfirm}
+        setDeleteConfirm={settings.setDeleteConfirm}
+        isDeleting={settings.isDeleting}
+        handleDeleteAccount={settings.handleDeleteAccount}
+      />
     </div>
   );
 }

@@ -21,18 +21,7 @@ import { toast } from "@/components/ui/use-toast";
 import { authClient } from "@/lib/auth-client";
 import { deriveInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-
-interface OrgMember {
-  id: string;
-  userId: string;
-  role: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    image?: string;
-  };
-}
+import type { OrgMember } from "@/types";
 
 /** Create new project form. */
 export default function CreateProjectPage() {
@@ -142,7 +131,9 @@ export default function CreateProjectPage() {
               toast({
                 title: tc("error") ?? "Error",
                 description:
-                  err instanceof Error ? err.message : "Failed to create project",
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to create project",
                 variant: "error",
               });
             } finally {

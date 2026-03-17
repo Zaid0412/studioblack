@@ -20,18 +20,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { toast } from "@/components/ui/use-toast";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import type { Notification } from "@/types";
-
-interface DbNotificationRow {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  read: boolean;
-  created_at: string;
-  project_id: string | null;
-  project_name: string | null;
-}
+import { formatTimeShort } from "@/lib/format-time";
+import type { Notification, DbNotificationRow } from "@/types";
 
 const typeIcons: Record<string, typeof Bell> = {
   invitation: UserPlus,
@@ -135,7 +125,8 @@ export default function NotificationsPage() {
             id: r.id,
             type: r.type,
             title: r.title,
-            description: r.description + (r.project_name ? ` · ${r.project_name}` : ""),
+            description:
+              r.description + (r.project_name ? ` · ${r.project_name}` : ""),
             read: r.read,
             createdAt: r.created_at,
             projectId: r.project_id,
@@ -220,7 +211,11 @@ export default function NotificationsPage() {
 
   const handleNotificationClick = async (notification: Notification) => {
     // Mark as read if it's a DB notification (has UUID format id)
-    if (!notification.read && !notification.id.startsWith("recv-") && !notification.id.startsWith("sent-")) {
+    if (
+      !notification.read &&
+      !notification.id.startsWith("recv-") &&
+      !notification.id.startsWith("sent-")
+    ) {
       await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -327,12 +322,18 @@ export default function NotificationsPage() {
                     onClick={() => handleNotificationClick(notification)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleNotificationClick(notification); } }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleNotificationClick(notification);
+                      }
+                    }}
                   >
                     <div
                       className={cn(
                         "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
-                        typeColors[notification.type] || "bg-bg-elevated text-text-muted"
+                        typeColors[notification.type] ||
+                          "bg-bg-elevated text-text-muted"
                       )}
                     >
                       <Icon className="w-4 h-4" />
@@ -396,13 +397,4 @@ export default function NotificationsPage() {
       </div>
     </div>
   );
-}
-
-function formatTimeShort(timestamp: string): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
 }

@@ -7,9 +7,6 @@ import {
   ClipboardCheck,
   CheckCircle2,
   Users,
-  Upload,
-  MessageSquare,
-  Star,
   Calendar,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,6 +16,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { activities, projects } from "@/data/mock";
 import { authClient } from "@/lib/auth-client";
+import { activityIcons, activityColors } from "@/lib/activity-constants";
+import { formatTimeAgo } from "@/lib/format-time";
 
 /** Architect dashboard with stats, projects, and activity feed. */
 export default function DashboardPage() {
@@ -59,24 +58,6 @@ export default function DashboardPage() {
       icon: Users,
     },
   ];
-
-  const activityIcons: Record<string, typeof Upload> = {
-    upload: Upload,
-    review: ClipboardCheck,
-    approval: CheckCircle2,
-    comment: MessageSquare,
-    create: Star,
-    edit: FolderOpen,
-  };
-
-  const activityColors: Record<string, string> = {
-    upload: "bg-status-submitted/10 text-status-submitted",
-    review: "bg-info/10 text-info",
-    approval: "bg-success/10 text-success",
-    comment: "bg-accent/10 text-accent",
-    create: "bg-warning/10 text-warning",
-    edit: "bg-status-draft/10 text-text-secondary",
-  };
 
   // Upcoming deadlines from projects
   const deadlines = projects
@@ -213,31 +194,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
-
-/**
- * Converts an ISO timestamp into a human-readable relative time string.
- *
- * Returns localised labels via the supplied `t` function:
- * - < 1 hour  → "Just now"
- * - < 24 hours → "X hours ago"
- * - < 7 days  → "X days ago"
- * - ≥ 7 days  → formatted date (e.g. "Mar 9")
- */
-
-function formatTimeAgo(
-  timestamp: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: (key: string, values?: Record<string, any>) => string
-): string {
-  const now = new Date();
-  const date = new Date(timestamp);
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffHours < 1) return t("justNow");
-  if (diffHours < 24) return t("hoursAgo", { count: diffHours });
-  if (diffDays < 7) return t("daysAgo", { count: diffDays });
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }

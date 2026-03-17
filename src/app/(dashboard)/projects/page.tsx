@@ -26,42 +26,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { ProjectStatus } from "@/types";
-
-interface ProjectRow {
-  id: string;
-  name: string;
-  client_name: string | null;
-  client_email: string | null;
-  category: string;
-  status: ProjectStatus;
-  deadline: string | null;
-  created_at: string;
-  updated_at?: string;
-  architect_ids: string[] | null;
-}
+import type { DbProjectRow } from "@/types";
+import { relativeTime } from "@/lib/format-time";
 
 type FilterTab = "all" | "active" | "completed" | "draft";
 
 const PAGE_SIZE = 10;
-
-/** Format a date string as relative time. */
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const diffMin = Math.floor(diffMs / 60000);
-  const diffHrs = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMin < 60) return `${Math.max(1, diffMin)}m ago`;
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
@@ -71,7 +41,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [projects, setProjects] = useState<DbProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
