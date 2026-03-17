@@ -22,7 +22,8 @@
     "justNow": "Just now",
     "hoursAgo": "{count}h ago",
     "daysAgo": "{count}d ago",
-    "on": "on"
+    "on": "on",
+    "error": "Error"
   },
   "auth": {
     "login": "Login",
@@ -193,7 +194,11 @@
     "changesRequested": "Changes Requested",
     "commentPlaceholder": "Share your feedback with the design team...",
     "comments": "Comments",
-    "designPreview": "Design Document Preview"
+    "designPreview": "Design Document Preview",
+    "approvedToast": "Design Approved",
+    "approvedDescription": "Your approval has been recorded.",
+    "changesRequestedToast": "Changes Requested",
+    "changesRequestedDescription": "Your feedback has been sent to the design team."
   },
   "createProject": {
     "title": "Create New Project",

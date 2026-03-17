@@ -22,7 +22,8 @@
     "justNow": "Az önce",
     "hoursAgo": "{count} saat önce",
     "daysAgo": "{count} gün önce",
-    "on": "tarihinde"
+    "on": "tarihinde",
+    "error": "Hata"
   },
   "auth": {
     "login": "Giriş Yap",
@@ -193,7 +194,11 @@
     "changesRequested": "Değişiklik İstendi",
     "commentPlaceholder": "Tasarım ekibiyle geri bildiriminizi paylaşın...",
     "comments": "Yorumlar",
-    "designPreview": "Tasarım Belgesi Önizleme"
+    "designPreview": "Tasarım Belgesi Önizleme",
+    "approvedToast": "Tasarım Onaylandı",
+    "approvedDescription": "Onayınız kaydedildi.",
+    "changesRequestedToast": "Değişiklik İstendi",
+    "changesRequestedDescription": "Geri bildiriminiz tasarım ekibine iletildi."
   },
   "createProject": {
     "title": "Yeni Proje Oluştur",

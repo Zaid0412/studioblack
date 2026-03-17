@@ -11,7 +11,6 @@ import {
   Clock,
   AlertCircle,
   FileText,
-  Download,
   Paperclip,
   MessageSquare,
   Send,
@@ -388,12 +387,14 @@ export default function ClientProjectDetailPage({
                     {phaseFiles.length > 0 && (
                       <div className="flex flex-col gap-2 pl-7 border-t border-border-default pt-3">
                         {phaseFiles.map((att) => (
-                          <a
+                          <button
                             key={att.id}
-                            href={att.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 rounded-lg bg-bg-primary px-3 py-2 hover:bg-bg-elevated transition-colors group"
+                            onClick={() =>
+                              router.push(
+                                `/client-dashboard/projects/${id}/review/${att.id}`
+                              )
+                            }
+                            className="flex items-center gap-3 rounded-lg bg-bg-primary px-3 py-2 hover:bg-bg-elevated transition-colors group text-left cursor-pointer w-full"
                           >
                             <FileText className="w-4 h-4 text-accent shrink-0" />
                             <div className="flex flex-col flex-1 min-w-0">
@@ -416,8 +417,8 @@ export default function ClientProjectDetailPage({
                                 )}
                               </span>
                             </div>
-                            <Download className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </a>
+                            <FileText className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          </button>
                         ))}
                       </div>
                     )}
@@ -435,12 +436,14 @@ export default function ClientProjectDetailPage({
           <h3 className="text-sm font-semibold text-text-primary">Documents</h3>
           <div className="flex flex-col gap-2">
             {projectLevelAttachments.map((att) => (
-              <a
+              <button
                 key={att.id}
-                href={att.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg bg-bg-elevated px-4 py-3 hover:bg-bg-elevated/80 transition-colors group"
+                onClick={() =>
+                  router.push(
+                    `/client-dashboard/projects/${id}/review/${att.id}`
+                  )
+                }
+                className="flex items-center gap-3 rounded-lg bg-bg-elevated px-4 py-3 hover:bg-bg-elevated/80 transition-colors group text-left cursor-pointer w-full"
               >
                 <FileText className="w-4 h-4 text-accent shrink-0" />
                 <div className="flex flex-col flex-1 min-w-0">
@@ -460,8 +463,8 @@ export default function ClientProjectDetailPage({
                     })}
                   </span>
                 </div>
-                <Download className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-              </a>
+                <FileText className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </button>
             ))}
           </div>
         </div>

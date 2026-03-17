@@ -91,6 +91,7 @@ export default function DesignReviewPage({
           fileName={fileName}
           fileUrl={fileUrl}
           viewerRef={viewerRef}
+          annotations
         />
       </div>
 
