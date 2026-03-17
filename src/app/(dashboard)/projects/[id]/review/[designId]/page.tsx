@@ -78,8 +78,6 @@ export default function DesignReviewPage({
           fileUrl={fileUrl}
           commentsOpen={review.commentsOpen}
           setCommentsOpen={review.setCommentsOpen}
-          reviewingAs={review.reviewingAs}
-          handleReview={review.handleReview}
           handleScreenshot={plugins.handleScreenshot}
           handleDownload={plugins.handleDownload}
           handlePrint={plugins.handlePrint}

@@ -29,6 +29,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Only clients can approve/reject designs
+  if (session.user.role !== "client") {
+    return NextResponse.json(
+      { error: "Only clients can review designs" },
+      { status: 403 }
+    );
+  }
+
   const { status } = await req.json();
   if (!status || !VALID_STATUSES.includes(status)) {
     return NextResponse.json(

@@ -8,10 +8,7 @@ import {
   Download,
   ExternalLink,
   Ellipsis,
-  CheckCircle2,
-  XCircle,
   MessageCircle,
-  Loader2,
   Camera,
   Printer,
   Maximize,
@@ -23,8 +20,6 @@ interface ReviewToolbarProps {
   fileUrl: string;
   commentsOpen: boolean;
   setCommentsOpen: (open: boolean) => void;
-  reviewingAs: "approved" | "rejected" | null;
-  handleReview: (status: "approved" | "rejected") => void;
   handleScreenshot: () => void;
   handleDownload: () => void;
   handlePrint: () => void;
@@ -42,8 +37,6 @@ export function ReviewToolbar({
   fileUrl,
   commentsOpen,
   setCommentsOpen,
-  reviewingAs,
-  handleReview,
   handleScreenshot,
   handleDownload,
   handlePrint,
@@ -164,33 +157,6 @@ export function ReviewToolbar({
             </div>
           )}
         </div>
-
-        <div className="w-px h-5 bg-[#333333]" />
-
-        <button
-          onClick={() => handleReview("approved")}
-          disabled={reviewingAs !== null}
-          className="flex items-center gap-1 border border-[#22C55E] text-[#22C55E] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {reviewingAs === "approved" ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <CheckCircle2 className="w-3.5 h-3.5" />
-          )}
-          {t("approve")}
-        </button>
-        <button
-          onClick={() => handleReview("rejected")}
-          disabled={reviewingAs !== null}
-          className="flex items-center gap-1 border border-[#EF4444] text-[#EF4444] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#EF4444]/10 transition-colors cursor-pointer disabled:opacity-50"
-        >
-          {reviewingAs === "rejected" ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : (
-            <XCircle className="w-3.5 h-3.5" />
-          )}
-          {t("reject")}
-        </button>
       </div>
     </div>
   );

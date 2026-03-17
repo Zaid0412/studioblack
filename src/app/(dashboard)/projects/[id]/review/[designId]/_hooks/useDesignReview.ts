@@ -29,9 +29,6 @@ export function useDesignReview({
   const [loading, setLoading] = useState(true);
   const [filesLoading, setFilesLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [reviewingAs, setReviewingAs] = useState<
-    "approved" | "rejected" | null
-  >(null);
 
   const fetchAttachment = useCallback(
     async (fileId: string) => {
@@ -133,40 +130,6 @@ export function useDesignReview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId]);
 
-  async function handleReview(status: "approved" | "rejected") {
-    setReviewingAs(status);
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/attachments/${activeFileId}/review`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        }
-      );
-      if (!res.ok) {
-        toast({
-          title: "Error",
-          description: "Failed to update review status.",
-          variant: "error",
-        });
-        return;
-      }
-      toast({
-        title: status === "approved" ? t("approvedToast") : t("rejectedToast"),
-        description:
-          status === "approved"
-            ? t("approvedDescription")
-            : t("rejectedDescription"),
-        variant: status === "approved" ? "success" : "error",
-      });
-      const updated = await fetchAttachment(activeFileId);
-      if (updated) setAttachment(updated);
-    } finally {
-      setReviewingAs(null);
-    }
-  }
-
   async function handlePostComment() {
     if (!newComment.trim()) return;
     setSubmittingComment(true);
@@ -210,8 +173,6 @@ export function useDesignReview({
     setCommentsOpen,
     loading,
     submittingComment,
-    reviewingAs,
-    handleReview,
     handlePostComment,
   };
 }
