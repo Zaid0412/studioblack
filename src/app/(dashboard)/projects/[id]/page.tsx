@@ -3,13 +3,13 @@
 import { use } from "react";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
-import { useProjectDetail } from "./_hooks/use-project-detail";
-import { ProjectHeader } from "./_components/project-header";
-import { MetaBar } from "./_components/meta-bar";
-import { WorkflowBar } from "./_components/workflow-bar";
-import { PhaseTabs } from "./_components/phase-tabs";
-import { FileTable } from "./_components/file-table";
-import { CommentsSection } from "./_components/comments-section";
+import { useProjectDetail } from "./_hooks/useProjectDetail";
+import { ProjectHeader } from "./_components/ProjectHeader";
+import { MetaBar } from "./_components/MetaBar";
+import { WorkflowBar } from "./_components/WorkflowBar";
+import { PhaseTabs } from "./_components/PhaseTabs";
+import { FileTable } from "./_components/FileTable";
+import { CommentsSection } from "./_components/CommentsSection";
 
 /** Project detail page — workflow steps, phase tabs, file table. */
 export default function ProjectDetailPage({

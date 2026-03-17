@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdownMenu";
+} from "@/components/ui/DropdownMenu";
 
 interface FileContextMenuProps {
   onEdit?: () => void;

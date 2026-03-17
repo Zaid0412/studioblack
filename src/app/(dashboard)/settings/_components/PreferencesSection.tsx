@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Card } from "@/components/ui/card";
-import { ToggleSwitch } from "@/components/ui/toggleSwitch";
+import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import {
   Select,
   SelectTrigger,
@@ -11,7 +11,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { useTheme } from "@/components/themeProvider";
+import { useTheme } from "@/components/ThemeProvider";
 import { setLocale } from "@/lib/locale";
 
 interface PreferencesSectionProps {

@@ -13,8 +13,8 @@ import {
   ChevronsLeft,
   CheckSquare,
 } from "lucide-react";
-import { NavItem } from "./nav-item";
-import { useSidebar } from "./sidebar-context";
+import { NavItem } from "./NavItem";
+import { useSidebar } from "./SidebarContext";
 import { Avatar } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -25,7 +25,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types";
 
@@ -161,7 +161,11 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
           },
         ]
       : []),
-    { href: "/client-dashboard/settings", label: t("settings"), icon: Settings },
+    {
+      href: "/client-dashboard/settings",
+      label: t("settings"),
+      icon: Settings,
+    },
   ];
 
   const navMap = { pm: pmNav, architect: architectNav, client: clientNav };

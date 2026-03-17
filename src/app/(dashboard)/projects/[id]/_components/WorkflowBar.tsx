@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { WorkflowSteps } from "@/components/project/workflowSteps";
+import { WorkflowSteps } from "@/components/project/WorkflowSteps";
 import type { DbStep } from "@/types";
 
 interface WorkflowBarProps {

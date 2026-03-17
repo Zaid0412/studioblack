@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { SidebarProvider } from "@/components/layout/sidebar-context";
+import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { deriveInitials } from "@/lib/utils";
 import type { User } from "@/types";
 

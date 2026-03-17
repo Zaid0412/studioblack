@@ -19,13 +19,20 @@ import {
   History,
   ClipboardCheck,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { deriveInitials } from "@/lib/utils";
 
 interface Phase {
@@ -152,13 +159,21 @@ export default function ClientProjectDetailPage({
         return res.json();
       }),
     ])
-      .then(([projectData, attachmentData, commentData, approvalData, pendingTaskData]) => {
-        setProject(projectData);
-        setAttachments(attachmentData);
-        setComments(commentData);
-        setApprovals(approvalData);
-        setPendingTasks(pendingTaskData);
-      })
+      .then(
+        ([
+          projectData,
+          attachmentData,
+          commentData,
+          approvalData,
+          pendingTaskData,
+        ]) => {
+          setProject(projectData);
+          setAttachments(attachmentData);
+          setComments(commentData);
+          setApprovals(approvalData);
+          setPendingTasks(pendingTaskData);
+        }
+      )
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [id]);
@@ -185,7 +200,10 @@ export default function ClientProjectDetailPage({
     }
   };
 
-  const handleDecision = async (decision: "approved" | "changes_requested", comment?: string) => {
+  const handleDecision = async (
+    decision: "approved" | "changes_requested",
+    comment?: string
+  ) => {
     if (submittingDecision) return;
     setSubmittingDecision(true);
     try {
@@ -197,8 +215,10 @@ export default function ClientProjectDetailPage({
       if (res.ok) {
         // Refetch approvals and project (status may have changed)
         const [updatedApprovals, updatedProject] = await Promise.all([
-          fetch(`/api/projects/${id}/approvals`).then((r) => r.ok ? r.json() : []),
-          fetch(`/api/projects/${id}`).then((r) => r.ok ? r.json() : null),
+          fetch(`/api/projects/${id}/approvals`).then((r) =>
+            r.ok ? r.json() : []
+          ),
+          fetch(`/api/projects/${id}`).then((r) => (r.ok ? r.json() : null)),
         ]);
         setApprovals(updatedApprovals);
         if (updatedProject) setProject(updatedProject);
@@ -208,7 +228,11 @@ export default function ClientProjectDetailPage({
     }
   };
 
-  const handleTaskReview = async (taskId: string, action: "approved" | "changes_requested", comment?: string) => {
+  const handleTaskReview = async (
+    taskId: string,
+    action: "approved" | "changes_requested",
+    comment?: string
+  ) => {
     setReviewingTaskId(taskId);
     try {
       const res = await fetch(`/api/projects/${id}/tasks/${taskId}/review`, {
@@ -271,13 +295,19 @@ export default function ClientProjectDetailPage({
       <div className="flex items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-text-muted">{t("statusLabel")}</span>
-          <Badge variant={statusToBadgeVariant(project.status as Parameters<typeof statusToBadgeVariant>[0])}>
+          <Badge
+            variant={statusToBadgeVariant(
+              project.status as Parameters<typeof statusToBadgeVariant>[0]
+            )}
+          >
             {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
           </Badge>
         </div>
         <div className="flex items-center gap-2 text-text-muted">
           <span>Category:</span>
-          <span className="text-text-primary capitalize">{project.category}</span>
+          <span className="text-text-primary capitalize">
+            {project.category}
+          </span>
         </div>
         {project.deadline && (
           <div className="flex items-center gap-2 text-text-muted">
@@ -348,7 +378,8 @@ export default function ClientProjectDetailPage({
                       {phaseFiles.length > 0 && (
                         <span className="text-xs text-text-muted flex items-center gap-1">
                           <Paperclip className="w-3 h-3" />
-                          {phaseFiles.length} file{phaseFiles.length !== 1 ? "s" : ""}
+                          {phaseFiles.length} file
+                          {phaseFiles.length !== 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
@@ -376,10 +407,13 @@ export default function ClientProjectDetailPage({
                               )}
                               <span className="text-[11px] text-text-muted">
                                 Uploaded by {att.uploaded_by_name} &middot;{" "}
-                                {new Date(att.created_at).toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                })}
+                                {new Date(att.created_at).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                  }
+                                )}
                               </span>
                             </div>
                             <Download className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -398,9 +432,7 @@ export default function ClientProjectDetailPage({
       {/* Project-level attachments (not tied to a phase) */}
       {projectLevelAttachments.length > 0 && (
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Documents
-          </h3>
+          <h3 className="text-sm font-semibold text-text-primary">Documents</h3>
           <div className="flex flex-col gap-2">
             {projectLevelAttachments.map((att) => (
               <a
@@ -486,7 +518,9 @@ export default function ClientProjectDetailPage({
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => handleTaskReview(task.id, "changes_requested")}
+                      onClick={() =>
+                        handleTaskReview(task.id, "changes_requested")
+                      }
                       disabled={reviewingTaskId === task.id}
                       className="flex-1"
                     >
@@ -502,38 +536,41 @@ export default function ClientProjectDetailPage({
       )}
 
       {/* Approval decision — only show when project is active but NO pending task reviews (general project-level approval) */}
-      {project.status !== "completed" && pendingTasks.length === 0 && attachments.length > 0 && (
-        <div className="flex flex-col gap-3 p-5 rounded-xl border border-border-default bg-bg-elevated">
-          <h3 className="text-sm font-semibold text-text-primary">
-            Your Decision
-          </h3>
-          <p className="text-xs text-text-muted">
-            Review the project documents above, then approve or request changes.
-          </p>
-          <div className="flex gap-3">
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => handleDecision("approved")}
-              disabled={submittingDecision}
-              className="flex-1"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              {submittingDecision ? "Submitting..." : "Approve"}
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setChangesDialogOpen(true)}
-              disabled={submittingDecision}
-              className="flex-1"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Request Changes
-            </Button>
+      {project.status !== "completed" &&
+        pendingTasks.length === 0 &&
+        attachments.length > 0 && (
+          <div className="flex flex-col gap-3 p-5 rounded-xl border border-border-default bg-bg-elevated">
+            <h3 className="text-sm font-semibold text-text-primary">
+              Your Decision
+            </h3>
+            <p className="text-xs text-text-muted">
+              Review the project documents above, then approve or request
+              changes.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => handleDecision("approved")}
+                disabled={submittingDecision}
+                className="flex-1"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                {submittingDecision ? "Submitting..." : "Approve"}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setChangesDialogOpen(true)}
+                disabled={submittingDecision}
+                className="flex-1"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Request Changes
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Request Changes Dialog */}
       <Dialog open={changesDialogOpen} onOpenChange={setChangesDialogOpen}>

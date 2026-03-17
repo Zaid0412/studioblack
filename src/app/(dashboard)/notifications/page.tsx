@@ -14,13 +14,13 @@ import {
   ListChecks,
   Loader2,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { toast } from "@/components/ui/use-toast";
-import { authClient } from "@/lib/auth-client";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { toast } from "@/components/ui/useToast";
+import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
-import { formatTimeShort } from "@/lib/format-time";
+import { formatTimeShort } from "@/lib/formatTime";
 import type { Notification, DbNotificationRow } from "@/types";
 
 const typeIcons: Record<string, typeof Bell> = {

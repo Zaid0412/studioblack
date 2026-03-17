@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { FolderOpen, Search } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/empty-state";
-import { SearchInput } from "@/components/ui/search-input";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SearchInput } from "@/components/ui/SearchInput";
 import { activities } from "@/data/mock";
-import { activityIcons } from "@/lib/activity-constants";
+import { activityIcons } from "@/lib/activityConstants";
 
 /** Audit history page with searchable activity table. */
 export default function AuditPage() {

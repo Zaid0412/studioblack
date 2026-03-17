@@ -4,7 +4,7 @@ import { use, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, AlertTriangle, Send, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Avatar } from "@/components/ui/avatar";
 import { comments } from "@/data/mock";
 import { branding } from "@/config/branding";

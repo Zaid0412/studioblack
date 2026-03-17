@@ -2,15 +2,15 @@
 
 import { useTranslations } from "next-intl";
 import { UserPlus, LogOut } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { useOrganisation } from "./_hooks/use-organisation";
-import { CreateOrgForm } from "./_components/create-org-form";
-import { OrgDetailsCard } from "./_components/org-details-card";
-import { MembersList } from "./_components/members-list";
-import { PendingInvitations } from "./_components/pending-invitations";
-import { InviteDialog } from "./_components/invite-dialog";
-import { LeaveDialog } from "./_components/leave-dialog";
+import { useOrganisation } from "./_hooks/useOrganisation";
+import { CreateOrgForm } from "./_components/CreateOrgForm";
+import { OrgDetailsCard } from "./_components/OrgDetailsCard";
+import { MembersList } from "./_components/MembersList";
+import { PendingInvitations } from "./_components/PendingInvitations";
+import { InviteDialog } from "./_components/InviteDialog";
+import { LeaveDialog } from "./_components/LeaveDialog";
 
 /** Organisation management page — create org, invite & manage members. */
 export default function OrganisationPage() {

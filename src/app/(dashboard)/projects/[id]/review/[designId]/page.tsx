@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDesignReview } from "./_hooks/use-design-review";
-import { usePdfPlugins } from "./_hooks/use-pdf-plugins";
-import { ThumbnailPanel } from "./_components/thumbnail-panel";
-import { ReviewToolbar } from "./_components/review-toolbar";
-import { DocumentViewer } from "./_components/document-viewer";
-import { CommentsPanel } from "./_components/comments-panel";
+import { useDesignReview } from "./_hooks/useDesignReview";
+import { usePdfPlugins } from "./_hooks/usePdfPlugins";
+import { ThumbnailPanel } from "./_components/ThumbnailPanel";
+import { ReviewToolbar } from "./_components/ReviewToolbar";
+import { DocumentViewer } from "./_components/DocumentViewer";
+import { CommentsPanel } from "./_components/CommentsPanel";
 
 /** Design review workspace with file viewer, annotation tools, and comments panel. */
 export default function DesignReviewPage({

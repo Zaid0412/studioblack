@@ -4,10 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Plus, X, Check } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -17,8 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from "@/components/ui/use-toast";
-import { authClient } from "@/lib/auth-client";
+import { toast } from "@/components/ui/useToast";
+import { authClient } from "@/lib/authClient";
 import { deriveInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { OrgMember } from "@/types";

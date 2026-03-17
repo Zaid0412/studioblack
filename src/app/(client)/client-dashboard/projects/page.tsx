@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { FolderOpen, Calendar, Loader2 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 
 interface ClientProject {
@@ -19,6 +19,9 @@ interface ClientProject {
   created_at: string;
 }
 
+/**
+ *
+ */
 export default function ClientProjectsPage() {
   const t = useTranslations("projects");
   const te = useTranslations("emptyStates");
@@ -70,7 +73,15 @@ export default function ClientProjectsPage() {
                   <span className="text-sm font-semibold text-text-primary">
                     {project.name}
                   </span>
-                  <Badge variant={statusToBadgeVariant(project.status as "active" | "completed" | "archived" | "draft")}>
+                  <Badge
+                    variant={statusToBadgeVariant(
+                      project.status as
+                        | "active"
+                        | "completed"
+                        | "archived"
+                        | "draft"
+                    )}
+                  >
                     {project.status.charAt(0).toUpperCase() +
                       project.status.slice(1)}
                   </Badge>

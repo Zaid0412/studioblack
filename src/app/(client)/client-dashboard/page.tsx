@@ -10,9 +10,9 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 
 interface ClientProject {
@@ -124,7 +124,15 @@ export default function ClientDashboardPage() {
                     <span className="text-sm font-semibold text-text-primary">
                       {project.name}
                     </span>
-                    <Badge variant={statusToBadgeVariant(project.status as "active" | "completed" | "archived" | "draft")}>
+                    <Badge
+                      variant={statusToBadgeVariant(
+                        project.status as
+                          | "active"
+                          | "completed"
+                          | "archived"
+                          | "draft"
+                      )}
+                    >
                       {project.status.charAt(0).toUpperCase() +
                         project.status.slice(1)}
                     </Badge>

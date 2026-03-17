@@ -7,9 +7,9 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BrandLogo } from "@/components/ui/brand-logo";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/authClient";
 
 /** Registration page with name, email, and password fields. */
 export default function RegisterPage() {

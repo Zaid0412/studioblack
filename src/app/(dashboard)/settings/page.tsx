@@ -1,12 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { PageHeader } from "@/components/layout/page-header";
-import { useSettings } from "./_hooks/use-settings";
-import { ProfileSection } from "./_components/profile-section";
-import { PasswordSection } from "./_components/password-section";
-import { PreferencesSection } from "./_components/preferences-section";
-import { DangerZoneSection } from "./_components/danger-zone-section";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { useSettings } from "./_hooks/useSettings";
+import { ProfileSection } from "./_components/ProfileSection";
+import { PasswordSection } from "./_components/PasswordSection";
+import { PreferencesSection } from "./_components/PreferencesSection";
+import { DangerZoneSection } from "./_components/DangerZoneSection";
 
 /** User profile and preferences settings. */
 export default function SettingsPage() {

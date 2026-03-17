@@ -9,15 +9,15 @@ import {
   Users,
   Calendar,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { activities, projects } from "@/data/mock";
-import { authClient } from "@/lib/auth-client";
-import { activityIcons, activityColors } from "@/lib/activity-constants";
-import { formatTimeAgo } from "@/lib/format-time";
+import { authClient } from "@/lib/authClient";
+import { activityIcons, activityColors } from "@/lib/activityConstants";
+import { formatTimeAgo } from "@/lib/formatTime";
 
 /** Architect dashboard with stats, projects, and activity feed. */
 export default function DashboardPage() {

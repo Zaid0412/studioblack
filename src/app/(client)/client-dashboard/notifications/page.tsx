@@ -12,10 +12,10 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { toast } from "@/components/ui/use-toast";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { toast } from "@/components/ui/useToast";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/types";
 
@@ -66,7 +66,8 @@ export default function ClientNotificationsPage() {
             id: r.id,
             type: r.type,
             title: r.title,
-            description: r.description + (r.project_name ? ` · ${r.project_name}` : ""),
+            description:
+              r.description + (r.project_name ? ` · ${r.project_name}` : ""),
             read: r.read,
             createdAt: r.created_at,
             projectId: r.project_id,
@@ -191,12 +192,18 @@ export default function ClientNotificationsPage() {
                     onClick={() => handleNotificationClick(notification)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleNotificationClick(notification); } }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleNotificationClick(notification);
+                      }
+                    }}
                   >
                     <div
                       className={cn(
                         "flex items-center justify-center w-9 h-9 rounded-lg shrink-0",
-                        typeColors[notification.type] || "bg-bg-elevated text-text-muted"
+                        typeColors[notification.type] ||
+                          "bg-bg-elevated text-text-muted"
                       )}
                     >
                       <Icon className="w-4 h-4" />

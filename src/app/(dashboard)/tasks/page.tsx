@@ -11,10 +11,10 @@ import {
   Clock,
   AlertCircle,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ui/empty-state";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Task {
   id: string;
@@ -57,6 +57,9 @@ const reviewBadge = (review_status: string | null) => {
   }
 };
 
+/**
+ *
+ */
 export default function TasksPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -78,7 +81,10 @@ export default function TasksPage() {
   }
 
   // Group by project
-  const grouped = new Map<string, { projectName: string; projectId: string; tasks: Task[] }>();
+  const grouped = new Map<
+    string,
+    { projectName: string; projectId: string; tasks: Task[] }
+  >();
   for (const task of tasks) {
     if (!grouped.has(task.project_id)) {
       grouped.set(task.project_id, {
@@ -105,51 +111,57 @@ export default function TasksPage() {
         />
       ) : (
         <div className="flex flex-col gap-6">
-          {Array.from(grouped.values()).map(({ projectName, projectId, tasks: projectTasks }) => (
-            <div key={projectId} className="flex flex-col gap-3">
-              <button
-                onClick={() => router.push(`/projects/${projectId}`)}
-                className="text-sm font-semibold text-accent hover:underline self-start"
-              >
-                {projectName}
-              </button>
-              <div className="flex flex-col gap-2">
-                {projectTasks.map((task) => (
-                  <Card key={task.id} className="!p-4">
-                    <div className="flex items-center gap-3">
-                      {statusIcon(task.status)}
-                      <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-sm font-medium text-text-primary">
-                          {task.title}
-                        </span>
-                        <span className="text-xs text-text-muted">
-                          Phase {task.phase_order}: {task.phase_name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {reviewBadge(task.review_status)}
-                        {task.requires_client_review && task.review_status === "pending_review" && (
-                          <Eye className="w-3.5 h-3.5 text-warning" />
-                        )}
-                        {task.due_date && (
-                          <span className="flex items-center gap-1 text-xs text-text-muted">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(task.due_date).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
+          {Array.from(grouped.values()).map(
+            ({ projectName, projectId, tasks: projectTasks }) => (
+              <div key={projectId} className="flex flex-col gap-3">
+                <button
+                  onClick={() => router.push(`/projects/${projectId}`)}
+                  className="text-sm font-semibold text-accent hover:underline self-start"
+                >
+                  {projectName}
+                </button>
+                <div className="flex flex-col gap-2">
+                  {projectTasks.map((task) => (
+                    <Card key={task.id} className="!p-4">
+                      <div className="flex items-center gap-3">
+                        {statusIcon(task.status)}
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-sm font-medium text-text-primary">
+                            {task.title}
                           </span>
-                        )}
-                        <span className="text-[10px] font-medium text-text-muted bg-bg-elevated px-2 py-0.5 rounded-full capitalize">
-                          {task.status.replace("_", " ")}
-                        </span>
+                          <span className="text-xs text-text-muted">
+                            Phase {task.phase_order}: {task.phase_name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {reviewBadge(task.review_status)}
+                          {task.requires_client_review &&
+                            task.review_status === "pending_review" && (
+                              <Eye className="w-3.5 h-3.5 text-warning" />
+                            )}
+                          {task.due_date && (
+                            <span className="flex items-center gap-1 text-xs text-text-muted">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(task.due_date).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )}
+                            </span>
+                          )}
+                          <span className="text-[10px] font-medium text-text-muted bg-bg-elevated px-2 py-0.5 rounded-full capitalize">
+                            {task.status.replace("_", " ")}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
     </div>

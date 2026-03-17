@@ -4,14 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { ToggleSwitch } from "@/components/ui/toggle-switch";
+import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/useToast";
 import {
   Select,
   SelectTrigger,
@@ -20,10 +20,10 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { useLocale } from "next-intl";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/authClient";
 import { setLocale } from "@/lib/locale";
 import { deriveInitials } from "@/lib/utils";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/ThemeProvider";
 
 /** Client settings — profile, preferences, and theme. No password section (magic link auth). */
 export default function ClientSettingsPage() {

@@ -2,8 +2,15 @@
 
 import { use, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload, FileText, X, Loader2, CheckCircle2 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import {
+  ArrowLeft,
+  Upload,
+  FileText,
+  X,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 
 /** Design file upload page with drag & drop. */
@@ -126,7 +133,9 @@ export default function DesignUploadPage({
 
       <PageHeader
         title="Upload Design"
-        subtitle={phaseName ? `Phase: ${decodeURIComponent(phaseName)}` : undefined}
+        subtitle={
+          phaseName ? `Phase: ${decodeURIComponent(phaseName)}` : undefined
+        }
       />
 
       {success ? (
@@ -226,9 +235,7 @@ export default function DesignUploadPage({
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-error">{error}</p>
-          )}
+          {error && <p className="text-sm text-error">{error}</p>}
 
           <Button
             className="self-start"
