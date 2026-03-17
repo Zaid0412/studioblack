@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  Calendar,
   ArrowLeft,
+  Calendar,
   Loader2,
   CheckCircle2,
   Clock,
@@ -17,12 +17,9 @@ import {
   AlertTriangle,
   History,
   ClipboardCheck,
+  Users,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   Dialog,
@@ -33,6 +30,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { deriveInitials } from "@/lib/utils";
+import { fileType, statusBadge } from "@/lib/fileUtils";
+import { avatarColor } from "@/lib/avatarUtils";
+import { formatTimeAgo } from "@/lib/formatTime";
 
 interface Phase {
   id: string;
@@ -57,6 +57,9 @@ interface Attachment {
   task_id: string | null;
   uploaded_by_name: string;
   created_at: string;
+  review_status?: string;
+  version?: number;
+  version_group?: string;
 }
 
 interface Comment {
@@ -99,19 +102,9 @@ interface ProjectDetail {
   members: Member[];
 }
 
-const phaseStatusIcon = (status: string) => {
-  switch (status) {
-    case "completed":
-      return <CheckCircle2 className="w-4 h-4 text-success" />;
-    case "in_progress":
-      return <Clock className="w-4 h-4 text-warning" />;
-    case "not_started":
-    default:
-      return <AlertCircle className="w-4 h-4 text-text-muted" />;
-  }
-};
-
-/** Client project detail page — read-only view with phases and attachments. */
+/**
+ *
+ */
 export default function ClientProjectDetailPage({
   params,
 }: {
@@ -121,6 +114,7 @@ export default function ClientProjectDetailPage({
   const router = useRouter();
   const t = useTranslations("projectDetail");
   const tc = useTranslations("common");
+
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -134,6 +128,7 @@ export default function ClientProjectDetailPage({
   const [changesComment, setChangesComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -141,22 +136,18 @@ export default function ClientProjectDetailPage({
         if (!res.ok) throw new Error("Not found");
         return res.json();
       }),
-      fetch(`/api/projects/${id}/attachments?all=true`).then((res) => {
-        if (!res.ok) return [];
-        return res.json();
-      }),
-      fetch(`/api/projects/${id}/comments`).then((res) => {
-        if (!res.ok) return [];
-        return res.json();
-      }),
-      fetch(`/api/projects/${id}/approvals`).then((res) => {
-        if (!res.ok) return [];
-        return res.json();
-      }),
-      fetch(`/api/projects/${id}/tasks/pending-review`).then((res) => {
-        if (!res.ok) return [];
-        return res.json();
-      }),
+      fetch(`/api/projects/${id}/attachments?all=true`).then((res) =>
+        res.ok ? res.json() : []
+      ),
+      fetch(`/api/projects/${id}/comments`).then((res) =>
+        res.ok ? res.json() : []
+      ),
+      fetch(`/api/projects/${id}/approvals`).then((res) =>
+        res.ok ? res.json() : []
+      ),
+      fetch(`/api/projects/${id}/tasks/pending-review`).then((res) =>
+        res.ok ? res.json() : []
+      ),
     ])
       .then(
         ([
@@ -171,13 +162,16 @@ export default function ClientProjectDetailPage({
           setComments(commentData);
           setApprovals(approvalData);
           setPendingTasks(pendingTaskData);
+          if (projectData.phases?.length > 0) {
+            setActivePhaseId(projectData.phases[0].id);
+          }
         }
       )
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleSendComment = async () => {
+  const handleSendComment = useCallback(async () => {
     if (!newComment.trim() || sendingComment) return;
     setSendingComment(true);
     try {
@@ -187,7 +181,6 @@ export default function ClientProjectDetailPage({
         body: JSON.stringify({ content: newComment.trim() }),
       });
       if (res.ok) {
-        // Refetch comments
         const updated = await fetch(`/api/projects/${id}/comments`).then((r) =>
           r.ok ? r.json() : []
         );
@@ -197,7 +190,7 @@ export default function ClientProjectDetailPage({
     } finally {
       setSendingComment(false);
     }
-  };
+  }, [id, newComment, sendingComment]);
 
   const handleDecision = async (
     decision: "approved" | "changes_requested",
@@ -212,7 +205,6 @@ export default function ClientProjectDetailPage({
         body: JSON.stringify({ decision, comment: comment || "" }),
       });
       if (res.ok) {
-        // Refetch approvals and project (status may have changed)
         const [updatedApprovals, updatedProject] = await Promise.all([
           fetch(`/api/projects/${id}/approvals`).then((r) =>
             r.ok ? r.json() : []
@@ -240,7 +232,6 @@ export default function ClientProjectDetailPage({
         body: JSON.stringify({ action, comment: comment || "" }),
       });
       if (res.ok) {
-        // Remove from pending list
         setPendingTasks((prev) => prev.filter((t) => t.id !== taskId));
       }
     } finally {
@@ -251,7 +242,7 @@ export default function ClientProjectDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+        <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
       </div>
     );
   }
@@ -259,90 +250,136 @@ export default function ClientProjectDetailPage({
   if (error || !project) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-text-muted">{tc("projectNotFound")}</p>
+        <p className="text-[#666666]">{tc("projectNotFound")}</p>
       </div>
     );
   }
 
-  // Group attachments by phase
-  const attachmentsByPhase = new Map<string, Attachment[]>();
-  const projectLevelAttachments: Attachment[] = [];
-  for (const att of attachments) {
-    if (att.phase_id) {
-      const list = attachmentsByPhase.get(att.phase_id) || [];
-      list.push(att);
-      attachmentsByPhase.set(att.phase_id, list);
-    } else {
-      projectLevelAttachments.push(att);
-    }
+  // Count attachments per phase
+  const phaseCounts = new Map<string, number>();
+  for (const a of attachments) {
+    if (a.phase_id)
+      phaseCounts.set(a.phase_id, (phaseCounts.get(a.phase_id) || 0) + 1);
   }
+  const phaseFiles = attachments.filter((a) => a.phase_id === activePhaseId);
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1200px]">
-      {/* Back button */}
-      <button
-        onClick={() => router.push("/client-dashboard/projects")}
-        className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {tc("backToProjects")}
-      </button>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="px-10 pt-6 pb-4">
+        <button
+          onClick={() => router.push("/client-dashboard/projects")}
+          className="flex items-center gap-2 text-[13px] text-[#A0A0A0] hover:text-white transition-colors cursor-pointer mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {tc("backToProjects")}
+        </button>
+        <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+        {project.description && (
+          <p className="text-[13px] text-[#A0A0A0] mt-1">
+            {project.description}
+          </p>
+        )}
+      </div>
 
-      <PageHeader title={project.name} subtitle={project.description} />
-
-      {/* Project meta */}
-      <div className="flex items-center gap-6 text-sm">
+      {/* Meta bar */}
+      <div className="px-10 py-3 flex items-center gap-6 text-[13px] border-b border-[#333333]">
         <div className="flex items-center gap-2">
-          <span className="text-text-muted">{t("statusLabel")}</span>
-          <Badge
-            variant={statusToBadgeVariant(
-              project.status as Parameters<typeof statusToBadgeVariant>[0]
-            )}
+          <span className="text-[#666666]">{t("statusLabel")}</span>
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+              project.status === "active"
+                ? "bg-emerald-500/20 text-emerald-400"
+                : project.status === "completed"
+                  ? "bg-blue-500/20 text-blue-400"
+                  : "bg-[#333333] text-[#A0A0A0]"
+            }`}
           >
             {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-2 text-text-muted">
-          <span>Category:</span>
-          <span className="text-text-primary capitalize">
-            {project.category}
           </span>
         </div>
+        <div className="flex items-center gap-2 text-[#A0A0A0]">
+          <span className="text-[#666666]">Category:</span>
+          <span className="capitalize">{project.category}</span>
+        </div>
         {project.deadline && (
-          <div className="flex items-center gap-2 text-text-muted">
-            <Calendar className="w-3.5 h-3.5 text-warning" />
-            <span>
-              {t("duePrefix")}{" "}
-              {new Date(project.deadline).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </span>
+          <div className="flex items-center gap-1.5 text-[#A0A0A0]">
+            <Calendar className="w-3.5 h-3.5 text-[#F5C518]" />
+            {t("duePrefix")}{" "}
+            {new Date(project.deadline).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </div>
+        )}
+        {project.members.length > 0 && (
+          <div className="flex items-center gap-2 ml-auto">
+            <Users className="w-3.5 h-3.5 text-[#666666]" />
+            <div className="flex -space-x-1.5">
+              {project.members.slice(0, 4).map((m) => (
+                <div
+                  key={m.user_id}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-white border border-[#1A1A1A]"
+                  style={{ backgroundColor: avatarColor(m.name) }}
+                  title={`${m.name} (${m.role})`}
+                >
+                  {deriveInitials(m.name)}
+                </div>
+              ))}
+              {project.members.length > 4 && (
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-[#A0A0A0] bg-[#333333] border border-[#1A1A1A]">
+                  +{project.members.length - 4}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Team */}
-      {project.members.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t("teamMembers")}
-          </h3>
-          <div className="flex gap-3 flex-wrap">
-            {project.members.map((member) => (
+      {/* Pending task reviews banner */}
+      {pendingTasks.length > 0 && (
+        <div className="px-10 py-3 bg-[#1A1600] border-b border-[#333333]">
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardCheck className="w-4 h-4 text-[#F5C518]" />
+            <span className="text-[13px] font-semibold text-white">
+              Tasks Pending Your Review ({pendingTasks.length})
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {pendingTasks.map((task) => (
               <div
-                key={member.user_id}
-                className="flex items-center gap-2 rounded-lg bg-bg-elevated px-3 py-2"
+                key={task.id}
+                className="flex items-center gap-3 rounded-lg bg-[#0D0D0D] px-4 py-3"
               >
-                <Avatar initials={deriveInitials(member.name)} size="sm" />
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-text-primary">
-                    {member.name}
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-[13px] font-medium text-white">
+                    {task.title}
                   </span>
-                  <span className="text-xs text-text-muted capitalize">
-                    {member.role}
+                  <span className="text-[11px] text-[#666666]">
+                    Phase: {task.phase_name}
+                    {task.assigned_name && ` · By ${task.assigned_name}`}
                   </span>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => handleTaskReview(task.id, "approved")}
+                    disabled={reviewingTaskId === task.id}
+                    className="flex items-center gap-1 border border-[#22C55E] text-[#22C55E] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleTaskReview(task.id, "changes_requested")
+                    }
+                    disabled={reviewingTaskId === task.id}
+                    className="flex items-center gap-1 border border-[#F59E0B] text-[#F59E0B] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Changes
+                  </button>
                 </div>
               </div>
             ))}
@@ -350,227 +387,194 @@ export default function ClientProjectDetailPage({
         </div>
       )}
 
-      {/* Phases with inline attachments */}
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-text-primary">
-          {t("designSections")}
-        </h3>
-        {project.phases.length === 0 ? (
-          <p className="text-sm text-text-muted">No phases yet.</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {project.phases.map((phase) => {
-              const phaseFiles = attachmentsByPhase.get(phase.id) || [];
-              return (
-                <Card key={phase.id} className="!p-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-3">
-                      {phaseStatusIcon(phase.status)}
-                      <div className="flex flex-col gap-0.5 flex-1">
-                        <span className="text-sm font-semibold text-text-primary">
-                          {phase.phase_order}. {phase.name}
-                        </span>
-                        <span className="text-xs text-text-muted capitalize">
-                          {phase.status.replace("_", " ")}
-                        </span>
-                      </div>
-                      {phaseFiles.length > 0 && (
-                        <span className="text-xs text-text-muted flex items-center gap-1">
-                          <Paperclip className="w-3 h-3" />
-                          {phaseFiles.length} file
-                          {phaseFiles.length !== 1 ? "s" : ""}
+      {/* Completed banner */}
+      {project.status === "completed" && (
+        <div className="px-10 py-3 bg-emerald-500/5 border-b border-[#333333]">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <span className="text-[13px] font-medium text-emerald-400">
+              Project Approved
+            </span>
+            <span className="text-[11px] text-[#666666]">
+              — This project has been approved by the client.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Phase tabs */}
+      {project.phases.length > 0 && (
+        <div className="px-10 flex items-center gap-1 border-b border-[#333333]">
+          {project.phases.map((phase) => {
+            const isActive = phase.id === activePhaseId;
+            const count = phaseCounts.get(phase.id) || 0;
+            return (
+              <button
+                key={phase.id}
+                onClick={() => setActivePhaseId(phase.id)}
+                className={`relative px-4 py-3 text-[13px] font-medium transition-colors cursor-pointer ${
+                  isActive
+                    ? "text-[#F5C518]"
+                    : "text-[#A0A0A0] hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {phase.status === "completed" ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : phase.status === "in_progress" ? (
+                    <Clock className="w-3.5 h-3.5 text-[#F5C518]" />
+                  ) : (
+                    <AlertCircle className="w-3.5 h-3.5 text-[#666666]" />
+                  )}
+                  {phase.name}
+                  {count > 0 && (
+                    <span className="text-[11px] text-[#666666]">{count}</span>
+                  )}
+                </div>
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#F5C518]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* File table */}
+      <div className="flex-1 px-10 py-4">
+        <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] overflow-hidden flex flex-col min-h-[300px]">
+          {/* Table header */}
+          <div className="flex items-center h-11 px-5 bg-[#242424] border-b border-[#333333]">
+            <div className="flex-1 text-xs font-medium text-[#A0A0A0]">
+              {t("fileName") || "Name of File"}
+            </div>
+            <div className="w-[120px] text-xs font-medium text-[#A0A0A0]">
+              {t("fileType") || "Type of File"}
+            </div>
+            <div className="w-[140px] text-xs font-medium text-[#A0A0A0]">
+              {t("uploadedBy") || "Uploaded by"}
+            </div>
+            <div className="w-[110px] text-xs font-medium text-[#A0A0A0]">
+              {t("uploadedOn") || "Uploaded On"}
+            </div>
+            <div className="w-[100px] text-xs font-medium text-[#A0A0A0]">
+              {t("statusLabel").replace(":", "") || "Status"}
+            </div>
+          </div>
+
+          {/* Table body */}
+          <div className="flex-1">
+            {phaseFiles.length === 0 ? (
+              <EmptyState
+                icon={Paperclip}
+                title="No files yet"
+                description="No documents have been uploaded for this phase yet."
+              />
+            ) : (
+              phaseFiles.map((att) => {
+                const badge = statusBadge(att.review_status);
+                const color = avatarColor(att.uploaded_by_name || "");
+                return (
+                  <div
+                    key={att.id}
+                    className="flex items-center h-[52px] px-5 border-b border-[#333333] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                    onClick={() =>
+                      router.push(
+                        `/client-dashboard/projects/${id}/review/${att.id}`
+                      )
+                    }
+                  >
+                    {/* File name */}
+                    <div className="flex-1 flex items-center gap-2.5 min-w-0">
+                      <FileText className="w-4 h-4 text-[#A0A0A0] shrink-0" />
+                      {att.version && att.version > 1 && (
+                        <span className="inline-flex items-center justify-center rounded-full bg-[#2A1F00] px-1.5 py-0.5 text-[10px] font-medium text-[#F5C518]">
+                          V{att.version}
                         </span>
                       )}
+                      <span className="text-[13px] font-medium text-white truncate">
+                        {att.file_name}
+                      </span>
                     </div>
 
-                    {/* Phase attachments */}
-                    {phaseFiles.length > 0 && (
-                      <div className="flex flex-col gap-2 pl-7 border-t border-border-default pt-3">
-                        {phaseFiles.map((att) => (
-                          <button
-                            key={att.id}
-                            onClick={() =>
-                              router.push(
-                                `/client-dashboard/projects/${id}/review/${att.id}`
-                              )
-                            }
-                            className="flex items-center gap-3 rounded-lg bg-bg-primary px-3 py-2 hover:bg-bg-elevated transition-colors group text-left cursor-pointer w-full"
-                          >
-                            <FileText className="w-4 h-4 text-accent shrink-0" />
-                            <div className="flex flex-col flex-1 min-w-0">
-                              <span className="text-sm text-text-primary truncate">
-                                {att.file_name}
-                              </span>
-                              {att.description && (
-                                <span className="text-xs text-text-muted truncate">
-                                  {att.description}
-                                </span>
-                              )}
-                              <span className="text-[11px] text-text-muted">
-                                Uploaded by {att.uploaded_by_name} &middot;{" "}
-                                {new Date(att.created_at).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                  }
-                                )}
-                              </span>
-                            </div>
-                            <FileText className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </button>
-                        ))}
+                    {/* Type */}
+                    <div className="w-[120px]">
+                      <span className="text-[13px] text-[#A0A0A0]">
+                        {fileType(att.file_name)}
+                      </span>
+                    </div>
+
+                    {/* Uploaded by */}
+                    <div className="w-[140px] flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white shrink-0"
+                        style={{ backgroundColor: color }}
+                      >
+                        {deriveInitials(att.uploaded_by_name || "")}
                       </div>
-                    )}
+                      <span className="text-[13px] text-[#A0A0A0] truncate">
+                        {att.uploaded_by_name || "\u2014"}
+                      </span>
+                    </div>
+
+                    {/* Uploaded on */}
+                    <div className="w-[110px]">
+                      <span className="text-[12px] text-[#666666]">
+                        {new Date(att.created_at).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+
+                    {/* Status */}
+                    <div className="w-[100px]">
+                      <span
+                        className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium ${badge.bg} ${badge.text}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
                   </div>
-                </Card>
-              );
-            })}
+                );
+              })
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Project-level attachments (not tied to a phase) */}
-      {projectLevelAttachments.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary">Documents</h3>
-          <div className="flex flex-col gap-2">
-            {projectLevelAttachments.map((att) => (
-              <button
-                key={att.id}
-                onClick={() =>
-                  router.push(
-                    `/client-dashboard/projects/${id}/review/${att.id}`
-                  )
-                }
-                className="flex items-center gap-3 rounded-lg bg-bg-elevated px-4 py-3 hover:bg-bg-elevated/80 transition-colors group text-left cursor-pointer w-full"
-              >
-                <FileText className="w-4 h-4 text-accent shrink-0" />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <span className="text-sm text-text-primary truncate">
-                    {att.file_name}
-                  </span>
-                  {att.description && (
-                    <span className="text-xs text-text-muted truncate">
-                      {att.description}
-                    </span>
-                  )}
-                  <span className="text-[11px] text-text-muted">
-                    Uploaded by {att.uploaded_by_name} &middot;{" "}
-                    {new Date(att.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                </div>
-                <FileText className="w-4 h-4 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty state if no attachments at all */}
-      {attachments.length === 0 && (
-        <EmptyState
-          icon={Paperclip}
-          title="No documents yet"
-          description="The architect hasn't uploaded any documents for this project yet."
-        />
-      )}
-
-      {/* Tasks Pending Your Review */}
-      {pendingTasks.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-            <ClipboardCheck className="w-4 h-4" />
-            Tasks Pending Your Review ({pendingTasks.length})
-          </h3>
-          <div className="flex flex-col gap-2">
-            {pendingTasks.map((task) => (
-              <Card key={task.id} className="!p-4">
-                <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span className="text-sm font-medium text-text-primary">
-                        {task.title}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        Phase: {task.phase_name}
-                        {task.assigned_name && ` · By ${task.assigned_name}`}
-                      </span>
-                      {task.description && (
-                        <span className="text-xs text-text-secondary mt-1">
-                          {task.description}
-                        </span>
-                      )}
-                    </div>
-                    <Badge variant="warning">Pending Review</Badge>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => handleTaskReview(task.id, "approved")}
-                      disabled={reviewingTaskId === task.id}
-                      className="flex-1"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      {reviewingTaskId === task.id ? "..." : "Approve"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() =>
-                        handleTaskReview(task.id, "changes_requested")
-                      }
-                      disabled={reviewingTaskId === task.id}
-                      className="flex-1"
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      Request Changes
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Approval decision — only show when project is active but NO pending task reviews (general project-level approval) */}
+      {/* Approval decision — only when active + has files + no pending tasks */}
       {project.status !== "completed" &&
         pendingTasks.length === 0 &&
         attachments.length > 0 && (
-          <div className="flex flex-col gap-3 p-5 rounded-xl border border-border-default bg-bg-elevated">
-            <h3 className="text-sm font-semibold text-text-primary">
-              Your Decision
-            </h3>
-            <p className="text-xs text-text-muted">
-              Review the project documents above, then approve or request
-              changes.
-            </p>
-            <div className="flex gap-3">
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => handleDecision("approved")}
-                disabled={submittingDecision}
-                className="flex-1"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                {submittingDecision ? "Submitting..." : "Approve"}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setChangesDialogOpen(true)}
-                disabled={submittingDecision}
-                className="flex-1"
-              >
-                <AlertTriangle className="w-4 h-4" />
-                Request Changes
-              </Button>
+          <div className="px-10 pb-4">
+            <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] p-5">
+              <h3 className="text-[13px] font-semibold text-white mb-1">
+                Your Decision
+              </h3>
+              <p className="text-[11px] text-[#666666] mb-4">
+                Review the project documents above, then approve or request
+                changes.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleDecision("approved")}
+                  disabled={submittingDecision}
+                  className="flex items-center justify-center gap-2 flex-1 border border-[#22C55E] text-[#22C55E] rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {submittingDecision ? "Submitting..." : "Approve Project"}
+                </button>
+                <button
+                  onClick={() => setChangesDialogOpen(true)}
+                  disabled={submittingDecision}
+                  className="flex items-center justify-center gap-2 flex-1 border border-[#F59E0B] text-[#F59E0B] rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  Request Changes
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -588,81 +592,71 @@ export default function ClientProjectDetailPage({
             value={changesComment}
             onChange={(e) => setChangesComment(e.target.value)}
             placeholder="Please describe the changes you need..."
-            className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            className="w-full rounded-lg border border-[#333333] bg-[#2A2A2A] px-3 py-2.5 text-sm text-white placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#F5C518]"
             rows={4}
             autoFocus
           />
           <DialogFooter>
-            <Button
-              size="sm"
-              variant="secondary"
+            <button
               onClick={() => {
                 setChangesDialogOpen(false);
                 setChangesComment("");
               }}
+              className="px-4 py-2 text-[13px] text-[#A0A0A0] hover:text-white transition-colors cursor-pointer"
             >
               Cancel
-            </Button>
-            <Button
-              size="sm"
+            </button>
+            <button
               onClick={async () => {
                 await handleDecision("changes_requested", changesComment);
                 setChangesDialogOpen(false);
                 setChangesComment("");
               }}
               disabled={submittingDecision}
+              className="bg-[#F5C518] text-[#0D0D0D] rounded-lg px-4 py-2 text-[13px] font-semibold hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:opacity-50"
             >
               {submittingDecision ? "Submitting..." : "Submit"}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Final approval banner */}
-      {project.status === "completed" && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-success/10 border border-success/20">
-          <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold text-success">
-              Project Approved
-            </span>
-            <span className="text-xs text-text-muted">
-              This project has been approved by the client.
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Approval history */}
       {approvals.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-            <History className="w-4 h-4" />
-            Approval History
-          </h3>
+        <div className="px-10 pb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="w-4 h-4 text-[#666666]" />
+            <span className="text-[13px] font-semibold text-white">
+              Approval History
+            </span>
+          </div>
           <div className="flex flex-col gap-2">
             {approvals.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center gap-3 rounded-lg bg-bg-elevated px-4 py-3"
+                className="flex items-center gap-3 rounded-lg bg-[#1A1A1A] border border-[#333333] px-4 py-3"
               >
                 {a.decision === "approved" ? (
-                  <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                 ) : (
-                  <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+                  <AlertTriangle className="w-4 h-4 text-[#F59E0B] shrink-0" />
                 )}
                 <div className="flex flex-col flex-1">
-                  <span className="text-sm text-text-primary">
-                    <span className="font-medium">{a.user_name}</span>{" "}
+                  <span className="text-[13px] text-[#A0A0A0]">
+                    <span className="font-medium text-white">
+                      {a.user_name}
+                    </span>{" "}
                     {a.decision === "approved"
                       ? "approved the project"
                       : "requested changes"}
                   </span>
                   {a.comment && (
-                    <span className="text-xs text-text-muted">{a.comment}</span>
+                    <span className="text-[11px] text-[#666666]">
+                      {a.comment}
+                    </span>
                   )}
                 </div>
-                <span className="text-[11px] text-text-muted shrink-0">
+                <span className="text-[11px] text-[#666666] shrink-0">
                   {new Date(a.created_at).toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -676,14 +670,16 @@ export default function ClientProjectDetailPage({
       )}
 
       {/* Comments section */}
-      <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-          <MessageSquare className="w-4 h-4" />
-          Comments ({comments.length})
-        </h3>
+      <div className="px-10 pb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <MessageSquare className="w-4 h-4 text-[#666666]" />
+          <span className="text-[13px] font-semibold text-white">
+            Comments ({comments.length})
+          </span>
+        </div>
 
         {/* Comment input */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 mb-4">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -694,26 +690,25 @@ export default function ClientProjectDetailPage({
               }
             }}
             placeholder="Leave a comment or feedback..."
-            className="flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            className="flex-1 rounded-lg border border-[#333333] bg-[#2A2A2A] px-3 py-2.5 text-sm text-white placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#F5C518]"
             rows={2}
           />
-          <Button
-            size="sm"
-            className="self-end"
+          <button
             onClick={handleSendComment}
             disabled={!newComment.trim() || sendingComment}
+            className="self-end bg-[#F5C518] text-[#0D0D0D] rounded-lg p-2.5 hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:opacity-50"
           >
             {sendingComment ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
             )}
-          </Button>
+          </button>
         </div>
 
         {/* Comment list */}
         {comments.length === 0 ? (
-          <p className="text-sm text-text-muted py-4 text-center">
+          <p className="text-[13px] text-[#666666] py-4 text-center">
             No comments yet. Be the first to leave feedback.
           </p>
         ) : (
@@ -721,7 +716,7 @@ export default function ClientProjectDetailPage({
             {comments.map((comment) => (
               <div
                 key={comment.id}
-                className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"
+                className="flex flex-col gap-2 rounded-xl bg-[#1A1A1A] border border-[#333333] p-4"
               >
                 <div className="flex items-center gap-2.5">
                   <Avatar
@@ -729,18 +724,15 @@ export default function ClientProjectDetailPage({
                     size="sm"
                   />
                   <div className="flex flex-col">
-                    <span className="text-[13px] font-semibold text-text-primary">
+                    <span className="text-[13px] font-semibold text-white">
                       {comment.user_name}
                     </span>
-                    <span className="text-[11px] text-text-muted">
-                      {new Date(comment.created_at).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" }
-                      )}
+                    <span className="text-[11px] text-[#666666]">
+                      {formatTimeAgo(comment.created_at, tc)}
                     </span>
                   </div>
                 </div>
-                <p className="text-[13px] text-text-secondary leading-relaxed">
+                <p className="text-[13px] text-[#A0A0A0] leading-relaxed">
                   {comment.content}
                 </p>
               </div>
