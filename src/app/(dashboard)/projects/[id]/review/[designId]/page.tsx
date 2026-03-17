@@ -64,6 +64,8 @@ export default function DesignReviewPage({
       <ThumbnailPanel
         phaseFiles={review.phaseFiles}
         activeFileId={review.activeFileId}
+        phaseName={review.phaseName}
+        loading={review.filesLoading}
         onSelectFile={review.setActiveFileId}
       />
 

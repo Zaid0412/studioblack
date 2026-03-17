@@ -27,6 +27,7 @@ export function useDesignReview({
   const [newComment, setNewComment] = useState("");
   const [commentsOpen, setCommentsOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [filesLoading, setFilesLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [reviewingAs, setReviewingAs] = useState<
     "approved" | "rejected" | null
@@ -59,6 +60,12 @@ export function useDesignReview({
     },
     [projectId]
   );
+
+  const fetchAllFiles = useCallback(async () => {
+    const res = await fetch(`/api/projects/${projectId}/attachments?all=true`);
+    if (!res.ok) return [];
+    return (await res.json()) as DbAttachment[];
+  }, [projectId]);
 
   const fetchPhaseName = useCallback(
     async (phaseId: string) => {
@@ -100,7 +107,13 @@ export function useDesignReview({
           if (cancelled) return;
           setPhaseFiles(files);
           setPhaseName(name);
+        } else {
+          // No phase — load all project files so sidebar isn't empty
+          const files = await fetchAllFiles();
+          if (cancelled) return;
+          setPhaseFiles(files);
         }
+        setFilesLoading(false);
       }
 
       if (!isFirst && activeFileId !== designId) {
@@ -188,6 +201,7 @@ export function useDesignReview({
     setActiveFileId,
     attachment,
     phaseFiles,
+    filesLoading,
     phaseName,
     comments,
     newComment,
