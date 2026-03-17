@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { UserPlus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { roleLabel } from "../_lib/role-helpers";
+import { roleLabel } from "../_lib/roleHelpers";
 import type { OrgInvitation } from "@/types";
 
 interface PendingInvitationsProps {

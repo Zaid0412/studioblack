@@ -3,7 +3,7 @@
 import type { RefObject } from "react";
 import { PDFViewer, type PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { Download, FileText } from "lucide-react";
-import { isImage, isPdf } from "@/lib/file-utils";
+import { isImage, isPdf } from "@/lib/fileUtils";
 import { EMBEDPDF_THEME, DISABLED_CATEGORIES } from "../_lib/constants";
 
 interface DocumentViewerProps {

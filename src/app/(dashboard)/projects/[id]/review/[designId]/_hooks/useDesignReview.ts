@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "@/components/ui/useToast";
 import type { DbAttachment, DbComment, DbPhase } from "@/types";
 
 interface UseDesignReviewParams {

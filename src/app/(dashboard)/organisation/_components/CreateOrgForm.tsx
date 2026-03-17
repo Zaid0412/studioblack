@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { Building2 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/pageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";

@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Upload, FileText } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
-import { FileContextMenu } from "@/components/ui/file-context-menu";
+import { EmptyState } from "@/components/ui/emptyState";
+import { FileContextMenu } from "@/components/ui/fileContextMenu";
 import { deriveInitials } from "@/lib/utils";
-import { fileType, statusBadge } from "@/lib/file-utils";
-import { avatarColor } from "@/lib/avatar-utils";
+import { fileType, statusBadge } from "@/lib/fileUtils";
+import { avatarColor } from "@/lib/avatarUtils";
 import type { DbAttachment } from "@/types";
 
 interface FileTableProps {

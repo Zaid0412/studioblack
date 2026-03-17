@@ -9,9 +9,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/ui/dropdownMenu";
 import { deriveInitials } from "@/lib/utils";
-import { roleIcon, roleLabel } from "../_lib/role-helpers";
+import { roleIcon, roleLabel } from "../_lib/roleHelpers";
 import type { OrgMember } from "@/types";
 
 interface MembersListProps {

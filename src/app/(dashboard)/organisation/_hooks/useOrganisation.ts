@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { toast } from "@/components/ui/use-toast";
-import { authClient } from "@/lib/auth-client";
+import { toast } from "@/components/ui/useToast";
+import { authClient } from "@/lib/authClient";
 import type { OrgMember, OrgInvitation } from "@/types";
 
 /**

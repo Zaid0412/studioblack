@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { X, MessageCircle } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
-import { formatTimeAgo } from "@/lib/format-time";
+import { formatTimeAgo } from "@/lib/formatTime";
 import type { DbComment } from "@/types";
 
 interface CommentsPanelProps {

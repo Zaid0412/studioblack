@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
-import { toast } from "@/components/ui/use-toast";
+import { authClient } from "@/lib/authClient";
+import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
 
 /**
