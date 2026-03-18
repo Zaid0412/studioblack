@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 import {
   getAttachmentById,
   updateAttachmentReviewStatus,
+  createAttachmentReview,
+  getAttachmentReviews,
   hasProjectAccess,
 } from "@/lib/queries";
 
@@ -11,7 +13,7 @@ type Params = { params: Promise<{ id: string; attachmentId: string }> };
 
 const VALID_STATUSES = ["approved", "rejected", "reviewed", "pending"];
 
-/** PATCH /api/projects/[id]/attachments/[attachmentId]/review — update review status. */
+/** PATCH /api/projects/[id]/attachments/[attachmentId]/review — submit a review. */
 export async function PATCH(req: NextRequest, { params }: Params) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
@@ -37,10 +39,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     );
   }
 
-  const { status } = await req.json();
+  const body = await req.json();
+  const { status, comment, annotatedFileUrl, annotationCount } = body;
+
   if (!status || !VALID_STATUSES.includes(status)) {
     return NextResponse.json(
-      { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` },
+      {
+        error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
+      },
       { status: 400 }
     );
   }
@@ -51,11 +57,44 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Update the attachment's review_status
   const updated = await updateAttachmentReviewStatus(
     attachmentId,
     status,
     session.user.id
   );
 
+  // Create a review record (for history)
+  await createAttachmentReview({
+    attachmentId,
+    reviewerId: session.user.id,
+    status: status as "approved" | "rejected",
+    comment: comment || "",
+    annotatedFileUrl: annotatedFileUrl || null,
+    annotationCount: annotationCount || 0,
+  });
+
   return NextResponse.json(updated);
+}
+
+/** GET /api/projects/[id]/attachments/[attachmentId]/review — get review history. */
+export async function GET(_req: NextRequest, { params }: Params) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id, attachmentId } = await params;
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const reviews = await getAttachmentReviews(attachmentId);
+  return NextResponse.json(reviews);
 }

@@ -435,6 +435,70 @@ export async function uploadNewVersion(
 }
 
 // ---------------------------------------------------------------------------
+// Attachment reviews
+// ---------------------------------------------------------------------------
+
+/** Create a new review for an attachment (one review round). */
+export async function createAttachmentReview(params: {
+  attachmentId: string;
+  reviewerId: string;
+  status: "approved" | "rejected";
+  comment: string;
+  annotatedFileUrl: string | null;
+  annotationCount: number;
+}) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `INSERT INTO attachment_review
+       (attachment_id, reviewer_id, status, comment, annotated_file_url, annotation_count)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      params.attachmentId,
+      params.reviewerId,
+      params.status,
+      params.comment,
+      params.annotatedFileUrl,
+      params.annotationCount,
+    ]
+  );
+  return row;
+}
+
+/** Get all reviews for an attachment, newest first. */
+export async function getAttachmentReviews(attachmentId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT r.*, u.name AS reviewer_name
+     FROM attachment_review r
+     JOIN "user" u ON u.id = r.reviewer_id
+     WHERE r.attachment_id = $1
+     ORDER BY r.created_at DESC`,
+    [attachmentId]
+  );
+  return rows;
+}
+
+/** Get the latest review for an attachment. */
+export async function getLatestAttachmentReview(attachmentId: string) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT r.*, u.name AS reviewer_name
+     FROM attachment_review r
+     JOIN "user" u ON u.id = r.reviewer_id
+     WHERE r.attachment_id = $1
+     ORDER BY r.created_at DESC
+     LIMIT 1`,
+    [attachmentId]
+  );
+  return row || null;
+}
+
+// ---------------------------------------------------------------------------
 // Access control
 // ---------------------------------------------------------------------------
 

@@ -271,6 +271,19 @@ export interface OrgInvitation {
   expiresAt: Date;
 }
 
+/** A single review round on an attachment (like a GitHub PR review). */
+export interface DbAttachmentReview {
+  id: string;
+  attachment_id: string;
+  reviewer_id: string;
+  reviewer_name: string;
+  status: "approved" | "rejected";
+  comment: string;
+  annotated_file_url: string | null;
+  annotation_count: number;
+  created_at: string;
+}
+
 /** DB notification row from the notifications API. */
 export interface DbNotificationRow {
   id: string;

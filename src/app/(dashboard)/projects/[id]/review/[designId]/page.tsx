@@ -11,6 +11,7 @@ import { ThumbnailPanel } from "./_components/ThumbnailPanel";
 import { ReviewToolbar } from "./_components/ReviewToolbar";
 import { DocumentViewer } from "./_components/DocumentViewer";
 import { CommentsPanel } from "./_components/CommentsPanel";
+import { ReviewBanner } from "@/components/review/ReviewBanner";
 
 /** Design review workspace with file viewer, annotation tools, and comments panel. */
 export default function DesignReviewPage({
@@ -85,7 +86,10 @@ export default function DesignReviewPage({
           getPlugin={plugins.getPlugin}
         />
 
-        {/* 2b. Document Viewer */}
+        {/* 2b. Client review feedback */}
+        <ReviewBanner reviews={review.reviews} />
+
+        {/* 2c. Document Viewer */}
         <DocumentViewer
           activeFileId={review.activeFileId}
           fileName={fileName}

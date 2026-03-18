@@ -3,7 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "@/components/ui/useToast";
-import type { DbAttachment, DbComment, DbPhase } from "@/types";
+import type {
+  DbAttachment,
+  DbAttachmentReview,
+  DbComment,
+  DbPhase,
+} from "@/types";
 
 interface UseDesignReviewParams {
   projectId: string;
@@ -29,6 +34,7 @@ export function useDesignReview({
   const [loading, setLoading] = useState(true);
   const [filesLoading, setFilesLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [reviews, setReviews] = useState<DbAttachmentReview[]>([]);
 
   const fetchAttachment = useCallback(
     async (fileId: string) => {
@@ -92,9 +98,15 @@ export function useDesignReview({
       setAttachment(att);
 
       if (isFirst) {
-        const cmts = await fetchComments();
+        const [cmts, reviewData] = await Promise.all([
+          fetchComments(),
+          fetch(
+            `/api/projects/${projectId}/attachments/${activeFileId}/review`
+          ).then((r) => (r.ok ? r.json() : [])),
+        ]);
         if (cancelled) return;
         setComments(cmts);
+        setReviews(reviewData);
 
         if (att?.phase_id) {
           const [files, name] = await Promise.all([
@@ -173,6 +185,7 @@ export function useDesignReview({
     setCommentsOpen,
     loading,
     submittingComment,
+    reviews,
     handlePostComment,
   };
 }

@@ -9,14 +9,16 @@ import {
   FileText,
   Loader2,
   Download,
-  CheckCircle2,
-  AlertTriangle,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/useToast";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
 import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
 import { CommentsPanel } from "@/components/review/CommentsPanel";
+import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
+import { useAnnotationTracker } from "@/hooks/useAnnotationTracker";
+import { isPdf } from "@/lib/fileUtils";
 import type { DbAttachment, DbComment, DbPhase } from "@/types";
 
 /**
@@ -43,9 +45,12 @@ export default function ClientReviewPage({
   const [commentsOpen, setCommentsOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submittingComment, setSubmittingComment] = useState(false);
-  const [reviewingAs, setReviewingAs] = useState<
-    "approved" | "rejected" | null
-  >(null);
+
+  // Track annotation changes for the review submit flow
+  const annotations = useAnnotationTracker({
+    viewerRef,
+    enabled: !loading && !!attachment && isPdf(attachment.file_name),
+  });
 
   const fetchAttachment = useCallback(
     async (fileId: string) => {
@@ -145,44 +150,86 @@ export default function ClientReviewPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId]);
 
-  async function handleReview(status: "approved" | "rejected") {
-    setReviewingAs(status);
-    try {
-      const res = await fetch(
-        `/api/projects/${projectId}/attachments/${activeFileId}/review`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        }
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast({
-          title: tc("error"),
-          description: data.error || "Failed to update review status.",
-          variant: "error",
+  /**
+   * Submit review — GitHub-style:
+   * 1. If annotations exist, export the annotated PDF and upload it
+   * 2. Create a review record with status + comment + annotated file URL
+   * 3. Update the attachment's review_status
+   */
+  async function handleSubmitReview(
+    status: "approved" | "rejected",
+    comment: string
+  ) {
+    let annotatedFileUrl: string | null = null;
+
+    // If there are annotations, export and upload the annotated PDF
+    if (annotations.hasChanges && isPdf(attachment?.file_name || "")) {
+      const buffer = await annotations.exportAnnotatedPdf();
+      if (buffer) {
+        const blob = new Blob([buffer], { type: "application/pdf" });
+        const baseName = attachment!.file_name.replace(/\.pdf$/i, "");
+        const reviewFileName = `${baseName}_review.pdf`;
+
+        const formData = new FormData();
+        formData.append("file", blob, reviewFileName);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
         });
-        return;
+
+        if (uploadRes.ok) {
+          const { url } = await uploadRes.json();
+          annotatedFileUrl = url;
+        } else {
+          toast({
+            title: tc("error"),
+            description: "Failed to upload annotated PDF.",
+            variant: "error",
+          });
+          return;
+        }
       }
-      toast({
-        title:
-          status === "approved"
-            ? t("approvedToast")
-            : t("changesRequestedToast"),
-        description:
-          status === "approved"
-            ? t("approvedDescription")
-            : t("changesRequestedDescription"),
-        variant: status === "approved" ? "success" : "error",
-      });
-      const updated = await fetchAttachment(activeFileId);
-      if (updated) setAttachment(updated);
-    } catch (err) {
-      console.error("[handleReview]", err);
-    } finally {
-      setReviewingAs(null);
     }
+
+    // Submit the review
+    const res = await fetch(
+      `/api/projects/${projectId}/attachments/${activeFileId}/review`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status,
+          comment,
+          annotatedFileUrl,
+          annotationCount: annotations.annotationCount,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast({
+        title: tc("error"),
+        description: data.error || "Failed to submit review.",
+        variant: "error",
+      });
+      return;
+    }
+
+    toast({
+      title:
+        status === "approved" ? t("approvedToast") : t("changesRequestedToast"),
+      description:
+        status === "approved"
+          ? t("approvedDescription")
+          : t("changesRequestedDescription"),
+      variant: status === "approved" ? "success" : "error",
+    });
+
+    annotations.reset();
+    const updated = await fetchAttachment(activeFileId);
+    if (updated) setAttachment(updated);
   }
 
   async function handlePostComment() {
@@ -276,7 +323,7 @@ export default function ClientReviewPage({
       />
 
       {/* Center area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Toolbar */}
         <div className="h-10 shrink-0 bg-[#1A1A1A] px-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -310,48 +357,36 @@ export default function ClientReviewPage({
 
           <div className="flex items-center gap-2 shrink-0">
             <button
+              className={`cursor-pointer transition-colors ${commentsOpen ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+              onClick={() => setCommentsOpen(!commentsOpen)}
+              title="Toggle comments"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </button>
+            <button
               onClick={handleDownload}
               className="text-[#A0A0A0] hover:text-white cursor-pointer"
               title="Download"
             >
               <Download className="w-4 h-4" />
             </button>
-
-            <div className="w-px h-5 bg-[#333333]" />
-
-            <button
-              onClick={() => handleReview("approved")}
-              disabled={reviewingAs !== null}
-              className="flex items-center gap-1 border border-[#22C55E] text-[#22C55E] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {reviewingAs === "approved" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5" />
-              )}
-              {t("approved")}
-            </button>
-            <button
-              onClick={() => handleReview("rejected")}
-              disabled={reviewingAs !== null}
-              className="flex items-center gap-1 border border-[#F59E0B] text-[#F59E0B] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {reviewingAs === "rejected" ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <AlertTriangle className="w-3.5 h-3.5" />
-              )}
-              {t("changesRequested")}
-            </button>
           </div>
         </div>
 
-        {/* Document viewer — view-only, no annotations */}
+        {/* Document viewer — annotations enabled for client review */}
         <DocumentViewer
           activeFileId={activeFileId}
           fileName={fileName}
           fileUrl={fileUrl}
           viewerRef={viewerRef}
+          annotations
+        />
+
+        {/* Review submit bar — floating at bottom of viewer */}
+        <ReviewSubmitBar
+          annotationCount={annotations.annotationCount}
+          hasChanges={annotations.hasChanges}
+          onSubmit={handleSubmitReview}
         />
       </div>
 
