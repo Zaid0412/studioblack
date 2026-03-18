@@ -1,29 +1,21 @@
 "use client";
 
-import { use, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Send,
-  MessageSquare,
-} from "lucide-react";
+import { use, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
+import { ArrowLeft, FileText, Loader2, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { EmptyState } from "@/components/ui/empty-state";
-import { toast } from "@/components/ui/use-toast";
-import { comments, getProjectById } from "@/data/mock";
+import { useDesignReview } from "./_hooks/useDesignReview";
+import { useCommentTool } from "@/hooks/useCommentTool";
+import { usePdfPlugins } from "@/hooks/usePdfPlugins";
+import { ThumbnailPanel } from "./_components/ThumbnailPanel";
+import { ReviewToolbar } from "./_components/ReviewToolbar";
+import { DocumentViewer } from "./_components/DocumentViewer";
+import { ReviewPanel } from "@/components/review/ReviewPanel";
+import { authClient } from "@/lib/authClient";
+import { displayName } from "@/lib/fileUtils";
 
-/** Design review workspace with annotation tools and comments. */
+/** Design review workspace with file viewer, annotation tools, and comments panel. */
 export default function DesignReviewPage({
   params,
 }: {
@@ -31,211 +23,118 @@ export default function DesignReviewPage({
 }) {
   const { id, designId } = use(params);
   const router = useRouter();
-  const t = useTranslations("designReview");
-  const tc = useTranslations("common");
-  const te = useTranslations("emptyStates");
-  const [newComment, setNewComment] = useState("");
-  const project = getProjectById(id);
-  const section = project?.designSections.find((s) => s.id === designId);
+  const searchParams = useSearchParams();
+  const viewerRef = useRef<PDFViewerRef>(null);
+
+  const { data: session } = authClient.useSession();
+  const review = useDesignReview({
+    projectId: id,
+    designId,
+    basePath: "/projects",
+    fetchReviews: true,
+  });
+  const plugins = usePdfPlugins({ viewerRef, attachment: review.attachment });
+  const { commentToolActive, toggleCommentTool } = useCommentTool({
+    viewerRef,
+  });
+  const [reviewsOpen, setReviewsOpen] = useState(
+    searchParams.get("reviews") === "open"
+  );
+
+  if (review.loading) {
+    return (
+      <div
+        className="flex items-center justify-center -m-8"
+        style={{ height: "calc(100vh)" }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
+      </div>
+    );
+  }
+
+  if (!review.attachment) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center -m-8 gap-4"
+        style={{ height: "calc(100vh)" }}
+      >
+        <FileText className="w-12 h-12 text-[#666666]" />
+        <p className="text-[#A0A0A0] text-sm">Attachment not found</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/projects/${id}`)}
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to project
+        </Button>
+      </div>
+    );
+  }
+
+  const { file_name: fileName, file_url: fileUrl } = review.attachment;
 
   return (
-    <div className="flex flex-col h-full -m-8">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-border-default bg-bg-secondary shrink-0">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push(`/projects/${id}`)}
-            className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {t("backButton")}
-          </button>
-          <div className="h-5 w-px bg-border-default" />
-          <span className="text-sm font-semibold text-text-primary">
-            {section?.name || "Design"} — v{section?.version || 1}
-          </span>
-          {section && (
-            <Badge
-              variant={
-                section.status as React.ComponentProps<typeof Badge>["variant"]
-              }
+    <div className="flex -m-8" style={{ height: "calc(100vh)" }}>
+      {/* 1. Thumbnail Panel */}
+      <ThumbnailPanel
+        phaseFiles={review.phaseFiles}
+        activeFileId={review.activeFileId}
+        phaseName={review.phaseName}
+        loading={review.filesLoading}
+        onSelectFile={review.setActiveFileId}
+      />
+
+      {/* 2. Center Area */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        {/* 2a. Toolbar */}
+        <ReviewToolbar
+          backPath={`/projects/${id}`}
+          fileName={fileName}
+          fileUrl={fileUrl}
+          commentToolActive={commentToolActive}
+          onToggleCommentTool={toggleCommentTool}
+          onScreenshot={plugins.handleScreenshot}
+          onDownload={plugins.handleDownload}
+          onPrint={plugins.handlePrint}
+          onFullscreen={plugins.handleFullscreen}
+          rightSlot={
+            <button
+              onClick={() => setReviewsOpen(!reviewsOpen)}
+              className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                reviewsOpen
+                  ? "bg-[#F5C518]/15 text-[#F5C518]"
+                  : review.reviews.length > 0
+                    ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
+                    : "text-[#A0A0A0] hover:text-white"
+              }`}
+              title="Reviews"
             >
-              {section.status
-                .split("-")
-                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                .join(" ")}
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  toast({
-                    title: t("rejectedToast"),
-                    description: t("rejectedDescription"),
-                    variant: "error",
-                  })
-                }
-              >
-                <XCircle className="w-4 h-4" />
-                {t("reject")}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("rejectTooltip")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  toast({
-                    title: t("changesRequestedToast"),
-                    description: t("changesRequestedDescription"),
-                    variant: "warning",
-                  })
-                }
-              >
-                <AlertTriangle className="w-4 h-4" />
-                {t("requestChanges")}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("changesRequestedTooltip")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                onClick={() =>
-                  toast({
-                    title: t("approvedToast"),
-                    description: t("approvedDescription"),
-                    variant: "success",
-                  })
-                }
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                {t("approve")}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("approveTooltip")}</TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              {review.reviews.length > 0 && (
+                <span>{review.reviews.length}</span>
+              )}
+            </button>
+          }
+        />
 
-      {/* Split view */}
-      <div className="flex flex-1 min-h-0">
-        {/* PDF Viewer (left) */}
-        <div className="flex-1 flex items-center justify-center bg-bg-primary">
-          <div className="flex flex-col items-center gap-4 text-text-muted">
-            <div className="w-64 h-80 rounded-lg border-2 border-dashed border-border-default flex items-center justify-center">
-              <span className="text-sm">{t("pdfPreview")}</span>
-            </div>
-            <span className="text-xs">{t("pdfPreviewHint")}</span>
-          </div>
-        </div>
-
-        {/* Review Panel (right) */}
-        <div className="w-[420px] border-l border-border-default bg-bg-secondary flex flex-col shrink-0">
-          {/* Comments section */}
-          <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
-            <h3 className="text-sm font-semibold text-text-primary">
-              {t("comments")} ({comments.length})
-            </h3>
-            {comments.length === 0 ? (
-              <EmptyState
-                icon={MessageSquare}
-                title={te("commentsTitle")}
-                description={te("commentsDescription")}
-                className="py-8"
-              />
-            ) : (
-              comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-4"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Avatar initials={comment.author.initials} size="sm" />
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-semibold text-text-primary">
-                        {comment.author.name}
-                      </span>
-                      <span className="text-[11px] text-text-muted">
-                        {formatTimeAgo(comment.createdAt, tc)}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[13px] text-text-secondary leading-relaxed">
-                    {comment.content}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Comment input */}
-          <div className="border-t border-border-default p-4">
-            <div className="flex gap-3">
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder={t("commentPlaceholder")}
-                className="flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-                rows={2}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="self-end"
-                    onClick={() => {
-                      if (newComment.trim()) {
-                        toast({
-                          title: t("commentPostedToast"),
-                          description: t("commentPostedDescription"),
-                        });
-                        setNewComment("");
-                      }
-                    }}
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t("sendComment")}</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-        </div>
+        {/* 2b. Document Viewer */}
+        <DocumentViewer
+          activeFileId={review.activeFileId}
+          fileName={fileName}
+          fileUrl={fileUrl}
+          viewerRef={viewerRef}
+          annotations
+          annotationAuthor={displayName(session?.user?.name)}
+        />
+        {/* 2c. Reviews Panel (overlay) */}
+        {reviewsOpen && (
+          <ReviewPanel
+            reviews={review.reviews}
+            onClose={() => setReviewsOpen(false)}
+          />
+        )}
       </div>
     </div>
   );
-}
-
-/**
- * Converts an ISO timestamp into a human-readable relative time string.
- *
- * Returns localised labels via the supplied `t` function:
- * - < 1 hour  → "Just now"
- * - < 24 hours → "X hours ago"
- * - ≥ 24 hours → "X days ago"
- */
-
-function formatTimeAgo(
-  timestamp: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: (key: string, values?: Record<string, any>) => string
-): string {
-  const now = new Date();
-  const date = new Date(timestamp);
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-
-  if (diffHours < 1) return t("justNow");
-  if (diffHours < 24) return t("hoursAgo", { count: diffHours });
-  return t("daysAgo", { count: Math.floor(diffHours / 24) });
 }

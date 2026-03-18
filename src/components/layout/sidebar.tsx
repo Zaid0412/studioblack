@@ -1,18 +1,20 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   FolderOpen,
-  Users,
+  Building2,
   Bell,
   Settings,
   History,
   LogOut,
   ChevronsLeft,
+  CheckSquare,
 } from "lucide-react";
-import { NavItem } from "./nav-item";
-import { useSidebar } from "./sidebar-context";
+import { NavItem } from "./NavItem";
+import { useSidebar } from "./SidebarContext";
 import { Avatar } from "@/components/ui/avatar";
 import {
   Tooltip,
@@ -23,13 +25,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
-import { getUnreadNotificationCount } from "@/data/mock";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types";
 
 interface SidebarProps {
-  variant?: "architect" | "client";
+  variant?: "pm" | "architect" | "client";
   user: User;
 }
 
@@ -37,7 +38,8 @@ interface SidebarProps {
  * Application sidebar with role-adaptive navigation.
  *
  * Renders different nav items depending on the `variant`:
- * - `"architect"` — full navigation including team management and audit history.
+ * - `"pm"` — full navigation including team management and audit history.
+ * - `"architect"` — project-focused navigation without team management.
  * - `"client"` — reduced navigation scoped to client-facing features.
  *
  * Supports a collapsed (icon-only) mode toggled via `useSidebar()`.
@@ -48,23 +50,62 @@ interface SidebarProps {
  * Nav items are conditionally included based on the feature flags in
  * `src/config/features.ts`.
  */
-export function Sidebar({ variant = "architect", user }: SidebarProps) {
+export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
-  const unread = getUnreadNotificationCount();
+
+  const [unread, setUnread] = useState(0);
+  const [orgName, setOrgName] = useState<string | null>(null);
+  useEffect(() => {
+    async function fetchOrgData() {
+      let count = 0;
+      // Invitations received by this user
+      const { data: received } =
+        await authClient.organization.listUserInvitations();
+      count += received?.filter((inv) => inv.status === "pending").length ?? 0;
+      // Invitations sent by org owner (pending responses) + org name
+      const { data: orgData } =
+        await authClient.organization.getFullOrganization();
+      if (orgData) {
+        setOrgName(orgData.name);
+        if (orgData.invitations) {
+          count += orgData.invitations.filter(
+            (inv) => inv.status === "pending"
+          ).length;
+        }
+      }
+      // Add unread DB notifications count
+      try {
+        const res = await fetch("/api/notifications?unread=true");
+        if (res.ok) {
+          const { count: dbCount } = await res.json();
+          count += dbCount;
+        }
+      } catch {
+        // ignore
+      }
+      setUnread(count);
+    }
+    fetchOrgData();
+    const interval = setInterval(fetchOrgData, 30000);
+    const handleRefresh = () => fetchOrgData();
+    window.addEventListener("notifications-changed", handleRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-changed", handleRefresh);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await authClient.signOut();
     router.push("/login");
   };
 
-  const architectNav = [
+  const pmNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
-    ...(features.teamManagement
-      ? [{ href: "/team", label: t("team"), icon: Users }]
-      : []),
+    { href: "/organisation", label: t("organisation"), icon: Building2 },
     ...(features.notifications
       ? [
           {
@@ -81,13 +122,11 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
       : []),
   ];
 
-  const clientNav = [
-    {
-      href: "/client-dashboard",
-      label: t("dashboard"),
-      icon: LayoutDashboard,
-    },
+  const architectNav = [
+    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/tasks", label: t("tasks"), icon: CheckSquare },
+    { href: "/organisation", label: t("organisation"), icon: Building2 },
     ...(features.notifications
       ? [
           {
@@ -101,7 +140,36 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
-  const navItems = variant === "client" ? clientNav : architectNav;
+  const clientNav = [
+    {
+      href: "/client-dashboard",
+      label: t("dashboard"),
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/client-dashboard/projects",
+      label: t("projects"),
+      icon: FolderOpen,
+    },
+    ...(features.notifications
+      ? [
+          {
+            href: "/client-dashboard/notifications",
+            label: t("notifications"),
+            icon: Bell,
+            badge: unread,
+          },
+        ]
+      : []),
+    {
+      href: "/client-dashboard/settings",
+      label: t("settings"),
+      icon: Settings,
+    },
+  ];
+
+  const navMap = { pm: pmNav, architect: architectNav, client: clientNav };
+  const navItems = navMap[variant];
 
   return (
     <aside
@@ -138,6 +206,38 @@ export function Sidebar({ variant = "architect", user }: SidebarProps) {
           {branding.appName}
         </span>
       </Link>
+
+      {/* Organisation name */}
+      {orgName && (
+        <div
+          className={cn(
+            "border-b border-border-default pb-3 mb-1 transition-all duration-200",
+            isCollapsed ? "px-2" : "px-4"
+          )}
+        >
+          {isCollapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/organisation"
+                  className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-elevated text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <Building2 className="h-4 w-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{orgName}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Link
+              href="/organisation"
+              className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors group"
+            >
+              <Building2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="text-xs font-medium truncate">{orgName}</span>
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav

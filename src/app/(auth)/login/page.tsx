@@ -7,10 +7,10 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BrandLogo } from "@/components/ui/brand-logo";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { features } from "@/config/features";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/authClient";
 
 /** Login page with email/password and optional magic-link. */
 export default function LoginPage() {
@@ -48,6 +48,7 @@ export default function LoginPage() {
     if (data?.user?.role === "client") {
       router.push("/client-dashboard");
     } else {
+      // PM and architect both go to /dashboard — layout handles onboarding redirect
       router.push("/dashboard");
     }
   };

@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { SidebarProvider } from "@/components/layout/sidebar-context";
+import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { deriveInitials } from "@/lib/utils";
 import type { User } from "@/types";
 
@@ -10,7 +10,7 @@ import type { User } from "@/types";
  * Client layout — protected, client role only.
  *
  * Performs full session validation via `auth.api.getSession()` (DB lookup).
- * Redirects unauthenticated users to `/login` and architects/admins to `/dashboard`.
+ * Redirects unauthenticated users to `/login` and PMs/architects to `/dashboard`.
  * Passes the authenticated user to the Sidebar as a typed `User` prop.
  */
 export default async function ClientLayout({
@@ -26,8 +26,8 @@ export default async function ClientLayout({
     redirect("/login");
   }
 
-  // Architects and admins should not be in the client portal
-  if (session.user.role === "architect" || session.user.role === "admin") {
+  // PMs and architects should not be in the client portal
+  if (session.user.role === "pm" || session.user.role === "architect") {
     redirect("/dashboard");
   }
 

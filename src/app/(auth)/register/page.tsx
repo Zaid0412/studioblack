@@ -2,22 +2,25 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BrandLogo } from "@/components/ui/brand-logo";
+import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
-import { authClient } from "@/lib/auth-client";
+import { authClient } from "@/lib/authClient";
 
 /** Registration page with name, email, and password fields. */
 export default function RegisterPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const invitationId = searchParams.get("invitationId");
+  const inviteEmail = searchParams.get("email");
   const { data: session } = authClient.useSession();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(inviteEmail ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -65,10 +68,23 @@ export default function RegisterPage() {
       return;
     }
 
+    // If there's a pending invitation, accept it automatically
+    if (invitationId) {
+      try {
+        await authClient.organization.acceptInvitation({
+          invitationId,
+        });
+      } catch {
+        // Invitation may have expired or been cancelled — continue anyway
+        console.warn("Could not auto-accept invitation");
+      }
+    }
+
     // Sign-up creates a session — redirect based on role
     if (data?.user?.role === "client") {
       router.push("/client-dashboard");
     } else {
+      // PM and architect both go to /dashboard — layout handles onboarding redirect
       router.push("/dashboard");
     }
   };
@@ -145,6 +161,8 @@ export default function RegisterPage() {
                   placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  readOnly={!!inviteEmail}
+                  className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
                   required
                 />
                 <Input

@@ -1,184 +1,94 @@
 "use client";
 
 import { use } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Calendar, Upload, Eye, ArrowLeft, Edit } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
-import { Avatar } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { getProjectById } from "@/data/mock";
+import { Loader2 } from "lucide-react";
+import { useProjectDetail } from "./_hooks/useProjectDetail";
+import { ProjectHeader } from "./_components/ProjectHeader";
+import { MetaBar } from "./_components/MetaBar";
+import { WorkflowBar } from "./_components/WorkflowBar";
+import { PhaseTabs } from "./_components/PhaseTabs";
+import { FileTable } from "./_components/FileTable";
+import { CommentsSection } from "./_components/CommentsSection";
 
-/** Project detail page with designs and activity. */
+/** Project detail page — workflow steps, phase tabs, file table. */
 export default function ProjectDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
-  const t = useTranslations("projectDetail");
   const tc = useTranslations("common");
-  const te = useTranslations("emptyStates");
-  const project = getProjectById(id);
 
-  if (!project) {
+  const {
+    project,
+    attachments,
+    comments,
+    newComment,
+    setNewComment,
+    sendingComment,
+    loading,
+    error,
+    activePhaseId,
+    setActivePhaseId,
+    handleSendComment,
+    handleDownload,
+  } = useProjectDetail(id);
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-text-muted">{tc("projectNotFound")}</p>
+        <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
       </div>
     );
   }
 
-  return (
-    <div className="flex flex-col gap-6 max-w-[1200px]">
-      {/* Back button */}
-      <button
-        onClick={() => router.push("/projects")}
-        className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        {tc("backToProjects")}
-      </button>
-
-      <PageHeader
-        title={project.name}
-        subtitle={project.description}
-        actions={
-          <div className="flex gap-3">
-            <Button
-              variant="secondary"
-              onClick={() => router.push(`/projects/${id}/edit`)}
-            >
-              <Edit className="w-4 h-4" />
-              {t("editButton")}
-            </Button>
-            <Button onClick={() => router.push(`/projects/${id}/upload`)}>
-              <Upload className="w-4 h-4" />
-              {t("uploadDesign")}
-            </Button>
-          </div>
-        }
-      />
-
-      {/* Project info row */}
-      <div className="flex gap-6">
-        <div className="flex-1 flex flex-col gap-6">
-          {/* Project meta */}
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-text-muted">{t("clientLabel")}</span>
-              <span className="text-text-primary font-medium">
-                {project.client}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-text-muted">{t("statusLabel")}</span>
-              <Badge variant={statusToBadgeVariant(project.status)}>
-                {project.status.charAt(0).toUpperCase() +
-                  project.status.slice(1)}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2 text-text-muted">
-              <Calendar className="w-3.5 h-3.5 text-warning" />
-              <span>
-                {t("duePrefix")}{" "}
-                {new Date(project.deadline).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-          </div>
-
-          {/* Team */}
-          <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-text-primary">
-              {t("teamMembers")}
-            </h3>
-            <div className="flex gap-3">
-              {project.team.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center gap-2 rounded-lg bg-bg-elevated px-3 py-2"
-                >
-                  <Avatar initials={member.initials} size="sm" />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-text-primary">
-                      {member.name}
-                    </span>
-                    <span className="text-xs text-text-muted capitalize">
-                      {member.role}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Design Sections */}
-          <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-text-primary">
-              {t("designSections")}
-            </h3>
-            {project.designSections.length === 0 ? (
-              <EmptyState
-                icon={Upload}
-                title={te("designSectionsTitle")}
-                description={te("designSectionsDescription")}
-                action={{
-                  label: te("designSectionsAction"),
-                  href: `/projects/${id}/upload`,
-                }}
-              />
-            ) : (
-              <div className="flex flex-col gap-3">
-                {project.designSections.map((section) => (
-                  <Card key={section.id} hover className="!p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-semibold text-text-primary">
-                          {section.name}
-                        </span>
-                        <span className="text-xs text-text-muted">
-                          v{section.version} &middot; {t("uploadedBy")}{" "}
-                          {section.uploadedBy} &middot;{" "}
-                          {new Date(section.uploadedAt).toLocaleDateString(
-                            "en-US",
-                            { month: "short", day: "numeric" }
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant={statusToBadgeVariant(section.status)}>
-                          {section.status
-                            .split("-")
-                            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                            .join(" ")}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            router.push(`/projects/${id}/review/${section.id}`)
-                          }
-                        >
-                          <Eye className="w-4 h-4" />
-                          {t("viewReview")}
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+  if (error || !project) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-[#666666]">{tc("projectNotFound")}</p>
       </div>
+    );
+  }
+
+  const phaseCounts = new Map<string, number>();
+  for (const a of attachments) {
+    if (a.phase_id)
+      phaseCounts.set(a.phase_id, (phaseCounts.get(a.phase_id) || 0) + 1);
+  }
+  const phaseFiles = attachments.filter((a) => a.phase_id === activePhaseId);
+
+  return (
+    <div className="flex flex-col h-full">
+      <ProjectHeader projectName={project.name} />
+      <MetaBar
+        clientName={project.client_name}
+        clientEmail={project.client_email}
+        members={project.members}
+        createdAt={project.created_at}
+        phases={project.phases}
+        phaseCounts={phaseCounts}
+      />
+      <WorkflowBar projectId={id} steps={project.steps} />
+      <PhaseTabs
+        phases={project.phases}
+        activePhaseId={activePhaseId}
+        phaseCounts={phaseCounts}
+        onPhaseChange={setActivePhaseId}
+      />
+      <FileTable
+        projectId={id}
+        activePhaseId={activePhaseId}
+        phaseFiles={phaseFiles}
+        onDownload={handleDownload}
+      />
+      <CommentsSection
+        comments={comments}
+        newComment={newComment}
+        onNewCommentChange={setNewComment}
+        sendingComment={sendingComment}
+        onSendComment={handleSendComment}
+      />
     </div>
   );
 }
