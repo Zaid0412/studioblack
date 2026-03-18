@@ -8,7 +8,7 @@ import { withAuth } from "@/lib/withAuth";
 /** POST /api/projects/[id]/tasks/[taskId]/request-review — mark task for client review. */
 export const POST = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, _ctx, params) => {
     const { id, taskId } = params;
 
     const taskOwned = await verifyTaskOwnership(taskId, id);

@@ -13,7 +13,7 @@ const VALID_TASK_STATUSES = ["pending", "in_progress", "completed"];
 /** GET /api/projects/[id]/tasks?phaseId=... — list tasks for a phase. */
 export const GET = withAuth(
   { projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, _ctx, params) => {
     const { id } = params;
 
     const phaseId = req.nextUrl.searchParams.get("phaseId");
@@ -95,7 +95,7 @@ export const POST = withAuth(
 /** PATCH /api/projects/[id]/tasks — update a task. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, _ctx, params) => {
     const { id } = params;
 
     const {

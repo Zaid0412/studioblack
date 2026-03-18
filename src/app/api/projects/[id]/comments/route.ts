@@ -14,7 +14,7 @@ import { withAuth } from "@/lib/withAuth";
 /** GET /api/projects/[id]/comments — list comments. */
 export const GET = withAuth(
   { projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, _ctx, params) => {
     const { id } = params;
 
     const { searchParams } = req.nextUrl;
