@@ -1,16 +1,13 @@
 "use client";
 
 import {
-  CheckCircle,
   ClipboardCheck,
   Download,
-  Eye,
   History,
   MoreVertical,
   Pencil,
   Trash2,
   Upload,
-  XCircle,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,10 +24,6 @@ interface FileContextMenuProps {
   onUploadNewVersion?: () => void;
   onVersionHistory?: () => void;
   onViewReview?: () => void;
-  onApprove?: () => void;
-  onReject?: () => void;
-  onMarkReviewed?: () => void;
-  showReviewActions?: boolean;
 }
 
 /**
@@ -43,14 +36,8 @@ export function FileContextMenu({
   onUploadNewVersion,
   onVersionHistory,
   onViewReview,
-  onApprove,
-  onReject,
-  onMarkReviewed,
-  showReviewActions = false,
 }: FileContextMenuProps) {
   const hasTopItems = onEdit || onDownload || onUploadNewVersion;
-  const hasReviewItems =
-    showReviewActions && (onApprove || onReject || onMarkReviewed);
 
   return (
     <DropdownMenu>
@@ -94,27 +81,7 @@ export function FileContextMenu({
             View Review
           </DropdownMenuItem>
         )}
-        {(hasTopItems || onVersionHistory || onViewReview) &&
-          hasReviewItems && <DropdownMenuSeparator />}
-        {showReviewActions && onApprove && (
-          <DropdownMenuItem onSelect={onApprove}>
-            <CheckCircle />
-            Approve
-          </DropdownMenuItem>
-        )}
-        {showReviewActions && onReject && (
-          <DropdownMenuItem onSelect={onReject}>
-            <XCircle />
-            Reject
-          </DropdownMenuItem>
-        )}
-        {showReviewActions && onMarkReviewed && (
-          <DropdownMenuItem onSelect={onMarkReviewed}>
-            <Eye />
-            Mark Reviewed
-          </DropdownMenuItem>
-        )}
-        {(hasTopItems || onVersionHistory || hasReviewItems) && onRemove && (
+        {(hasTopItems || onVersionHistory || onViewReview) && onRemove && (
           <DropdownMenuSeparator />
         )}
         {onRemove && (

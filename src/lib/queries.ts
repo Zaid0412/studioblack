@@ -1,25 +1,5 @@
 import { getPool } from "@/lib/db";
-
-/** The 6 fixed project phases (file categories) — auto-created for every new project. */
-export const PROJECT_PHASES = [
-  "2D Layout / Adaptation",
-  "3D Layout / Adaptation",
-  "Production Files",
-  "Section View",
-  "Plumbing Section View",
-  "Floor Plans",
-] as const;
-
-/** The 7 high-level workflow steps — auto-created for every new project. */
-export const PROJECT_STEPS = [
-  "Recce",
-  "Design",
-  "BOQ",
-  "Order",
-  "Work Progress",
-  "Snag",
-  "Finance",
-] as const;
+import { PROJECT_PHASES, PROJECT_STEPS } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Project CRUD
@@ -32,6 +12,8 @@ interface CreateProjectInput {
   category: string;
   description?: string;
   deadline?: string;
+  /** Custom phase names. Falls back to PROJECT_PHASES if empty/omitted. */
+  phases?: string[];
   orgId: string;
   createdBy: string;
   architectIds?: string[];
@@ -76,12 +58,15 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
       stepIds.push(step.id);
     }
 
-    // Insert all 6 phases (linked to the "Design" step by default)
+    // Insert phases (custom if provided, otherwise default 6)
     const designStepId = stepIds[1]; // "Design" is step index 1
-    for (let i = 0; i < PROJECT_PHASES.length; i++) {
+    const phaseNames = input.phases?.length
+      ? input.phases
+      : [...PROJECT_PHASES];
+    for (let i = 0; i < phaseNames.length; i++) {
       await client.query(
         `INSERT INTO project_phase (project_id, name, phase_order, step_id) VALUES ($1, $2, $3, $4)`,
-        [project.id, PROJECT_PHASES[i], i + 1, designStepId]
+        [project.id, phaseNames[i], i + 1, designStepId]
       );
     }
 

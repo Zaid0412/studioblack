@@ -35,9 +35,6 @@ export function FileTable({
       <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] overflow-hidden flex flex-col min-h-[400px]">
         {/* Table header */}
         <div className="flex items-center h-11 px-5 bg-[#242424] border-b border-[#333333]">
-          <div className="w-10 flex items-center justify-center">
-            <div className="w-4 h-4 rounded-[2px] border border-[#444444]" />
-          </div>
           <div className="flex-1 text-xs font-medium text-[#A0A0A0]">
             {t("fileName") || "Name of File"}
           </div>
@@ -80,14 +77,6 @@ export function FileTable({
                     router.push(`/projects/${projectId}/review/${att.id}`)
                   }
                 >
-                  {/* Checkbox */}
-                  <div
-                    className="w-10 flex items-center justify-center"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="w-4 h-4 rounded-[2px] border border-[#444444]" />
-                  </div>
-
                   {/* File name */}
                   <div className="flex-1 flex items-center gap-2.5 min-w-0">
                     <FileText className="w-4 h-4 text-[#A0A0A0] shrink-0" />

@@ -17,7 +17,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -54,7 +59,12 @@ export async function POST(
     );
   }
 
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -68,7 +78,9 @@ export async function POST(
   }
 
   const pool = getPool();
-  const { rows: [approval] } = await pool.query(
+  const {
+    rows: [approval],
+  } = await pool.query(
     `INSERT INTO approval (project_id, phase_id, user_id, decision, comment)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -77,13 +89,17 @@ export async function POST(
 
   // Only mark project as completed when all phases have been approved
   if (decision === "approved") {
-    const { rows: [phaseCheck] } = await pool.query(
+    const {
+      rows: [phaseCheck],
+    } = await pool.query(
       `SELECT COUNT(*) AS total,
               COUNT(*) FILTER (WHERE pp.status = 'completed') AS done
        FROM project_phase pp WHERE pp.project_id = $1`,
       [id]
     );
-    const allPhasesComplete = Number(phaseCheck.total) > 0 && Number(phaseCheck.done) === Number(phaseCheck.total);
+    const allPhasesComplete =
+      Number(phaseCheck.total) > 0 &&
+      Number(phaseCheck.done) === Number(phaseCheck.total);
     if (allPhasesComplete || !phaseId) {
       await pool.query(
         `UPDATE project SET status = 'completed', updated_at = now() WHERE id = $1`,
@@ -110,24 +126,35 @@ export async function POST(
       [id]
     );
 
-    const subject = decision === "approved"
-      ? `Project Approved: ${projectName}`
-      : `Changes Requested: ${projectName}`;
+    const subject =
+      decision === "approved"
+        ? `Project Approved: ${projectName}`
+        : `Changes Requested: ${projectName}`;
 
-    const body = decision === "approved"
-      ? `<p><strong>${escapeHtml(clientName)}</strong> has approved the project <strong>${escapeHtml(projectName)}</strong>.</p>
+    const body =
+      decision === "approved"
+        ? `<p><strong>${escapeHtml(clientName)}</strong> has approved the project <strong>${escapeHtml(projectName)}</strong>.</p>
          <p style="color: #16a34a; font-weight: 600;">✓ Final Approval Recorded</p>`
-      : `<p><strong>${escapeHtml(clientName)}</strong> has requested changes on the project <strong>${escapeHtml(projectName)}</strong>.</p>
+        : `<p><strong>${escapeHtml(clientName)}</strong> has requested changes on the project <strong>${escapeHtml(projectName)}</strong>.</p>
          ${comment ? `<p style="color: #666;">Comment: "${escapeHtml(comment)}"</p>` : ""}`;
 
     for (const recipient of teamEmails) {
-      sendNotificationEmail(recipient.email, subject, body);
+      sendNotificationEmail(recipient.email, subject, body).catch(
+        console.error
+      );
     }
     // In-app notifications
-    const notifTitle = decision === "approved"
-      ? `Project approved: ${projectName}`
-      : `Changes requested: ${projectName}`;
-    await createNotificationsForTeam(id, session.user.id, "approval", notifTitle, comment || "");
+    const notifTitle =
+      decision === "approved"
+        ? `Project approved: ${projectName}`
+        : `Changes requested: ${projectName}`;
+    await createNotificationsForTeam(
+      id,
+      session.user.id,
+      "approval",
+      notifTitle,
+      comment || ""
+    );
   } catch (err) {
     console.error("[approval] Failed to send notification emails:", err);
   }

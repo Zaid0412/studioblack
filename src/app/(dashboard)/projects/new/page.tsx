@@ -21,6 +21,7 @@ import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { deriveInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { PROJECT_PHASES } from "@/lib/constants";
 import type { OrgMember } from "@/types";
 
 /** Create new project form. */
@@ -28,10 +29,7 @@ export default function CreateProjectPage() {
   const router = useRouter();
   const t = useTranslations("createProject");
   const tc = useTranslations("common");
-  const [sections, setSections] = useState<string[]>([
-    t("defaultSectionFloorPlans"),
-    t("defaultSectionElevations"),
-  ]);
+  const [phases, setPhases] = useState<string[]>([...PROJECT_PHASES]);
 
   // Form fields
   const [projectName, setProjectName] = useState("");
@@ -112,6 +110,7 @@ export default function CreateProjectPage() {
                   category,
                   description: description.trim() || undefined,
                   deadline: deadline?.toISOString().split("T")[0],
+                  phases: phases.filter((p) => p.trim()),
                   architectIds: selectedArchitects.length
                     ? selectedArchitects
                     : undefined,
@@ -306,28 +305,29 @@ export default function CreateProjectPage() {
             <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
           </div>
 
-          {/* Design Sections */}
+          {/* Design Phases */}
           <div className="flex flex-col gap-3 mt-2">
             <h3 className="text-base font-semibold text-text-primary">
               {t("designSections")}
             </h3>
-            {sections.map((section, i) => (
+            {phases.map((phase, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Input
-                  value={section}
+                  value={phase}
                   onChange={(e) => {
-                    const updated = [...sections];
+                    const updated = [...phases];
                     updated[i] = e.target.value;
-                    setSections(updated);
+                    setPhases(updated);
                   }}
                   className="flex-1"
                 />
                 <button
                   type="button"
                   onClick={() =>
-                    setSections(sections.filter((_, idx) => idx !== i))
+                    setPhases(phases.filter((_, idx) => idx !== i))
                   }
                   className="p-2 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors cursor-pointer"
+                  disabled={phases.length <= 1}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -338,7 +338,7 @@ export default function CreateProjectPage() {
               variant="ghost"
               size="sm"
               className="self-start"
-              onClick={() => setSections([...sections, ""])}
+              onClick={() => setPhases([...phases, ""])}
             >
               <Plus className="w-4 h-4" />
               {t("addSection")}

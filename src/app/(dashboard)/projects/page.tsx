@@ -20,12 +20,29 @@ import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { toast } from "@/components/ui/useToast";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
 
@@ -36,14 +53,19 @@ const PAGE_SIZE = 10;
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
   const t = useTranslations("projects");
+  const tc = useTranslations("common");
   const te = useTranslations("emptyStates");
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
   const [userRole, setUserRole] = useState<string | null>(null);
   const [projects, setProjects] = useState<DbProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -97,20 +119,43 @@ export default function ProjectsPage() {
   ];
 
   const filtered = useMemo(() => {
-    return projects.filter((p) => {
+    const list = projects.filter((p) => {
       const client = p.client_name || p.client_email || "";
       const matchesSearch =
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         client.toLowerCase().includes(search.toLowerCase());
-      const matchesFilter = activeFilter === "all" || p.status === activeFilter;
-      return matchesSearch && matchesFilter;
+      const matchesTab = activeFilter === "all" || p.status === activeFilter;
+      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
+      return matchesSearch && matchesTab && matchesStatus;
     });
-  }, [projects, search, activeFilter]);
+
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case "oldest":
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        case "name":
+          return a.name.localeCompare(b.name);
+        case "updated":
+          return (
+            new Date(b.updated_at || b.created_at).getTime() -
+            new Date(a.updated_at || a.created_at).getTime()
+          );
+        default: // newest
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+      }
+    });
+
+    return list;
+  }, [projects, search, activeFilter, statusFilter, sortBy]);
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, activeFilter]);
+  }, [search, activeFilter, statusFilter, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const startIdx = (currentPage - 1) * PAGE_SIZE;
@@ -149,12 +194,28 @@ export default function ProjectsPage() {
           onChange={(e) => setSearch(e.target.value)}
           containerClassName="flex-1"
         />
-        <select className="h-10 w-[160px] rounded-lg bg-[#2A2A2A] border-none text-sm text-[#A0A0A0] px-3 outline-none cursor-pointer">
-          <option>{t("allStatus")}</option>
-        </select>
-        <select className="h-10 w-[160px] rounded-lg bg-[#2A2A2A] border-none text-sm text-[#A0A0A0] px-3 outline-none cursor-pointer">
-          <option>{t("sortBy")}</option>
-        </select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder={t("allStatus")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("allStatus")}</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest First</SelectItem>
+            <SelectItem value="oldest">Oldest First</SelectItem>
+            <SelectItem value="name">Name (A-Z)</SelectItem>
+            <SelectItem value="updated">Recently Updated</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Tab bar */}
@@ -306,14 +367,21 @@ export default function ProjectsPage() {
                         <Upload className="w-4 h-4" />
                         {t("uploadDesign")}
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        destructive
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        {t("deleteProject")}
-                      </DropdownMenuItem>
+                      {userRole === "pm" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            destructive
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(project);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            {t("deleteProject")}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -366,6 +434,71 @@ export default function ProjectsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete &ldquo;{deleteTarget?.name}&rdquo;?
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete the project and all its files,
+              phases, and reviews. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">{tc("cancel")}</Button>
+            </DialogClose>
+            <Button
+              variant="danger"
+              disabled={deleting}
+              onClick={async () => {
+                if (!deleteTarget) return;
+                setDeleting(true);
+                try {
+                  const res = await fetch(`/api/projects/${deleteTarget.id}`, {
+                    method: "DELETE",
+                  });
+                  if (res.ok) {
+                    setProjects((prev) =>
+                      prev.filter((p) => p.id !== deleteTarget.id)
+                    );
+                    toast({
+                      title: "Project deleted",
+                      description: `"${deleteTarget.name}" has been deleted.`,
+                      variant: "success",
+                    });
+                  } else {
+                    const data = await res.json().catch(() => ({}));
+                    toast({
+                      title: tc("error"),
+                      description: data.error || "Failed to delete project",
+                      variant: "error",
+                    });
+                  }
+                } catch {
+                  toast({
+                    title: tc("error"),
+                    description: "Failed to delete project",
+                    variant: "error",
+                  });
+                } finally {
+                  setDeleting(false);
+                  setDeleteTarget(null);
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+              {deleting ? tc("loading") : tc("delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

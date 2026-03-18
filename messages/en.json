@@ -93,7 +93,13 @@
     "changeThisMonth": "+{count} this month",
     "awaitingApproval": "{count} awaiting your approval",
     "pendingClientSignoff": "{count} pending client sign-off",
-    "teamComposition": "{architects} architects, {juniors} juniors"
+    "teamComposition": "{architects} architects, {juniors} juniors",
+    "noActivity": "No recent activity",
+    "noActivityHint": "Activity will show up here as your team uploads files, reviews designs, and updates projects.",
+    "noDeadlines": "No upcoming deadlines",
+    "noDeadlinesHint": "Projects with deadlines set will appear here as they approach.",
+    "welcomeTitle": "Welcome to your dashboard",
+    "welcomeDescription": "Create your first project to start tracking designs, reviews, and team progress."
   },
   "projects": {
     "title": "All Projects",

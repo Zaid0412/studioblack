@@ -93,7 +93,13 @@
     "changeThisMonth": "Bu ay +{count}",
     "awaitingApproval": "{count} onayınızı bekliyor",
     "pendingClientSignoff": "{count} müşteri onayı bekliyor",
-    "teamComposition": "{architects} mimar, {juniors} asistan"
+    "teamComposition": "{architects} mimar, {juniors} asistan",
+    "noActivity": "Henüz etkinlik yok",
+    "noActivityHint": "Ekibiniz dosya yükledikçe, tasarımları inceledikçe ve projeleri güncellledikçe etkinlikler burada görünecek.",
+    "noDeadlines": "Yaklaşan tarih yok",
+    "noDeadlinesHint": "Tarihi belirlenmiş projeler yaklaştıkça burada görünecek.",
+    "welcomeTitle": "Paneline hoş geldiniz",
+    "welcomeDescription": "Tasarımları, incelemeleri ve ekip ilerlemesini takip etmek için ilk projenizi oluşturun."
   },
   "projects": {
     "title": "Tüm Projeler",

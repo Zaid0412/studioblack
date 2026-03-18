@@ -64,8 +64,22 @@ export function useProjectDetail(id: string) {
     }
   };
 
-  const handleDownload = (att: DbAttachment) => {
-    window.open(att.file_url, "_blank");
+  const handleDownload = async (att: DbAttachment) => {
+    try {
+      const res = await fetch(
+        `/api/proxy-file?url=${encodeURIComponent(att.file_url)}`
+      );
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = att.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[handleDownload]", err);
+    }
   };
 
   return {

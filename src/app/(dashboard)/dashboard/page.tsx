@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
@@ -8,68 +9,104 @@ import {
   CheckCircle2,
   Users,
   Calendar,
+  Loader2,
+  Activity,
+  Clock,
+  Plus,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { activities, projects } from "@/data/mock";
+import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { authClient } from "@/lib/authClient";
 import { activityIcons, activityColors } from "@/lib/activityConstants";
 import { formatTimeAgo } from "@/lib/formatTime";
 
-/** Architect dashboard with stats, projects, and activity feed. */
+interface DashboardData {
+  stats: {
+    active: number;
+    pendingReviews: number;
+    approved: number;
+    teamMembers: number;
+  };
+  deadlines: {
+    id: string;
+    name: string;
+    client_name: string | null;
+    deadline: string;
+    status: string;
+  }[];
+  recentActivity: {
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    created_at: string;
+    project_name: string | null;
+  }[];
+}
+
+/** Dashboard with real stats, upcoming deadlines, and recent activity. */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
   const router = useRouter();
   const { data: session } = authClient.useSession();
 
-  const stats = [
-    {
-      label: t("activeProjects"),
-      value: "12",
-      change: t("changeThisMonth", { count: 2 }),
-      changeColor: "text-success",
-      icon: FolderOpen,
-    },
-    {
-      label: t("pendingReviews"),
-      value: "7",
-      change: t("awaitingApproval", { count: 3 }),
-      changeColor: "text-text-secondary",
-      valueColor: "text-accent",
-      icon: ClipboardCheck,
-    },
-    {
-      label: t("approvedDesigns"),
-      value: "4",
-      change: t("pendingClientSignoff", { count: 2 }),
-      changeColor: "text-text-secondary",
-      valueColor: "text-success",
-      icon: CheckCircle2,
-    },
-    {
-      label: t("teamMembers"),
-      value: "8",
-      change: t("teamComposition", { architects: 3, juniors: 5 }),
-      changeColor: "text-text-secondary",
-      icon: Users,
-    },
-  ];
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Upcoming deadlines from projects
-  const deadlines = projects
-    .filter((p) => p.status === "active")
-    .sort(
-      (a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
-    )
-    .slice(0, 3);
+  useEffect(() => {
+    fetch("/api/dashboard")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((d) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const stats = data
+    ? [
+        {
+          label: t("activeProjects"),
+          value: String(data.stats.active),
+          icon: FolderOpen,
+        },
+        {
+          label: t("pendingReviews"),
+          value: String(data.stats.pendingReviews),
+          valueColor: "text-accent",
+          icon: ClipboardCheck,
+        },
+        {
+          label: t("approvedDesigns"),
+          value: String(data.stats.approved),
+          valueColor: "text-success",
+          icon: CheckCircle2,
+        },
+        {
+          label: t("teamMembers"),
+          value: String(data.stats.teamMembers),
+          icon: Users,
+        },
+      ]
+    : [];
+
+  const isEmpty =
+    data &&
+    data.stats.active === 0 &&
+    data.stats.pendingReviews === 0 &&
+    data.stats.approved === 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-[#666]" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-7 max-w-[1200px]">
-      {/* Header */}
       <PageHeader
         title={t("greeting", {
           name: session?.user?.name?.split(" ")[0] ?? "",
@@ -82,6 +119,27 @@ export default function DashboardPage() {
         }
       />
 
+      {/* Welcome banner when no projects exist */}
+      {isEmpty && (
+        <div className="rounded-xl border border-border-default bg-bg-elevated p-8 flex flex-col items-center gap-4 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center">
+            <FolderOpen className="w-7 h-7 text-accent" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-lg font-bold text-text-primary">
+              {t("welcomeTitle")}
+            </h2>
+            <p className="text-sm text-text-muted max-w-[360px]">
+              {t("welcomeDescription")}
+            </p>
+          </div>
+          <Button onClick={() => router.push("/projects/new")}>
+            <Plus className="w-4 h-4" />
+            {t("newProject")}
+          </Button>
+        </div>
+      )}
+
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
@@ -89,13 +147,15 @@ export default function DashboardPage() {
             key={stat.label}
             className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-5"
           >
-            <span className="text-[13px] text-text-muted">{stat.label}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-text-muted">{stat.label}</span>
+              <stat.icon className="w-4 h-4 text-text-muted" />
+            </div>
             <span
               className={`text-[32px] font-bold ${stat.valueColor || "text-text-primary"}`}
             >
               {stat.value}
             </span>
-            <span className={`text-xs ${stat.changeColor}`}>{stat.change}</span>
           </div>
         ))}
       </div>
@@ -108,32 +168,45 @@ export default function DashboardPage() {
             {t("recentActivity")}
           </h2>
           <div className="flex flex-col gap-1">
-            {activities.slice(0, 6).map((activity) => {
-              const Icon = activityIcons[activity.type] || FolderOpen;
+            {(!data || data.recentActivity.length === 0) && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <div className="w-12 h-12 rounded-xl bg-bg-elevated flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-text-muted" />
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-sm font-medium text-text-secondary">
+                    {t("noActivity")}
+                  </span>
+                  <span className="text-xs text-text-muted text-center max-w-[240px]">
+                    {t("noActivityHint")}
+                  </span>
+                </div>
+              </div>
+            )}
+            {data?.recentActivity.map((item) => {
+              const Icon = activityIcons[item.type] || FolderOpen;
               return (
                 <div
-                  key={activity.id}
+                  key={item.id}
                   className="flex items-start gap-3 rounded-lg p-3 hover:bg-bg-elevated/50 transition-colors"
                 >
                   <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5 ${activityColors[activity.type] || "bg-bg-elevated text-text-secondary"}`}
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 mt-0.5 ${activityColors[item.type] || "bg-bg-elevated text-text-secondary"}`}
                   >
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-text-primary">
-                        {activity.user}
-                      </span>
-                      <span className="text-sm text-text-secondary">
-                        {activity.action.toLowerCase()}
-                      </span>
-                    </div>
-                    <span className="text-xs text-text-muted">
-                      {activity.project} &middot; {activity.details}
+                    <span className="text-sm font-medium text-text-primary">
+                      {item.title}
                     </span>
+                    {item.description && (
+                      <span className="text-xs text-text-muted">
+                        {item.project_name && `${item.project_name} · `}
+                        {item.description}
+                      </span>
+                    )}
                     <span className="text-xs text-text-muted">
-                      {formatTimeAgo(activity.timestamp, tc)}
+                      {formatTimeAgo(item.created_at, tc)}
                     </span>
                   </div>
                 </div>
@@ -148,7 +221,22 @@ export default function DashboardPage() {
             {t("upcomingDeadlines")}
           </h2>
           <div className="flex flex-col gap-3">
-            {deadlines.map((project) => (
+            {(!data || data.deadlines.length === 0) && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <div className="w-12 h-12 rounded-xl bg-bg-elevated flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-text-muted" />
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-sm font-medium text-text-secondary">
+                    {t("noDeadlines")}
+                  </span>
+                  <span className="text-xs text-text-muted text-center max-w-[240px]">
+                    {t("noDeadlinesHint")}
+                  </span>
+                </div>
+              </div>
+            )}
+            {data?.deadlines.map((project) => (
               <Card
                 key={project.id}
                 hover
@@ -160,11 +248,20 @@ export default function DashboardPage() {
                     <span className="text-sm font-semibold text-text-primary">
                       {project.name}
                     </span>
-                    <Badge variant={project.status}>{project.status}</Badge>
+                    <Badge
+                      variant={statusToBadgeVariant(
+                        project.status as "active" | "completed" | "draft"
+                      )}
+                    >
+                      {project.status.charAt(0).toUpperCase() +
+                        project.status.slice(1)}
+                    </Badge>
                   </div>
-                  <span className="text-xs text-text-secondary">
-                    {project.client}
-                  </span>
+                  {project.client_name && (
+                    <span className="text-xs text-text-secondary">
+                      {project.client_name}
+                    </span>
+                  )}
                   <div className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Calendar className="w-3 h-3 text-warning" />
                     <span>
@@ -174,17 +271,6 @@ export default function DashboardPage() {
                         year: "numeric",
                       })}
                     </span>
-                  </div>
-                  {/* Team avatars */}
-                  <div className="flex -space-x-2 mt-1">
-                    {project.team.slice(0, 3).map((member) => (
-                      <Avatar
-                        key={member.id}
-                        initials={member.initials}
-                        size="sm"
-                        className="ring-2 ring-bg-secondary"
-                      />
-                    ))}
                   </div>
                 </div>
               </Card>

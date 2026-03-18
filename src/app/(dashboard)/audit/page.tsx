@@ -1,26 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { FolderOpen, Search } from "lucide-react";
+import { FolderOpen, Search, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { activities } from "@/data/mock";
 import { activityIcons } from "@/lib/activityConstants";
 
-/** Audit history page with searchable activity table. */
+interface AuditEntry {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  created_at: string;
+  project_name: string | null;
+}
+
+/** Audit history page showing recent notifications as activity log. */
 export default function AuditPage() {
   const t = useTranslations("audit");
   const te = useTranslations("emptyStates");
   const [search, setSearch] = useState("");
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = activities.filter(
-    (a) =>
-      a.action.toLowerCase().includes(search.toLowerCase()) ||
-      a.user.toLowerCase().includes(search.toLowerCase()) ||
-      a.project.toLowerCase().includes(search.toLowerCase()) ||
-      a.details.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    fetch("/api/notifications")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => setEntries(data))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      entries.filter(
+        (a) =>
+          a.title.toLowerCase().includes(search.toLowerCase()) ||
+          a.description?.toLowerCase().includes(search.toLowerCase()) ||
+          a.project_name?.toLowerCase().includes(search.toLowerCase())
+      ),
+    [entries, search]
   );
 
   return (
@@ -34,16 +55,12 @@ export default function AuditPage() {
         containerClassName="max-w-md"
       />
 
-      {/* Activity table */}
       <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border-default">
               <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
                 {t("action")}
-              </th>
-              <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
-                {t("user")}
               </th>
               <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
                 {t("project")}
@@ -57,9 +74,15 @@ export default function AuditPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={4} className="py-12 text-center">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#666] mx-auto" />
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={4}>
                   <EmptyState
                     icon={Search}
                     title={te("auditTitle")}
@@ -68,39 +91,34 @@ export default function AuditPage() {
                 </td>
               </tr>
             ) : (
-              filtered.map((activity) => {
-                const Icon = activityIcons[activity.type] || FolderOpen;
+              filtered.map((entry) => {
+                const Icon = activityIcons[entry.type] || FolderOpen;
                 return (
                   <tr
-                    key={activity.id}
+                    key={entry.id}
                     className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <Icon className="w-4 h-4 text-text-muted" />
                         <span className="text-sm font-medium text-text-primary">
-                          {activity.action}
+                          {entry.title}
                         </span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-sm text-text-secondary">
-                        {activity.user}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-sm text-text-secondary">
-                        {activity.project}
+                        {entry.project_name || "\u2014"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-sm text-text-muted">
-                        {activity.details}
+                        {entry.description || "\u2014"}
                       </span>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className="text-xs text-text-muted">
-                        {new Date(activity.timestamp).toLocaleDateString(
+                        {new Date(entry.created_at).toLocaleDateString(
                           "en-US",
                           {
                             month: "short",

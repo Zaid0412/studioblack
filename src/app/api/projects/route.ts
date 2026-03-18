@@ -30,7 +30,10 @@ export async function GET() {
   }
 
   if (!orgId) {
-    return NextResponse.json({ error: "No active organization" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No active organization" },
+      { status: 400 }
+    );
   }
 
   // Derive effective role from org membership
@@ -61,18 +64,32 @@ export async function POST(req: NextRequest) {
 
   const orgId = session.session.activeOrganizationId;
   if (!orgId) {
-    return NextResponse.json({ error: "No active organization" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No active organization" },
+      { status: 400 }
+    );
   }
 
   // Only PMs (owner/admin) can create projects
   const role = session.user.role;
   if (role !== "pm") {
-    return NextResponse.json({ error: "Only PMs can create projects" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Only PMs can create projects" },
+      { status: 403 }
+    );
   }
 
   const body = await req.json();
-  const { name, clientName, clientEmail, category, description, deadline, architectIds } =
-    body;
+  const {
+    name,
+    clientName,
+    clientEmail,
+    category,
+    description,
+    deadline,
+    phases,
+    architectIds,
+  } = body;
 
   if (!name || !category) {
     return NextResponse.json(
@@ -89,6 +106,7 @@ export async function POST(req: NextRequest) {
       category,
       description,
       deadline,
+      phases,
       orgId,
       createdBy: session.user.id,
       architectIds,
