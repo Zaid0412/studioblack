@@ -3,10 +3,11 @@
 import { use, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDesignReview } from "./_hooks/useDesignReview";
-import { usePdfPlugins } from "./_hooks/usePdfPlugins";
+import { useCommentTool } from "@/hooks/useCommentTool";
+import { usePdfPlugins } from "@/hooks/usePdfPlugins";
 import { ThumbnailPanel } from "./_components/ThumbnailPanel";
 import { ReviewToolbar } from "./_components/ReviewToolbar";
 import { DocumentViewer } from "./_components/DocumentViewer";
@@ -26,8 +27,16 @@ export default function DesignReviewPage({
   const viewerRef = useRef<PDFViewerRef>(null);
 
   const { data: session } = authClient.useSession();
-  const review = useDesignReview({ projectId: id, designId });
+  const review = useDesignReview({
+    projectId: id,
+    designId,
+    basePath: "/projects",
+    fetchReviews: true,
+  });
   const plugins = usePdfPlugins({ viewerRef, attachment: review.attachment });
+  const { commentToolActive, toggleCommentTool } = useCommentTool({
+    viewerRef,
+  });
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
@@ -78,19 +87,35 @@ export default function DesignReviewPage({
 
       {/* 2. Center Area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* 2a. App toolbar */}
+        {/* 2a. Toolbar */}
         <ReviewToolbar
-          projectId={id}
+          backPath={`/projects/${id}`}
           fileName={fileName}
           fileUrl={fileUrl}
-          viewerRef={viewerRef}
-          reviewsOpen={reviewsOpen}
-          reviewCount={review.reviews.length}
-          setReviewsOpen={setReviewsOpen}
-          handleScreenshot={plugins.handleScreenshot}
-          handleDownload={plugins.handleDownload}
-          handlePrint={plugins.handlePrint}
-          handleFullscreen={plugins.handleFullscreen}
+          commentToolActive={commentToolActive}
+          onToggleCommentTool={toggleCommentTool}
+          onScreenshot={plugins.handleScreenshot}
+          onDownload={plugins.handleDownload}
+          onPrint={plugins.handlePrint}
+          onFullscreen={plugins.handleFullscreen}
+          rightSlot={
+            <button
+              onClick={() => setReviewsOpen(!reviewsOpen)}
+              className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                reviewsOpen
+                  ? "bg-[#F5C518]/15 text-[#F5C518]"
+                  : review.reviews.length > 0
+                    ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
+                    : "text-[#A0A0A0] hover:text-white"
+              }`}
+              title="Reviews"
+            >
+              <ClipboardCheck className="w-3.5 h-3.5" />
+              {review.reviews.length > 0 && (
+                <span>{review.reviews.length}</span>
+              )}
+            </button>
+          }
         />
 
         {/* 2b. Document Viewer */}
