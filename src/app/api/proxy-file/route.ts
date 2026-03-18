@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 /**
  * GET /api/proxy-file?url=<encoded-url>
  * Proxies a file from Supabase Storage to avoid CORS issues with client-side PDF viewers.
- * Auth: excluded from middleware; URL validation restricts to .supabase.co only.
+ * Requires authentication. URL restricted to the project's own Supabase instance.
  */
 export async function GET(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const url = req.nextUrl.searchParams.get("url");
   if (!url) {
     return NextResponse.json(
@@ -21,7 +28,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 
-  if (!parsed.hostname.endsWith(".supabase.co")) {
+  // Restrict to this project's Supabase instance only
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    return NextResponse.json(
+      { error: "Server misconfigured" },
+      { status: 500 }
+    );
+  }
+  const allowedHost = new URL(supabaseUrl).hostname;
+  if (parsed.hostname !== allowedHost) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 

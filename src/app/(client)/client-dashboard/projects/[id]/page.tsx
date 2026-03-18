@@ -291,7 +291,7 @@ export default function ClientProjectDetailPage({
                   className="flex items-center gap-1.5 border border-[#F59E0B] text-[#F59E0B] rounded-lg px-3.5 py-2 text-[13px] font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Request Changes
+                  {t("requestChanges")}
                 </button>
                 <button
                   onClick={() => handleDecision("approved")}
@@ -299,7 +299,7 @@ export default function ClientProjectDetailPage({
                   className="flex items-center gap-1.5 bg-[#22C55E] text-white rounded-lg px-3.5 py-2 text-[13px] font-semibold hover:bg-[#22C55E]/90 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  {submittingDecision ? "Submitting..." : "Approve Project"}
+                  {submittingDecision ? t("submitting") : t("approveProject")}
                 </button>
               </div>
             )}
@@ -366,7 +366,7 @@ export default function ClientProjectDetailPage({
           <div className="flex items-center gap-2 mb-2">
             <ClipboardCheck className="w-4 h-4 text-[#F5C518]" />
             <span className="text-[13px] font-semibold text-white">
-              Tasks Pending Your Review ({pendingTasks.length})
+              {t("tasksPendingReview")} ({pendingTasks.length})
             </span>
           </div>
           <div className="flex flex-col gap-2">
@@ -380,7 +380,7 @@ export default function ClientProjectDetailPage({
                     {task.title}
                   </span>
                   <span className="text-[11px] text-[#666666]">
-                    Phase: {task.phase_name}
+                    {t("phase")}: {task.phase_name}
                     {task.assigned_name && ` · By ${task.assigned_name}`}
                   </span>
                 </div>
@@ -391,7 +391,7 @@ export default function ClientProjectDetailPage({
                     className="flex items-center gap-1 border border-[#22C55E] text-[#22C55E] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Approve
+                    {t("approve")}
                   </button>
                   <button
                     onClick={() =>
@@ -401,7 +401,7 @@ export default function ClientProjectDetailPage({
                     className="flex items-center gap-1 border border-[#F59E0B] text-[#F59E0B] rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     <AlertTriangle className="w-3.5 h-3.5" />
-                    Changes
+                    {t("changes")}
                   </button>
                 </div>
               </div>
@@ -416,10 +416,10 @@ export default function ClientProjectDetailPage({
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span className="text-[13px] font-medium text-emerald-400">
-              Project Approved
+              {t("projectApproved")}
             </span>
             <span className="text-[11px] text-[#666666]">
-              — This project has been approved by the client.
+              — {t("projectApprovedHint")}
             </span>
           </div>
         </div>
@@ -490,8 +490,8 @@ export default function ClientProjectDetailPage({
             {phaseFiles.length === 0 ? (
               <EmptyState
                 icon={Paperclip}
-                title="No files yet"
-                description="No documents have been uploaded for this phase yet."
+                title={t("noFilesYet")}
+                description={t("noFilesDescription")}
               />
             ) : (
               phaseFiles.map((att) => {
@@ -570,15 +570,13 @@ export default function ClientProjectDetailPage({
       <Dialog open={changesDialogOpen} onOpenChange={setChangesDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Request Changes</DialogTitle>
-            <DialogDescription>
-              Describe what changes you&apos;d like the architect to make.
-            </DialogDescription>
+            <DialogTitle>{t("requestChangesTitle")}</DialogTitle>
+            <DialogDescription>{t("requestChangesHint")}</DialogDescription>
           </DialogHeader>
           <textarea
             value={changesComment}
             onChange={(e) => setChangesComment(e.target.value)}
-            placeholder="Please describe the changes you need..."
+            placeholder={t("requestChangesPlaceholder")}
             className="w-full rounded-lg border border-[#333333] bg-[#2A2A2A] px-3 py-2.5 text-sm text-white placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#F5C518]"
             rows={4}
             autoFocus
@@ -591,7 +589,7 @@ export default function ClientProjectDetailPage({
               }}
               className="px-4 py-2 text-[13px] text-[#A0A0A0] hover:text-white transition-colors cursor-pointer"
             >
-              Cancel
+              {tc("cancel")}
             </button>
             <button
               onClick={async () => {
@@ -602,7 +600,7 @@ export default function ClientProjectDetailPage({
               disabled={submittingDecision}
               className="bg-[#F5C518] text-[#0D0D0D] rounded-lg px-4 py-2 text-[13px] font-semibold hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:opacity-50"
             >
-              {submittingDecision ? "Submitting..." : "Submit"}
+              {submittingDecision ? t("submitting") : t("submit")}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -614,7 +612,7 @@ export default function ClientProjectDetailPage({
           <div className="flex items-center gap-2 mb-3">
             <History className="w-4 h-4 text-[#666666]" />
             <span className="text-[13px] font-semibold text-white">
-              Approval History
+              {t("approvalHistory")}
             </span>
           </div>
           <div className="flex flex-col gap-2">
@@ -634,8 +632,8 @@ export default function ClientProjectDetailPage({
                       {a.user_name}
                     </span>{" "}
                     {a.decision === "approved"
-                      ? "approved the project"
-                      : "requested changes"}
+                      ? t("approvedProject")
+                      : t("requestedChanges")}
                   </span>
                   {a.comment && (
                     <span className="text-[11px] text-[#666666]">
@@ -661,7 +659,7 @@ export default function ClientProjectDetailPage({
         <div className="flex items-center gap-2 mb-3">
           <MessageSquare className="w-4 h-4 text-[#666666]" />
           <span className="text-[13px] font-semibold text-white">
-            Comments ({comments.length})
+            {t("comments", { count: comments.length })}
           </span>
         </div>
 
@@ -676,7 +674,7 @@ export default function ClientProjectDetailPage({
                 handleSendComment();
               }
             }}
-            placeholder="Leave a comment or feedback..."
+            placeholder={t("commentPlaceholder")}
             className="flex-1 rounded-lg border border-[#333333] bg-[#2A2A2A] px-3 py-2.5 text-sm text-white placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#F5C518]"
             rows={2}
           />
@@ -696,7 +694,7 @@ export default function ClientProjectDetailPage({
         {/* Comment list */}
         {comments.length === 0 ? (
           <p className="text-[13px] text-[#666666] py-4 text-center">
-            No comments yet. Be the first to leave feedback.
+            {t("noCommentsYet")}
           </p>
         ) : (
           <div className="flex flex-col gap-3">

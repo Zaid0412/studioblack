@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getProjectById, hasProjectAccess } from "@/lib/queries";
+import { getProjectById, hasProjectAccess, getOrgRole } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 
 const VALID_PROJECT_STATUSES = ["draft", "active", "completed", "archived"];
@@ -97,16 +97,22 @@ export async function PATCH(
 
   const pool = getPool();
 
+  // Only owners/admins (PMs) can change project status
+  const orgRole = await getOrgRole(id, session.user.id);
+  const isPM = orgRole === "owner" || orgRole === "admin";
+
   // Build dynamic update
-  const allowedFields = [
-    "name",
-    "client_name",
-    "client_email",
-    "category",
-    "status",
-    "description",
-    "deadline",
-  ];
+  const allowedFields = isPM
+    ? [
+        "name",
+        "client_name",
+        "client_email",
+        "category",
+        "status",
+        "description",
+        "deadline",
+      ]
+    : ["name", "description"];
   const updates: string[] = [];
   const values: unknown[] = [];
   let idx = 1;
@@ -149,21 +155,13 @@ export async function DELETE(
 
   const { id } = await params;
 
-  if (session.user.role !== "pm") {
+  // Only org owners/admins (PMs) can delete projects
+  const orgRole = await getOrgRole(id, session.user.id);
+  if (!orgRole || (orgRole !== "owner" && orgRole !== "admin")) {
     return NextResponse.json(
       { error: "Only PMs can delete projects" },
       { status: 403 }
     );
-  }
-
-  const allowed = await hasProjectAccess(
-    id,
-    session.user.id,
-    session.user.email,
-    session.user.role
-  );
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const pool = getPool();

@@ -35,26 +35,14 @@ export async function createNotificationsForTeam(
   description?: string
 ) {
   const pool = getPool();
-
-  // Get all org members for this project
-  const { rows: teamMembers } = await pool.query(
-    `SELECT DISTINCT u.id
+  await pool.query(
+    `INSERT INTO notification (user_id, type, title, description, project_id)
+     SELECT DISTINCT m."userId", $3, $4, $5, $1
      FROM project p
      JOIN member m ON m."organizationId" = p.org_id
-     JOIN "user" u ON u.id = m."userId"
-     WHERE p.id = $1 AND u.id != $2`,
-    [projectId, excludeUserId]
+     WHERE p.id = $1 AND m."userId" != $2`,
+    [projectId, excludeUserId, type, title, description || ""]
   );
-
-  for (const member of teamMembers) {
-    await createNotification({
-      userId: member.id,
-      type,
-      title,
-      description,
-      projectId,
-    });
-  }
 }
 
 /** Create a notification for the project client. */

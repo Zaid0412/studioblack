@@ -131,7 +131,7 @@ export async function getProjectsByClientEmail(email: string) {
   return rows;
 }
 
-/** Get a single project by ID with phases. */
+/** Get a single project by ID with phases, members, and steps. */
 export async function getProjectById(projectId: string) {
   const pool = getPool();
   const {
@@ -139,22 +139,23 @@ export async function getProjectById(projectId: string) {
   } = await pool.query(`SELECT * FROM project WHERE id = $1`, [projectId]);
   if (!project) return null;
 
-  const { rows: phases } = await pool.query(
-    `SELECT * FROM project_phase WHERE project_id = $1 ORDER BY phase_order`,
-    [projectId]
-  );
-
-  const { rows: members } = await pool.query(
-    `SELECT pm.*, u.name, u.email FROM project_member pm
-     JOIN "user" u ON u.id = pm.user_id
-     WHERE pm.project_id = $1`,
-    [projectId]
-  );
-
-  const { rows: steps } = await pool.query(
-    `SELECT * FROM project_step WHERE project_id = $1 ORDER BY step_order`,
-    [projectId]
-  );
+  const [{ rows: phases }, { rows: members }, { rows: steps }] =
+    await Promise.all([
+      pool.query(
+        `SELECT * FROM project_phase WHERE project_id = $1 ORDER BY phase_order`,
+        [projectId]
+      ),
+      pool.query(
+        `SELECT pm.*, u.name, u.email FROM project_member pm
+         JOIN "user" u ON u.id = pm.user_id
+         WHERE pm.project_id = $1`,
+        [projectId]
+      ),
+      pool.query(
+        `SELECT * FROM project_step WHERE project_id = $1 ORDER BY step_order`,
+        [projectId]
+      ),
+    ]);
 
   return { ...project, phases, members, steps };
 }
@@ -486,6 +487,21 @@ export async function getLatestAttachmentReview(attachmentId: string) {
 // ---------------------------------------------------------------------------
 // Access control
 // ---------------------------------------------------------------------------
+
+/** Get a user's org role for a project (owner/admin/member or null). */
+export async function getOrgRole(
+  projectId: string,
+  userId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT m.role FROM project p
+     JOIN member m ON m."organizationId" = p.org_id AND m."userId" = $2
+     WHERE p.id = $1`,
+    [projectId, userId]
+  );
+  return rows[0]?.role ?? null;
+}
 
 /** Check if a user has access to a project (org member or client). */
 export async function hasProjectAccess(
