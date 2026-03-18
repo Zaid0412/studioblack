@@ -238,7 +238,10 @@
     "defaultSectionFloorPlans": "Kat Planları",
     "defaultSectionElevations": "Cephe Görünümleri",
     "createdToast": "Proje oluşturuldu",
-    "createdDescription": "Yeni projeniz başarıyla oluşturuldu."
+    "createdDescription": "Yeni projeniz başarıyla oluşturuldu.",
+    "validationError": "Eksik zorunlu alan",
+    "projectNameRequired": "Lütfen bir proje adı girin.",
+    "categoryRequired": "Lütfen bir proje kategorisi seçin."
   },
   "editProject": {
     "title": "Projeyi Düzenle",

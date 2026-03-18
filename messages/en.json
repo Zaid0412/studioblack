@@ -238,7 +238,10 @@
     "defaultSectionFloorPlans": "Floor Plans",
     "defaultSectionElevations": "Elevations",
     "createdToast": "Project created",
-    "createdDescription": "Your new project has been created successfully."
+    "createdDescription": "Your new project has been created successfully.",
+    "validationError": "Missing required field",
+    "projectNameRequired": "Please enter a project name.",
+    "categoryRequired": "Please select a project category."
   },
   "editProject": {
     "title": "Edit Project",

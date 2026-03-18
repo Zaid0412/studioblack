@@ -97,7 +97,22 @@ export default function CreateProjectPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!projectName.trim() || !category) return;
+            if (!projectName.trim()) {
+              toast({
+                title: t("validationError"),
+                description: t("projectNameRequired"),
+                variant: "error",
+              });
+              return;
+            }
+            if (!category) {
+              toast({
+                title: t("validationError"),
+                description: t("categoryRequired"),
+                variant: "error",
+              });
+              return;
+            }
             setIsSubmitting(true);
             try {
               const res = await fetch("/api/projects", {
@@ -346,10 +361,7 @@ export default function CreateProjectPage() {
           </div>
 
           <div className="flex gap-3 mt-4">
-            <Button
-              type="submit"
-              disabled={isSubmitting || !projectName.trim() || !category}
-            >
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? tc("loading") : t("createButton")}
             </Button>
             <Button

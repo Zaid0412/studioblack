@@ -318,14 +318,13 @@ export default function ClientProjectDetailPage({
             <Users className="w-3.5 h-3.5 text-[#666666]" />
             <div className="flex -space-x-1.5">
               {project.members.slice(0, 4).map((m) => (
-                <div
+                <Avatar
                   key={m.user_id}
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-white border border-[#1A1A1A]"
-                  style={{ backgroundColor: avatarColor(m.name) }}
-                  title={`${m.name} (${m.role})`}
-                >
-                  {deriveInitials(m.name)}
-                </div>
+                  initials={deriveInitials(m.name)}
+                  color={avatarColor(m.name)}
+                  size="sm"
+                  className="w-6 h-6 text-[9px] border border-[#1A1A1A]"
+                />
               ))}
               {project.members.length > 4 && (
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-[#A0A0A0] bg-[#333333] border border-[#1A1A1A]">
@@ -473,7 +472,6 @@ export default function ClientProjectDetailPage({
             ) : (
               phaseFiles.map((att) => {
                 const badge = statusBadge(att.review_status);
-                const color = avatarColor(att.uploaded_by_name || "");
                 return (
                   <div
                     key={att.id}
@@ -506,12 +504,12 @@ export default function ClientProjectDetailPage({
 
                     {/* Uploaded by */}
                     <div className="w-[140px] flex items-center gap-2">
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white shrink-0"
-                        style={{ backgroundColor: color }}
-                      >
-                        {deriveInitials(att.uploaded_by_name || "")}
-                      </div>
+                      <Avatar
+                        initials={deriveInitials(att.uploaded_by_name || "")}
+                        color={avatarColor(att.uploaded_by_name || "")}
+                        size="sm"
+                        className="w-6 h-6 text-[10px]"
+                      />
                       <span className="text-[13px] text-[#A0A0A0] truncate">
                         {att.uploaded_by_name || "\u2014"}
                       </span>
@@ -721,6 +719,7 @@ export default function ClientProjectDetailPage({
                 <div className="flex items-center gap-2.5">
                   <Avatar
                     initials={deriveInitials(comment.user_name)}
+                    color={avatarColor(comment.user_name)}
                     size="sm"
                   />
                   <div className="flex flex-col">
