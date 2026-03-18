@@ -36,7 +36,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
   return async (
     req: NextRequest,
     routeParams?: RouteParams
-  ): Promise<NextResponse> => {
+  ): Promise<NextResponse<unknown>> => {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

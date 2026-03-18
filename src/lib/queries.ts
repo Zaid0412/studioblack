@@ -530,3 +530,146 @@ export async function hasProjectAccess(
   );
   return rows.length > 0;
 }
+
+// ---------------------------------------------------------------------------
+// Task Manager
+// ---------------------------------------------------------------------------
+
+interface TaskFilters {
+  orgId: string;
+  bucket?:
+    | "all"
+    | "my_tasks"
+    | "created_by_me"
+    | "important"
+    | "upcoming"
+    | "completed";
+  userId: string;
+  projectId?: string;
+  status?: string;
+  priority?: string;
+  category?: string;
+  search?: string;
+}
+
+/** Fetch tasks with bucket-based filtering and optional search/status/priority/category filters. */
+export async function getTasks(filters: TaskFilters) {
+  const pool = getPool();
+  const conditions: string[] = ["t.org_id = $1"];
+  const values: unknown[] = [filters.orgId];
+  let idx = 2;
+
+  // Bucket filters
+  switch (filters.bucket) {
+    case "my_tasks":
+      conditions.push(`t.assigned_to = $${idx}`);
+      values.push(filters.userId);
+      idx++;
+      break;
+    case "created_by_me":
+      conditions.push(
+        `t.created_by = $${idx} AND (t.assigned_to IS NULL OR t.assigned_to != $${idx})`
+      );
+      values.push(filters.userId);
+      idx++;
+      break;
+    case "important":
+      conditions.push(
+        `t.priority IN ('high', 'urgent') AND t.status != 'completed' AND t.status != 'archived'`
+      );
+      break;
+    case "upcoming":
+      conditions.push(
+        `t.due_date IS NOT NULL AND t.status != 'completed' AND t.status != 'archived'`
+      );
+      break;
+    case "completed":
+      conditions.push(`t.status = 'completed'`);
+      break;
+    default:
+      // "all" — exclude archived
+      conditions.push(`t.status != 'archived'`);
+  }
+
+  // Additional filters
+  if (filters.projectId) {
+    conditions.push(`t.project_id = $${idx}`);
+    values.push(filters.projectId);
+    idx++;
+  }
+  if (filters.status) {
+    conditions.push(`t.status = $${idx}`);
+    values.push(filters.status);
+    idx++;
+  }
+  if (filters.priority) {
+    conditions.push(`t.priority = $${idx}`);
+    values.push(filters.priority);
+    idx++;
+  }
+  if (filters.category) {
+    conditions.push(`t.category = $${idx}`);
+    values.push(filters.category);
+    idx++;
+  }
+  if (filters.search) {
+    conditions.push(`(t.title ILIKE $${idx} OR t.description ILIKE $${idx})`);
+    values.push(`%${filters.search}%`);
+    idx++;
+  }
+
+  const { rows } = await pool.query(
+    `SELECT t.*,
+            u_assigned.name AS assigned_to_name,
+            u_created.name AS created_by_name,
+            p.name AS project_name
+     FROM task t
+     LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
+     LEFT JOIN "user" u_created ON u_created.id = t.created_by
+     LEFT JOIN project p ON p.id = t.project_id
+     WHERE ${conditions.join(" AND ")}
+     ORDER BY
+       CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+       CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END,
+       t.due_date ASC NULLS LAST,
+       t.created_at DESC
+     LIMIT 200`,
+    values
+  );
+  return rows;
+}
+
+/** Fetch a single task by ID with joined user and project names. */
+export async function getTaskById(taskId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT t.*,
+            u_assigned.name AS assigned_to_name,
+            u_created.name AS created_by_name,
+            p.name AS project_name
+     FROM task t
+     LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
+     LEFT JOIN "user" u_created ON u_created.id = t.created_by
+     LEFT JOIN project p ON p.id = t.project_id
+     WHERE t.id = $1`,
+    [taskId]
+  );
+  return rows[0] || null;
+}
+
+/** Get task counts for each smart bucket in a single query. */
+export async function getTaskBucketCounts(orgId: string, userId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE status != 'archived')::int AS all,
+       COUNT(*) FILTER (WHERE assigned_to = $2 AND status != 'archived')::int AS my_tasks,
+       COUNT(*) FILTER (WHERE created_by = $2 AND (assigned_to IS NULL OR assigned_to != $2) AND status != 'archived')::int AS created_by_me,
+       COUNT(*) FILTER (WHERE priority IN ('high', 'urgent') AND status NOT IN ('completed', 'archived'))::int AS important,
+       COUNT(*) FILTER (WHERE due_date IS NOT NULL AND status NOT IN ('completed', 'archived'))::int AS upcoming,
+       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed
+     FROM task WHERE org_id = $1`,
+    [orgId, userId]
+  );
+  return rows[0];
+}
