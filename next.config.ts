@@ -5,6 +5,12 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
+  images: {
+    remotePatterns: [
+      { hostname: "studio-black.co.in" },
+      { hostname: "*.supabase.co" },
+    ],
+  },
 };
 
 export default withNextIntl(nextConfig);
