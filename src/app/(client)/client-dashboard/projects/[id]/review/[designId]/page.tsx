@@ -18,9 +18,7 @@ import { useAnnotationTracker } from "@/hooks/useAnnotationTracker";
 import { usePdfPlugins } from "@/hooks/usePdfPlugins";
 import { isPdf, displayName } from "@/lib/fileUtils";
 
-/**
- *
- */
+/** Client review page with PDF viewer and annotation tools. */
 export default function ClientReviewPage({
   params,
 }: {

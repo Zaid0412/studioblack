@@ -13,9 +13,11 @@ interface ThumbnailPanelProps {
 }
 
 function FileTypeIcon({ name }: { name: string }) {
-  if (isPdf(name)) return <FileText className="w-4 h-4 shrink-0" />;
-  if (isImage(name)) return <Image className="w-4 h-4 shrink-0" />;
-  return <FileIcon className="w-4 h-4 shrink-0" />;
+  if (isPdf(name))
+    return <FileText className="w-4 h-4 shrink-0" aria-label="PDF file" />;
+  if (isImage(name))
+    return <Image className="w-4 h-4 shrink-0" aria-label="Image file" />;
+  return <FileIcon className="w-4 h-4 shrink-0" aria-label="File" />;
 }
 
 function statusDot(status?: string) {
@@ -25,9 +27,7 @@ function statusDot(status?: string) {
   return "bg-[#555]";
 }
 
-/**
- *
- */
+/** Sidebar panel listing phase files with active selection and review status indicators. */
 export function ThumbnailPanel({
   phaseFiles,
   activeFileId,

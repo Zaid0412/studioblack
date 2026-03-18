@@ -3,7 +3,10 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { hasProjectAccess, verifyTaskOwnership } from "@/lib/queries";
 import { getPool } from "@/lib/db";
-import { createNotification, createNotificationsForTeam } from "@/lib/notifications";
+import {
+  createNotification,
+  createNotificationsForTeam,
+} from "@/lib/notifications";
 
 /** POST /api/projects/[id]/tasks/[taskId]/review — client approves or requests changes. */
 export async function POST(
@@ -26,14 +29,22 @@ export async function POST(
     );
   }
 
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const taskOwned = await verifyTaskOwnership(taskId, id);
   if (!taskOwned) {
-    return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Task not found in this project" },
+      { status: 404 }
+    );
   }
 
   const { action, comment } = await req.json();
@@ -48,7 +59,9 @@ export async function POST(
   const pool = getPool();
 
   // Verify the task exists and is pending review
-  const { rows: [existing] } = await pool.query(
+  const {
+    rows: [existing],
+  } = await pool.query(
     `SELECT * FROM phase_task WHERE id = $1 AND review_status = 'pending_review'`,
     [taskId]
   );
@@ -61,7 +74,9 @@ export async function POST(
   }
 
   // Update review status
-  const { rows: [task] } = await pool.query(
+  const {
+    rows: [task],
+  } = await pool.query(
     `UPDATE phase_task
      SET review_status = $1,
          status = CASE WHEN $1 = 'approved' THEN 'approved' ELSE 'changes_requested' END,
@@ -81,7 +96,8 @@ export async function POST(
   }
 
   // Notify team about the review decision
-  const statusLabel = action === "approved" ? "approved" : "requested changes on";
+  const statusLabel =
+    action === "approved" ? "approved" : "requested changes on";
   await createNotificationsForTeam(
     id,
     session.user.id,

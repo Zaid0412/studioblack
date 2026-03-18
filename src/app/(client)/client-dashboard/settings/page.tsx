@@ -46,7 +46,7 @@ export default function ClientSettingsPage() {
       setName(session.user.name ?? "");
       setAvatarUrl(session.user.image ?? undefined);
     }
-  }, [session?.user?.name, session?.user?.image]);
+  }, [session?.user?.name, session?.user?.image, session?.user]);
 
   const initials = deriveInitials(name);
   const email = session?.user?.email ?? "";

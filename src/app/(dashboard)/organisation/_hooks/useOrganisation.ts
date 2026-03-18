@@ -7,9 +7,7 @@ import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import type { OrgMember, OrgInvitation } from "@/types";
 
-/**
- *
- */
+/** Hook managing organisation state, members, invitations, and CRUD operations. */
 export function useOrganisation() {
   const t = useTranslations("organisation");
   const tc = useTranslations("common");

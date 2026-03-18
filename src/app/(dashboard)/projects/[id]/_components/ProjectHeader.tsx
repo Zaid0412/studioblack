@@ -7,9 +7,7 @@ interface ProjectHeaderProps {
   projectName: string;
 }
 
-/**
- *
- */
+/** Project detail page header with breadcrumb and project name. */
 export function ProjectHeader({ projectName }: ProjectHeaderProps) {
   const router = useRouter();
   const t = useTranslations("projectDetail");

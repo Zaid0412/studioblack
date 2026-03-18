@@ -14,7 +14,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

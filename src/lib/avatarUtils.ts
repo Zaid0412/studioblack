@@ -9,9 +9,7 @@ const AVATAR_COLORS = [
   "#EC4899",
 ];
 
-/**
- *
- */
+/** Returns a deterministic color from the palette based on the input string hash. */
 export function avatarColor(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++)

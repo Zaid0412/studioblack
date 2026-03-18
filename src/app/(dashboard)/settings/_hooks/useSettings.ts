@@ -7,9 +7,7 @@ import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
 
-/**
- *
- */
+/** Hook managing settings page state: profile, password, preferences, and account deletion. */
 export function useSettings() {
   const t = useTranslations("settings");
   const router = useRouter();

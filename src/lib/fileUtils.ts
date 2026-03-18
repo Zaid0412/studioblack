@@ -2,23 +2,17 @@
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
 
-/**
- *
- */
+/** Extracts the lowercase file extension from a filename. */
 export function getFileExtension(fileName: string): string {
   return fileName.split(".").pop()?.toLowerCase() || "";
 }
 
-/**
- *
- */
+/** Returns true if the filename has an image extension. */
 export function isImage(fileName: string): boolean {
   return IMAGE_EXTENSIONS.includes(getFileExtension(fileName));
 }
 
-/**
- *
- */
+/** Returns true if the filename has a .pdf extension. */
 export function isPdf(fileName: string): boolean {
   return getFileExtension(fileName) === "pdf";
 }

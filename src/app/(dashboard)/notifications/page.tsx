@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
@@ -57,12 +57,15 @@ export default function NotificationsPage() {
     new Map()
   );
 
-  const roleLabel = (role: string) => {
-    if (role === "owner") return t("roleOwner");
-    if (role === "admin") return t("rolePM");
-    if (role === "member") return t("roleArchitect");
-    return role;
-  };
+  const roleLabel = useCallback(
+    (role: string) => {
+      if (role === "owner") return t("roleOwner");
+      if (role === "admin") return t("rolePM");
+      if (role === "member") return t("roleArchitect");
+      return role;
+    },
+    [t]
+  );
 
   // Fetch invitation notifications
   useEffect(() => {
@@ -111,7 +114,7 @@ export default function NotificationsPage() {
     loadInvitations();
     const interval = setInterval(loadInvitations, 30000);
     return () => clearInterval(interval);
-  }, [t]);
+  }, [t, roleLabel]);
 
   // Fetch DB notifications
   useEffect(() => {

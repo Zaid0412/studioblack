@@ -23,9 +23,7 @@ interface DangerZoneSectionProps {
   handleDeleteAccount: () => void;
 }
 
-/**
- *
- */
+/** Account deletion section with confirmation dialog. */
 export function DangerZoneSection({
   deleteOpen,
   setDeleteOpen,

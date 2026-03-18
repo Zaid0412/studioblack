@@ -31,9 +31,7 @@ interface ProfileSectionProps {
   openFilePicker: () => void;
 }
 
-/**
- *
- */
+/** Profile editing section with avatar, name, role, and email fields. */
 export function ProfileSection({
   name,
   setName,

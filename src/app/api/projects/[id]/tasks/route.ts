@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess, getPhaseTasks, verifyPhaseOwnership, verifyTaskOwnership } from "@/lib/queries";
+import {
+  hasProjectAccess,
+  getPhaseTasks,
+  verifyPhaseOwnership,
+  verifyTaskOwnership,
+} from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 
@@ -18,7 +23,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -30,7 +40,10 @@ export async function GET(
 
   const phaseOwned = await verifyPhaseOwnership(phaseId, id);
   if (!phaseOwned) {
-    return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Phase not found in this project" },
+      { status: 404 }
+    );
   }
 
   const tasks = await getPhaseTasks(phaseId, id);
@@ -51,10 +64,18 @@ export async function POST(
   const role = session.user.role;
 
   if (role === "client") {
-    return NextResponse.json({ error: "Clients cannot create tasks" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Clients cannot create tasks" },
+      { status: 403 }
+    );
   }
 
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -69,15 +90,26 @@ export async function POST(
 
   const phaseOwned = await verifyPhaseOwnership(phaseId, id);
   if (!phaseOwned) {
-    return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Phase not found in this project" },
+      { status: 404 }
+    );
   }
 
   const pool = getPool();
-  const { rows: [task] } = await pool.query(
+  const {
+    rows: [task],
+  } = await pool.query(
     `INSERT INTO phase_task (phase_id, title, description, assigned_to, due_date)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [phaseId, title.trim(), description || "", assignedTo || null, dueDate || null]
+    [
+      phaseId,
+      title.trim(),
+      description || "",
+      assignedTo || null,
+      dueDate || null,
+    ]
   );
 
   // Notify the assignee if someone else created the task
@@ -109,16 +141,31 @@ export async function PATCH(
   const role = session.user.role;
 
   if (role === "client") {
-    return NextResponse.json({ error: "Clients cannot update tasks" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Clients cannot update tasks" },
+      { status: 403 }
+    );
   }
 
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { taskId, title, description, status, assignedTo, dueDate, requiresClientReview } =
-    await req.json();
+  const {
+    taskId,
+    title,
+    description,
+    status,
+    assignedTo,
+    dueDate,
+    requiresClientReview,
+  } = await req.json();
 
   if (!taskId) {
     return NextResponse.json({ error: "taskId is required" }, { status: 400 });
@@ -126,12 +173,17 @@ export async function PATCH(
 
   const taskOwned = await verifyTaskOwnership(taskId, id);
   if (!taskOwned) {
-    return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Task not found in this project" },
+      { status: 404 }
+    );
   }
 
   if (status !== undefined && !VALID_TASK_STATUSES.includes(status)) {
     return NextResponse.json(
-      { error: `Invalid status. Must be one of: ${VALID_TASK_STATUSES.join(", ")}` },
+      {
+        error: `Invalid status. Must be one of: ${VALID_TASK_STATUSES.join(", ")}`,
+      },
       { status: 400 }
     );
   }
@@ -165,7 +217,9 @@ export async function PATCH(
   updates.push(`updated_at = now()`);
   values.push(taskId);
 
-  const { rows: [updated] } = await pool.query(
+  const {
+    rows: [updated],
+  } = await pool.query(
     `UPDATE phase_task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
     values
   );

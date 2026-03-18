@@ -9,6 +9,7 @@ import { Pool } from "pg";
  */
 let pool: Pool | null = null;
 
+/** Returns the shared PostgreSQL connection pool, creating it on first call. */
 export function getPool(): Pool {
   if (!pool) {
     pool = new Pool({

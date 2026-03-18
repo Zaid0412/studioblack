@@ -12,9 +12,7 @@ interface PendingInvitationsProps {
   onCancelInvitation: (invitationId: string) => void;
 }
 
-/**
- *
- */
+/** List of pending organisation invitations with cancel action. */
 export function PendingInvitations({
   invitations,
   onCancelInvitation,

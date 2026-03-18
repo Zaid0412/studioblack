@@ -19,9 +19,7 @@ interface LeaveDialogProps {
   onLeave: () => void;
 }
 
-/**
- *
- */
+/** Confirmation dialog for leaving the current organisation. */
 export function LeaveDialog({
   open,
   onOpenChange,

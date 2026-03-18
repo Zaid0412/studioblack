@@ -102,9 +102,7 @@ interface ProjectDetail {
   members: Member[];
 }
 
-/**
- *
- */
+/** Client-facing project detail page with phases, files, and members. */
 export default function ClientProjectDetailPage({
   params,
 }: {

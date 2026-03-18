@@ -14,20 +14,25 @@ interface State {
   error: Error | null;
 }
 
+/** React error boundary that catches render errors and shows a fallback UI. */
 export class ErrorBoundary extends Component<Props, State> {
+  /** Initialise error boundary state. */
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
+  /** Derive error state from a caught render error. */
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
+  /** Log the error and component stack to the console. */
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[ErrorBoundary]", error, info.componentStack);
   }
 
+  /** Render fallback UI on error or children when healthy. */
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;

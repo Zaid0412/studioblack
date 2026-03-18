@@ -3,9 +3,7 @@
 import { useState, useEffect } from "react";
 import type { DbAttachment, DbComment, DbProjectDetail } from "@/types";
 
-/**
- *
- */
+/** Hook that fetches and manages project detail, attachments, and comments. */
 export function useProjectDetail(id: string) {
   const [project, setProject] = useState<DbProjectDetail | null>(null);
   const [attachments, setAttachments] = useState<DbAttachment[]>([]);

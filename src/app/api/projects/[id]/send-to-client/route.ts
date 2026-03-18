@@ -30,7 +30,12 @@ export async function POST(
     );
   }
 
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -38,10 +43,9 @@ export async function POST(
   const pool = getPool();
 
   // Get the project to find client email
-  const { rows: [project] } = await pool.query(
-    `SELECT * FROM project WHERE id = $1`,
-    [id]
-  );
+  const {
+    rows: [project],
+  } = await pool.query(`SELECT * FROM project WHERE id = $1`, [id]);
 
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -55,14 +59,16 @@ export async function POST(
   }
 
   // Check if client user already exists
-  const { rows: [existingUser] } = await pool.query(
-    `SELECT id FROM "user" WHERE email = $1`,
-    [project.client_email]
-  );
+  const {
+    rows: [existingUser],
+  } = await pool.query(`SELECT id FROM "user" WHERE email = $1`, [
+    project.client_email,
+  ]);
 
   // Pre-create client user if they don't exist
   if (!existingUser) {
-    const clientName = project.client_name || project.client_email.split("@")[0];
+    const clientName =
+      project.client_name || project.client_email.split("@")[0];
     await pool.query(
       `INSERT INTO "user" (id, name, email, role, email_verified, created_at, updated_at)
        VALUES (gen_random_uuid(), $1, $2, 'client', false, now(), now())`,
@@ -76,19 +82,26 @@ export async function POST(
 
   try {
     // Use the better-auth magic link API to send the email
-    const response = await fetch(`${baseUrl}/api/auth/magic-link/send-magic-link`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: project.client_email,
-        callbackURL,
-      }),
-    });
+    const response = await fetch(
+      `${baseUrl}/api/auth/magic-link/send-magic-link`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: project.client_email,
+          callbackURL,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       return NextResponse.json(
-        { error: (err as { message?: string }).message || "Failed to send magic link" },
+        {
+          error:
+            (err as { message?: string }).message ||
+            "Failed to send magic link",
+        },
         { status: 500 }
       );
     }

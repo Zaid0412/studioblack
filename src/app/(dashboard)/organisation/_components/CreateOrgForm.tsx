@@ -18,9 +18,7 @@ interface CreateOrgFormProps {
   handleCreateOrg: () => void;
 }
 
-/**
- *
- */
+/** Form for creating a new organisation with name and slug. */
 export function CreateOrgForm({
   orgName,
   setOrgName,

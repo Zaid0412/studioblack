@@ -152,10 +152,13 @@ export default function ProjectsPage() {
     return list;
   }, [projects, search, activeFilter, statusFilter, sortBy]);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, activeFilter, statusFilter, sortBy]);
+  // Reset page when filters change (inline instead of useEffect to avoid cascading renders)
+  const filterKey = `${search}|${activeFilter}|${statusFilter}|${sortBy}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    if (currentPage !== 1) setCurrentPage(1);
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const startIdx = (currentPage - 1) * PAGE_SIZE;

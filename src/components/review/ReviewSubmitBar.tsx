@@ -15,9 +15,7 @@ interface ReviewSubmitBarProps {
   onSubmit: (status: "approved" | "rejected", comment: string) => Promise<void>;
 }
 
-/**
- *
- */
+/** Bottom bar for submitting a design review with approve/reject actions and comment. */
 export function ReviewSubmitBar({
   annotationCount,
   hasChanges,

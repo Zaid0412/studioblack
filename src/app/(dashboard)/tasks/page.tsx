@@ -57,9 +57,7 @@ const reviewBadge = (review_status: string | null) => {
   }
 };
 
-/**
- *
- */
+/** Tasks list page showing assigned tasks grouped by status. */
 export default function TasksPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);

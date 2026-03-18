@@ -17,9 +17,7 @@ interface FileTableProps {
   onDownload: (att: DbAttachment) => void;
 }
 
-/**
- *
- */
+/** Table of phase attachments with type, size, and download/review actions. */
 export function FileTable({
   projectId,
   activePhaseId,

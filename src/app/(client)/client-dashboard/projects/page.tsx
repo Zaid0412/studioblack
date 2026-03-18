@@ -44,9 +44,7 @@ interface ClientProject {
   updated_at: string | null;
 }
 
-/**
- *
- */
+/** Client projects list with search, filters, and pagination. */
 export default function ClientProjectsPage() {
   const t = useTranslations("projects");
   const te = useTranslations("emptyStates");
@@ -76,6 +74,8 @@ export default function ClientProjectsPage() {
     { key: "completed", label: t("filterCompleted") },
     { key: "draft", label: t("filterDraft") },
   ];
+
+  const [prevFilterKey, setPrevFilterKey] = useState("");
 
   const filtered = useMemo(() => {
     const list = projects.filter((p) => {
@@ -108,9 +108,11 @@ export default function ClientProjectsPage() {
     return list;
   }, [projects, search, activeFilter, statusFilter, sortBy]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, activeFilter, statusFilter, sortBy]);
+  const filterKey = `${search}|${activeFilter}|${statusFilter}|${sortBy}`;
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    if (currentPage !== 1) setCurrentPage(1);
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const startIdx = (currentPage - 1) * PAGE_SIZE;

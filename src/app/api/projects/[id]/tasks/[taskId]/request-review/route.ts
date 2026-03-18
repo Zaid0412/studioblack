@@ -24,20 +24,30 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const taskOwned = await verifyTaskOwnership(taskId, id);
   if (!taskOwned) {
-    return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Task not found in this project" },
+      { status: 404 }
+    );
   }
 
   const pool = getPool();
 
   // Update the task
-  const { rows: [task] } = await pool.query(
+  const {
+    rows: [task],
+  } = await pool.query(
     `UPDATE phase_task
      SET requires_client_review = true,
          review_status = 'pending_review',
@@ -52,7 +62,9 @@ export async function POST(
   }
 
   // Get the project to find the client email
-  const { rows: [project] } = await pool.query(
+  const {
+    rows: [project],
+  } = await pool.query(
     `SELECT client_email, client_name, name FROM project WHERE id = $1`,
     [id]
   );

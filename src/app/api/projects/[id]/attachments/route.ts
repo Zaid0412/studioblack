@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getAttachments, hasProjectAccess, verifyPhaseOwnership, verifyTaskOwnership } from "@/lib/queries";
+import {
+  getAttachments,
+  hasProjectAccess,
+  verifyPhaseOwnership,
+  verifyTaskOwnership,
+} from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
-import { createNotificationsForTeam, createNotificationForClient } from "@/lib/notifications";
+import {
+  createNotificationsForTeam,
+  createNotificationForClient,
+} from "@/lib/notifications";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
 export async function GET(
@@ -17,7 +25,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -44,7 +57,12 @@ export async function POST(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -60,22 +78,38 @@ export async function POST(
   if (phaseId) {
     const phaseOwned = await verifyPhaseOwnership(phaseId, id);
     if (!phaseOwned) {
-      return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Phase not found in this project" },
+        { status: 404 }
+      );
     }
   }
   if (taskId) {
     const taskOwned = await verifyTaskOwnership(taskId, id);
     if (!taskOwned) {
-      return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Task not found in this project" },
+        { status: 404 }
+      );
     }
   }
 
   const pool = getPool();
-  const { rows: [attachment] } = await pool.query(
+  const {
+    rows: [attachment],
+  } = await pool.query(
     `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
      RETURNING *`,
-    [id, phaseId || null, taskId || null, session.user.id, fileUrl, fileName, description || ""]
+    [
+      id,
+      phaseId || null,
+      taskId || null,
+      session.user.id,
+      fileUrl,
+      fileName,
+      description || "",
+    ]
   );
 
   // Notify the client when a team member uploads an attachment
@@ -98,7 +132,13 @@ export async function POST(
     const uploaderName = session.user.name || session.user.email;
     const notifTitle = `New upload: ${fileName}`;
     const notifDesc = `${uploaderName} uploaded a file to ${proj?.name || "project"}`;
-    await createNotificationsForTeam(id, session.user.id, "upload", notifTitle, notifDesc);
+    await createNotificationsForTeam(
+      id,
+      session.user.id,
+      "upload",
+      notifTitle,
+      notifDesc
+    );
     await createNotificationForClient(id, "upload", notifTitle, notifDesc);
   } catch (err) {
     console.error("[attachment] Failed to send notification email:", err);

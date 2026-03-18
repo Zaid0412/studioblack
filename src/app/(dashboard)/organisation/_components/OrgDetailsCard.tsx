@@ -11,9 +11,7 @@ interface OrgDetailsCardProps {
   memberCount: number;
 }
 
-/**
- *
- */
+/** Card displaying organisation name, slug, and member count. */
 export function OrgDetailsCard({
   name,
   slug,

@@ -21,9 +21,7 @@ interface PreferencesSectionProps {
   setPushNotif: (value: boolean) => void;
 }
 
-/**
- *
- */
+/** User preferences section with email and push notification toggles. */
 export function PreferencesSection({
   emailNotif,
   setEmailNotif,

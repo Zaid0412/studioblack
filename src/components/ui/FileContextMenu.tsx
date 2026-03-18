@@ -26,9 +26,7 @@ interface FileContextMenuProps {
   onViewReview?: () => void;
 }
 
-/**
- *
- */
+/** Context menu for file actions: edit, remove, download, version history, and review. */
 export function FileContextMenu({
   onEdit,
   onRemove,

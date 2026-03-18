@@ -18,9 +18,7 @@ interface PasswordSectionProps {
   handleChangePassword: () => void;
 }
 
-/**
- *
- */
+/** Password change form with current, new, and confirm fields. */
 export function PasswordSection({
   currentPassword,
   setCurrentPassword,

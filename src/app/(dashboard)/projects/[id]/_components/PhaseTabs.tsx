@@ -9,9 +9,7 @@ interface PhaseTabsProps {
   onPhaseChange: (phaseId: string) => void;
 }
 
-/**
- *
- */
+/** Horizontal tabs for switching between project phases with file counts. */
 export function PhaseTabs({
   phases,
   activePhaseId,

@@ -30,9 +30,7 @@ interface InviteDialogProps {
   onInvite: () => void;
 }
 
-/**
- *
- */
+/** Dialog for inviting a member to the organisation by email and role. */
 export function InviteDialog({
   open,
   onOpenChange,

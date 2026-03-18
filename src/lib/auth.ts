@@ -44,8 +44,7 @@ export const auth = betterAuth({
   user: {
     deleteUser: {
       enabled: true,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      sendDeleteAccountVerification: async ({ user: _user, url: _url, token }) => {
+      sendDeleteAccountVerification: async ({ token }) => {
         // Skip email verification — delete immediately by following the callback URL server-side
         const baseUrl = getBaseURL();
         try {

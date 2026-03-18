@@ -12,9 +12,7 @@ interface MetaBarProps {
   phaseCounts: Map<string, number>;
 }
 
-/**
- *
- */
+/** Sidebar metadata bar showing client, members, phases, and creation date. */
 export function MetaBar({
   clientName,
   clientEmail,

@@ -17,9 +17,7 @@ interface DocumentViewerProps {
   annotationAuthor?: string;
 }
 
-/**
- *
- */
+/** Renders a PDF or image viewer for the active design file with optional annotations. */
 export function DocumentViewer({
   activeFileId,
   fileName,

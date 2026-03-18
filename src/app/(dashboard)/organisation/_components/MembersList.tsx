@@ -20,9 +20,7 @@ interface MembersListProps {
   onRemoveMember: (memberId: string) => void;
 }
 
-/**
- *
- */
+/** Renders the organisation members table with roles and remove actions. */
 export function MembersList({
   members,
   currentUserRole,

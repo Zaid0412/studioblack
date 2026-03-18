@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getComments, hasProjectAccess, verifyPhaseOwnership, verifyTaskOwnership } from "@/lib/queries";
+import {
+  getComments,
+  hasProjectAccess,
+  verifyPhaseOwnership,
+  verifyTaskOwnership,
+} from "@/lib/queries";
 import { getPool } from "@/lib/db";
-import { createNotificationsForTeam, createNotificationForClient } from "@/lib/notifications";
+import {
+  createNotificationsForTeam,
+  createNotificationForClient,
+} from "@/lib/notifications";
 
 /** GET /api/projects/[id]/comments — list comments. */
 export async function GET(
@@ -16,7 +24,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -42,7 +55,12 @@ export async function POST(
   }
 
   const { id } = await params;
-  const allowed = await hasProjectAccess(id, session.user.id, session.user.email, session.user.role);
+  const allowed = await hasProjectAccess(
+    id,
+    session.user.id,
+    session.user.email,
+    session.user.role
+  );
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -53,24 +71,35 @@ export async function POST(
   }
 
   if (content.trim().length > 5000) {
-    return NextResponse.json({ error: "Comment too long (max 5000 characters)" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Comment too long (max 5000 characters)" },
+      { status: 400 }
+    );
   }
 
   if (phaseId) {
     const phaseOwned = await verifyPhaseOwnership(phaseId, id);
     if (!phaseOwned) {
-      return NextResponse.json({ error: "Phase not found in this project" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Phase not found in this project" },
+        { status: 404 }
+      );
     }
   }
   if (taskId) {
     const taskOwned = await verifyTaskOwnership(taskId, id);
     if (!taskOwned) {
-      return NextResponse.json({ error: "Task not found in this project" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Task not found in this project" },
+        { status: 404 }
+      );
     }
   }
 
   const pool = getPool();
-  const { rows: [comment] } = await pool.query(
+  const {
+    rows: [comment],
+  } = await pool.query(
     `INSERT INTO comment (project_id, phase_id, task_id, user_id, content)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
@@ -80,10 +109,18 @@ export async function POST(
   // Notify team + client about new comment
   try {
     const userName = session.user.name || session.user.email;
-    const { rows: [proj] } = await pool.query(`SELECT name FROM project WHERE id = $1`, [id]);
+    const {
+      rows: [proj],
+    } = await pool.query(`SELECT name FROM project WHERE id = $1`, [id]);
     const title = `New comment on ${proj?.name || "project"}`;
     const desc = `${userName}: ${content.trim().slice(0, 100)}`;
-    await createNotificationsForTeam(id, session.user.id, "comment", title, desc);
+    await createNotificationsForTeam(
+      id,
+      session.user.id,
+      "comment",
+      title,
+      desc
+    );
     if (session.user.role !== "client") {
       await createNotificationForClient(id, "comment", title, desc);
     }

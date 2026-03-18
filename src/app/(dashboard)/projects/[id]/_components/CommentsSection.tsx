@@ -14,9 +14,7 @@ interface CommentsSectionProps {
   onSendComment: () => void;
 }
 
-/**
- *
- */
+/** Displays project comments thread with input for new comments. */
 export function CommentsSection({
   comments,
   newComment,

@@ -12,9 +12,7 @@ interface WorkflowBarProps {
   steps?: DbStep[];
 }
 
-/**
- *
- */
+/** Horizontal workflow steps bar with progress indicators and upload action. */
 export function WorkflowBar({ projectId, steps }: WorkflowBarProps) {
   const router = useRouter();
   const t = useTranslations("projectDetail");
