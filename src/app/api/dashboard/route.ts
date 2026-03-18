@@ -2,14 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getPool } from "@/lib/db";
+import { withAuth } from "@/lib/withAuth";
 
 /** GET /api/dashboard — stats + recent activity for the current user's org. */
-export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withAuth({}, async (req, { session, user }) => {
   let orgId = session.session.activeOrganizationId;
   if (!orgId) {
     const orgs = await auth.api.listOrganizations({
@@ -72,7 +68,7 @@ export async function GET() {
        WHERE n.user_id = $1
        ORDER BY n.created_at DESC
        LIMIT 10`,
-      [session.user.id]
+      [user.id]
     ),
   ]);
 
@@ -88,4 +84,4 @@ export async function GET() {
     deadlines: s?.deadlines ?? [],
     recentActivity: activityResult.rows,
   });
-}
+});

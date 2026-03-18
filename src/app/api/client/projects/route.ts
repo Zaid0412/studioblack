@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getProjectsByClientEmail } from "@/lib/queries";
+import { withAuth } from "@/lib/withAuth";
 
 /** GET /api/client/projects — list projects assigned to the current client by email. */
-export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const GET = withAuth(
+  { allowedRoles: ["client"] },
+  async (req, { user }) => {
+    const projects = await getProjectsByClientEmail(user.email);
+    return NextResponse.json(projects);
   }
-
-  if (session.user.role !== "client") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const projects = await getProjectsByClientEmail(session.user.email);
-  return NextResponse.json(projects);
-}
+);
