@@ -1,18 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+import { withAuth } from "@/lib/withAuth";
 
 /**
  * GET /api/proxy-file?url=<encoded-url>
  * Proxies a file from Supabase Storage to avoid CORS issues with client-side PDF viewers.
  * Requires authentication. URL restricted to the project's own Supabase instance.
  */
-export async function GET(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withAuth({}, async (req) => {
   const url = req.nextUrl.searchParams.get("url");
   if (!url) {
     return NextResponse.json(
@@ -70,4 +64,4 @@ export async function GET(req: NextRequest) {
       "Cache-Control": "public, max-age=3600",
     },
   });
-}
+});

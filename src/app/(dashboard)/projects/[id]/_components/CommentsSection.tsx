@@ -4,6 +4,7 @@ import { Loader2, MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
+import { avatarColor } from "@/lib/avatarUtils";
 import type { DbComment } from "@/types";
 
 interface CommentsSectionProps {
@@ -73,6 +74,7 @@ export function CommentsSection({
                   <Avatar
                     initials={deriveInitials(comment.user_name)}
                     size="sm"
+                    color={avatarColor(comment.user_id)}
                   />
                   <div className="flex flex-col">
                     <span className="text-[13px] font-semibold text-white">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
+import { avatarColor } from "@/lib/avatarUtils";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -21,6 +22,7 @@ interface ProfileSectionProps {
   role: string;
   setRole: (value: string) => void;
   email: string;
+  userId: string;
   initials: string;
   avatarUrl: string | undefined;
   isSaving: boolean;
@@ -38,6 +40,7 @@ export function ProfileSection({
   role,
   setRole,
   email,
+  userId,
   initials,
   avatarUrl,
   isSaving,
@@ -69,7 +72,12 @@ export function ProfileSection({
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
             <div className={isUploading ? "opacity-50" : ""}>
-              <Avatar initials={initials} size="xl" src={avatarUrl} />
+              <Avatar
+                initials={initials}
+                size="xl"
+                src={avatarUrl}
+                color={avatarColor(userId)}
+              />
             </div>
             <button
               onClick={openFilePicker}

@@ -1,18 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { withAuth } from "@/lib/withAuth";
 
 /**
  * POST /api/upload — Upload a file to Supabase Storage.
  * Returns the public URL of the uploaded file.
  */
-export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withAuth({}, async (req, { user }) => {
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) {
@@ -56,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
   const timestamp = Date.now();
-  const path = `${session.user.id}/${timestamp}-${safeName}`;
+  const path = `${user.id}/${timestamp}-${safeName}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
@@ -84,4 +78,4 @@ export async function POST(req: NextRequest) {
     url: urlData.publicUrl,
     fileName: file.name,
   });
-}
+});

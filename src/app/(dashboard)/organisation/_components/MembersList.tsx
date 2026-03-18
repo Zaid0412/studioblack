@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/DropdownMenu";
 import { deriveInitials } from "@/lib/utils";
+import { avatarColor } from "@/lib/avatarUtils";
 import { roleIcon, roleLabel } from "../_lib/RoleHelpers";
 import type { OrgMember } from "@/types";
 
@@ -44,6 +45,7 @@ export function MembersList({
                 initials={deriveInitials(member.user.name)}
                 size="sm"
                 src={member.user.image ?? undefined}
+                color={avatarColor(member.user.id)}
               />
               <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-sm font-medium text-text-primary truncate">

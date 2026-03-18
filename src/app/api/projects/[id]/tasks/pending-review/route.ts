@@ -1,29 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { getTasksPendingReview, hasProjectAccess } from "@/lib/queries";
+import { NextResponse } from "next/server";
+import { getTasksPendingReview } from "@/lib/queries";
+import { withAuth } from "@/lib/withAuth";
 
 /** GET /api/projects/[id]/tasks/pending-review — tasks awaiting client review. */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const GET = withAuth(
+  { projectAccess: true },
+  async (req, ctx, params) => {
+    const { id } = params;
 
-  const { id } = await params;
-  const allowed = await hasProjectAccess(
-    id,
-    session.user.id,
-    session.user.email,
-    session.user.role
-  );
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const tasks = await getTasksPendingReview(id);
+    return NextResponse.json(tasks);
   }
-
-  const tasks = await getTasksPendingReview(id);
-  return NextResponse.json(tasks);
-}
+);

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { branding } from "@/config/branding";
 
 /**
@@ -15,9 +16,11 @@ export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
   const rounded = size === "sm" ? "rounded-md" : "rounded-lg";
 
   return branding.logoUrl ? (
-    <img
+    <Image
       src={branding.logoUrl}
       alt={branding.appName}
+      width={size === "sm" ? 32 : 40}
+      height={size === "sm" ? 32 : 40}
       className={`${dims} ${rounded} object-contain`}
     />
   ) : (
