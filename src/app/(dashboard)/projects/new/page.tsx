@@ -21,6 +21,7 @@ import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { deriveInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { avatarColor } from "@/lib/avatarUtils";
 import { PROJECT_PHASES } from "@/lib/constants";
 import type { OrgMember } from "@/types";
 
@@ -287,6 +288,7 @@ export default function CreateProjectPage() {
                             initials={deriveInitials(member.user.name)}
                             size="sm"
                             src={member.user.image ?? undefined}
+                            color={avatarColor(member.user.id)}
                           />
                           <div className="flex flex-col items-start min-w-0 flex-1">
                             <span className="text-sm font-medium text-text-primary truncate">

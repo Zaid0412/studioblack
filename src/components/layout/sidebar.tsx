@@ -27,6 +27,7 @@ import { branding } from "@/config/branding";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
+import { avatarColor } from "@/lib/avatarUtils";
 import type { User } from "@/types";
 
 interface SidebarProps {
@@ -299,6 +300,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
                     initials={user.initials}
                     size="sm"
                     src={user.avatar}
+                    color={avatarColor(user.id)}
                   />
                 </div>
               </TooltipTrigger>
@@ -324,7 +326,12 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <Avatar initials={user.initials} size="sm" src={user.avatar} />
+            <Avatar
+              initials={user.initials}
+              size="sm"
+              src={user.avatar}
+              color={avatarColor(user.id)}
+            />
             <div className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-medium text-text-primary truncate">
                 {user.name}

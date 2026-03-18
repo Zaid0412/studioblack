@@ -41,6 +41,7 @@ export function useSettings() {
 
   const initials = deriveInitials(name);
   const email = session?.user?.email ?? "";
+  const userId = session?.user?.id ?? "";
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -212,6 +213,7 @@ export function useSettings() {
     role,
     setRole,
     email,
+    userId,
     initials,
     avatarUrl,
     isSaving,

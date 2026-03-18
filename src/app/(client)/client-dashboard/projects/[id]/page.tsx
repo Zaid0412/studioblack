@@ -55,6 +55,7 @@ interface Attachment {
   description: string;
   phase_id: string | null;
   task_id: string | null;
+  uploaded_by: string;
   uploaded_by_name: string;
   created_at: string;
   review_status?: string;
@@ -345,7 +346,7 @@ export default function ClientProjectDetailPage({
                 <Avatar
                   key={m.user_id}
                   initials={deriveInitials(m.name)}
-                  color={avatarColor(m.name)}
+                  color={avatarColor(m.user_id)}
                   size="sm"
                   className="w-6 h-6 text-[9px] border border-[#1A1A1A]"
                 />
@@ -530,7 +531,7 @@ export default function ClientProjectDetailPage({
                     <div className="w-[140px] flex items-center gap-2">
                       <Avatar
                         initials={deriveInitials(att.uploaded_by_name || "")}
-                        color={avatarColor(att.uploaded_by_name || "")}
+                        color={avatarColor(att.uploaded_by || "")}
                         size="sm"
                         className="w-6 h-6 text-[10px]"
                       />
@@ -706,7 +707,7 @@ export default function ClientProjectDetailPage({
                 <div className="flex items-center gap-2.5">
                   <Avatar
                     initials={deriveInitials(comment.user_name)}
-                    color={avatarColor(comment.user_name)}
+                    color={avatarColor(comment.user_id)}
                     size="sm"
                   />
                   <div className="flex flex-col">

@@ -23,6 +23,7 @@ import { useLocale } from "next-intl";
 import { authClient } from "@/lib/authClient";
 import { setLocale } from "@/lib/locale";
 import { deriveInitials } from "@/lib/utils";
+import { avatarColor } from "@/lib/avatarUtils";
 import { useTheme } from "@/components/ThemeProvider";
 
 /** Client settings — profile, preferences, and theme. No password section (magic link auth). */
@@ -153,7 +154,12 @@ export default function ClientSettingsPage() {
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
               <div className={isUploading ? "opacity-50" : ""}>
-                <Avatar initials={initials} size="xl" src={avatarUrl} />
+                <Avatar
+                  initials={initials}
+                  size="xl"
+                  src={avatarUrl}
+                  color={avatarColor(session?.user?.id || "")}
+                />
               </div>
               <button
                 onClick={openFilePicker}

@@ -66,7 +66,7 @@ export function FileTable({
           ) : (
             phaseFiles.map((att) => {
               const badge = statusBadge(att.review_status);
-              const color = avatarColor(att.uploaded_by_name || "");
+              const color = avatarColor(att.uploaded_by || "");
               return (
                 <div
                   key={att.id}

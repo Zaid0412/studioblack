@@ -23,6 +23,7 @@ export default function SettingsPage() {
         role={settings.role}
         setRole={settings.setRole}
         email={settings.email}
+        userId={settings.userId}
         initials={settings.initials}
         avatarUrl={settings.avatarUrl}
         isSaving={settings.isSaving}
