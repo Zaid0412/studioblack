@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useTranslations } from "next-intl";
-import { toast } from "@/components/ui/useToast";
-import type {
-  DbAttachment,
-  DbAttachmentReview,
-  DbComment,
-  DbPhase,
-} from "@/types";
+import type { DbAttachment, DbAttachmentReview, DbPhase } from "@/types";
 
 interface UseDesignReviewParams {
   projectId: string;
@@ -22,18 +15,12 @@ export function useDesignReview({
   projectId,
   designId,
 }: UseDesignReviewParams) {
-  const t = useTranslations("designReview");
-
   const [activeFileId, setActiveFileId] = useState(designId);
   const [attachment, setAttachment] = useState<DbAttachment | null>(null);
   const [phaseFiles, setPhaseFiles] = useState<DbAttachment[]>([]);
   const [phaseName, setPhaseName] = useState<string>("");
-  const [comments, setComments] = useState<DbComment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [commentsOpen, setCommentsOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [filesLoading, setFilesLoading] = useState(true);
-  const [submittingComment, setSubmittingComment] = useState(false);
   const [reviews, setReviews] = useState<DbAttachmentReview[]>([]);
 
   const fetchAttachment = useCallback(
@@ -46,12 +33,6 @@ export function useDesignReview({
     },
     [projectId]
   );
-
-  const fetchComments = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}/comments`);
-    if (!res.ok) return [];
-    return (await res.json()) as DbComment[];
-  }, [projectId]);
 
   const fetchPhaseFiles = useCallback(
     async (phaseId: string) => {
@@ -89,7 +70,6 @@ export function useDesignReview({
     async function load() {
       const isFirst = isInitialLoad.current;
       if (isFirst) {
-        isInitialLoad.current = false;
         setLoading(true);
       }
 
@@ -98,14 +78,11 @@ export function useDesignReview({
       setAttachment(att);
 
       if (isFirst) {
-        const [cmts, reviewData] = await Promise.all([
-          fetchComments(),
-          fetch(
-            `/api/projects/${projectId}/attachments/${activeFileId}/review`
-          ).then((r) => (r.ok ? r.json() : [])),
-        ]);
+        isInitialLoad.current = false;
+        const reviewData = await fetch(
+          `/api/projects/${projectId}/attachments/${activeFileId}/review`
+        ).then((r) => (r.ok ? r.json() : []));
         if (cancelled) return;
-        setComments(cmts);
         setReviews(reviewData);
 
         if (att?.phase_id) {
@@ -142,35 +119,6 @@ export function useDesignReview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFileId]);
 
-  async function handlePostComment() {
-    if (!newComment.trim()) return;
-    setSubmittingComment(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim() }),
-      });
-      if (!res.ok) {
-        toast({
-          title: "Error",
-          description: "Failed to post comment.",
-          variant: "error",
-        });
-        return;
-      }
-      toast({
-        title: t("commentPostedToast"),
-        description: t("commentPostedDescription"),
-      });
-      setNewComment("");
-      const updated = await fetchComments();
-      setComments(updated);
-    } finally {
-      setSubmittingComment(false);
-    }
-  }
-
   return {
     activeFileId,
     setActiveFileId,
@@ -178,14 +126,7 @@ export function useDesignReview({
     phaseFiles,
     filesLoading,
     phaseName,
-    comments,
-    newComment,
-    setNewComment,
-    commentsOpen,
-    setCommentsOpen,
     loading,
-    submittingComment,
     reviews,
-    handlePostComment,
   };
 }

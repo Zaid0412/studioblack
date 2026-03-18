@@ -2,6 +2,7 @@
 
 import {
   CheckCircle,
+  ClipboardCheck,
   Download,
   Eye,
   History,
@@ -25,6 +26,7 @@ interface FileContextMenuProps {
   onDownload?: () => void;
   onUploadNewVersion?: () => void;
   onVersionHistory?: () => void;
+  onViewReview?: () => void;
   onApprove?: () => void;
   onReject?: () => void;
   onMarkReviewed?: () => void;
@@ -40,6 +42,7 @@ export function FileContextMenu({
   onDownload,
   onUploadNewVersion,
   onVersionHistory,
+  onViewReview,
   onApprove,
   onReject,
   onMarkReviewed,
@@ -85,9 +88,14 @@ export function FileContextMenu({
             Version History
           </DropdownMenuItem>
         )}
-        {(hasTopItems || onVersionHistory) && hasReviewItems && (
-          <DropdownMenuSeparator />
+        {onViewReview && (
+          <DropdownMenuItem onSelect={onViewReview}>
+            <ClipboardCheck />
+            View Review
+          </DropdownMenuItem>
         )}
+        {(hasTopItems || onVersionHistory || onViewReview) &&
+          hasReviewItems && <DropdownMenuSeparator />}
         {showReviewActions && onApprove && (
           <DropdownMenuItem onSelect={onApprove}>
             <CheckCircle />

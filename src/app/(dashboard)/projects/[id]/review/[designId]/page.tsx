@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { use, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ import { usePdfPlugins } from "./_hooks/usePdfPlugins";
 import { ThumbnailPanel } from "./_components/ThumbnailPanel";
 import { ReviewToolbar } from "./_components/ReviewToolbar";
 import { DocumentViewer } from "./_components/DocumentViewer";
-import { CommentsPanel } from "./_components/CommentsPanel";
-import { ReviewBanner } from "@/components/review/ReviewBanner";
+import { ReviewPanel } from "@/components/review/ReviewPanel";
+import { authClient } from "@/lib/authClient";
+import { displayName } from "@/lib/fileUtils";
 
 /** Design review workspace with file viewer, annotation tools, and comments panel. */
 export default function DesignReviewPage({
@@ -21,10 +22,15 @@ export default function DesignReviewPage({
 }) {
   const { id, designId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const viewerRef = useRef<PDFViewerRef>(null);
 
+  const { data: session } = authClient.useSession();
   const review = useDesignReview({ projectId: id, designId });
   const plugins = usePdfPlugins({ viewerRef, attachment: review.attachment });
+  const [reviewsOpen, setReviewsOpen] = useState(
+    searchParams.get("reviews") === "open"
+  );
 
   if (review.loading) {
     return (
@@ -71,45 +77,39 @@ export default function DesignReviewPage({
       />
 
       {/* 2. Center Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative">
         {/* 2a. App toolbar */}
         <ReviewToolbar
           projectId={id}
           fileName={fileName}
           fileUrl={fileUrl}
-          commentsOpen={review.commentsOpen}
-          setCommentsOpen={review.setCommentsOpen}
+          viewerRef={viewerRef}
+          reviewsOpen={reviewsOpen}
+          reviewCount={review.reviews.length}
+          setReviewsOpen={setReviewsOpen}
           handleScreenshot={plugins.handleScreenshot}
           handleDownload={plugins.handleDownload}
           handlePrint={plugins.handlePrint}
           handleFullscreen={plugins.handleFullscreen}
-          getPlugin={plugins.getPlugin}
         />
 
-        {/* 2b. Client review feedback */}
-        <ReviewBanner reviews={review.reviews} />
-
-        {/* 2c. Document Viewer */}
+        {/* 2b. Document Viewer */}
         <DocumentViewer
           activeFileId={review.activeFileId}
           fileName={fileName}
           fileUrl={fileUrl}
           viewerRef={viewerRef}
           annotations
+          annotationAuthor={displayName(session?.user?.name)}
         />
+        {/* 2c. Reviews Panel (overlay) */}
+        {reviewsOpen && (
+          <ReviewPanel
+            reviews={review.reviews}
+            onClose={() => setReviewsOpen(false)}
+          />
+        )}
       </div>
-
-      {/* 3. Comments Panel */}
-      {review.commentsOpen && (
-        <CommentsPanel
-          comments={review.comments}
-          newComment={review.newComment}
-          setNewComment={review.setNewComment}
-          submittingComment={review.submittingComment}
-          handlePostComment={review.handlePostComment}
-          onClose={() => review.setCommentsOpen(false)}
-        />
-      )}
     </div>
   );
 }

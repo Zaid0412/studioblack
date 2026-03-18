@@ -75,7 +75,8 @@ export function useAnnotationTracker({
       if (!capability) return null;
 
       try {
-        const buffer = await capability.saveAsCopy();
+        const task = capability.saveAsCopy();
+        const buffer = await task.toPromise();
         return buffer;
       } catch (err) {
         console.error("[exportAnnotatedPdf]", err);

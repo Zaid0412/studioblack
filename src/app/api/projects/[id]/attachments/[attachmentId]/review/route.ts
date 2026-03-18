@@ -8,6 +8,7 @@ import {
   getAttachmentReviews,
   hasProjectAccess,
 } from "@/lib/queries";
+import { createNotificationsForTeam } from "@/lib/notifications";
 
 type Params = { params: Promise<{ id: string; attachmentId: string }> };
 
@@ -73,6 +74,22 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     annotatedFileUrl: annotatedFileUrl || null,
     annotationCount: annotationCount || 0,
   });
+
+  // Notify team members (PM, architects)
+  const reviewerName = session.user.name || "Client";
+  const notifTitle =
+    status === "approved"
+      ? `${reviewerName} approved "${attachment.file_name}"`
+      : `${reviewerName} requested changes on "${attachment.file_name}"`;
+  const notifDescription = comment || undefined;
+
+  await createNotificationsForTeam(
+    id,
+    session.user.id,
+    status === "approved" ? "review_approved" : "review_changes_requested",
+    notifTitle,
+    notifDescription
+  );
 
   return NextResponse.json(updated);
 }

@@ -40,13 +40,30 @@ export function fileType(name: string): string {
   return map[ext] || ext.toUpperCase() || "FILE";
 }
 
+/** Extract a short display name from a user name or email. */
+export function displayName(
+  nameOrEmail: string | undefined | null,
+  fallback = "User"
+): string {
+  if (!nameOrEmail) return fallback;
+  // If it looks like an email, use the part before @
+  if (nameOrEmail.includes("@")) {
+    return nameOrEmail.split("@")[0];
+  }
+  return nameOrEmail;
+}
+
 /** Review status → badge colors and label. */
 export function statusBadge(status: string | undefined) {
   switch (status) {
     case "approved":
       return { bg: "bg-[#0A2E14]", text: "text-[#22C55E]", label: "Approved" };
     case "rejected":
-      return { bg: "bg-[#2E0A0A]", text: "text-[#EF4444]", label: "Rejected" };
+      return {
+        bg: "bg-[#2E1F0A]",
+        text: "text-[#F59E0B]",
+        label: "Changes Requested",
+      };
     case "reviewed":
       return { bg: "bg-[#242424]", text: "text-[#A0A0A0]", label: "Reviewed" };
     case "pending":

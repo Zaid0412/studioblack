@@ -50,7 +50,7 @@ export function FileTable({
           <div className="w-[110px] text-xs font-medium text-[#A0A0A0]">
             {t("uploadedOn") || "Uploaded On"}
           </div>
-          <div className="w-[100px] text-xs font-medium text-[#A0A0A0]">
+          <div className="w-[140px] text-xs font-medium text-[#A0A0A0]">
             {t("statusLabel").replace(":", "") || "Status"}
           </div>
           <div className="w-[50px]" />
@@ -133,7 +133,7 @@ export function FileTable({
                   </div>
 
                   {/* Status */}
-                  <div className="w-[100px]">
+                  <div className="w-[140px]">
                     <span
                       className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium ${badge.bg} ${badge.text}`}
                     >
@@ -155,6 +155,14 @@ export function FileTable({
                         router.push(
                           `/projects/${projectId}/upload?phaseId=${att.phase_id}&versionGroup=${att.version_group}`
                         )
+                      }
+                      onViewReview={
+                        att.review_status && att.review_status !== "pending"
+                          ? () =>
+                              router.push(
+                                `/projects/${projectId}/review/${att.id}?reviews=open`
+                              )
+                          : undefined
                       }
                     />
                   </div>

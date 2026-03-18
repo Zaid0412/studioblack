@@ -13,6 +13,8 @@ interface DocumentViewerProps {
   viewerRef: RefObject<PDFViewerRef | null>;
   /** Enable annotation tools (default: false — view-only). */
   annotations?: boolean;
+  /** Display name used as the annotation author. */
+  annotationAuthor?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export function DocumentViewer({
   fileUrl,
   viewerRef,
   annotations = false,
+  annotationAuthor = "User",
 }: DocumentViewerProps) {
   return (
     <div
@@ -45,7 +48,7 @@ export function DocumentViewer({
               ...(annotations
                 ? {
                     annotations: {
-                      annotationAuthor: "StudioBlack User",
+                      annotationAuthor,
                       autoCommit: true,
                       selectAfterCreate: true,
                     },

@@ -3,12 +3,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { RefObject } from "react";
+import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import {
   ArrowLeft,
   Download,
   ExternalLink,
   Ellipsis,
   MessageCircle,
+  ClipboardCheck,
   Camera,
   Printer,
   Maximize,
@@ -18,14 +21,14 @@ interface ReviewToolbarProps {
   projectId: string;
   fileName: string;
   fileUrl: string;
-  commentsOpen: boolean;
-  setCommentsOpen: (open: boolean) => void;
+  viewerRef: RefObject<PDFViewerRef | null>;
+  reviewsOpen: boolean;
+  reviewCount: number;
+  setReviewsOpen: (open: boolean) => void;
   handleScreenshot: () => void;
   handleDownload: () => void;
   handlePrint: () => void;
   handleFullscreen: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getPlugin: (name: string) => Promise<any>;
 }
 
 /**
@@ -35,19 +38,34 @@ export function ReviewToolbar({
   projectId,
   fileName,
   fileUrl,
-  commentsOpen,
-  setCommentsOpen,
+  viewerRef,
+  reviewsOpen,
+  reviewCount,
+  setReviewsOpen,
   handleScreenshot,
   handleDownload,
   handlePrint,
   handleFullscreen,
-  getPlugin,
 }: ReviewToolbarProps) {
   const router = useRouter();
   const t = useTranslations("designReview");
 
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [commentToolActive, setCommentToolActive] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  async function toggleCommentTool() {
+    const willActivate = !commentToolActive;
+    setCommentToolActive(willActivate);
+    try {
+      const registry = await viewerRef.current?.registry;
+      const plugin = registry?.getPlugin("annotation");
+      const capability = plugin?.provides?.();
+      capability?.setActiveTool(willActivate ? "textComment" : null);
+    } catch (err) {
+      console.error("[toggleCommentTool]", err);
+    }
+  }
 
   // Close more menu on click outside
   useEffect(() => {
@@ -80,21 +98,30 @@ export function ReviewToolbar({
         </span>
       </div>
 
-      {/* Right: Utility + Approve/Reject */}
+      {/* Right: Utility icons */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Reviews toggle — pill button with count */}
         <button
-          className={`cursor-pointer transition-colors ${commentsOpen ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
-          onClick={async () => {
-            const willOpen = !commentsOpen;
-            setCommentsOpen(willOpen);
-            try {
-              const plugin = await getPlugin("annotation");
-              plugin?.setActiveTool(willOpen ? "textComment" : null);
-            } catch (err) {
-              console.error("[toggleComment]", err);
-            }
-          }}
-          title="Toggle comments panel"
+          onClick={() => setReviewsOpen(!reviewsOpen)}
+          className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+            reviewsOpen
+              ? "bg-[#F5C518]/15 text-[#F5C518]"
+              : reviewCount > 0
+                ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
+                : "text-[#A0A0A0] hover:text-white"
+          }`}
+          title="Reviews"
+        >
+          <ClipboardCheck className="w-3.5 h-3.5" />
+          {reviewCount > 0 && <span>{reviewCount}</span>}
+        </button>
+
+        <div className="w-px h-4 bg-[#333]" />
+
+        <button
+          onClick={toggleCommentTool}
+          className={`cursor-pointer transition-colors ${commentToolActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+          title="Comment tool"
         >
           <MessageCircle className="w-4 h-4" />
         </button>

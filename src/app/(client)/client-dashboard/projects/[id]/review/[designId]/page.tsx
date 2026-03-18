@@ -10,16 +10,22 @@ import {
   Loader2,
   Download,
   MessageCircle,
+  Camera,
+  Ellipsis,
+  Printer,
+  Maximize,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/useToast";
+import { authClient } from "@/lib/authClient";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
 import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
-import { CommentsPanel } from "@/components/review/CommentsPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { useAnnotationTracker } from "@/hooks/useAnnotationTracker";
-import { isPdf } from "@/lib/fileUtils";
-import type { DbAttachment, DbComment, DbPhase } from "@/types";
+import { usePdfPlugins } from "@/hooks/usePdfPlugins";
+import { isPdf, displayName } from "@/lib/fileUtils";
+import type { DbAttachment, DbPhase } from "@/types";
 
 /**
  *
@@ -34,23 +40,53 @@ export default function ClientReviewPage({
   const viewerRef = useRef<PDFViewerRef>(null);
   const t = useTranslations("clientReview");
   const tc = useTranslations("common");
+  const { data: session } = authClient.useSession();
 
   const [activeFileId, setActiveFileId] = useState(designId);
   const [attachment, setAttachment] = useState<DbAttachment | null>(null);
   const [phaseFiles, setPhaseFiles] = useState<DbAttachment[]>([]);
   const [phaseName, setPhaseName] = useState("");
   const [filesLoading, setFilesLoading] = useState(true);
-  const [comments, setComments] = useState<DbComment[]>([]);
-  const [newComment, setNewComment] = useState("");
-  const [commentsOpen, setCommentsOpen] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentToolActive, setCommentToolActive] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  async function toggleCommentTool() {
+    const willActivate = !commentToolActive;
+    setCommentToolActive(willActivate);
+    try {
+      const registry = await viewerRef.current?.registry;
+      const plugin = registry?.getPlugin("annotation");
+      const capability = plugin?.provides?.();
+      capability?.setActiveTool(willActivate ? "textComment" : null);
+    } catch (err) {
+      console.error("[toggleCommentTool]", err);
+    }
+  }
 
   // Track annotation changes for the review submit flow
   const annotations = useAnnotationTracker({
     viewerRef,
     enabled: !loading && !!attachment && isPdf(attachment.file_name),
   });
+
+  const plugins = usePdfPlugins({ viewerRef, attachment });
+
+  // Close more menu on click outside
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
+        setMoreMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [moreMenuOpen]);
 
   const fetchAttachment = useCallback(
     async (fileId: string) => {
@@ -62,12 +98,6 @@ export default function ClientReviewPage({
     },
     [projectId]
   );
-
-  const fetchComments = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}/comments`);
-    if (!res.ok) return [];
-    return (await res.json()) as DbComment[];
-  }, [projectId]);
 
   const fetchPhaseFiles = useCallback(
     async (phaseId: string) => {
@@ -104,7 +134,6 @@ export default function ClientReviewPage({
     async function load() {
       const isFirst = isInitialLoad.current;
       if (isFirst) {
-        isInitialLoad.current = false;
         setLoading(true);
       }
 
@@ -113,10 +142,7 @@ export default function ClientReviewPage({
       setAttachment(att);
 
       if (isFirst) {
-        const cmts = await fetchComments();
-        if (cancelled) return;
-        setComments(cmts);
-
+        isInitialLoad.current = false;
         if (att?.phase_id) {
           const [files, name] = await Promise.all([
             fetchPhaseFiles(att.phase_id),
@@ -165,7 +191,7 @@ export default function ClientReviewPage({
     // If there are annotations, export and upload the annotated PDF
     if (annotations.hasChanges && isPdf(attachment?.file_name || "")) {
       const buffer = await annotations.exportAnnotatedPdf();
-      if (buffer) {
+      if (buffer && buffer.byteLength > 0) {
         const blob = new Blob([buffer], { type: "application/pdf" });
         const baseName = attachment!.file_name.replace(/\.pdf$/i, "");
         const reviewFileName = `${baseName}_review.pdf`;
@@ -230,52 +256,6 @@ export default function ClientReviewPage({
     annotations.reset();
     const updated = await fetchAttachment(activeFileId);
     if (updated) setAttachment(updated);
-  }
-
-  async function handlePostComment() {
-    if (!newComment.trim()) return;
-    setSubmittingComment(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim() }),
-      });
-      if (!res.ok) {
-        toast({
-          title: tc("error"),
-          description: "Failed to post comment.",
-          variant: "error",
-        });
-        return;
-      }
-      setNewComment("");
-      const updated = await fetchComments();
-      setComments(updated);
-    } catch (err) {
-      console.error("[handlePostComment]", err);
-    } finally {
-      setSubmittingComment(false);
-    }
-  }
-
-  async function handleDownload() {
-    if (!attachment) return;
-    try {
-      const res = await fetch(
-        `/api/proxy-file?url=${encodeURIComponent(attachment.file_url)}`
-      );
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = attachment.file_name;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("[handleDownload]", err);
-    }
   }
 
   if (loading) {
@@ -357,19 +337,71 @@ export default function ClientReviewPage({
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              className={`cursor-pointer transition-colors ${commentsOpen ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
-              onClick={() => setCommentsOpen(!commentsOpen)}
-              title="Toggle comments"
+              onClick={toggleCommentTool}
+              className={`cursor-pointer transition-colors ${commentToolActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+              title="Comment tool"
             >
               <MessageCircle className="w-4 h-4" />
             </button>
             <button
-              onClick={handleDownload}
+              onClick={plugins.handleScreenshot}
+              className="text-[#A0A0A0] hover:text-white cursor-pointer"
+              title="Screenshot"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+            <button
+              onClick={plugins.handleDownload}
               className="text-[#A0A0A0] hover:text-white cursor-pointer"
               title="Download"
             >
               <Download className="w-4 h-4" />
             </button>
+
+            {/* More options dropdown */}
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                className="text-[#A0A0A0] hover:text-white cursor-pointer"
+                title="More options"
+                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              >
+                <Ellipsis className="w-4 h-4" />
+              </button>
+              {moreMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-[#242424] border border-[#333333] rounded-lg shadow-xl py-1 z-50">
+                  <button
+                    onClick={() => {
+                      plugins.handlePrint();
+                      setMoreMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    Print
+                  </button>
+                  <button
+                    onClick={() => {
+                      plugins.handleFullscreen();
+                      setMoreMenuOpen(false);
+                    }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                  >
+                    <Maximize className="w-4 h-4" />
+                    Fullscreen
+                  </button>
+                  <a
+                    href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setMoreMenuOpen(false)}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open in new tab
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -380,6 +412,7 @@ export default function ClientReviewPage({
           fileUrl={fileUrl}
           viewerRef={viewerRef}
           annotations
+          annotationAuthor={displayName(session?.user?.name, "Client")}
         />
 
         {/* Review submit bar — floating at bottom of viewer */}
@@ -389,18 +422,6 @@ export default function ClientReviewPage({
           onSubmit={handleSubmitReview}
         />
       </div>
-
-      {/* Comments panel */}
-      {commentsOpen && (
-        <CommentsPanel
-          comments={comments}
-          newComment={newComment}
-          setNewComment={setNewComment}
-          submittingComment={submittingComment}
-          handlePostComment={handlePostComment}
-          onClose={() => setCommentsOpen(false)}
-        />
-      )}
     </div>
   );
 }
