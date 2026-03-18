@@ -274,12 +274,38 @@ export default function ClientProjectDetailPage({
           <ArrowLeft className="w-4 h-4" />
           {tc("backToProjects")}
         </button>
-        <h1 className="text-2xl font-bold text-white">{project.name}</h1>
-        {project.description && (
-          <p className="text-[13px] text-[#A0A0A0] mt-1">
-            {project.description}
-          </p>
-        )}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+            {project.description && (
+              <p className="text-[13px] text-[#A0A0A0] mt-1">
+                {project.description}
+              </p>
+            )}
+          </div>
+          {project.status !== "completed" &&
+            pendingTasks.length === 0 &&
+            attachments.length > 0 && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setChangesDialogOpen(true)}
+                  disabled={submittingDecision}
+                  className="flex items-center gap-1.5 border border-[#F59E0B] text-[#F59E0B] rounded-lg px-3.5 py-2 text-[13px] font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Request Changes
+                </button>
+                <button
+                  onClick={() => handleDecision("approved")}
+                  disabled={submittingDecision}
+                  className="flex items-center gap-1.5 bg-[#22C55E] text-white rounded-lg px-3.5 py-2 text-[13px] font-semibold hover:bg-[#22C55E]/90 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  {submittingDecision ? "Submitting..." : "Approve Project"}
+                </button>
+              </div>
+            )}
+        </div>
       </div>
 
       {/* Meta bar */}
@@ -541,41 +567,6 @@ export default function ClientProjectDetailPage({
           </div>
         </div>
       </div>
-
-      {/* Approval decision — only when active + has files + no pending tasks */}
-      {project.status !== "completed" &&
-        pendingTasks.length === 0 &&
-        attachments.length > 0 && (
-          <div className="px-10 pb-4">
-            <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] p-5">
-              <h3 className="text-[13px] font-semibold text-white mb-1">
-                Your Decision
-              </h3>
-              <p className="text-[11px] text-[#666666] mb-4">
-                Review the project documents above, then approve or request
-                changes.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleDecision("approved")}
-                  disabled={submittingDecision}
-                  className="flex items-center justify-center gap-2 flex-1 border border-[#22C55E] text-[#22C55E] rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  {submittingDecision ? "Submitting..." : "Approve Project"}
-                </button>
-                <button
-                  onClick={() => setChangesDialogOpen(true)}
-                  disabled={submittingDecision}
-                  className="flex items-center justify-center gap-2 flex-1 border border-[#F59E0B] text-[#F59E0B] rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <AlertTriangle className="w-4 h-4" />
-                  Request Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
       {/* Request Changes Dialog */}
       <Dialog open={changesDialogOpen} onOpenChange={setChangesDialogOpen}>
