@@ -43,36 +43,19 @@ import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface Task {
-  id: string;
-  org_id: string;
-  project_id: string | null;
-  phase_id: string | null;
-  title: string;
-  description: string;
-  status: "todo" | "in_progress" | "completed" | "archived";
-  priority: "low" | "medium" | "high" | "urgent";
-  category: string;
-  created_by: string;
-  assigned_to: string | null;
-  due_date: string | null;
-  reminder_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-  assigned_to_name: string | null;
-  created_by_name: string;
-  project_name: string | null;
-  phase_name: string | null;
-  is_starred: boolean;
-  checklist_total: number;
-  checklist_done: number;
-}
+import type { Task, TaskFormData } from "@/types";
+import {
+  PRIORITIES,
+  CATEGORIES,
+  PRIORITY_DOT,
+  STATUS_BADGE_VARIANT,
+  STATUS_LABEL,
+  NEXT_STATUS,
+  initials,
+  isOverdue,
+  formatDate,
+  capitalize,
+} from "@/lib/taskUtils";
 
 interface TaskSectionProps {
   projectId: string;
@@ -80,93 +63,6 @@ interface TaskSectionProps {
   highlightTaskId?: string | null;
   phases: { id: string; name: string }[];
   members: { user_id: string; user_name: string; user_email: string }[];
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
-const CATEGORIES = [
-  "general",
-  "design",
-  "review",
-  "revision",
-  "production",
-  "handover",
-] as const;
-
-const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-gray-400",
-};
-
-const STATUS_BADGE_VARIANT: Record<
-  string,
-  "draft" | "warning" | "success" | "archived"
-> = {
-  todo: "draft",
-  in_progress: "warning",
-  completed: "success",
-  archived: "archived",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  completed: "Completed",
-  archived: "Archived",
-};
-
-const NEXT_STATUS: Record<string, "todo" | "in_progress" | "completed"> = {
-  todo: "in_progress",
-  in_progress: "completed",
-  completed: "todo",
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function isOverdue(dueDate: string | null): boolean {
-  if (!dueDate) return false;
-  return new Date(dueDate) < new Date(new Date().toDateString());
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-// ---------------------------------------------------------------------------
-// Form state
-// ---------------------------------------------------------------------------
-
-interface TaskFormData {
-  title: string;
-  description: string;
-  phaseId: string;
-  priority: string;
-  category: string;
-  assignedTo: string;
-  dueDate: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -529,7 +425,7 @@ export function TaskSection({
                   {task.due_date ? (
                     <span
                       className={`flex items-center gap-1 text-xs ${
-                        isOverdue(task.due_date) && task.status !== "completed"
+                        isOverdue(task.due_date, task.status)
                           ? "text-red-500"
                           : "text-[#A0A0A0]"
                       }`}

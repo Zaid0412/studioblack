@@ -295,3 +295,54 @@ export interface DbNotificationRow {
   project_id: string | null;
   project_name: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Task manager types
+// ---------------------------------------------------------------------------
+
+export type TaskStatus = "todo" | "in_progress" | "completed" | "archived";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type TaskCategory =
+  | "general"
+  | "design"
+  | "review"
+  | "revision"
+  | "production"
+  | "handover";
+
+export interface Task {
+  id: string;
+  org_id: string;
+  project_id: string | null;
+  phase_id: string | null;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  category: string;
+  created_by: string;
+  assigned_to: string | null;
+  due_date: string | null;
+  reminder_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  assigned_to_name: string | null;
+  created_by_name: string;
+  project_name: string | null;
+  phase_name: string | null;
+  is_starred: boolean;
+  checklist_total: number;
+  checklist_done: number;
+}
+
+export interface TaskFormData {
+  title: string;
+  description: string;
+  projectId?: string;
+  phaseId: string;
+  priority: string;
+  category: string;
+  assignedTo: string;
+  dueDate: string;
+}

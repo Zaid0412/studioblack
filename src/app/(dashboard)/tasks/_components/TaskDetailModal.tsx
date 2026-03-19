@@ -44,36 +44,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { avatarColor } from "@/lib/avatarUtils";
-
-// ---------------------------------------------------------------------------
-// Types (mirrored from parent)
-// ---------------------------------------------------------------------------
-
-interface Task {
-  id: string;
-  org_id: string;
-  project_id: string | null;
-  phase_id: string | null;
-  title: string;
-  description: string;
-  status: "todo" | "in_progress" | "completed" | "archived";
-  priority: "low" | "medium" | "high" | "urgent";
-  category: string;
-  created_by: string;
-  assigned_to: string | null;
-  due_date: string | null;
-  reminder_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-  assigned_to_name: string | null;
-  created_by_name: string;
-  project_name: string | null;
-  phase_name: string | null;
-  is_starred: boolean;
-  checklist_total: number;
-  checklist_done: number;
-}
+import {
+  PRIORITY_DOT,
+  STATUS_DOT,
+  STATUS_LABEL,
+  PRIORITY_LABEL,
+  initials,
+  capitalize,
+  formatFullDate,
+  isOverdue,
+} from "@/lib/taskUtils";
+import type { Task } from "@/types";
 
 interface ChecklistItem {
   id: string;
@@ -158,68 +139,6 @@ interface TaskDetailModalProps {
   onToggleStar?: (task: Task) => void;
   onDelete: (task: Task) => void;
   onChecklistChange?: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const PRIORITY_DOT: Record<string, string> = {
-  urgent: "bg-red-500",
-  high: "bg-orange-500",
-  medium: "bg-yellow-500",
-  low: "bg-gray-400",
-};
-
-const STATUS_DOT: Record<string, string> = {
-  todo: "bg-blue-500",
-  in_progress: "bg-yellow-500",
-  completed: "bg-green-500",
-  archived: "bg-gray-500",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  completed: "Completed",
-  archived: "Archived",
-};
-
-const PRIORITY_LABEL: Record<string, string> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  urgent: "Urgent",
-};
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function formatFullDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function isOverdue(dueDate: string | null, status: string): boolean {
-  if (!dueDate || status === "completed") return false;
-  return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
 // ---------------------------------------------------------------------------
