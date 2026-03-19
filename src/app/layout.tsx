@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { branding } from "@/config/branding";
+import { SplashScreen } from "@/components/SplashScreen";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased">
+        <SplashScreen />
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider>
             <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
