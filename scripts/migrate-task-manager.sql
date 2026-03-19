@@ -1,0 +1,57 @@
+-- Task Manager migration — run after migrate-notification-approval.sql
+-- Adds a standalone task table for the org-level task manager.
+-- Run: psql $DATABASE_URL -f scripts/migrate-task-manager.sql
+
+CREATE TABLE IF NOT EXISTS task (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id      TEXT NOT NULL REFERENCES organization(id) ON DELETE CASCADE,
+  project_id  UUID REFERENCES project(id) ON DELETE CASCADE,
+  phase_id    UUID REFERENCES project_phase(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status      TEXT NOT NULL DEFAULT 'todo' CHECK (status IN ('todo', 'in_progress', 'completed', 'archived')),
+  priority    TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  category    TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('general', 'design', 'review', 'revision', 'production', 'handover')),
+  created_by  TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  assigned_to TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+  due_date    DATE,
+  reminder_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_org ON task (org_id, status);
+CREATE INDEX IF NOT EXISTS idx_task_assigned ON task (assigned_to, status);
+CREATE INDEX IF NOT EXISTS idx_task_created_by ON task (created_by);
+CREATE INDEX IF NOT EXISTS idx_task_project ON task (project_id);
+CREATE INDEX IF NOT EXISTS idx_task_due ON task (due_date) WHERE due_date IS NOT NULL AND status != 'completed';
+
+-- Per-user task starring
+CREATE TABLE IF NOT EXISTS task_star (
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, task_id)
+);
+
+-- Lightweight checklist items for tasks
+CREATE TABLE IF NOT EXISTS task_checklist_item (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id    UUID NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL,
+  is_done    BOOLEAN NOT NULL DEFAULT false,
+  position   INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_checklist_task ON task_checklist_item(task_id, position);
+
+-- Allow attachments to reference standalone tasks
+ALTER TABLE attachment ADD COLUMN IF NOT EXISTS standalone_task_id UUID REFERENCES task(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_attachment_standalone_task ON attachment(standalone_task_id);
+
+-- Relax project_id NOT NULL so standalone-task attachments work without a project
+ALTER TABLE attachment ALTER COLUMN project_id DROP NOT NULL;
+
+-- Store file size on attachments (bytes)
+ALTER TABLE attachment ADD COLUMN IF NOT EXISTS file_size BIGINT;

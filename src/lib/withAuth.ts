@@ -9,6 +9,7 @@ type User = NonNullable<Session>["user"];
 export interface AuthContext {
   session: NonNullable<Session>;
   user: User;
+  orgId: string | null;
   orgRole?: string | null;
 }
 
@@ -36,7 +37,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
   return async (
     req: NextRequest,
     routeParams?: RouteParams
-  ): Promise<NextResponse> => {
+  ): Promise<NextResponse<unknown>> => {
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -74,6 +75,15 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
+    // Resolve orgId
+    let orgId = session.session.activeOrganizationId ?? null;
+    if (!orgId) {
+      const orgs = await auth.api.listOrganizations({
+        headers: await headers(),
+      });
+      if (orgs && orgs.length > 0) orgId = orgs[0].id;
+    }
+
     // Org role
     let orgRole: string | null | undefined;
     if (options.fetchOrgRole) {
@@ -83,6 +93,6 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
-    return handler(req, { session, user, orgRole }, resolvedParams);
+    return handler(req, { session, user, orgId, orgRole }, resolvedParams);
   };
 }
