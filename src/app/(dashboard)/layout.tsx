@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
+import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { deriveInitials } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { User } from "@/types";
@@ -101,7 +102,10 @@ export default async function DashboardLayout({
           variant={user.role === "pm" ? "pm" : "architect"}
           user={user}
         />
-        <main className="flex-1 min-h-0 overflow-y-auto p-8">
+        <main className="relative flex-1 min-h-0 overflow-y-auto p-8 pr-20">
+          <div className="fixed top-4 right-8 z-40">
+            <NotificationPanel />
+          </div>
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>

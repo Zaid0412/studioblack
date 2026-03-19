@@ -35,9 +35,7 @@ function getBaseURL(): string {
 export const auth = betterAuth({
   baseURL: getBaseURL(),
   trustedOrigins: [getBaseURL()],
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL,
-  }),
+  database: getPool(),
   emailAndPassword: {
     enabled: true,
   },
