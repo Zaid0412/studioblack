@@ -45,3 +45,13 @@ CREATE TABLE IF NOT EXISTS task_checklist_item (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_checklist_task ON task_checklist_item(task_id, position);
+
+-- Allow attachments to reference standalone tasks
+ALTER TABLE attachment ADD COLUMN IF NOT EXISTS standalone_task_id UUID REFERENCES task(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_attachment_standalone_task ON attachment(standalone_task_id);
+
+-- Relax project_id NOT NULL so standalone-task attachments work without a project
+ALTER TABLE attachment ALTER COLUMN project_id DROP NOT NULL;
+
+-- Store file size on attachments (bytes)
+ALTER TABLE attachment ADD COLUMN IF NOT EXISTS file_size BIGINT;

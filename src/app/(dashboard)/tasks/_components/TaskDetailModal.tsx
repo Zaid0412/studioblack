@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Calendar,
   Edit,
@@ -11,6 +11,9 @@ import {
   Star,
   X,
   ListChecks,
+  Paperclip,
+  Download,
+  Upload,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -61,6 +64,60 @@ interface ChecklistItem {
   is_done: boolean;
   position: number;
   created_at: string;
+}
+
+interface Attachment {
+  id: string;
+  standalone_task_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// File type color helpers
+// ---------------------------------------------------------------------------
+
+function getFileExtension(name: string): string {
+  return (name.split(".").pop() ?? "").toLowerCase();
+}
+
+function fileTypeBadge(ext: string): {
+  bg: string;
+  text: string;
+  label: string;
+} {
+  switch (ext) {
+    case "pdf":
+      return { bg: "#1E3A5F", text: "#60A5FA", label: "PDF" };
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "webp":
+      return { bg: "#1E3F1E", text: "#4ADE80", label: ext.toUpperCase() };
+    case "dwg":
+    case "ai":
+    case "psd":
+    case "sketch":
+      return { bg: "#2D1E5F", text: "#A78BFA", label: ext.toUpperCase() };
+    case "svg":
+      return { bg: "#3F2E1E", text: "#FB923C", label: "SVG" };
+    default:
+      return {
+        bg: "#222222",
+        text: "#A0A0A0",
+        label: ext.toUpperCase() || "FILE",
+      };
+  }
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (bytes == null) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface TaskDetailModalProps {
@@ -178,6 +235,9 @@ export function TaskDetailModal({
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newItemTitle, setNewItemTitle] = useState("");
   const [addingItem, setAddingItem] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchChecklist = useCallback(async (taskId: string) => {
     try {
@@ -188,14 +248,25 @@ export function TaskDetailModal({
     }
   }, []);
 
+  const fetchAttachments = useCallback(async (taskId: string) => {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/attachments`);
+      if (res.ok) setAttachments(await res.json());
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
     if (open && task?.id) {
       fetchChecklist(task.id);
+      fetchAttachments(task.id);
     } else {
       setChecklistItems([]);
       setNewItemTitle("");
+      setAttachments([]);
     }
-  }, [open, task?.id, fetchChecklist]);
+  }, [open, task?.id, fetchChecklist, fetchAttachments]);
 
   const addItem = async () => {
     if (!task || !newItemTitle.trim() || addingItem) return;
@@ -265,6 +336,71 @@ export function TaskDetailModal({
     }
   };
 
+  const handleUpload = async (file: File) => {
+    if (!task || uploading) return;
+    setUploading(true);
+    try {
+      // 1. Upload to Supabase via /api/upload
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) return;
+      const { url, fileName } = await uploadRes.json();
+
+      // 2. Create attachment record
+      const res = await fetch(`/api/tasks/${task.id}/attachments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl: url, fileName, fileSize: file.size }),
+      });
+      if (res.ok) {
+        const att = await res.json();
+        setAttachments((prev) => [att, ...prev]);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDownload = async (att: Attachment) => {
+    try {
+      const res = await fetch(
+        `/api/proxy-file?url=${encodeURIComponent(att.file_url)}`
+      );
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = att.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
+    }
+  };
+
+  const deleteAttachment = async (att: Attachment) => {
+    if (!task) return;
+    setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/attachments/${att.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        fetchAttachments(task.id);
+      }
+    } catch {
+      fetchAttachments(task.id);
+    }
+  };
+
   if (!task) return null;
 
   const doneCount = checklistItems.filter((i) => i.is_done).length;
@@ -303,7 +439,7 @@ export function TaskDetailModal({
         <div className="h-px bg-[#333333]" />
 
         {/* Body */}
-        <div className="flex flex-col gap-4 px-6 py-4">
+        <div className="flex flex-col gap-4 px-6 py-4 max-h-[60vh] overflow-y-auto">
           {/* Description */}
           {task.description ? (
             <p className="text-[13px] text-[#A0A0A0] whitespace-pre-wrap leading-relaxed">
@@ -513,6 +649,91 @@ export function TaskDetailModal({
                 Add
               </button>
             </form>
+          </div>
+
+          {/* Attachments */}
+          <div className="flex flex-col gap-2.5 border-t border-[#333333] pt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Paperclip className="w-3.5 h-3.5 text-[#666666]" />
+                <span className="text-[11px] font-medium text-[#666666] uppercase tracking-wider">
+                  Attachments
+                </span>
+              </div>
+              {attachments.length > 0 && (
+                <span className="text-[11px] text-[#666666]">
+                  {attachments.length} file{attachments.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {attachments.length > 0 && (
+              <div className="flex flex-col gap-1">
+                {attachments.map((att) => {
+                  const ext = getFileExtension(att.file_name);
+                  const badge = fileTypeBadge(ext);
+                  return (
+                    <div
+                      key={att.id}
+                      className="flex items-center gap-2.5 group py-1.5 px-2 rounded hover:bg-white/[0.02]"
+                    >
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                        style={{ backgroundColor: badge.bg, color: badge.text }}
+                      >
+                        {badge.label}
+                      </span>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[13px] text-white truncate">
+                          {att.file_name}
+                        </span>
+                        <span className="text-[11px] text-[#555555]">
+                          {formatFileSize(att.file_size)}
+                          {att.file_size != null && " · "}
+                          {formatFullDate(att.created_at)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDownload(att)}
+                        className="p-1 rounded text-[#666666] hover:text-white transition-colors cursor-pointer"
+                        title="Download"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => deleteAttachment(att)}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[#666666] hover:text-red-400 transition-all cursor-pointer"
+                        title="Delete"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUpload(file);
+              }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center justify-center gap-1.5 w-full py-2 rounded border border-dashed border-[#333333] text-[#666666] hover:border-[#555555] hover:text-[#A0A0A0] transition-colors text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5" />
+              )}
+              {uploading ? "Uploading..." : "Upload file"}
+            </button>
           </div>
         </div>
 
