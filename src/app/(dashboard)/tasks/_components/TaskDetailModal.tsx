@@ -268,6 +268,7 @@ export function TaskDetailModal({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [loadingChecklist, setLoadingChecklist] = useState(false);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
@@ -333,6 +334,7 @@ export function TaskDetailModal({
       setNewItemTitle("");
       setAttachments([]);
       setPreviewId(null);
+      setPreviewLoading(null);
       setLightboxUrl(null);
     }
   }, [open, task?.id, fetchChecklist, fetchAttachments]);
@@ -768,9 +770,15 @@ export function TaskDetailModal({
                           </div>
                           {canPreview && (
                             <button
-                              onClick={() =>
-                                setPreviewId(isPreviewing ? null : att.id)
-                              }
+                              onClick={() => {
+                                if (isPreviewing) {
+                                  setPreviewId(null);
+                                  setPreviewLoading(null);
+                                } else {
+                                  setPreviewLoading(att.id);
+                                  setPreviewId(att.id);
+                                }
+                              }}
                               className={`p-1 rounded transition-colors cursor-pointer ${isPreviewing ? "text-[#F5C518]" : "text-[#666666] hover:text-white"}`}
                               title={isPreviewing ? "Hide preview" : "Preview"}
                             >
@@ -804,12 +812,20 @@ export function TaskDetailModal({
                           </button>
                         </div>
                         {canPreview && isPreviewing && (
-                          <div className="px-2 pb-2">
+                          <div className="px-2 pb-2 relative">
+                            {previewLoading === att.id && (
+                              <div className="flex items-center justify-center py-6">
+                                <Loader2 className="w-4 h-4 text-[#666666] animate-spin" />
+                              </div>
+                            )}
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={proxyUrl}
                               alt={att.file_name}
-                              className="w-full max-h-48 object-contain rounded bg-[#0d0d0d] border border-[#333333] cursor-pointer hover:opacity-90 transition-opacity"
+                              className={`w-full max-h-48 object-contain rounded bg-[#0d0d0d] border border-[#333333] cursor-pointer hover:opacity-90 transition-opacity ${previewLoading === att.id ? "hidden" : ""}`}
+                              onLoadStart={() => setPreviewLoading(att.id)}
+                              onLoad={() => setPreviewLoading(null)}
+                              onError={() => setPreviewLoading(null)}
                               onClick={() => setLightboxUrl(proxyUrl)}
                             />
                           </div>

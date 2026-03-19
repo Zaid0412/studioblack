@@ -79,9 +79,7 @@ export const NEXT_STATUS: Record<string, "todo" | "in_progress" | "completed"> =
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Extract 1-2 character uppercase initials from a full name. */
 export function initials(name: string): string {
   return name
     .split(" ")
@@ -91,25 +89,19 @@ export function initials(name: string): string {
     .slice(0, 2);
 }
 
-/**
- *
- */
+/** Capitalize the first character of a string. */
 export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/**
- *
- */
+/** Return true if the due date is in the past and the task is not completed. */
 export function isOverdue(dueDate: string | null, status?: string): boolean {
   if (!dueDate) return false;
   if (status === "completed") return false;
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
-/**
- *
- */
+/** Format an ISO date string as "Mon D" (e.g. "Mar 19"). */
 export function formatDate(date: string): string {
   return new Date(date).toLocaleDateString("en-US", {
     month: "short",
@@ -117,9 +109,7 @@ export function formatDate(date: string): string {
   });
 }
 
-/**
- *
- */
+/** Format an ISO date string as "Mon D, YYYY" (e.g. "Mar 19, 2026"). */
 export function formatFullDate(date: string): string {
   return new Date(date).toLocaleDateString("en-US", {
     month: "short",

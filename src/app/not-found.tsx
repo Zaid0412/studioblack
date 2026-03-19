@@ -1,15 +1,16 @@
+import Image from "next/image";
 import Link from "next/link";
 import { branding } from "@/config/branding";
 
-/**
- *
- */
+/** 404 page shown when no route matches. */
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0D0D0D] px-4 text-center">
-      <img
+      <Image
         src={branding.logoUrl}
         alt={branding.appName}
+        width={120}
+        height={40}
         className="mb-8 h-10 w-auto"
       />
 
