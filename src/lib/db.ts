@@ -6,18 +6,21 @@ import { Pool } from "pg";
  * Lazy-initialized singleton — reuses the same pool across all server-side
  * code (API routes, server components, server actions). Uses the same
  * DATABASE_URL as better-auth.
+ *
+ * Uses globalThis to survive Next.js dev-mode hot reloads without leaking
+ * connections (each HMR cycle re-evaluates modules but globalThis persists).
  */
-let pool: Pool | null = null;
+const globalForPg = globalThis as unknown as { pgPool?: Pool };
 
 /** Returns the shared PostgreSQL connection pool, creating it on first call. */
 export function getPool(): Pool {
-  if (!pool) {
-    pool = new Pool({
+  if (!globalForPg.pgPool) {
+    globalForPg.pgPool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      max: 20,
+      max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });
   }
-  return pool;
+  return globalForPg.pgPool;
 }
