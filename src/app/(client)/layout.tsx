@@ -45,7 +45,7 @@ export default async function ClientLayout({
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
         <Sidebar variant="client" user={user} />
-        <main className="relative flex-1 min-h-0 overflow-y-auto p-8">
+        <main className="relative flex-1 min-h-0 overflow-y-auto p-8 pr-20">
           <div className="fixed top-4 right-8 z-40">
             <NotificationPanel />
           </div>
