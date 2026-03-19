@@ -16,7 +16,23 @@ import {
   Download,
   Upload,
   Eye,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -230,6 +246,88 @@ function DetailSep() {
 }
 
 // ---------------------------------------------------------------------------
+// Sortable checklist item
+// ---------------------------------------------------------------------------
+
+function SortableChecklistItem({
+  item,
+  onToggle,
+  onDelete,
+}: {
+  item: ChecklistItem;
+  onToggle: (item: ChecklistItem) => void;
+  onDelete: (item: ChecklistItem) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 group py-1.5 px-1 rounded hover:bg-white/[0.02]"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="p-0 shrink-0 text-[#444444] hover:text-[#888888] cursor-grab active:cursor-grabbing transition-colors touch-none"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => onToggle(item)}
+        className={`w-4 h-4 rounded-[3px] border shrink-0 flex items-center justify-center cursor-pointer transition-colors ${
+          item.is_done
+            ? "bg-[#F5C518] border-[#F5C518]"
+            : "border-[#666666] hover:border-[#A0A0A0]"
+        }`}
+      >
+        {item.is_done && (
+          <svg
+            className="w-3 h-3 text-black"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={3}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+        )}
+      </button>
+      <span
+        className={`text-[13px] flex-1 ${
+          item.is_done ? "text-[#666666] line-through" : "text-[#A0A0A0]"
+        }`}
+      >
+        {item.title}
+      </span>
+      <button
+        onClick={() => onDelete(item)}
+        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[#666666] hover:text-red-400 transition-all cursor-pointer"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -255,6 +353,33 @@ export function TaskDetailModal({
   const [loadingChecklist, setLoadingChecklist] = useState(false);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !task) return;
+
+    const oldIndex = checklistItems.findIndex((i) => i.id === active.id);
+    const newIndex = checklistItems.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(checklistItems, oldIndex, newIndex);
+    setChecklistItems(reordered);
+
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/checklist/reorder`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: reordered.map((i) => i.id) }),
+      });
+      if (!res.ok) fetchChecklist(task.id);
+    } catch {
+      fetchChecklist(task.id);
+    }
+  };
 
   const fetchChecklist = useCallback(async (taskId: string) => {
     setLoadingChecklist(true);
@@ -612,64 +737,6 @@ export function TaskDetailModal({
                 </div>
               ) : (
                 <>
-                  {checklistItems.length > 0 && (
-                    <div className="w-full h-[3px] rounded-full bg-[#333333] overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-[#F5C518] transition-all duration-200"
-                        style={{
-                          width: `${(doneCount / checklistItems.length) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-0.5">
-                    {checklistItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-2 group py-1.5 px-1 rounded hover:bg-white/[0.02]"
-                      >
-                        <button
-                          onClick={() => toggleItem(item)}
-                          className={`w-4 h-4 rounded-[3px] border shrink-0 flex items-center justify-center cursor-pointer transition-colors ${
-                            item.is_done
-                              ? "bg-[#F5C518] border-[#F5C518]"
-                              : "border-[#666666] hover:border-[#A0A0A0]"
-                          }`}
-                        >
-                          {item.is_done && (
-                            <svg
-                              className="w-3 h-3 text-black"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                        <span
-                          className={`text-[13px] flex-1 ${
-                            item.is_done
-                              ? "text-[#666666] line-through"
-                              : "text-[#A0A0A0]"
-                          }`}
-                        >
-                          {item.title}
-                        </span>
-                        <button
-                          onClick={() => deleteItem(item)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[#666666] hover:text-red-400 transition-all cursor-pointer"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -693,6 +760,37 @@ export function TaskDetailModal({
                       Add
                     </button>
                   </form>
+                  {checklistItems.length > 0 && (
+                    <div className="w-full h-[3px] rounded-full bg-[#333333] overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#F5C518] transition-all duration-200"
+                        style={{
+                          width: `${(doneCount / checklistItems.length) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={checklistItems.map((i) => i.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        {checklistItems.map((item) => (
+                          <SortableChecklistItem
+                            key={item.id}
+                            item={item}
+                            onToggle={toggleItem}
+                            onDelete={deleteItem}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 </>
               )}
             </div>
