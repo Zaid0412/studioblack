@@ -316,7 +316,9 @@
     "rejectError": "Davet reddedilemedi",
     "roleOwner": "Sahip",
     "rolePM": "Proje Yöneticisi",
-    "roleArchitect": "Mimar"
+    "roleArchitect": "Mimar",
+    "clearAll": "Tümünü temizle",
+    "clearAllConfirm": "Tüm bildirimleri silmek istediğinizden emin misiniz?"
   },
   "settings": {
     "title": "Kullanıcı Ayarları",

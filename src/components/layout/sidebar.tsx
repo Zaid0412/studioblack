@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   FolderOpen,
   Building2,
-  Bell,
   Settings,
   History,
   LogOut,
@@ -56,46 +55,16 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
 
-  const [unread, setUnread] = useState(0);
   const [orgName, setOrgName] = useState<string | null>(null);
   useEffect(() => {
     async function fetchOrgData() {
-      let count = 0;
-      // Invitations received by this user
-      const { data: received } =
-        await authClient.organization.listUserInvitations();
-      count += received?.filter((inv) => inv.status === "pending").length ?? 0;
-      // Invitations sent by org owner (pending responses) + org name
       const { data: orgData } =
         await authClient.organization.getFullOrganization();
       if (orgData) {
         setOrgName(orgData.name);
-        if (orgData.invitations) {
-          count += orgData.invitations.filter(
-            (inv) => inv.status === "pending"
-          ).length;
-        }
       }
-      // Add unread DB notifications count
-      try {
-        const res = await fetch("/api/notifications?unread=true");
-        if (res.ok) {
-          const { count: dbCount } = await res.json();
-          count += dbCount;
-        }
-      } catch {
-        // ignore
-      }
-      setUnread(count);
     }
     fetchOrgData();
-    const interval = setInterval(fetchOrgData, 30000);
-    const handleRefresh = () => fetchOrgData();
-    window.addEventListener("notifications-changed", handleRefresh);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("notifications-changed", handleRefresh);
-    };
   }, []);
 
   const handleLogout = async () => {
@@ -108,16 +77,6 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     { href: "/organisation", label: t("organisation"), icon: Building2 },
-    ...(features.notifications
-      ? [
-          {
-            href: "/notifications",
-            label: t("notifications"),
-            icon: Bell,
-            badge: unread,
-          },
-        ]
-      : []),
     { href: "/settings", label: t("settings"), icon: Settings },
     ...(features.auditHistory
       ? [{ href: "/audit", label: t("audit"), icon: History }]
@@ -129,16 +88,6 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     { href: "/organisation", label: t("organisation"), icon: Building2 },
-    ...(features.notifications
-      ? [
-          {
-            href: "/notifications",
-            label: t("notifications"),
-            icon: Bell,
-            badge: unread,
-          },
-        ]
-      : []),
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
@@ -153,16 +102,6 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       label: t("projects"),
       icon: FolderOpen,
     },
-    ...(features.notifications
-      ? [
-          {
-            href: "/client-dashboard/notifications",
-            label: t("notifications"),
-            icon: Bell,
-            badge: unread,
-          },
-        ]
-      : []),
     {
       href: "/client-dashboard/settings",
       label: t("settings"),

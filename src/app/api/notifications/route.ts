@@ -47,3 +47,20 @@ export const PATCH = withAuth({}, async (req, { user }) => {
 
   return NextResponse.json({ success: true });
 });
+
+/** DELETE /api/notifications — delete notifications. Pass { id } for single, omit for all. */
+export const DELETE = withAuth({}, async (req, { user }) => {
+  const pool = getPool();
+  const body = await req.json().catch(() => ({}));
+
+  if (body.id) {
+    await pool.query(
+      `DELETE FROM notification WHERE user_id = $1 AND id = $2`,
+      [user.id, body.id]
+    );
+  } else {
+    await pool.query(`DELETE FROM notification WHERE user_id = $1`, [user.id]);
+  }
+
+  return NextResponse.json({ success: true });
+});

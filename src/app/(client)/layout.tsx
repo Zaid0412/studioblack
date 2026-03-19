@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
+import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { deriveInitials } from "@/lib/utils";
 import type { User } from "@/types";
 
@@ -44,7 +45,12 @@ export default async function ClientLayout({
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
         <Sidebar variant="client" user={user} />
-        <main className="flex-1 overflow-y-auto p-8">{children}</main>
+        <main className="relative flex-1 min-h-0 overflow-y-auto p-8">
+          <div className="fixed top-4 right-8 z-40">
+            <NotificationPanel />
+          </div>
+          {children}
+        </main>
       </div>
     </SidebarProvider>
   );

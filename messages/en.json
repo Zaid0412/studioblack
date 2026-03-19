@@ -316,7 +316,9 @@
     "rejectError": "Failed to decline invitation",
     "roleOwner": "Owner",
     "rolePM": "Project Manager",
-    "roleArchitect": "Architect"
+    "roleArchitect": "Architect",
+    "clearAll": "Clear all",
+    "clearAllConfirm": "Are you sure you want to delete all notifications?"
   },
   "settings": {
     "title": "User Settings",
