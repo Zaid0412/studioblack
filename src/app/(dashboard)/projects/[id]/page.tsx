@@ -1,6 +1,7 @@
 "use client";
 
-import { use } from "react";
+import { use, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { useProjectDetail } from "./_hooks/useProjectDetail";
@@ -9,6 +10,7 @@ import { MetaBar } from "./_components/MetaBar";
 import { WorkflowBar } from "./_components/WorkflowBar";
 import { PhaseTabs } from "./_components/PhaseTabs";
 import { FileTable } from "./_components/FileTable";
+import { TaskSection } from "./_components/TaskSection";
 import { CommentsSection } from "./_components/CommentsSection";
 
 /** Project detail page — workflow steps, phase tabs, file table. */
@@ -34,6 +36,19 @@ export default function ProjectDetailPage({
     handleSendComment,
     handleDownload,
   } = useProjectDetail(id);
+
+  const searchParams = useSearchParams();
+  const highlightTaskId = searchParams.get("highlightTask");
+
+  useEffect(() => {
+    if (!highlightTaskId || !project) return;
+    fetch(`/api/tasks/${highlightTaskId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((task) => {
+        if (task?.phase_id) setActivePhaseId(task.phase_id);
+      })
+      .catch(() => {});
+  }, [highlightTaskId, project, setActivePhaseId]);
 
   if (loading) {
     return (
@@ -82,6 +97,26 @@ export default function ProjectDetailPage({
         phaseFiles={phaseFiles}
         onDownload={handleDownload}
       />
+      {activePhaseId && (
+        <div className="px-6 py-4">
+          <TaskSection
+            projectId={id}
+            activePhaseId={activePhaseId}
+            highlightTaskId={highlightTaskId}
+            phases={project.phases.map((p: { id: string; name: string }) => ({
+              id: p.id,
+              name: p.name,
+            }))}
+            members={project.members.map(
+              (m: { user_id: string; name: string; email: string }) => ({
+                user_id: m.user_id,
+                user_name: m.name,
+                user_email: m.email,
+              })
+            )}
+          />
+        </div>
+      )}
       <CommentsSection
         comments={comments}
         newComment={newComment}

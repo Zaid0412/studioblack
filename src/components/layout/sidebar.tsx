@@ -106,6 +106,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const pmNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     { href: "/organisation", label: t("organisation"), icon: Building2 },
     ...(features.notifications
       ? [

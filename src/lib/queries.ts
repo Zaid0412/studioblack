@@ -541,7 +541,7 @@ interface TaskFilters {
     | "all"
     | "my_tasks"
     | "created_by_me"
-    | "important"
+    | "starred"
     | "upcoming"
     | "completed";
   userId: string;
@@ -573,10 +573,12 @@ export async function getTasks(filters: TaskFilters) {
       values.push(filters.userId);
       idx++;
       break;
-    case "important":
+    case "starred":
       conditions.push(
-        `t.priority IN ('high', 'urgent') AND t.status != 'completed' AND t.status != 'archived'`
+        `EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${idx})`
       );
+      values.push(filters.userId);
+      idx++;
       break;
     case "upcoming":
       conditions.push(
@@ -618,15 +620,23 @@ export async function getTasks(filters: TaskFilters) {
     idx++;
   }
 
+  // Add userId param for is_starred subquery
+  values.push(filters.userId);
+  const starIdx = idx;
+  idx++;
+
   const { rows } = await pool.query(
     `SELECT t.*,
             u_assigned.name AS assigned_to_name,
             u_created.name AS created_by_name,
-            p.name AS project_name
+            p.name AS project_name,
+            pp.name AS phase_name,
+            EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${starIdx}) AS is_starred
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
      LEFT JOIN "user" u_created ON u_created.id = t.created_by
      LEFT JOIN project p ON p.id = t.project_id
+     LEFT JOIN project_phase pp ON pp.id = t.phase_id
      WHERE ${conditions.join(" AND ")}
      ORDER BY
        CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
@@ -639,20 +649,27 @@ export async function getTasks(filters: TaskFilters) {
   return rows;
 }
 
-/** Fetch a single task by ID with joined user and project names. */
-export async function getTaskById(taskId: string) {
+/** Fetch a single task by ID with joined user, project, and phase names. */
+export async function getTaskById(taskId: string, userId?: string) {
   const pool = getPool();
+  const starClause = userId
+    ? `EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $2)`
+    : `false`;
+  const params: string[] = userId ? [taskId, userId] : [taskId];
   const { rows } = await pool.query(
     `SELECT t.*,
             u_assigned.name AS assigned_to_name,
             u_created.name AS created_by_name,
-            p.name AS project_name
+            p.name AS project_name,
+            pp.name AS phase_name,
+            ${starClause} AS is_starred
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
      LEFT JOIN "user" u_created ON u_created.id = t.created_by
      LEFT JOIN project p ON p.id = t.project_id
+     LEFT JOIN project_phase pp ON pp.id = t.phase_id
      WHERE t.id = $1`,
-    [taskId]
+    params
   );
   return rows[0] || null;
 }
@@ -662,13 +679,15 @@ export async function getTaskBucketCounts(orgId: string, userId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT
-       COUNT(*) FILTER (WHERE status != 'archived')::int AS all,
-       COUNT(*) FILTER (WHERE assigned_to = $2 AND status != 'archived')::int AS my_tasks,
-       COUNT(*) FILTER (WHERE created_by = $2 AND (assigned_to IS NULL OR assigned_to != $2) AND status != 'archived')::int AS created_by_me,
-       COUNT(*) FILTER (WHERE priority IN ('high', 'urgent') AND status NOT IN ('completed', 'archived'))::int AS important,
-       COUNT(*) FILTER (WHERE due_date IS NOT NULL AND status NOT IN ('completed', 'archived'))::int AS upcoming,
-       COUNT(*) FILTER (WHERE status = 'completed')::int AS completed
-     FROM task WHERE org_id = $1`,
+       COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all,
+       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS my_tasks,
+       COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS created_by_me,
+       COUNT(*) FILTER (WHERE ts.task_id IS NOT NULL)::int AS starred,
+       COUNT(*) FILTER (WHERE t.due_date IS NOT NULL AND t.status NOT IN ('completed', 'archived'))::int AS upcoming,
+       COUNT(*) FILTER (WHERE t.status = 'completed')::int AS completed
+     FROM task t
+     LEFT JOIN task_star ts ON ts.task_id = t.id AND ts.user_id = $2
+     WHERE t.org_id = $1`,
     [orgId, userId]
   );
   return rows[0];

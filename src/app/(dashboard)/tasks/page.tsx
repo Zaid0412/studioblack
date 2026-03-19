@@ -18,6 +18,7 @@ import {
   PenLine,
   Star,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import { authClient } from "@/lib/authClient";
+import { TaskDetailModal } from "./_components/TaskDetailModal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,13 +78,15 @@ interface Task {
   assigned_to_name: string | null;
   created_by_name: string;
   project_name: string | null;
+  phase_name: string | null;
+  is_starred: boolean;
 }
 
 interface TaskCounts {
   all: number;
   my_tasks: number;
   created_by_me: number;
-  important: number;
+  starred: number;
   upcoming: number;
   completed: number;
 }
@@ -98,6 +102,11 @@ interface ProjectOption {
   name: string;
 }
 
+interface PhaseOption {
+  id: string;
+  name: string;
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -106,7 +115,7 @@ type Bucket =
   | "all"
   | "my_tasks"
   | "created_by_me"
-  | "important"
+  | "starred"
   | "upcoming"
   | "completed";
 
@@ -114,7 +123,7 @@ const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
   { key: "all", label: "All", icon: ListTodo },
   { key: "my_tasks", label: "My Tasks", icon: User },
   { key: "created_by_me", label: "Created by Me", icon: PenLine },
-  { key: "important", label: "Important", icon: Star },
+  { key: "starred", label: "Starred", icon: Star },
   { key: "upcoming", label: "Upcoming", icon: Clock },
   { key: "completed", label: "Completed", icon: CheckCircle2 },
 ];
@@ -199,6 +208,7 @@ interface TaskFormData {
   title: string;
   description: string;
   projectId: string;
+  phaseId: string;
   priority: string;
   category: string;
   assignedTo: string;
@@ -209,6 +219,7 @@ const EMPTY_FORM: TaskFormData = {
   title: "",
   description: "",
   projectId: "",
+  phaseId: "",
   priority: "medium",
   category: "general",
   assignedTo: "",
@@ -230,13 +241,15 @@ export default function TasksPage() {
     all: 0,
     my_tasks: 0,
     created_by_me: 0,
-    important: 0,
+    starred: 0,
     upcoming: 0,
     completed: 0,
   });
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [phases, setPhases] = useState<PhaseOption[]>([]);
+  const [loadingPhases, setLoadingPhases] = useState(false);
 
   // -- Filter state (from URL) --
   const activeBucket = (searchParams.get("bucket") as Bucket) || "all";
@@ -247,11 +260,39 @@ export default function TasksPage() {
   const projectFilter = searchParams.get("projectId") || "all";
   const currentPage = parseInt(searchParams.get("page") || "1", 10);
 
+  // -- Fetch phases for a project --
+  const fetchPhases = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      setPhases([]);
+      return;
+    }
+    setLoadingPhases(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPhases(
+          (data.phases ?? []).map((p: { id: string; name: string }) => ({
+            id: p.id,
+            name: p.name,
+          }))
+        );
+      }
+    } catch {
+      setPhases([]);
+    } finally {
+      setLoadingPhases(false);
+    }
+  }, []);
+
   // -- Dialog state --
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [formData, setFormData] = useState<TaskFormData>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+
+  // -- Detail modal --
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   // -- Delete dialog --
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
@@ -293,7 +334,7 @@ export default function TasksPage() {
             all: 0,
             my_tasks: 0,
             created_by_me: 0,
-            important: 0,
+            starred: 0,
             upcoming: 0,
             completed: 0,
           }
@@ -383,6 +424,34 @@ export default function TasksPage() {
     }
   }
 
+  // -- Star toggle --
+  async function toggleStar(task: Task) {
+    // Optimistic update
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === task.id ? { ...t, is_starred: !t.is_starred } : t
+      )
+    );
+    setCounts((prev) => ({
+      ...prev,
+      starred: prev.starred + (task.is_starred ? -1 : 1),
+    }));
+    try {
+      await fetch(`/api/tasks/${task.id}/star`, { method: "POST" });
+    } catch {
+      // Revert on failure
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, is_starred: task.is_starred } : t
+        )
+      );
+      setCounts((prev) => ({
+        ...prev,
+        starred: prev.starred + (task.is_starred ? 0 : -1),
+      }));
+    }
+  }
+
   // -- Create / Edit submit --
   async function handleSubmit() {
     if (!formData.title.trim()) return;
@@ -392,6 +461,7 @@ export default function TasksPage() {
       title: formData.title.trim(),
       description: formData.description.trim() || undefined,
       projectId: formData.projectId || undefined,
+      phaseId: formData.phaseId || undefined,
       priority: formData.priority,
       category: formData.category,
       assignedTo: formData.assignedTo || undefined,
@@ -482,11 +552,13 @@ export default function TasksPage() {
       title: task.title,
       description: task.description || "",
       projectId: task.project_id || "",
+      phaseId: task.phase_id || "",
       priority: task.priority,
       category: task.category,
       assignedTo: task.assigned_to || "",
       dueDate: task.due_date ? task.due_date.split("T")[0] : "",
     });
+    if (task.project_id) fetchPhases(task.project_id);
     setDialogOpen(true);
   }
 
@@ -615,6 +687,7 @@ export default function TasksPage() {
             {/* Table header */}
             <div className="flex items-center h-11 px-4 bg-[#242424] gap-3">
               <div className="w-3" /> {/* priority dot spacer */}
+              <div className="w-6" /> {/* star spacer */}
               <div className="flex-1 text-xs font-bold text-[#666666]">
                 Task
               </div>
@@ -633,6 +706,7 @@ export default function TasksPage() {
               <div className="w-[100px] text-xs font-bold text-[#666666]">
                 Status
               </div>
+              <div className="w-8" /> {/* go-to-project spacer */}
               <div className="w-8" />
             </div>
 
@@ -653,7 +727,8 @@ export default function TasksPage() {
                 paginatedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center min-h-[56px] px-4 py-2 border-b border-[#333333] last:border-b-0 hover:bg-white/[0.02] transition-colors gap-3"
+                    onClick={() => setDetailTask(task)}
+                    className="flex items-center min-h-[56px] px-4 py-2 border-b border-[#333333] last:border-b-0 hover:bg-white/[0.02] transition-colors gap-3 cursor-pointer"
                   >
                     {/* Priority dot */}
                     <div className="w-3 flex justify-center shrink-0">
@@ -661,6 +736,26 @@ export default function TasksPage() {
                         className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                         title={capitalize(task.priority)}
                       />
+                    </div>
+
+                    {/* Star toggle */}
+                    <div className="w-6 flex justify-center shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStar(task);
+                        }}
+                        className="p-0.5 rounded transition-colors cursor-pointer"
+                        title={task.is_starred ? "Unstar" : "Star"}
+                      >
+                        <Star
+                          className={`w-4 h-4 ${
+                            task.is_starred
+                              ? "fill-[#F5C518] text-[#F5C518]"
+                              : "text-[#666666] hover:text-[#F5C518]"
+                          }`}
+                        />
+                      </button>
                     </div>
 
                     {/* Title + description */}
@@ -675,15 +770,22 @@ export default function TasksPage() {
                       )}
                     </div>
 
-                    {/* Project badge */}
+                    {/* Project + phase badge */}
                     <div className="w-[120px] shrink-0">
                       {task.project_name ? (
-                        <Badge
-                          variant="info"
-                          className="text-[10px] px-2 py-0.5 truncate max-w-full"
-                        >
-                          {task.project_name}
-                        </Badge>
+                        <div className="flex flex-col gap-0.5">
+                          <Badge
+                            variant="info"
+                            className="text-[10px] px-2 py-0.5 truncate max-w-full"
+                          >
+                            {task.project_name}
+                          </Badge>
+                          {task.phase_name && (
+                            <span className="text-[10px] text-[#666666] truncate">
+                              {task.phase_name}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-[13px] text-[#666666]">
                           &mdash;
@@ -740,7 +842,10 @@ export default function TasksPage() {
                     {/* Status badge (clickable) */}
                     <div className="w-[100px] shrink-0">
                       <button
-                        onClick={() => toggleStatus(task)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleStatus(task);
+                        }}
                         className="cursor-pointer"
                         title="Click to change status"
                       >
@@ -750,6 +855,24 @@ export default function TasksPage() {
                           {STATUS_LABEL[task.status] ?? task.status}
                         </Badge>
                       </button>
+                    </div>
+
+                    {/* Go to project */}
+                    <div className="w-8 flex justify-center shrink-0">
+                      {task.project_id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(
+                              `/projects/${task.project_id}?highlightTask=${task.id}`
+                            );
+                          }}
+                          className="p-1 rounded-md text-[#666666] hover:text-[#F5C518] hover:bg-[#2A2A2A] transition-colors cursor-pointer"
+                          title="Go to project"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -764,6 +887,12 @@ export default function TasksPage() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => toggleStar(task)}>
+                            <Star
+                              className={`w-4 h-4 ${task.is_starred ? "fill-[#F5C518] text-[#F5C518]" : ""}`}
+                            />
+                            {task.is_starred ? "Unstar" : "Star"}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEdit(task)}>
                             <Edit className="w-4 h-4" />
                             Edit Task
@@ -839,6 +968,31 @@ export default function TasksPage() {
       </div>
 
       {/* ================================================================= */}
+      {/* Task Detail Modal                                                 */}
+      {/* ================================================================= */}
+      <TaskDetailModal
+        task={detailTask}
+        open={!!detailTask}
+        onOpenChange={(open) => !open && setDetailTask(null)}
+        onEdit={(task) => {
+          setDetailTask(null);
+          openEdit(task);
+        }}
+        onToggleStatus={(task) => {
+          toggleStatus(task);
+          setDetailTask(null);
+        }}
+        onToggleStar={(task) => {
+          toggleStar(task);
+          setDetailTask({ ...task, is_starred: !task.is_starred });
+        }}
+        onDelete={(task) => {
+          setDetailTask(null);
+          setDeleteTarget(task);
+        }}
+      />
+
+      {/* ================================================================= */}
       {/* Create / Edit Task Dialog                                         */}
       {/* ================================================================= */}
       <Dialog
@@ -884,32 +1038,62 @@ export default function TasksPage() {
               />
             </div>
 
-            {/* Project */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                Project
-              </label>
-              <Select
-                value={formData.projectId || "none"}
-                onValueChange={(v) =>
-                  setFormData((f) => ({
-                    ...f,
-                    projectId: v === "none" ? "" : v,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No project" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No project</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Project + Phase row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-text-secondary">
+                  Project
+                </label>
+                <Select
+                  value={formData.projectId || "none"}
+                  onValueChange={(v) => {
+                    const pid = v === "none" ? "" : v;
+                    setFormData((f) => ({ ...f, projectId: pid, phaseId: "" }));
+                    fetchPhases(pid);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No project</SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[13px] font-medium text-text-secondary">
+                  Phase
+                </label>
+                <Select
+                  value={formData.phaseId || "none"}
+                  onValueChange={(v) =>
+                    setFormData((f) => ({
+                      ...f,
+                      phaseId: v === "none" ? "" : v,
+                    }))
+                  }
+                  disabled={!formData.projectId || loadingPhases}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={loadingPhases ? "Loading..." : "No phase"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No phase</SelectItem>
+                    {phases.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Priority + Category row */}

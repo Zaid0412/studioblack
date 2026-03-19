@@ -18,8 +18,8 @@ const VALID_CATEGORIES = [
 /** GET /api/tasks/[id] — get a single task. */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
-  async (_req, _ctx, params) => {
-    const task = await getTaskById(params.id);
+  async (_req, { user }, params) => {
+    const task = await getTaskById(params.id, user.id);
     if (!task) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -31,19 +31,22 @@ export const GET = withAuth(
 export const PATCH = withAuth(
   { blockedRoles: ["client"] },
   async (req, { user }, params) => {
-    const task = await getTaskById(params.id);
-    if (!task) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    try {
+      const task = await getTaskById(params.id);
+      if (!task) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
 
-    const body = await req.json();
-    const pool = getPool();
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    let idx = 1;
+      const body = await req.json();
+      const pool = getPool();
+      const updates: string[] = [];
+      const values: unknown[] = [];
+      let idx = 1;
 
-    const fields: Record<string, { value: unknown; validate?: () => boolean }> =
-      {
+      const fields: Record<
+        string,
+        { value: unknown; validate?: () => boolean }
+      > = {
         title: {
           value: body.title?.trim(),
           validate: () => !!body.title?.trim(),
@@ -68,66 +71,73 @@ export const PATCH = withAuth(
         reminder_at: { value: body.reminderAt },
       };
 
-    for (const [col, { value, validate }] of Object.entries(fields)) {
-      if (value !== undefined) {
-        if (validate && !validate()) {
-          return NextResponse.json(
-            { error: `Invalid ${col}` },
-            { status: 400 }
-          );
+      for (const [col, { value, validate }] of Object.entries(fields)) {
+        if (value !== undefined) {
+          if (validate && !validate()) {
+            return NextResponse.json(
+              { error: `Invalid ${col}` },
+              { status: 400 }
+            );
+          }
+          updates.push(`${col} = $${idx}`);
+          values.push(value === "" ? null : value);
+          idx++;
         }
-        updates.push(`${col} = $${idx}`);
-        values.push(value === "" ? null : value);
-        idx++;
       }
-    }
 
-    // Handle completed_at automatically
-    if (body.status === "completed" && task.status !== "completed") {
-      updates.push(`completed_at = now()`);
-    } else if (
-      body.status &&
-      body.status !== "completed" &&
-      task.status === "completed"
-    ) {
-      updates.push(`completed_at = NULL`);
-    }
+      // Handle completed_at automatically
+      if (body.status === "completed" && task.status !== "completed") {
+        updates.push(`completed_at = now()`);
+      } else if (
+        body.status &&
+        body.status !== "completed" &&
+        task.status === "completed"
+      ) {
+        updates.push(`completed_at = NULL`);
+      }
 
-    if (updates.length === 0) {
+      if (updates.length === 0) {
+        return NextResponse.json(
+          { error: "No fields to update" },
+          { status: 400 }
+        );
+      }
+
+      updates.push(`updated_at = now()`);
+      values.push(params.id);
+
+      const {
+        rows: [updated],
+      } = await pool.query(
+        `UPDATE task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+
+      // Notify new assignee if changed
+      if (
+        body.assignedTo &&
+        body.assignedTo !== task.assigned_to &&
+        body.assignedTo !== user.id
+      ) {
+        createNotification({
+          userId: body.assignedTo,
+          type: "task_assigned",
+          title: "Task assigned to you",
+          description: `"${updated?.title}" was assigned to you by ${user.name}`,
+          projectId: updated?.project_id || undefined,
+        }).catch(() => {});
+      }
+
+      return NextResponse.json(updated);
+    } catch (err) {
+      console.error("Task PATCH error:", err);
       return NextResponse.json(
-        { error: "No fields to update" },
-        { status: 400 }
+        {
+          error: err instanceof Error ? err.message : "Failed to update task",
+        },
+        { status: 500 }
       );
     }
-
-    updates.push(`updated_at = now()`);
-    values.push(params.id);
-
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
-      values
-    );
-
-    // Notify new assignee if changed
-    // Note: notification.task_id references phase_task, not the new task table,
-    // so we only pass projectId for context.
-    if (
-      body.assignedTo &&
-      body.assignedTo !== task.assigned_to &&
-      body.assignedTo !== user.id
-    ) {
-      createNotification({
-        userId: body.assignedTo,
-        type: "task_assigned",
-        title: "Task assigned to you",
-        description: `"${updated.title}" was assigned to you by ${user.name}`,
-        projectId: updated.project_id || undefined,
-      }).catch(() => {});
-    }
-
-    return NextResponse.json(updated);
   }
 );
 

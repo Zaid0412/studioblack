@@ -26,3 +26,11 @@ CREATE INDEX IF NOT EXISTS idx_task_assigned ON task (assigned_to, status);
 CREATE INDEX IF NOT EXISTS idx_task_created_by ON task (created_by);
 CREATE INDEX IF NOT EXISTS idx_task_project ON task (project_id);
 CREATE INDEX IF NOT EXISTS idx_task_due ON task (due_date) WHERE due_date IS NOT NULL AND status != 'completed';
+
+-- Per-user task starring
+CREATE TABLE IF NOT EXISTS task_star (
+  user_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+  task_id UUID NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, task_id)
+);

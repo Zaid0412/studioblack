@@ -19,7 +19,7 @@ const VALID_BUCKETS = [
   "all",
   "my_tasks",
   "created_by_me",
-  "important",
+  "starred",
   "upcoming",
   "completed",
 ];
@@ -55,7 +55,7 @@ export const GET = withAuth(
               | "all"
               | "my_tasks"
               | "created_by_me"
-              | "important"
+              | "starred"
               | "upcoming"
               | "completed")
           : "all",
@@ -105,6 +105,12 @@ export const POST = withAuth(
 
     if (!title?.trim()) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+    if (phaseId && !projectId) {
+      return NextResponse.json(
+        { error: "Phase requires a project" },
+        { status: 400 }
+      );
     }
     if (priority && !VALID_PRIORITIES.includes(priority)) {
       return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
