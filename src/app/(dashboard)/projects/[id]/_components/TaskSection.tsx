@@ -70,6 +70,8 @@ interface Task {
   project_name: string | null;
   phase_name: string | null;
   is_starred: boolean;
+  checklist_total: number;
+  checklist_done: number;
 }
 
 interface TaskSectionProps {
@@ -485,9 +487,16 @@ export function TaskSection({
 
                 {/* Title + description */}
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-semibold text-white block truncate">
-                    {task.title}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold text-white truncate">
+                      {task.title}
+                    </span>
+                    {task.checklist_total > 0 && (
+                      <span className="text-[10px] text-[#666666] shrink-0">
+                        [{task.checklist_done}/{task.checklist_total}]
+                      </span>
+                    )}
+                  </div>
                   {task.description && (
                     <span className="text-xs text-[#666666] block truncate">
                       {task.description.split("\n")[0]}

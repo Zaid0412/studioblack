@@ -34,3 +34,14 @@ CREATE TABLE IF NOT EXISTS task_star (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, task_id)
 );
+
+-- Lightweight checklist items for tasks
+CREATE TABLE IF NOT EXISTS task_checklist_item (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id    UUID NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL,
+  is_done    BOOLEAN NOT NULL DEFAULT false,
+  position   INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_checklist_task ON task_checklist_item(task_id, position);

@@ -80,6 +80,8 @@ interface Task {
   project_name: string | null;
   phase_name: string | null;
   is_starred: boolean;
+  checklist_total: number;
+  checklist_done: number;
 }
 
 interface TaskCounts {
@@ -760,9 +762,16 @@ export default function TasksPage() {
 
                     {/* Title + description */}
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-white block truncate">
-                        {task.title}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-white truncate">
+                          {task.title}
+                        </span>
+                        {task.checklist_total > 0 && (
+                          <span className="text-[10px] text-[#666666] shrink-0">
+                            [{task.checklist_done}/{task.checklist_total}]
+                          </span>
+                        )}
+                      </div>
                       {task.description && (
                         <span className="text-xs text-[#666666] block truncate">
                           {task.description.split("\n")[0]}
@@ -973,7 +982,12 @@ export default function TasksPage() {
       <TaskDetailModal
         task={detailTask}
         open={!!detailTask}
-        onOpenChange={(open) => !open && setDetailTask(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailTask(null);
+            fetchTasks();
+          }
+        }}
         onEdit={(task) => {
           setDetailTask(null);
           openEdit(task);
@@ -990,6 +1004,7 @@ export default function TasksPage() {
           setDetailTask(null);
           setDeleteTarget(task);
         }}
+        onChecklistChange={fetchTasks}
       />
 
       {/* ================================================================= */}

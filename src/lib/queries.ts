@@ -631,12 +631,18 @@ export async function getTasks(filters: TaskFilters) {
             u_created.name AS created_by_name,
             p.name AS project_name,
             pp.name AS phase_name,
-            EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${starIdx}) AS is_starred
+            EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${starIdx}) AS is_starred,
+            COALESCE(cl.total, 0)::int AS checklist_total,
+            COALESCE(cl.done, 0)::int AS checklist_done
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
      LEFT JOIN "user" u_created ON u_created.id = t.created_by
      LEFT JOIN project p ON p.id = t.project_id
      LEFT JOIN project_phase pp ON pp.id = t.phase_id
+     LEFT JOIN (
+       SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
+       FROM task_checklist_item GROUP BY task_id
+     ) cl ON cl.task_id = t.id
      WHERE ${conditions.join(" AND ")}
      ORDER BY
        CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
@@ -662,12 +668,18 @@ export async function getTaskById(taskId: string, userId?: string) {
             u_created.name AS created_by_name,
             p.name AS project_name,
             pp.name AS phase_name,
-            ${starClause} AS is_starred
+            ${starClause} AS is_starred,
+            COALESCE(cl.total, 0)::int AS checklist_total,
+            COALESCE(cl.done, 0)::int AS checklist_done
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
      LEFT JOIN "user" u_created ON u_created.id = t.created_by
      LEFT JOIN project p ON p.id = t.project_id
      LEFT JOIN project_phase pp ON pp.id = t.phase_id
+     LEFT JOIN (
+       SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
+       FROM task_checklist_item GROUP BY task_id
+     ) cl ON cl.task_id = t.id
      WHERE t.id = $1`,
     params
   );
