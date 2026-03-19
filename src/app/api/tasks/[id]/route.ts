@@ -18,8 +18,11 @@ const VALID_CATEGORIES = [
 /** GET /api/tasks/[id] — get a single task. */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
-  async (_req, { user }, params) => {
-    const task = await getTaskById(params.id, user.id);
+  async (_req, { user, orgId }, params) => {
+    const task = await getTaskById(params.id, {
+      userId: user.id,
+      orgId: orgId ?? undefined,
+    });
     if (!task) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -30,15 +33,43 @@ export const GET = withAuth(
 /** PATCH /api/tasks/[id] — update a task. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"] },
-  async (req, { user }, params) => {
+  async (req, { user, orgId }, params) => {
     try {
-      const task = await getTaskById(params.id);
+      const task = await getTaskById(params.id, { orgId: orgId ?? undefined });
       if (!task) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
       const body = await req.json();
       const pool = getPool();
+
+      // Validate assignedTo belongs to the same org
+      if (body.assignedTo && orgId) {
+        const { rows } = await pool.query(
+          'SELECT 1 FROM member WHERE "organizationId" = $1 AND "userId" = $2',
+          [orgId, body.assignedTo]
+        );
+        if (rows.length === 0) {
+          return NextResponse.json(
+            { error: "Assignee not in organization" },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Validate projectId belongs to the same org
+      if (body.projectId && orgId) {
+        const { rows } = await pool.query(
+          "SELECT 1 FROM project WHERE id = $1 AND org_id = $2",
+          [body.projectId, orgId]
+        );
+        if (rows.length === 0) {
+          return NextResponse.json(
+            { error: "Project not in organization" },
+            { status: 400 }
+          );
+        }
+      }
       const updates: string[] = [];
       const values: unknown[] = [];
       let idx = 1;
@@ -125,16 +156,14 @@ export const PATCH = withAuth(
           title: "Task assigned to you",
           description: `"${updated?.title}" was assigned to you by ${user.name}`,
           projectId: updated?.project_id || undefined,
-        }).catch(() => {});
+        }).catch((err) => console.error("Notification error:", err));
       }
 
       return NextResponse.json(updated);
     } catch (err) {
       console.error("Task PATCH error:", err);
       return NextResponse.json(
-        {
-          error: err instanceof Error ? err.message : "Failed to update task",
-        },
+        { error: "Failed to update task" },
         { status: 500 }
       );
     }
@@ -144,15 +173,16 @@ export const PATCH = withAuth(
 /** DELETE /api/tasks/[id] — delete a task. */
 export const DELETE = withAuth(
   { blockedRoles: ["client"] },
-  async (_req, { user }, params) => {
-    const task = await getTaskById(params.id);
+  async (_req, { user, orgId }, params) => {
+    const task = await getTaskById(params.id, { orgId: orgId ?? undefined });
     if (!task) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const pool = getPool();
+
     // Only creator or org owner/admin can delete
     if (task.created_by !== user.id) {
-      const pool = getPool();
       const { rows } = await pool.query(
         `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
         [task.org_id, user.id]
@@ -166,7 +196,6 @@ export const DELETE = withAuth(
       }
     }
 
-    const pool = getPool();
     await pool.query(`DELETE FROM task WHERE id = $1`, [params.id]);
     return NextResponse.json({ success: true });
   }

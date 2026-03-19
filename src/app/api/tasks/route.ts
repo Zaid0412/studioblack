@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getTasks, getTaskBucketCounts } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
@@ -27,14 +25,7 @@ const VALID_BUCKETS = [
 /** GET /api/tasks — list tasks with smart bucket filters. */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
-  async (req, { user, session }) => {
-    let orgId = session.session.activeOrganizationId;
-    if (!orgId) {
-      const orgs = await auth.api.listOrganizations({
-        headers: await headers(),
-      });
-      if (orgs && orgs.length > 0) orgId = orgs[0].id;
-    }
+  async (req, { user, orgId }) => {
     if (!orgId) {
       return NextResponse.json({ tasks: [], counts: {} });
     }
@@ -45,7 +36,7 @@ export const GET = withAuth(
     const status = searchParams.get("status") || undefined;
     const priority = searchParams.get("priority") || undefined;
     const category = searchParams.get("category") || undefined;
-    const search = searchParams.get("search") || undefined;
+    const search = (searchParams.get("search") || undefined)?.slice(0, 200);
 
     const [tasks, counts] = await Promise.all([
       getTasks({
@@ -76,14 +67,7 @@ export const GET = withAuth(
 /** POST /api/tasks — create a task. */
 export const POST = withAuth(
   { blockedRoles: ["client"] },
-  async (req, { user, session }) => {
-    let orgId = session.session.activeOrganizationId;
-    if (!orgId) {
-      const orgs = await auth.api.listOrganizations({
-        headers: await headers(),
-      });
-      if (orgs && orgs.length > 0) orgId = orgs[0].id;
-    }
+  async (req, { user, orgId }) => {
     if (!orgId) {
       return NextResponse.json(
         { error: "No active organization" },
@@ -120,6 +104,35 @@ export const POST = withAuth(
     }
 
     const pool = getPool();
+
+    // Validate assignedTo belongs to the org
+    if (assignedTo) {
+      const { rows } = await pool.query(
+        'SELECT 1 FROM member WHERE "organizationId" = $1 AND "userId" = $2',
+        [orgId, assignedTo]
+      );
+      if (rows.length === 0) {
+        return NextResponse.json(
+          { error: "Assignee not in organization" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate projectId belongs to the org
+    if (projectId) {
+      const { rows } = await pool.query(
+        "SELECT 1 FROM project WHERE id = $1 AND org_id = $2",
+        [projectId, orgId]
+      );
+      if (rows.length === 0) {
+        return NextResponse.json(
+          { error: "Project not in organization" },
+          { status: 400 }
+        );
+      }
+    }
+
     const {
       rows: [task],
     } = await pool.query(
@@ -141,8 +154,6 @@ export const POST = withAuth(
     );
 
     // Notify assignee if different from creator
-    // Note: notification.task_id references phase_task, not the new task table,
-    // so we only pass projectId for context.
     if (assignedTo && assignedTo !== user.id) {
       createNotification({
         userId: assignedTo,
@@ -150,7 +161,7 @@ export const POST = withAuth(
         title: "New task assigned to you",
         description: `"${title.trim()}" was assigned to you by ${user.name}`,
         projectId: projectId || undefined,
-      }).catch(() => {});
+      }).catch((err) => console.error("Notification error:", err));
     }
 
     return NextResponse.json(task, { status: 201 });

@@ -5,13 +5,13 @@ import { withAuth } from "@/lib/withAuth";
 /** GET /api/tasks/[id]/checklist — list checklist items for a task. */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
-  async (_req, _ctx, params) => {
+  async (_req, { orgId }, params) => {
     const pool = getPool();
     const taskId = params.id;
 
     const { rows: taskRows } = await pool.query(
-      `SELECT id FROM task WHERE id = $1`,
-      [taskId]
+      `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+      [taskId, orgId]
     );
     if (taskRows.length === 0) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -28,14 +28,14 @@ export const GET = withAuth(
 /** POST /api/tasks/[id]/checklist — add a checklist item. */
 export const POST = withAuth(
   { blockedRoles: ["client"] },
-  async (req, _ctx, params) => {
+  async (req, { orgId }, params) => {
     try {
       const pool = getPool();
       const taskId = params.id;
 
       const { rows: taskRows } = await pool.query(
-        `SELECT id FROM task WHERE id = $1`,
-        [taskId]
+        `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+        [taskId, orgId]
       );
       if (taskRows.length === 0) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,9 +62,7 @@ export const POST = withAuth(
     } catch (err) {
       console.error("Checklist POST error:", err);
       return NextResponse.json(
-        {
-          error: err instanceof Error ? err.message : "Failed to create item",
-        },
+        { error: "Failed to create item" },
         { status: 500 }
       );
     }

@@ -5,14 +5,14 @@ import { withAuth } from "@/lib/withAuth";
 /** PATCH /api/tasks/[id]/checklist/reorder — bulk-update checklist item positions. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"] },
-  async (req, _ctx, params) => {
+  async (req, { orgId }, params) => {
     try {
       const pool = getPool();
       const taskId = params.id;
 
       const { rows: taskRows } = await pool.query(
-        `SELECT id FROM task WHERE id = $1`,
-        [taskId]
+        `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+        [taskId, orgId]
       );
       if (taskRows.length === 0) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -39,10 +39,7 @@ export const PATCH = withAuth(
       return NextResponse.json({ ok: true });
     } catch (err) {
       console.error("Checklist reorder error:", err);
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Failed to reorder" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to reorder" }, { status: 500 });
     }
   }
 );

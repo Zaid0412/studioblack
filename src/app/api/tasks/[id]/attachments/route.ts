@@ -5,13 +5,13 @@ import { withAuth } from "@/lib/withAuth";
 /** GET /api/tasks/[id]/attachments — list attachments for a standalone task. */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
-  async (_req, _ctx, params) => {
+  async (_req, { orgId }, params) => {
     const pool = getPool();
     const taskId = params.id;
 
     const { rows: taskRows } = await pool.query(
-      `SELECT id FROM task WHERE id = $1`,
-      [taskId]
+      `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+      [taskId, orgId]
     );
     if (taskRows.length === 0) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -28,14 +28,14 @@ export const GET = withAuth(
 /** POST /api/tasks/[id]/attachments — create an attachment record after upload. */
 export const POST = withAuth(
   { blockedRoles: ["client"] },
-  async (req, { user }, params) => {
+  async (req, { user, orgId }, params) => {
     try {
       const pool = getPool();
       const taskId = params.id;
 
       const { rows: taskRows } = await pool.query(
-        `SELECT id, org_id, project_id FROM task WHERE id = $1`,
-        [taskId]
+        `SELECT id, org_id, project_id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+        [taskId, orgId]
       );
       if (taskRows.length === 0) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -48,6 +48,15 @@ export const POST = withAuth(
       if (!fileUrl || !fileName) {
         return NextResponse.json(
           { error: "fileUrl and fileName are required" },
+          { status: 400 }
+        );
+      }
+
+      // Validate fileUrl is from our Supabase instance
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      if (supabaseUrl && !fileUrl.startsWith(supabaseUrl)) {
+        return NextResponse.json(
+          { error: "Invalid file URL" },
           { status: 400 }
         );
       }
@@ -71,10 +80,7 @@ export const POST = withAuth(
     } catch (err) {
       console.error("Attachment POST error:", err);
       return NextResponse.json(
-        {
-          error:
-            err instanceof Error ? err.message : "Failed to create attachment",
-        },
+        { error: "Failed to create attachment" },
         { status: 500 }
       );
     }

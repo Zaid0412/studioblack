@@ -615,8 +615,9 @@ export async function getTasks(filters: TaskFilters) {
     idx++;
   }
   if (filters.search) {
+    const safeSearch = filters.search.slice(0, 200);
     conditions.push(`(t.title ILIKE $${idx} OR t.description ILIKE $${idx})`);
-    values.push(`%${filters.search}%`);
+    values.push(`%${safeSearch}%`);
     idx++;
   }
 
@@ -656,12 +657,32 @@ export async function getTasks(filters: TaskFilters) {
 }
 
 /** Fetch a single task by ID with joined user, project, and phase names. */
-export async function getTaskById(taskId: string, userId?: string) {
+export async function getTaskById(
+  taskId: string,
+  opts?: { userId?: string; orgId?: string }
+) {
   const pool = getPool();
+  const userId = opts?.userId;
+  const orgId = opts?.orgId;
+
+  const conditions: string[] = ["t.id = $1"];
+  const params: unknown[] = [taskId];
+  let idx = 2;
+
+  if (orgId) {
+    conditions.push(`t.org_id = $${idx}`);
+    params.push(orgId);
+    idx++;
+  }
+
   const starClause = userId
-    ? `EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $2)`
+    ? `EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${idx})`
     : `false`;
-  const params: string[] = userId ? [taskId, userId] : [taskId];
+  if (userId) {
+    params.push(userId);
+    idx++;
+  }
+
   const { rows } = await pool.query(
     `SELECT t.*,
             u_assigned.name AS assigned_to_name,
@@ -680,7 +701,7 @@ export async function getTaskById(taskId: string, userId?: string) {
        SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
        FROM task_checklist_item GROUP BY task_id
      ) cl ON cl.task_id = t.id
-     WHERE t.id = $1`,
+     WHERE ${conditions.join(" AND ")}`,
     params
   );
   return rows[0] || null;

@@ -5,14 +5,14 @@ import { withAuth } from "@/lib/withAuth";
 /** DELETE /api/tasks/[id]/attachments/[attachmentId] — delete an attachment. */
 export const DELETE = withAuth(
   { blockedRoles: ["client"] },
-  async (_req, { user }, params) => {
+  async (_req, { user, orgId }, params) => {
     const pool = getPool();
     const { id: taskId, attachmentId } = params;
 
-    // Verify task exists
+    // Verify task exists and belongs to org
     const { rows: taskRows } = await pool.query(
-      `SELECT id, org_id FROM task WHERE id = $1`,
-      [taskId]
+      `SELECT id, org_id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+      [taskId, orgId]
     );
     if (taskRows.length === 0) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
