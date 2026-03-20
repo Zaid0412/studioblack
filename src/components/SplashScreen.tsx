@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { branding } from "@/config/branding";
 
 /**
  * Full-screen splash overlay shown during initial page load.
@@ -30,14 +31,15 @@ export function SplashScreen() {
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0D0D0D] transition-opacity duration-500"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[var(--bg-primary)] transition-opacity duration-500"
       style={{ opacity: hidden ? 0 : 1 }}
       aria-hidden="true"
     >
       {/* Logo with pulse animation */}
       <div className="animate-[splash-pulse_1.5s_ease-in-out_infinite]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://studio-black.co.in/wp-content/uploads/2024/05/SB_logo.png"
+          src={branding.logoUrl}
           alt=""
           width={64}
           height={64}
