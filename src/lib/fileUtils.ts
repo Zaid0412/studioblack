@@ -1,5 +1,16 @@
 /** Shared file type/extension utilities. */
 
+/** Accepted file types for design uploads (PDF, CAD, images, design tools). */
+export const UPLOAD_ACCEPTED_TYPES =
+  ".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch";
+
+/** Format a byte count as a human-readable string (B / KB / MB). */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
 
 /** Extracts the lowercase file extension from a filename. */
