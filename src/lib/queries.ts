@@ -239,8 +239,15 @@ export async function getAttachments(filters: {
 }) {
   const pool = getPool();
   let query = `SELECT a.*, u.name AS uploaded_by_name
-               FROM attachment a JOIN "user" u ON u.id = a.uploaded_by
-               WHERE a.project_id = $1`;
+               FROM attachment a
+               JOIN "user" u ON u.id = a.uploaded_by
+               WHERE a.project_id = $1
+                 AND a.id = (
+                   SELECT a2.id FROM attachment a2
+                   WHERE a2.version_group = a.version_group
+                   ORDER BY a2.version DESC
+                   LIMIT 1
+                 )`;
   const params: string[] = [filters.projectId];
 
   if (!filters.all) {
@@ -393,6 +400,16 @@ export async function uploadNewVersion(
   phaseId: string | null
 ) {
   const pool = getPool();
+  // Block upload if any version in the group is frozen
+  const { rows: frozenRows } = await pool.query(
+    `SELECT id FROM attachment WHERE version_group = $1 AND frozen_at IS NOT NULL LIMIT 1`,
+    [versionGroup]
+  );
+  if (frozenRows.length > 0) {
+    throw new Error(
+      "Cannot upload a new version — this file is frozen after approval"
+    );
+  }
   // Get the current max version for this group
   const {
     rows: [{ max }],

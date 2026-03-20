@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
 
 /** Design file upload page with drag & drop. */
 export default function DesignUploadPage({
@@ -19,10 +20,14 @@ export default function DesignUploadPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ phaseId?: string; phaseName?: string }>;
+  searchParams: Promise<{
+    phaseId?: string;
+    phaseName?: string;
+    versionGroup?: string;
+  }>;
 }) {
   const { id } = use(params);
-  const { phaseId, phaseName } = use(searchParams);
+  const { phaseId, phaseName, versionGroup } = use(searchParams);
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,6 +95,7 @@ export default function DesignUploadPage({
             fileName,
             description,
             phaseId: phaseId || null,
+            ...(versionGroup ? { versionGroup } : {}),
           }),
         });
 
@@ -115,12 +121,6 @@ export default function DesignUploadPage({
     }
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
   return (
     <div className="flex flex-col gap-6 max-w-[900px]">
       <button
@@ -134,7 +134,11 @@ export default function DesignUploadPage({
       <PageHeader
         title="Upload Design"
         subtitle={
-          phaseName ? `Phase: ${decodeURIComponent(phaseName)}` : undefined
+          phaseName
+            ? `Phase: ${decodeURIComponent(phaseName)}${versionGroup ? " (New Version)" : ""}`
+            : versionGroup
+              ? "(New Version)"
+              : undefined
         }
       />
 
@@ -166,7 +170,7 @@ export default function DesignUploadPage({
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch"
+              accept={UPLOAD_ACCEPTED_TYPES}
               className="hidden"
               onChange={(e) => {
                 if (e.target.files) addFiles(e.target.files);
@@ -205,7 +209,7 @@ export default function DesignUploadPage({
                           {file.name}
                         </span>
                         <span className="text-xs text-text-muted">
-                          {formatSize(file.size)}
+                          {formatFileSize(file.size)}
                         </span>
                       </div>
                     </div>

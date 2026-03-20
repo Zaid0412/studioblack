@@ -5,6 +5,7 @@ import {
   createAttachmentReview,
   getAttachmentReviews,
 } from "@/lib/queries";
+import { getPool } from "@/lib/db";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 
@@ -40,6 +41,15 @@ export const PATCH = withAuth(
       status,
       user.id
     );
+
+    // Freeze on approval
+    if (status === "approved") {
+      const pool = getPool();
+      await pool.query(
+        `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
+        [attachmentId]
+      );
+    }
 
     // Create a review record (for history)
     await createAttachmentReview({

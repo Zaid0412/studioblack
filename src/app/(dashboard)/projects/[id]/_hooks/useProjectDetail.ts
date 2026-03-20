@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type { DbAttachment, DbComment, DbProjectDetail } from "@/types";
 
 /** Hook that fetches and manages project detail, attachments, and comments. */
@@ -62,6 +62,24 @@ export function useProjectDetail(id: string) {
     }
   };
 
+  const refreshAttachments = useCallback(async () => {
+    const res = await fetch(`/api/projects/${id}/attachments?all=true`);
+    if (res.ok) setAttachments(await res.json());
+  }, [id]);
+
+  const refreshAll = useCallback(async () => {
+    const [projectData, attachData, commentData] = await Promise.all([
+      fetch(`/api/projects/${id}`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`/api/projects/${id}/attachments?all=true`).then((r) =>
+        r.ok ? r.json() : []
+      ),
+      fetch(`/api/projects/${id}/comments`).then((r) => (r.ok ? r.json() : [])),
+    ]);
+    if (projectData) setProject(projectData);
+    setAttachments(attachData);
+    setComments(commentData);
+  }, [id]);
+
   const handleDownload = async (att: DbAttachment) => {
     try {
       const res = await fetch(
@@ -93,5 +111,7 @@ export function useProjectDetail(id: string) {
     setActivePhaseId,
     handleSendComment,
     handleDownload,
+    refreshAttachments,
+    refreshAll,
   };
 }

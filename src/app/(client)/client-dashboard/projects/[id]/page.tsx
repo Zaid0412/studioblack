@@ -18,6 +18,7 @@ import {
   History,
   ClipboardCheck,
   Users,
+  Lock,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -240,7 +241,7 @@ export default function ClientProjectDetailPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
       </div>
     );
@@ -248,7 +249,7 @@ export default function ClientProjectDetailPage({
 
   if (error || !project) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <p className="text-[#666666]">{tc("projectNotFound")}</p>
       </div>
     );
@@ -509,11 +510,14 @@ export default function ClientProjectDetailPage({
                   >
                     {/* File name */}
                     <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                      <FileText className="w-4 h-4 text-[#A0A0A0] shrink-0" />
-                      {att.version && att.version > 1 && (
-                        <span className="inline-flex items-center justify-center rounded-full bg-[#2A1F00] px-1.5 py-0.5 text-[10px] font-medium text-[#F5C518]">
-                          V{att.version}
+                      <div className="relative shrink-0">
+                        <FileText className="w-4 h-4 text-[#A0A0A0]" />
+                        <span className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full bg-[#2A1F00] min-w-[18px] h-[14px] px-1 text-[8px] font-bold text-[#F5C518] leading-none">
+                          V{att.version || 1}
                         </span>
+                      </div>
+                      {att.frozen_at && (
+                        <Lock className="w-3 h-3 text-[#F5C518] shrink-0" />
                       )}
                       <span className="text-[13px] font-medium text-white truncate">
                         {att.file_name}

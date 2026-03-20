@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
@@ -35,7 +35,11 @@ export default function ProjectDetailPage({
     setActivePhaseId,
     handleSendComment,
     handleDownload,
+    refreshAttachments,
+    refreshAll,
   } = useProjectDetail(id);
+
+  const uploadTriggerRef = useRef<(() => void) | null>(null);
 
   const searchParams = useSearchParams();
   const highlightTaskId = searchParams.get("highlightTask");
@@ -52,7 +56,7 @@ export default function ProjectDetailPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
       </div>
     );
@@ -60,7 +64,7 @@ export default function ProjectDetailPage({
 
   if (error || !project) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <p className="text-[#666666]">{tc("projectNotFound")}</p>
       </div>
     );
@@ -75,7 +79,7 @@ export default function ProjectDetailPage({
 
   return (
     <div className="flex flex-col h-full">
-      <ProjectHeader projectName={project.name} />
+      <ProjectHeader projectName={project.name} onRefresh={refreshAll} />
       <MetaBar
         clientName={project.client_name}
         clientEmail={project.client_email}
@@ -84,7 +88,11 @@ export default function ProjectDetailPage({
         phases={project.phases}
         phaseCounts={phaseCounts}
       />
-      <WorkflowBar projectId={id} steps={project.steps} />
+      <WorkflowBar
+        projectId={id}
+        steps={project.steps}
+        onUpload={() => uploadTriggerRef.current?.()}
+      />
       <PhaseTabs
         phases={project.phases}
         activePhaseId={activePhaseId}
@@ -96,6 +104,8 @@ export default function ProjectDetailPage({
         activePhaseId={activePhaseId}
         phaseFiles={phaseFiles}
         onDownload={handleDownload}
+        onRefresh={refreshAttachments}
+        uploadTriggerRef={uploadTriggerRef}
       />
       {activePhaseId && (
         <div className="px-6 py-4">

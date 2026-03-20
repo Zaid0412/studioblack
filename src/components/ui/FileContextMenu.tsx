@@ -24,6 +24,7 @@ interface FileContextMenuProps {
   onUploadNewVersion?: () => void;
   onVersionHistory?: () => void;
   onViewReview?: () => void;
+  frozen?: boolean;
 }
 
 /** Context menu for file actions: edit, remove, download, version history, and review. */
@@ -34,6 +35,7 @@ export function FileContextMenu({
   onUploadNewVersion,
   onVersionHistory,
   onViewReview,
+  frozen,
 }: FileContextMenuProps) {
   const hasTopItems = onEdit || onDownload || onUploadNewVersion;
 
@@ -48,7 +50,7 @@ export function FileContextMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {onEdit && (
+        {onEdit && !frozen && (
           <DropdownMenuItem onSelect={onEdit}>
             <Pencil />
             Edit
@@ -60,7 +62,7 @@ export function FileContextMenu({
             Download
           </DropdownMenuItem>
         )}
-        {onUploadNewVersion && (
+        {onUploadNewVersion && !frozen && (
           <DropdownMenuItem onSelect={onUploadNewVersion}>
             <Upload />
             Upload New Version
@@ -79,10 +81,10 @@ export function FileContextMenu({
             View Review
           </DropdownMenuItem>
         )}
-        {(hasTopItems || onVersionHistory || onViewReview) && onRemove && (
-          <DropdownMenuSeparator />
-        )}
-        {onRemove && (
+        {(hasTopItems || onVersionHistory || onViewReview) &&
+          onRemove &&
+          !frozen && <DropdownMenuSeparator />}
+        {onRemove && !frozen && (
           <DropdownMenuItem destructive onSelect={onRemove}>
             <Trash2 />
             Remove

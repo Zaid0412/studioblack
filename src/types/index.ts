@@ -180,6 +180,7 @@ export interface DbAttachment {
   version?: number;
   version_group?: string;
   review_status?: string;
+  frozen_at?: string | null;
   reviewed_by_name?: string | null;
   versions?: DbAttachment[];
 }
