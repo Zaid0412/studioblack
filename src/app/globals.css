@@ -205,3 +205,24 @@ h6 {
 .task-highlight-glow {
   animation: task-highlight-glow 2s ease-out forwards;
 }
+
+/* Splash screen animations */
+@keyframes splash-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+@keyframes splash-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
