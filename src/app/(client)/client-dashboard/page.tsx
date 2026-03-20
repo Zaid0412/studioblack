@@ -73,7 +73,7 @@ export default function ClientDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
       </div>
     );
