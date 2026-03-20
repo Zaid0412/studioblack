@@ -3,17 +3,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import {
-  Eye,
-  FolderOpen,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  MoreVertical,
-} from "lucide-react";
+import { Eye, FolderOpen, Loader2, MoreVertical } from "lucide-react";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Select,
   SelectContent,
@@ -116,12 +110,6 @@ export default function ClientProjectsPage() {
   const startIdx = (currentPage - 1) * PAGE_SIZE;
   const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
   const paginatedRows = filtered.slice(startIdx, endIdx);
-
-  const pageNumbers = useMemo(() => {
-    const pages: number[] = [];
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-    return pages;
-  }, [totalPages]);
 
   const activeTabCount = filtered.length;
 
@@ -303,46 +291,16 @@ export default function ClientProjectsPage() {
 
         {/* Pagination */}
         {!loading && filtered.length > 0 && (
-          <div className="flex items-center justify-between h-12 px-4 border-t border-[#333333]">
-            <span className="text-[13px] text-[#666666]">
-              {t("showingProjects", {
-                start: startIdx + 1,
-                end: endIdx,
-                total: filtered.length,
-              })}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="w-8 h-8 flex items-center justify-center rounded-md bg-[#2A2A2A] text-[#666666] disabled:opacity-40 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              {pageNumbers.map((num) => (
-                <button
-                  key={num}
-                  onClick={() => setCurrentPage(num)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-md text-sm transition-colors cursor-pointer ${
-                    num === currentPage
-                      ? "bg-[#F5C518] text-[#0D0D0D] font-semibold"
-                      : "bg-[#2A2A2A] text-[#A0A0A0] hover:text-white"
-                  }`}
-                >
-                  {num}
-                </button>
-              ))}
-              <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={currentPage === totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-md bg-[#2A2A2A] text-[#666666] disabled:opacity-40 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => setCurrentPage(page)}
+            showingText={t("showingProjects", {
+              start: startIdx + 1,
+              end: endIdx,
+              total: filtered.length,
+            })}
+          />
         )}
       </div>
     </div>
