@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/authClient";
@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -111,6 +112,11 @@ export default function ProjectsPage() {
     init();
   }, []);
 
+  const handleRefresh = useCallback(async () => {
+    const res = await fetch("/api/projects");
+    if (res.ok) setProjects(await res.json());
+  }, []);
+
   const filters: { key: FilterTab; label: string }[] = [
     { key: "all", label: t("filterAll") },
     { key: "active", label: t("filterInProgress") },
@@ -182,11 +188,14 @@ export default function ProjectsPage() {
         <h1 className="text-[28px] font-bold text-white font-[family-name:var(--font-cabinet)]">
           {t("title")}
         </h1>
-        {userRole === "pm" && (
-          <Button onClick={() => router.push("/projects/new")}>
-            {t("newProject")}
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <RefreshButton onRefresh={handleRefresh} />
+          {userRole === "pm" && (
+            <Button onClick={() => router.push("/projects/new")}>
+              {t("newProject")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter bar: search + dropdowns */}

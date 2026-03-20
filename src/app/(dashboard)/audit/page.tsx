@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { FolderOpen, Search, Loader2 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -25,12 +26,21 @@ export default function AuditPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchEntries = useCallback(() => {
     fetch("/api/notifications")
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => setEntries(data))
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
+
+  const handleRefresh = useCallback(async () => {
+    const res = await fetch("/api/notifications");
+    if (res.ok) setEntries(await res.json());
   }, []);
 
   const filtered = useMemo(
@@ -46,7 +56,11 @@ export default function AuditPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-[1000px]">
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={<RefreshButton onRefresh={handleRefresh} />}
+      />
 
       <SearchInput
         placeholder={t("searchPlaceholder")}

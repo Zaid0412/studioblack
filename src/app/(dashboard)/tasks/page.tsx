@@ -20,6 +20,7 @@ import {
   Clock,
   ExternalLink,
 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -488,10 +489,13 @@ export default function TasksPage() {
         title="Task Manager"
         subtitle="Manage and track tasks across all projects"
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="w-4 h-4" />
-            New Task
-          </Button>
+          <>
+            <RefreshButton onRefresh={fetchTasks} />
+            <Button onClick={openCreate}>
+              <Plus className="w-4 h-4" />
+              New Task
+            </Button>
+          </>
         }
       />
 

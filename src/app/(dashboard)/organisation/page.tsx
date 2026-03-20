@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { UserPlus, LogOut } from "lucide-react";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useOrganisation } from "./_hooks/useOrganisation";
@@ -49,7 +50,8 @@ export default function OrganisationPage() {
         title={t("title")}
         subtitle={org.activeOrg.name}
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <RefreshButton onRefresh={org.refresh} />
             {(org.currentUserRole === "owner" ||
               org.currentUserRole === "admin") && (
               <Button onClick={() => org.setInviteOpen(true)}>

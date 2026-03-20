@@ -280,5 +280,8 @@ export function useOrganisation() {
     setLeaveDialogOpen,
     isLeaving,
     handleLeaveOrg,
+
+    // Refresh
+    refresh: () => loadOrg(false),
   };
 }
