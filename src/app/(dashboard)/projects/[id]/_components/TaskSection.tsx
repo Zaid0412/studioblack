@@ -39,7 +39,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import { tasks as tasksApi } from "@/lib/api";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -51,12 +50,12 @@ import {
   PRIORITY_DOT,
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
-  NEXT_STATUS,
   initials,
   isOverdue,
   formatDate,
   capitalize,
 } from "@/lib/taskUtils";
+import { useTaskCrud } from "@/hooks/useTaskCrud";
 
 interface TaskSectionProps {
   projectId: string;
@@ -92,16 +91,6 @@ export function TaskSection({
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // -- Dialog state --
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [formData, setFormData] = useState<TaskFormData>(emptyForm);
-  const [submitting, setSubmitting] = useState(false);
-
-  // -- Delete dialog --
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
   // -- Fetch tasks --
   const fetchTasks = useCallback(async () => {
     try {
@@ -118,6 +107,31 @@ export function TaskSection({
     setLoading(true);
     fetchTasks();
   }, [fetchTasks]);
+
+  // -- CRUD hook --
+  const {
+    dialogOpen,
+    setDialogOpen,
+    editingTask,
+    setEditingTask,
+    formData,
+    setFormData,
+    submitting,
+    deleteTarget,
+    setDeleteTarget,
+    deleting,
+    toggleStatus,
+    toggleStar,
+    handleSubmit,
+    handleDelete,
+    openEdit,
+    openCreate,
+  } = useTaskCrud({
+    fetchTasks,
+    setTasks: setAllTasks,
+    defaultForm: emptyForm,
+    projectId,
+  });
 
   // -- Highlight task from URL --
   useEffect(() => {
@@ -137,129 +151,6 @@ export function TaskSection({
   const filteredTasks = allTasks.filter(
     (t) => t.phase_id === activePhaseId || !t.phase_id
   );
-
-  // -- Quick status toggle --
-  async function toggleStatus(task: Task) {
-    const newStatus = NEXT_STATUS[task.status] ?? "todo";
-    try {
-      await tasksApi.update(task.id, { status: newStatus });
-      fetchTasks();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // -- Star toggle --
-  async function toggleStar(task: Task) {
-    setAllTasks((prev) =>
-      prev.map((t) =>
-        t.id === task.id ? { ...t, is_starred: !t.is_starred } : t
-      )
-    );
-    try {
-      await tasksApi.toggleStar(task.id);
-    } catch {
-      setAllTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id ? { ...t, is_starred: task.is_starred } : t
-        )
-      );
-    }
-  }
-
-  // -- Create / Edit submit --
-  async function handleSubmit() {
-    if (!formData.title.trim()) return;
-    setSubmitting(true);
-
-    const body: Record<string, unknown> = {
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      projectId,
-      phaseId: formData.phaseId || undefined,
-      priority: formData.priority,
-      category: formData.category,
-      assignedTo: formData.assignedTo || undefined,
-      dueDate: formData.dueDate || undefined,
-    };
-
-    try {
-      const isEdit = !!editingTask;
-
-      if (isEdit) {
-        await tasksApi.update(editingTask!.id, body);
-      } else {
-        await tasksApi.create(body as Parameters<typeof tasksApi.create>[0]);
-      }
-
-      toast({
-        title: isEdit ? "Task updated" : "Task created",
-        description: isEdit
-          ? `"${formData.title}" has been updated.`
-          : `"${formData.title}" has been created.`,
-        variant: "success",
-      });
-      setDialogOpen(false);
-      setEditingTask(null);
-      setFormData(emptyForm);
-      fetchTasks();
-    } catch (err) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "Something went wrong",
-        variant: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // -- Delete --
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await tasksApi.remove(deleteTarget.id);
-      toast({
-        title: "Task deleted",
-        description: `"${deleteTarget.title}" has been deleted.`,
-        variant: "success",
-      });
-      setDeleteTarget(null);
-      fetchTasks();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to delete task",
-        variant: "error",
-      });
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  // -- Open edit dialog --
-  function openEdit(task: Task) {
-    setEditingTask(task);
-    setFormData({
-      title: task.title,
-      description: task.description || "",
-      phaseId: task.phase_id || activePhaseId,
-      priority: task.priority,
-      category: task.category,
-      assignedTo: task.assigned_to || "",
-      dueDate: task.due_date ? task.due_date.split("T")[0] : "",
-    });
-    setDialogOpen(true);
-  }
-
-  // -- Open create dialog --
-  function openCreate() {
-    setEditingTask(null);
-    setFormData({ ...emptyForm, phaseId: activePhaseId });
-    setDialogOpen(true);
-  }
 
   // =========================================================================
   // Render

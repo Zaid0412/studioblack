@@ -50,10 +50,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import { authClient } from "@/lib/authClient";
 import { tasks as tasksApi, projects as projectsApi } from "@/lib/api";
+import { useTaskCrud } from "@/hooks/useTaskCrud";
 import {
   STATUSES,
   PRIORITIES,
@@ -61,7 +61,6 @@ import {
   PRIORITY_DOT,
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
-  NEXT_STATUS,
   initials,
   isOverdue,
   formatDate,
@@ -195,18 +194,8 @@ export default function TasksPage() {
     }
   }, []);
 
-  // -- Dialog state --
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [formData, setFormData] = useState<TaskFormData>(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
-
   // -- Detail modal --
   const [detailTask, setDetailTask] = useState<Task | null>(null);
-
-  // -- Delete dialog --
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   // -- URL helpers --
   const setParam = useCallback(
@@ -299,6 +288,34 @@ export default function TasksPage() {
     fetchTasks();
   }, [fetchTasks]);
 
+  // -- Task CRUD (dialog, delete, toggle, submit) --
+  const {
+    dialogOpen,
+    setDialogOpen,
+    editingTask,
+    setEditingTask,
+    formData,
+    setFormData,
+    submitting,
+    deleteTarget,
+    setDeleteTarget,
+    deleting,
+    toggleStatus,
+    toggleStar,
+    handleSubmit,
+    handleDelete,
+    openEdit,
+    openCreate,
+  } = useTaskCrud({
+    fetchTasks,
+    setTasks,
+    setCounts: setCounts as unknown as React.Dispatch<
+      React.SetStateAction<Record<string, number>>
+    >,
+    defaultForm: EMPTY_FORM,
+    onFetchPhases: fetchPhases,
+  });
+
   // -- Pagination --
   const totalPages = Math.max(1, Math.ceil(tasks.length / PAGE_SIZE));
   const startIdx = (currentPage - 1) * PAGE_SIZE;
@@ -310,141 +327,6 @@ export default function TasksPage() {
     for (let i = 1; i <= totalPages; i++) pages.push(i);
     return pages;
   }, [totalPages]);
-
-  // -- Quick status toggle --
-  async function toggleStatus(task: Task) {
-    const newStatus = NEXT_STATUS[task.status] ?? "todo";
-    try {
-      await tasksApi.update(task.id, { status: newStatus });
-      fetchTasks();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // -- Star toggle --
-  async function toggleStar(task: Task) {
-    // Optimistic update
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === task.id ? { ...t, is_starred: !t.is_starred } : t
-      )
-    );
-    setCounts((prev) => ({
-      ...prev,
-      starred: prev.starred + (task.is_starred ? -1 : 1),
-    }));
-    try {
-      await tasksApi.toggleStar(task.id);
-    } catch {
-      // Revert on failure
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id ? { ...t, is_starred: task.is_starred } : t
-        )
-      );
-      setCounts((prev) => ({
-        ...prev,
-        starred: prev.starred + (task.is_starred ? 0 : -1),
-      }));
-    }
-  }
-
-  // -- Create / Edit submit --
-  async function handleSubmit() {
-    if (!formData.title.trim()) return;
-    setSubmitting(true);
-
-    const body: Record<string, unknown> = {
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      projectId: formData.projectId || undefined,
-      phaseId: formData.phaseId || undefined,
-      priority: formData.priority,
-      category: formData.category,
-      assignedTo: formData.assignedTo || undefined,
-      dueDate: formData.dueDate || undefined,
-    };
-
-    try {
-      const isEdit = !!editingTask;
-
-      if (isEdit) {
-        await tasksApi.update(editingTask!.id, body);
-      } else {
-        await tasksApi.create(body as Parameters<typeof tasksApi.create>[0]);
-      }
-
-      toast({
-        title: isEdit ? "Task updated" : "Task created",
-        description: isEdit
-          ? `"${formData.title}" has been updated.`
-          : `"${formData.title}" has been created.`,
-        variant: "success",
-      });
-      setDialogOpen(false);
-      setEditingTask(null);
-      setFormData(EMPTY_FORM);
-      fetchTasks();
-    } catch (err) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "Something went wrong",
-        variant: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // -- Delete --
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await tasksApi.remove(deleteTarget.id);
-      toast({
-        title: "Task deleted",
-        description: `"${deleteTarget.title}" has been deleted.`,
-        variant: "success",
-      });
-      setDeleteTarget(null);
-      fetchTasks();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to delete task",
-        variant: "error",
-      });
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  // -- Open edit dialog --
-  function openEdit(task: Task) {
-    setEditingTask(task);
-    setFormData({
-      title: task.title,
-      description: task.description || "",
-      projectId: task.project_id || "",
-      phaseId: task.phase_id || "",
-      priority: task.priority,
-      category: task.category,
-      assignedTo: task.assigned_to || "",
-      dueDate: task.due_date ? task.due_date.split("T")[0] : "",
-    });
-    if (task.project_id) fetchPhases(task.project_id);
-    setDialogOpen(true);
-  }
-
-  // -- Open create dialog --
-  function openCreate() {
-    setEditingTask(null);
-    setFormData(EMPTY_FORM);
-    setDialogOpen(true);
-  }
 
   // =========================================================================
   // Render
