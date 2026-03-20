@@ -2,6 +2,7 @@
 
 import type { RefObject } from "react";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
+import { upload } from "@/lib/api";
 import type { DbAttachment } from "@/types";
 
 interface UsePdfPluginsParams {
@@ -50,11 +51,8 @@ export function usePdfPlugins({ viewerRef, attachment }: UsePdfPluginsParams) {
   async function handleDownload() {
     if (!attachment) return;
     try {
-      const res = await fetch(
-        `/api/proxy-file?url=${encodeURIComponent(attachment.file_url)}`
-      );
-      if (!res.ok) return;
-      const blob = await res.blob();
+      const blob = await upload.downloadFile(attachment.file_url);
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

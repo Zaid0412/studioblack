@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/useToast";
+import { projects } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { deriveInitials } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -116,26 +117,20 @@ export default function CreateProjectPage() {
             }
             setIsSubmitting(true);
             try {
-              const res = await fetch("/api/projects", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: projectName.trim(),
-                  clientName: clientName.trim() || undefined,
-                  clientEmail: clientEmail.trim() || undefined,
-                  category,
-                  description: description.trim() || undefined,
-                  deadline: deadline?.toISOString().split("T")[0],
-                  phases: phases.filter((p) => p.trim()),
-                  architectIds: selectedArchitects.length
-                    ? selectedArchitects
-                    : undefined,
-                }),
+              await projects.create({
+                name: projectName.trim(),
+                clientName: clientName.trim() || undefined,
+                clientEmail: clientEmail.trim() || undefined,
+                category,
+                description: description.trim() || undefined,
+                deadline: deadline?.toISOString().split("T")[0],
+                phases: phases.filter((p) => p.trim()) as unknown as {
+                  name: string;
+                }[],
+                architectIds: selectedArchitects.length
+                  ? selectedArchitects
+                  : undefined,
               });
-              if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || "Failed to create project");
-              }
               toast({
                 title: t("createdToast"),
                 description: t("createdDescription"),

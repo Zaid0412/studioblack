@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
+import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
 
@@ -98,10 +99,7 @@ export default function ProjectsPage() {
 
       // Fetch projects
       try {
-        const res = await fetch("/api/projects");
-        if (res.ok) {
-          setProjects(await res.json());
-        }
+        setProjects(await projectsApi.list<DbProjectRow>());
       } catch {
         setProjects([]);
       } finally {
@@ -113,8 +111,11 @@ export default function ProjectsPage() {
   }, []);
 
   const handleRefresh = useCallback(async () => {
-    const res = await fetch("/api/projects");
-    if (res.ok) setProjects(await res.json());
+    try {
+      setProjects(await projectsApi.list<DbProjectRow>());
+    } catch {
+      /* keep current list on refresh failure */
+    }
   }, []);
 
   const filters: { key: FilterTab; label: string }[] = [
@@ -473,30 +474,22 @@ export default function ProjectsPage() {
                 if (!deleteTarget) return;
                 setDeleting(true);
                 try {
-                  const res = await fetch(`/api/projects/${deleteTarget.id}`, {
-                    method: "DELETE",
+                  await projectsApi.remove(deleteTarget.id);
+                  setProjects((prev) =>
+                    prev.filter((p) => p.id !== deleteTarget.id)
+                  );
+                  toast({
+                    title: "Project deleted",
+                    description: `"${deleteTarget.name}" has been deleted.`,
+                    variant: "success",
                   });
-                  if (res.ok) {
-                    setProjects((prev) =>
-                      prev.filter((p) => p.id !== deleteTarget.id)
-                    );
-                    toast({
-                      title: "Project deleted",
-                      description: `"${deleteTarget.name}" has been deleted.`,
-                      variant: "success",
-                    });
-                  } else {
-                    const data = await res.json().catch(() => ({}));
-                    toast({
-                      title: tc("error"),
-                      description: data.error || "Failed to delete project",
-                      variant: "error",
-                    });
-                  }
-                } catch {
+                } catch (err) {
                   toast({
                     title: tc("error"),
-                    description: "Failed to delete project",
+                    description:
+                      err instanceof Error
+                        ? err.message
+                        : "Failed to delete project",
                     variant: "error",
                   });
                 } finally {

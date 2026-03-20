@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
+import { notifications as notificationsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/formatTime";
 import type { Notification, DbNotificationRow } from "@/types";
@@ -116,19 +117,17 @@ export function NotificationPanel() {
 
   const loadDbNotifs = useCallback(async () => {
     try {
-      const res = await fetch("/api/notifications");
-      if (!res.ok) return;
-      const rows = await res.json();
+      const rows = await notificationsApi.list();
       setDbNotifs(
         rows.map((r: DbNotificationRow) => ({
           id: r.id,
-          type: r.type,
+          type: r.type as Notification["type"],
           title: r.title,
           description:
             r.description + (r.project_name ? ` · ${r.project_name}` : ""),
           read: r.read,
           createdAt: r.created_at,
-          projectId: r.project_id,
+          projectId: r.project_id ?? undefined,
         }))
       );
     } catch {
@@ -203,11 +202,7 @@ export function NotificationPanel() {
       !notification.id.startsWith("recv-") &&
       !notification.id.startsWith("sent-")
     ) {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: [notification.id] }),
-      }).catch(() => {});
+      await notificationsApi.markRead([notification.id]).catch(() => {});
       setDbNotifs((prev) =>
         prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
       );
@@ -221,11 +216,7 @@ export function NotificationPanel() {
 
   const handleMarkAllRead = async () => {
     setInvitationNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    await fetch("/api/notifications", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ markAllRead: true }),
-    }).catch(() => {});
+    await notificationsApi.markAllRead().catch(() => {});
     setDbNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     window.dispatchEvent(new Event("notifications-changed"));
     toast({
@@ -236,7 +227,7 @@ export function NotificationPanel() {
 
   const handleClearAll = async () => {
     if (!window.confirm(t("clearAllConfirm"))) return;
-    await fetch("/api/notifications", { method: "DELETE" }).catch(() => {});
+    await notificationsApi.clearAll().catch(() => {});
     setDbNotifs([]);
     setInvitationNotifs([]);
     setPendingInviteIds(new Map());
@@ -244,11 +235,7 @@ export function NotificationPanel() {
   };
 
   const handleDeleteOne = async (notifId: string) => {
-    await fetch("/api/notifications", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: notifId }),
-    }).catch(() => {});
+    await notificationsApi.remove(notifId).catch(() => {});
     setDbNotifs((prev) => prev.filter((n) => n.id !== notifId));
     window.dispatchEvent(new Event("notifications-changed"));
   };

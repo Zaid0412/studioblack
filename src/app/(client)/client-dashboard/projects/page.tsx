@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { relativeTime } from "@/lib/formatTime";
+import { clientPortal } from "@/lib/api";
 
 type FilterTab = "all" | "active" | "completed" | "draft";
 
@@ -58,11 +59,8 @@ export default function ClientProjectsPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    fetch("/api/client/projects")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-      })
+    clientPortal
+      .listProjects<ClientProject>()
       .then((data) => setProjects(data))
       .catch(() => setProjects([]))
       .finally(() => setLoading(false));

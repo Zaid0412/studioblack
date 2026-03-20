@@ -3,6 +3,7 @@
 import { use, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { tasks } from "@/lib/api";
 import { Loader2 } from "lucide-react";
 import { useProjectDetail } from "./_hooks/useProjectDetail";
 import { ProjectHeader } from "./_components/ProjectHeader";
@@ -46,8 +47,8 @@ export default function ProjectDetailPage({
 
   useEffect(() => {
     if (!highlightTaskId || !project) return;
-    fetch(`/api/tasks/${highlightTaskId}`)
-      .then((res) => (res.ok ? res.json() : null))
+    tasks
+      .get<{ phase_id: string }>(highlightTaskId)
       .then((task) => {
         if (task?.phase_id) setActivePhaseId(task.phase_id);
       })

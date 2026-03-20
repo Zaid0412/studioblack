@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
+import { clientPortal } from "@/lib/api";
 
 interface ClientProject {
   id: string;
@@ -34,11 +35,8 @@ export default function ClientDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/client/projects")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-      })
+    clientPortal
+      .listProjects<ClientProject>()
       .then((data) => setProjects(data))
       .catch(() => setProjects([]))
       .finally(() => setLoading(false));

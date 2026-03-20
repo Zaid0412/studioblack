@@ -15,6 +15,7 @@ import {
   Plus,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { dashboard as dashboardApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
@@ -57,8 +58,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then((res) => (res.ok ? res.json() : null))
+    dashboardApi
+      .get<DashboardData>()
       .then((d) => setData(d))
       .catch(() => setData(null))
       .finally(() => setLoading(false));

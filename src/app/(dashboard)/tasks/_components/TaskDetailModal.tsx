@@ -34,6 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
+import { tasks as tasksApi, upload } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -290,12 +291,10 @@ export function TaskDetailModal({
     setChecklistItems(reordered);
 
     try {
-      const res = await fetch(`/api/tasks/${task.id}/checklist/reorder`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderedIds: reordered.map((i) => i.id) }),
-      });
-      if (!res.ok) fetchChecklist(task.id);
+      await tasksApi.reorderChecklist(
+        task.id,
+        reordered.map((i) => i.id)
+      );
     } catch {
       fetchChecklist(task.id);
     }
@@ -304,8 +303,8 @@ export function TaskDetailModal({
   const fetchChecklist = useCallback(async (taskId: string) => {
     setLoadingChecklist(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}/checklist`);
-      if (res.ok) setChecklistItems(await res.json());
+      const items = await tasksApi.getChecklist<ChecklistItem>(taskId);
+      setChecklistItems(items);
     } catch {
       // ignore
     } finally {
@@ -316,8 +315,8 @@ export function TaskDetailModal({
   const fetchAttachments = useCallback(async (taskId: string) => {
     setLoadingAttachments(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}/attachments`);
-      if (res.ok) setAttachments(await res.json());
+      const items = await tasksApi.getAttachments<Attachment>(taskId);
+      setAttachments(items);
     } catch {
       // ignore
     } finally {
@@ -343,17 +342,13 @@ export function TaskDetailModal({
     if (!task || !newItemTitle.trim() || addingItem) return;
     setAddingItem(true);
     try {
-      const res = await fetch(`/api/tasks/${task.id}/checklist`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newItemTitle.trim() }),
-      });
-      if (res.ok) {
-        const item = await res.json();
-        setChecklistItems((prev) => [...prev, item]);
-        setNewItemTitle("");
-        onChecklistChange?.();
-      }
+      const item = await tasksApi.addChecklistItem<ChecklistItem>(
+        task.id,
+        newItemTitle.trim()
+      );
+      setChecklistItems((prev) => [...prev, item]);
+      setNewItemTitle("");
+      onChecklistChange?.();
     } catch {
       // ignore
     } finally {
@@ -367,20 +362,8 @@ export function TaskDetailModal({
       prev.map((i) => (i.id === item.id ? { ...i, is_done: !i.is_done } : i))
     );
     try {
-      const res = await fetch(`/api/tasks/${task.id}/checklist/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_done: !item.is_done }),
-      });
-      if (!res.ok) {
-        setChecklistItems((prev) =>
-          prev.map((i) =>
-            i.id === item.id ? { ...i, is_done: item.is_done } : i
-          )
-        );
-      } else {
-        onChecklistChange?.();
-      }
+      await tasksApi.toggleChecklistItem(task.id, item.id, !item.is_done);
+      onChecklistChange?.();
     } catch {
       setChecklistItems((prev) =>
         prev.map((i) =>
@@ -394,14 +377,8 @@ export function TaskDetailModal({
     if (!task) return;
     setChecklistItems((prev) => prev.filter((i) => i.id !== item.id));
     try {
-      const res = await fetch(`/api/tasks/${task.id}/checklist/${item.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        fetchChecklist(task.id);
-      } else {
-        onChecklistChange?.();
-      }
+      await tasksApi.removeChecklistItem(task.id, item.id);
+      onChecklistChange?.();
     } catch {
       fetchChecklist(task.id);
     }
@@ -411,26 +388,13 @@ export function TaskDetailModal({
     if (!task || uploading) return;
     setUploading(true);
     try {
-      // 1. Upload to Supabase via /api/upload
-      const formData = new FormData();
-      formData.append("file", file);
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
+      const { url, fileName } = await upload.uploadFile(file);
+      const att = await tasksApi.addAttachment<Attachment>(task.id, {
+        fileUrl: url,
+        fileName,
+        fileSize: file.size,
       });
-      if (!uploadRes.ok) return;
-      const { url, fileName } = await uploadRes.json();
-
-      // 2. Create attachment record
-      const res = await fetch(`/api/tasks/${task.id}/attachments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl: url, fileName, fileSize: file.size }),
-      });
-      if (res.ok) {
-        const att = await res.json();
-        setAttachments((prev) => [att, ...prev]);
-      }
+      setAttachments((prev) => [att, ...prev]);
     } catch {
       // ignore
     } finally {
@@ -441,11 +405,8 @@ export function TaskDetailModal({
 
   const handleDownload = async (att: Attachment) => {
     try {
-      const res = await fetch(
-        `/api/proxy-file?url=${encodeURIComponent(att.file_url)}`
-      );
-      if (!res.ok) return;
-      const blob = await res.blob();
+      const blob = await upload.downloadFile(att.file_url);
+      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -461,12 +422,7 @@ export function TaskDetailModal({
     if (!task) return;
     setAttachments((prev) => prev.filter((a) => a.id !== att.id));
     try {
-      const res = await fetch(`/api/tasks/${task.id}/attachments/${att.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        fetchAttachments(task.id);
-      }
+      await tasksApi.removeAttachment(task.id, att.id);
     } catch {
       fetchAttachments(task.id);
     }

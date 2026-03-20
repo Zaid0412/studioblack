@@ -17,6 +17,7 @@ import { useCommentTool } from "@/hooks/useCommentTool";
 import { useAnnotationTracker } from "@/hooks/useAnnotationTracker";
 import { usePdfPlugins } from "@/hooks/usePdfPlugins";
 import { isPdf, displayName } from "@/lib/fileUtils";
+import { upload, attachments as attachmentsApi, ApiError } from "@/lib/api";
 
 /** Client review page with PDF viewer and annotation tools. */
 export default function ClientReviewPage({
@@ -60,19 +61,14 @@ export default function ClientReviewPage({
         const blob = new Blob([buffer], { type: "application/pdf" });
         const baseName = review.attachment!.file_name.replace(/\.pdf$/i, "");
         const reviewFileName = `${baseName}_review.pdf`;
-
-        const formData = new FormData();
-        formData.append("file", blob, reviewFileName);
-
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
+        const file = new File([blob], reviewFileName, {
+          type: "application/pdf",
         });
 
-        if (uploadRes.ok) {
-          const { url } = await uploadRes.json();
+        try {
+          const { url } = await upload.uploadFile(file);
           annotatedFileUrl = url;
-        } else {
+        } catch {
           toast({
             title: tc("error"),
             description: "Failed to upload annotated PDF.",
@@ -83,25 +79,18 @@ export default function ClientReviewPage({
       }
     }
 
-    const res = await fetch(
-      `/api/projects/${projectId}/attachments/${review.activeFileId}/review`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          comment,
-          annotatedFileUrl,
-          annotationCount: annotations.annotationCount,
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+    try {
+      await attachmentsApi.submitReview(projectId, review.activeFileId, {
+        status,
+        comment,
+        annotatedFileUrl: annotatedFileUrl ?? undefined,
+        annotationCount: annotations.annotationCount,
+      });
+    } catch (err) {
       toast({
         title: tc("error"),
-        description: data.error || "Failed to submit review.",
+        description:
+          err instanceof ApiError ? err.message : "Failed to submit review.",
         variant: "error",
       });
       return;

@@ -34,6 +34,13 @@ import { deriveInitials } from "@/lib/utils";
 import { fileType, statusBadge } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatTimeAgo } from "@/lib/formatTime";
+import {
+  projects as projectsApi,
+  attachments as attachmentsApi,
+  comments as commentsApi,
+  approvals as approvalsApi,
+  tasks as tasksApi,
+} from "@/lib/api";
 
 interface Phase {
   id: string;
@@ -62,6 +69,7 @@ interface Attachment {
   review_status?: string;
   version?: number;
   version_group?: string;
+  frozen_at?: string | null;
 }
 
 interface Comment {
@@ -132,22 +140,13 @@ export default function ClientProjectDetailPage({
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/projects/${id}`).then((res) => {
-        if (!res.ok) throw new Error("Not found");
-        return res.json();
-      }),
-      fetch(`/api/projects/${id}/attachments?all=true`).then((res) =>
-        res.ok ? res.json() : []
-      ),
-      fetch(`/api/projects/${id}/comments`).then((res) =>
-        res.ok ? res.json() : []
-      ),
-      fetch(`/api/projects/${id}/approvals`).then((res) =>
-        res.ok ? res.json() : []
-      ),
-      fetch(`/api/projects/${id}/tasks/pending-review`).then((res) =>
-        res.ok ? res.json() : []
-      ),
+      projectsApi.get<ProjectDetail>(id),
+      attachmentsApi.list(id, { all: true }).catch(() => [] as Attachment[]),
+      commentsApi.list(id).catch(() => [] as Comment[]),
+      approvalsApi.list<Approval>(id).catch(() => [] as Approval[]),
+      tasksApi
+        .getPendingReview<PendingTask>(id)
+        .catch(() => [] as PendingTask[]),
     ])
       .then(
         ([
@@ -158,8 +157,8 @@ export default function ClientProjectDetailPage({
           pendingTaskData,
         ]) => {
           setProject(projectData);
-          setAttachments(attachmentData);
-          setComments(commentData);
+          setAttachments(attachmentData as Attachment[]);
+          setComments(commentData as Comment[]);
           setApprovals(approvalData);
           setPendingTasks(pendingTaskData);
           if (projectData.phases?.length > 0) {
@@ -175,18 +174,12 @@ export default function ClientProjectDetailPage({
     if (!newComment.trim() || sendingComment) return;
     setSendingComment(true);
     try {
-      const res = await fetch(`/api/projects/${id}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim() }),
-      });
-      if (res.ok) {
-        const updated = await fetch(`/api/projects/${id}/comments`).then((r) =>
-          r.ok ? r.json() : []
-        );
-        setComments(updated);
-        setNewComment("");
-      }
+      await commentsApi.create(id, newComment.trim());
+      const updated = await commentsApi.list(id).catch(() => [] as Comment[]);
+      setComments(updated as Comment[]);
+      setNewComment("");
+    } catch {
+      // keep existing comments on failure
     } finally {
       setSendingComment(false);
     }
@@ -199,21 +192,15 @@ export default function ClientProjectDetailPage({
     if (submittingDecision) return;
     setSubmittingDecision(true);
     try {
-      const res = await fetch(`/api/projects/${id}/approvals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, comment: comment || "" }),
-      });
-      if (res.ok) {
-        const [updatedApprovals, updatedProject] = await Promise.all([
-          fetch(`/api/projects/${id}/approvals`).then((r) =>
-            r.ok ? r.json() : []
-          ),
-          fetch(`/api/projects/${id}`).then((r) => (r.ok ? r.json() : null)),
-        ]);
-        setApprovals(updatedApprovals);
-        if (updatedProject) setProject(updatedProject);
-      }
+      await approvalsApi.submit(id, { decision, comment: comment || "" });
+      const [updatedApprovals, updatedProject] = await Promise.all([
+        approvalsApi.list<Approval>(id).catch(() => [] as Approval[]),
+        projectsApi.get<ProjectDetail>(id).catch(() => null),
+      ]);
+      setApprovals(updatedApprovals);
+      if (updatedProject) setProject(updatedProject);
+    } catch {
+      // keep existing state on failure
     } finally {
       setSubmittingDecision(false);
     }
@@ -226,14 +213,13 @@ export default function ClientProjectDetailPage({
   ) => {
     setReviewingTaskId(taskId);
     try {
-      const res = await fetch(`/api/projects/${id}/tasks/${taskId}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, comment: comment || "" }),
+      await tasksApi.submitReview(id, taskId, {
+        action,
+        comment: comment || "",
       });
-      if (res.ok) {
-        setPendingTasks((prev) => prev.filter((t) => t.id !== taskId));
-      }
+      setPendingTasks((prev) => prev.filter((t) => t.id !== taskId));
+    } catch {
+      // keep existing state on failure
     } finally {
       setReviewingTaskId(null);
     }

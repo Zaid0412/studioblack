@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Lock, Download } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { attachments } from "@/lib/api";
 import { statusBadge } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
@@ -25,12 +26,9 @@ export default function VersionHistoryPage({
   useEffect(() => {
     async function load() {
       try {
-        // Use any attachment in the group to fetch versions
-        const res = await fetch(`/api/projects/${id}/versions/${versionGroup}`);
-        if (res.ok) {
-          const data = await res.json();
-          setVersions(data);
-        }
+        setVersions(await attachments.getVersionHistory(id, versionGroup));
+      } catch {
+        /* keep empty on failure */
       } finally {
         setLoading(false);
       }

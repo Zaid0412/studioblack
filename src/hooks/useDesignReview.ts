@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  attachments as attachmentsApi,
+  projects as projectsApi,
+} from "@/lib/api";
 import type { DbAttachment, DbAttachmentReview, DbPhase } from "@/types";
 
 interface UseDesignReviewParams {
@@ -32,39 +36,43 @@ export function useDesignReview({
 
   const fetchAttachment = useCallback(
     async (fileId: string) => {
-      const res = await fetch(
-        `/api/projects/${projectId}/attachments/${fileId}`
-      );
-      if (!res.ok) return null;
-      return (await res.json()) as DbAttachment;
+      try {
+        return await attachmentsApi.get(projectId, fileId);
+      } catch {
+        return null;
+      }
     },
     [projectId]
   );
 
   const fetchPhaseFiles = useCallback(
     async (phaseId: string) => {
-      const res = await fetch(
-        `/api/projects/${projectId}/attachments?phaseId=${phaseId}`
-      );
-      if (!res.ok) return [];
-      return (await res.json()) as DbAttachment[];
+      try {
+        return await attachmentsApi.list(projectId, { phaseId });
+      } catch {
+        return [];
+      }
     },
     [projectId]
   );
 
   const fetchAllFiles = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}/attachments?all=true`);
-    if (!res.ok) return [];
-    return (await res.json()) as DbAttachment[];
+    try {
+      return await attachmentsApi.list(projectId, { all: true });
+    } catch {
+      return [];
+    }
   }, [projectId]);
 
   const fetchPhaseName = useCallback(
     async (phaseId: string) => {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (!res.ok) return "";
-      const data = await res.json();
-      const phase = data.phases?.find((p: DbPhase) => p.id === phaseId);
-      return phase?.name || "";
+      try {
+        const data = await projectsApi.get<{ phases?: DbPhase[] }>(projectId);
+        const phase = data.phases?.find((p: DbPhase) => p.id === phaseId);
+        return phase?.name || "";
+      } catch {
+        return "";
+      }
     },
     [projectId]
   );
@@ -87,11 +95,16 @@ export function useDesignReview({
         isInitialLoad.current = false;
 
         if (fetchReviews) {
-          const reviewData = await fetch(
-            `/api/projects/${projectId}/attachments/${activeFileId}/review`
-          ).then((r) => (r.ok ? r.json() : []));
-          if (cancelled) return;
-          setReviews(reviewData);
+          try {
+            const reviewData = await attachmentsApi.getReviewHistory(
+              projectId,
+              activeFileId
+            );
+            if (cancelled) return;
+            setReviews(reviewData);
+          } catch {
+            if (!cancelled) setReviews([]);
+          }
         }
 
         if (att?.phase_id) {

@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/useToast";
+import { upload } from "@/lib/api";
 import {
   Select,
   SelectTrigger,
@@ -75,19 +76,7 @@ export default function ClientSettingsPage() {
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/avatar", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error || t("uploadFailed"));
-      }
-
-      const { url } = await res.json();
+      const { url } = await upload.uploadAvatar(file);
       await authClient.updateUser({ image: url });
       setAvatarUrl(url);
       router.refresh();

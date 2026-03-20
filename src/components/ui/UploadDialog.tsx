@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, X, Loader2, CheckCircle2 } from "lucide-react";
 import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
+import { upload, attachments } from "@/lib/api";
 
 interface UploadDialogProps {
   open: boolean;
@@ -99,36 +100,14 @@ export function UploadDialog({
 
     try {
       for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
+        const { url, fileName } = await upload.uploadFile(file);
+        await attachments.create(projectId, {
+          fileUrl: url,
+          fileName,
+          description,
+          phaseId: phaseId || null,
+          ...(versionGroup ? { versionGroup } : {}),
         });
-        if (!uploadRes.ok) {
-          const err = await uploadRes.json();
-          throw new Error(err.error || "Upload failed");
-        }
-        const { url, fileName } = await uploadRes.json();
-
-        const attachRes = await fetch(
-          `/api/projects/${projectId}/attachments`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              fileUrl: url,
-              fileName,
-              description,
-              phaseId: phaseId || null,
-              ...(versionGroup ? { versionGroup } : {}),
-            }),
-          }
-        );
-        if (!attachRes.ok) {
-          const err = await attachRes.json();
-          throw new Error(err.error || "Failed to save attachment");
-        }
       }
 
       setSuccess(true);

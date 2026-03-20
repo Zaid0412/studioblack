@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
+import { tasks as tasksApi } from "@/lib/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import type { Task, TaskFormData } from "@/types";
@@ -104,11 +105,8 @@ export function TaskSection({
   // -- Fetch tasks --
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tasks?projectId=${projectId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAllTasks(data.tasks ?? []);
-      }
+      const data = await tasksApi.list<{ tasks: Task[] }>({ projectId });
+      setAllTasks(data.tasks ?? []);
     } catch {
       setAllTasks([]);
     } finally {
@@ -144,12 +142,8 @@ export function TaskSection({
   async function toggleStatus(task: Task) {
     const newStatus = NEXT_STATUS[task.status] ?? "todo";
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) fetchTasks();
+      await tasksApi.update(task.id, { status: newStatus });
+      fetchTasks();
     } catch {
       /* ignore */
     }
@@ -163,7 +157,7 @@ export function TaskSection({
       )
     );
     try {
-      await fetch(`/api/tasks/${task.id}/star`, { method: "POST" });
+      await tasksApi.toggleStar(task.id);
     } catch {
       setAllTasks((prev) =>
         prev.map((t) =>
@@ -191,40 +185,29 @@ export function TaskSection({
 
     try {
       const isEdit = !!editingTask;
-      const url = isEdit ? `/api/tasks/${editingTask!.id}` : "/api/tasks";
-      const method = isEdit ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        toast({
-          title: isEdit ? "Task updated" : "Task created",
-          description: isEdit
-            ? `"${formData.title}" has been updated.`
-            : `"${formData.title}" has been created.`,
-          variant: "success",
-        });
-        setDialogOpen(false);
-        setEditingTask(null);
-        setFormData(emptyForm);
-        fetchTasks();
+      if (isEdit) {
+        await tasksApi.update(editingTask!.id, body);
       } else {
-        const data = await res.json().catch(() => ({}));
-        toast({
-          title: "Error",
-          description:
-            data.error || `Failed to ${isEdit ? "update" : "create"} task`,
-          variant: "error",
-        });
+        await tasksApi.create(body as Parameters<typeof tasksApi.create>[0]);
       }
-    } catch {
+
+      toast({
+        title: isEdit ? "Task updated" : "Task created",
+        description: isEdit
+          ? `"${formData.title}" has been updated.`
+          : `"${formData.title}" has been created.`,
+        variant: "success",
+      });
+      setDialogOpen(false);
+      setEditingTask(null);
+      setFormData(emptyForm);
+      fetchTasks();
+    } catch (err) {
       toast({
         title: "Error",
-        description: "Something went wrong",
+        description:
+          err instanceof Error ? err.message : "Something went wrong",
         variant: "error",
       });
     } finally {
@@ -237,24 +220,14 @@ export function TaskSection({
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/tasks/${deleteTarget.id}`, {
-        method: "DELETE",
+      await tasksApi.remove(deleteTarget.id);
+      toast({
+        title: "Task deleted",
+        description: `"${deleteTarget.title}" has been deleted.`,
+        variant: "success",
       });
-      if (res.ok) {
-        toast({
-          title: "Task deleted",
-          description: `"${deleteTarget.title}" has been deleted.`,
-          variant: "success",
-        });
-        setDeleteTarget(null);
-        fetchTasks();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete task",
-          variant: "error",
-        });
-      }
+      setDeleteTarget(null);
+      fetchTasks();
     } catch {
       toast({
         title: "Error",

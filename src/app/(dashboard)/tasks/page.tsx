@@ -53,6 +53,7 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import { authClient } from "@/lib/authClient";
+import { tasks as tasksApi, projects as projectsApi } from "@/lib/api";
 import {
   STATUSES,
   PRIORITIES,
@@ -178,16 +179,15 @@ export default function TasksPage() {
     }
     setLoadingPhases(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setPhases(
-          (data.phases ?? []).map((p: { id: string; name: string }) => ({
-            id: p.id,
-            name: p.name,
-          }))
-        );
-      }
+      const data = await projectsApi.get<{
+        phases?: { id: string; name: string }[];
+      }>(projectId);
+      setPhases(
+        (data.phases ?? []).map((p) => ({
+          id: p.id,
+          name: p.name,
+        }))
+      );
     } catch {
       setPhases([]);
     } finally {
@@ -227,29 +227,28 @@ export default function TasksPage() {
   // -- Fetch tasks --
   const fetchTasks = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      params.set("bucket", activeBucket);
-      if (searchValue) params.set("search", searchValue);
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      if (priorityFilter !== "all") params.set("priority", priorityFilter);
-      if (categoryFilter !== "all") params.set("category", categoryFilter);
-      if (projectFilter !== "all") params.set("projectId", projectFilter);
+      const params: Record<string, string> = {};
+      if (activeBucket) params.bucket = activeBucket;
+      if (searchValue) params.search = searchValue;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (priorityFilter !== "all") params.priority = priorityFilter;
+      if (categoryFilter !== "all") params.category = categoryFilter;
+      if (projectFilter !== "all") params.projectId = projectFilter;
 
-      const res = await fetch(`/api/tasks?${params.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setTasks(data.tasks ?? []);
-        setCounts(
-          data.counts ?? {
-            all: 0,
-            my_tasks: 0,
-            created_by_me: 0,
-            starred: 0,
-            upcoming: 0,
-            completed: 0,
-          }
-        );
-      }
+      const data = await tasksApi.list<{ tasks: Task[]; counts: TaskCounts }>(
+        params
+      );
+      setTasks(data.tasks ?? []);
+      setCounts(
+        data.counts ?? {
+          all: 0,
+          my_tasks: 0,
+          created_by_me: 0,
+          starred: 0,
+          upcoming: 0,
+          completed: 0,
+        }
+      );
     } catch {
       setTasks([]);
     } finally {
@@ -280,18 +279,13 @@ export default function TasksPage() {
 
       // Projects
       try {
-        const res = await fetch("/api/projects");
-        if (res.ok) {
-          const data = await res.json();
-          setProjects(
-            (Array.isArray(data) ? data : []).map(
-              (p: { id: string; name: string }) => ({
-                id: p.id,
-                name: p.name,
-              })
-            )
-          );
-        }
+        const data = await projectsApi.list<{ id: string; name: string }>();
+        setProjects(
+          (Array.isArray(data) ? data : []).map((p) => ({
+            id: p.id,
+            name: p.name,
+          }))
+        );
       } catch {
         /* ignore */
       }
@@ -321,14 +315,8 @@ export default function TasksPage() {
   async function toggleStatus(task: Task) {
     const newStatus = NEXT_STATUS[task.status] ?? "todo";
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        fetchTasks();
-      }
+      await tasksApi.update(task.id, { status: newStatus });
+      fetchTasks();
     } catch {
       /* ignore */
     }
@@ -347,7 +335,7 @@ export default function TasksPage() {
       starred: prev.starred + (task.is_starred ? -1 : 1),
     }));
     try {
-      await fetch(`/api/tasks/${task.id}/star`, { method: "POST" });
+      await tasksApi.toggleStar(task.id);
     } catch {
       // Revert on failure
       setTasks((prev) =>
@@ -380,40 +368,29 @@ export default function TasksPage() {
 
     try {
       const isEdit = !!editingTask;
-      const url = isEdit ? `/api/tasks/${editingTask!.id}` : "/api/tasks";
-      const method = isEdit ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        toast({
-          title: isEdit ? "Task updated" : "Task created",
-          description: isEdit
-            ? `"${formData.title}" has been updated.`
-            : `"${formData.title}" has been created.`,
-          variant: "success",
-        });
-        setDialogOpen(false);
-        setEditingTask(null);
-        setFormData(EMPTY_FORM);
-        fetchTasks();
+      if (isEdit) {
+        await tasksApi.update(editingTask!.id, body);
       } else {
-        const data = await res.json().catch(() => ({}));
-        toast({
-          title: "Error",
-          description:
-            data.error || `Failed to ${isEdit ? "update" : "create"} task`,
-          variant: "error",
-        });
+        await tasksApi.create(body as Parameters<typeof tasksApi.create>[0]);
       }
-    } catch {
+
+      toast({
+        title: isEdit ? "Task updated" : "Task created",
+        description: isEdit
+          ? `"${formData.title}" has been updated.`
+          : `"${formData.title}" has been created.`,
+        variant: "success",
+      });
+      setDialogOpen(false);
+      setEditingTask(null);
+      setFormData(EMPTY_FORM);
+      fetchTasks();
+    } catch (err) {
       toast({
         title: "Error",
-        description: "Something went wrong",
+        description:
+          err instanceof Error ? err.message : "Something went wrong",
         variant: "error",
       });
     } finally {
@@ -426,24 +403,14 @@ export default function TasksPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/tasks/${deleteTarget.id}`, {
-        method: "DELETE",
+      await tasksApi.remove(deleteTarget.id);
+      toast({
+        title: "Task deleted",
+        description: `"${deleteTarget.title}" has been deleted.`,
+        variant: "success",
       });
-      if (res.ok) {
-        toast({
-          title: "Task deleted",
-          description: `"${deleteTarget.title}" has been deleted.`,
-          variant: "success",
-        });
-        setDeleteTarget(null);
-        fetchTasks();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete task",
-          variant: "error",
-        });
-      }
+      setDeleteTarget(null);
+      fetchTasks();
     } catch {
       toast({
         title: "Error",

@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { activityIcons } from "@/lib/activityConstants";
+import { notifications } from "@/lib/api";
 
 interface AuditEntry {
   id: string;
@@ -27,8 +28,8 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchEntries = useCallback(() => {
-    fetch("/api/notifications")
-      .then((res) => (res.ok ? res.json() : []))
+    notifications
+      .list()
       .then((data) => setEntries(data))
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
@@ -39,8 +40,11 @@ export default function AuditPage() {
   }, [fetchEntries]);
 
   const handleRefresh = useCallback(async () => {
-    const res = await fetch("/api/notifications");
-    if (res.ok) setEntries(await res.json());
+    try {
+      setEntries(await notifications.list());
+    } catch {
+      // ignore refresh errors
+    }
   }, []);
 
   const filtered = useMemo(

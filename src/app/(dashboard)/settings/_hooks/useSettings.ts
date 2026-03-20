@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/authClient";
+import { upload } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
 
@@ -66,19 +67,7 @@ export function useSettings() {
 
     setIsUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/avatar", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error || t("uploadFailed"));
-      }
-
-      const { url } = await res.json();
+      const { url } = await upload.uploadAvatar(file);
 
       // Save URL to user.image via better-auth
       await authClient.updateUser({ image: url });
