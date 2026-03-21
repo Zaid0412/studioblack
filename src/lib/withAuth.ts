@@ -38,6 +38,22 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     req: NextRequest,
     routeParams?: RouteParams
   ): Promise<NextResponse<unknown>> => {
+    // CSRF origin check for mutating methods
+    const method = req.method.toUpperCase();
+    if (["POST", "PATCH", "PUT", "DELETE"].includes(method)) {
+      const origin = req.headers.get("origin");
+      const host = req.headers.get("host");
+      if (origin && host) {
+        const originHost = new URL(origin).host;
+        if (originHost !== host) {
+          return NextResponse.json(
+            { error: "CSRF origin mismatch" },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

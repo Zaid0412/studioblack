@@ -137,6 +137,9 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
+  // -- Total task count for pagination --
+  const [totalTasks, setTotalTasks] = useState(0);
+
   // -- Fetch tasks --
   const fetchTasks = useCallback(async () => {
     try {
@@ -147,13 +150,14 @@ export default function TasksPage() {
       if (priorityFilter !== "all") params.priority = priorityFilter;
       if (categoryFilter !== "all") params.category = categoryFilter;
       if (projectFilter !== "all") params.projectId = projectFilter;
+      params.page = String(currentPage);
+      params.limit = String(PAGE_SIZE);
 
-      const data = await tasksApi.list<{ tasks: Task[]; counts: BucketCounts }>(
-        params
-      );
+      const data = await tasksApi.list(params);
       setTasks(data.tasks ?? []);
+      setTotalTasks(data.total ?? 0);
       setCounts(
-        data.counts ?? {
+        (data.counts as unknown as BucketCounts) ?? {
           all: 0,
           my_tasks: 0,
           created_by_me: 0,
@@ -174,6 +178,7 @@ export default function TasksPage() {
     priorityFilter,
     categoryFilter,
     projectFilter,
+    currentPage,
   ]);
 
   // -- Initial load: members, projects, tasks --
@@ -240,11 +245,10 @@ export default function TasksPage() {
     onFetchPhases: fetchPhases,
   });
 
-  // -- Pagination --
-  const totalPages = Math.max(1, Math.ceil(tasks.length / PAGE_SIZE));
+  // -- Pagination (server-side) --
+  const totalPages = Math.max(1, Math.ceil(totalTasks / PAGE_SIZE));
   const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, tasks.length);
-  const paginatedTasks = tasks.slice(startIdx, endIdx);
+  const endIdx = Math.min(startIdx + PAGE_SIZE, totalTasks);
 
   // =========================================================================
   // Render
@@ -320,7 +324,7 @@ export default function TasksPage() {
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
                 </div>
-              ) : paginatedTasks.length === 0 ? (
+              ) : tasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
                   title="No tasks found"
@@ -328,7 +332,7 @@ export default function TasksPage() {
                   action={{ label: "Create Task", onClick: openCreate }}
                 />
               ) : (
-                paginatedTasks.map((task) => (
+                tasks.map((task) => (
                   <TaskRow
                     key={task.id}
                     task={task}
@@ -348,12 +352,12 @@ export default function TasksPage() {
             </div>
 
             {/* Pagination */}
-            {!loading && tasks.length > 0 && (
+            {!loading && totalTasks > 0 && (
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={(page) => setParam("page", String(page))}
-                showingText={`Showing ${startIdx + 1}–${endIdx} of ${tasks.length} tasks`}
+                showingText={`Showing ${startIdx + 1}–${endIdx} of ${totalTasks} tasks`}
               />
             )}
           </div>

@@ -567,6 +567,8 @@ interface TaskFilters {
   priority?: string;
   category?: string;
   search?: string;
+  page?: number;
+  limit?: number;
 }
 
 /** Fetch tasks with bucket-based filtering and optional search/status/priority/category filters. */
@@ -666,11 +668,18 @@ export async function getTasks(filters: TaskFilters) {
        CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
        CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END,
        t.due_date ASC NULLS LAST,
-       t.created_at DESC
-     LIMIT 200`,
+       t.created_at DESC`,
     values
   );
-  return rows;
+
+  // Server-side pagination
+  const total = rows.length;
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 200;
+  const offset = (page - 1) * limit;
+  const paged = rows.slice(offset, offset + limit);
+
+  return { tasks: paged, total };
 }
 
 /** Fetch a single task by ID with joined user, project, and phase names. */

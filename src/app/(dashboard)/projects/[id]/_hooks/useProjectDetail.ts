@@ -78,7 +78,7 @@ export function useProjectDetail(id: string) {
   const handleDownload = async (att: DbAttachment) => {
     try {
       const blob = await upload.downloadFile(att.file_url);
-      if (!blob) return;
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

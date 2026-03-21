@@ -78,7 +78,10 @@ export function TaskSection({
   // -- Fetch tasks --
   const fetchTasks = useCallback(async () => {
     try {
-      const data = await tasksApi.list<{ tasks: Task[] }>({ projectId });
+      const data = await tasksApi.list({
+        projectId,
+        limit: "100",
+      });
       setAllTasks(data.tasks ?? []);
     } catch {
       setAllTasks([]);

@@ -48,7 +48,7 @@ export default function ProjectDetailPage({
   useEffect(() => {
     if (!highlightTaskId || !project) return;
     tasks
-      .get<{ phase_id: string }>(highlightTaskId)
+      .get(highlightTaskId)
       .then((task) => {
         if (task?.phase_id) setActivePhaseId(task.phase_id);
       })

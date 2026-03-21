@@ -96,8 +96,8 @@ export function useNotifications({
           projectId: r.project_id ?? undefined,
         }))
       );
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error("Failed to load notifications", e);
     }
   }, []);
 
@@ -182,9 +182,9 @@ export function useNotifications({
 
   const handleMarkAllRead = async () => {
     setInvitationNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    await notificationsApi.markAllRead().catch(() => {});
     setDbNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     window.dispatchEvent(new Event("notifications-changed"));
+    await notificationsApi.markAllRead().catch(() => {});
     toast({
       title: t("allCaughtUpToast"),
       description: t("allCaughtUpDescription"),

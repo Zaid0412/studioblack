@@ -38,7 +38,11 @@ export function useTaskCrud({
         await tasksApi.update(task.id, { status: newStatus });
         fetchTasks();
       } catch {
-        /* ignore */
+        toast({
+          title: "Error",
+          description: "Failed to update status",
+          variant: "error",
+        });
       }
     },
     [fetchTasks]
@@ -65,7 +69,7 @@ export function useTaskCrud({
         );
         setCounts?.((prev) => ({
           ...prev,
-          starred: (prev.starred ?? 0) + (task.is_starred ? 0 : -1),
+          starred: (prev.starred ?? 0) + (task.is_starred ? 1 : -1),
         }));
       }
     },

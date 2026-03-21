@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "@/components/ui/useToast";
 import { tasks as tasksApi, upload } from "@/lib/api";
 import type { Task } from "@/types";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -93,28 +94,31 @@ export function useTaskDetail(
 
   // ---- Checklist handlers ----
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id || !task) return;
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id || !task) return;
 
-    const oldIndex = checklistItems.findIndex((i) => i.id === active.id);
-    const newIndex = checklistItems.findIndex((i) => i.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+      const oldIndex = checklistItems.findIndex((i) => i.id === active.id);
+      const newIndex = checklistItems.findIndex((i) => i.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(checklistItems, oldIndex, newIndex);
-    setChecklistItems(reordered);
+      const reordered = arrayMove(checklistItems, oldIndex, newIndex);
+      setChecklistItems(reordered);
 
-    try {
-      await tasksApi.reorderChecklist(
-        task.id,
-        reordered.map((i) => i.id)
-      );
-    } catch {
-      fetchChecklist(task.id);
-    }
-  };
+      try {
+        await tasksApi.reorderChecklist(
+          task.id,
+          reordered.map((i) => i.id)
+        );
+      } catch {
+        fetchChecklist(task.id);
+      }
+    },
+    [checklistItems, task, fetchChecklist]
+  );
 
-  const addItem = async () => {
+  const addItem = useCallback(async () => {
     if (!task || !newItemTitle.trim() || addingItem) return;
     setAddingItem(true);
     try {
@@ -126,65 +130,91 @@ export function useTaskDetail(
       setNewItemTitle("");
       onChecklistChange?.();
     } catch {
-      // ignore
+      toast({
+        title: "Error",
+        description: "Failed to add checklist item",
+        variant: "error",
+      });
     } finally {
       setAddingItem(false);
     }
-  };
+  }, [task, newItemTitle, addingItem, onChecklistChange]);
 
-  const toggleItem = async (item: ChecklistItem) => {
-    if (!task) return;
-    setChecklistItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, is_done: !i.is_done } : i))
-    );
-    try {
-      await tasksApi.toggleChecklistItem(task.id, item.id, !item.is_done);
-      onChecklistChange?.();
-    } catch {
+  const toggleItem = useCallback(
+    async (item: ChecklistItem) => {
+      if (!task) return;
       setChecklistItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id ? { ...i, is_done: item.is_done } : i
-        )
+        prev.map((i) => (i.id === item.id ? { ...i, is_done: !i.is_done } : i))
       );
-    }
-  };
+      try {
+        await tasksApi.toggleChecklistItem(task.id, item.id, !item.is_done);
+        onChecklistChange?.();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to update checklist item",
+          variant: "error",
+        });
+        setChecklistItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, is_done: item.is_done } : i
+          )
+        );
+      }
+    },
+    [task, onChecklistChange]
+  );
 
-  const deleteItem = async (item: ChecklistItem) => {
-    if (!task) return;
-    setChecklistItems((prev) => prev.filter((i) => i.id !== item.id));
-    try {
-      await tasksApi.removeChecklistItem(task.id, item.id);
-      onChecklistChange?.();
-    } catch {
-      fetchChecklist(task.id);
-    }
-  };
+  const deleteItem = useCallback(
+    async (item: ChecklistItem) => {
+      if (!task) return;
+      setChecklistItems((prev) => prev.filter((i) => i.id !== item.id));
+      try {
+        await tasksApi.removeChecklistItem(task.id, item.id);
+        onChecklistChange?.();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to delete checklist item",
+          variant: "error",
+        });
+        fetchChecklist(task.id);
+      }
+    },
+    [task, onChecklistChange, fetchChecklist]
+  );
 
   // ---- Attachment handlers ----
 
-  const handleUpload = async (file: File) => {
-    if (!task || uploading) return;
-    setUploading(true);
-    try {
-      const { url, fileName } = await upload.uploadFile(file);
-      const att = await tasksApi.addAttachment<Attachment>(task.id, {
-        fileUrl: url,
-        fileName,
-        fileSize: file.size,
-      });
-      setAttachments((prev) => [att, ...prev]);
-    } catch {
-      // ignore
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
+  const handleUpload = useCallback(
+    async (file: File) => {
+      if (!task || uploading) return;
+      setUploading(true);
+      try {
+        const { url, fileName } = await upload.uploadFile(file);
+        const att = await tasksApi.addAttachment<Attachment>(task.id, {
+          fileUrl: url,
+          fileName,
+          fileSize: file.size,
+        });
+        setAttachments((prev) => [att, ...prev]);
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to upload file",
+          variant: "error",
+        });
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [task, uploading]
+  );
 
-  const handleDownload = async (att: Attachment) => {
+  const handleDownload = useCallback(async (att: Attachment) => {
     try {
       const blob = await upload.downloadFile(att.file_url);
-      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -192,19 +222,31 @@ export function useTaskDetail(
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      // ignore
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "error",
+      });
     }
-  };
+  }, []);
 
-  const deleteAttachment = async (att: Attachment) => {
-    if (!task) return;
-    setAttachments((prev) => prev.filter((a) => a.id !== att.id));
-    try {
-      await tasksApi.removeAttachment(task.id, att.id);
-    } catch {
-      fetchAttachments(task.id);
-    }
-  };
+  const deleteAttachment = useCallback(
+    async (att: Attachment) => {
+      if (!task) return;
+      setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+      try {
+        await tasksApi.removeAttachment(task.id, att.id);
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to delete attachment",
+          variant: "error",
+        });
+        fetchAttachments(task.id);
+      }
+    },
+    [task, fetchAttachments]
+  );
 
   return {
     // Checklist

@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useCallback, type RefObject } from "react";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { upload } from "@/lib/api";
 import type { DbAttachment } from "@/types";
@@ -15,22 +15,24 @@ interface UsePdfPluginsParams {
  * (print, screenshot, fullscreen, download).
  */
 export function usePdfPlugins({ viewerRef, attachment }: UsePdfPluginsParams) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async function getPlugin(name: string): Promise<any> {
-    const registry = await viewerRef.current?.registry;
-    if (!registry) return null;
-    return registry.getPlugin(name)?.provides?.() ?? null;
-  }
+  const getPlugin = useCallback(
+    async (name: string): Promise<any> => {
+      const registry = await viewerRef.current?.registry;
+      if (!registry) return null;
+      return registry.getPlugin(name)?.provides?.() ?? null;
+    },
+    [viewerRef]
+  );
 
-  async function handlePrint() {
+  const handlePrint = useCallback(async () => {
     try {
       (await getPlugin("print"))?.print();
     } catch (err) {
       console.error("[handlePrint]", err);
     }
-  }
+  }, [getPlugin]);
 
-  async function handleScreenshot() {
+  const handleScreenshot = useCallback(async () => {
     try {
       const capture = await getPlugin("capture");
       if (!capture) return;
@@ -38,21 +40,20 @@ export function usePdfPlugins({ viewerRef, attachment }: UsePdfPluginsParams) {
     } catch (err) {
       console.error("[handleScreenshot]", err);
     }
-  }
+  }, [getPlugin]);
 
-  async function handleFullscreen() {
+  const handleFullscreen = useCallback(async () => {
     try {
       (await getPlugin("fullscreen"))?.toggleFullscreen();
     } catch (err) {
       console.error("[handleFullscreen]", err);
     }
-  }
+  }, [getPlugin]);
 
-  async function handleDownload() {
+  const handleDownload = useCallback(async () => {
     if (!attachment) return;
     try {
       const blob = await upload.downloadFile(attachment.file_url);
-      if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -62,7 +63,7 @@ export function usePdfPlugins({ viewerRef, attachment }: UsePdfPluginsParams) {
     } catch (err) {
       console.error("[handleDownload]", err);
     }
-  }
+  }, [attachment]);
 
   return {
     getPlugin,

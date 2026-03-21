@@ -19,11 +19,12 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new ApiError(
       res.status,
-      body.error || `Request failed (${res.status})`
+      body.error || body.message || `Request failed (${res.status})`
     );
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : (undefined as T);
+  if (!text) return undefined as T & void;
+  return JSON.parse(text) as T;
 }
 
 /**
@@ -70,9 +71,11 @@ export function apiDelete<T = void>(url: string, body?: unknown): Promise<T> {
   return request<T>(url, init);
 }
 
-/** Fetch a file as a Blob (e.g. for downloads). Returns null on failure. */
-export async function apiBlob(url: string): Promise<Blob | null> {
+/** Fetch a file as a Blob (e.g. for downloads). */
+export async function apiBlob(url: string): Promise<Blob> {
   const res = await fetch(url);
-  if (!res.ok) return null;
+  if (!res.ok) {
+    throw new ApiError(res.status, `File download failed (${res.status})`);
+  }
   return res.blob();
 }

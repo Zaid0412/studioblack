@@ -1,25 +1,44 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
+import type { Task } from "@/types";
+
+export interface TaskListResponse {
+  tasks: Task[];
+  counts: Record<string, number>;
+  total: number;
+}
+
+export interface TaskUpdatePayload {
+  title?: string;
+  description?: string;
+  status?: string;
+  priority?: string;
+  category?: string;
+  projectId?: string;
+  phaseId?: string | null;
+  assignedTo?: string | null;
+  dueDate?: string | null;
+}
 
 /**
  *
  */
-export function list<T>(params?: Record<string, string>) {
+export function list(params?: Record<string, string>) {
   const qs = params ? new URLSearchParams(params).toString() : "";
-  return apiGet<T>(`${API.tasks()}${qs ? `?${qs}` : ""}`);
+  return apiGet<TaskListResponse>(`${API.tasks()}${qs ? `?${qs}` : ""}`);
 }
 
 /**
  *
  */
-export function get<T>(id: string) {
-  return apiGet<T>(API.task(id));
+export function get(id: string) {
+  return apiGet<Task>(API.task(id));
 }
 
 /**
  *
  */
-export function create<T>(data: {
+export function create(data: {
   title: string;
   description?: string;
   projectId?: string;
@@ -29,14 +48,14 @@ export function create<T>(data: {
   assignedTo?: string;
   dueDate?: string | null;
 }) {
-  return apiPost<T>(API.tasks(), data);
+  return apiPost<Task>(API.tasks(), data);
 }
 
 /**
  *
  */
-export function update<T>(id: string, data: Record<string, unknown>) {
-  return apiPatch<T>(API.task(id), data);
+export function update(id: string, data: TaskUpdatePayload) {
+  return apiPatch<Task>(API.task(id), data);
 }
 
 /**

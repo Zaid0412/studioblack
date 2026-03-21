@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
 
 /**
  * POST /api/projects/[id]/send-to-client
@@ -11,6 +12,17 @@ import { withAuth } from "@/lib/withAuth";
 export const POST = withAuth(
   { allowedRoles: ["pm"], projectAccess: true },
   async (req, ctx, params) => {
+    const { allowed } = rateLimit(`send-client:${ctx.user.id}`, {
+      limit: 5,
+      windowMs: 60_000,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { id } = params;
 
     const pool = getPool();

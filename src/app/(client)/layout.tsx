@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { deriveInitials } from "@/lib/utils";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import type { User } from "@/types";
 
 /**
@@ -49,7 +50,7 @@ export default async function ClientLayout({
           <div className="fixed top-4 right-8 z-40">
             <NotificationPanel />
           </div>
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
     </SidebarProvider>

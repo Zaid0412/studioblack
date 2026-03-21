@@ -6,7 +6,7 @@ import {
   getProjectsByOrgId,
   getProjectsByArchitectId,
 } from "@/lib/queries";
-import { sendNotificationEmail } from "@/lib/email";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 
@@ -108,7 +108,7 @@ export const POST = withAuth(
             await sendNotificationEmail(
               rows[0].email,
               "New Project Assignment",
-              `<p>You've been assigned to project <strong>${name}</strong>.</p>
+              `<p>You've been assigned to project <strong>${escapeHtml(name)}</strong>.</p>
              <p>Log in to view the project details and start working.</p>`
             ).catch(console.error);
           }
