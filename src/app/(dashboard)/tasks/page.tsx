@@ -25,7 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import {
   Select,
@@ -34,14 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -67,6 +58,8 @@ import {
 } from "@/lib/taskUtils";
 import type { Task, TaskFormData } from "@/types";
 import { TaskDetailModal } from "./_components/TaskDetailModal";
+import { TaskFormDialog } from "./_components/TaskFormDialog";
+import { TaskDeleteDialog } from "./_components/TaskDeleteDialog";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -724,10 +717,8 @@ export default function TasksPage() {
         onChecklistChange={fetchTasks}
       />
 
-      {/* ================================================================= */}
-      {/* Create / Edit Task Dialog                                         */}
-      {/* ================================================================= */}
-      <Dialog
+      {/* Create / Edit Task Dialog */}
+      <TaskFormDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -736,233 +727,29 @@ export default function TasksPage() {
             setFormData(EMPTY_FORM);
           }
         }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingTask ? "Edit Task" : "New Task"}</DialogTitle>
-          </DialogHeader>
+        editingTask={editingTask}
+        formData={formData}
+        setFormData={setFormData}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        projects={projects}
+        phases={phases}
+        loadingPhases={loadingPhases}
+        onProjectChange={fetchPhases}
+        members={members.map((m) => ({
+          id: m.userId,
+          name: m.user.name,
+          email: m.user.email,
+        }))}
+      />
 
-          <div className="flex flex-col gap-4 py-2">
-            {/* Title */}
-            <Input
-              label="Title"
-              placeholder="Task title"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData((f) => ({ ...f, title: e.target.value }))
-              }
-              required
-            />
-
-            {/* Description */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                Description
-              </label>
-              <textarea
-                placeholder="Optional description..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((f) => ({ ...f, description: e.target.value }))
-                }
-                rows={3}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-none"
-              />
-            </div>
-
-            {/* Project + Phase row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-text-secondary">
-                  Project
-                </label>
-                <Select
-                  value={formData.projectId || "none"}
-                  onValueChange={(v) => {
-                    const pid = v === "none" ? "" : v;
-                    setFormData((f) => ({ ...f, projectId: pid, phaseId: "" }));
-                    fetchPhases(pid);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="No project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-text-secondary">
-                  Phase
-                </label>
-                <Select
-                  value={formData.phaseId || "none"}
-                  onValueChange={(v) =>
-                    setFormData((f) => ({
-                      ...f,
-                      phaseId: v === "none" ? "" : v,
-                    }))
-                  }
-                  disabled={!formData.projectId || loadingPhases}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={loadingPhases ? "Loading..." : "No phase"}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No phase</SelectItem>
-                    {phases.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Priority + Category row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-text-secondary">
-                  Priority
-                </label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(v) =>
-                    setFormData((f) => ({ ...f, priority: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {capitalize(p)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-text-secondary">
-                  Category
-                </label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(v) =>
-                    setFormData((f) => ({ ...f, category: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {capitalize(c)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Assigned To */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                Assigned To
-              </label>
-              <Select
-                value={formData.assignedTo || "none"}
-                onValueChange={(v) =>
-                  setFormData((f) => ({
-                    ...f,
-                    assignedTo: v === "none" ? "" : v,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.userId} value={m.userId}>
-                      {m.user.name || m.user.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Due Date */}
-            <Input
-              label="Due Date"
-              type="date"
-              value={formData.dueDate}
-              onChange={(e) =>
-                setFormData((f) => ({ ...f, dueDate: e.target.value }))
-              }
-            />
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || !formData.title.trim()}
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : editingTask ? (
-                "Save Changes"
-              ) : (
-                "Create Task"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ================================================================= */}
-      {/* Delete Confirmation Dialog                                         */}
-      {/* ================================================================= */}
-      <Dialog
-        open={!!deleteTarget}
+      {/* Delete Confirmation Dialog */}
+      <TaskDeleteDialog
+        task={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Delete &ldquo;{deleteTarget?.title}&rdquo;?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            This will permanently delete this task. This action cannot be
-            undone.
-          </p>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button variant="danger" disabled={deleting} onClick={handleDelete}>
-              <Trash2 className="w-4 h-4" />
-              {deleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        deleting={deleting}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
