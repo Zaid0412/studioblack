@@ -8,7 +8,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { deriveInitials } from "@/lib/utils";
-import { fileType, statusBadge } from "@/lib/fileUtils";
+import { fileType, statusBadge, versionColor } from "@/lib/fileUtils";
+import { attachments as attachmentsApi } from "@/lib/api";
+import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import type { DbAttachment } from "@/types";
 
@@ -80,6 +82,36 @@ export function FileTable({
     [openUpload]
   );
 
+  const handleToggleFreeze = useCallback(
+    async (att: DbAttachment) => {
+      try {
+        if (att.frozen_at) {
+          await attachmentsApi.unfreeze(projectId, att.id);
+          toast({
+            title: "File unfrozen",
+            description: `"${att.file_name}" can now be edited.`,
+            variant: "success",
+          });
+        } else {
+          await attachmentsApi.freeze(projectId, att.id);
+          toast({
+            title: "File frozen",
+            description: `"${att.file_name}" is now locked.`,
+            variant: "success",
+          });
+        }
+        onRefresh();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to update freeze status.",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, onRefresh]
+  );
+
   const handleUploadSuccess = useCallback(() => {
     onRefresh();
   }, [onRefresh]);
@@ -137,6 +169,7 @@ export function FileTable({
             phaseFiles.map((att) => {
               const badge = statusBadge(att.review_status);
               const color = avatarColor(att.uploaded_by || "");
+              const vc = versionColor(att.version || 1);
               return (
                 <div
                   key={att.id}
@@ -149,7 +182,9 @@ export function FileTable({
                   <div className="flex-1 flex items-center gap-2.5 min-w-0">
                     <div className="relative shrink-0">
                       <FileText className="w-4 h-4 text-[#A0A0A0]" />
-                      <span className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full bg-[#2A1F00] min-w-[18px] h-[14px] px-1 text-[8px] font-bold text-[#F5C518] leading-none">
+                      <span
+                        className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
+                      >
                         V{att.version || 1}
                       </span>
                     </div>
@@ -229,6 +264,7 @@ export function FileTable({
                           : undefined
                       }
                       frozen={!!att.frozen_at}
+                      onToggleFreeze={() => handleToggleFreeze(att)}
                     />
                   </div>
                 </div>

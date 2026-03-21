@@ -4,9 +4,11 @@ import {
   ClipboardCheck,
   Download,
   History,
+    Lock,
   MoreVertical,
   Pencil,
   Trash2,
+  Unlock,
   Upload,
 } from "lucide-react";
 import {
@@ -25,6 +27,7 @@ interface FileContextMenuProps {
   onVersionHistory?: () => void;
   onViewReview?: () => void;
   frozen?: boolean;
+  onToggleFreeze?: () => void;
 }
 
 /** Context menu for file actions: edit, remove, download, version history, and review. */
@@ -36,6 +39,7 @@ export function FileContextMenu({
   onVersionHistory,
   onViewReview,
   frozen,
+  onToggleFreeze,
 }: FileContextMenuProps) {
   const hasTopItems = onEdit || onDownload || onUploadNewVersion;
 
@@ -80,6 +84,15 @@ export function FileContextMenu({
             <ClipboardCheck />
             View Review
           </DropdownMenuItem>
+        )}
+        {onToggleFreeze && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onToggleFreeze}>
+              {frozen ? <Unlock /> : <Lock />}
+              {frozen ? "Unfreeze File" : "Freeze File"}
+            </DropdownMenuItem>
+          </>
         )}
         {(hasTopItems || onVersionHistory || onViewReview) &&
           onRemove &&

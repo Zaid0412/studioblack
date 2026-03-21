@@ -73,6 +73,13 @@ export function getVersionHistory(projectId: string, versionGroup: string) {
 /**
  *
  */
+export function freeze(projectId: string, fileId: string) {
+  return apiPatch(API.attachmentFreeze(projectId, fileId));
+}
+
+/**
+ *
+ */
 export function unfreeze(projectId: string, fileId: string) {
   return apiPatch(API.attachmentUnfreeze(projectId, fileId));
 }

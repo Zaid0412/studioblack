@@ -29,6 +29,7 @@ export const API = {
   attachments:           (pid: string)                 => `/api/projects/${pid}/attachments`,
   attachment:            (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}`,
   attachmentReview:      (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/review`,
+  attachmentFreeze:      (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/freeze`,
   attachmentUnfreeze:    (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/unfreeze`,
 
   // ── Project → Versions ─────────────────────────

@@ -58,6 +58,26 @@ export function displayName(
   return nameOrEmail;
 }
 
+/** Version number → badge colors (bg + text). Cycles for V7+. */
+const VERSION_COLORS = [
+  { bg: "bg-[#0A1A2E]", text: "text-[#3B82F6]" }, // V1 — blue
+  { bg: "bg-[#1A0A2E]", text: "text-[#A855F7]" }, // V2 — purple
+  { bg: "bg-[#0A2E2A]", text: "text-[#14B8A6]" }, // V3 — teal
+  { bg: "bg-[#2E1A0A]", text: "text-[#F59E0B]" }, // V4 — amber
+  { bg: "bg-[#2E0A1A]", text: "text-[#EC4899]" }, // V5 — pink
+  { bg: "bg-[#0A2E14]", text: "text-[#22C55E]" }, // V6 — green
+];
+
+/**
+ *
+ */
+export function versionColor(version: number): { bg: string; text: string } {
+  const idx =
+    (((version - 1) % VERSION_COLORS.length) + VERSION_COLORS.length) %
+    VERSION_COLORS.length;
+  return VERSION_COLORS[idx];
+}
+
 /** Review status → badge colors and label. */
 export function statusBadge(status: string | undefined) {
   switch (status) {

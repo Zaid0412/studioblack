@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Lock, Download } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { attachments } from "@/lib/api";
-import { statusBadge } from "@/lib/fileUtils";
+import { statusBadge, versionColor } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import type { DbAttachment } from "@/types";
@@ -59,6 +59,7 @@ export default function VersionHistoryPage({
           {versions.map((v, i) => {
             const badge = statusBadge(v.review_status);
             const color = avatarColor(v.uploaded_by || "");
+            const vc = versionColor(v.version || 1);
             const isCurrent = i === 0;
 
             return (
@@ -74,7 +75,9 @@ export default function VersionHistoryPage({
                 {/* Version badge + icon */}
                 <div className="relative shrink-0">
                   <FileText className="w-5 h-5 text-[#A0A0A0]" />
-                  <span className="absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full bg-[#2A1F00] min-w-[18px] h-[14px] px-1 text-[8px] font-bold text-[#F5C518] leading-none">
+                  <span
+                    className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
+                  >
                     V{v.version || 1}
                   </span>
                 </div>
