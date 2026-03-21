@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
@@ -12,7 +12,6 @@ import { Card } from "@/components/ui/card";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/useToast";
-import { upload } from "@/lib/api";
 import {
   Select,
   SelectTrigger,
@@ -26,6 +25,7 @@ import { setLocale } from "@/lib/locale";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { useTheme } from "@/components/ThemeProvider";
+import { useAvatarUpload } from "@/hooks/useFileUpload";
 
 /** Client settings — profile, preferences, and theme. No password section (magic link auth). */
 export default function ClientSettingsPage() {
@@ -39,7 +39,6 @@ export default function ClientSettingsPage() {
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
 
@@ -53,50 +52,21 @@ export default function ClientSettingsPage() {
   const initials = deriveInitials(name);
   const email = session?.user?.email ?? "";
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const saveImage = useCallback(async (url: string) => {
+    await authClient.updateUser({ image: url });
+    setAvatarUrl(url);
+  }, []);
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast({
-        title: t("invalidFileType"),
-        description: t("invalidFileTypeDesc"),
-        variant: "error",
-      });
-      return;
-    }
-    if (file.size > 1 * 1024 * 1024) {
-      toast({
-        title: t("fileTooLarge"),
-        description: t("fileTooLargeDesc"),
-        variant: "error",
-      });
-      return;
-    }
+  const onAvatarSuccess = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
-    setIsUploading(true);
-    try {
-      const { url } = await upload.uploadAvatar(file);
-      await authClient.updateUser({ image: url });
-      setAvatarUrl(url);
-      router.refresh();
-
-      toast({
-        title: t("savedToast"),
-        description: t("avatarUpdated"),
-        variant: "success",
-      });
-    } catch {
-      toast({
-        title: t("error"),
-        description: t("avatarUploadError"),
-        variant: "error",
-      });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
+  const { isUploading, handleAvatarChange } = useAvatarUpload({
+    t,
+    toast,
+    saveImage,
+    onSuccess: onAvatarSuccess,
+  });
 
   const handleSave = async () => {
     setIsSaving(true);
