@@ -1,4 +1,5 @@
 import { apiGet, apiPatch, apiPost } from "./client";
+import { API } from "./routes";
 import type { DbAttachment, DbAttachmentReview } from "@/types";
 
 /**
@@ -12,18 +13,15 @@ export function list(
   if (opts?.phaseId) params.set("phaseId", opts.phaseId);
   if (opts?.all) params.set("all", "true");
   const qs = params.toString();
-  return apiGet<DbAttachment[]>(
-    `/api/projects/${projectId}/attachments${qs ? `?${qs}` : ""}`
-  );
+  const base = API.attachments(projectId);
+  return apiGet<DbAttachment[]>(`${base}${qs ? `?${qs}` : ""}`);
 }
 
 /**
  *
  */
 export function get(projectId: string, fileId: string) {
-  return apiGet<DbAttachment>(
-    `/api/projects/${projectId}/attachments/${fileId}`
-  );
+  return apiGet<DbAttachment>(API.attachment(projectId, fileId));
 }
 
 /**
@@ -39,16 +37,14 @@ export function create<T>(
     versionGroup?: string;
   }
 ) {
-  return apiPost<T>(`/api/projects/${projectId}/attachments`, data);
+  return apiPost<T>(API.attachments(projectId), data);
 }
 
 /**
  *
  */
 export function getReviewHistory(projectId: string, fileId: string) {
-  return apiGet<DbAttachmentReview[]>(
-    `/api/projects/${projectId}/attachments/${fileId}/review`
-  );
+  return apiGet<DbAttachmentReview[]>(API.attachmentReview(projectId, fileId));
 }
 
 /**
@@ -64,24 +60,19 @@ export function submitReview(
     annotationCount?: number;
   }
 ) {
-  return apiPatch(
-    `/api/projects/${projectId}/attachments/${fileId}/review`,
-    data
-  );
+  return apiPatch(API.attachmentReview(projectId, fileId), data);
 }
 
 /**
  *
  */
 export function getVersionHistory(projectId: string, versionGroup: string) {
-  return apiGet<DbAttachment[]>(
-    `/api/projects/${projectId}/versions/${versionGroup}`
-  );
+  return apiGet<DbAttachment[]>(API.versionHistory(projectId, versionGroup));
 }
 
 /**
  *
  */
 export function unfreeze(projectId: string, fileId: string) {
-  return apiPatch(`/api/projects/${projectId}/attachments/${fileId}/unfreeze`);
+  return apiPatch(API.attachmentUnfreeze(projectId, fileId));
 }

@@ -1,17 +1,18 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
+import { API } from "./routes";
 
 /**
  *
  */
 export function list<T>() {
-  return apiGet<T[]>("/api/projects");
+  return apiGet<T[]>(API.projects);
 }
 
 /**
  *
  */
 export function get<T>(id: string) {
-  return apiGet<T>(`/api/projects/${id}`);
+  return apiGet<T>(API.project(id));
 }
 
 /**
@@ -27,7 +28,7 @@ export function create<T>(data: {
   phases?: { name: string }[];
   architectIds?: string[];
 }) {
-  return apiPost<T>("/api/projects", data);
+  return apiPost<T>(API.projects, data);
 }
 
 /**
@@ -42,12 +43,12 @@ export function update<T>(
     deadline?: string | null;
   }
 ) {
-  return apiPatch<T>(`/api/projects/${id}`, data);
+  return apiPatch<T>(API.project(id), data);
 }
 
 /**
  *
  */
 export function remove(id: string) {
-  return apiDelete(`/api/projects/${id}`);
+  return apiDelete(API.project(id));
 }

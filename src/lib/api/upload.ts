@@ -1,4 +1,5 @@
 import { apiPost, apiBlob } from "./client";
+import { API } from "./routes";
 
 /**
  *
@@ -6,7 +7,7 @@ import { apiPost, apiBlob } from "./client";
 export function uploadFile(file: File) {
   const formData = new FormData();
   formData.append("file", file);
-  return apiPost<{ url: string; fileName: string }>("/api/upload", formData);
+  return apiPost<{ url: string; fileName: string }>(API.upload, formData);
 }
 
 /**
@@ -15,12 +16,12 @@ export function uploadFile(file: File) {
 export function uploadAvatar(file: File) {
   const formData = new FormData();
   formData.append("file", file);
-  return apiPost<{ url: string }>("/api/avatar", formData);
+  return apiPost<{ url: string }>(API.avatar, formData);
 }
 
 /**
  *
  */
 export function downloadFile(fileUrl: string) {
-  return apiBlob(`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`);
+  return apiBlob(API.proxyFile(fileUrl));
 }

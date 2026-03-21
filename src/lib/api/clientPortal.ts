@@ -1,8 +1,9 @@
 import { apiGet } from "./client";
+import { API } from "./routes";
 
 /**
  *
  */
 export function listProjects<T>() {
-  return apiGet<T[]>("/api/client/projects");
+  return apiGet<T[]>(API.clientProjects);
 }

@@ -1,37 +1,38 @@
 import { apiGet, apiPatch, apiDelete } from "./client";
+import { API } from "./routes";
 import type { DbNotificationRow } from "@/types";
 
 /**
  *
  */
 export function list() {
-  return apiGet<DbNotificationRow[]>("/api/notifications");
+  return apiGet<DbNotificationRow[]>(API.notifications);
 }
 
 /**
  *
  */
 export function markRead(ids: string[]) {
-  return apiPatch("/api/notifications", { ids });
+  return apiPatch(API.notifications, { ids });
 }
 
 /**
  *
  */
 export function markAllRead() {
-  return apiPatch("/api/notifications", { markAllRead: true });
+  return apiPatch(API.notifications, { markAllRead: true });
 }
 
 /**
  *
  */
 export function remove(id: string) {
-  return apiDelete("/api/notifications", { id });
+  return apiDelete(API.notifications, { id });
 }
 
 /**
  *
  */
 export function clearAll() {
-  return apiDelete("/api/notifications");
+  return apiDelete(API.notifications);
 }
