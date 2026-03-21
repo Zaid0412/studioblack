@@ -6,7 +6,7 @@ import { API } from "./routes";
  */
 export function list<T>(params?: Record<string, string>) {
   const qs = params ? new URLSearchParams(params).toString() : "";
-  return apiGet<T>(`${API.tasks}${qs ? `?${qs}` : ""}`);
+  return apiGet<T>(`${API.tasks()}${qs ? `?${qs}` : ""}`);
 }
 
 /**
@@ -29,7 +29,7 @@ export function create<T>(data: {
   assignedTo?: string;
   dueDate?: string | null;
 }) {
-  return apiPost<T>(API.tasks, data);
+  return apiPost<T>(API.tasks(), data);
 }
 
 /**

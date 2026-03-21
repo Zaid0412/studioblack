@@ -5,7 +5,7 @@ import { API } from "./routes";
  *
  */
 export function list<T>() {
-  return apiGet<T[]>(API.projects);
+  return apiGet<T[]>(API.projects());
 }
 
 /**
@@ -28,7 +28,7 @@ export function create<T>(data: {
   phases?: { name: string }[];
   architectIds?: string[];
 }) {
-  return apiPost<T>(API.projects, data);
+  return apiPost<T>(API.projects(), data);
 }
 
 /**

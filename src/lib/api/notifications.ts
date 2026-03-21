@@ -6,33 +6,33 @@ import type { DbNotificationRow } from "@/types";
  *
  */
 export function list() {
-  return apiGet<DbNotificationRow[]>(API.notifications);
+  return apiGet<DbNotificationRow[]>(API.notifications());
 }
 
 /**
  *
  */
 export function markRead(ids: string[]) {
-  return apiPatch(API.notifications, { ids });
+  return apiPatch(API.notifications(), { ids });
 }
 
 /**
  *
  */
 export function markAllRead() {
-  return apiPatch(API.notifications, { markAllRead: true });
+  return apiPatch(API.notifications(), { markAllRead: true });
 }
 
 /**
  *
  */
 export function remove(id: string) {
-  return apiDelete(API.notifications, { id });
+  return apiDelete(API.notifications(), { id });
 }
 
 /**
  *
  */
 export function clearAll() {
-  return apiDelete(API.notifications);
+  return apiDelete(API.notifications());
 }
