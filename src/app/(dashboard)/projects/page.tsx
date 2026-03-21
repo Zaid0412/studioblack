@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/authClient";
@@ -46,10 +46,7 @@ import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
-
-type FilterTab = "all" | "active" | "completed" | "draft";
-
-const PAGE_SIZE = 10;
+import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
@@ -57,16 +54,39 @@ export default function ProjectsPage() {
   const tc = useTranslations("common");
   const te = useTranslations("emptyStates");
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
   const [userRole, setUserRole] = useState<string | null>(null);
   const [projects, setProjects] = useState<DbProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const {
+    search,
+    setSearch,
+    activeFilter,
+    setActiveFilter,
+    statusFilter,
+    setStatusFilter,
+    sortBy,
+    setSortBy,
+    currentPage,
+    setCurrentPage,
+    filtered,
+    paginatedRows,
+    totalPages,
+    startIdx,
+    endIdx,
+    activeTabCount,
+  } = useProjectList({
+    items: projects,
+    searchFilter: (p, query) => {
+      const q = query.toLowerCase();
+      const client = p.client_name || p.client_email || "";
+      return (
+        p.name.toLowerCase().includes(q) || client.toLowerCase().includes(q)
+      );
+    },
+  });
 
   useEffect(() => {
     async function init() {
@@ -123,56 +143,6 @@ export default function ProjectsPage() {
     { key: "completed", label: t("filterCompleted") },
     { key: "draft", label: t("filterDraft") },
   ];
-
-  const filtered = useMemo(() => {
-    const list = projects.filter((p) => {
-      const client = p.client_name || p.client_email || "";
-      const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        client.toLowerCase().includes(search.toLowerCase());
-      const matchesTab = activeFilter === "all" || p.status === activeFilter;
-      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-      return matchesSearch && matchesTab && matchesStatus;
-    });
-
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case "oldest":
-          return (
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "updated":
-          return (
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
-          );
-        default: // newest
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-      }
-    });
-
-    return list;
-  }, [projects, search, activeFilter, statusFilter, sortBy]);
-
-  // Reset page when filters change (inline instead of useEffect to avoid cascading renders)
-  const filterKey = `${search}|${activeFilter}|${statusFilter}|${sortBy}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    if (currentPage !== 1) setCurrentPage(1);
-  }
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
-  const paginatedRows = filtered.slice(startIdx, endIdx);
-
-  // Count for active tab badge
-  const activeTabCount = filtered.length;
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">

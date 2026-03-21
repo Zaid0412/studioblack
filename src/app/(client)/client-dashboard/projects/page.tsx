@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Eye, FolderOpen, Loader2, MoreVertical } from "lucide-react";
@@ -23,10 +23,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { relativeTime } from "@/lib/formatTime";
 import { clientPortal } from "@/lib/api";
-
-type FilterTab = "all" | "active" | "completed" | "draft";
-
-const PAGE_SIZE = 10;
+import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 
 interface ClientProject {
   id: string;
@@ -44,13 +41,27 @@ export default function ClientProjectsPage() {
   const t = useTranslations("projects");
   const te = useTranslations("emptyStates");
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
   const [projects, setProjects] = useState<ClientProject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+
+  const {
+    search,
+    setSearch,
+    activeFilter,
+    setActiveFilter,
+    statusFilter,
+    setStatusFilter,
+    sortBy,
+    setSortBy,
+    currentPage,
+    setCurrentPage,
+    filtered,
+    paginatedRows,
+    totalPages,
+    startIdx,
+    endIdx,
+    activeTabCount,
+  } = useProjectList({ items: projects });
 
   useEffect(() => {
     clientPortal
@@ -66,52 +77,6 @@ export default function ClientProjectsPage() {
     { key: "completed", label: t("filterCompleted") },
     { key: "draft", label: t("filterDraft") },
   ];
-
-  const [prevFilterKey, setPrevFilterKey] = useState("");
-
-  const filtered = useMemo(() => {
-    const list = projects.filter((p) => {
-      const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-      const matchesTab = activeFilter === "all" || p.status === activeFilter;
-      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-      return matchesSearch && matchesTab && matchesStatus;
-    });
-
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case "oldest":
-          return (
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "updated":
-          return (
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
-          );
-        default:
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-      }
-    });
-
-    return list;
-  }, [projects, search, activeFilter, statusFilter, sortBy]);
-
-  const filterKey = `${search}|${activeFilter}|${statusFilter}|${sortBy}`;
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    if (currentPage !== 1) setCurrentPage(1);
-  }
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
-  const paginatedRows = filtered.slice(startIdx, endIdx);
-
-  const activeTabCount = filtered.length;
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
