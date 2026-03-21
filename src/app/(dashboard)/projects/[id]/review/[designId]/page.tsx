@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useRef, useState } from "react";
+import { use, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { ArrowLeft, FileText, Loader2, ClipboardCheck } from "lucide-react";
@@ -12,6 +12,7 @@ import { ThumbnailPanel } from "./_components/ThumbnailPanel";
 import { ReviewToolbar } from "./_components/ReviewToolbar";
 import { DocumentViewer } from "./_components/DocumentViewer";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
+import { UploadDialog } from "@/components/ui/UploadDialog";
 import { authClient } from "@/lib/authClient";
 import { displayName } from "@/lib/fileUtils";
 
@@ -40,6 +41,12 @@ export default function DesignReviewPage({
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  const handleUploadSuccess = useCallback(() => {
+    // Refresh to show the new version
+    review.setActiveFileId(review.activeFileId);
+  }, [review]);
 
   if (review.loading) {
     return (
@@ -98,6 +105,11 @@ export default function DesignReviewPage({
           onDownload={plugins.handleDownload}
           onPrint={plugins.handlePrint}
           onFullscreen={plugins.handleFullscreen}
+          onUploadNewVersion={
+            review.attachment?.version_group && !review.attachment?.frozen_at
+              ? () => setUploadOpen(true)
+              : undefined
+          }
           rightSlot={
             <button
               onClick={() => setReviewsOpen(!reviewsOpen)}
@@ -135,6 +147,18 @@ export default function DesignReviewPage({
           />
         )}
       </div>
+
+      {/* Upload New Version Dialog */}
+      {review.attachment?.version_group && (
+        <UploadDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          projectId={id}
+          phaseId={review.attachment.phase_id}
+          versionGroup={review.attachment.version_group}
+          onSuccess={handleUploadSuccess}
+        />
+      )}
     </div>
   );
 }

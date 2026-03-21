@@ -103,7 +103,7 @@ export default async function DashboardLayout({
           user={user}
         />
         <main className="relative flex-1 min-h-0 overflow-y-auto p-8 pr-20">
-          <div className="fixed top-4 right-8 z-40">
+          <div className="fixed top-4 right-8 z-50">
             <NotificationPanel />
           </div>
           <ErrorBoundary>{children}</ErrorBoundary>

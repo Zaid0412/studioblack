@@ -12,6 +12,7 @@ import {
   Camera,
   Printer,
   Maximize,
+  Upload,
 } from "lucide-react";
 
 interface ReviewToolbarProps {
@@ -29,6 +30,8 @@ interface ReviewToolbarProps {
   leftSlot?: ReactNode;
   /** Slot rendered before the comment button (e.g. reviews toggle) */
   rightSlot?: ReactNode;
+  /** Called when "Upload New Version" is clicked in the more menu */
+  onUploadNewVersion?: () => void;
 }
 
 /**
@@ -46,6 +49,7 @@ export function ReviewToolbar({
   onFullscreen,
   leftSlot,
   rightSlot,
+  onUploadNewVersion,
 }: ReviewToolbarProps) {
   const router = useRouter();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -141,6 +145,18 @@ export function ReviewToolbar({
                 <Maximize className="w-4 h-4" />
                 Fullscreen
               </button>
+              {onUploadNewVersion && (
+                <button
+                  onClick={() => {
+                    onUploadNewVersion();
+                    setMoreMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload New Version
+                </button>
+              )}
               <a
                 href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
                 target="_blank"
