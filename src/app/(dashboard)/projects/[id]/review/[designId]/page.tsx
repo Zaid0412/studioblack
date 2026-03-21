@@ -13,6 +13,8 @@ import { ReviewToolbar } from "./_components/ReviewToolbar";
 import { DocumentViewer } from "./_components/DocumentViewer";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { UploadDialog } from "@/components/ui/UploadDialog";
+import { toast } from "@/components/ui/useToast";
+import { attachments as attachmentsApi } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { displayName } from "@/lib/fileUtils";
 
@@ -44,9 +46,36 @@ export default function DesignReviewPage({
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const handleUploadSuccess = useCallback(() => {
-    // Refresh to show the new version
     review.setActiveFileId(review.activeFileId);
   }, [review]);
+
+  const handleToggleFreeze = useCallback(async () => {
+    if (!review.attachment) return;
+    try {
+      if (review.attachment.frozen_at) {
+        await attachmentsApi.unfreeze(id, review.attachment.id);
+        toast({
+          title: "File unfrozen",
+          description: `"${review.attachment.file_name}" can now be edited.`,
+          variant: "success",
+        });
+      } else {
+        await attachmentsApi.freeze(id, review.attachment.id);
+        toast({
+          title: "File frozen",
+          description: `"${review.attachment.file_name}" is now locked.`,
+          variant: "success",
+        });
+      }
+      review.setActiveFileId(review.activeFileId);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to update freeze status.",
+        variant: "error",
+      });
+    }
+  }, [id, review]);
 
   if (review.loading) {
     return (
@@ -110,6 +139,8 @@ export default function DesignReviewPage({
               ? () => setUploadOpen(true)
               : undefined
           }
+          frozen={!!review.attachment?.frozen_at}
+          onToggleFreeze={handleToggleFreeze}
           rightSlot={
             <button
               onClick={() => setReviewsOpen(!reviewsOpen)}
