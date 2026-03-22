@@ -7,6 +7,7 @@ import { Upload, FileText, Lock } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
 import { UploadDialog } from "@/components/ui/UploadDialog";
+import { VersionHistoryDialog } from "./VersionHistoryDialog";
 import { deriveInitials } from "@/lib/utils";
 import { fileType, statusBadge, versionColor } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
@@ -43,6 +44,9 @@ export function FileTable({
   );
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [versionHistoryGroup, setVersionHistoryGroup] = useState<string | null>(
+    null
+  );
 
   const openUpload = useCallback(
     (versionGroup?: string | null, files?: File[]) => {
@@ -249,10 +253,7 @@ export function FileTable({
                       onUploadNewVersion={() => openUpload(att.version_group)}
                       onVersionHistory={
                         att.version_group
-                          ? () =>
-                              router.push(
-                                `/projects/${projectId}/versions/${att.version_group}`
-                              )
+                          ? () => setVersionHistoryGroup(att.version_group!)
                           : undefined
                       }
                       onViewReview={
@@ -283,6 +284,17 @@ export function FileTable({
         initialFiles={droppedFiles}
         onSuccess={handleUploadSuccess}
       />
+
+      {versionHistoryGroup && (
+        <VersionHistoryDialog
+          open={!!versionHistoryGroup}
+          onOpenChange={(open) => {
+            if (!open) setVersionHistoryGroup(null);
+          }}
+          projectId={projectId}
+          versionGroup={versionHistoryGroup}
+        />
+      )}
     </div>
   );
 }
