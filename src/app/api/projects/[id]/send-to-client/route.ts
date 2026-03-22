@@ -63,7 +63,7 @@ export const POST = withAuth(
 
     // Send magic link via better-auth
     const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-    const callbackURL = `/client-dashboard`;
+    const callbackURL = `/dashboard`;
 
     try {
       // Use the better-auth magic link API to send the email

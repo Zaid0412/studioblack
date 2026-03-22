@@ -37,7 +37,7 @@ export function NavItem({
 }: NavItemProps) {
   const pathname = usePathname();
   // Exact match for dashboard roots, startsWith for everything else
-  const isDashboardRoot = href === "/dashboard" || href === "/client-dashboard";
+  const isDashboardRoot = href === "/dashboard";
   const isActive =
     pathname === href || (!isDashboardRoot && pathname.startsWith(href + "/"));
 

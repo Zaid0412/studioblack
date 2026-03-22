@@ -10,7 +10,7 @@ import type { DbAttachment, DbAttachmentReview, DbPhase } from "@/types";
 interface UseDesignReviewParams {
   projectId: string;
   designId: string;
-  /** Base path for URL replacement when switching files (e.g. "/projects" or "/client-dashboard/projects") */
+  /** Base path for URL replacement when switching files (e.g. "/projects") */
   basePath: string;
   /** Whether to fetch review history on initial load. Default: false. */
   fetchReviews?: boolean;

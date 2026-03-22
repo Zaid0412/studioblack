@@ -298,6 +298,30 @@ export interface DbNotificationRow {
 }
 
 // ---------------------------------------------------------------------------
+// Approval & pending task types (client portal)
+// ---------------------------------------------------------------------------
+
+/** A project-level approval decision (approve or request changes). */
+export interface DbApproval {
+  id: string;
+  decision: "approved" | "changes_requested";
+  comment: string;
+  user_name: string;
+  created_at: string;
+}
+
+/** A task awaiting client review. */
+export interface DbPendingTask {
+  id: string;
+  title: string;
+  description: string;
+  phase_name: string;
+  assigned_name: string | null;
+  review_status: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
 // Task manager types
 // ---------------------------------------------------------------------------
 

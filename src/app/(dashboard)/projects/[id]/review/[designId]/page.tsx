@@ -2,23 +2,27 @@
 
 import { use, useRef, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
 import { ArrowLeft, FileText, Loader2, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDesignReview } from "./_hooks/useDesignReview";
+import { useDesignReview } from "@/hooks/useDesignReview";
 import { useCommentTool } from "@/hooks/useCommentTool";
 import { usePdfPlugins } from "@/hooks/usePdfPlugins";
-import { ThumbnailPanel } from "./_components/ThumbnailPanel";
-import { ReviewToolbar } from "./_components/ReviewToolbar";
-import { DocumentViewer } from "./_components/DocumentViewer";
+import { useAnnotationTracker } from "@/hooks/useAnnotationTracker";
+import { useUserRole } from "@/hooks/useUserRole";
+import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
+import { ReviewToolbar } from "@/components/review/ReviewToolbar";
+import { DocumentViewer } from "@/components/review/DocumentViewer";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
+import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
-import { attachments as attachmentsApi } from "@/lib/api";
+import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
-import { displayName } from "@/lib/fileUtils";
+import { displayName, isPdf } from "@/lib/fileUtils";
 
-/** Design review workspace with file viewer, annotation tools, and comments panel. */
+/** Unified design review workspace — adapts to PM/architect or client role. */
 export default function DesignReviewPage({
   params,
 }: {
@@ -28,18 +32,32 @@ export default function DesignReviewPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const viewerRef = useRef<PDFViewerRef>(null);
+  const t = useTranslations("clientReview");
+  const tc = useTranslations("common");
 
+  const { role } = useUserRole();
+  const isClient = role === "client";
   const { data: session } = authClient.useSession();
+
   const review = useDesignReview({
     projectId: id,
     designId,
     basePath: "/projects",
-    fetchReviews: true,
+    fetchReviews: !isClient,
   });
   const plugins = usePdfPlugins({ viewerRef, attachment: review.attachment });
   const { commentToolActive, toggleCommentTool } = useCommentTool({
     viewerRef,
   });
+  const annotations = useAnnotationTracker({
+    viewerRef,
+    enabled:
+      isClient &&
+      !review.loading &&
+      !!review.attachment &&
+      isPdf(review.attachment.file_name),
+  });
+
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
@@ -77,6 +95,69 @@ export default function DesignReviewPage({
     }
   }, [id, review]);
 
+  // Client: submit a review with optional annotated PDF
+  async function handleSubmitReview(
+    status: "approved" | "rejected",
+    comment: string
+  ) {
+    let annotatedFileUrl: string | null = null;
+
+    if (annotations.hasChanges && isPdf(review.attachment?.file_name || "")) {
+      const buffer = await annotations.exportAnnotatedPdf();
+      if (buffer && buffer.byteLength > 0) {
+        const blob = new Blob([buffer], { type: "application/pdf" });
+        const baseName = review.attachment!.file_name.replace(/\.pdf$/i, "");
+        const reviewFileName = `${baseName}_review.pdf`;
+        const file = new File([blob], reviewFileName, {
+          type: "application/pdf",
+        });
+
+        try {
+          const { url } = await upload.uploadFile(file);
+          annotatedFileUrl = url;
+        } catch {
+          toast({
+            title: tc("error"),
+            description: "Failed to upload annotated PDF.",
+            variant: "error",
+          });
+          return;
+        }
+      }
+    }
+
+    try {
+      await attachmentsApi.submitReview(id, review.activeFileId, {
+        status,
+        comment,
+        annotatedFileUrl: annotatedFileUrl ?? undefined,
+        annotationCount: annotations.annotationCount,
+      });
+    } catch (err) {
+      toast({
+        title: tc("error"),
+        description:
+          err instanceof ApiError ? err.message : "Failed to submit review.",
+        variant: "error",
+      });
+      return;
+    }
+
+    toast({
+      title:
+        status === "approved" ? t("approvedToast") : t("changesRequestedToast"),
+      description:
+        status === "approved"
+          ? t("approvedDescription")
+          : t("changesRequestedDescription"),
+      variant: status === "approved" ? "success" : "error",
+    });
+
+    annotations.reset();
+    const updated = await review.fetchAttachment(review.activeFileId);
+    if (updated) review.setAttachment(updated);
+  }
+
   if (review.loading) {
     return (
       <div
@@ -112,7 +193,6 @@ export default function DesignReviewPage({
 
   return (
     <div className="flex -m-8" style={{ height: "calc(100vh)" }}>
-      {/* 1. Thumbnail Panel */}
       <ThumbnailPanel
         phaseFiles={review.phaseFiles}
         activeFileId={review.activeFileId}
@@ -121,9 +201,7 @@ export default function DesignReviewPage({
         onSelectFile={review.setActiveFileId}
       />
 
-      {/* 2. Center Area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
-        {/* 2a. Toolbar */}
         <ReviewToolbar
           backPath={`/projects/${id}`}
           fileName={fileName}
@@ -135,52 +213,85 @@ export default function DesignReviewPage({
           onPrint={plugins.handlePrint}
           onFullscreen={plugins.handleFullscreen}
           onUploadNewVersion={
-            review.attachment?.version_group && !review.attachment?.frozen_at
+            !isClient &&
+            review.attachment?.version_group &&
+            !review.attachment?.frozen_at
               ? () => setUploadOpen(true)
               : undefined
           }
-          frozen={!!review.attachment?.frozen_at}
-          onToggleFreeze={handleToggleFreeze}
+          frozen={!isClient ? !!review.attachment?.frozen_at : undefined}
+          onToggleFreeze={!isClient ? handleToggleFreeze : undefined}
+          leftSlot={
+            isClient &&
+            review.attachment.review_status &&
+            review.attachment.review_status !== "pending" ? (
+              <span
+                className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                  review.attachment.review_status === "approved"
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-amber-500/20 text-amber-400"
+                }`}
+              >
+                {review.attachment.review_status === "approved"
+                  ? t("approved")
+                  : t("changesRequested")}
+              </span>
+            ) : undefined
+          }
           rightSlot={
-            <button
-              onClick={() => setReviewsOpen(!reviewsOpen)}
-              className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                reviewsOpen
-                  ? "bg-[#F5C518]/15 text-[#F5C518]"
-                  : review.reviews.length > 0
-                    ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
-                    : "text-[#A0A0A0] hover:text-white"
-              }`}
-              title="Reviews"
-            >
-              <ClipboardCheck className="w-3.5 h-3.5" />
-              {review.reviews.length > 0 && (
-                <span>{review.reviews.length}</span>
-              )}
-            </button>
+            !isClient ? (
+              <button
+                onClick={() => setReviewsOpen(!reviewsOpen)}
+                className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                  reviewsOpen
+                    ? "bg-[#F5C518]/15 text-[#F5C518]"
+                    : review.reviews.length > 0
+                      ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
+                      : "text-[#A0A0A0] hover:text-white"
+                }`}
+                title="Reviews"
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                {review.reviews.length > 0 && (
+                  <span>{review.reviews.length}</span>
+                )}
+              </button>
+            ) : undefined
           }
         />
 
-        {/* 2b. Document Viewer */}
         <DocumentViewer
           activeFileId={review.activeFileId}
           fileName={fileName}
           fileUrl={fileUrl}
           viewerRef={viewerRef}
           annotations
-          annotationAuthor={displayName(session?.user?.name)}
+          annotationAuthor={displayName(
+            session?.user?.name,
+            isClient ? "Client" : undefined
+          )}
         />
-        {/* 2c. Reviews Panel (overlay) */}
-        {reviewsOpen && (
+
+        {/* PM: Reviews Panel (overlay) */}
+        {!isClient && reviewsOpen && (
           <ReviewPanel
             reviews={review.reviews}
             onClose={() => setReviewsOpen(false)}
           />
         )}
+
+        {/* Client: Review Submit Bar */}
+        {isClient && (
+          <ReviewSubmitBar
+            annotationCount={annotations.annotationCount}
+            hasChanges={annotations.hasChanges}
+            onSubmit={handleSubmitReview}
+          />
+        )}
       </div>
 
-      {/* Upload New Version Dialog */}
-      {review.attachment?.version_group && (
+      {/* PM: Upload New Version Dialog */}
+      {!isClient && review.attachment?.version_group && (
         <UploadDialog
           open={uploadOpen}
           onOpenChange={setUploadOpen}

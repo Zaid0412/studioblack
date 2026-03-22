@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/authClient";
 import {
   MoreVertical,
   Eye,
@@ -43,10 +42,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
-import { projects as projectsApi } from "@/lib/api";
+import { projects as projectsApi, clientPortal } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
+import { useUserRole } from "@/hooks/useUserRole";
 
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
@@ -54,7 +54,7 @@ export default function ProjectsPage() {
   const tc = useTranslations("common");
   const te = useTranslations("emptyStates");
   const router = useRouter();
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { role: userRole, loading: roleLoading } = useUserRole();
   const [projects, setProjects] = useState<DbProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
@@ -81,7 +81,10 @@ export default function ProjectsPage() {
     items: projects,
     searchFilter: (p, query) => {
       const q = query.toLowerCase();
-      const client = p.client_name || p.client_email || "";
+      const client =
+        (p as DbProjectRow).client_name ||
+        (p as DbProjectRow).client_email ||
+        "";
       return (
         p.name.toLowerCase().includes(q) || client.toLowerCase().includes(q)
       );
@@ -89,36 +92,17 @@ export default function ProjectsPage() {
   });
 
   useEffect(() => {
-    async function init() {
-      const { data: session } = await authClient.getSession();
-      if (!session?.user) return;
+    if (roleLoading || !userRole) return;
 
-      // Derive effective role from org membership
-      const orgId = session.session.activeOrganizationId;
-      if (orgId) {
-        try {
-          const { data: org } =
-            await authClient.organization.getFullOrganization();
-          const me = org?.members?.find(
-            (m: { userId: string }) => m.userId === session.user.id
-          );
-          if (me?.role === "owner" || me?.role === "admin") {
-            setUserRole("pm");
-          } else if (me?.role === "member") {
-            setUserRole("architect");
-          } else {
-            setUserRole(session.user.role ?? null);
-          }
-        } catch {
-          setUserRole(session.user.role ?? null);
-        }
-      } else {
-        setUserRole(session.user.role ?? null);
-      }
-
-      // Fetch projects
+    async function fetchProjects() {
       try {
-        setProjects(await projectsApi.list<DbProjectRow>());
+        if (userRole === "client") {
+          // Client API returns a simpler shape — cast to match table columns
+          const data = await clientPortal.listProjects<DbProjectRow>();
+          setProjects(data);
+        } else {
+          setProjects(await projectsApi.list<DbProjectRow>());
+        }
       } catch {
         setProjects([]);
       } finally {
@@ -126,16 +110,22 @@ export default function ProjectsPage() {
       }
     }
 
-    init();
-  }, []);
+    fetchProjects();
+  }, [userRole, roleLoading]);
 
   const handleRefresh = useCallback(async () => {
     try {
-      setProjects(await projectsApi.list<DbProjectRow>());
+      if (userRole === "client") {
+        setProjects(await clientPortal.listProjects<DbProjectRow>());
+      } else {
+        setProjects(await projectsApi.list<DbProjectRow>());
+      }
     } catch {
       /* keep current list on refresh failure */
     }
-  }, []);
+  }, [userRole]);
+
+  const isStaff = userRole === "pm" || userRole === "architect";
 
   const filters: { key: FilterTab; label: string }[] = [
     { key: "all", label: t("filterAll") },
@@ -230,18 +220,22 @@ export default function ProjectsPage() {
           <div className="flex-1 text-xs font-bold text-[#666666]">
             {t("projectName")}
           </div>
-          <div className="w-[140px] text-xs font-bold text-[#666666]">
-            {t("client")}
-          </div>
+          {isStaff && (
+            <div className="w-[140px] text-xs font-bold text-[#666666]">
+              {t("client")}
+            </div>
+          )}
           <div className="w-[100px] text-xs font-bold text-[#666666]">
             {t("category")}
           </div>
           <div className="w-[140px] text-xs font-bold text-[#666666]">
             {t("stage")}
           </div>
-          <div className="w-[110px] text-xs font-bold text-[#666666]">
-            {t("estimate")}
-          </div>
+          {isStaff && (
+            <div className="w-[110px] text-xs font-bold text-[#666666]">
+              {t("estimate")}
+            </div>
+          )}
           <div className="w-[80px] text-xs font-bold text-[#666666]">
             {t("updated")}
           </div>
@@ -250,7 +244,7 @@ export default function ProjectsPage() {
 
         {/* Table body */}
         <div className="flex-1">
-          {loading ? (
+          {loading || roleLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
             </div>
@@ -277,11 +271,13 @@ export default function ProjectsPage() {
                     {project.name}
                   </span>
                 </div>
-                <div className="w-[140px]">
-                  <span className="text-[13px] text-[#A0A0A0]">
-                    {project.client_name || project.client_email || "\u2014"}
-                  </span>
-                </div>
+                {isStaff && (
+                  <div className="w-[140px]">
+                    <span className="text-[13px] text-[#A0A0A0]">
+                      {project.client_name || project.client_email || "\u2014"}
+                    </span>
+                  </div>
+                )}
                 <div className="w-[100px]">
                   <span className="text-[13px] text-[#A0A0A0]">
                     {project.category
@@ -296,9 +292,13 @@ export default function ProjectsPage() {
                       project.status.slice(1)}
                   </Badge>
                 </div>
-                <div className="w-[110px]">
-                  <span className="text-[13px] text-[#A0A0A0]">{"\u2014"}</span>
-                </div>
+                {isStaff && (
+                  <div className="w-[110px]">
+                    <span className="text-[13px] text-[#A0A0A0]">
+                      {"\u2014"}
+                    </span>
+                  </div>
+                )}
                 <div className="w-[80px]">
                   <span className="text-[13px] text-[#666666]">
                     {relativeTime(project.updated_at || project.created_at)}
@@ -324,24 +324,28 @@ export default function ProjectsPage() {
                         <Eye className="w-4 h-4" />
                         {t("viewProject")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}/edit`);
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                        {t("editProject")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}/upload`);
-                        }}
-                      >
-                        <Upload className="w-4 h-4" />
-                        {t("uploadDesign")}
-                      </DropdownMenuItem>
+                      {isStaff && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/projects/${project.id}/edit`);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                            {t("editProject")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/projects/${project.id}/upload`);
+                            }}
+                          >
+                            <Upload className="w-4 h-4" />
+                            {t("uploadDesign")}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       {userRole === "pm" && (
                         <>
                           <DropdownMenuSeparator />
@@ -380,62 +384,64 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* Delete confirmation dialog */}
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Delete &ldquo;{deleteTarget?.name}&rdquo;?
-            </DialogTitle>
-            <DialogDescription>
-              This will permanently delete the project and all its files,
-              phases, and reviews. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">{tc("cancel")}</Button>
-            </DialogClose>
-            <Button
-              variant="danger"
-              disabled={deleting}
-              onClick={async () => {
-                if (!deleteTarget) return;
-                setDeleting(true);
-                try {
-                  await projectsApi.remove(deleteTarget.id);
-                  setProjects((prev) =>
-                    prev.filter((p) => p.id !== deleteTarget.id)
-                  );
-                  toast({
-                    title: "Project deleted",
-                    description: `"${deleteTarget.name}" has been deleted.`,
-                    variant: "success",
-                  });
-                } catch (err) {
-                  toast({
-                    title: tc("error"),
-                    description:
-                      err instanceof Error
-                        ? err.message
-                        : "Failed to delete project",
-                    variant: "error",
-                  });
-                } finally {
-                  setDeleting(false);
-                  setDeleteTarget(null);
-                }
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              {deleting ? tc("loading") : tc("delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete confirmation dialog (PM only) */}
+      {isStaff && (
+        <Dialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Delete &ldquo;{deleteTarget?.name}&rdquo;?
+              </DialogTitle>
+              <DialogDescription>
+                This will permanently delete the project and all its files,
+                phases, and reviews. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="secondary">{tc("cancel")}</Button>
+              </DialogClose>
+              <Button
+                variant="danger"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!deleteTarget) return;
+                  setDeleting(true);
+                  try {
+                    await projectsApi.remove(deleteTarget.id);
+                    setProjects((prev) =>
+                      prev.filter((p) => p.id !== deleteTarget.id)
+                    );
+                    toast({
+                      title: "Project deleted",
+                      description: `"${deleteTarget.name}" has been deleted.`,
+                      variant: "success",
+                    });
+                  } catch (err) {
+                    toast({
+                      title: tc("error"),
+                      description:
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to delete project",
+                      variant: "error",
+                    });
+                  } finally {
+                    setDeleting(false);
+                    setDeleteTarget(null);
+                  }
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleting ? tc("loading") : tc("delete")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

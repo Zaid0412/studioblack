@@ -44,13 +44,8 @@ export default function LoginPage() {
       return;
     }
 
-    // Role-based redirect
-    if (data?.user?.role === "client") {
-      router.push("/client-dashboard");
-    } else {
-      // PM and architect both go to /dashboard — layout handles onboarding redirect
-      router.push("/dashboard");
-    }
+    // All roles go to /dashboard — layout adapts based on role
+    router.push("/dashboard");
   };
 
   return (

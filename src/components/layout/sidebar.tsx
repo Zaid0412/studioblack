@@ -92,21 +92,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   ];
 
   const clientNav = [
-    {
-      href: "/client-dashboard",
-      label: t("dashboard"),
-      icon: LayoutDashboard,
-    },
-    {
-      href: "/client-dashboard/projects",
-      label: t("projects"),
-      icon: FolderOpen,
-    },
-    {
-      href: "/client-dashboard/settings",
-      label: t("settings"),
-      icon: Settings,
-    },
+    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
+    { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
   const navMap = { pm: pmNav, architect: architectNav, client: clientNav };

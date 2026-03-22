@@ -5,6 +5,20 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
+  async redirects() {
+    return [
+      {
+        source: "/client-dashboard",
+        destination: "/dashboard",
+        permanent: true,
+      },
+      {
+        source: "/client-dashboard/:path*",
+        destination: "/:path*",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       { hostname: "studio-black.co.in" },
