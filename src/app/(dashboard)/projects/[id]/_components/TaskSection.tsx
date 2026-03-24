@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Plus,
   Loader2,
@@ -38,6 +38,7 @@ import {
   capitalize,
 } from "@/lib/taskUtils";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
+import { toast } from "@/components/ui/useToast";
 import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
 import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
@@ -61,15 +62,18 @@ export function TaskSection({
   phases,
   members,
 }: TaskSectionProps) {
-  const emptyForm: TaskFormData = {
-    title: "",
-    description: "",
-    phaseId: activePhaseId,
-    priority: "medium",
-    category: "general",
-    assignedTo: "",
-    dueDate: "",
-  };
+  const emptyForm: TaskFormData = useMemo(
+    () => ({
+      title: "",
+      description: "",
+      phaseId: activePhaseId,
+      priority: "medium",
+      category: "general",
+      assignedTo: "",
+      dueDate: "",
+    }),
+    [activePhaseId]
+  );
 
   // -- Data state --
   const [allTasks, setAllTasks] = useState<Task[]>([]);
@@ -85,6 +89,11 @@ export function TaskSection({
       setAllTasks(data.tasks ?? []);
     } catch {
       setAllTasks([]);
+      toast({
+        title: "Error",
+        description: "Failed to load tasks",
+        variant: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -135,8 +144,9 @@ export function TaskSection({
   }, [highlightTaskId, loading]);
 
   // -- Filter by active phase (client-side) --
-  const filteredTasks = allTasks.filter(
-    (t) => t.phase_id === activePhaseId || !t.phase_id
+  const filteredTasks = useMemo(
+    () => allTasks.filter((t) => t.phase_id === activePhaseId || !t.phase_id),
+    [allTasks, activePhaseId]
   );
 
   // =========================================================================

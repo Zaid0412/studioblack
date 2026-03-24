@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type {
   DbAttachment,
   DbComment,
@@ -16,6 +16,7 @@ import {
   tasks as tasksApi,
   upload,
 } from "@/lib/api";
+import { toast } from "@/components/ui/useToast";
 
 interface UseProjectDetailOptions {
   /** When true, also fetches approvals and pending tasks (client-specific). */
@@ -44,41 +45,47 @@ export function useProjectDetail(
   const [error, setError] = useState(false);
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetches: Promise<unknown>[] = [
-      projectsApi.get<DbProjectDetail>(id),
-      attachmentsApi.list(id, { all: true }).catch(() => [] as DbAttachment[]),
-      commentsApi.list(id).catch(() => [] as DbComment[]),
-    ];
+  const fetchAll = useCallback(
+    async (opts?: { setInitialPhase?: boolean }) => {
+      const fetches: Promise<unknown>[] = [
+        projectsApi.get<DbProjectDetail>(id).catch(() => null),
+        attachmentsApi
+          .list(id, { all: true })
+          .catch(() => [] as DbAttachment[]),
+        commentsApi.list(id).catch(() => [] as DbComment[]),
+      ];
 
-    if (includeApprovals) {
-      fetches.push(
-        approvalsApi.list<DbApproval>(id).catch(() => [] as DbApproval[]),
-        tasksApi
-          .getPendingReview<DbPendingTask>(id)
-          .catch(() => [] as DbPendingTask[])
-      );
-    }
+      if (includeApprovals) {
+        fetches.push(
+          approvalsApi.list(id).catch(() => [] as DbApproval[]),
+          tasksApi.getPendingReview(id).catch(() => [] as DbPendingTask[])
+        );
+      }
 
-    Promise.all(fetches)
-      .then(
-        ([projectData, attachData, commentData, approvalData, taskData]) => {
-          setProject(projectData as DbProjectDetail);
-          setAttachments(attachData as DbAttachment[]);
-          setComments(commentData as DbComment[]);
-          if (includeApprovals) {
-            setApprovals((approvalData as DbApproval[]) || []);
-            setPendingTasks((taskData as DbPendingTask[]) || []);
-          }
-          const p = projectData as DbProjectDetail;
-          if (p.phases?.length > 0) {
-            setActivePhaseId(p.phases[0].id);
-          }
+      const [projectData, attachData, commentData, approvalData, taskData] =
+        await Promise.all(fetches);
+      if (projectData) setProject(projectData as DbProjectDetail);
+      setAttachments(attachData as DbAttachment[]);
+      setComments(commentData as DbComment[]);
+      if (includeApprovals) {
+        setApprovals((approvalData as DbApproval[]) || []);
+        setPendingTasks((taskData as DbPendingTask[]) || []);
+      }
+      if (opts?.setInitialPhase) {
+        const p = projectData as DbProjectDetail | null;
+        if (p?.phases?.length) {
+          setActivePhaseId(p.phases[0].id);
         }
-      )
+      }
+    },
+    [id, includeApprovals]
+  );
+
+  useEffect(() => {
+    fetchAll({ setInitialPhase: true })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [id, includeApprovals]);
+  }, [fetchAll]);
 
   // --- Comments ---
   const handleSendComment = useCallback(async () => {
@@ -90,7 +97,11 @@ export function useProjectDetail(
       setComments(updated);
       setNewComment("");
     } catch {
-      /* keep existing */
+      toast({
+        title: "Error",
+        description: "Failed to send comment",
+        variant: "error",
+      });
     } finally {
       setSendingComment(false);
     }
@@ -105,30 +116,7 @@ export function useProjectDetail(
     }
   }, [id]);
 
-  const refreshAll = useCallback(async () => {
-    const fetches: Promise<unknown>[] = [
-      projectsApi.get<DbProjectDetail>(id).catch(() => null),
-      attachmentsApi.list(id, { all: true }).catch(() => [] as DbAttachment[]),
-      commentsApi.list(id).catch(() => [] as DbComment[]),
-    ];
-    if (includeApprovals) {
-      fetches.push(
-        approvalsApi.list<DbApproval>(id).catch(() => [] as DbApproval[]),
-        tasksApi
-          .getPendingReview<DbPendingTask>(id)
-          .catch(() => [] as DbPendingTask[])
-      );
-    }
-    const [projectData, attachData, commentData, approvalData, taskData] =
-      await Promise.all(fetches);
-    if (projectData) setProject(projectData as DbProjectDetail);
-    setAttachments(attachData as DbAttachment[]);
-    setComments(commentData as DbComment[]);
-    if (includeApprovals) {
-      setApprovals((approvalData as DbApproval[]) || []);
-      setPendingTasks((taskData as DbPendingTask[]) || []);
-    }
-  }, [id, includeApprovals]);
+  const refreshAll = useCallback(() => fetchAll(), [fetchAll]);
 
   // --- Download ---
   const handleDownload = useCallback(async (att: DbAttachment) => {
@@ -153,13 +141,17 @@ export function useProjectDetail(
       try {
         await approvalsApi.submit(id, { decision, comment: comment || "" });
         const [updatedApprovals, updatedProject] = await Promise.all([
-          approvalsApi.list<DbApproval>(id).catch(() => [] as DbApproval[]),
+          approvalsApi.list(id).catch(() => [] as DbApproval[]),
           projectsApi.get<DbProjectDetail>(id).catch(() => null),
         ]);
         setApprovals(updatedApprovals);
         if (updatedProject) setProject(updatedProject);
       } catch {
-        /* keep existing */
+        toast({
+          title: "Error",
+          description: "Failed to submit decision",
+          variant: "error",
+        });
       } finally {
         setSubmittingDecision(false);
       }
@@ -182,7 +174,11 @@ export function useProjectDetail(
         });
         setPendingTasks((prev) => prev.filter((t) => t.id !== taskId));
       } catch {
-        /* keep existing */
+        toast({
+          title: "Error",
+          description: "Failed to submit task review",
+          variant: "error",
+        });
       } finally {
         setReviewingTaskId(null);
       }
@@ -191,12 +187,18 @@ export function useProjectDetail(
   );
 
   // --- Derived ---
-  const phaseCounts = new Map<string, number>();
-  for (const a of attachments) {
-    if (a.phase_id)
-      phaseCounts.set(a.phase_id, (phaseCounts.get(a.phase_id) || 0) + 1);
-  }
-  const phaseFiles = attachments.filter((a) => a.phase_id === activePhaseId);
+  const phaseCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const a of attachments) {
+      if (a.phase_id) counts.set(a.phase_id, (counts.get(a.phase_id) || 0) + 1);
+    }
+    return counts;
+  }, [attachments]);
+
+  const phaseFiles = useMemo(
+    () => attachments.filter((a) => a.phase_id === activePhaseId),
+    [attachments, activePhaseId]
+  );
 
   return {
     project,

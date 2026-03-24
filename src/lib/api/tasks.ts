@@ -1,6 +1,11 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
-import type { Task } from "@/types";
+import type {
+  Task,
+  ChecklistItem,
+  TaskAttachment,
+  DbPendingTask,
+} from "@/types";
 
 export interface TaskListResponse {
   tasks: Task[];
@@ -77,15 +82,15 @@ export function toggleStar(id: string) {
 /**
  *
  */
-export function getChecklist<T>(taskId: string) {
-  return apiGet<T[]>(API.taskChecklist(taskId));
+export function getChecklist(taskId: string) {
+  return apiGet<ChecklistItem[]>(API.taskChecklist(taskId));
 }
 
 /**
  *
  */
-export function addChecklistItem<T>(taskId: string, title: string) {
-  return apiPost<T>(API.taskChecklist(taskId), { title });
+export function addChecklistItem(taskId: string, title: string) {
+  return apiPost<ChecklistItem>(API.taskChecklist(taskId), { title });
 }
 
 /**
@@ -120,18 +125,18 @@ export function reorderChecklist(taskId: string, orderedIds: string[]) {
 /**
  *
  */
-export function getAttachments<T>(taskId: string) {
-  return apiGet<T[]>(API.taskAttachments(taskId));
+export function getAttachments(taskId: string) {
+  return apiGet<TaskAttachment[]>(API.taskAttachments(taskId));
 }
 
 /**
  *
  */
-export function addAttachment<T>(
+export function addAttachment(
   taskId: string,
   data: { fileUrl: string; fileName: string; fileSize: number }
 ) {
-  return apiPost<T>(API.taskAttachments(taskId), data);
+  return apiPost<TaskAttachment>(API.taskAttachments(taskId), data);
 }
 
 /**
@@ -157,6 +162,6 @@ export function submitReview(
 /**
  *
  */
-export function getPendingReview<T>(projectId: string) {
-  return apiGet<T[]>(API.tasksPendingReview(projectId));
+export function getPendingReview(projectId: string) {
+  return apiGet<DbPendingTask[]>(API.tasksPendingReview(projectId));
 }

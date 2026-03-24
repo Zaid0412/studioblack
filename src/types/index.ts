@@ -361,6 +361,27 @@ export interface Task {
   checklist_done: number;
 }
 
+/** A single checklist item on a task. */
+export interface ChecklistItem {
+  id: string;
+  task_id: string;
+  title: string;
+  is_done: boolean;
+  position: number;
+  created_at: string;
+}
+
+/** A file attached to a standalone task. */
+export interface TaskAttachment {
+  id: string;
+  standalone_task_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
 export interface TaskFormData {
   title: string;
   description: string;

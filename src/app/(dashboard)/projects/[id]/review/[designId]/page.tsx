@@ -45,7 +45,14 @@ export default function DesignReviewPage({
     basePath: "/projects",
     fetchReviews: !isClient,
   });
-  const plugins = usePdfPlugins({ viewerRef, attachment: review.attachment });
+  const {
+    activeFileId,
+    setActiveFileId,
+    attachment,
+    setAttachment,
+    fetchAttachment,
+  } = review;
+  const plugins = usePdfPlugins({ viewerRef, attachment });
   const { commentToolActive, toggleCommentTool } = useCommentTool({
     viewerRef,
   });
@@ -54,8 +61,8 @@ export default function DesignReviewPage({
     enabled:
       isClient &&
       !review.loading &&
-      !!review.attachment &&
-      isPdf(review.attachment.file_name),
+      !!attachment &&
+      isPdf(attachment.file_name),
   });
 
   const [reviewsOpen, setReviewsOpen] = useState(
@@ -63,29 +70,31 @@ export default function DesignReviewPage({
   );
   const [uploadOpen, setUploadOpen] = useState(false);
 
-  const handleUploadSuccess = useCallback(() => {
-    review.setActiveFileId(review.activeFileId);
-  }, [review]);
+  const handleUploadSuccess = useCallback(async () => {
+    const updated = await fetchAttachment(activeFileId);
+    if (updated) setAttachment(updated);
+  }, [fetchAttachment, activeFileId, setAttachment]);
 
   const handleToggleFreeze = useCallback(async () => {
-    if (!review.attachment) return;
+    if (!attachment) return;
     try {
-      if (review.attachment.frozen_at) {
-        await attachmentsApi.unfreeze(id, review.attachment.id);
+      if (attachment.frozen_at) {
+        await attachmentsApi.unfreeze(id, attachment.id);
         toast({
           title: "File unfrozen",
-          description: `"${review.attachment.file_name}" can now be edited.`,
+          description: `"${attachment.file_name}" can now be edited.`,
           variant: "success",
         });
       } else {
-        await attachmentsApi.freeze(id, review.attachment.id);
+        await attachmentsApi.freeze(id, attachment.id);
         toast({
           title: "File frozen",
-          description: `"${review.attachment.file_name}" is now locked.`,
+          description: `"${attachment.file_name}" is now locked.`,
           variant: "success",
         });
       }
-      review.setActiveFileId(review.activeFileId);
+      const updated = await fetchAttachment(activeFileId);
+      if (updated) setAttachment(updated);
     } catch {
       toast({
         title: "Error",
@@ -93,7 +102,7 @@ export default function DesignReviewPage({
         variant: "error",
       });
     }
-  }, [id, review]);
+  }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
 
   // Client: submit a review with optional annotated PDF
   async function handleSubmitReview(
@@ -102,11 +111,11 @@ export default function DesignReviewPage({
   ) {
     let annotatedFileUrl: string | null = null;
 
-    if (annotations.hasChanges && isPdf(review.attachment?.file_name || "")) {
+    if (annotations.hasChanges && isPdf(attachment?.file_name || "")) {
       const buffer = await annotations.exportAnnotatedPdf();
       if (buffer && buffer.byteLength > 0) {
         const blob = new Blob([buffer], { type: "application/pdf" });
-        const baseName = review.attachment!.file_name.replace(/\.pdf$/i, "");
+        const baseName = attachment!.file_name.replace(/\.pdf$/i, "");
         const reviewFileName = `${baseName}_review.pdf`;
         const file = new File([blob], reviewFileName, {
           type: "application/pdf",
@@ -127,7 +136,7 @@ export default function DesignReviewPage({
     }
 
     try {
-      await attachmentsApi.submitReview(id, review.activeFileId, {
+      await attachmentsApi.submitReview(id, activeFileId, {
         status,
         comment,
         annotatedFileUrl: annotatedFileUrl ?? undefined,
@@ -154,8 +163,8 @@ export default function DesignReviewPage({
     });
 
     annotations.reset();
-    const updated = await review.fetchAttachment(review.activeFileId);
-    if (updated) review.setAttachment(updated);
+    const updated = await fetchAttachment(activeFileId);
+    if (updated) setAttachment(updated);
   }
 
   if (review.loading) {
@@ -169,7 +178,7 @@ export default function DesignReviewPage({
     );
   }
 
-  if (!review.attachment) {
+  if (!attachment) {
     return (
       <div
         className="flex flex-col items-center justify-center -m-8 gap-4"
@@ -189,16 +198,16 @@ export default function DesignReviewPage({
     );
   }
 
-  const { file_name: fileName, file_url: fileUrl } = review.attachment;
+  const { file_name: fileName, file_url: fileUrl } = attachment;
 
   return (
     <div className="flex -m-8" style={{ height: "calc(100vh)" }}>
       <ThumbnailPanel
         phaseFiles={review.phaseFiles}
-        activeFileId={review.activeFileId}
+        activeFileId={activeFileId}
         phaseName={review.phaseName}
         loading={review.filesLoading}
-        onSelectFile={review.setActiveFileId}
+        onSelectFile={setActiveFileId}
       />
 
       <div className="flex-1 flex flex-col min-w-0 relative">
@@ -213,26 +222,24 @@ export default function DesignReviewPage({
           onPrint={plugins.handlePrint}
           onFullscreen={plugins.handleFullscreen}
           onUploadNewVersion={
-            !isClient &&
-            review.attachment?.version_group &&
-            !review.attachment?.frozen_at
+            !isClient && attachment?.version_group && !attachment?.frozen_at
               ? () => setUploadOpen(true)
               : undefined
           }
-          frozen={!isClient ? !!review.attachment?.frozen_at : undefined}
+          frozen={!isClient ? !!attachment?.frozen_at : undefined}
           onToggleFreeze={!isClient ? handleToggleFreeze : undefined}
           leftSlot={
             isClient &&
-            review.attachment.review_status &&
-            review.attachment.review_status !== "pending" ? (
+            attachment.review_status &&
+            attachment.review_status !== "pending" ? (
               <span
                 className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                  review.attachment.review_status === "approved"
+                  attachment.review_status === "approved"
                     ? "bg-emerald-500/20 text-emerald-400"
                     : "bg-amber-500/20 text-amber-400"
                 }`}
               >
-                {review.attachment.review_status === "approved"
+                {attachment.review_status === "approved"
                   ? t("approved")
                   : t("changesRequested")}
               </span>
@@ -261,7 +268,7 @@ export default function DesignReviewPage({
         />
 
         <DocumentViewer
-          activeFileId={review.activeFileId}
+          activeFileId={activeFileId}
           fileName={fileName}
           fileUrl={fileUrl}
           viewerRef={viewerRef}
@@ -291,13 +298,13 @@ export default function DesignReviewPage({
       </div>
 
       {/* PM: Upload New Version Dialog */}
-      {!isClient && review.attachment?.version_group && (
+      {!isClient && attachment?.version_group && (
         <UploadDialog
           open={uploadOpen}
           onOpenChange={setUploadOpen}
           projectId={id}
-          phaseId={review.attachment.phase_id}
-          versionGroup={review.attachment.version_group}
+          phaseId={attachment.phase_id}
+          versionGroup={attachment.version_group}
           onSuccess={handleUploadSuccess}
         />
       )}

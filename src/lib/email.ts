@@ -20,6 +20,8 @@ function getTransport(): nodemailer.Transporter {
     _transport = nodemailer.createTransport({
       host: e.SMTP_HOST,
       port: Number(e.SMTP_PORT),
+      secure: false,
+      requireTLS: true,
       auth: {
         user: e.SMTP_USER,
         pass: e.SMTP_PASS,

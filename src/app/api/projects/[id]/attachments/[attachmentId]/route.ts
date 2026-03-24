@@ -16,7 +16,10 @@ export const GET = withAuth(
     // Include version history if this file has versions
     let versions: unknown[] = [];
     if (attachment.version_group) {
-      versions = await getAttachmentVersionHistory(attachment.version_group);
+      versions = await getAttachmentVersionHistory(
+        attachment.version_group,
+        id
+      );
     }
 
     return NextResponse.json({ ...attachment, versions });

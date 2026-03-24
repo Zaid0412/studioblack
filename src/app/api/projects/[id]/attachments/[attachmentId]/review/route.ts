@@ -8,17 +8,35 @@ import {
 import { getPool } from "@/lib/db";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
 
-const VALID_STATUSES = ["approved", "rejected", "reviewed", "pending"];
+const VALID_STATUSES = ["approved", "rejected"];
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/review — submit a review. */
 export const PATCH = withAuth(
   { allowedRoles: ["client"], projectAccess: true },
   async (req, { user }, params) => {
+    const { allowed } = rateLimit(`review:${user.id}`, {
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { id, attachmentId } = params;
 
     const body = await req.json();
-    const { status, comment, annotatedFileUrl, annotationCount } = body;
+    const { status, comment, annotatedFileUrl } = body;
+    const annotationCount =
+      body.annotationCount != null &&
+      Number.isInteger(Number(body.annotationCount)) &&
+      Number(body.annotationCount) >= 0
+        ? Number(body.annotationCount)
+        : 0;
 
     if (!status || !VALID_STATUSES.includes(status)) {
       return NextResponse.json(

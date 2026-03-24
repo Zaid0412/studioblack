@@ -131,36 +131,31 @@ export function useNotifications({
     [notifications]
   );
 
-  const [today] = useState(() => new Date().toDateString());
-  const [yesterday] = useState(() =>
-    new Date(new Date().getTime() - 86400000).toDateString()
-  );
-
-  const groups = useMemo(
-    () =>
-      [
-        {
-          label: t("today"),
-          items: notifications.filter(
-            (n) => new Date(n.createdAt).toDateString() === today
-          ),
-        },
-        {
-          label: t("yesterday"),
-          items: notifications.filter(
-            (n) => new Date(n.createdAt).toDateString() === yesterday
-          ),
-        },
-        {
-          label: t("earlier"),
-          items: notifications.filter((n) => {
-            const date = new Date(n.createdAt).toDateString();
-            return date !== today && date !== yesterday;
-          }),
-        },
-      ].filter((g) => g.items.length > 0),
-    [notifications, today, yesterday, t]
-  );
+  const groups = useMemo(() => {
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    return [
+      {
+        label: t("today"),
+        items: notifications.filter(
+          (n) => new Date(n.createdAt).toDateString() === today
+        ),
+      },
+      {
+        label: t("yesterday"),
+        items: notifications.filter(
+          (n) => new Date(n.createdAt).toDateString() === yesterday
+        ),
+      },
+      {
+        label: t("earlier"),
+        items: notifications.filter((n) => {
+          const date = new Date(n.createdAt).toDateString();
+          return date !== today && date !== yesterday;
+        }),
+      },
+    ].filter((g) => g.items.length > 0);
+  }, [notifications, t]);
 
   const handleNotificationClick = async (notification: Notification) => {
     if (

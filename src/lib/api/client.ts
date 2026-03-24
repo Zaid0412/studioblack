@@ -23,7 +23,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     );
   }
   const text = await res.text();
-  if (!text) return undefined as T & void;
+  /** Returns undefined for empty response bodies (e.g. 204 No Content). */
+  if (!text) return undefined as unknown as T;
   return JSON.parse(text) as T;
 }
 

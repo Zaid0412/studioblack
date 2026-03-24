@@ -38,12 +38,18 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     req: NextRequest,
     routeParams?: RouteParams
   ): Promise<NextResponse<unknown>> => {
-    // CSRF origin check for mutating methods
+    // CSRF origin check for mutating methods (fail-closed)
     const method = req.method.toUpperCase();
     if (["POST", "PATCH", "PUT", "DELETE"].includes(method)) {
       const origin = req.headers.get("origin");
       const host = req.headers.get("host");
-      if (origin && host) {
+      if (!origin) {
+        return NextResponse.json(
+          { error: "CSRF origin missing" },
+          { status: 403 }
+        );
+      }
+      if (host) {
         const originHost = new URL(origin).host;
         if (originHost !== host) {
           return NextResponse.json(

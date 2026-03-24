@@ -14,7 +14,8 @@ export const GET = withAuth(
     }
 
     const versions = await getAttachmentVersionHistory(
-      attachment.version_group
+      attachment.version_group,
+      id
     );
     return NextResponse.json(versions);
   }

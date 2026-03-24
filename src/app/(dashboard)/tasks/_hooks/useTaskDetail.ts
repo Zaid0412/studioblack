@@ -1,32 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "@/components/ui/useToast";
 import { tasks as tasksApi, upload } from "@/lib/api";
-import type { Task } from "@/types";
+import type { Task, TaskAttachment } from "@/types";
+export type { ChecklistItem, TaskAttachment } from "@/types";
+import type { ChecklistItem } from "@/types";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { DragEndEvent } from "@dnd-kit/core";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface ChecklistItem {
-  id: string;
-  task_id: string;
-  title: string;
-  is_done: boolean;
-  position: number;
-  created_at: string;
-}
-
-export interface Attachment {
-  id: string;
-  standalone_task_id: string;
-  file_url: string;
-  file_name: string;
-  file_size: number | null;
-  uploaded_by: string;
-  created_at: string;
-}
+/** @deprecated Use {@link TaskAttachment} from `@/types` instead. */
+export type Attachment = TaskAttachment;
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -57,7 +39,7 @@ export function useTaskDetail(
   const fetchChecklist = useCallback(async (taskId: string) => {
     setLoadingChecklist(true);
     try {
-      const items = await tasksApi.getChecklist<ChecklistItem>(taskId);
+      const items = await tasksApi.getChecklist(taskId);
       setChecklistItems(items);
     } catch {
       // ignore
@@ -69,7 +51,7 @@ export function useTaskDetail(
   const fetchAttachments = useCallback(async (taskId: string) => {
     setLoadingAttachments(true);
     try {
-      const items = await tasksApi.getAttachments<Attachment>(taskId);
+      const items = await tasksApi.getAttachments(taskId);
       setAttachments(items);
     } catch {
       // ignore
@@ -122,7 +104,7 @@ export function useTaskDetail(
     if (!task || !newItemTitle.trim() || addingItem) return;
     setAddingItem(true);
     try {
-      const item = await tasksApi.addChecklistItem<ChecklistItem>(
+      const item = await tasksApi.addChecklistItem(
         task.id,
         newItemTitle.trim()
       );
@@ -192,7 +174,7 @@ export function useTaskDetail(
       setUploading(true);
       try {
         const { url, fileName } = await upload.uploadFile(file);
-        const att = await tasksApi.addAttachment<Attachment>(task.id, {
+        const att = await tasksApi.addAttachment(task.id, {
           fileUrl: url,
           fileName,
           fileSize: file.size,

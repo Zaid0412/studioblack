@@ -27,7 +27,7 @@ export function get(projectId: string, fileId: string) {
 /**
  *
  */
-export function create<T>(
+export function create(
   projectId: string,
   data: {
     fileUrl: string;
@@ -37,7 +37,7 @@ export function create<T>(
     versionGroup?: string;
   }
 ) {
-  return apiPost<T>(API.attachments(projectId), data);
+  return apiPost<DbAttachment>(API.attachments(projectId), data);
 }
 
 /**

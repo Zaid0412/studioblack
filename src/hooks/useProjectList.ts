@@ -6,6 +6,11 @@ export type FilterTab = "all" | "active" | "completed" | "draft";
 
 const PAGE_SIZE = 10;
 
+/** Default search predicate — matches project name (case-insensitive). */
+function defaultSearch<T extends ProjectListItem>(item: T, query: string) {
+  return item.name.toLowerCase().includes(query.toLowerCase());
+}
+
 /** Minimal shape a project item must satisfy for filtering/sorting/pagination. */
 export interface ProjectListItem {
   name: string;
@@ -34,9 +39,6 @@ export function useProjectList<T extends ProjectListItem>({
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
   const [currentPage, setCurrentPage] = useState(1);
-
-  const defaultSearch = (item: T, query: string) =>
-    item.name.toLowerCase().includes(query.toLowerCase());
 
   const matchSearch = searchFilter ?? defaultSearch;
 

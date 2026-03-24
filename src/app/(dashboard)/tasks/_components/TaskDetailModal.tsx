@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
+  RotateCcw,
   Star,
   X,
   ListChecks,
@@ -702,7 +703,7 @@ export function TaskDetailModal({
               >
                 {task.status === "completed" ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5" />
+                    <RotateCcw className="w-3.5 h-3.5" />
                     Reopen
                   </>
                 ) : (

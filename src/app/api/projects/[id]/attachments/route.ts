@@ -12,6 +12,7 @@ import {
   createNotificationForClient,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
 import { env } from "@/env";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
@@ -36,6 +37,17 @@ export const GET = withAuth(
 export const POST = withAuth(
   { projectAccess: true },
   async (req, { user }, params) => {
+    const { allowed } = rateLimit(`attach:${user.id}`, {
+      limit: 20,
+      windowMs: 60_000,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { id } = params;
 
     const { fileUrl, fileName, description, phaseId, taskId, versionGroup } =
@@ -43,6 +55,24 @@ export const POST = withAuth(
     if (!fileUrl || !fileName) {
       return NextResponse.json(
         { error: "fileUrl and fileName are required" },
+        { status: 400 }
+      );
+    }
+
+    if (!fileUrl.startsWith(env().NEXT_PUBLIC_SUPABASE_URL)) {
+      return NextResponse.json(
+        { error: "fileUrl must point to the Supabase storage domain" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      description &&
+      typeof description === "string" &&
+      description.length > 2000
+    ) {
+      return NextResponse.json(
+        { error: "Description must be at most 2000 characters" },
         { status: 400 }
       );
     }

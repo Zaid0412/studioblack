@@ -6,9 +6,9 @@ import { withAuth } from "@/lib/withAuth";
 export const GET = withAuth(
   { projectAccess: true },
   async (req, ctx, params) => {
-    const { versionGroup } = params;
+    const { id, versionGroup } = params;
 
-    const versions = await getAttachmentVersionHistory(versionGroup);
+    const versions = await getAttachmentVersionHistory(versionGroup, id);
     if (versions.length === 0) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

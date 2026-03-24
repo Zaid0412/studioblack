@@ -31,7 +31,10 @@ export const POST = withAuth(
     // Get the project to find client email
     const {
       rows: [project],
-    } = await pool.query(`SELECT * FROM project WHERE id = $1`, [id]);
+    } = await pool.query(
+      `SELECT name, client_email FROM project WHERE id = $1`,
+      [id]
+    );
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });

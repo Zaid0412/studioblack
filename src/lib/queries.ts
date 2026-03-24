@@ -1,6 +1,11 @@
 import { getPool } from "@/lib/db";
 import { PROJECT_PHASES, PROJECT_STEPS } from "@/lib/constants";
 
+/** Escape SQL LIKE/ILIKE wildcards so user input is treated as literal text. */
+function escapeSqlLike(str: string): string {
+  return str.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 // ---------------------------------------------------------------------------
 // Project CRUD
 // ---------------------------------------------------------------------------
@@ -360,16 +365,19 @@ export async function getAttachmentById(
   return row || null;
 }
 
-/** Get all versions of a file (by version_group). */
-export async function getAttachmentVersionHistory(versionGroup: string) {
+/** Get all versions of a file (by version_group), scoped to project. */
+export async function getAttachmentVersionHistory(
+  versionGroup: string,
+  projectId: string
+) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT a.*, u.name AS uploaded_by_name
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
-     WHERE a.version_group = $1
+     WHERE a.version_group = $1 AND a.project_id = $2
      ORDER BY a.version DESC`,
-    [versionGroup]
+    [versionGroup, projectId]
   );
   return rows;
 }
@@ -400,41 +408,61 @@ export async function uploadNewVersion(
   phaseId: string | null
 ) {
   const pool = getPool();
-  // Block upload if any version in the group is frozen
-  const { rows: frozenRows } = await pool.query(
-    `SELECT id FROM attachment WHERE version_group = $1 AND frozen_at IS NOT NULL LIMIT 1`,
-    [versionGroup]
-  );
-  if (frozenRows.length > 0) {
-    throw new Error(
-      "Cannot upload a new version — this file is frozen after approval"
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Lock version_group rows to prevent concurrent modifications
+    const { rows: lockedRows } = await client.query(
+      `SELECT id, frozen_at FROM attachment
+       WHERE version_group = $1 AND project_id = $2
+       FOR UPDATE`,
+      [versionGroup, projectId]
     );
+
+    // Block upload if any version in the group is frozen
+    if (lockedRows.some((r) => r.frozen_at !== null)) {
+      throw new Error(
+        "Cannot upload a new version — this file is frozen after approval"
+      );
+    }
+
+    // Get the current max version for this group
+    const {
+      rows: [{ max }],
+    } = await client.query(
+      `SELECT COALESCE(MAX(version), 0) AS max FROM attachment
+       WHERE version_group = $1 AND project_id = $2`,
+      [versionGroup, projectId]
+    );
+    const nextVersion = (max as number) + 1;
+
+    const {
+      rows: [row],
+    } = await client.query(
+      `INSERT INTO attachment (project_id, phase_id, uploaded_by, file_url, file_name, version, version_group)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        projectId,
+        phaseId,
+        uploadedBy,
+        fileUrl,
+        fileName,
+        nextVersion,
+        versionGroup,
+      ]
+    );
+
+    await client.query("COMMIT");
+    return row;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
-  // Get the current max version for this group
-  const {
-    rows: [{ max }],
-  } = await pool.query(
-    `SELECT COALESCE(MAX(version), 0) AS max FROM attachment WHERE version_group = $1`,
-    [versionGroup]
-  );
-  const nextVersion = (max as number) + 1;
-  const {
-    rows: [row],
-  } = await pool.query(
-    `INSERT INTO attachment (project_id, phase_id, uploaded_by, file_url, file_name, version, version_group)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-    [
-      projectId,
-      phaseId,
-      uploadedBy,
-      fileUrl,
-      fileName,
-      nextVersion,
-      versionGroup,
-    ]
-  );
-  return row;
 }
 
 // ---------------------------------------------------------------------------
@@ -634,7 +662,7 @@ export async function getTasks(filters: TaskFilters) {
     idx++;
   }
   if (filters.search) {
-    const safeSearch = filters.search.slice(0, 200);
+    const safeSearch = escapeSqlLike(filters.search.slice(0, 200));
     conditions.push(`(t.title ILIKE $${idx} OR t.description ILIKE $${idx})`);
     values.push(`%${safeSearch}%`);
     idx++;
@@ -645,6 +673,19 @@ export async function getTasks(filters: TaskFilters) {
   const starIdx = idx;
   idx++;
 
+  // Pagination params
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 200;
+  const offset = (page - 1) * limit;
+
+  values.push(limit);
+  const limitIdx = idx;
+  idx++;
+
+  values.push(offset);
+  const offsetIdx = idx;
+  idx++;
+
   const { rows } = await pool.query(
     `SELECT t.*,
             u_assigned.name AS assigned_to_name,
@@ -653,7 +694,8 @@ export async function getTasks(filters: TaskFilters) {
             pp.name AS phase_name,
             EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${starIdx}) AS is_starred,
             COALESCE(cl.total, 0)::int AS checklist_total,
-            COALESCE(cl.done, 0)::int AS checklist_done
+            COALESCE(cl.done, 0)::int AS checklist_done,
+            COUNT(*) OVER()::int AS _total_count
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
      LEFT JOIN "user" u_created ON u_created.id = t.created_by
@@ -668,18 +710,16 @@ export async function getTasks(filters: TaskFilters) {
        CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
        CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END,
        t.due_date ASC NULLS LAST,
-       t.created_at DESC`,
+       t.created_at DESC
+     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     values
   );
 
-  // Server-side pagination
-  const total = rows.length;
-  const page = filters.page ?? 1;
-  const limit = filters.limit ?? 200;
-  const offset = (page - 1) * limit;
-  const paged = rows.slice(offset, offset + limit);
+  const total = rows.length > 0 ? rows[0]._total_count : 0;
+  // Strip the internal _total_count field from results
+  const tasks = rows.map(({ _total_count, ...rest }) => rest);
 
-  return { tasks: paged, total };
+  return { tasks, total };
 }
 
 /** Fetch a single task by ID with joined user, project, and phase names. */

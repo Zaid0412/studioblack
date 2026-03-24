@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { dashboard as dashboardApi, clientPortal } from "@/lib/api";
+import { toast } from "@/components/ui/useToast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
@@ -80,13 +81,27 @@ export default function DashboardPage() {
       clientPortal
         .listProjects<ClientProject>()
         .then(setClientProjects)
-        .catch(() => setClientProjects([]))
+        .catch(() => {
+          setClientProjects([]);
+          toast({
+            title: "Error",
+            description: "Failed to load projects",
+            variant: "error",
+          });
+        })
         .finally(() => setLoading(false));
     } else {
       dashboardApi
         .get<DashboardData>()
         .then(setData)
-        .catch(() => setData(null))
+        .catch(() => {
+          setData(null);
+          toast({
+            title: "Error",
+            description: "Failed to load dashboard",
+            variant: "error",
+          });
+        })
         .finally(() => setLoading(false));
     }
   }, [role, roleLoading]);
