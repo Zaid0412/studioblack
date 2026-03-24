@@ -40,12 +40,13 @@ async function getEffectiveRole(
 }
 
 /**
- * Dashboard layout — protected, PM and architect only.
+ * Dashboard layout — protected, all authenticated roles.
  *
  * Performs full session validation via `auth.api.getSession()` (DB lookup).
- * Redirects unauthenticated users to `/login` and clients to `/client-dashboard`.
+ * Redirects unauthenticated users to `/login`.
  * Auto-sets active organization if the user belongs to one but hasn't selected it.
  * Derives effective role from org membership (owner/admin → PM, member → architect).
+ * Clients are allowed — pages handle role-specific content themselves.
  */
 export default async function DashboardLayout({
   children,
@@ -60,14 +61,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Clients should not access the architect dashboard
-  if (session.user.role === "client") {
-    redirect("/client-dashboard");
-  }
-
-  // Auto-set active org if not set
+  // Auto-set active org if not set (clients may not have an org)
   let orgId = session.session.activeOrganizationId;
-  if (!orgId) {
+  if (!orgId && session.user.role !== "client") {
     const orgs = await auth.api.listOrganizations({
       headers: await headers(),
     });
@@ -98,12 +94,9 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar
-          variant={user.role === "pm" ? "pm" : "architect"}
-          user={user}
-        />
+        <Sidebar variant={effectiveRole} user={user} />
         <main className="relative flex-1 min-h-0 overflow-y-auto p-8 pr-20">
-          <div className="fixed top-4 right-8 z-40">
+          <div className="fixed top-4 right-8 z-50">
             <NotificationPanel />
           </div>
           <ErrorBoundary>{children}</ErrorBoundary>

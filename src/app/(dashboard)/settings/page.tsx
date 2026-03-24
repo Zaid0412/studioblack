@@ -7,11 +7,14 @@ import { ProfileSection } from "./_components/ProfileSection";
 import { PasswordSection } from "./_components/PasswordSection";
 import { PreferencesSection } from "./_components/PreferencesSection";
 import { DangerZoneSection } from "./_components/DangerZoneSection";
+import { useUserRole } from "@/hooks/useUserRole";
 
-/** User profile and preferences settings. */
+/** User profile and preferences settings — adapts sections based on role. */
 export default function SettingsPage() {
   const t = useTranslations("settings");
   const settings = useSettings();
+  const { role } = useUserRole();
+  const isClient = role === "client";
 
   return (
     <div className="flex flex-col gap-6 max-w-[700px]">
@@ -34,16 +37,18 @@ export default function SettingsPage() {
         openFilePicker={settings.openFilePicker}
       />
 
-      <PasswordSection
-        currentPassword={settings.currentPassword}
-        setCurrentPassword={settings.setCurrentPassword}
-        newPassword={settings.newPassword}
-        setNewPassword={settings.setNewPassword}
-        confirmNewPassword={settings.confirmNewPassword}
-        setConfirmNewPassword={settings.setConfirmNewPassword}
-        isChangingPassword={settings.isChangingPassword}
-        handleChangePassword={settings.handleChangePassword}
-      />
+      {!isClient && (
+        <PasswordSection
+          currentPassword={settings.currentPassword}
+          setCurrentPassword={settings.setCurrentPassword}
+          newPassword={settings.newPassword}
+          setNewPassword={settings.setNewPassword}
+          confirmNewPassword={settings.confirmNewPassword}
+          setConfirmNewPassword={settings.setConfirmNewPassword}
+          isChangingPassword={settings.isChangingPassword}
+          handleChangePassword={settings.handleChangePassword}
+        />
+      )}
 
       <PreferencesSection
         emailNotif={settings.emailNotif}
@@ -52,14 +57,16 @@ export default function SettingsPage() {
         setPushNotif={settings.setPushNotif}
       />
 
-      <DangerZoneSection
-        deleteOpen={settings.deleteOpen}
-        setDeleteOpen={settings.setDeleteOpen}
-        deleteConfirm={settings.deleteConfirm}
-        setDeleteConfirm={settings.setDeleteConfirm}
-        isDeleting={settings.isDeleting}
-        handleDeleteAccount={settings.handleDeleteAccount}
-      />
+      {!isClient && (
+        <DangerZoneSection
+          deleteOpen={settings.deleteOpen}
+          setDeleteOpen={settings.setDeleteOpen}
+          deleteConfirm={settings.deleteConfirm}
+          setDeleteConfirm={settings.setDeleteConfirm}
+          isDeleting={settings.isDeleting}
+          handleDeleteAccount={settings.handleDeleteAccount}
+        />
+      )}
     </div>
   );
 }

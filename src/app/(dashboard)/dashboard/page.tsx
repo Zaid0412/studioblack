@@ -15,12 +15,15 @@ import {
   Plus,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { dashboard as dashboardApi, clientPortal } from "@/lib/api";
+import { toast } from "@/components/ui/useToast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
-import { authClient } from "@/lib/authClient";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { activityIcons, activityColors } from "@/lib/activityConstants";
 import { formatTimeAgo } from "@/lib/formatTime";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface DashboardData {
   stats: {
@@ -46,24 +49,186 @@ interface DashboardData {
   }[];
 }
 
-/** Dashboard with real stats, upcoming deadlines, and recent activity. */
+interface ClientProject {
+  id: string;
+  name: string;
+  status: string;
+  description: string;
+  category: string;
+  deadline: string | null;
+  created_at: string;
+}
+
+/** Unified dashboard — adapts content based on user role. */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
+  const tClient = useTranslations("clientDashboard");
+  const te = useTranslations("emptyStates");
   const router = useRouter();
-  const { data: session } = authClient.useSession();
+  const { role, session, loading: roleLoading } = useUserRole();
 
+  // PM/Architect state
   const [data, setData] = useState<DashboardData | null>(null);
+  // Client state
+  const [clientProjects, setClientProjects] = useState<ClientProject[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((d) => setData(d))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, []);
+    if (roleLoading || !role) return;
 
+    if (role === "client") {
+      clientPortal
+        .listProjects<ClientProject>()
+        .then(setClientProjects)
+        .catch(() => {
+          setClientProjects([]);
+          toast({
+            title: "Error",
+            description: "Failed to load projects",
+            variant: "error",
+          });
+        })
+        .finally(() => setLoading(false));
+    } else {
+      dashboardApi
+        .get<DashboardData>()
+        .then(setData)
+        .catch(() => {
+          setData(null);
+          toast({
+            title: "Error",
+            description: "Failed to load dashboard",
+            variant: "error",
+          });
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [role, roleLoading]);
+
+  if (roleLoading || loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-[#666]" />
+      </div>
+    );
+  }
+
+  // ── Client Dashboard ──────────────────────────────────────────────────
+  if (role === "client") {
+    const totalProjects = clientProjects.length;
+    const activeProjects = clientProjects.filter(
+      (p) => p.status === "active"
+    ).length;
+    const completedProjects = clientProjects.filter(
+      (p) => p.status === "completed"
+    ).length;
+
+    const clientStats = [
+      {
+        label: tClient("totalProjects"),
+        value: String(totalProjects),
+        valueColor: "text-text-primary",
+        icon: FolderOpen,
+      },
+      {
+        label: tClient("pendingReview"),
+        value: String(activeProjects),
+        valueColor: "text-accent",
+        icon: ClipboardCheck,
+      },
+      {
+        label: tClient("reviewed"),
+        value: String(completedProjects),
+        valueColor: "text-success",
+        icon: CheckCircle2,
+      },
+    ];
+
+    return (
+      <div className="flex flex-col gap-7 max-w-[1200px]">
+        <PageHeader title={tClient("title")} subtitle={tClient("subtitle")} />
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {clientStats.map((stat) => (
+            <div
+              key={stat.label}
+              className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-5"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-text-muted">
+                  {stat.label}
+                </span>
+                <stat.icon className="w-4 h-4 text-text-muted" />
+              </div>
+              <span className={`text-[32px] font-bold ${stat.valueColor}`}>
+                {stat.value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Projects */}
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-bold text-text-primary">
+            {tClient("myProjects")}
+          </h2>
+          {clientProjects.length === 0 ? (
+            <EmptyState
+              icon={FolderOpen}
+              title={te("clientProjectsTitle")}
+              description={te("clientProjectsDescription")}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {clientProjects.map((project) => (
+                <Card
+                  key={project.id}
+                  hover
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-text-primary">
+                        {project.name}
+                      </span>
+                      <Badge
+                        variant={statusToBadgeVariant(
+                          project.status as
+                            | "active"
+                            | "completed"
+                            | "archived"
+                            | "draft"
+                        )}
+                      >
+                        {project.status.charAt(0).toUpperCase() +
+                          project.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-text-secondary">
+                      {project.description || project.category}
+                    </span>
+                    {project.deadline && (
+                      <div className="flex items-center gap-1.5 text-xs text-text-muted pt-2 border-t border-border-default">
+                        <Calendar className="w-3 h-3 text-warning" />
+                        {new Date(project.deadline).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric" }
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── PM / Architect Dashboard ──────────────────────────────────────────
   const stats = data
     ? [
         {
@@ -97,14 +262,6 @@ export default function DashboardPage() {
     data.stats.pendingReviews === 0 &&
     data.stats.approved === 0;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-[#666]" />
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-7 max-w-[1200px]">
       <PageHeader
@@ -113,9 +270,11 @@ export default function DashboardPage() {
         })}
         subtitle={t("overviewSubtitle")}
         actions={
-          <Button onClick={() => router.push("/projects/new")}>
-            {t("newProject")}
-          </Button>
+          role === "pm" ? (
+            <Button onClick={() => router.push("/projects/new")}>
+              {t("newProject")}
+            </Button>
+          ) : undefined
         }
       />
 
@@ -133,10 +292,12 @@ export default function DashboardPage() {
               {t("welcomeDescription")}
             </p>
           </div>
-          <Button onClick={() => router.push("/projects/new")}>
-            <Plus className="w-4 h-4" />
-            {t("newProject")}
-          </Button>
+          {role === "pm" && (
+            <Button onClick={() => router.push("/projects/new")}>
+              <Plus className="w-4 h-4" />
+              {t("newProject")}
+            </Button>
+          )}
         </div>
       )}
 

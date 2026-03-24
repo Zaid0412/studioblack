@@ -20,6 +20,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/useToast";
+import { projects } from "@/lib/api";
 
 interface ProjectData {
   id: string;
@@ -56,12 +57,9 @@ export default function EditProjectPage({
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
-    fetch(`/api/projects/${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Not found");
-        return res.json();
-      })
-      .then((data: ProjectData) => {
+    projects
+      .get<ProjectData>(id)
+      .then((data) => {
         setProject(data);
         setName(data.name);
         setClientName(data.client_name || "");
@@ -77,17 +75,12 @@ export default function EditProjectPage({
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          clientName: clientName.trim() || null,
-          description: description.trim(),
-          deadline: deadline?.toISOString().split("T")[0] || null,
-        }),
+      await projects.update(id, {
+        name: name.trim(),
+        clientName: clientName.trim() || null,
+        description: description.trim(),
+        deadline: deadline?.toISOString().split("T")[0] || null,
       });
-      if (!res.ok) throw new Error("Failed to update");
       toast({
         title: t("updatedToast"),
         description: t("updatedDescription", { name: name.trim() }),
@@ -108,8 +101,7 @@ export default function EditProjectPage({
   async function handleDelete() {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
+      await projects.remove(id);
       toast({
         title: t("deletedToast"),
         description: t("deletedDescription", { name: project?.name || "" }),
@@ -138,7 +130,7 @@ export default function EditProjectPage({
 
   if (!project) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <p className="text-text-muted">{tc("projectNotFound")}</p>
       </div>
     );

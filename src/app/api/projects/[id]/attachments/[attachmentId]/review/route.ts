@@ -1,23 +1,41 @@
 import { NextResponse } from "next/server";
 import {
   getAttachmentById,
-  updateAttachmentReviewStatus,
   createAttachmentReview,
   getAttachmentReviews,
 } from "@/lib/queries";
+import { getPool } from "@/lib/db";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
 
-const VALID_STATUSES = ["approved", "rejected", "reviewed", "pending"];
+const VALID_STATUSES = ["approved", "rejected"];
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/review — submit a review. */
 export const PATCH = withAuth(
   { allowedRoles: ["client"], projectAccess: true },
   async (req, { user }, params) => {
+    const { allowed } = rateLimit(`review:${user.id}`, {
+      limit: 10,
+      windowMs: 60_000,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { id, attachmentId } = params;
 
     const body = await req.json();
-    const { status, comment, annotatedFileUrl, annotationCount } = body;
+    const { status, comment, annotatedFileUrl } = body;
+    const annotationCount =
+      body.annotationCount != null &&
+      Number.isInteger(Number(body.annotationCount)) &&
+      Number(body.annotationCount) >= 0
+        ? Number(body.annotationCount)
+        : 0;
 
     if (!status || !VALID_STATUSES.includes(status)) {
       return NextResponse.json(
@@ -34,12 +52,41 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Update the attachment's review_status
-    const updated = await updateAttachmentReviewStatus(
-      attachmentId,
-      status,
-      user.id
-    );
+    // Guard: don't allow re-approving/re-rejecting if already in that state
+    if (attachment.review_status === status) {
+      return NextResponse.json(
+        { error: `Attachment is already ${status}` },
+        { status: 409 }
+      );
+    }
+
+    // Update status + freeze on approval atomically
+    const pool = getPool();
+    const client = await pool.connect();
+    let updated;
+    try {
+      await client.query("BEGIN");
+      const { rows } = await client.query(
+        `UPDATE attachment
+         SET review_status = $1, reviewed_by = $2, reviewed_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [status, user.id, attachmentId]
+      );
+      updated = rows[0];
+      if (status === "approved") {
+        await client.query(
+          `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
+          [attachmentId]
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
 
     // Create a review record (for history)
     await createAttachmentReview({

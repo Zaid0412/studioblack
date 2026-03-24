@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/authClient";
 import {
   MoreVertical,
   Eye,
@@ -12,13 +11,13 @@ import {
   Trash2,
   FolderOpen,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
 import {
   Select,
   SelectContent,
@@ -43,12 +42,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
+import { projects as projectsApi, clientPortal } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
-
-type FilterTab = "all" | "active" | "completed" | "draft";
-
-const PAGE_SIZE = 10;
+import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
+import { useUserRole } from "@/hooks/useUserRole";
 
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
@@ -56,50 +54,54 @@ export default function ProjectsPage() {
   const tc = useTranslations("common");
   const te = useTranslations("emptyStates");
   const router = useRouter();
-  const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("newest");
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const { role: userRole, loading: roleLoading } = useUserRole();
   const [projects, setProjects] = useState<DbProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const {
+    search,
+    setSearch,
+    activeFilter,
+    setActiveFilter,
+    statusFilter,
+    setStatusFilter,
+    sortBy,
+    setSortBy,
+    currentPage,
+    setCurrentPage,
+    filtered,
+    paginatedRows,
+    totalPages,
+    startIdx,
+    endIdx,
+    activeTabCount,
+  } = useProjectList({
+    items: projects,
+    searchFilter: (p, query) => {
+      const q = query.toLowerCase();
+      const client =
+        (p as DbProjectRow).client_name ||
+        (p as DbProjectRow).client_email ||
+        "";
+      return (
+        p.name.toLowerCase().includes(q) || client.toLowerCase().includes(q)
+      );
+    },
+  });
+
   useEffect(() => {
-    async function init() {
-      const { data: session } = await authClient.getSession();
-      if (!session?.user) return;
+    if (roleLoading || !userRole) return;
 
-      // Derive effective role from org membership
-      const orgId = session.session.activeOrganizationId;
-      if (orgId) {
-        try {
-          const { data: org } =
-            await authClient.organization.getFullOrganization();
-          const me = org?.members?.find(
-            (m: { userId: string }) => m.userId === session.user.id
-          );
-          if (me?.role === "owner" || me?.role === "admin") {
-            setUserRole("pm");
-          } else if (me?.role === "member") {
-            setUserRole("architect");
-          } else {
-            setUserRole(session.user.role ?? null);
-          }
-        } catch {
-          setUserRole(session.user.role ?? null);
-        }
-      } else {
-        setUserRole(session.user.role ?? null);
-      }
-
-      // Fetch projects
+    async function fetchProjects() {
       try {
-        const res = await fetch("/api/projects");
-        if (res.ok) {
-          setProjects(await res.json());
+        if (userRole === "client") {
+          // Client API returns a simpler shape — cast to match table columns
+          const data = await clientPortal.listProjects<DbProjectRow>();
+          setProjects(data);
+        } else {
+          setProjects(await projectsApi.list<DbProjectRow>());
         }
       } catch {
         setProjects([]);
@@ -108,8 +110,22 @@ export default function ProjectsPage() {
       }
     }
 
-    init();
-  }, []);
+    fetchProjects();
+  }, [userRole, roleLoading]);
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      if (userRole === "client") {
+        setProjects(await clientPortal.listProjects<DbProjectRow>());
+      } else {
+        setProjects(await projectsApi.list<DbProjectRow>());
+      }
+    } catch {
+      /* keep current list on refresh failure */
+    }
+  }, [userRole]);
+
+  const isStaff = userRole === "pm" || userRole === "architect";
 
   const filters: { key: FilterTab; label: string }[] = [
     { key: "all", label: t("filterAll") },
@@ -118,63 +134,6 @@ export default function ProjectsPage() {
     { key: "draft", label: t("filterDraft") },
   ];
 
-  const filtered = useMemo(() => {
-    const list = projects.filter((p) => {
-      const client = p.client_name || p.client_email || "";
-      const matchesSearch =
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        client.toLowerCase().includes(search.toLowerCase());
-      const matchesTab = activeFilter === "all" || p.status === activeFilter;
-      const matchesStatus = statusFilter === "all" || p.status === statusFilter;
-      return matchesSearch && matchesTab && matchesStatus;
-    });
-
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case "oldest":
-          return (
-            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          );
-        case "name":
-          return a.name.localeCompare(b.name);
-        case "updated":
-          return (
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
-          );
-        default: // newest
-          return (
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          );
-      }
-    });
-
-    return list;
-  }, [projects, search, activeFilter, statusFilter, sortBy]);
-
-  // Reset page when filters change (inline instead of useEffect to avoid cascading renders)
-  const filterKey = `${search}|${activeFilter}|${statusFilter}|${sortBy}`;
-  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
-  if (filterKey !== prevFilterKey) {
-    setPrevFilterKey(filterKey);
-    if (currentPage !== 1) setCurrentPage(1);
-  }
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const endIdx = Math.min(startIdx + PAGE_SIZE, filtered.length);
-  const paginatedRows = filtered.slice(startIdx, endIdx);
-
-  // Generate page numbers for pagination
-  const pageNumbers = useMemo(() => {
-    const pages: number[] = [];
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-    return pages;
-  }, [totalPages]);
-
-  // Count for active tab badge
-  const activeTabCount = filtered.length;
-
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
       {/* Header row */}
@@ -182,11 +141,14 @@ export default function ProjectsPage() {
         <h1 className="text-[28px] font-bold text-white font-[family-name:var(--font-cabinet)]">
           {t("title")}
         </h1>
-        {userRole === "pm" && (
-          <Button onClick={() => router.push("/projects/new")}>
-            {t("newProject")}
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <RefreshButton onRefresh={handleRefresh} />
+          {userRole === "pm" && (
+            <Button onClick={() => router.push("/projects/new")}>
+              {t("newProject")}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter bar: search + dropdowns */}
@@ -258,18 +220,22 @@ export default function ProjectsPage() {
           <div className="flex-1 text-xs font-bold text-[#666666]">
             {t("projectName")}
           </div>
-          <div className="w-[140px] text-xs font-bold text-[#666666]">
-            {t("client")}
-          </div>
+          {isStaff && (
+            <div className="w-[140px] text-xs font-bold text-[#666666]">
+              {t("client")}
+            </div>
+          )}
           <div className="w-[100px] text-xs font-bold text-[#666666]">
             {t("category")}
           </div>
           <div className="w-[140px] text-xs font-bold text-[#666666]">
             {t("stage")}
           </div>
-          <div className="w-[110px] text-xs font-bold text-[#666666]">
-            {t("estimate")}
-          </div>
+          {isStaff && (
+            <div className="w-[110px] text-xs font-bold text-[#666666]">
+              {t("estimate")}
+            </div>
+          )}
           <div className="w-[80px] text-xs font-bold text-[#666666]">
             {t("updated")}
           </div>
@@ -278,7 +244,7 @@ export default function ProjectsPage() {
 
         {/* Table body */}
         <div className="flex-1">
-          {loading ? (
+          {loading || roleLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
             </div>
@@ -305,11 +271,13 @@ export default function ProjectsPage() {
                     {project.name}
                   </span>
                 </div>
-                <div className="w-[140px]">
-                  <span className="text-[13px] text-[#A0A0A0]">
-                    {project.client_name || project.client_email || "\u2014"}
-                  </span>
-                </div>
+                {isStaff && (
+                  <div className="w-[140px]">
+                    <span className="text-[13px] text-[#A0A0A0]">
+                      {project.client_name || project.client_email || "\u2014"}
+                    </span>
+                  </div>
+                )}
                 <div className="w-[100px]">
                   <span className="text-[13px] text-[#A0A0A0]">
                     {project.category
@@ -324,9 +292,13 @@ export default function ProjectsPage() {
                       project.status.slice(1)}
                   </Badge>
                 </div>
-                <div className="w-[110px]">
-                  <span className="text-[13px] text-[#A0A0A0]">{"\u2014"}</span>
-                </div>
+                {isStaff && (
+                  <div className="w-[110px]">
+                    <span className="text-[13px] text-[#A0A0A0]">
+                      {"\u2014"}
+                    </span>
+                  </div>
+                )}
                 <div className="w-[80px]">
                   <span className="text-[13px] text-[#666666]">
                     {relativeTime(project.updated_at || project.created_at)}
@@ -352,24 +324,28 @@ export default function ProjectsPage() {
                         <Eye className="w-4 h-4" />
                         {t("viewProject")}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}/edit`);
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                        {t("editProject")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/projects/${project.id}/upload`);
-                        }}
-                      >
-                        <Upload className="w-4 h-4" />
-                        {t("uploadDesign")}
-                      </DropdownMenuItem>
+                      {isStaff && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/projects/${project.id}/edit`);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                            {t("editProject")}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/projects/${project.id}/upload`);
+                            }}
+                          >
+                            <Upload className="w-4 h-4" />
+                            {t("uploadDesign")}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       {userRole === "pm" && (
                         <>
                           <DropdownMenuSeparator />
@@ -395,79 +371,47 @@ export default function ProjectsPage() {
 
         {/* Pagination */}
         {!loading && filtered.length > 0 && (
-          <div className="flex items-center justify-between h-12 px-4 border-t border-[#333333]">
-            <span className="text-[13px] text-[#666666]">
-              {t("showingProjects", {
-                start: startIdx + 1,
-                end: endIdx,
-                total: filtered.length,
-              })}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="w-8 h-8 flex items-center justify-center rounded-md bg-[#2A2A2A] text-[#666666] disabled:opacity-40 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              {pageNumbers.map((num) => (
-                <button
-                  key={num}
-                  onClick={() => setCurrentPage(num)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-md text-sm transition-colors cursor-pointer ${
-                    num === currentPage
-                      ? "bg-[#F5C518] text-[#0D0D0D] font-semibold"
-                      : "bg-[#2A2A2A] text-[#A0A0A0] hover:text-white"
-                  }`}
-                >
-                  {num}
-                </button>
-              ))}
-              <button
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={currentPage === totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-md bg-[#2A2A2A] text-[#666666] disabled:opacity-40 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => setCurrentPage(page)}
+            showingText={t("showingProjects", {
+              start: startIdx + 1,
+              end: endIdx,
+              total: filtered.length,
+            })}
+          />
         )}
       </div>
 
-      {/* Delete confirmation dialog */}
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Delete &ldquo;{deleteTarget?.name}&rdquo;?
-            </DialogTitle>
-            <DialogDescription>
-              This will permanently delete the project and all its files,
-              phases, and reviews. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">{tc("cancel")}</Button>
-            </DialogClose>
-            <Button
-              variant="danger"
-              disabled={deleting}
-              onClick={async () => {
-                if (!deleteTarget) return;
-                setDeleting(true);
-                try {
-                  const res = await fetch(`/api/projects/${deleteTarget.id}`, {
-                    method: "DELETE",
-                  });
-                  if (res.ok) {
+      {/* Delete confirmation dialog (PM only) */}
+      {isStaff && (
+        <Dialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Delete &ldquo;{deleteTarget?.name}&rdquo;?
+              </DialogTitle>
+              <DialogDescription>
+                This will permanently delete the project and all its files,
+                phases, and reviews. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="secondary">{tc("cancel")}</Button>
+              </DialogClose>
+              <Button
+                variant="danger"
+                disabled={deleting}
+                onClick={async () => {
+                  if (!deleteTarget) return;
+                  setDeleting(true);
+                  try {
+                    await projectsApi.remove(deleteTarget.id);
                     setProjects((prev) =>
                       prev.filter((p) => p.id !== deleteTarget.id)
                     );
@@ -476,32 +420,28 @@ export default function ProjectsPage() {
                       description: `"${deleteTarget.name}" has been deleted.`,
                       variant: "success",
                     });
-                  } else {
-                    const data = await res.json().catch(() => ({}));
+                  } catch (err) {
                     toast({
                       title: tc("error"),
-                      description: data.error || "Failed to delete project",
+                      description:
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to delete project",
                       variant: "error",
                     });
+                  } finally {
+                    setDeleting(false);
+                    setDeleteTarget(null);
                   }
-                } catch {
-                  toast({
-                    title: tc("error"),
-                    description: "Failed to delete project",
-                    variant: "error",
-                  });
-                } finally {
-                  setDeleting(false);
-                  setDeleteTarget(null);
-                }
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              {deleting ? tc("loading") : tc("delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleting ? tc("loading") : tc("delete")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
+import { env } from "@/env";
 
 /**
  * GET /api/proxy-file?url=<encoded-url>
@@ -22,22 +23,23 @@ export const GET = withAuth({}, async (req) => {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 
-  // Restrict to this project's Supabase instance only
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
+  // Only allow HTTPS to prevent protocol-based SSRF
+  if (parsed.protocol !== "https:") {
     return NextResponse.json(
-      { error: "Server misconfigured" },
-      { status: 500 }
+      { error: "Only HTTPS URLs are allowed" },
+      { status: 400 }
     );
   }
-  const allowedHost = new URL(supabaseUrl).hostname;
+
+  // Restrict to this project's Supabase instance only
+  const allowedHost = new URL(env().NEXT_PUBLIC_SUPABASE_URL).hostname;
   if (parsed.hostname !== allowedHost) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }
 
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
-  const res = await fetch(url);
+  const res = await fetch(url, { redirect: "error" });
   if (!res.ok) {
     return NextResponse.json(
       { error: "Failed to fetch file" },
@@ -50,17 +52,35 @@ export const GET = withAuth({}, async (req) => {
     return NextResponse.json({ error: "File too large" }, { status: 413 });
   }
 
-  const buffer = await res.arrayBuffer();
-  if (buffer.byteLength > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: "File too large" }, { status: 413 });
-  }
   const contentType =
     res.headers.get("content-type") || "application/octet-stream";
 
-  return new NextResponse(buffer, {
+  // Stream response with byte counting to prevent OOM
+  const upstream = res.body;
+  if (!upstream) {
+    return NextResponse.json({ error: "Empty response body" }, { status: 502 });
+  }
+
+  let totalBytes = 0;
+  const transform = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      totalBytes += chunk.byteLength;
+      if (totalBytes > MAX_FILE_SIZE) {
+        controller.error(new Error("File too large"));
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  });
+
+  const stream = upstream.pipeThrough(transform);
+
+  return new NextResponse(stream, {
     headers: {
       "Content-Type": contentType,
-      "Content-Length": String(buffer.byteLength),
+      ...(contentLength > 0 && {
+        "Content-Length": String(contentLength),
+      }),
       "Cache-Control": "public, max-age=3600",
     },
   });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
+import { env } from "@/env";
 
 /** GET /api/tasks/[id]/attachments — list attachments for a standalone task. */
 export const GET = withAuth(
@@ -53,8 +54,7 @@ export const POST = withAuth(
       }
 
       // Validate fileUrl is from our Supabase instance
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      if (supabaseUrl && !fileUrl.startsWith(supabaseUrl)) {
+      if (!fileUrl.startsWith(env().NEXT_PUBLIC_SUPABASE_URL)) {
         return NextResponse.json(
           { error: "Invalid file URL" },
           { status: 400 }

@@ -1,5 +1,16 @@
 /** Shared file type/extension utilities. */
 
+/** Accepted file types for design uploads (PDF, CAD, images, design tools). */
+export const UPLOAD_ACCEPTED_TYPES =
+  ".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch";
+
+/** Format a byte count as a human-readable string (B / KB / MB). */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
 
 /** Extracts the lowercase file extension from a filename. */
@@ -45,6 +56,24 @@ export function displayName(
     return nameOrEmail.split("@")[0];
   }
   return nameOrEmail;
+}
+
+/** Version number → badge colors (bg + text). Cycles for V7+. */
+const VERSION_COLORS = [
+  { bg: "bg-[#0A1A2E]", text: "text-[#3B82F6]" }, // V1 — blue
+  { bg: "bg-[#1A0A2E]", text: "text-[#A855F7]" }, // V2 — purple
+  { bg: "bg-[#0A2E2A]", text: "text-[#14B8A6]" }, // V3 — teal
+  { bg: "bg-[#2E1A0A]", text: "text-[#F59E0B]" }, // V4 — amber
+  { bg: "bg-[#2E0A1A]", text: "text-[#EC4899]" }, // V5 — pink
+  { bg: "bg-[#0A2E14]", text: "text-[#22C55E]" }, // V6 — green
+];
+
+/** Return badge color classes for a given version number (cycles for V7+). */
+export function versionColor(version: number): { bg: string; text: string } {
+  const idx =
+    (((version - 1) % VERSION_COLORS.length) + VERSION_COLORS.length) %
+    VERSION_COLORS.length;
+  return VERSION_COLORS[idx];
 }
 
 /** Review status → badge colors and label. */

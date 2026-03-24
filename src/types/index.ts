@@ -180,6 +180,7 @@ export interface DbAttachment {
   version?: number;
   version_group?: string;
   review_status?: string;
+  frozen_at?: string | null;
   reviewed_by_name?: string | null;
   versions?: DbAttachment[];
 }
@@ -297,6 +298,30 @@ export interface DbNotificationRow {
 }
 
 // ---------------------------------------------------------------------------
+// Approval & pending task types (client portal)
+// ---------------------------------------------------------------------------
+
+/** A project-level approval decision (approve or request changes). */
+export interface DbApproval {
+  id: string;
+  decision: "approved" | "changes_requested";
+  comment: string;
+  user_name: string;
+  created_at: string;
+}
+
+/** A task awaiting client review. */
+export interface DbPendingTask {
+  id: string;
+  title: string;
+  description: string;
+  phase_name: string;
+  assigned_name: string | null;
+  review_status: string;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------------
 // Task manager types
 // ---------------------------------------------------------------------------
 
@@ -334,6 +359,27 @@ export interface Task {
   is_starred: boolean;
   checklist_total: number;
   checklist_done: number;
+}
+
+/** A single checklist item on a task. */
+export interface ChecklistItem {
+  id: string;
+  task_id: string;
+  title: string;
+  is_done: boolean;
+  position: number;
+  created_at: string;
+}
+
+/** A file attached to a standalone task. */
+export interface TaskAttachment {
+  id: string;
+  standalone_task_id: string;
+  file_url: string;
+  file_name: string;
+  file_size: number | null;
+  uploaded_by: string;
+  created_at: string;
 }
 
 export interface TaskFormData {

@@ -51,7 +51,7 @@ export default function RegisterPage() {
 
     setIsLoading(true);
 
-    const { data, error } = await authClient.signUp.email({
+    const { error } = await authClient.signUp.email({
       name,
       email,
       password,
@@ -80,13 +80,8 @@ export default function RegisterPage() {
       }
     }
 
-    // Sign-up creates a session — redirect based on role
-    if (data?.user?.role === "client") {
-      router.push("/client-dashboard");
-    } else {
-      // PM and architect both go to /dashboard — layout handles onboarding redirect
-      router.push("/dashboard");
-    }
+    // All roles go to /dashboard — layout adapts based on role
+    router.push("/dashboard");
   };
 
   return (

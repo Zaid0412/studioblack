@@ -37,8 +37,13 @@ export const GET = withAuth(
     const priority = searchParams.get("priority") || undefined;
     const category = searchParams.get("category") || undefined;
     const search = (searchParams.get("search") || undefined)?.slice(0, 200);
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(
+      200,
+      Math.max(1, parseInt(searchParams.get("limit") || "200", 10))
+    );
 
-    const [tasks, counts] = await Promise.all([
+    const [taskResult, counts] = await Promise.all([
       getTasks({
         orgId,
         bucket: VALID_BUCKETS.includes(bucket)
@@ -56,11 +61,17 @@ export const GET = withAuth(
         priority,
         category,
         search,
+        page,
+        limit,
       }),
       getTaskBucketCounts(orgId, user.id),
     ]);
 
-    return NextResponse.json({ tasks, counts });
+    return NextResponse.json({
+      tasks: taskResult.tasks,
+      counts,
+      total: taskResult.total,
+    });
   }
 );
 

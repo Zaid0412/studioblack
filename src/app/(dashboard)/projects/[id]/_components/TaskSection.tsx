@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Plus,
   Loader2,
@@ -15,23 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,23 +23,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
+import { tasks as tasksApi } from "@/lib/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import type { Task, TaskFormData } from "@/types";
 import {
-  PRIORITIES,
-  CATEGORIES,
   PRIORITY_DOT,
   STATUS_BADGE_VARIANT,
   STATUS_LABEL,
-  NEXT_STATUS,
   initials,
   isOverdue,
   formatDate,
   capitalize,
 } from "@/lib/taskUtils";
+import { useTaskCrud } from "@/hooks/useTaskCrud";
+import { toast } from "@/components/ui/useToast";
+import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
+import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
 interface TaskSectionProps {
   projectId: string;
@@ -77,40 +62,38 @@ export function TaskSection({
   phases,
   members,
 }: TaskSectionProps) {
-  const emptyForm: TaskFormData = {
-    title: "",
-    description: "",
-    phaseId: activePhaseId,
-    priority: "medium",
-    category: "general",
-    assignedTo: "",
-    dueDate: "",
-  };
+  const emptyForm: TaskFormData = useMemo(
+    () => ({
+      title: "",
+      description: "",
+      phaseId: activePhaseId,
+      priority: "medium",
+      category: "general",
+      assignedTo: "",
+      dueDate: "",
+    }),
+    [activePhaseId]
+  );
 
   // -- Data state --
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // -- Dialog state --
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [formData, setFormData] = useState<TaskFormData>(emptyForm);
-  const [submitting, setSubmitting] = useState(false);
-
-  // -- Delete dialog --
-  const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
   // -- Fetch tasks --
   const fetchTasks = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tasks?projectId=${projectId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAllTasks(data.tasks ?? []);
-      }
+      const data = await tasksApi.list({
+        projectId,
+        limit: "100",
+      });
+      setAllTasks(data.tasks ?? []);
     } catch {
       setAllTasks([]);
+      toast({
+        title: "Error",
+        description: "Failed to load tasks",
+        variant: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -120,6 +103,31 @@ export function TaskSection({
     setLoading(true);
     fetchTasks();
   }, [fetchTasks]);
+
+  // -- CRUD hook --
+  const {
+    dialogOpen,
+    setDialogOpen,
+    editingTask,
+    setEditingTask,
+    formData,
+    setFormData,
+    submitting,
+    deleteTarget,
+    setDeleteTarget,
+    deleting,
+    toggleStatus,
+    toggleStar,
+    handleSubmit,
+    handleDelete,
+    openEdit,
+    openCreate,
+  } = useTaskCrud({
+    fetchTasks,
+    setTasks: setAllTasks,
+    defaultForm: emptyForm,
+    projectId,
+  });
 
   // -- Highlight task from URL --
   useEffect(() => {
@@ -136,157 +144,10 @@ export function TaskSection({
   }, [highlightTaskId, loading]);
 
   // -- Filter by active phase (client-side) --
-  const filteredTasks = allTasks.filter(
-    (t) => t.phase_id === activePhaseId || !t.phase_id
+  const filteredTasks = useMemo(
+    () => allTasks.filter((t) => t.phase_id === activePhaseId || !t.phase_id),
+    [allTasks, activePhaseId]
   );
-
-  // -- Quick status toggle --
-  async function toggleStatus(task: Task) {
-    const newStatus = NEXT_STATUS[task.status] ?? "todo";
-    try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) fetchTasks();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  // -- Star toggle --
-  async function toggleStar(task: Task) {
-    setAllTasks((prev) =>
-      prev.map((t) =>
-        t.id === task.id ? { ...t, is_starred: !t.is_starred } : t
-      )
-    );
-    try {
-      await fetch(`/api/tasks/${task.id}/star`, { method: "POST" });
-    } catch {
-      setAllTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id ? { ...t, is_starred: task.is_starred } : t
-        )
-      );
-    }
-  }
-
-  // -- Create / Edit submit --
-  async function handleSubmit() {
-    if (!formData.title.trim()) return;
-    setSubmitting(true);
-
-    const body: Record<string, unknown> = {
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      projectId,
-      phaseId: formData.phaseId || undefined,
-      priority: formData.priority,
-      category: formData.category,
-      assignedTo: formData.assignedTo || undefined,
-      dueDate: formData.dueDate || undefined,
-    };
-
-    try {
-      const isEdit = !!editingTask;
-      const url = isEdit ? `/api/tasks/${editingTask!.id}` : "/api/tasks";
-      const method = isEdit ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        toast({
-          title: isEdit ? "Task updated" : "Task created",
-          description: isEdit
-            ? `"${formData.title}" has been updated.`
-            : `"${formData.title}" has been created.`,
-          variant: "success",
-        });
-        setDialogOpen(false);
-        setEditingTask(null);
-        setFormData(emptyForm);
-        fetchTasks();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        toast({
-          title: "Error",
-          description:
-            data.error || `Failed to ${isEdit ? "update" : "create"} task`,
-          variant: "error",
-        });
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Something went wrong",
-        variant: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // -- Delete --
-  async function handleDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/tasks/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        toast({
-          title: "Task deleted",
-          description: `"${deleteTarget.title}" has been deleted.`,
-          variant: "success",
-        });
-        setDeleteTarget(null);
-        fetchTasks();
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete task",
-          variant: "error",
-        });
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to delete task",
-        variant: "error",
-      });
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  // -- Open edit dialog --
-  function openEdit(task: Task) {
-    setEditingTask(task);
-    setFormData({
-      title: task.title,
-      description: task.description || "",
-      phaseId: task.phase_id || activePhaseId,
-      priority: task.priority,
-      category: task.category,
-      assignedTo: task.assigned_to || "",
-      dueDate: task.due_date ? task.due_date.split("T")[0] : "",
-    });
-    setDialogOpen(true);
-  }
-
-  // -- Open create dialog --
-  function openCreate() {
-    setEditingTask(null);
-    setFormData({ ...emptyForm, phaseId: activePhaseId });
-    setDialogOpen(true);
-  }
 
   // =========================================================================
   // Render
@@ -501,10 +362,8 @@ export function TaskSection({
         </Link>
       </div>
 
-      {/* ================================================================= */}
-      {/* Create / Edit Task Dialog                                         */}
-      {/* ================================================================= */}
-      <Dialog
+      {/* Create / Edit Task Dialog */}
+      <TaskFormDialog
         open={dialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -513,203 +372,26 @@ export function TaskSection({
             setFormData(emptyForm);
           }
         }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingTask ? "Edit Task" : "New Task"}</DialogTitle>
-          </DialogHeader>
+        editingTask={editingTask}
+        formData={formData}
+        setFormData={setFormData}
+        submitting={submitting}
+        onSubmit={handleSubmit}
+        phases={phases}
+        members={members.map((m) => ({
+          id: m.user_id,
+          name: m.user_name,
+          email: m.user_email,
+        }))}
+      />
 
-          <div className="flex flex-col gap-4 py-2">
-            {/* Title */}
-            <Input
-              label="Title"
-              placeholder="Task title"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData((f) => ({ ...f, title: e.target.value }))
-              }
-              required
-            />
-
-            {/* Description */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                Description
-              </label>
-              <textarea
-                placeholder="Optional description..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData((f) => ({ ...f, description: e.target.value }))
-                }
-                rows={3}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-none"
-              />
-            </div>
-
-            {/* Phase */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                Phase
-              </label>
-              <Select
-                value={formData.phaseId || "none"}
-                onValueChange={(v) =>
-                  setFormData((f) => ({
-                    ...f,
-                    phaseId: v === "none" ? "" : v,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No phase</SelectItem>
-                  {phases.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Priority + Category row */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-text-secondary">
-                  Priority
-                </label>
-                <Select
-                  value={formData.priority}
-                  onValueChange={(v) =>
-                    setFormData((f) => ({ ...f, priority: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {capitalize(p)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] font-medium text-text-secondary">
-                  Category
-                </label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(v) =>
-                    setFormData((f) => ({ ...f, category: v }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {capitalize(c)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Assigned To */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                Assigned To
-              </label>
-              <Select
-                value={formData.assignedTo || "none"}
-                onValueChange={(v) =>
-                  setFormData((f) => ({
-                    ...f,
-                    assignedTo: v === "none" ? "" : v,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {m.user_name || m.user_email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Due Date */}
-            <Input
-              label="Due Date"
-              type="date"
-              value={formData.dueDate}
-              onChange={(e) =>
-                setFormData((f) => ({ ...f, dueDate: e.target.value }))
-              }
-            />
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || !formData.title.trim()}
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : editingTask ? (
-                "Save Changes"
-              ) : (
-                "Create Task"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ================================================================= */}
-      {/* Delete Confirmation Dialog                                         */}
-      {/* ================================================================= */}
-      <Dialog
-        open={!!deleteTarget}
+      {/* Delete Confirmation Dialog */}
+      <TaskDeleteDialog
+        task={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Delete &ldquo;{deleteTarget?.title}&rdquo;?
-            </DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-secondary">
-            This will permanently delete this task. This action cannot be
-            undone.
-          </p>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="secondary">Cancel</Button>
-            </DialogClose>
-            <Button variant="danger" disabled={deleting} onClick={handleDelete}>
-              <Trash2 className="w-4 h-4" />
-              {deleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        deleting={deleting}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }

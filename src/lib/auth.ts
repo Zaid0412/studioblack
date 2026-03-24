@@ -1,9 +1,10 @@
 import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
-import { Pool } from "pg";
+
 import { ac, owner, admin, member } from "@/lib/permissions";
 import { sendMagicLinkEmail, sendInvitationEmail } from "@/lib/email";
 import { getPool } from "@/lib/db";
+import { env } from "@/env";
 
 /**
  * Resolve the base URL for better-auth.
@@ -12,8 +13,9 @@ import { getPool } from "@/lib/db";
  * preview + production deployments) → localhost fallback.
  */
 function getBaseURL(): string {
-  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  const e = env();
+  if (e.BETTER_AUTH_URL) return e.BETTER_AUTH_URL;
+  if (e.VERCEL_URL) return `https://${e.VERCEL_URL}`;
   return "http://localhost:3000";
 }
 

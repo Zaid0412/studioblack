@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
 
 /**
  * POST /api/upload — Upload a file to Supabase Storage.
  * Returns the public URL of the uploaded file.
  */
 export const POST = withAuth({}, async (req, { user }) => {
+  const { allowed } = rateLimit(`upload:${user.id}`, {
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many uploads. Please wait a moment." },
+      { status: 429 }
+    );
+  }
+
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
+import { env } from "@/env";
 
 /**
  * POST /api/projects/[id]/send-to-client
@@ -11,6 +13,17 @@ import { withAuth } from "@/lib/withAuth";
 export const POST = withAuth(
   { allowedRoles: ["pm"], projectAccess: true },
   async (req, ctx, params) => {
+    const { allowed } = rateLimit(`send-client:${ctx.user.id}`, {
+      limit: 5,
+      windowMs: 60_000,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { id } = params;
 
     const pool = getPool();
@@ -18,7 +31,10 @@ export const POST = withAuth(
     // Get the project to find client email
     const {
       rows: [project],
-    } = await pool.query(`SELECT * FROM project WHERE id = $1`, [id]);
+    } = await pool.query(
+      `SELECT name, client_email FROM project WHERE id = $1`,
+      [id]
+    );
 
     if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
@@ -50,8 +66,8 @@ export const POST = withAuth(
     }
 
     // Send magic link via better-auth
-    const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-    const callbackURL = `/client-dashboard`;
+    const baseUrl = env().BETTER_AUTH_URL || env().NEXT_PUBLIC_APP_URL;
+    const callbackURL = `/dashboard`;
 
     try {
       // Use the better-auth magic link API to send the email

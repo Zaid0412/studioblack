@@ -1,10 +1,12 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { tasks } from "@/lib/api";
 import { Loader2 } from "lucide-react";
-import { useProjectDetail } from "./_hooks/useProjectDetail";
+import { useProjectDetail } from "@/hooks/useProjectDetail";
+import { useUserRole } from "@/hooks/useUserRole";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { WorkflowBar } from "./_components/WorkflowBar";
@@ -12,8 +14,13 @@ import { PhaseTabs } from "./_components/PhaseTabs";
 import { FileTable } from "./_components/FileTable";
 import { TaskSection } from "./_components/TaskSection";
 import { CommentsSection } from "./_components/CommentsSection";
+import { ApprovalButtons } from "./_components/ApprovalButtons";
+import { PendingTasksBanner } from "./_components/PendingTasksBanner";
+import { CompletedBanner } from "./_components/CompletedBanner";
+import { ApprovalHistory } from "./_components/ApprovalHistory";
+import { RequestChangesDialog } from "./_components/RequestChangesDialog";
 
-/** Project detail page — workflow steps, phase tabs, file table. */
+/** Unified project detail page — adapts to PM, architect, or client role. */
 export default function ProjectDetailPage({
   params,
 }: {
@@ -21,11 +28,15 @@ export default function ProjectDetailPage({
 }) {
   const { id } = use(params);
   const tc = useTranslations("common");
+  const { role, loading: roleLoading } = useUserRole();
+  const isClient = role === "client";
 
   const {
     project,
     attachments,
     comments,
+    approvals,
+    pendingTasks,
     newComment,
     setNewComment,
     sendingComment,
@@ -33,26 +44,40 @@ export default function ProjectDetailPage({
     error,
     activePhaseId,
     setActivePhaseId,
+    phaseCounts,
+    phaseFiles,
     handleSendComment,
     handleDownload,
-  } = useProjectDetail(id);
+    refreshAttachments,
+    refreshAll,
+    submittingDecision,
+    handleDecision,
+    changesDialogOpen,
+    setChangesDialogOpen,
+    changesComment,
+    setChangesComment,
+    reviewingTaskId,
+    handleTaskReview,
+  } = useProjectDetail(id, { includeApprovals: isClient });
+
+  const uploadTriggerRef = useRef<(() => void) | null>(null);
 
   const searchParams = useSearchParams();
   const highlightTaskId = searchParams.get("highlightTask");
 
   useEffect(() => {
     if (!highlightTaskId || !project) return;
-    fetch(`/api/tasks/${highlightTaskId}`)
-      .then((res) => (res.ok ? res.json() : null))
+    tasks
+      .get(highlightTaskId)
       .then((task) => {
         if (task?.phase_id) setActivePhaseId(task.phase_id);
       })
       .catch(() => {});
   }, [highlightTaskId, project, setActivePhaseId]);
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
       </div>
     );
@@ -60,44 +85,85 @@ export default function ProjectDetailPage({
 
   if (error || !project) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
         <p className="text-[#666666]">{tc("projectNotFound")}</p>
       </div>
     );
   }
 
-  const phaseCounts = new Map<string, number>();
-  for (const a of attachments) {
-    if (a.phase_id)
-      phaseCounts.set(a.phase_id, (phaseCounts.get(a.phase_id) || 0) + 1);
-  }
-  const phaseFiles = attachments.filter((a) => a.phase_id === activePhaseId);
+  const showApprovalButtons =
+    isClient &&
+    project.status !== "completed" &&
+    pendingTasks.length === 0 &&
+    attachments.length > 0;
 
   return (
     <div className="flex flex-col h-full">
-      <ProjectHeader projectName={project.name} />
+      <ProjectHeader
+        projectName={project.name}
+        description={isClient ? project.description : undefined}
+        onRefresh={!isClient ? refreshAll : undefined}
+        actions={
+          showApprovalButtons ? (
+            <ApprovalButtons
+              submittingDecision={submittingDecision}
+              onApprove={() => handleDecision("approved")}
+              onRequestChanges={() => setChangesDialogOpen(true)}
+            />
+          ) : undefined
+        }
+      />
+
       <MetaBar
+        variant={isClient ? "client" : "pm"}
         clientName={project.client_name}
         clientEmail={project.client_email}
         members={project.members}
         createdAt={project.created_at}
         phases={project.phases}
         phaseCounts={phaseCounts}
+        status={project.status}
+        category={project.category}
+        deadline={project.deadline}
       />
-      <WorkflowBar projectId={id} steps={project.steps} />
+
+      {!isClient && (
+        <WorkflowBar
+          projectId={id}
+          steps={project.steps}
+          onUpload={() => uploadTriggerRef.current?.()}
+        />
+      )}
+
+      {isClient && (
+        <PendingTasksBanner
+          pendingTasks={pendingTasks}
+          reviewingTaskId={reviewingTaskId}
+          onTaskReview={handleTaskReview}
+        />
+      )}
+
+      {isClient && project.status === "completed" && <CompletedBanner />}
+
       <PhaseTabs
         phases={project.phases}
         activePhaseId={activePhaseId}
         phaseCounts={phaseCounts}
         onPhaseChange={setActivePhaseId}
+        showPhaseStatus={isClient}
       />
+
       <FileTable
         projectId={id}
         activePhaseId={activePhaseId}
         phaseFiles={phaseFiles}
         onDownload={handleDownload}
+        onRefresh={isClient ? () => {} : refreshAttachments}
+        readOnly={isClient}
+        uploadTriggerRef={isClient ? undefined : uploadTriggerRef}
       />
-      {activePhaseId && (
+
+      {!isClient && activePhaseId && (
         <div className="px-6 py-4">
           <TaskSection
             projectId={id}
@@ -117,6 +183,9 @@ export default function ProjectDetailPage({
           />
         </div>
       )}
+
+      {isClient && <ApprovalHistory approvals={approvals} />}
+
       <CommentsSection
         comments={comments}
         newComment={newComment}
@@ -124,6 +193,21 @@ export default function ProjectDetailPage({
         sendingComment={sendingComment}
         onSendComment={handleSendComment}
       />
+
+      {isClient && (
+        <RequestChangesDialog
+          open={changesDialogOpen}
+          onOpenChange={setChangesDialogOpen}
+          comment={changesComment}
+          onCommentChange={setChangesComment}
+          submitting={submittingDecision}
+          onSubmit={async () => {
+            await handleDecision("changes_requested", changesComment);
+            setChangesDialogOpen(false);
+            setChangesComment("");
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
+import { useAvatarUpload } from "@/hooks/useFileUpload";
 
 /** Hook managing settings page state: profile, password, preferences, and account deletion. */
 export function useSettings() {
@@ -18,7 +19,6 @@ export function useSettings() {
   const [role, setRole] = useState("pm");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -43,66 +43,21 @@ export function useSettings() {
   const email = session?.user?.email ?? "";
   const userId = session?.user?.id ?? "";
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const saveImage = useCallback(async (url: string) => {
+    await authClient.updateUser({ image: url });
+    setAvatarUrl(url);
+  }, []);
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast({
-        title: t("invalidFileType"),
-        description: t("invalidFileTypeDesc"),
-        variant: "error",
-      });
-      return;
-    }
-    if (file.size > 1 * 1024 * 1024) {
-      toast({
-        title: t("fileTooLarge"),
-        description: t("fileTooLargeDesc"),
-        variant: "error",
-      });
-      return;
-    }
+  const onAvatarSuccess = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const res = await fetch("/api/avatar", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error || t("uploadFailed"));
-      }
-
-      const { url } = await res.json();
-
-      // Save URL to user.image via better-auth
-      await authClient.updateUser({ image: url });
-
-      setAvatarUrl(url);
-      // Refresh server components so sidebar picks up the new avatar
-      router.refresh();
-
-      toast({
-        title: t("savedToast"),
-        description: t("avatarUpdated"),
-        variant: "success",
-      });
-    } catch {
-      toast({
-        title: t("error"),
-        description: t("avatarUploadError"),
-        variant: "error",
-      });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
+  const { isUploading, handleAvatarChange } = useAvatarUpload({
+    t,
+    toast,
+    saveImage,
+    onSuccess: onAvatarSuccess,
+  });
 
   const handleSave = async () => {
     setIsSaving(true);

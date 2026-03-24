@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { env } from "@/env";
 
 /**
  * Shared PostgreSQL connection pool.
@@ -16,7 +17,7 @@ const globalForPg = globalThis as unknown as { pgPool?: Pool };
 export function getPool(): Pool {
   if (!globalForPg.pgPool) {
     globalForPg.pgPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: env().DATABASE_URL,
       max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,

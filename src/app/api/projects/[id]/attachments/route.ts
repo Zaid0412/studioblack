@@ -3,6 +3,7 @@ import {
   getAttachments,
   verifyPhaseOwnership,
   verifyTaskOwnership,
+  uploadNewVersion,
 } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
@@ -11,6 +12,8 @@ import {
   createNotificationForClient,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { rateLimit } from "@/lib/rateLimit";
+import { env } from "@/env";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
@@ -34,13 +37,52 @@ export const GET = withAuth(
 export const POST = withAuth(
   { projectAccess: true },
   async (req, { user }, params) => {
+    const { allowed } = rateLimit(`attach:${user.id}`, {
+      limit: 20,
+      windowMs: 60_000,
+    });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
+
     const { id } = params;
 
-    const { fileUrl, fileName, description, phaseId, taskId } =
+    const { fileUrl, fileName, description, phaseId, taskId, versionGroup } =
       await req.json();
     if (!fileUrl || !fileName) {
       return NextResponse.json(
         { error: "fileUrl and fileName are required" },
+        { status: 400 }
+      );
+    }
+
+    let fileUrlHostname: string;
+    try {
+      fileUrlHostname = new URL(fileUrl).hostname;
+    } catch {
+      return NextResponse.json(
+        { error: "fileUrl is not a valid URL" },
+        { status: 400 }
+      );
+    }
+    const supabaseHostname = new URL(env().NEXT_PUBLIC_SUPABASE_URL).hostname;
+    if (fileUrlHostname !== supabaseHostname) {
+      return NextResponse.json(
+        { error: "fileUrl must point to the Supabase storage domain" },
+        { status: 400 }
+      );
+    }
+
+    if (
+      description &&
+      typeof description === "string" &&
+      description.length > 2000
+    ) {
+      return NextResponse.json(
+        { error: "Description must be at most 2000 characters" },
         { status: 400 }
       );
     }
@@ -64,6 +106,55 @@ export const POST = withAuth(
       }
     }
 
+    // Helper to send upload notifications
+    const sendUploadNotifications = async (attachmentFileName: string) => {
+      try {
+        const pool = getPool();
+        const { rows: project } = await pool.query(
+          `SELECT name, client_email FROM project WHERE id = $1`,
+          [id]
+        );
+        const proj = project[0];
+        if (proj?.client_email) {
+          const uploaderName = user.name || user.email;
+          const subject = `New Design Uploaded: ${proj.name}`;
+          const body = `<p><strong>${escapeHtml(uploaderName)}</strong> has uploaded a new file to your project <strong>${escapeHtml(proj.name)}</strong>.</p>
+          <p style="color: #666;">File: ${escapeHtml(attachmentFileName)}</p>
+          ${description ? `<p style="color: #666;">Description: ${escapeHtml(description)}</p>` : ""}
+          <p style="margin-top: 16px;"><a href="${env().NEXT_PUBLIC_APP_URL}/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
+          sendNotificationEmail(proj.client_email, subject, body);
+        }
+        // In-app notifications
+        const uploaderName = user.name || user.email;
+        const notifTitle = `New upload: ${attachmentFileName}`;
+        const notifDesc = `${uploaderName} uploaded a file to ${proj?.name || "project"}`;
+        await createNotificationsForTeam(
+          id,
+          user.id,
+          "upload",
+          notifTitle,
+          notifDesc
+        );
+        await createNotificationForClient(id, "upload", notifTitle, notifDesc);
+      } catch (err) {
+        console.error("[attachment] Failed to send notification email:", err);
+      }
+    };
+
+    // Version upload — use uploadNewVersion helper
+    if (versionGroup) {
+      const attachment = await uploadNewVersion(
+        versionGroup,
+        fileUrl,
+        fileName,
+        user.id,
+        id,
+        phaseId || null
+      );
+      await sendUploadNotifications(fileName);
+      return NextResponse.json(attachment, { status: 201 });
+    }
+
     const pool = getPool();
     const {
       rows: [attachment],
@@ -82,37 +173,7 @@ export const POST = withAuth(
       ]
     );
 
-    // Notify the client when a team member uploads an attachment
-    try {
-      const { rows: project } = await pool.query(
-        `SELECT name, client_email FROM project WHERE id = $1`,
-        [id]
-      );
-      const proj = project[0];
-      if (proj?.client_email) {
-        const uploaderName = user.name || user.email;
-        const subject = `New Design Uploaded: ${proj.name}`;
-        const body = `<p><strong>${escapeHtml(uploaderName)}</strong> has uploaded a new file to your project <strong>${escapeHtml(proj.name)}</strong>.</p>
-        <p style="color: #666;">File: ${escapeHtml(fileName)}</p>
-        ${description ? `<p style="color: #666;">Description: ${escapeHtml(description)}</p>` : ""}
-        <p style="margin-top: 16px;"><a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/client-dashboard/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
-        sendNotificationEmail(proj.client_email, subject, body);
-      }
-      // In-app notifications
-      const uploaderName = user.name || user.email;
-      const notifTitle = `New upload: ${fileName}`;
-      const notifDesc = `${uploaderName} uploaded a file to ${proj?.name || "project"}`;
-      await createNotificationsForTeam(
-        id,
-        user.id,
-        "upload",
-        notifTitle,
-        notifDesc
-      );
-      await createNotificationForClient(id, "upload", notifTitle, notifDesc);
-    } catch (err) {
-      console.error("[attachment] Failed to send notification email:", err);
-    }
+    await sendUploadNotifications(fileName);
 
     return NextResponse.json(attachment, { status: 201 });
   }

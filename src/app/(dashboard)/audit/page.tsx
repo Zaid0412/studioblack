@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { FolderOpen, Search, Loader2 } from "lucide-react";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { activityIcons } from "@/lib/activityConstants";
+import { notifications } from "@/lib/api";
 
 interface AuditEntry {
   id: string;
@@ -25,12 +27,24 @@ export default function AuditPage() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch("/api/notifications")
-      .then((res) => (res.ok ? res.json() : []))
+  const fetchEntries = useCallback(() => {
+    notifications
+      .list()
       .then((data) => setEntries(data))
       .catch(() => setEntries([]))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchEntries();
+  }, [fetchEntries]);
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      setEntries(await notifications.list());
+    } catch {
+      // ignore refresh errors
+    }
   }, []);
 
   const filtered = useMemo(
@@ -46,7 +60,11 @@ export default function AuditPage() {
 
   return (
     <div className="flex flex-col gap-6 max-w-[1000px]">
-      <PageHeader title={t("title")} subtitle={t("subtitle")} />
+      <PageHeader
+        title={t("title")}
+        subtitle={t("subtitle")}
+        actions={<RefreshButton onRefresh={handleRefresh} />}
+      />
 
       <SearchInput
         placeholder={t("searchPlaceholder")}

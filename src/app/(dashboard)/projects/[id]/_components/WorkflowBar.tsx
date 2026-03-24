@@ -10,10 +10,11 @@ import type { DbStep } from "@/types";
 interface WorkflowBarProps {
   projectId: string;
   steps?: DbStep[];
+  onUpload?: () => void;
 }
 
 /** Horizontal workflow steps bar with progress indicators and upload action. */
-export function WorkflowBar({ projectId, steps }: WorkflowBarProps) {
+export function WorkflowBar({ projectId, steps, onUpload }: WorkflowBarProps) {
   const router = useRouter();
   const t = useTranslations("projectDetail");
 
@@ -50,7 +51,9 @@ export function WorkflowBar({ projectId, steps }: WorkflowBarProps) {
         </Button>
         <Button
           className="!text-xs !bg-[#EF4444] !text-white hover:!bg-[#DC2626]"
-          onClick={() => router.push(`/projects/${projectId}/upload`)}
+          onClick={() =>
+            onUpload ? onUpload() : router.push(`/projects/${projectId}/upload`)
+          }
         >
           {t("actionsButton") || "Actions"}
         </Button>
