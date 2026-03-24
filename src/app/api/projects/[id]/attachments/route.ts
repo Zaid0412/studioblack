@@ -59,7 +59,17 @@ export const POST = withAuth(
       );
     }
 
-    if (!fileUrl.startsWith(env().NEXT_PUBLIC_SUPABASE_URL)) {
+    let fileUrlHostname: string;
+    try {
+      fileUrlHostname = new URL(fileUrl).hostname;
+    } catch {
+      return NextResponse.json(
+        { error: "fileUrl is not a valid URL" },
+        { status: 400 }
+      );
+    }
+    const supabaseHostname = new URL(env().NEXT_PUBLIC_SUPABASE_URL).hostname;
+    if (fileUrlHostname !== supabaseHostname) {
       return NextResponse.json(
         { error: "fileUrl must point to the Supabase storage domain" },
         { status: 400 }

@@ -9,12 +9,15 @@ interface RateLimitEntry {
 }
 
 const store = new Map<string, RateLimitEntry>();
+const config = { maxWindowMs: 120_000 };
 
 // Clean up stale entries every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of store) {
-    entry.timestamps = entry.timestamps.filter((t) => now - t < 120_000);
+    entry.timestamps = entry.timestamps.filter(
+      (t) => now - t < config.maxWindowMs
+    );
     if (entry.timestamps.length === 0) store.delete(key);
   }
 }, 300_000);
@@ -39,6 +42,8 @@ export function rateLimit(
   key: string,
   { limit, windowMs }: RateLimitOptions
 ): RateLimitResult {
+  if (windowMs > config.maxWindowMs) config.maxWindowMs = windowMs;
+
   const now = Date.now();
   let entry = store.get(key);
 

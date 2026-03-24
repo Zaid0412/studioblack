@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { tasks as tasksApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { NEXT_STATUS } from "@/lib/taskUtils";
@@ -28,6 +28,14 @@ export function useTaskCrud({
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Sync formData with defaultForm when it changes (e.g. phase switch)
+  // but only when the dialog is closed and we're not editing
+  useEffect(() => {
+    if (!dialogOpen && !editingTask) {
+      setFormData(defaultForm);
+    }
+  }, [defaultForm, dialogOpen, editingTask]);
 
   const toggleStatus = useCallback(
     async (task: Task) => {

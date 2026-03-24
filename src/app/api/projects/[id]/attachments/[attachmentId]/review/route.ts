@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import {
   getAttachmentById,
-  updateAttachmentReviewStatus,
   createAttachmentReview,
   getAttachmentReviews,
 } from "@/lib/queries";
@@ -53,20 +52,40 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Update the attachment's review_status
-    const updated = await updateAttachmentReviewStatus(
-      attachmentId,
-      status,
-      user.id
-    );
-
-    // Freeze on approval
-    if (status === "approved") {
-      const pool = getPool();
-      await pool.query(
-        `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
-        [attachmentId]
+    // Guard: don't allow re-approving/re-rejecting if already in that state
+    if (attachment.review_status === status) {
+      return NextResponse.json(
+        { error: `Attachment is already ${status}` },
+        { status: 409 }
       );
+    }
+
+    // Update status + freeze on approval atomically
+    const pool = getPool();
+    const client = await pool.connect();
+    let updated;
+    try {
+      await client.query("BEGIN");
+      const { rows } = await client.query(
+        `UPDATE attachment
+         SET review_status = $1, reviewed_by = $2, reviewed_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [status, user.id, attachmentId]
+      );
+      updated = rows[0];
+      if (status === "approved") {
+        await client.query(
+          `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
+          [attachmentId]
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
 
     // Create a review record (for history)

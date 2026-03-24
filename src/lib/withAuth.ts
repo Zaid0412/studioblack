@@ -49,14 +49,18 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
           { status: 403 }
         );
       }
-      if (host) {
-        const originHost = new URL(origin).host;
-        if (originHost !== host) {
-          return NextResponse.json(
-            { error: "CSRF origin mismatch" },
-            { status: 403 }
-          );
-        }
+      if (!host) {
+        return NextResponse.json(
+          { error: "CSRF host missing" },
+          { status: 403 }
+        );
+      }
+      const originHost = new URL(origin).host;
+      if (originHost !== host) {
+        return NextResponse.json(
+          { error: "CSRF origin mismatch" },
+          { status: 403 }
+        );
       }
     }
 

@@ -31,14 +31,17 @@ function getTransport(): nodemailer.Transporter {
   return _transport;
 }
 
-const FROM_EMAIL =
-  env().EMAIL_FROM || `${branding.appName} <noreply@studioblack.com>`;
+function getFromEmail(): string {
+  return env().EMAIL_FROM || `${branding.appName} <noreply@studioblack.com>`;
+}
 
-const ENV_TAG = env().NODE_ENV === "production" ? "" : "[STAGING] ";
+function getEnvTag(): string {
+  return env().NODE_ENV === "production" ? "" : "[STAGING] ";
+}
 
 async function sendEmail(to: string, subject: string, html: string) {
   try {
-    await getTransport().sendMail({ from: FROM_EMAIL, to, subject, html });
+    await getTransport().sendMail({ from: getFromEmail(), to, subject, html });
   } catch (err) {
     console.error("[email] Failed to send:", err);
   }
@@ -51,7 +54,7 @@ export async function sendMagicLinkEmail(email: string, url: string) {
   const safeUrl = escapeHtml(url);
   await sendEmail(
     email,
-    `${ENV_TAG}${branding.appName} — Access Your Project`,
+    `${getEnvTag()}${branding.appName} — Access Your Project`,
     `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
         <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
@@ -78,7 +81,7 @@ export async function sendNotificationEmail(
 ) {
   await sendEmail(
     email,
-    `${ENV_TAG}${branding.appName} — ${escapeHtml(subject)}`,
+    `${getEnvTag()}${branding.appName} — ${escapeHtml(subject)}`,
     `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
         <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
@@ -101,7 +104,7 @@ export async function sendInvitationEmail(
 ) {
   await sendEmail(
     email,
-    `${ENV_TAG}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
+    `${getEnvTag()}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
     `
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
         <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
