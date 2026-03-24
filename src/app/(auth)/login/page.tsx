@@ -49,7 +49,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen lg:h-screen">
       {/* Hero Panel — Left */}
       <div className="hidden lg:flex lg:flex-[1.8] relative bg-bg-secondary overflow-hidden">
         {/* Subtle gradient overlay */}
