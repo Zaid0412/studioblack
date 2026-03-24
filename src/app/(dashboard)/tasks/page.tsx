@@ -271,7 +271,7 @@ export default function TasksPage() {
       />
 
       {/* Main layout: sidebar + content */}
-      <div className="flex gap-6">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         <TaskBucketSidebar
           activeBucket={activeBucket}
           counts={counts}
@@ -290,10 +290,10 @@ export default function TasksPage() {
             onFilterChange={setParam}
           />
 
-          {/* Task list table */}
-          <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] overflow-hidden flex flex-col min-h-[600px]">
-            {/* Table header */}
-            <div className="flex items-center h-11 px-4 bg-[#242424] gap-3">
+          {/* Task list */}
+          <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
+            {/* Table header (desktop only) */}
+            <div className="hidden lg:flex items-center h-11 px-4 bg-[#242424] gap-3">
               <div className="w-3" /> {/* priority dot spacer */}
               <div className="w-6" /> {/* star spacer */}
               <div className="flex-1 text-xs font-bold text-[#666666]">
