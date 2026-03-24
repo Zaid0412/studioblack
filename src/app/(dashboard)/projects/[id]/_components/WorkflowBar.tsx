@@ -19,7 +19,7 @@ export function WorkflowBar({ projectId, steps, onUpload }: WorkflowBarProps) {
   const t = useTranslations("projectDetail");
 
   return (
-    <div className="flex items-center justify-between px-10 py-4 border-b border-[#333333]">
+    <div className="flex items-center justify-between px-4 lg:px-10 py-4 border-b border-[#333333] overflow-x-auto scrollbar-none gap-3">
       {steps && steps.length > 0 ? (
         <WorkflowSteps steps={steps} />
       ) : (

@@ -15,7 +15,7 @@ export function ApprovalHistory({ approvals }: ApprovalHistoryProps) {
   if (approvals.length === 0) return null;
 
   return (
-    <div className="px-10 pb-4">
+    <div className="px-4 lg:px-10 pb-4">
       <div className="flex items-center gap-2 mb-3">
         <History className="w-4 h-4 text-[#666666]" />
         <span className="text-[13px] font-semibold text-white">

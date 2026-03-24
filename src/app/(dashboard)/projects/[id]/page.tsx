@@ -164,7 +164,7 @@ export default function ProjectDetailPage({
       />
 
       {!isClient && activePhaseId && (
-        <div className="px-6 py-4">
+        <div className="px-4 lg:px-6 py-4">
           <TaskSection
             projectId={id}
             activePhaseId={activePhaseId}

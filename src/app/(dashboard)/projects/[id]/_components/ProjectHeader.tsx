@@ -27,7 +27,7 @@ export function ProjectHeader({
   const t = useTranslations("projectDetail");
 
   return (
-    <div className="flex items-start justify-between px-10 py-5 border-b border-[#333333]">
+    <div className="flex items-start justify-between px-4 lg:px-10 py-5 border-b border-[#333333]">
       <div>
         <span className="text-[13px] text-[#666666]">
           <button
@@ -39,7 +39,7 @@ export function ProjectHeader({
           {" / "}
           {projectName}
         </span>
-        <h1 className="text-[26px] font-bold text-white font-[family-name:var(--font-cabinet)] mt-1">
+        <h1 className="text-xl lg:text-[26px] font-bold text-white font-[family-name:var(--font-cabinet)] mt-1">
           {projectName}
         </h1>
         {description && (

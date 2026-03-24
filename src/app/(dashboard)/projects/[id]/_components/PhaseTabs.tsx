@@ -21,7 +21,7 @@ export function PhaseTabs({
   showPhaseStatus = false,
 }: PhaseTabsProps) {
   return (
-    <div className="flex items-center px-10 border-b border-[#333333] overflow-x-auto shrink-0">
+    <div className="flex items-center px-4 lg:px-10 border-b border-[#333333] overflow-x-auto scrollbar-none shrink-0">
       {phases.map((phase) => {
         const isActive = phase.id === activePhaseId;
         const count = phaseCounts.get(phase.id) || 0;

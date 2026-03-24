@@ -24,7 +24,7 @@ export function PendingTasksBanner({
   if (pendingTasks.length === 0) return null;
 
   return (
-    <div className="px-10 py-3 bg-[#1A1600] border-b border-[#333333]">
+    <div className="px-4 lg:px-10 py-3 bg-[#1A1600] border-b border-[#333333]">
       <div className="flex items-center gap-2 mb-2">
         <ClipboardCheck className="w-4 h-4 text-[#F5C518]" />
         <span className="text-[13px] font-semibold text-white">

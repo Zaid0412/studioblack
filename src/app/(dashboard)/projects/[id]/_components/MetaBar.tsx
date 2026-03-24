@@ -41,7 +41,7 @@ export function MetaBar({
 
   if (variant === "client") {
     return (
-      <div className="px-10 py-3 flex items-center gap-6 text-[13px] border-b border-[#333333]">
+      <div className="px-4 lg:px-10 py-3 flex items-center gap-4 lg:gap-6 text-[13px] border-b border-[#333333] flex-wrap">
         {status && (
           <div className="flex items-center gap-2">
             <span className="text-[#666666]">{t("statusLabel")}</span>
@@ -117,8 +117,8 @@ export function MetaBar({
   ).length;
 
   return (
-    <div className="px-10 py-3">
-      <div className="flex items-center gap-8 rounded-[10px] bg-[#1A1A1A] border border-[#333333] px-5 py-4">
+    <div className="px-4 lg:px-10 py-3">
+      <div className="grid grid-cols-2 lg:flex lg:items-center gap-4 lg:gap-8 rounded-[10px] bg-[#1A1A1A] border border-[#333333] px-4 lg:px-5 py-4">
         {/* Client */}
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-[#666666] tracking-[0.5px] uppercase">
@@ -126,7 +126,7 @@ export function MetaBar({
           </span>
           <span className="text-[14px] font-medium text-white">{client}</span>
         </div>
-        <div className="w-px h-8 bg-[#333333]" />
+        <div className="hidden lg:block w-px h-8 bg-[#333333]" />
         {/* Architects */}
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-[#666666] tracking-[0.5px] uppercase">
@@ -136,7 +136,7 @@ export function MetaBar({
             {architects}
           </span>
         </div>
-        <div className="w-px h-8 bg-[#333333]" />
+        <div className="hidden lg:block w-px h-8 bg-[#333333]" />
         {/* Created */}
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-[#666666] tracking-[0.5px] uppercase">
@@ -146,7 +146,7 @@ export function MetaBar({
             {createdDate}
           </span>
         </div>
-        <div className="w-px h-8 bg-[#333333]" />
+        <div className="hidden lg:block w-px h-8 bg-[#333333]" />
         {/* Sections count */}
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-medium text-[#666666] tracking-[0.5px] uppercase">
