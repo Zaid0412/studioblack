@@ -1,4 +1,10 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useSyncExternalStore,
+} from "react";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
@@ -7,15 +13,26 @@ import type { Notification, DbNotificationRow } from "@/types";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TranslationFn = (key: string, values?: any) => string;
 
+/* Date helpers for useSyncExternalStore — avoids impure Date.now() in render */
+function subscribeDateChange(cb: () => void) {
+  // Re-check every 60s in case midnight crosses during the session
+  const id = setInterval(cb, 60_000);
+  return () => clearInterval(id);
+}
+function getToday() {
+  return new Date().toDateString();
+}
+function getYesterday() {
+  return new Date(Date.now() - 86_400_000).toDateString();
+}
+
 export interface UseNotificationsOptions {
   t: TranslationFn;
   onNavigate: (path: string) => void;
   onClose: () => void;
 }
 
-/**
- *
- */
+/** Fetch, display, and manage notification state (invitations + DB notifications). */
 export function useNotifications({
   t,
   onNavigate,
@@ -131,31 +148,40 @@ export function useNotifications({
     [notifications]
   );
 
+  const todayStr = useSyncExternalStore(
+    subscribeDateChange,
+    getToday,
+    getToday
+  );
+  const yesterdayStr = useSyncExternalStore(
+    subscribeDateChange,
+    getYesterday,
+    getYesterday
+  );
+
   const groups = useMemo(() => {
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
     return [
       {
         label: t("today"),
         items: notifications.filter(
-          (n) => new Date(n.createdAt).toDateString() === today
+          (n) => new Date(n.createdAt).toDateString() === todayStr
         ),
       },
       {
         label: t("yesterday"),
         items: notifications.filter(
-          (n) => new Date(n.createdAt).toDateString() === yesterday
+          (n) => new Date(n.createdAt).toDateString() === yesterdayStr
         ),
       },
       {
         label: t("earlier"),
         items: notifications.filter((n) => {
           const date = new Date(n.createdAt).toDateString();
-          return date !== today && date !== yesterday;
+          return date !== todayStr && date !== yesterdayStr;
         }),
       },
     ].filter((g) => g.items.length > 0);
-  }, [notifications, t]);
+  }, [notifications, t, todayStr, yesterdayStr]);
 
   const handleNotificationClick = async (notification: Notification) => {
     if (

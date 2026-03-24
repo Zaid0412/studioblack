@@ -23,9 +23,7 @@ interface UploadDialogProps {
   onSuccess: () => void;
 }
 
-/**
- *
- */
+/** Modal dialog for uploading files to a project phase. */
 export function UploadDialog({
   open,
   onOpenChange,

@@ -53,11 +53,7 @@ import {
   isOverdue,
 } from "@/lib/taskUtils";
 import type { Task } from "@/types";
-import {
-  useTaskDetail,
-  type ChecklistItem,
-  type Attachment,
-} from "../_hooks/useTaskDetail";
+import { useTaskDetail, type ChecklistItem } from "../_hooks/useTaskDetail";
 
 // ---------------------------------------------------------------------------
 // File type color helpers

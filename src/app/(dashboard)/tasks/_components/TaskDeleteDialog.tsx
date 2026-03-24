@@ -27,9 +27,7 @@ export interface TaskDeleteDialogProps {
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Confirmation dialog for permanently deleting a task. */
 export function TaskDeleteDialog({
   task,
   onOpenChange,

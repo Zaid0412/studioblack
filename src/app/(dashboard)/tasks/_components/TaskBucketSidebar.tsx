@@ -53,9 +53,7 @@ const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Sidebar listing task buckets (all, my tasks, starred, etc.) with counts. */
 export function TaskBucketSidebar({
   activeBucket,
   counts,

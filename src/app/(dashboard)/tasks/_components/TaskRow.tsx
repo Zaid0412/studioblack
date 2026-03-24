@@ -48,9 +48,7 @@ interface TaskRowProps {
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Single task row with status, priority, assignee, and action menu. */
 export function TaskRow({
   task,
   onToggleStar,

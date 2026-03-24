@@ -14,9 +14,7 @@ export type Attachment = TaskAttachment;
 // Hook
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Manage checklist items and attachments for a task detail modal. */
 export function useTaskDetail(
   task: Task | null,
   open: boolean,

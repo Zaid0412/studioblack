@@ -32,9 +32,7 @@ interface TaskFilterBarProps {
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Search and filter controls for the task list (status, priority, category). */
 export function TaskFilterBar({
   searchValue,
   statusFilter,

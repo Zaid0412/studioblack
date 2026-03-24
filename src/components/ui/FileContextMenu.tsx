@@ -4,7 +4,7 @@ import {
   ClipboardCheck,
   Download,
   History,
-    Lock,
+  Lock,
   MoreVertical,
   Pencil,
   Trash2,

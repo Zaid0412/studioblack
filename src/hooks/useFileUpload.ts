@@ -57,9 +57,7 @@ interface AvatarUploadDeps {
   onSuccess?: () => void;
 }
 
-/**
- *
- */
+/** Handle avatar image upload with validation, toast feedback, and persistence. */
 export function useAvatarUpload({
   t,
   toast,

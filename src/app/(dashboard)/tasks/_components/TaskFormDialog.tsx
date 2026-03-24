@@ -52,9 +52,7 @@ export interface TaskFormDialogProps {
 // Component
 // ---------------------------------------------------------------------------
 
-/**
- *
- */
+/** Dialog form for creating or editing a task. */
 export function TaskFormDialog({
   open,
   onOpenChange,

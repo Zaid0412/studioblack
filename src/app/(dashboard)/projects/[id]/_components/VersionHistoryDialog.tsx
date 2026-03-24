@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { useRouter } from "next/navigation";
 import { FileText, Lock, Download, Loader2 } from "lucide-react";
 import {
@@ -22,9 +22,7 @@ interface VersionHistoryDialogProps {
   versionGroup: string;
 }
 
-/**
- *
- */
+/** Display version history for a file group in a modal dialog. */
 export function VersionHistoryDialog({
   open,
   onOpenChange,
@@ -32,17 +30,37 @@ export function VersionHistoryDialog({
   versionGroup,
 }: VersionHistoryDialogProps) {
   const router = useRouter();
-  const [versions, setVersions] = useState<DbAttachment[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  type State = { loading: boolean; versions: DbAttachment[] };
+  type Action =
+    | { type: "fetch" }
+    | { type: "fetched"; versions: DbAttachment[] }
+    | { type: "error" };
+  const [{ loading, versions }, dispatch] = useReducer(
+    (_: State, action: Action): State => {
+      if (action.type === "fetch") return { loading: true, versions: [] };
+      if (action.type === "fetched")
+        return { loading: false, versions: action.versions };
+      return { loading: false, versions: [] };
+    },
+    { loading: true, versions: [] }
+  );
 
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
+    dispatch({ type: "fetch" });
+    let cancelled = false;
     attachments
       .getVersionHistory(projectId, versionGroup)
-      .then(setVersions)
-      .catch(() => setVersions([]))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!cancelled) dispatch({ type: "fetched", versions: data });
+      })
+      .catch(() => {
+        if (!cancelled) dispatch({ type: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, projectId, versionGroup]);
 
   const latestName = versions[0]?.file_name || "File";

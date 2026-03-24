@@ -68,9 +68,7 @@ const VERSION_COLORS = [
   { bg: "bg-[#0A2E14]", text: "text-[#22C55E]" }, // V6 — green
 ];
 
-/**
- *
- */
+/** Return badge color classes for a given version number (cycles for V7+). */
 export function versionColor(version: number): { bg: string; text: string } {
   const idx =
     (((version - 1) % VERSION_COLORS.length) + VERSION_COLORS.length) %

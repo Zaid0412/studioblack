@@ -10,9 +10,7 @@ interface PaginationProps {
   showingText?: string;
 }
 
-/**
- *
- */
+/** Page navigation control with numbered buttons and prev/next arrows. */
 export function Pagination({
   currentPage,
   totalPages,

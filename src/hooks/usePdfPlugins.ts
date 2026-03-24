@@ -16,7 +16,9 @@ interface UsePdfPluginsParams {
  */
 export function usePdfPlugins({ viewerRef, attachment }: UsePdfPluginsParams) {
   const getPlugin = useCallback(
-    async (name: string): Promise<any> => {
+    async (
+      name: string
+    ): Promise<Record<string, (...args: unknown[]) => unknown> | null> => {
       const registry = await viewerRef.current?.registry;
       if (!registry) return null;
       return registry.getPlugin(name)?.provides?.() ?? null;

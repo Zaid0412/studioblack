@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
-import { Pool } from "pg";
+
 import { ac, owner, admin, member } from "@/lib/permissions";
 import { sendMagicLinkEmail, sendInvitationEmail } from "@/lib/email";
 import { getPool } from "@/lib/db";

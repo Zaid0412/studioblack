@@ -13,9 +13,7 @@ interface UseTaskCrudOptions {
   onFetchPhases?: (projectId: string) => void;
 }
 
-/**
- *
- */
+/** Shared CRUD operations for tasks: create, update, delete, star, and status toggle. */
 export function useTaskCrud({
   fetchTasks,
   setTasks,

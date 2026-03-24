@@ -717,6 +717,7 @@ export async function getTasks(filters: TaskFilters) {
 
   const total = rows.length > 0 ? rows[0]._total_count : 0;
   // Strip the internal _total_count field from results
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const tasks = rows.map(({ _total_count, ...rest }) => rest);
 
   return { tasks, total };
