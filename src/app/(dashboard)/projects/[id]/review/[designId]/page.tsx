@@ -170,7 +170,7 @@ export default function DesignReviewPage({
   if (review.loading) {
     return (
       <div
-        className="flex items-center justify-center -m-8"
+        className="flex items-center justify-center -m-4 lg:-m-8"
         style={{ height: "calc(100vh)" }}
       >
         <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
@@ -181,7 +181,7 @@ export default function DesignReviewPage({
   if (!attachment) {
     return (
       <div
-        className="flex flex-col items-center justify-center -m-8 gap-4"
+        className="flex flex-col items-center justify-center -m-4 lg:-m-8 gap-4"
         style={{ height: "calc(100vh)" }}
       >
         <FileText className="w-12 h-12 text-[#666666]" />
@@ -201,7 +201,7 @@ export default function DesignReviewPage({
   const { file_name: fileName, file_url: fileUrl } = attachment;
 
   return (
-    <div className="flex -m-8" style={{ height: "calc(100vh)" }}>
+    <div className="flex -m-4 lg:-m-8" style={{ height: "calc(100vh)" }}>
       <ThumbnailPanel
         phaseFiles={review.phaseFiles}
         activeFileId={activeFileId}
