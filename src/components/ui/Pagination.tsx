@@ -39,7 +39,9 @@ export function Pagination({
   return (
     <div className="flex items-center justify-between h-12 px-4 border-t border-[#333333]">
       {showingText && (
-        <span className="text-[13px] text-[#666666]">{showingText}</span>
+        <span className="hidden lg:inline text-[13px] text-[#666666]">
+          {showingText}
+        </span>
       )}
       <div className="flex items-center gap-2 ml-auto">
         <button

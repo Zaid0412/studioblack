@@ -149,7 +149,7 @@ export function UploadDialog({
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors ${
+              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-5 lg:p-8 transition-colors ${
                 dragOver
                   ? "border-accent bg-accent/10"
                   : "border-[#333333] hover:border-[#555555]"
