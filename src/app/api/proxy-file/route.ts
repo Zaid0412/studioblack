@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
+import { env } from "@/env";
 
 /**
  * GET /api/proxy-file?url=<encoded-url>
@@ -23,14 +24,7 @@ export const GET = withAuth({}, async (req) => {
   }
 
   // Restrict to this project's Supabase instance only
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!supabaseUrl) {
-    return NextResponse.json(
-      { error: "Server misconfigured" },
-      { status: 500 }
-    );
-  }
-  const allowedHost = new URL(supabaseUrl).hostname;
+  const allowedHost = new URL(env().NEXT_PUBLIC_SUPABASE_URL).hostname;
   if (parsed.hostname !== allowedHost) {
     return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
   }

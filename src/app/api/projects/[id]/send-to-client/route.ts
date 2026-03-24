@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
+import { env } from "@/env";
 
 /**
  * POST /api/projects/[id]/send-to-client
@@ -62,7 +63,7 @@ export const POST = withAuth(
     }
 
     // Send magic link via better-auth
-    const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+    const baseUrl = env().BETTER_AUTH_URL || env().NEXT_PUBLIC_APP_URL;
     const callbackURL = `/dashboard`;
 
     try {

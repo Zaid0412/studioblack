@@ -12,6 +12,7 @@ import {
   createNotificationForClient,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { env } from "@/env";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
@@ -80,7 +81,7 @@ export const POST = withAuth(
           const body = `<p><strong>${escapeHtml(uploaderName)}</strong> has uploaded a new file to your project <strong>${escapeHtml(proj.name)}</strong>.</p>
           <p style="color: #666;">File: ${escapeHtml(attachmentFileName)}</p>
           ${description ? `<p style="color: #666;">Description: ${escapeHtml(description)}</p>` : ""}
-          <p style="margin-top: 16px;"><a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
+          <p style="margin-top: 16px;"><a href="${env().NEXT_PUBLIC_APP_URL}/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
           sendNotificationEmail(proj.client_email, subject, body);
         }
         // In-app notifications

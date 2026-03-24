@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { branding } from "@/config/branding";
+import { env } from "@/env";
 
 /** Escape HTML special characters to prevent injection. */
 export function escapeHtml(str: string): string {
@@ -15,12 +16,13 @@ let _transport: nodemailer.Transporter | null = null;
 
 function getTransport(): nodemailer.Transporter {
   if (!_transport) {
+    const e = env();
     _transport = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp-relay.brevo.com",
-      port: Number(process.env.SMTP_PORT) || 587,
+      host: e.SMTP_HOST,
+      port: Number(e.SMTP_PORT),
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: e.SMTP_USER,
+        pass: e.SMTP_PASS,
       },
     });
   }
@@ -28,9 +30,9 @@ function getTransport(): nodemailer.Transporter {
 }
 
 const FROM_EMAIL =
-  process.env.EMAIL_FROM || `${branding.appName} <noreply@studioblack.com>`;
+  env().EMAIL_FROM || `${branding.appName} <noreply@studioblack.com>`;
 
-const ENV_TAG = process.env.NODE_ENV === "production" ? "" : "[STAGING] ";
+const ENV_TAG = env().NODE_ENV === "production" ? "" : "[STAGING] ";
 
 async function sendEmail(to: string, subject: string, html: string) {
   try {
