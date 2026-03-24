@@ -74,68 +74,103 @@ export default function AuditPage() {
       />
 
       <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border-default">
-              <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
-                {t("action")}
-              </th>
-              <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
-                {t("project")}
-              </th>
-              <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
-                {t("details")}
-              </th>
-              <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
-                {t("date")}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={4} className="py-12 text-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-[#666] mx-auto" />
-                </td>
-              </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={4}>
-                  <EmptyState
-                    icon={Search}
-                    title={te("auditTitle")}
-                    description={te("auditDescription")}
-                  />
-                </td>
-              </tr>
-            ) : (
-              filtered.map((entry) => {
+        {loading ? (
+          <div className="py-12 text-center">
+            <Loader2 className="w-5 h-5 animate-spin text-[#666] mx-auto" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title={te("auditTitle")}
+            description={te("auditDescription")}
+          />
+        ) : (
+          <>
+            {/* Desktop table */}
+            <table className="w-full hidden lg:table">
+              <thead>
+                <tr className="border-b border-border-default">
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
+                    {t("action")}
+                  </th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
+                    {t("project")}
+                  </th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
+                    {t("details")}
+                  </th>
+                  <th className="text-left text-xs font-medium text-text-muted px-5 py-3">
+                    {t("date")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((entry) => {
+                  const Icon = activityIcons[entry.type] || FolderOpen;
+                  return (
+                    <tr
+                      key={entry.id}
+                      className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-text-muted" />
+                          <span className="text-sm font-medium text-text-primary">
+                            {entry.title}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-sm text-text-secondary">
+                          {entry.project_name || "\u2014"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-sm text-text-muted">
+                          {entry.description || "\u2014"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="text-xs text-text-muted">
+                          {new Date(entry.created_at).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            }
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Mobile card list */}
+            <div className="flex flex-col lg:hidden">
+              {filtered.map((entry) => {
                 const Icon = activityIcons[entry.type] || FolderOpen;
                 return (
-                  <tr
+                  <div
                     key={entry.id}
-                    className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
+                    className="flex flex-col gap-1.5 px-4 py-3 border-b border-border-default last:border-b-0"
                   >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <Icon className="w-4 h-4 text-text-muted" />
-                        <span className="text-sm font-medium text-text-primary">
-                          {entry.title}
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-4 h-4 text-text-muted shrink-0" />
+                      <span className="text-sm font-medium text-text-primary truncate">
+                        {entry.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-text-muted">
+                      {entry.project_name && (
+                        <span className="text-text-secondary">
+                          {entry.project_name}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-sm text-text-secondary">
-                        {entry.project_name || "\u2014"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-sm text-text-muted">
-                        {entry.description || "\u2014"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-xs text-text-muted">
+                      )}
+                      <span className="ml-auto shrink-0">
                         {new Date(entry.created_at).toLocaleDateString(
                           "en-US",
                           {
@@ -146,13 +181,18 @@ export default function AuditPage() {
                           }
                         )}
                       </span>
-                    </td>
-                  </tr>
+                    </div>
+                    {entry.description && (
+                      <span className="text-xs text-text-muted">
+                        {entry.description}
+                      </span>
+                    )}
+                  </div>
                 );
-              })
-            )}
-          </tbody>
-        </table>
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
