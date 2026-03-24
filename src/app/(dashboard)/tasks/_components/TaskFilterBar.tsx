@@ -48,12 +48,12 @@ export function TaskFilterBar({
         onChange={(e) => onFilterChange("search", e.target.value)}
         containerClassName="flex-1"
       />
-      <div className="flex items-center gap-3">
+      <div className="grid grid-cols-3 lg:flex lg:items-center gap-3">
         <Select
           value={statusFilter}
           onValueChange={(v) => onFilterChange("status", v)}
         >
-          <SelectTrigger className="flex-1 lg:w-[150px]">
+          <SelectTrigger className="w-full lg:w-[150px]">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
@@ -69,7 +69,7 @@ export function TaskFilterBar({
           value={priorityFilter}
           onValueChange={(v) => onFilterChange("priority", v)}
         >
-          <SelectTrigger className="flex-1 lg:w-[140px]">
+          <SelectTrigger className="w-full lg:w-[140px]">
             <SelectValue placeholder="All Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -85,7 +85,7 @@ export function TaskFilterBar({
           value={categoryFilter}
           onValueChange={(v) => onFilterChange("category", v)}
         >
-          <SelectTrigger className="flex-1 lg:w-[150px]">
+          <SelectTrigger className="w-full lg:w-[150px]">
             <SelectValue placeholder="All Category" />
           </SelectTrigger>
           <SelectContent>
