@@ -357,14 +357,19 @@ export default function CreateProjectPage() {
             </Button>
           </div>
 
-          <div className="flex gap-3 mt-4">
-            <Button type="submit" disabled={isSubmitting}>
+          <div className="flex flex-col lg:flex-row gap-3 mt-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full lg:w-auto"
+            >
               {isSubmitting ? tc("loading") : t("createButton")}
             </Button>
             <Button
               type="button"
               variant="secondary"
               onClick={() => router.push("/projects")}
+              className="w-full lg:w-auto"
             >
               {tc("cancel")}
             </Button>

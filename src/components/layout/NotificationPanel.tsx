@@ -94,10 +94,11 @@ export function NotificationPanel() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[400px] p-0 border-[#333333] bg-[#141414] rounded-xl overflow-hidden"
+        collisionPadding={16}
+        className="w-[calc(100vw-2rem)] lg:w-[400px] p-0 border-[#333333] bg-[#141414] rounded-xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-[52px] px-5 border-b border-[#222222]">
+        <div className="flex items-center justify-between h-[52px] px-4 lg:px-5 border-b border-[#222222]">
           <span className="text-[15px] font-semibold text-white">
             {t("title")}
           </span>
@@ -135,7 +136,7 @@ export function NotificationPanel() {
           ) : (
             groups.map((group) => (
               <div key={group.label}>
-                <div className="flex items-center h-9 px-5">
+                <div className="flex items-center h-9 px-4 lg:px-5">
                   <span className="text-[11px] font-semibold text-[#666666] uppercase tracking-wider">
                     {group.label}
                   </span>
@@ -147,10 +148,12 @@ export function NotificationPanel() {
                   const isUnread = !notification.read;
                   return (
                     <div key={notification.id}>
-                      {idx > 0 && <div className="h-px bg-[#222222] mx-5" />}
+                      {idx > 0 && (
+                        <div className="h-px bg-[#222222] mx-4 lg:mx-5" />
+                      )}
                       <div
                         className={cn(
-                          "flex items-start gap-3 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors",
+                          "flex items-start gap-3 px-4 lg:px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors",
                           isUnread && "bg-[#1A1A1A]/50"
                         )}
                         onClick={() => handleNotificationClick(notification)}
