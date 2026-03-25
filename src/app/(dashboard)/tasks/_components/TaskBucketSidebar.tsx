@@ -73,15 +73,15 @@ export function TaskBucketSidebar({
               onClick={() => onSelect(bucket.key)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0 ${
                 isActive
-                  ? "bg-[#F5C518]/10 text-[#F5C518]"
-                  : "text-[#A0A0A0] bg-[#1A1A1A] hover:text-white"
+                  ? "bg-accent/10 text-accent"
+                  : "text-text-secondary bg-bg-secondary hover:text-text-primary"
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
               {bucket.label}
               <span
                 className={`text-[10px] tabular-nums ${
-                  isActive ? "text-[#F5C518]" : "text-[#666666]"
+                  isActive ? "text-accent" : "text-text-muted"
                 }`}
               >
                 {count}
@@ -92,7 +92,7 @@ export function TaskBucketSidebar({
       </div>
 
       {/* ── Desktop: vertical sidebar ── */}
-      <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-[#1A1A1A] border border-[#333333] overflow-hidden self-start">
+      <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default overflow-hidden self-start">
         <div className="flex flex-col py-2">
           {BUCKETS.map((bucket) => {
             const isActive = activeBucket === bucket.key;
@@ -104,15 +104,15 @@ export function TaskBucketSidebar({
                 onClick={() => onSelect(bucket.key)}
                 className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-[#F5C518]/10 text-[#F5C518] border-l-2 border-[#F5C518] font-semibold"
-                    : "text-[#A0A0A0] hover:text-white hover:bg-white/[0.03] border-l-2 border-transparent"
+                    ? "bg-accent/10 text-accent border-l-2 border-accent font-semibold"
+                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03] border-l-2 border-transparent"
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className="flex-1 text-left">{bucket.label}</span>
                 <span
                   className={`text-xs tabular-nums ${
-                    isActive ? "text-[#F5C518]" : "text-[#666666]"
+                    isActive ? "text-accent" : "text-text-muted"
                   }`}
                 >
                   {count}

@@ -36,10 +36,10 @@ export function ThumbnailPanel({
   onSelectFile,
 }: ThumbnailPanelProps) {
   return (
-    <div className="hidden lg:flex w-56 shrink-0 bg-[#0D0D0D] border-r border-[#222] flex-col overflow-hidden">
+    <div className="hidden lg:flex w-56 shrink-0 bg-bg-primary border-r border-[#222] flex-col overflow-hidden">
       {/* Header */}
       <div className="px-3 py-3 border-b border-[#222]">
-        <p className="text-[11px] font-medium text-[#666] uppercase tracking-wider">
+        <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
           {phaseName || "Files"}
         </p>
         {!loading && (
@@ -66,23 +66,25 @@ export function ThumbnailPanel({
                 onClick={() => onSelectFile(file.id)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-[#1A1A1A] border-l-2 border-[#F5C518]"
+                    ? "bg-bg-secondary border-l-2 border-accent"
                     : "border-l-2 border-transparent hover:bg-[#141414]"
                 }`}
               >
-                <div className={isActive ? "text-[#F5C518]" : "text-[#666]"}>
+                <div className={isActive ? "text-accent" : "text-text-muted"}>
                   <FileTypeIcon name={file.file_name} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p
                     className={`text-[12px] truncate ${
-                      isActive ? "text-white font-medium" : "text-[#A0A0A0]"
+                      isActive
+                        ? "text-text-primary font-medium"
+                        : "text-text-secondary"
                     }`}
                   >
                     {file.file_name}
                   </p>
                   {file.version && file.version > 1 && (
-                    <span className="text-[10px] text-[#F5C518]">
+                    <span className="text-[10px] text-accent">
                       V{file.version}
                     </span>
                   )}

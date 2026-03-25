@@ -64,7 +64,7 @@ export function TaskRow({
       <DropdownMenuTrigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
-          className="p-1 rounded-md text-[#666666] hover:text-white hover:bg-[#2A2A2A] transition-colors cursor-pointer"
+          className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
         >
           <MoreVertical className="w-4 h-4" />
         </button>
@@ -72,7 +72,7 @@ export function TaskRow({
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => onToggleStar(task)}>
           <Star
-            className={`w-4 h-4 ${task.is_starred ? "fill-[#F5C518] text-[#F5C518]" : ""}`}
+            className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent" : ""}`}
           />
           {task.is_starred ? "Unstar" : "Star"}
         </DropdownMenuItem>
@@ -98,7 +98,7 @@ export function TaskRow({
       {/* ── Desktop row ── */}
       <div
         onClick={() => onClick(task)}
-        className="hidden lg:flex items-center min-h-[56px] px-4 py-2 border-b border-[#333333] last:border-b-0 hover:bg-white/[0.02] transition-colors gap-3 cursor-pointer"
+        className="hidden lg:flex items-center min-h-[56px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-white/[0.02] transition-colors gap-3 cursor-pointer"
       >
         {/* Priority dot */}
         <div className="w-3 flex justify-center shrink-0">
@@ -121,8 +121,8 @@ export function TaskRow({
             <Star
               className={`w-4 h-4 ${
                 task.is_starred
-                  ? "fill-[#F5C518] text-[#F5C518]"
-                  : "text-[#666666] hover:text-[#F5C518]"
+                  ? "fill-accent text-accent"
+                  : "text-text-muted hover:text-accent"
               }`}
             />
           </button>
@@ -131,17 +131,17 @@ export function TaskRow({
         {/* Title + description */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-white truncate">
+            <span className="text-sm font-semibold text-text-primary truncate">
               {task.title}
             </span>
             {task.checklist_total > 0 && (
-              <span className="text-[10px] text-[#666666] shrink-0">
+              <span className="text-[10px] text-text-muted shrink-0">
                 [{task.checklist_done}/{task.checklist_total}]
               </span>
             )}
           </div>
           {task.description && (
-            <span className="text-xs text-[#666666] block truncate">
+            <span className="text-xs text-text-muted block truncate">
               {task.description.split("\n")[0]}
             </span>
           )}
@@ -158,13 +158,13 @@ export function TaskRow({
                 {task.project_name}
               </Badge>
               {task.phase_name && (
-                <span className="text-[10px] text-[#666666] truncate">
+                <span className="text-[10px] text-text-muted truncate">
                   {task.phase_name}
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-[13px] text-[#666666]">&mdash;</span>
+            <span className="text-[13px] text-text-muted">&mdash;</span>
           )}
         </div>
 
@@ -184,7 +184,7 @@ export function TaskRow({
               color={avatarColor(task.assigned_to_name)}
             />
           ) : (
-            <span className="text-[13px] text-[#666666]">&mdash;</span>
+            <span className="text-[13px] text-text-muted">&mdash;</span>
           )}
         </div>
 
@@ -195,14 +195,14 @@ export function TaskRow({
               className={`flex items-center gap-1 text-xs ${
                 isOverdue(task.due_date, task.status)
                   ? "text-red-500"
-                  : "text-[#A0A0A0]"
+                  : "text-text-secondary"
               }`}
             >
               <Calendar className="w-3 h-3" />
               {formatDate(task.due_date)}
             </span>
           ) : (
-            <span className="text-[13px] text-[#666666]">&mdash;</span>
+            <span className="text-[13px] text-text-muted">&mdash;</span>
           )}
         </div>
 
@@ -230,7 +230,7 @@ export function TaskRow({
                 e.stopPropagation();
                 onGoToProject(task);
               }}
-              className="p-1 rounded-md text-[#666666] hover:text-[#F5C518] hover:bg-[#2A2A2A] transition-colors cursor-pointer"
+              className="p-1 rounded-md text-text-muted hover:text-accent hover:bg-bg-input transition-colors cursor-pointer"
               title="Go to project"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -245,18 +245,18 @@ export function TaskRow({
       {/* ── Mobile card ── */}
       <div
         onClick={() => onClick(task)}
-        className="flex flex-col gap-2 p-4 border-b border-[#333333] last:border-b-0 active:bg-white/[0.02] transition-colors cursor-pointer lg:hidden"
+        className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-white/[0.02] transition-colors cursor-pointer lg:hidden"
       >
         {/* Row 1: priority dot + title + star + menu */}
         <div className="flex items-center gap-2">
           <span
             className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
           />
-          <span className="text-sm font-semibold text-white truncate flex-1">
+          <span className="text-sm font-semibold text-text-primary truncate flex-1">
             {task.title}
           </span>
           {task.checklist_total > 0 && (
-            <span className="text-[10px] text-[#666666] shrink-0">
+            <span className="text-[10px] text-text-muted shrink-0">
               [{task.checklist_done}/{task.checklist_total}]
             </span>
           )}
@@ -269,9 +269,7 @@ export function TaskRow({
           >
             <Star
               className={`w-3.5 h-3.5 ${
-                task.is_starred
-                  ? "fill-[#F5C518] text-[#F5C518]"
-                  : "text-[#666666]"
+                task.is_starred ? "fill-accent text-accent" : "text-text-muted"
               }`}
             />
           </button>
@@ -305,7 +303,7 @@ export function TaskRow({
         </div>
 
         {/* Row 3: assignee + due date */}
-        <div className="flex items-center gap-3 text-xs text-[#A0A0A0]">
+        <div className="flex items-center gap-3 text-xs text-text-secondary">
           {task.assigned_to_name && (
             <div className="flex items-center gap-1.5">
               <Avatar
@@ -321,7 +319,7 @@ export function TaskRow({
               className={`flex items-center gap-1 ml-auto ${
                 isOverdue(task.due_date, task.status)
                   ? "text-red-500"
-                  : "text-[#A0A0A0]"
+                  : "text-text-secondary"
               }`}
             >
               <Calendar className="w-3 h-3" />

@@ -37,9 +37,9 @@ export function Pagination({
   }, [totalPages, currentPage]);
 
   return (
-    <div className="flex items-center justify-between h-12 px-4 border-t border-[#333333]">
+    <div className="flex items-center justify-between h-12 px-4 border-t border-border-default">
       {showingText && (
-        <span className="hidden lg:inline text-[13px] text-[#666666]">
+        <span className="hidden lg:inline text-[13px] text-text-muted">
           {showingText}
         </span>
       )}
@@ -47,7 +47,7 @@ export function Pagination({
         <button
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
-          className="w-8 h-8 flex items-center justify-center rounded-md bg-[#2A2A2A] text-[#666666] disabled:opacity-40 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="w-8 h-8 flex items-center justify-center rounded-md bg-bg-input text-text-muted disabled:opacity-40 hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
@@ -55,7 +55,7 @@ export function Pagination({
           item === "ellipsis" ? (
             <span
               key={`ellipsis-${idx}`}
-              className="w-8 h-8 flex items-center justify-center text-sm text-[#666666]"
+              className="w-8 h-8 flex items-center justify-center text-sm text-text-muted"
             >
               &hellip;
             </span>
@@ -65,8 +65,8 @@ export function Pagination({
               onClick={() => onPageChange(item)}
               className={`w-8 h-8 flex items-center justify-center rounded-md text-sm transition-colors cursor-pointer ${
                 item === currentPage
-                  ? "bg-[#F5C518] text-[#0D0D0D] font-semibold"
-                  : "bg-[#2A2A2A] text-[#A0A0A0] hover:text-white"
+                  ? "bg-accent text-text-on-accent font-semibold"
+                  : "bg-bg-input text-text-secondary hover:text-text-primary"
               }`}
             >
               {item}
@@ -76,7 +76,7 @@ export function Pagination({
         <button
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
-          className="w-8 h-8 flex items-center justify-center rounded-md bg-[#2A2A2A] text-[#666666] disabled:opacity-40 hover:text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+          className="w-8 h-8 flex items-center justify-center rounded-md bg-bg-input text-text-muted disabled:opacity-40 hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed"
         >
           <ChevronRight className="w-3.5 h-3.5" />
         </button>

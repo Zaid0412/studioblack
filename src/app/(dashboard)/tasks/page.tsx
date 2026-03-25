@@ -291,27 +291,27 @@ export default function TasksPage() {
           />
 
           {/* Task list */}
-          <div className="rounded-[10px] bg-[#1A1A1A] border border-[#333333] overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
+          <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
             {/* Table header (desktop only) */}
-            <div className="hidden lg:flex items-center h-11 px-4 bg-[#242424] gap-3">
+            <div className="hidden lg:flex items-center h-11 px-4 bg-bg-elevated gap-3">
               <div className="w-3" /> {/* priority dot spacer */}
               <div className="w-6" /> {/* star spacer */}
-              <div className="flex-1 text-xs font-bold text-[#666666]">
+              <div className="flex-1 text-xs font-bold text-text-muted">
                 Task
               </div>
-              <div className="w-[120px] text-xs font-bold text-[#666666]">
+              <div className="w-[120px] text-xs font-bold text-text-muted">
                 Project
               </div>
-              <div className="w-[90px] text-xs font-bold text-[#666666]">
+              <div className="w-[90px] text-xs font-bold text-text-muted">
                 Category
               </div>
-              <div className="w-[80px] text-xs font-bold text-[#666666]">
+              <div className="w-[80px] text-xs font-bold text-text-muted">
                 Assignee
               </div>
-              <div className="w-[90px] text-xs font-bold text-[#666666]">
+              <div className="w-[90px] text-xs font-bold text-text-muted">
                 Due Date
               </div>
-              <div className="w-[100px] text-xs font-bold text-[#666666]">
+              <div className="w-[100px] text-xs font-bold text-text-muted">
                 Status
               </div>
               <div className="w-8" /> {/* go-to-project spacer */}
@@ -322,7 +322,7 @@ export default function TasksPage() {
             <div className="flex-1">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
+                  <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
                 </div>
               ) : tasks.length === 0 ? (
                 <EmptyState
