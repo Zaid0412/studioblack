@@ -177,21 +177,30 @@ export default function EditProjectPage({
             onChange={setDeadline}
           />
 
-          <div className="flex items-center gap-3 mt-4">
-            <Button type="submit" disabled={saving || !name.trim()}>
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 mt-4">
+            <Button
+              type="submit"
+              disabled={saving || !name.trim()}
+              className="w-full lg:w-auto"
+            >
               {saving ? tc("loading") : t("saveChanges")}
             </Button>
             <Button
               type="button"
               variant="secondary"
               onClick={() => router.push(`/projects/${id}`)}
+              className="w-full lg:w-auto"
             >
               {tc("cancel")}
             </Button>
 
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
               <DialogTrigger asChild>
-                <Button type="button" variant="danger" className="ml-auto">
+                <Button
+                  type="button"
+                  variant="danger"
+                  className="w-full lg:w-auto lg:ml-auto"
+                >
                   <Trash2 className="w-4 h-4" />
                   {t("deleteProject")}
                 </Button>
