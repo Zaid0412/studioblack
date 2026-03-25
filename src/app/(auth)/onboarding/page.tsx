@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { BrandLogo } from "@/components/ui/BrandLogo";
-import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
 
 /** Onboarding page — PM creates their organisation after first sign-up. */
@@ -53,11 +52,8 @@ export default function OnboardingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
       <div className="w-full max-w-md">
-        <div className="flex items-center gap-2.5 mb-8 justify-center">
-          <BrandLogo size="sm" />
-          <span className="text-base font-semibold text-text-primary">
-            {branding.appName}
-          </span>
+        <div className="flex items-center justify-center mb-8">
+          <BrandLogo size="md" />
         </div>
 
         <Card>

@@ -2,33 +2,30 @@ import Image from "next/image";
 import { branding } from "@/config/branding";
 
 /**
- * Renders the application logo — either an `<img>` when a `logoUrl` is
- * configured in branding, or a coloured square with the first letter of the
- * app name as a fallback.
+ * Renders the application logo. The logo image includes the app name,
+ * so no separate text label is needed alongside this component.
  *
- * @param props - Component props.
- * @param props.size - `"sm"` (32×32) for compact contexts, `"md"` (40×40) for the
- *   auth hero panel.
+ * @param props.size - `"sm"` for nav bars, `"md"` for auth/hero panels.
  */
 export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
-  const dims = size === "sm" ? "w-8 h-8" : "w-10 h-10";
-  const textSize = size === "sm" ? "text-base" : "text-lg";
-  const rounded = size === "sm" ? "rounded-md" : "rounded-lg";
+  const h = size === "sm" ? 32 : 40;
 
   return branding.logoUrl ? (
     <Image
       src={branding.logoUrl}
       alt={branding.appName}
-      width={size === "sm" ? 32 : 40}
-      height={size === "sm" ? 32 : 40}
-      className={`${dims} ${rounded} object-contain`}
+      width={h * 3}
+      height={h}
+      className={`${size === "sm" ? "h-8" : "h-10"} w-auto object-contain`}
     />
   ) : (
     <div
-      className={`flex items-center justify-center ${dims} ${rounded} bg-accent`}
+      className={`flex items-center justify-center ${size === "sm" ? "h-8 px-2 rounded-md" : "h-10 px-3 rounded-lg"} bg-accent`}
     >
-      <span className={`${textSize} font-bold text-text-on-accent`}>
-        {branding.appName.charAt(0)}
+      <span
+        className={`${size === "sm" ? "text-sm" : "text-base"} font-bold text-text-on-accent`}
+      >
+        {branding.appName}
       </span>
     </div>
   );
