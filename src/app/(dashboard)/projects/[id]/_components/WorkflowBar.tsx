@@ -20,7 +20,9 @@ export function WorkflowBar({ projectId, steps, onUpload }: WorkflowBarProps) {
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between px-4 lg:px-10 py-4 border-b border-[#333333] gap-3">
-      <div className="overflow-x-auto scrollbar-none">
+      <div className="relative overflow-x-auto scrollbar-none">
+        {/* Right fade hint */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0d0d0d] to-transparent z-10 lg:hidden" />
         {steps && steps.length > 0 ? (
           <WorkflowSteps steps={steps} />
         ) : (

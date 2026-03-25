@@ -186,6 +186,9 @@ export default function ProjectDetailPage({
 
       {isClient && <ApprovalHistory approvals={approvals} />}
 
+      {/* Separator between tasks/files and comments */}
+      <div className="mx-4 lg:mx-10 border-t border-[#333333] mt-2 mb-8" />
+
       <CommentsSection
         comments={comments}
         newComment={newComment}
