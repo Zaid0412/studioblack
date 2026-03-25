@@ -11,8 +11,8 @@ export const features = {
   clientPortal: true,
   notifications: true,
   designUpload: true,
-  landingPricing: false,
-  landingTestimonials: false,
+  landingPricing: true,
+  landingTestimonials: true,
 } as const;
 
 /** TypeScript helper — inferred shape of the feature flags. */
