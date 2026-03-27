@@ -2,7 +2,7 @@
 export const PROJECT_PHASES = [
   "2D Layout / Adaptation",
   "3D Layout / Adaptation",
-  "Production Files",
+  "Production Plan",
   "Section View",
   "Plumbing Section View",
   "Floor Plans",
