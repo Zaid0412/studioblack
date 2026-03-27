@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-type AvatarSize = "sm" | "md" | "lg" | "xl";
+type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 interface AvatarProps {
   initials: string;
@@ -12,6 +12,7 @@ interface AvatarProps {
 }
 
 const sizeStyles: Record<AvatarSize, string> = {
+  xs: "w-5 h-5 text-[9px]",
   sm: "w-7 h-7 text-[11px]",
   md: "w-9 h-9 text-sm",
   lg: "w-11 h-11 text-base",

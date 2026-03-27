@@ -149,14 +149,14 @@ export function UploadDialog({
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors ${
+              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-5 lg:p-8 transition-colors ${
                 dragOver
                   ? "border-accent bg-accent/10"
-                  : "border-[#333333] hover:border-[#555555]"
+                  : "border-border-default hover:border-[#555555]"
               }`}
             >
-              <Upload className="h-8 w-8 text-[#A0A0A0]" />
-              <p className="text-sm text-[#A0A0A0]">
+              <Upload className="h-8 w-8 text-text-secondary" />
+              <p className="text-sm text-text-secondary">
                 {versionGroup
                   ? "Drop a file here or click to browse"
                   : "Drop files here or click to browse"}
@@ -182,19 +182,21 @@ export function UploadDialog({
                 {files.map((file, i) => (
                   <div
                     key={`${file.name}-${i}`}
-                    className="flex items-center gap-3 rounded-md border border-[#333333] bg-[#1A1A1A] px-3 py-2"
+                    className="flex items-center gap-3 rounded-md border border-border-default bg-bg-secondary px-3 py-2"
                   >
-                    <FileText className="h-4 w-4 shrink-0 text-[#A0A0A0]" />
+                    <FileText className="h-4 w-4 shrink-0 text-text-secondary" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-white">{file.name}</p>
-                      <p className="text-xs text-[#A0A0A0]">
+                      <p className="truncate text-sm text-text-primary">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-text-secondary">
                         {formatFileSize(file.size)}
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => removeFile(i)}
-                      className="shrink-0 rounded p-1 text-[#A0A0A0] transition-colors hover:bg-[#333333] hover:text-white"
+                      className="shrink-0 rounded p-1 text-text-secondary transition-colors hover:bg-border-default hover:text-text-primary"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -209,7 +211,7 @@ export function UploadDialog({
               placeholder="Description (optional)"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full resize-none rounded-md border border-[#333333] bg-[#1A1A1A] px-3 py-2 text-sm text-white placeholder-[#A0A0A0] outline-none focus:border-accent"
+              className="w-full resize-none rounded-md border border-border-default bg-bg-secondary px-3 py-2 text-sm text-text-primary placeholder-text-secondary outline-none focus:border-accent"
             />
 
             {/* Error */}

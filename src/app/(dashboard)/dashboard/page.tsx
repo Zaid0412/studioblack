@@ -109,7 +109,7 @@ export default function DashboardPage() {
   if (roleLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-[#666]" />
+        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
       </div>
     );
   }
@@ -321,8 +321,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Content row */}
-      <div className="flex gap-6 min-h-0">
+      {/* Content row — stacks on mobile */}
+      <div className="flex flex-col lg:flex-row gap-6 min-h-0">
         {/* Recent Activity */}
         <div className="flex-1 flex flex-col gap-4">
           <h2 className="text-lg font-bold text-text-primary">
@@ -377,7 +377,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Upcoming Deadlines */}
-        <div className="w-80 flex flex-col gap-4 shrink-0">
+        <div className="w-full lg:w-80 flex flex-col gap-4 lg:shrink-0">
           <h2 className="text-lg font-bold text-text-primary">
             {t("upcomingDeadlines")}
           </h2>

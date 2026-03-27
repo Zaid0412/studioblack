@@ -130,32 +130,32 @@ export function FileTable({
     `${basePath}/${projectId}/review/${attId}`;
 
   return (
-    <div className="flex-1 px-10 py-4">
+    <div className="flex-1 px-4 lg:px-10 py-4">
       <div
-        className={`rounded-[10px] bg-[#1A1A1A] border overflow-hidden flex flex-col ${readOnly ? "min-h-[300px]" : "min-h-[400px]"} transition-colors ${
+        className={`rounded-[10px] bg-bg-secondary border overflow-hidden flex flex-col ${readOnly ? "min-h-[300px]" : "min-h-[400px]"} transition-colors ${
           dragOver && !readOnly
-            ? "border-[#F5C518] bg-[#F5C518]/5"
-            : "border-[#333333]"
+            ? "border-accent bg-[#F5C518]/5"
+            : "border-border-default"
         }`}
         onDragOver={readOnly ? undefined : handleTableDragOver}
         onDragLeave={readOnly ? undefined : handleTableDragLeave}
         onDrop={readOnly ? undefined : handleTableDrop}
       >
-        {/* Table header */}
-        <div className="flex items-center h-11 px-5 bg-[#242424] border-b border-[#333333]">
-          <div className="flex-1 text-xs font-medium text-[#A0A0A0]">
+        {/* Table header (desktop only) */}
+        <div className="hidden lg:flex items-center h-11 px-5 bg-bg-elevated border-b border-border-default">
+          <div className="flex-1 text-xs font-medium text-text-secondary">
             {t("fileName") || "Name of File"}
           </div>
-          <div className="w-[120px] text-xs font-medium text-[#A0A0A0]">
+          <div className="w-[120px] text-xs font-medium text-text-secondary">
             {t("fileType") || "Type of File"}
           </div>
-          <div className="w-[140px] text-xs font-medium text-[#A0A0A0]">
+          <div className="w-[140px] text-xs font-medium text-text-secondary">
             {t("uploadedBy") || "Uploaded by"}
           </div>
-          <div className="w-[110px] text-xs font-medium text-[#A0A0A0]">
+          <div className="w-[110px] text-xs font-medium text-text-secondary">
             {t("uploadedOn") || "Uploaded On"}
           </div>
-          <div className="w-[140px] text-xs font-medium text-[#A0A0A0]">
+          <div className="w-[140px] text-xs font-medium text-text-secondary">
             {t("statusLabel").replace(":", "") || "Status"}
           </div>
           {!readOnly && <div className="w-[50px]" />}
@@ -165,8 +165,8 @@ export function FileTable({
         <div className="flex-1">
           {dragOver && !readOnly ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
-              <Upload className="w-8 h-8 text-[#F5C518]" />
-              <p className="text-sm font-medium text-[#F5C518]">
+              <Upload className="w-8 h-8 text-accent" />
+              <p className="text-sm font-medium text-accent">
                 Drop files to upload
               </p>
             </div>
@@ -193,98 +193,134 @@ export function FileTable({
               const badge = statusBadge(att.review_status);
               const color = avatarColor(att.uploaded_by || "");
               const vc = versionColor(att.version || 1);
+
+              const fileActions = !readOnly && (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <FileContextMenu
+                    onDownload={() => onDownload(att)}
+                    onEdit={() => router.push(reviewPath(att.id))}
+                    onUploadNewVersion={() => openUpload(att.version_group)}
+                    onVersionHistory={
+                      att.version_group
+                        ? () => setVersionHistoryGroup(att.version_group!)
+                        : undefined
+                    }
+                    onViewReview={
+                      att.review_status && att.review_status !== "pending"
+                        ? () =>
+                            router.push(`${reviewPath(att.id)}?reviews=open`)
+                        : undefined
+                    }
+                    frozen={!!att.frozen_at}
+                    onToggleFreeze={() => handleToggleFreeze(att)}
+                  />
+                </div>
+              );
+
               return (
-                <div
-                  key={att.id}
-                  className="flex items-center h-[52px] px-5 border-b border-[#333333] last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer"
-                  onClick={() => router.push(reviewPath(att.id))}
-                >
-                  {/* File name */}
-                  <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                    <div className="relative shrink-0">
-                      <FileText className="w-4 h-4 text-[#A0A0A0]" />
-                      <span
-                        className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
-                      >
-                        V{att.version || 1}
+                <div key={att.id}>
+                  {/* Desktop row */}
+                  <div
+                    className="hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                    onClick={() => router.push(reviewPath(att.id))}
+                  >
+                    <div className="flex-1 flex items-center gap-2.5 min-w-0">
+                      <div className="relative shrink-0">
+                        <FileText className="w-4 h-4 text-text-secondary" />
+                        <span
+                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
+                        >
+                          V{att.version || 1}
+                        </span>
+                      </div>
+                      {att.frozen_at && (
+                        <Lock className="w-3 h-3 text-accent shrink-0" />
+                      )}
+                      <span className="text-[13px] font-medium text-text-primary truncate">
+                        {att.file_name}
                       </span>
                     </div>
-                    {att.frozen_at && (
-                      <Lock className="w-3 h-3 text-[#F5C518] shrink-0" />
+                    <div className="w-[120px]">
+                      <span className="text-[13px] text-text-secondary">
+                        {fileType(att.file_name)}
+                      </span>
+                    </div>
+                    <div className="w-[140px] flex items-center gap-2">
+                      <div
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white shrink-0"
+                        style={{ backgroundColor: color }}
+                      >
+                        {deriveInitials(att.uploaded_by_name || "")}
+                      </div>
+                      <span className="text-[13px] text-text-secondary truncate">
+                        {att.uploaded_by_name || "\u2014"}
+                      </span>
+                    </div>
+                    <div className="w-[110px]">
+                      <span className="text-[12px] text-text-muted">
+                        {new Date(att.created_at).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                    <div className="w-[140px]">
+                      <span
+                        className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium ${badge.bg} ${badge.text}`}
+                      >
+                        {badge.label}
+                      </span>
+                    </div>
+                    {!readOnly && (
+                      <div className="w-[50px] flex items-center justify-center">
+                        {fileActions}
+                      </div>
                     )}
-                    <span className="text-[13px] font-medium text-white truncate">
-                      {att.file_name}
-                    </span>
                   </div>
 
-                  {/* Type */}
-                  <div className="w-[120px]">
-                    <span className="text-[13px] text-[#A0A0A0]">
-                      {fileType(att.file_name)}
-                    </span>
-                  </div>
-
-                  {/* Uploaded by */}
-                  <div className="w-[140px] flex items-center gap-2">
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white shrink-0"
-                      style={{ backgroundColor: color }}
-                    >
-                      {deriveInitials(att.uploaded_by_name || "")}
+                  {/* Mobile card */}
+                  <div
+                    className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-white/[0.02] transition-colors cursor-pointer lg:hidden"
+                    onClick={() => router.push(reviewPath(att.id))}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="relative shrink-0">
+                        <FileText className="w-4 h-4 text-text-secondary" />
+                        <span
+                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
+                        >
+                          V{att.version || 1}
+                        </span>
+                      </div>
+                      {att.frozen_at && (
+                        <Lock className="w-3 h-3 text-accent shrink-0" />
+                      )}
+                      <span className="text-[13px] font-medium text-text-primary truncate flex-1">
+                        {att.file_name}
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.bg} ${badge.text} shrink-0`}
+                      >
+                        {badge.label}
+                      </span>
+                      {fileActions}
                     </div>
-                    <span className="text-[13px] text-[#A0A0A0] truncate">
-                      {att.uploaded_by_name || "\u2014"}
-                    </span>
-                  </div>
-
-                  {/* Uploaded on */}
-                  <div className="w-[110px]">
-                    <span className="text-[12px] text-[#666666]">
-                      {new Date(att.created_at).toLocaleDateString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-
-                  {/* Status */}
-                  <div className="w-[140px]">
-                    <span
-                      className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium ${badge.bg} ${badge.text}`}
-                    >
-                      {badge.label}
-                    </span>
-                  </div>
-
-                  {/* Actions (PM only) */}
-                  {!readOnly && (
-                    <div
-                      className="w-[50px] flex items-center justify-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <FileContextMenu
-                        onDownload={() => onDownload(att)}
-                        onEdit={() => router.push(reviewPath(att.id))}
-                        onUploadNewVersion={() => openUpload(att.version_group)}
-                        onVersionHistory={
-                          att.version_group
-                            ? () => setVersionHistoryGroup(att.version_group!)
-                            : undefined
-                        }
-                        onViewReview={
-                          att.review_status && att.review_status !== "pending"
-                            ? () =>
-                                router.push(
-                                  `${reviewPath(att.id)}?reviews=open`
-                                )
-                            : undefined
-                        }
-                        frozen={!!att.frozen_at}
-                        onToggleFreeze={() => handleToggleFreeze(att)}
-                      />
+                    <div className="flex items-center gap-3 text-xs text-text-muted">
+                      <span>{fileType(att.file_name)}</span>
+                      <span>
+                        {new Date(att.created_at).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                        })}
+                      </span>
+                      {att.uploaded_by_name && (
+                        <span className="ml-auto text-text-secondary truncate">
+                          {att.uploaded_by_name}
+                        </span>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })

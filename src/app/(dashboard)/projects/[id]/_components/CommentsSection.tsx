@@ -24,7 +24,7 @@ export function CommentsSection({
   onSendComment,
 }: CommentsSectionProps) {
   return (
-    <div className="px-10 pb-8">
+    <div className="px-4 lg:px-10 pb-8">
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
           <MessageSquare className="w-4 h-4" />

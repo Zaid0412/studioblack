@@ -38,7 +38,7 @@ const typeIcons: Record<string, typeof Bell> = {
 };
 
 const typeColors: Record<string, string> = {
-  invitation: "text-[#F5C518]",
+  invitation: "text-accent",
   comment: "text-blue-400",
   upload: "text-green-400",
   approval: "text-green-400",
@@ -78,14 +78,14 @@ export function NotificationPanel() {
           className={cn(
             "relative p-2 rounded-lg transition-colors cursor-pointer",
             open
-              ? "text-white bg-[#1A1A1A]"
-              : "text-[#A0A0A0] hover:text-white hover:bg-[#1A1A1A]"
+              ? "text-text-primary bg-bg-secondary"
+              : "text-text-secondary hover:text-text-primary hover:bg-bg-secondary"
           )}
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#F5C518] text-[#0D0D0D] text-[10px] font-bold">
+            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-text-on-accent text-[10px] font-bold">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -94,24 +94,25 @@ export function NotificationPanel() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[400px] p-0 border-[#333333] bg-[#141414] rounded-xl overflow-hidden"
+        collisionPadding={16}
+        className="w-[calc(100vw-2rem)] lg:w-[400px] p-0 border-border-default bg-[#141414] rounded-xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-[52px] px-5 border-b border-[#222222]">
-          <span className="text-[15px] font-semibold text-white">
+        <div className="flex items-center justify-between h-[52px] px-4 lg:px-5 border-b border-[#222222]">
+          <span className="text-[15px] font-semibold text-text-primary">
             {t("title")}
           </span>
           <div className="flex items-center gap-1.5">
             <button
               onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1A1A1A] text-[#666666] hover:text-[#A0A0A0] transition-colors text-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-muted hover:text-text-secondary transition-colors text-xs cursor-pointer"
             >
               <CheckCheck className="w-3.5 h-3.5" />
               {t("markAllRead")}
             </button>
             <button
               onClick={handleClearAll}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#1A1A1A] text-[#666666] hover:text-red-400 transition-colors text-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-muted hover:text-red-400 transition-colors text-xs cursor-pointer"
               title={t("clearAll")}
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -123,34 +124,36 @@ export function NotificationPanel() {
         <div className="max-h-[440px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
+              <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
             </div>
           ) : groups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <Bell className="w-8 h-8 text-[#333333]" />
-              <span className="text-sm text-[#666666]">
+              <Bell className="w-8 h-8 text-border-default" />
+              <span className="text-sm text-text-muted">
                 {t("noNotifications")}
               </span>
             </div>
           ) : (
             groups.map((group) => (
               <div key={group.label}>
-                <div className="flex items-center h-9 px-5">
-                  <span className="text-[11px] font-semibold text-[#666666] uppercase tracking-wider">
+                <div className="flex items-center h-9 px-4 lg:px-5">
+                  <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
                     {group.label}
                   </span>
                 </div>
                 {group.items.map((notification, idx) => {
                   const Icon = typeIcons[notification.type] || Bell;
                   const iconColor =
-                    typeColors[notification.type] || "text-[#666666]";
+                    typeColors[notification.type] || "text-text-muted";
                   const isUnread = !notification.read;
                   return (
                     <div key={notification.id}>
-                      {idx > 0 && <div className="h-px bg-[#222222] mx-5" />}
+                      {idx > 0 && (
+                        <div className="h-px bg-[#222222] mx-4 lg:mx-5" />
+                      )}
                       <div
                         className={cn(
-                          "flex items-start gap-3 px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors",
+                          "flex items-start gap-3 px-4 lg:px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors",
                           isUnread && "bg-[#1A1A1A]/50"
                         )}
                         onClick={() => handleNotificationClick(notification)}
@@ -164,15 +167,15 @@ export function NotificationPanel() {
                         }}
                       >
                         {isUnread && (
-                          <div className="w-2 h-2 rounded-full bg-[#F5C518] shrink-0 mt-1.5" />
+                          <div className="w-2 h-2 rounded-full bg-accent shrink-0 mt-1.5" />
                         )}
                         <div className="flex flex-col gap-1 min-w-0 flex-1">
                           <span
                             className={cn(
                               "text-[13px] leading-tight",
                               isUnread
-                                ? "font-medium text-white"
-                                : "text-[#A0A0A0]"
+                                ? "font-medium text-text-primary"
+                                : "text-text-secondary"
                             )}
                           >
                             {notification.title}
@@ -180,7 +183,7 @@ export function NotificationPanel() {
                           <span
                             className={cn(
                               "text-xs leading-snug line-clamp-2",
-                              isUnread ? "text-[#8A8A8A]" : "text-[#666666]"
+                              isUnread ? "text-[#8A8A8A]" : "text-text-muted"
                             )}
                           >
                             {notification.description}

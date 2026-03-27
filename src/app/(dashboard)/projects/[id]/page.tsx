@@ -164,7 +164,7 @@ export default function ProjectDetailPage({
       />
 
       {!isClient && activePhaseId && (
-        <div className="px-6 py-4">
+        <div className="px-4 lg:px-6 py-4">
           <TaskSection
             projectId={id}
             activePhaseId={activePhaseId}
@@ -185,6 +185,9 @@ export default function ProjectDetailPage({
       )}
 
       {isClient && <ApprovalHistory approvals={approvals} />}
+
+      {/* Separator between tasks/files and comments */}
+      <div className="mx-4 lg:mx-10 border-t border-[#333333] mt-2 mb-8" />
 
       <CommentsSection
         comments={comments}
