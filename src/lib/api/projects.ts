@@ -19,6 +19,9 @@ export function create<T>(data: {
   category?: string;
   description?: string;
   deadline?: string | null;
+  address?: string;
+  city?: string;
+  state?: string;
   phases?: { name: string }[];
   architectIds?: string[];
 }) {
@@ -33,6 +36,9 @@ export function update<T>(
     clientName?: string | null;
     description?: string;
     deadline?: string | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
   }
 ) {
   return apiPatch<T>(API.project(id), data);

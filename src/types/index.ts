@@ -229,6 +229,9 @@ export interface DbProjectDetail {
   status: string;
   description: string;
   deadline: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
   created_at: string;
   phases: DbPhase[];
   members: DbMember[];
@@ -244,6 +247,9 @@ export interface DbProjectRow {
   category: string;
   status: ProjectStatus;
   deadline: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
   created_at: string;
   updated_at?: string;
   architect_ids: string[] | null;

@@ -30,6 +30,9 @@ interface ProjectData {
   category: string;
   description: string;
   deadline: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
   status: string;
 }
 
@@ -55,6 +58,9 @@ export default function EditProjectPage({
   const [clientName, setClientName] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
 
   useEffect(() => {
     projects
@@ -65,6 +71,9 @@ export default function EditProjectPage({
         setClientName(data.client_name || "");
         setDescription(data.description || "");
         setDeadline(data.deadline ? new Date(data.deadline) : undefined);
+        setAddress(data.address || "");
+        setCity(data.city || "");
+        setState(data.state || "");
       })
       .catch(() => setProject(null))
       .finally(() => setLoading(false));
@@ -80,6 +89,9 @@ export default function EditProjectPage({
         clientName: clientName.trim() || null,
         description: description.trim(),
         deadline: deadline?.toISOString().split("T")[0] || null,
+        address: address.trim() || null,
+        city: city.trim() || null,
+        state: state.trim() || null,
       });
       toast({
         title: t("updatedToast"),
@@ -169,6 +181,23 @@ export default function EditProjectPage({
               onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               rows={3}
+            />
+          </div>
+          <Input
+            label={t("address")}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label={t("city")}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+            <Input
+              label={t("state")}
+              value={state}
+              onChange={(e) => setState(e.target.value)}
             />
           </div>
           <DatePicker

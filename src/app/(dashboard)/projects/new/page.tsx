@@ -40,6 +40,9 @@ export default function CreateProjectPage() {
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Org members (architects) for assignment
@@ -124,6 +127,9 @@ export default function CreateProjectPage() {
                 category,
                 description: description.trim() || undefined,
                 deadline: deadline?.toISOString().split("T")[0],
+                address: address.trim() || undefined,
+                city: city.trim() || undefined,
+                state: state.trim() || undefined,
                 phases: phases.filter((p) => p.trim()) as unknown as {
                   name: string;
                 }[],
@@ -211,6 +217,27 @@ export default function CreateProjectPage() {
               onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
               rows={3}
+            />
+          </div>
+
+          <Input
+            label={t("address")}
+            placeholder={t("addressPlaceholder")}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              label={t("city")}
+              placeholder={t("cityPlaceholder")}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+            <Input
+              label={t("state")}
+              placeholder={t("statePlaceholder")}
+              value={state}
+              onChange={(e) => setState(e.target.value)}
             />
           </div>
 

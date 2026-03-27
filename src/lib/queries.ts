@@ -17,6 +17,9 @@ interface CreateProjectInput {
   category: string;
   description?: string;
   deadline?: string;
+  address?: string;
+  city?: string;
+  state?: string;
   /** Custom phase names. Falls back to PROJECT_PHASES if empty/omitted. */
   phases?: string[];
   orgId: string;
@@ -36,8 +39,8 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
     const {
       rows: [project],
     } = await client.query(
-      `INSERT INTO project (name, client_name, client_email, category, description, deadline, org_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO project (name, client_name, client_email, category, description, deadline, address, city, state, org_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         input.name,
@@ -46,6 +49,9 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
         input.category,
         input.description || "",
         input.deadline || null,
+        input.address || null,
+        input.city || null,
+        input.state || null,
         input.orgId,
         input.createdBy,
       ]

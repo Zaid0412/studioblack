@@ -71,6 +71,9 @@ export const PATCH = withAuth(
           "status",
           "description",
           "deadline",
+          "address",
+          "city",
+          "state",
         ]
       : ["name", "description"];
     const updates: string[] = [];
