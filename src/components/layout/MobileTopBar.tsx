@@ -3,6 +3,7 @@
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { branding } from "@/config/branding";
 import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarColor } from "@/lib/avatarUtils";
@@ -26,8 +27,11 @@ export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <Link href="/dashboard">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <BrandLogo size="sm" />
+          <span className="text-sm font-semibold text-text-primary">
+            {branding.appName}
+          </span>
         </Link>
       </div>
 
