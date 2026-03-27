@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { branding } from "@/config/branding";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
@@ -87,8 +88,15 @@ export function MobileSidebarSheet({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-5 pb-4">
-          <Link href="/dashboard" onClick={onClose}>
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2"
+            onClick={onClose}
+          >
             <BrandLogo size="sm" />
+            <span className="text-sm font-semibold text-text-primary">
+              {branding.appName}
+            </span>
           </Link>
           <button
             onClick={onClose}

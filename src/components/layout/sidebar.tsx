@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BrandLogo } from "@/components/ui/BrandLogo";
+import { branding } from "@/config/branding";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
@@ -110,9 +110,30 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       {/* Logo */}
       <Link
         href="/dashboard"
-        className="flex items-center pt-6 pb-5 px-4 overflow-hidden"
+        className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden"
       >
-        <BrandLogo size="sm" />
+        {branding.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={branding.logoUrl}
+            alt={branding.appName}
+            className="h-8 w-8 rounded-md object-contain shrink-0 bg-logo-bg p-1"
+          />
+        ) : (
+          <div className="flex items-center justify-center w-8 h-8 rounded-md bg-accent shrink-0">
+            <span className="text-base font-bold text-text-on-accent">
+              {branding.appName.charAt(0)}
+            </span>
+          </div>
+        )}
+        <span
+          className={cn(
+            "text-base font-semibold text-text-primary whitespace-nowrap transition-opacity duration-200",
+            isCollapsed ? "opacity-0" : "opacity-100"
+          )}
+        >
+          {branding.appName}
+        </span>
       </Link>
 
       {/* Organisation name */}
