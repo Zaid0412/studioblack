@@ -208,7 +208,8 @@ export default function DashboardPage() {
                     </div>
                     <span className="text-xs text-text-secondary">
                       {project.category
-                        ? project.category.charAt(0).toUpperCase() + project.category.slice(1)
+                        ? project.category.charAt(0).toUpperCase() +
+                          project.category.slice(1)
                         : "\u2014"}
                     </span>
                     {project.deadline && (

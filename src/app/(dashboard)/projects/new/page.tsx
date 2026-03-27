@@ -128,7 +128,9 @@ export default function CreateProjectPage() {
                 deadline: deadline?.toISOString().split("T")[0],
                 scope: scope.trim() || undefined,
                 areaSqft: areaSqft ? Number(areaSqft) : undefined,
-                estimationInr: estimationInr ? Number(estimationInr) : undefined,
+                estimationInr: estimationInr
+                  ? Number(estimationInr)
+                  : undefined,
                 address: address.trim() || undefined,
                 city: city.trim() || undefined,
                 state: state.trim() || undefined,
@@ -173,7 +175,8 @@ export default function CreateProjectPage() {
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
-              {t("category")}<span className="text-error ml-0.5">*</span>
+              {t("category")}
+              <span className="text-error ml-0.5">*</span>
             </label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>

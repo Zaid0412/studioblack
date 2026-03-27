@@ -138,7 +138,10 @@ export function MetaBar({
           <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
             {t("clientLabel").replace(":", "")}
           </span>
-          <span className="text-[14px] font-medium text-text-primary truncate" title={client}>
+          <span
+            className="text-[14px] font-medium text-text-primary truncate"
+            title={client}
+          >
             {client}
           </span>
         </div>
@@ -148,7 +151,10 @@ export function MetaBar({
           <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
             {t("architects") || "Architects"}
           </span>
-          <span className="text-[14px] font-medium text-text-primary truncate" title={architects}>
+          <span
+            className="text-[14px] font-medium text-text-primary truncate"
+            title={architects}
+          >
             {architects}
           </span>
         </div>
@@ -169,7 +175,10 @@ export function MetaBar({
               <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
                 {t("location") || "Location"}
               </span>
-              <span className="text-[14px] font-medium text-text-primary truncate" title={[address, city, state].filter(Boolean).join(", ")}>
+              <span
+                className="text-[14px] font-medium text-text-primary truncate"
+                title={[address, city, state].filter(Boolean).join(", ")}
+              >
                 {[address, city, state].filter(Boolean).join(", ")}
               </span>
             </div>
@@ -182,7 +191,10 @@ export function MetaBar({
               <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
                 {t("scope") || "Scope"}
               </span>
-              <span className="text-[14px] font-medium text-text-primary truncate" title={scope}>
+              <span
+                className="text-[14px] font-medium text-text-primary truncate"
+                title={scope}
+              >
                 {scope}
               </span>
             </div>

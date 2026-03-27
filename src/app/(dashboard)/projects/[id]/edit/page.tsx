@@ -78,7 +78,9 @@ export default function EditProjectPage({
         setDeadline(data.deadline ? new Date(data.deadline) : undefined);
         setScope(data.scope || "");
         setAreaSqft(data.area_sqft != null ? String(data.area_sqft) : "");
-        setEstimationInr(data.estimation_inr != null ? String(data.estimation_inr) : "");
+        setEstimationInr(
+          data.estimation_inr != null ? String(data.estimation_inr) : ""
+        );
         setAddress(data.address || "");
         setCity(data.city || "");
         setState(data.state || "");
