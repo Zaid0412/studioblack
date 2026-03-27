@@ -302,7 +302,9 @@ export default function ProjectsPage() {
                     {isStaff && (
                       <div className="w-[110px] min-w-0 pr-2">
                         <span className="text-[13px] text-text-secondary truncate block">
-                          {"\u2014"}
+                          {project.estimation_inr != null
+                            ? `₹${Number(project.estimation_inr).toLocaleString("en-IN")}`
+                            : "\u2014"}
                         </span>
                       </div>
                     )}

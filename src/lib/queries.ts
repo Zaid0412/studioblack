@@ -41,7 +41,7 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
     let clientName = input.clientName || null;
     if (!clientName && input.clientEmail) {
       const { rows } = await client.query(
-        `SELECT name FROM "user" WHERE email = $1 LIMIT 1`,
+        `SELECT name FROM "user" WHERE LOWER(email) = LOWER($1) LIMIT 1`,
         [input.clientEmail]
       );
       clientName = rows[0]?.name ?? input.clientEmail.split("@")[0];

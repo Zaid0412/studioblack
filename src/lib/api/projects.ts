@@ -36,6 +36,7 @@ export function update<T>(
   data: {
     name?: string;
     clientName?: string | null;
+    clientEmail?: string | null;
     deadline?: string | null;
     scope?: string | null;
     areaSqft?: number | null;

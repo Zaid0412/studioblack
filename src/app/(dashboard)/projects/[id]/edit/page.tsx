@@ -28,7 +28,6 @@ interface ProjectData {
   client_name: string | null;
   client_email: string | null;
   category: string;
-  description: string;
   deadline: string | null;
   scope: string | null;
   area_sqft: number | null;
@@ -59,6 +58,7 @@ export default function EditProjectPage({
   // Form state
   const [name, setName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
   const [scope, setScope] = useState("");
   const [areaSqft, setAreaSqft] = useState("");
@@ -74,6 +74,7 @@ export default function EditProjectPage({
         setProject(data);
         setName(data.name);
         setClientName(data.client_name || "");
+        setClientEmail(data.client_email || "");
         setDeadline(data.deadline ? new Date(data.deadline) : undefined);
         setScope(data.scope || "");
         setAreaSqft(data.area_sqft != null ? String(data.area_sqft) : "");
@@ -94,6 +95,7 @@ export default function EditProjectPage({
       await projects.update(id, {
         name: name.trim(),
         clientName: clientName.trim() || null,
+        clientEmail: clientEmail.trim() || null,
         deadline: deadline?.toISOString().split("T")[0] || null,
         scope: scope.trim() || null,
         areaSqft: areaSqft ? Number(areaSqft) : null,
@@ -181,6 +183,12 @@ export default function EditProjectPage({
             label={t("client")}
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
+          />
+          <Input
+            label={t("clientEmail")}
+            type="email"
+            value={clientEmail}
+            onChange={(e) => setClientEmail(e.target.value)}
           />
           <Input
             label={t("address")}

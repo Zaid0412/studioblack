@@ -101,7 +101,7 @@ export default function ProjectDetailPage({
     <div className="flex flex-col h-full">
       <ProjectHeader
         projectName={project.name}
-        description={isClient ? project.description : undefined}
+        description={undefined}
         onRefresh={!isClient ? refreshAll : undefined}
         actions={
           showApprovalButtons ? (

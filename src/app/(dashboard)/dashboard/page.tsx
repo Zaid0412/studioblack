@@ -207,7 +207,9 @@ export default function DashboardPage() {
                       </Badge>
                     </div>
                     <span className="text-xs text-text-secondary">
-                      {project.description || project.category}
+                      {project.category
+                        ? project.category.charAt(0).toUpperCase() + project.category.slice(1)
+                        : "\u2014"}
                     </span>
                     {project.deadline && (
                       <div className="flex items-center gap-1.5 text-xs text-text-muted pt-2 border-t border-border-default">

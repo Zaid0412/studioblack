@@ -42,8 +42,6 @@ export interface Project {
   status: ProjectStatus;
   /** ISO-8601 date string representing the delivery deadline. */
   deadline: string;
-  /** Short summary shown on project cards and detail pages. */
-  description: string;
   /** Team members assigned to this project. */
   team: User[];
   /** Individual design deliverables (e.g. floor plans, elevations). */
@@ -227,7 +225,6 @@ export interface DbProjectDetail {
   client_email: string | null;
   category: string;
   status: string;
-  description: string;
   deadline: string | null;
   scope: string | null;
   area_sqft: number | null;

@@ -288,6 +288,7 @@
     "deleteProject": "Projeyi Sil",
     "projectName": "Proje Adı",
     "client": "Müşteri",
+    "clientEmail": "Müşteri E-postası",
     "address": "Proje Adresi",
     "city": "Şehir",
     "state": "Eyalet",

@@ -288,6 +288,7 @@
     "deleteProject": "Delete Project",
     "projectName": "Project Name",
     "client": "Client",
+    "clientEmail": "Client Email",
     "address": "Project Address",
     "city": "City",
     "state": "State",
