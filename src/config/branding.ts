@@ -8,7 +8,7 @@ export const branding = {
   appName: "StudioBlack",
   tagline: "Design Reviews, Simplified",
   subtitle: "Streamlined architectural design review & approval",
-  logoUrl: "/logo.jpeg",
+  logoUrl: "/logo.png",
   supportEmail: "support@studioblack.com",
 } as const;
 
