@@ -51,7 +51,7 @@ export function WorkflowBar({ projectId, steps, onUpload }: WorkflowBarProps) {
           onClick={() => router.push(`/projects/${projectId}/edit`)}
         >
           <Edit className="w-3.5 h-3.5" />
-          {t("designReview") || "Design Review"}
+          {t("editProject") || "Edit Project"}
         </Button>
         <Button
           className="!text-xs !bg-danger !text-white hover:!bg-danger-hover"

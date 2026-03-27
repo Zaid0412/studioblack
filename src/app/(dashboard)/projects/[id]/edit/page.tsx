@@ -30,6 +30,9 @@ interface ProjectData {
   category: string;
   description: string;
   deadline: string | null;
+  scope: string | null;
+  area_sqft: number | null;
+  estimation_inr: number | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -56,8 +59,10 @@ export default function EditProjectPage({
   // Form state
   const [name, setName] = useState("");
   const [clientName, setClientName] = useState("");
-  const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [scope, setScope] = useState("");
+  const [areaSqft, setAreaSqft] = useState("");
+  const [estimationInr, setEstimationInr] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -69,8 +74,10 @@ export default function EditProjectPage({
         setProject(data);
         setName(data.name);
         setClientName(data.client_name || "");
-        setDescription(data.description || "");
         setDeadline(data.deadline ? new Date(data.deadline) : undefined);
+        setScope(data.scope || "");
+        setAreaSqft(data.area_sqft != null ? String(data.area_sqft) : "");
+        setEstimationInr(data.estimation_inr != null ? String(data.estimation_inr) : "");
         setAddress(data.address || "");
         setCity(data.city || "");
         setState(data.state || "");
@@ -87,8 +94,10 @@ export default function EditProjectPage({
       await projects.update(id, {
         name: name.trim(),
         clientName: clientName.trim() || null,
-        description: description.trim(),
         deadline: deadline?.toISOString().split("T")[0] || null,
+        scope: scope.trim() || null,
+        areaSqft: areaSqft ? Number(areaSqft) : null,
+        estimationInr: estimationInr ? Number(estimationInr) : null,
         address: address.trim() || null,
         city: city.trim() || null,
         state: state.trim() || null,
@@ -166,23 +175,13 @@ export default function EditProjectPage({
             label={t("projectName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            required
           />
           <Input
             label={t("client")}
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
           />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("description")}
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-              rows={3}
-            />
-          </div>
           <Input
             label={t("address")}
             value={address}
@@ -205,6 +204,32 @@ export default function EditProjectPage({
             value={deadline}
             onChange={setDeadline}
           />
+
+          {/* Project Scope */}
+          <div className="flex flex-col gap-3 mt-2">
+            <h3 className="text-base font-semibold text-text-primary">
+              {t("projectScope")}
+            </h3>
+            <Input
+              label={t("scope")}
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label={t("areaSqft")}
+                type="number"
+                value={areaSqft}
+                onChange={(e) => setAreaSqft(e.target.value)}
+              />
+              <Input
+                label={t("estimationInr")}
+                type="number"
+                value={estimationInr}
+                onChange={(e) => setEstimationInr(e.target.value)}
+              />
+            </div>
+          </div>
 
           <div className="flex flex-col lg:flex-row lg:items-center gap-3 mt-4">
             <Button

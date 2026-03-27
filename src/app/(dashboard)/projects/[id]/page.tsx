@@ -125,6 +125,12 @@ export default function ProjectDetailPage({
         status={project.status}
         category={project.category}
         deadline={project.deadline}
+        scope={project.scope}
+        areaSqft={project.area_sqft}
+        estimationInr={project.estimation_inr}
+        address={project.address}
+        city={project.city}
+        state={project.state}
       />
 
       {!isClient && (

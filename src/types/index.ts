@@ -229,6 +229,9 @@ export interface DbProjectDetail {
   status: string;
   description: string;
   deadline: string | null;
+  scope: string | null;
+  area_sqft: number | null;
+  estimation_inr: number | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -247,6 +250,9 @@ export interface DbProjectRow {
   category: string;
   status: ProjectStatus;
   deadline: string | null;
+  scope: string | null;
+  area_sqft: number | null;
+  estimation_inr: number | null;
   address: string | null;
   city: string | null;
   state: string | null;

@@ -35,11 +35,12 @@ export default function CreateProjectPage() {
 
   // Form fields
   const [projectName, setProjectName] = useState("");
-  const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
+  const [scope, setScope] = useState("");
+  const [areaSqft, setAreaSqft] = useState("");
+  const [estimationInr, setEstimationInr] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -122,11 +123,12 @@ export default function CreateProjectPage() {
             try {
               await projects.create({
                 name: projectName.trim(),
-                clientName: clientName.trim() || undefined,
                 clientEmail: clientEmail.trim() || undefined,
                 category,
-                description: description.trim() || undefined,
                 deadline: deadline?.toISOString().split("T")[0],
+                scope: scope.trim() || undefined,
+                areaSqft: areaSqft ? Number(areaSqft) : undefined,
+                estimationInr: estimationInr ? Number(estimationInr) : undefined,
                 address: address.trim() || undefined,
                 city: city.trim() || undefined,
                 state: state.trim() || undefined,
@@ -167,17 +169,11 @@ export default function CreateProjectPage() {
             placeholder={t("projectNamePlaceholder")}
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
+            required
           />
-          <Input
-            label={t("client")}
-            placeholder={t("clientPlaceholder")}
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-          />
-
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
-              {t("category")}
+              {t("category")}<span className="text-error ml-0.5">*</span>
             </label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
@@ -207,19 +203,6 @@ export default function CreateProjectPage() {
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("description")}
-            </label>
-            <textarea
-              placeholder={t("descriptionPlaceholder")}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-              rows={3}
-            />
-          </div>
-
           <Input
             label={t("address")}
             placeholder={t("addressPlaceholder")}
@@ -247,6 +230,35 @@ export default function CreateProjectPage() {
             value={deadline}
             onChange={setDeadline}
           />
+
+          {/* Project Scope */}
+          <div className="flex flex-col gap-3 mt-2">
+            <h3 className="text-base font-semibold text-text-primary">
+              {t("projectScope")}
+            </h3>
+            <Input
+              label={t("scope")}
+              placeholder={t("scopePlaceholder")}
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label={t("areaSqft")}
+                placeholder={t("areaSqftPlaceholder")}
+                type="number"
+                value={areaSqft}
+                onChange={(e) => setAreaSqft(e.target.value)}
+              />
+              <Input
+                label={t("estimationInr")}
+                placeholder={t("estimationInrPlaceholder")}
+                type="number"
+                value={estimationInr}
+                onChange={(e) => setEstimationInr(e.target.value)}
+              />
+            </div>
+          </div>
 
           {/* Assign Team */}
           <div className="flex flex-col gap-1.5">

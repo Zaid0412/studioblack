@@ -69,13 +69,15 @@ export const PATCH = withAuth(
           "client_email",
           "category",
           "status",
-          "description",
           "deadline",
+          "scope",
+          "area_sqft",
+          "estimation_inr",
           "address",
           "city",
           "state",
         ]
-      : ["name", "description"];
+      : ["name"];
     const updates: string[] = [];
     const values: unknown[] = [];
     let idx = 1;

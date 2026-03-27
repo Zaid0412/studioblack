@@ -14,7 +14,7 @@ interface MetaBarProps {
   createdAt: string;
   phases: { id: string }[];
   phaseCounts: Map<string, number>;
-  /** PM variant shows client/architects/created/sections. Client variant shows status/category/deadline/members. */
+  /** PM variant shows client/architects/created/location/sections. Client variant shows status/category/deadline/members. */
   variant?: "pm" | "client";
   /** Project status — used by client variant. */
   status?: string;
@@ -22,6 +22,14 @@ interface MetaBarProps {
   category?: string;
   /** Project deadline — used by client variant. */
   deadline?: string | null;
+  /** Project scope fields. */
+  scope?: string | null;
+  areaSqft?: number | null;
+  estimationInr?: number | null;
+  /** Project location fields. */
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
 }
 
 /** Project metadata bar — adapts display based on variant. */
@@ -36,6 +44,12 @@ export function MetaBar({
   status,
   category,
   deadline,
+  scope,
+  areaSqft,
+  estimationInr,
+  address,
+  city,
+  state,
 }: MetaBarProps) {
   const t = useTranslations("projectDetail");
 
@@ -118,36 +132,88 @@ export function MetaBar({
 
   return (
     <div className="px-4 lg:px-10 py-3">
-      <div className="grid grid-cols-2 lg:flex lg:items-center gap-4 lg:gap-8 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4">
+      <div className="grid grid-cols-2 lg:grid-cols-none lg:grid-flow-col lg:auto-cols-fr gap-4 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4 overflow-x-auto">
         {/* Client */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
             {t("clientLabel").replace(":", "")}
           </span>
-          <span className="text-[14px] font-medium text-text-primary">
+          <span className="text-[14px] font-medium text-text-primary truncate" title={client}>
             {client}
           </span>
         </div>
-        <div className="hidden lg:block w-px h-8 bg-border-default" />
+        <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
         {/* Architects */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
             {t("architects") || "Architects"}
           </span>
-          <span className="text-[14px] font-medium text-text-primary">
+          <span className="text-[14px] font-medium text-text-primary truncate" title={architects}>
             {architects}
           </span>
         </div>
-        <div className="hidden lg:block w-px h-8 bg-border-default" />
+        <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
         {/* Created */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+        <div className="flex flex-col gap-1 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
             {t("created") || "Created"}
           </span>
-          <span className="text-[14px] font-medium text-text-primary">
+          <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
             {createdDate}
           </span>
         </div>
+        {(address || city || state) && (
+          <>
+            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+                {t("location") || "Location"}
+              </span>
+              <span className="text-[14px] font-medium text-text-primary truncate" title={[address, city, state].filter(Boolean).join(", ")}>
+                {[address, city, state].filter(Boolean).join(", ")}
+              </span>
+            </div>
+          </>
+        )}
+        {scope && (
+          <>
+            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+                {t("scope") || "Scope"}
+              </span>
+              <span className="text-[14px] font-medium text-text-primary truncate" title={scope}>
+                {scope}
+              </span>
+            </div>
+          </>
+        )}
+        {areaSqft != null && (
+          <>
+            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+                {t("areaSqft") || "Area (SQFT)"}
+              </span>
+              <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
+                {areaSqft.toLocaleString()}
+              </span>
+            </div>
+          </>
+        )}
+        {estimationInr != null && (
+          <>
+            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+                {t("estimationInr") || "Estimate (INR)"}
+              </span>
+              <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
+                {estimationInr.toLocaleString("en-IN")}
+              </span>
+            </div>
+          </>
+        )}
         <div className="hidden lg:block w-px h-8 bg-border-default" />
         {/* Sections count */}
         <div className="flex flex-col gap-1">

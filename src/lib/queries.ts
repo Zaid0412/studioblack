@@ -15,8 +15,10 @@ interface CreateProjectInput {
   clientName?: string;
   clientEmail?: string;
   category: string;
-  description?: string;
   deadline?: string;
+  scope?: string;
+  areaSqft?: number;
+  estimationInr?: number;
   address?: string;
   city?: string;
   state?: string;
@@ -35,20 +37,32 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
   try {
     await client.query("BEGIN");
 
+    // Auto-resolve client name from user table, or derive from email
+    let clientName = input.clientName || null;
+    if (!clientName && input.clientEmail) {
+      const { rows } = await client.query(
+        `SELECT name FROM "user" WHERE email = $1 LIMIT 1`,
+        [input.clientEmail]
+      );
+      clientName = rows[0]?.name ?? input.clientEmail.split("@")[0];
+    }
+
     // Insert project
     const {
       rows: [project],
     } = await client.query(
-      `INSERT INTO project (name, client_name, client_email, category, description, deadline, address, city, state, org_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO project (name, client_name, client_email, category, deadline, scope, area_sqft, estimation_inr, address, city, state, org_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         input.name,
-        input.clientName || null,
+        clientName,
         input.clientEmail || null,
         input.category,
-        input.description || "",
         input.deadline || null,
+        input.scope || null,
+        input.areaSqft ?? null,
+        input.estimationInr ?? null,
         input.address || null,
         input.city || null,
         input.state || null,
