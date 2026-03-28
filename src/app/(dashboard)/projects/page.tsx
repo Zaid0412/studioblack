@@ -44,6 +44,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi, clientPortal } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
@@ -274,30 +280,40 @@ export default function ProjectsPage() {
               <SelectItem value="updated">Recently Updated</SelectItem>
             </SelectContent>
           </Select>
-          <div className="hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden">
-            <button
-              onClick={() => handleViewMode("list")}
-              className={`p-2 transition-colors cursor-pointer ${
-                viewMode === "list"
-                  ? "bg-bg-elevated text-text-primary"
-                  : "text-text-muted hover:text-text-secondary"
-              }`}
-              title={t("listView")}
-            >
-              <LayoutList className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleViewMode("grid")}
-              className={`p-2 transition-colors cursor-pointer ${
-                viewMode === "grid"
-                  ? "bg-bg-elevated text-text-primary"
-                  : "text-text-muted hover:text-text-secondary"
-              }`}
-              title={t("gridView")}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-          </div>
+          <TooltipProvider delayDuration={300}>
+            <div className="hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleViewMode("list")}
+                    className={`p-2 transition-colors cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-bg-elevated text-text-primary"
+                        : "text-text-muted hover:text-text-secondary"
+                    }`}
+                  >
+                    <LayoutList className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{t("listView")}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => handleViewMode("grid")}
+                    className={`p-2 transition-colors cursor-pointer ${
+                      viewMode === "grid"
+                        ? "bg-bg-elevated text-text-primary"
+                        : "text-text-muted hover:text-text-secondary"
+                    }`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{t("gridView")}</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
       </div>
 
