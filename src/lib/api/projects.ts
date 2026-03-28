@@ -17,8 +17,13 @@ export function create<T>(data: {
   clientName?: string | null;
   clientEmail?: string | null;
   category?: string;
-  description?: string;
   deadline?: string | null;
+  scope?: string;
+  areaSqft?: number;
+  estimationInr?: number;
+  address?: string;
+  city?: string;
+  state?: string;
   phases?: { name: string }[];
   architectIds?: string[];
 }) {
@@ -31,8 +36,14 @@ export function update<T>(
   data: {
     name?: string;
     clientName?: string | null;
-    description?: string;
+    clientEmail?: string | null;
     deadline?: string | null;
+    scope?: string | null;
+    areaSqft?: number | null;
+    estimationInr?: number | null;
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
   }
 ) {
   return apiPatch<T>(API.project(id), data);

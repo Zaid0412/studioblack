@@ -42,8 +42,6 @@ export interface Project {
   status: ProjectStatus;
   /** ISO-8601 date string representing the delivery deadline. */
   deadline: string;
-  /** Short summary shown on project cards and detail pages. */
-  description: string;
   /** Team members assigned to this project. */
   team: User[];
   /** Individual design deliverables (e.g. floor plans, elevations). */
@@ -227,8 +225,13 @@ export interface DbProjectDetail {
   client_email: string | null;
   category: string;
   status: string;
-  description: string;
   deadline: string | null;
+  scope: string | null;
+  area_sqft: number | null;
+  estimation_inr: number | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
   created_at: string;
   phases: DbPhase[];
   members: DbMember[];
@@ -244,6 +247,12 @@ export interface DbProjectRow {
   category: string;
   status: ProjectStatus;
   deadline: string | null;
+  scope: string | null;
+  area_sqft: number | null;
+  estimation_inr: number | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
   created_at: string;
   updated_at?: string;
   architect_ids: string[] | null;

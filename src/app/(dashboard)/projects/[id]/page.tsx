@@ -101,7 +101,7 @@ export default function ProjectDetailPage({
     <div className="flex flex-col h-full">
       <ProjectHeader
         projectName={project.name}
-        description={isClient ? project.description : undefined}
+        description={undefined}
         onRefresh={!isClient ? refreshAll : undefined}
         actions={
           showApprovalButtons ? (
@@ -125,6 +125,12 @@ export default function ProjectDetailPage({
         status={project.status}
         category={project.category}
         deadline={project.deadline}
+        scope={project.scope}
+        areaSqft={project.area_sqft}
+        estimationInr={project.estimation_inr}
+        address={project.address}
+        city={project.city}
+        state={project.state}
       />
 
       {!isClient && (

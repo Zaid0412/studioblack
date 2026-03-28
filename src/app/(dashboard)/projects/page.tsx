@@ -277,37 +277,39 @@ export default function ProjectsPage() {
                       </span>
                     </div>
                     {isStaff && (
-                      <div className="w-[140px]">
-                        <span className="text-[13px] text-text-secondary">
+                      <div className="w-[140px] min-w-0 pr-2">
+                        <span className="text-[13px] text-text-secondary truncate block">
                           {project.client_name ||
                             project.client_email ||
                             "\u2014"}
                         </span>
                       </div>
                     )}
-                    <div className="w-[100px]">
-                      <span className="text-[13px] text-text-secondary">
+                    <div className="w-[100px] min-w-0 pr-2">
+                      <span className="text-[13px] text-text-secondary truncate block">
                         {project.category
                           ? project.category.charAt(0).toUpperCase() +
                             project.category.slice(1)
                           : "\u2014"}
                       </span>
                     </div>
-                    <div className="w-[140px]">
+                    <div className="w-[140px] min-w-0 pr-2">
                       <Badge variant={statusToBadgeVariant(project.status)}>
                         {project.status.charAt(0).toUpperCase() +
                           project.status.slice(1)}
                       </Badge>
                     </div>
                     {isStaff && (
-                      <div className="w-[110px]">
-                        <span className="text-[13px] text-text-secondary">
-                          {"\u2014"}
+                      <div className="w-[110px] min-w-0 pr-2">
+                        <span className="text-[13px] text-text-secondary truncate block">
+                          {project.estimation_inr != null
+                            ? `₹${Number(project.estimation_inr).toLocaleString("en-IN")}`
+                            : "\u2014"}
                         </span>
                       </div>
                     )}
-                    <div className="w-[80px]">
-                      <span className="text-[13px] text-text-muted">
+                    <div className="w-[80px] min-w-0">
+                      <span className="text-[13px] text-text-muted truncate block">
                         {relativeTime(project.updated_at || project.created_at)}
                       </span>
                     </div>
