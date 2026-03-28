@@ -51,6 +51,85 @@ import { relativeTime } from "@/lib/formatTime";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 
+const VIEW_MODE_KEY = "projects-view-mode";
+
+/** Reusable dropdown menu for project actions. */
+function ProjectDropdown({
+  project,
+  isStaff,
+  isPm,
+  onDelete,
+}: {
+  project: DbProjectRow;
+  isStaff: boolean;
+  isPm: boolean;
+  onDelete: (project: DbProjectRow) => void;
+}) {
+  const t = useTranslations("projects");
+  const router = useRouter();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer shrink-0"
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/projects/${project.id}`);
+          }}
+        >
+          <Eye className="w-4 h-4" />
+          {t("viewProject")}
+        </DropdownMenuItem>
+        {isStaff && (
+          <>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/projects/${project.id}/edit`);
+              }}
+            >
+              <Edit className="w-4 h-4" />
+              {t("editProject")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/projects/${project.id}/upload`);
+              }}
+            >
+              <Upload className="w-4 h-4" />
+              {t("uploadDesign")}
+            </DropdownMenuItem>
+          </>
+        )}
+        {isPm && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              destructive
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(project);
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+              {t("deleteProject")}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
   const t = useTranslations("projects");
@@ -62,7 +141,15 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+    if (typeof window === "undefined") return "list";
+    return (localStorage.getItem(VIEW_MODE_KEY) as "list" | "grid") || "list";
+  });
+
+  const handleViewMode = (mode: "list" | "grid") => {
+    setViewMode(mode);
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  };
 
   const {
     search,
@@ -130,6 +217,7 @@ export default function ProjectsPage() {
   }, [userRole]);
 
   const isStaff = userRole === "pm" || userRole === "architect";
+  const isPm = userRole === "pm";
 
   const filters: { key: FilterTab; label: string }[] = [
     { key: "all", label: t("filterAll") },
@@ -147,7 +235,7 @@ export default function ProjectsPage() {
         </h1>
         <div className="flex items-center gap-3">
           <RefreshButton onRefresh={handleRefresh} />
-          {userRole === "pm" && (
+          {isPm && (
             <Button onClick={() => router.push("/projects/new")}>
               {t("newProject")}
             </Button>
@@ -188,24 +276,24 @@ export default function ProjectsPage() {
           </Select>
           <div className="hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden">
             <button
-              onClick={() => setViewMode("list")}
+              onClick={() => handleViewMode("list")}
               className={`p-2 transition-colors cursor-pointer ${
                 viewMode === "list"
                   ? "bg-bg-elevated text-text-primary"
                   : "text-text-muted hover:text-text-secondary"
               }`}
-              title="List view"
+              title={t("listView")}
             >
               <LayoutList className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setViewMode("grid")}
+              onClick={() => handleViewMode("grid")}
               className={`p-2 transition-colors cursor-pointer ${
                 viewMode === "grid"
                   ? "bg-bg-elevated text-text-primary"
                   : "text-text-muted hover:text-text-secondary"
               }`}
-              title="Grid view"
+              title={t("gridView")}
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
@@ -255,7 +343,7 @@ export default function ProjectsPage() {
             title={te("projectsTitle")}
             description={te("projectsDescription")}
             action={
-              userRole === "pm"
+              isPm
                 ? { label: te("projectsAction"), href: "/projects/new" }
                 : undefined
             }
@@ -314,17 +402,13 @@ export default function ProjectsPage() {
                       </div>
                     )}
                     <div className="w-[100px] min-w-0 pr-2">
-                      <span className="text-[13px] text-text-secondary truncate block">
-                        {project.category
-                          ? project.category.charAt(0).toUpperCase() +
-                            project.category.slice(1)
-                          : "\u2014"}
+                      <span className="text-[13px] text-text-secondary capitalize truncate block">
+                        {project.category || "\u2014"}
                       </span>
                     </div>
                     <div className="w-[140px] min-w-0 pr-2">
                       <Badge variant={statusToBadgeVariant(project.status)}>
-                        {project.status.charAt(0).toUpperCase() +
-                          project.status.slice(1)}
+                        <span className="capitalize">{project.status}</span>
                       </Badge>
                     </div>
                     {isStaff && (
@@ -342,64 +426,12 @@ export default function ProjectsPage() {
                       </span>
                     </div>
                     <div className="w-8 flex justify-end">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/projects/${project.id}`);
-                            }}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {t("viewProject")}
-                          </DropdownMenuItem>
-                          {isStaff && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/projects/${project.id}/edit`);
-                                }}
-                              >
-                                <Edit className="w-4 h-4" />
-                                {t("editProject")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/projects/${project.id}/upload`);
-                                }}
-                              >
-                                <Upload className="w-4 h-4" />
-                                {t("uploadDesign")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {userRole === "pm" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                destructive
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(project);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                {t("deleteProject")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <ProjectDropdown
+                        project={project}
+                        isStaff={isStaff}
+                        isPm={isPm}
+                        onDelete={setDeleteTarget}
+                      />
                     </div>
                   </div>
                 ))}
@@ -419,74 +451,20 @@ export default function ProjectsPage() {
                       <span className="text-sm font-semibold text-text-primary line-clamp-2">
                         {project.name}
                       </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer shrink-0"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/projects/${project.id}`);
-                            }}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {t("viewProject")}
-                          </DropdownMenuItem>
-                          {isStaff && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/projects/${project.id}/edit`);
-                                }}
-                              >
-                                <Edit className="w-4 h-4" />
-                                {t("editProject")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/projects/${project.id}/upload`);
-                                }}
-                              >
-                                <Upload className="w-4 h-4" />
-                                {t("uploadDesign")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {userRole === "pm" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                destructive
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(project);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                {t("deleteProject")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <ProjectDropdown
+                        project={project}
+                        isStaff={isStaff}
+                        isPm={isPm}
+                        onDelete={setDeleteTarget}
+                      />
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={statusToBadgeVariant(project.status)}>
-                        {project.status.charAt(0).toUpperCase() +
-                          project.status.slice(1)}
+                        <span className="capitalize">{project.status}</span>
                       </Badge>
                       {project.category && (
-                        <span className="text-xs text-text-muted">
-                          {project.category.charAt(0).toUpperCase() +
-                            project.category.slice(1)}
+                        <span className="text-xs text-text-muted capitalize">
+                          {project.category}
                         </span>
                       )}
                     </div>
@@ -538,67 +516,14 @@ export default function ProjectsPage() {
                     </span>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant={statusToBadgeVariant(project.status)}>
-                        {project.status.charAt(0).toUpperCase() +
-                          project.status.slice(1)}
+                        <span className="capitalize">{project.status}</span>
                       </Badge>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/projects/${project.id}`);
-                            }}
-                          >
-                            <Eye className="w-4 h-4" />
-                            {t("viewProject")}
-                          </DropdownMenuItem>
-                          {isStaff && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/projects/${project.id}/edit`);
-                                }}
-                              >
-                                <Edit className="w-4 h-4" />
-                                {t("editProject")}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/projects/${project.id}/upload`);
-                                }}
-                              >
-                                <Upload className="w-4 h-4" />
-                                {t("uploadDesign")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {userRole === "pm" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                destructive
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setDeleteTarget(project);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                {t("deleteProject")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <ProjectDropdown
+                        project={project}
+                        isStaff={isStaff}
+                        isPm={isPm}
+                        onDelete={setDeleteTarget}
+                      />
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-text-secondary">
@@ -609,10 +534,7 @@ export default function ProjectsPage() {
                         </span>
                       )}
                     {project.category && (
-                      <span>
-                        {project.category.charAt(0).toUpperCase() +
-                          project.category.slice(1)}
-                      </span>
+                      <span className="capitalize">{project.category}</span>
                     )}
                     <span className="text-text-muted ml-auto shrink-0">
                       {relativeTime(project.updated_at || project.created_at)}

@@ -130,7 +130,9 @@
     "filterApproved": "Onaylanan",
     "showingProjects": "{start}-{end} / {total} proje gösteriliyor",
     "allStatus": "Tüm Durumlar",
-    "sortBy": "Sırala"
+    "sortBy": "Sırala",
+    "listView": "Liste görünümü",
+    "gridView": "Kart görünümü"
   },
   "projectDetail": {
     "title": "Proje Detayı",

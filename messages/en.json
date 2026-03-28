@@ -130,7 +130,9 @@
     "filterApproved": "Approved",
     "showingProjects": "Showing {start}-{end} of {total} projects",
     "allStatus": "All Status",
-    "sortBy": "Sort by"
+    "sortBy": "Sort by",
+    "listView": "List view",
+    "gridView": "Grid view"
   },
   "projectDetail": {
     "title": "Project Detail",
