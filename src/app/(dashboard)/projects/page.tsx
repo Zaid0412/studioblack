@@ -367,7 +367,9 @@ export default function ProjectsPage() {
         ) : (
           <>
             {/* ── Desktop table (hidden on mobile, list mode only) ── */}
-            <div className={`${viewMode === "list" ? "hidden lg:flex" : "hidden"} flex-col flex-1`}>
+            <div
+              className={`${viewMode === "list" ? "hidden lg:flex" : "hidden"} flex-col flex-1`}
+            >
               {/* Table header */}
               <div className="flex items-center h-11 px-4 bg-bg-elevated">
                 <div className="flex-1 text-xs font-bold text-text-muted">
@@ -455,7 +457,9 @@ export default function ProjectsPage() {
             </div>
 
             {/* ── Desktop grid / tile view (hidden on mobile, grid mode only) ── */}
-            <div className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}>
+            <div
+              className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}
+            >
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                 {paginatedRows.map((project) => (
                   <div
@@ -493,7 +497,10 @@ export default function ProjectsPage() {
                         )}
                       {isStaff && project.estimation_inr != null && (
                         <span className="text-text-muted">
-                          ₹{Number(project.estimation_inr).toLocaleString("en-IN")}
+                          ₹
+                          {Number(project.estimation_inr).toLocaleString(
+                            "en-IN"
+                          )}
                         </span>
                       )}
                     </div>
@@ -501,10 +508,13 @@ export default function ProjectsPage() {
                       {project.deadline ? (
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(project.deadline).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {new Date(project.deadline).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            }
+                          )}
                         </span>
                       ) : (
                         <span />
