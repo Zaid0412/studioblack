@@ -11,6 +11,9 @@ import {
   Trash2,
   FolderOpen,
   Loader2,
+  LayoutList,
+  LayoutGrid,
+  Calendar,
 } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button } from "@/components/ui/button";
@@ -59,6 +62,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   const {
     search,
@@ -182,6 +186,30 @@ export default function ProjectsPage() {
               <SelectItem value="updated">Recently Updated</SelectItem>
             </SelectContent>
           </Select>
+          <div className="hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-2 transition-colors cursor-pointer ${
+                viewMode === "list"
+                  ? "bg-bg-elevated text-text-primary"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+              title="List view"
+            >
+              <LayoutList className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-2 transition-colors cursor-pointer ${
+                viewMode === "grid"
+                  ? "bg-bg-elevated text-text-primary"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+              title="Grid view"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -216,7 +244,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* Content area */}
-      <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[600px] mb-8">
+      <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[480px] mb-8">
         {loading || roleLoading ? (
           <div className="flex items-center justify-center py-12 flex-1">
             <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
@@ -234,8 +262,8 @@ export default function ProjectsPage() {
           />
         ) : (
           <>
-            {/* ── Desktop table (hidden on mobile) ── */}
-            <div className="hidden lg:flex flex-col flex-1">
+            {/* ── Desktop table (hidden on mobile, list mode only) ── */}
+            <div className={`${viewMode === "list" ? "hidden lg:flex" : "hidden"} flex-col flex-1`}>
               {/* Table header */}
               <div className="flex items-center h-11 px-4 bg-bg-elevated">
                 <div className="flex-1 text-xs font-bold text-text-muted">
@@ -372,6 +400,124 @@ export default function ProjectsPage() {
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Desktop grid / tile view (hidden on mobile, grid mode only) ── */}
+            <div className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}>
+              <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+                {paginatedRows.map((project) => (
+                  <div
+                    key={project.id}
+                    className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 transition-colors cursor-pointer"
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-semibold text-text-primary line-clamp-2">
+                        {project.name}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer shrink-0"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/projects/${project.id}`);
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                            {t("viewProject")}
+                          </DropdownMenuItem>
+                          {isStaff && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/projects/${project.id}/edit`);
+                                }}
+                              >
+                                <Edit className="w-4 h-4" />
+                                {t("editProject")}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/projects/${project.id}/upload`);
+                                }}
+                              >
+                                <Upload className="w-4 h-4" />
+                                {t("uploadDesign")}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {userRole === "pm" && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                destructive
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget(project);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                {t("deleteProject")}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={statusToBadgeVariant(project.status)}>
+                        {project.status.charAt(0).toUpperCase() +
+                          project.status.slice(1)}
+                      </Badge>
+                      {project.category && (
+                        <span className="text-xs text-text-muted">
+                          {project.category.charAt(0).toUpperCase() +
+                            project.category.slice(1)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5 text-xs text-text-secondary">
+                      {isStaff &&
+                        (project.client_name || project.client_email) && (
+                          <span className="truncate">
+                            {project.client_name || project.client_email}
+                          </span>
+                        )}
+                      {isStaff && project.estimation_inr != null && (
+                        <span className="text-text-muted">
+                          ₹{Number(project.estimation_inr).toLocaleString("en-IN")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-text-muted pt-2 border-t border-border-default mt-auto">
+                      {project.deadline ? (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(project.deadline).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <span>
+                        {relativeTime(project.updated_at || project.created_at)}
+                      </span>
                     </div>
                   </div>
                 ))}
