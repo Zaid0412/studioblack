@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiGet, apiPatch, apiPost, apiDelete } from "./client";
 import { API } from "./routes";
 import type { DbAttachment, DbAttachmentReview } from "@/types";
 
@@ -66,4 +66,16 @@ export function freeze(projectId: string, fileId: string) {
 /** Unfreeze a previously frozen attachment. */
 export function unfreeze(projectId: string, fileId: string) {
   return apiPatch(API.attachmentUnfreeze(projectId, fileId));
+}
+
+/** Mark an attachment as reviewed (staff action, not a formal review). */
+export function markReviewed(projectId: string, fileId: string) {
+  return apiPatch(API.attachment(projectId, fileId), {
+    reviewStatus: "reviewed",
+  });
+}
+
+/** Delete an attachment. */
+export function remove(projectId: string, fileId: string) {
+  return apiDelete(API.attachment(projectId, fileId));
 }

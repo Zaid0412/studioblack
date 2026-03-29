@@ -385,6 +385,19 @@ export async function getAttachmentById(
   return row || null;
 }
 
+/** Delete a single attachment by ID (must belong to project). */
+export async function deleteAttachment(
+  attachmentId: string,
+  projectId: string
+) {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `DELETE FROM attachment WHERE id = $1 AND project_id = $2`,
+    [attachmentId, projectId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /** Get all versions of a file (by version_group), scoped to project. */
 export async function getAttachmentVersionHistory(
   versionGroup: string,

@@ -28,7 +28,7 @@ export default function ProjectDetailPage({
 }) {
   const { id } = use(params);
   const tc = useTranslations("common");
-  const { role, loading: roleLoading } = useUserRole();
+  const { role, session, loading: roleLoading } = useUserRole();
   const isClient = role === "client";
 
   const {
@@ -164,9 +164,11 @@ export default function ProjectDetailPage({
         activePhaseId={activePhaseId}
         phaseFiles={phaseFiles}
         onDownload={handleDownload}
-        onRefresh={isClient ? () => {} : refreshAttachments}
+        onRefresh={refreshAttachments}
         readOnly={isClient}
         uploadTriggerRef={isClient ? undefined : uploadTriggerRef}
+        userRole={role}
+        currentUserId={session?.user?.id}
       />
 
       {!isClient && activePhaseId && (

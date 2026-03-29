@@ -13,7 +13,7 @@ const VALID_STATUSES = ["approved", "rejected"];
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/review — submit a review. */
 export const PATCH = withAuth(
-  { allowedRoles: ["client"], projectAccess: true },
+  { projectAccess: true },
   async (req, { user }, params) => {
     const { allowed } = rateLimit(`review:${user.id}`, {
       limit: 10,
@@ -68,7 +68,7 @@ export const PATCH = withAuth(
       await client.query("BEGIN");
       const { rows } = await client.query(
         `UPDATE attachment
-         SET review_status = $1, reviewed_by = $2, reviewed_at = NOW()
+         SET review_status = $1, reviewed_by = $2
          WHERE id = $3
          RETURNING *`,
         [status, user.id, attachmentId]

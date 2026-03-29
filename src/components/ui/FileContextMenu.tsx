@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Check,
   ClipboardCheck,
   Download,
   History,
@@ -10,6 +11,7 @@ import {
   Trash2,
   Unlock,
   Upload,
+  X,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -26,6 +28,9 @@ interface FileContextMenuProps {
   onUploadNewVersion?: () => void;
   onVersionHistory?: () => void;
   onViewReview?: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
+  onMarkReviewed?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
 }
@@ -38,10 +43,14 @@ export function FileContextMenu({
   onUploadNewVersion,
   onVersionHistory,
   onViewReview,
+  onApprove,
+  onReject,
+  onMarkReviewed,
   frozen,
   onToggleFreeze,
 }: FileContextMenuProps) {
   const hasTopItems = onEdit || onDownload || onUploadNewVersion;
+  const hasReviewActions = onApprove || onReject || onMarkReviewed;
 
   return (
     <DropdownMenu>
@@ -85,16 +94,35 @@ export function FileContextMenu({
             View Review
           </DropdownMenuItem>
         )}
+        {hasReviewActions && <DropdownMenuSeparator />}
+        {onApprove && (
+          <DropdownMenuItem onSelect={onApprove}>
+            <Check />
+            Approve
+          </DropdownMenuItem>
+        )}
+        {onReject && (
+          <DropdownMenuItem onSelect={onReject}>
+            <X />
+            Reject
+          </DropdownMenuItem>
+        )}
+        {onMarkReviewed && (
+          <DropdownMenuItem onSelect={onMarkReviewed}>
+            <ClipboardCheck />
+            Mark Reviewed
+          </DropdownMenuItem>
+        )}
         {onToggleFreeze && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onToggleFreeze}>
               {frozen ? <Unlock /> : <Lock />}
-              {frozen ? "Unfreeze File" : "Freeze File"}
+              {frozen ? "Unfreeze Design" : "Freeze Design"}
             </DropdownMenuItem>
           </>
         )}
-        {(hasTopItems || onVersionHistory || onViewReview) &&
+        {(hasTopItems || onVersionHistory || onViewReview || hasReviewActions) &&
           onRemove &&
           !frozen && <DropdownMenuSeparator />}
         {onRemove && !frozen && (

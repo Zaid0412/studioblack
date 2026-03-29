@@ -23,10 +23,14 @@ interface FileTableProps {
   onRefresh: () => void;
   /** Exposed so parent can trigger upload dialog from elsewhere (e.g. WorkflowBar). */
   uploadTriggerRef?: React.MutableRefObject<(() => void) | null>;
-  /** When true, disables upload, drag-drop, context menu, and freeze actions (client view). */
+  /** When true, disables upload and drag-drop (client view). */
   readOnly?: boolean;
   /** Base path for review navigation. Defaults to "/projects". */
   basePath?: string;
+  /** Current user's role — controls which context menu actions appear. */
+  userRole?: "pm" | "architect" | "client" | null;
+  /** Current user's ID — used to check file ownership for remove action. */
+  currentUserId?: string;
 }
 
 /** Table of phase attachments with type, size, and download/review actions. */
@@ -39,10 +43,14 @@ export function FileTable({
   uploadTriggerRef,
   readOnly = false,
   basePath = "/projects",
+  userRole,
+  currentUserId,
 }: FileTableProps) {
   const router = useRouter();
   const t = useTranslations("projectDetail");
   const te = useTranslations("emptyStates");
+  const isClient = userRole === "client";
+  const isStaff = userRole === "pm" || userRole === "architect";
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadVersionGroup, setUploadVersionGroup] = useState<string | null>(
@@ -122,6 +130,69 @@ export function FileTable({
     [projectId, onRefresh]
   );
 
+  const handleRemove = useCallback(
+    async (att: DbAttachment) => {
+      try {
+        await attachmentsApi.remove(projectId, att.id);
+        toast({
+          title: "File removed",
+          description: `"${att.file_name}" has been removed.`,
+          variant: "success",
+        });
+        onRefresh();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to remove file.",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, onRefresh]
+  );
+
+  const handleReviewAction = useCallback(
+    async (att: DbAttachment, status: "approved" | "rejected") => {
+      try {
+        await attachmentsApi.submitReview(projectId, att.id, { status });
+        toast({
+          title: status === "approved" ? "Design approved" : "Design rejected",
+          description: `"${att.file_name}" has been ${status}.`,
+          variant: "success",
+        });
+        onRefresh();
+      } catch {
+        toast({
+          title: "Error",
+          description: `Failed to ${status === "approved" ? "approve" : "reject"} design.`,
+          variant: "error",
+        });
+      }
+    },
+    [projectId, onRefresh]
+  );
+
+  const handleMarkReviewed = useCallback(
+    async (att: DbAttachment) => {
+      try {
+        await attachmentsApi.markReviewed(projectId, att.id);
+        toast({
+          title: "Marked as reviewed",
+          description: `"${att.file_name}" has been marked as reviewed.`,
+          variant: "success",
+        });
+        onRefresh();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to mark as reviewed.",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, onRefresh]
+  );
+
   const handleUploadSuccess = useCallback(() => {
     onRefresh();
   }, [onRefresh]);
@@ -158,7 +229,7 @@ export function FileTable({
           <div className="w-[140px] text-xs font-medium text-text-secondary">
             {t("statusLabel").replace(":", "") || "Status"}
           </div>
-          {!readOnly && <div className="w-[50px]" />}
+          <div className="w-[50px]" />
         </div>
 
         {/* Table body */}
@@ -194,12 +265,28 @@ export function FileTable({
               const color = avatarColor(att.uploaded_by || "");
               const vc = versionColor(att.version || 1);
 
-              const fileActions = !readOnly && (
+              // Remove: PM always, architect only if they uploaded it
+              const canRemove =
+                isStaff &&
+                !att.frozen_at &&
+                (userRole === "pm" ||
+                  (userRole === "architect" &&
+                    att.uploaded_by === currentUserId));
+
+              const fileActions = (
                 <div onClick={(e) => e.stopPropagation()}>
                   <FileContextMenu
                     onDownload={() => onDownload(att)}
-                    onEdit={() => router.push(reviewPath(att.id))}
-                    onUploadNewVersion={() => openUpload(att.version_group)}
+                    onEdit={
+                      isStaff && !att.frozen_at
+                        ? () => router.push(reviewPath(att.id))
+                        : undefined
+                    }
+                    onUploadNewVersion={
+                      isStaff && !att.frozen_at
+                        ? () => openUpload(att.version_group)
+                        : undefined
+                    }
                     onVersionHistory={
                       att.version_group
                         ? () => setVersionHistoryGroup(att.version_group!)
@@ -211,8 +298,28 @@ export function FileTable({
                             router.push(`${reviewPath(att.id)}?reviews=open`)
                         : undefined
                     }
+                    onApprove={
+                      isClient && att.review_status !== "approved"
+                        ? () => handleReviewAction(att, "approved")
+                        : undefined
+                    }
+                    onReject={
+                      isClient && att.review_status !== "rejected"
+                        ? () => handleReviewAction(att, "rejected")
+                        : undefined
+                    }
+                    onMarkReviewed={
+                      isStaff &&
+                      att.review_status !== "approved" &&
+                      att.review_status !== "rejected"
+                        ? () => handleMarkReviewed(att)
+                        : undefined
+                    }
                     frozen={!!att.frozen_at}
-                    onToggleFreeze={() => handleToggleFreeze(att)}
+                    onToggleFreeze={
+                      isStaff ? () => handleToggleFreeze(att) : undefined
+                    }
+                    onRemove={canRemove ? () => handleRemove(att) : undefined}
                   />
                 </div>
               );
@@ -272,11 +379,9 @@ export function FileTable({
                         {badge.label}
                       </span>
                     </div>
-                    {!readOnly && (
-                      <div className="w-[50px] flex items-center justify-center">
-                        {fileActions}
-                      </div>
-                    )}
+                    <div className="w-[50px] flex items-center justify-center">
+                      {fileActions}
+                    </div>
                   </div>
 
                   {/* Mobile card */}
