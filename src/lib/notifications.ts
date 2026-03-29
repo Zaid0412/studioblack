@@ -37,10 +37,10 @@ export async function createNotificationsForTeam(
   const pool = getPool();
   await pool.query(
     `INSERT INTO notification (user_id, type, title, description, project_id)
-     SELECT DISTINCT m."userId", $3, $4, $5, $1
+     SELECT DISTINCT m."userId", $3, $4, $5, $1::uuid
      FROM project p
      JOIN member m ON m."organizationId" = p.org_id
-     WHERE p.id = $1 AND m."userId" != $2`,
+     WHERE p.id = $1::uuid AND m."userId" != $2`,
     [projectId, excludeUserId, type, title, description || ""]
   );
 }

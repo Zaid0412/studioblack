@@ -12,8 +12,8 @@ interface MetaBarProps {
   clientEmail?: string | null;
   members: DbMember[];
   createdAt: string;
-  phases: { id: string }[];
-  phaseCounts: Map<string, number>;
+  phases?: { id: string }[];
+  phaseCounts?: Map<string, number>;
   /** PM variant shows client/architects/created/location/sections. Client variant shows status/category/deadline/members. */
   variant?: "pm" | "client";
   /** Project status — used by client variant. */
@@ -38,8 +38,6 @@ export function MetaBar({
   clientEmail,
   members,
   createdAt,
-  phases,
-  phaseCounts,
   variant = "pm",
   status,
   category,
@@ -126,116 +124,80 @@ export function MetaBar({
     day: "numeric",
     year: "numeric",
   });
-  const designSectionCount = phases.filter(
-    (p) => (phaseCounts.get(p.id) || 0) > 0
-  ).length;
-
   return (
     <div className="px-4 lg:px-10 py-3">
-      <div className="grid grid-cols-2 lg:grid-cols-none lg:grid-flow-col lg:auto-cols-fr gap-4 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4 overflow-x-auto">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-0 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4">
         {/* Client */}
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+        <div className="flex flex-col gap-1 py-2 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
             {t("clientLabel").replace(":", "")}
           </span>
-          <span
-            className="text-[14px] font-medium text-text-primary truncate"
-            title={client}
-          >
+          <span className="text-[14px] font-medium text-text-primary break-words">
             {client}
           </span>
         </div>
-        <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
         {/* Architects */}
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+        <div className="flex flex-col gap-1 py-2 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
             {t("architects") || "Architects"}
           </span>
-          <span
-            className="text-[14px] font-medium text-text-primary truncate"
-            title={architects}
-          >
+          <span className="text-[14px] font-medium text-text-primary break-words">
             {architects}
           </span>
         </div>
-        <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
         {/* Created */}
-        <div className="flex flex-col gap-1 min-w-0">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
+        <div className="flex flex-col gap-1 py-2 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
             {t("created") || "Created"}
           </span>
           <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
             {createdDate}
           </span>
         </div>
+        {/* Location */}
         {(address || city || state) && (
-          <>
-            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
-                {t("location") || "Location"}
-              </span>
-              <span
-                className="text-[14px] font-medium text-text-primary truncate"
-                title={[address, city, state].filter(Boolean).join(", ")}
-              >
-                {[address, city, state].filter(Boolean).join(", ")}
-              </span>
-            </div>
-          </>
+          <div className="flex flex-col gap-1 py-2 min-w-0">
+            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+              {t("location") || "Location"}
+            </span>
+            <span className="text-[14px] font-medium text-text-primary break-words">
+              {[address, city, state].filter(Boolean).join(", ")}
+            </span>
+          </div>
         )}
+        {/* Scope */}
         {scope && (
-          <>
-            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
-                {t("scope") || "Scope"}
-              </span>
-              <span
-                className="text-[14px] font-medium text-text-primary truncate"
-                title={scope}
-              >
-                {scope}
-              </span>
-            </div>
-          </>
+          <div className="flex flex-col gap-1 py-2 min-w-0">
+            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+              {t("scope") || "Scope"}
+            </span>
+            <span className="text-[14px] font-medium text-text-primary break-words">
+              {scope}
+            </span>
+          </div>
         )}
+        {/* Area */}
         {areaSqft != null && (
-          <>
-            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
-                {t("areaSqft") || "Area (SQFT)"}
-              </span>
-              <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
-                {areaSqft.toLocaleString()}
-              </span>
-            </div>
-          </>
+          <div className="flex flex-col gap-1 py-2 min-w-0">
+            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+              {t("areaSqft") || "Area (SQFT)"}
+            </span>
+            <span className="text-[14px] font-medium text-text-primary">
+              {areaSqft.toLocaleString()}
+            </span>
+          </div>
         )}
+        {/* Estimate */}
         {estimationInr != null && (
-          <>
-            <div className="hidden lg:block w-px h-8 bg-border-default shrink-0" />
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase whitespace-nowrap">
-                {t("estimationInr") || "Estimate (INR)"}
-              </span>
-              <span className="text-[14px] font-medium text-text-primary whitespace-nowrap">
-                {estimationInr.toLocaleString("en-IN")}
-              </span>
-            </div>
-          </>
+          <div className="flex flex-col gap-1 py-2 min-w-0">
+            <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+              {t("estimationInr") || "Estimate (INR)"}
+            </span>
+            <span className="text-[14px] font-medium text-text-primary">
+              {estimationInr.toLocaleString("en-IN")}
+            </span>
+          </div>
         )}
-        <div className="hidden lg:block w-px h-8 bg-border-default" />
-        {/* Sections count */}
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
-            {t("sections") || "Sections"}
-          </span>
-          <span className="text-[14px] font-medium text-text-primary">
-            {designSectionCount} {t("designSections")}
-          </span>
-        </div>
       </div>
     </div>
   );
