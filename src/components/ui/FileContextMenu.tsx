@@ -122,7 +122,10 @@ export function FileContextMenu({
             </DropdownMenuItem>
           </>
         )}
-        {(hasTopItems || onVersionHistory || onViewReview || hasReviewActions) &&
+        {(hasTopItems ||
+          onVersionHistory ||
+          onViewReview ||
+          hasReviewActions) &&
           onRemove &&
           !frozen && <DropdownMenuSeparator />}
         {onRemove && !frozen && (

@@ -236,7 +236,8 @@ export function FileTable({
           )
         );
         toast({
-          title: status === "approved" ? "Designs approved" : "Designs rejected",
+          title:
+            status === "approved" ? "Designs approved" : "Designs rejected",
           description: `${selectedFiles.length} file(s) ${status}.`,
           variant: "success",
         });
@@ -549,9 +550,7 @@ export function FileTable({
                   {/* Desktop row */}
                   <div
                     className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
-                      isSelected
-                        ? "bg-accent/[0.06]"
-                        : "hover:bg-white/[0.02]"
+                      isSelected ? "bg-accent/[0.06]" : "hover:bg-white/[0.02]"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -580,7 +579,10 @@ export function FileTable({
                             className="absolute inset-0 flex items-center justify-center w-4 h-4 rounded-[3px] bg-accent"
                             onClick={(e) => toggleSelect(att.id, e)}
                           >
-                            <Check className="w-3 h-3 text-black" strokeWidth={3} />
+                            <Check
+                              className="w-3 h-3 text-black"
+                              strokeWidth={3}
+                            />
                           </div>
                         ) : (
                           <div
@@ -670,7 +672,10 @@ export function FileTable({
                         {hasSelection ? (
                           isSelected ? (
                             <div className="w-4 h-4 rounded-[3px] bg-accent flex items-center justify-center">
-                              <Check className="w-3 h-3 text-black" strokeWidth={3} />
+                              <Check
+                                className="w-3 h-3 text-black"
+                                strokeWidth={3}
+                              />
                             </div>
                           ) : (
                             <div className="w-4 h-4 rounded-[3px] border border-text-muted" />

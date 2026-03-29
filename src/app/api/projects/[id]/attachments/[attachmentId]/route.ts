@@ -84,7 +84,9 @@ export const PATCH = withAuth(
     }
 
     const pool = getPool();
-    const { rows: [updated] } = await pool.query(
+    const {
+      rows: [updated],
+    } = await pool.query(
       `UPDATE attachment SET review_status = $1 WHERE id = $2 AND project_id = $3 RETURNING *`,
       [reviewStatus, attachmentId, id]
     );
