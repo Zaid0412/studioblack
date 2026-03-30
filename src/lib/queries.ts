@@ -728,6 +728,8 @@ export async function getTasks(filters: TaskFilters) {
             EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${starIdx}) AS is_starred,
             COALESCE(cl.total, 0)::int AS checklist_total,
             COALESCE(cl.done, 0)::int AS checklist_done,
+            pc.id AS pin_comment_id,
+            pc.attachment_id AS pin_attachment_id,
             COUNT(*) OVER()::int AS _total_count
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
@@ -738,6 +740,9 @@ export async function getTasks(filters: TaskFilters) {
        SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
        FROM task_checklist_item GROUP BY task_id
      ) cl ON cl.task_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT id, attachment_id FROM pin_comment WHERE task_id = t.id LIMIT 1
+     ) pc ON true
      WHERE ${conditions.join(" AND ")}
      ORDER BY
        CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
@@ -791,7 +796,9 @@ export async function getTaskById(
             pp.name AS phase_name,
             ${starClause} AS is_starred,
             COALESCE(cl.total, 0)::int AS checklist_total,
-            COALESCE(cl.done, 0)::int AS checklist_done
+            COALESCE(cl.done, 0)::int AS checklist_done,
+            pc.id AS pin_comment_id,
+            pc.attachment_id AS pin_attachment_id
      FROM task t
      LEFT JOIN "user" u_assigned ON u_assigned.id = t.assigned_to
      LEFT JOIN "user" u_created ON u_created.id = t.created_by
@@ -801,6 +808,9 @@ export async function getTaskById(
        SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
        FROM task_checklist_item GROUP BY task_id
      ) cl ON cl.task_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT id, attachment_id FROM pin_comment WHERE task_id = t.id LIMIT 1
+     ) pc ON true
      WHERE ${conditions.join(" AND ")}`,
     params
   );
@@ -824,4 +834,127 @@ export async function getTaskBucketCounts(orgId: string, userId: string) {
     [orgId, userId]
   );
   return rows[0];
+}
+
+// ── Pin Comments ─────────────────────────────────
+
+/** Fetch top-level pin comments (no replies) for an attachment. */
+export async function getPinComments(attachmentId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pc.*, u.name AS user_name,
+            (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count
+     FROM pin_comment pc
+     JOIN "user" u ON u.id = pc.user_id
+     WHERE pc.attachment_id = $1 AND pc.parent_id IS NULL
+     ORDER BY pc.created_at ASC`,
+    [attachmentId]
+  );
+  return rows;
+}
+
+/** Fetch replies for a specific pin comment. */
+export async function getPinCommentReplies(parentId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pc.*, u.name AS user_name, 0 AS reply_count
+     FROM pin_comment pc
+     JOIN "user" u ON u.id = pc.user_id
+     WHERE pc.parent_id = $1
+     ORDER BY pc.created_at ASC`,
+    [parentId]
+  );
+  return rows;
+}
+
+/** Fetch a single pin comment by ID with user name and reply count. */
+export async function getPinCommentById(pinId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pc.*, u.name AS user_name,
+            (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count
+     FROM pin_comment pc
+     JOIN "user" u ON u.id = pc.user_id
+     WHERE pc.id = $1`,
+    [pinId]
+  );
+  return rows[0] || null;
+}
+
+/** Insert a new pin comment (or reply) and return the created row. */
+export async function createPinComment(params: {
+  attachmentId: string;
+  userId: string;
+  xPercent: number | null;
+  yPercent: number | null;
+  page: number | null;
+  content: string;
+  requestApproval?: boolean;
+  taskId?: string | null;
+  parentId?: string | null;
+}) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `WITH inserted AS (
+       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *
+     )
+     SELECT i.*, u.name AS user_name, 0::int AS reply_count
+     FROM inserted i
+     JOIN "user" u ON u.id = i.user_id`,
+    [
+      params.attachmentId,
+      params.userId,
+      params.xPercent,
+      params.yPercent,
+      params.page,
+      params.content,
+      params.requestApproval ?? false,
+      params.taskId ?? null,
+      params.parentId ?? null,
+    ]
+  );
+  return rows[0];
+}
+
+/** Update resolved status of a pin comment. */
+export async function updatePinComment(pinId: string, resolved: boolean) {
+  const pool = getPool();
+  await pool.query(`UPDATE pin_comment SET resolved = $1 WHERE id = $2`, [
+    resolved,
+    pinId,
+  ]);
+  return getPinCommentById(pinId);
+}
+
+/** Update content of a pin comment. */
+export async function updatePinCommentContent(pinId: string, content: string) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE pin_comment SET content = $1, updated_at = NOW() WHERE id = $2`,
+    [content, pinId]
+  );
+  return getPinCommentById(pinId);
+}
+
+/** Update position of a pin comment. */
+export async function updatePinCommentPosition(
+  pinId: string,
+  xPercent: number,
+  yPercent: number,
+  page: number
+) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE pin_comment SET x_percent = $1, y_percent = $2, page = $3 WHERE id = $4`,
+    [xPercent, yPercent, page, pinId]
+  );
+  return getPinCommentById(pinId);
+}
+
+/** Delete a pin comment by ID (cascades to replies). */
+export async function deletePinComment(pinId: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM pin_comment WHERE id = $1`, [pinId]);
 }

@@ -1,5 +1,6 @@
 export { Button } from "./button";
 export { Badge, statusToBadgeVariant } from "./badge";
+export { Checkbox } from "./checkbox";
 export { Input } from "./input";
 export { Avatar } from "./avatar";
 export { Card } from "./card";

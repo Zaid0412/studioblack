@@ -36,7 +36,7 @@ export function ThumbnailPanel({
   onSelectFile,
 }: ThumbnailPanelProps) {
   return (
-    <div className="hidden lg:flex w-56 shrink-0 bg-bg-primary border-r border-[#222] flex-col overflow-hidden">
+    <div className="hidden lg:flex w-40 shrink-0 bg-bg-primary border-r border-[#222] flex-col overflow-hidden">
       {/* Header */}
       <div className="px-3 py-3 border-b border-[#222]">
         <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider">

@@ -81,3 +81,4 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - All database queries use raw SQL with parameterized values — never use string interpolation.
 - better-auth tables use camelCase columns (`userId`, `organizationId`). App tables use snake_case.
 - No tests exist yet. No test framework is set up.
+- Always use custom UI components from `src/components/ui/` instead of native HTML elements. Check what exists before writing raw `<select>`, `<input type="date">`, `<input type="checkbox">`, tooltips (`title=`), etc. Key components: `Select`, `DatePicker`, `Calendar`, `Checkbox`, `Tooltip`, `Input`, `Button`, `Popover`, `ToggleSwitch`.

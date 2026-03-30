@@ -294,6 +294,25 @@ export interface DbAttachmentReview {
   created_at: string;
 }
 
+/** A pin comment placed on an attachment at a specific position. */
+export interface DbPinComment {
+  id: string;
+  attachment_id: string;
+  user_id: string;
+  user_name: string;
+  x_percent: number | null;
+  y_percent: number | null;
+  page: number | null;
+  content: string;
+  resolved: boolean;
+  task_id: string | null;
+  request_approval: boolean;
+  parent_id: string | null;
+  updated_at: string | null;
+  reply_count: number;
+  created_at: string;
+}
+
 /** DB notification row from the notifications API. */
 export interface DbNotificationRow {
   id: string;
@@ -368,6 +387,10 @@ export interface Task {
   is_starred: boolean;
   checklist_total: number;
   checklist_done: number;
+  /** Set when the task was created from a pin comment. */
+  pin_comment_id: string | null;
+  /** The attachment the pin comment belongs to. */
+  pin_attachment_id: string | null;
 }
 
 /** A single checklist item on a task. */

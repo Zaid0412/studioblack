@@ -43,12 +43,11 @@ function Calendar({
         day_button:
           "inline-flex items-center justify-center h-8 w-8 rounded-md text-sm font-normal text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer border-0 bg-transparent",
         selected:
-          "[&>.rdp-day_button]:bg-accent [&>.rdp-day_button]:text-text-on-accent [&>.rdp-day_button]:font-semibold [&>.rdp-day_button]:hover:bg-accent-hover",
+          "[&>button]:bg-accent [&>button]:text-text-on-accent [&>button]:font-semibold [&>button]:hover:bg-accent-hover",
         today:
-          "[&>.rdp-day_button]:border [&>.rdp-day_button]:border-accent/50",
-        outside: "[&>.rdp-day_button]:text-text-muted/40",
-        disabled:
-          "[&>.rdp-day_button]:text-text-muted/30 [&>.rdp-day_button]:cursor-not-allowed",
+          "[&>button]:bg-[#F5C518]/20 [&>button]:text-[#F5C518] [&>button]:font-bold [&>button]:border [&>button]:border-[#F5C518]/60",
+        outside: "[&>button]:text-text-muted/40",
+        disabled: "[&>button]:text-text-muted/30 [&>button]:cursor-not-allowed",
         hidden: "invisible",
         ...classNames,
       }}

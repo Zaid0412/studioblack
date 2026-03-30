@@ -8,35 +8,30 @@ import {
   Download,
   ExternalLink,
   Ellipsis,
-  MessageCircle,
-  Camera,
+  MapPin,
   Printer,
   Lock,
   Maximize,
   Unlock,
   Upload,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface ReviewToolbarProps {
-  /** Where the back button navigates to */
   backPath: string;
   fileName: string;
   fileUrl: string;
-  commentToolActive: boolean;
-  onToggleCommentTool: () => void;
-  onScreenshot: () => void;
+  pinModeActive: boolean;
+  onTogglePinMode: () => void;
   onDownload: () => void;
-  onPrint: () => void;
-  onFullscreen: () => void;
-  /** Slot rendered after the filename (e.g. status badge) */
   leftSlot?: ReactNode;
-  /** Slot rendered before the comment button (e.g. reviews toggle) */
   rightSlot?: ReactNode;
-  /** Called when "Upload New Version" is clicked in the more menu */
   onUploadNewVersion?: () => void;
-  /** Whether the file is frozen */
   frozen?: boolean;
-  /** Called when freeze/unfreeze is clicked */
   onToggleFreeze?: () => void;
 }
 
@@ -47,12 +42,9 @@ export function ReviewToolbar({
   backPath,
   fileName,
   fileUrl,
-  commentToolActive,
-  onToggleCommentTool,
-  onScreenshot,
+  pinModeActive,
+  onTogglePinMode,
   onDownload,
-  onPrint,
-  onFullscreen,
   leftSlot,
   rightSlot,
   onUploadNewVersion,
@@ -82,13 +74,17 @@ export function ReviewToolbar({
     <div className="h-10 shrink-0 bg-[#1A1A1A] px-3 flex items-center justify-between gap-2">
       {/* Left: Back + filename + leftSlot */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <button
-          onClick={() => router.push(backPath)}
-          className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer shrink-0"
-          title="Back to project"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => router.push(backPath)}
+              className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Back to project</TooltipContent>
+        </Tooltip>
         <span className="text-white text-[13px] font-medium truncate">
           {fileName}
         </span>
@@ -100,42 +96,47 @@ export function ReviewToolbar({
         {rightSlot}
         {rightSlot && <div className="w-px h-4 bg-[#333]" />}
 
-        <button
-          onClick={onToggleCommentTool}
-          className={`cursor-pointer transition-colors ${commentToolActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
-          title="Comment tool"
-        >
-          <MessageCircle className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onScreenshot}
-          className="text-[#A0A0A0] hover:text-white cursor-pointer"
-          title="Screenshot"
-        >
-          <Camera className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onDownload}
-          className="text-[#A0A0A0] hover:text-white cursor-pointer"
-          title="Download file"
-        >
-          <Download className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onTogglePinMode}
+              className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+            >
+              <MapPin className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Pin comment</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onDownload}
+              className="text-[#A0A0A0] hover:text-white cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Download file</TooltipContent>
+        </Tooltip>
 
         {/* More options dropdown */}
         <div className="relative" ref={moreMenuRef}>
-          <button
-            className="text-[#A0A0A0] hover:text-white cursor-pointer"
-            title="More options"
-            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-          >
-            <Ellipsis className="w-4 h-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="text-[#A0A0A0] hover:text-white cursor-pointer"
+                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              >
+                <Ellipsis className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">More options</TooltipContent>
+          </Tooltip>
           {moreMenuOpen && (
             <div className="absolute right-0 top-full mt-1 w-44 bg-[#242424] border border-[#333333] rounded-lg shadow-xl py-1 z-50">
               <button
                 onClick={() => {
-                  onPrint();
+                  window.print();
                   setMoreMenuOpen(false);
                 }}
                 className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
@@ -145,7 +146,7 @@ export function ReviewToolbar({
               </button>
               <button
                 onClick={() => {
-                  onFullscreen();
+                  document.documentElement.requestFullscreen?.();
                   setMoreMenuOpen(false);
                 }}
                 className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
