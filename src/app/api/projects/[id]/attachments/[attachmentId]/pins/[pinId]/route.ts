@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import {
   getPinCommentById,
   updatePinComment,
+  updatePinCommentContent,
+  updatePinCommentPosition,
   deletePinComment,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
 
-/** PATCH /api/projects/[id]/attachments/[attachmentId]/pins/[pinId] — resolve/unresolve. */
+/**
+ * PATCH /api/projects/[id]/attachments/[attachmentId]/pins/[pinId]
+ * Supports: { resolved }, { content }, or { x_percent, y_percent, page }
+ */
 export const PATCH = withAuth(
   { projectAccess: true },
   async (req, { user }, params) => {
@@ -29,23 +34,68 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Only the comment author or staff (org owner/admin) can resolve/unresolve
     const isPm = user.role === "owner" || user.role === "admin";
-    const isArchitect = user.role === "member";
-    if (pin.user_id !== user.id && !isPm && !isArchitect) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const isStaff = isPm || user.role === "member";
 
     const body = await req.json();
-    if (typeof body.resolved !== "boolean") {
-      return NextResponse.json(
-        { error: "resolved must be a boolean" },
-        { status: 400 }
-      );
+
+    // --- Resolve/unresolve ---
+    if (typeof body.resolved === "boolean") {
+      if (pin.user_id !== user.id && !isStaff) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const updated = await updatePinComment(pinId, body.resolved);
+      return NextResponse.json(updated);
     }
 
-    const updated = await updatePinComment(pinId, body.resolved);
-    return NextResponse.json(updated);
+    // --- Edit content ---
+    if (typeof body.content === "string") {
+      // Only the author can edit content
+      if (pin.user_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const trimmed = body.content.trim();
+      if (!trimmed) {
+        return NextResponse.json(
+          { error: "content must be a non-empty string" },
+          { status: 400 }
+        );
+      }
+      if (trimmed.length > 5000) {
+        return NextResponse.json(
+          { error: "content must be 5000 characters or less" },
+          { status: 400 }
+        );
+      }
+      const updated = await updatePinCommentContent(pinId, trimmed);
+      return NextResponse.json(updated);
+    }
+
+    // --- Reposition ---
+    if (body.x_percent !== undefined) {
+      // Only author or PM can reposition
+      if (pin.user_id !== user.id && !isPm) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const { x_percent, y_percent, page } = body;
+      if (
+        typeof x_percent !== "number" || x_percent < 0 || x_percent > 100 ||
+        typeof y_percent !== "number" || y_percent < 0 || y_percent > 100 ||
+        typeof page !== "number" || !Number.isInteger(page) || page < 1
+      ) {
+        return NextResponse.json(
+          { error: "Invalid coordinates" },
+          { status: 400 }
+        );
+      }
+      const updated = await updatePinCommentPosition(pinId, x_percent, y_percent, page);
+      return NextResponse.json(updated);
+    }
+
+    return NextResponse.json(
+      { error: "No recognized update fields provided" },
+      { status: 400 }
+    );
   }
 );
 

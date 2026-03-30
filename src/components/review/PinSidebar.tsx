@@ -11,6 +11,10 @@ import {
   CheckSquare,
   ShieldCheck,
   Loader2,
+  Pencil,
+  MessageSquare,
+  Send,
+  ChevronDown,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -59,6 +63,7 @@ interface PinSidebarProps {
   selectedPinId: string | null;
   onSelectPin: (pinId: string) => void;
   onResolvePin: (pinId: string, resolved: boolean) => void;
+  onEditPin: (pinId: string, content: string) => void | Promise<void>;
   onDeletePin: (pinId: string) => void;
   currentUserId: string;
   isStaff: boolean;
@@ -83,6 +88,10 @@ interface PinSidebarProps {
   onRequestPin?: () => void;
   /** Member data for assignee dropdown */
   members: { user_id: string; name: string }[];
+  /** Replies keyed by parent pin ID. */
+  repliesMap?: Map<string, DbPinComment[]>;
+  onFetchReplies?: (parentId: string) => void;
+  onAddReply?: (parentId: string, content: string) => void | Promise<void>;
 }
 
 function timeAgo(dateStr: string): string {
@@ -106,6 +115,7 @@ export function PinSidebar({
   selectedPinId,
   onSelectPin,
   onResolvePin,
+  onEditPin,
   onDeletePin,
   currentUserId,
   isStaff,
@@ -118,10 +128,13 @@ export function PinSidebar({
   onClearPendingPin,
   onRequestPin,
   members,
+  repliesMap,
+  onFetchReplies,
+  onAddReply,
 }: PinSidebarProps) {
   const { shouldRender, stage } = useSlide(open);
   const [showNewForm, setShowNewForm] = useState(false);
-  const selectedRef = useRef<HTMLButtonElement>(null);
+  const selectedRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to selected pin comment (e.g. from deep link)
   useEffect(() => {
@@ -212,112 +225,335 @@ export function PinSidebar({
           </div>
         ) : (
           <div className="flex flex-col gap-1.5 p-2">
-            {sorted.map((pin) => {
-              const isPinned =
-                pin.x_percent !== null &&
-                pin.y_percent !== null &&
-                pin.page !== null;
-              const pinIndex = pinIndexMap.get(pin.id);
-              const isSelected = pin.id === selectedPinId;
-              const canDelete = pin.user_id === currentUserId || isPm;
-
-              return (
-                <button
-                  key={pin.id}
-                  ref={isSelected ? selectedRef : undefined}
-                  onClick={() => onSelectPin(pin.id)}
-                  className={`group w-full text-left rounded-lg border transition-colors cursor-pointer ${
-                    isSelected
-                      ? "bg-[#F5C518]/5 border-[#F5C518]/20"
-                      : "bg-[#141414] border-[#ffffff08] hover:border-[#ffffff12] hover:bg-[#181818]"
-                  }`}
-                >
-                  {/* Header: pin badge + author + time */}
-                  <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-                    {isPinned ? (
-                      <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
-                          isSelected
-                            ? "bg-[#F5C518] text-[#0D0D0D]"
-                            : pin.resolved
-                              ? "bg-[#222] text-[#555]"
-                              : "bg-[#222] text-white"
-                        }`}
-                      >
-                        {pin.resolved ? (
-                          <Check className="w-3 h-3" />
-                        ) : (
-                          pinIndex
-                        )}
-                      </span>
-                    ) : (
-                      <span
-                        className={`w-5 h-5 flex items-center justify-center shrink-0 ${
-                          isSelected ? "text-[#F5C518]" : "text-[#444]"
-                        }`}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <span
-                      className={`text-[12px] font-medium truncate ${
-                        pin.resolved ? "text-[#555]" : "text-white"
-                      }`}
-                    >
-                      {pin.user_name}
-                    </span>
-                    {/* Badges */}
-                    {pin.task_id !== null && (
-                      <CheckSquare className="w-3 h-3 text-[#444] shrink-0" />
-                    )}
-                    {pin.request_approval && (
-                      <ShieldCheck className="w-3 h-3 text-[#444] shrink-0" />
-                    )}
-                    <span className="text-[10px] text-[#555] ml-auto shrink-0">
-                      {timeAgo(pin.created_at)}
-                    </span>
-                  </div>
-
-                  {/* Content */}
-                  <p
-                    className={`text-[12px] px-3 pb-2 ml-7 leading-relaxed ${
-                      pin.resolved
-                        ? "text-[#555] line-through"
-                        : "text-[#999]"
-                    }`}
-                  >
-                    {pin.content}
-                  </p>
-
-                  {/* Actions bar */}
-                  <div
-                    className="flex items-center justify-between px-3 py-1.5 border-t border-[#ffffff06]"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Checkbox
-                      checked={pin.resolved}
-                      onCheckedChange={() => onResolvePin(pin.id, !pin.resolved)}
-                      label={pin.resolved ? "Resolved" : "Resolve"}
-                      className="[&_span]:text-[10px] [&_span]:text-[#555]"
-                    />
-                    {canDelete && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeletePin(pin.id);
-                        }}
-                        className="text-[#333] hover:text-red-400 transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+            {sorted.map((pin) => (
+              <PinCard
+                key={pin.id}
+                pin={pin}
+                pinIndex={pinIndexMap.get(pin.id)}
+                isSelected={pin.id === selectedPinId}
+                selectedRef={pin.id === selectedPinId ? selectedRef : undefined}
+                currentUserId={currentUserId}
+                isPm={isPm}
+                onSelect={() => onSelectPin(pin.id)}
+                onResolve={(resolved) => onResolvePin(pin.id, resolved)}
+                onEdit={(content) => onEditPin(pin.id, content)}
+                onDelete={() => onDeletePin(pin.id)}
+                replies={repliesMap?.get(pin.id)}
+                onExpandReplies={() => onFetchReplies?.(pin.id)}
+                onAddReply={(content) => onAddReply?.(pin.id, content)}
+              />
+            ))}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Individual comment card with edit, reply, and resolve functionality. */
+function PinCard({
+  pin,
+  pinIndex,
+  isSelected,
+  selectedRef,
+  currentUserId,
+  isPm,
+  onSelect,
+  onResolve,
+  onEdit,
+  onDelete,
+  replies,
+  onExpandReplies,
+  onAddReply,
+}: {
+  pin: DbPinComment;
+  pinIndex?: number;
+  isSelected: boolean;
+  selectedRef?: React.Ref<HTMLDivElement>;
+  currentUserId: string;
+  isPm: boolean;
+  onSelect: () => void;
+  onResolve: (resolved: boolean) => void;
+  onEdit: (content: string) => void | Promise<void>;
+  onDelete: () => void;
+  replies?: DbPinComment[];
+  onExpandReplies?: () => void;
+  onAddReply?: (content: string) => void | Promise<void>;
+}) {
+  const isPinned =
+    pin.x_percent !== null && pin.y_percent !== null && pin.page !== null;
+  const canDelete = pin.user_id === currentUserId || isPm;
+  const canEdit = pin.user_id === currentUserId;
+  const isTemp = pin.id.startsWith("temp-");
+
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState(pin.content);
+  const editRef = useRef<HTMLTextAreaElement>(null);
+
+  const [repliesOpen, setRepliesOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replySubmitting, setReplySubmitting] = useState(false);
+  const replyRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) editRef.current?.focus();
+  }, [editing]);
+
+  useEffect(() => {
+    if (repliesOpen) replyRef.current?.focus();
+  }, [repliesOpen]);
+
+  async function handleEditSave() {
+    const trimmed = editContent.trim();
+    if (!trimmed || trimmed === pin.content) {
+      setEditing(false);
+      setEditContent(pin.content);
+      return;
+    }
+    await onEdit(trimmed);
+    setEditing(false);
+  }
+
+  function handleToggleReplies() {
+    if (!repliesOpen && !replies && onExpandReplies) {
+      onExpandReplies();
+    }
+    setRepliesOpen(!repliesOpen);
+  }
+
+  async function handleSubmitReply() {
+    if (!replyText.trim() || replySubmitting) return;
+    setReplySubmitting(true);
+    try {
+      await onAddReply?.(replyText.trim());
+      setReplyText("");
+    } finally {
+      setReplySubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      ref={selectedRef}
+      onClick={onSelect}
+      className={`group w-full text-left rounded-lg border transition-colors cursor-pointer ${
+        isSelected
+          ? "bg-[#F5C518]/5 border-[#F5C518]/20"
+          : "bg-[#141414] border-[#ffffff08] hover:border-[#ffffff12] hover:bg-[#181818]"
+      } ${isTemp ? "opacity-60" : ""}`}
+      role="button"
+      tabIndex={0}
+    >
+      {/* Header: pin badge + author + time */}
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
+        {isPinned ? (
+          <span
+            className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+              isSelected
+                ? "bg-[#F5C518] text-[#0D0D0D]"
+                : pin.resolved
+                  ? "bg-[#222] text-[#555]"
+                  : "bg-[#222] text-white"
+            }`}
+          >
+            {pin.resolved ? <Check className="w-3 h-3" /> : pinIndex}
+          </span>
+        ) : (
+          <span
+            className={`w-5 h-5 flex items-center justify-center shrink-0 ${
+              isSelected ? "text-[#F5C518]" : "text-[#444]"
+            }`}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </span>
+        )}
+        <span
+          className={`text-[12px] font-medium truncate ${
+            pin.resolved ? "text-[#555]" : "text-white"
+          }`}
+        >
+          {pin.user_name}
+        </span>
+        {pin.task_id !== null && (
+          <CheckSquare className="w-3 h-3 text-[#444] shrink-0" />
+        )}
+        {pin.request_approval && (
+          <ShieldCheck className="w-3 h-3 text-[#444] shrink-0" />
+        )}
+        <span className="text-[10px] text-[#555] ml-auto shrink-0 flex items-center gap-1">
+          {pin.updated_at && <span>(edited)</span>}
+          {timeAgo(pin.created_at)}
+        </span>
+      </div>
+
+      {/* Content — inline edit or display */}
+      {editing ? (
+        <div
+          className="px-3 pb-2 ml-7"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <textarea
+            ref={editRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleEditSave();
+              } else if (e.key === "Escape") {
+                setEditing(false);
+                setEditContent(pin.content);
+              }
+            }}
+            rows={3}
+            className="w-full resize-none bg-[#1A1A1A] border border-[#333] rounded px-2 py-1.5 text-[12px] text-white outline-none focus:border-[#F5C518]/30"
+          />
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              onClick={handleEditSave}
+              className="text-[10px] text-[#F5C518] hover:underline cursor-pointer"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setEditing(false);
+                setEditContent(pin.content);
+              }}
+              className="text-[10px] text-[#555] hover:text-[#999] cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p
+          className={`text-[12px] px-3 pb-2 ml-7 leading-relaxed ${
+            pin.resolved ? "text-[#555] line-through" : "text-[#999]"
+          }`}
+        >
+          {pin.content}
+        </p>
+      )}
+
+      {/* Actions bar */}
+      <div
+        className="flex items-center justify-between px-3 py-1.5 border-t border-[#ffffff06]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={pin.resolved}
+            onCheckedChange={() => onResolve(!pin.resolved)}
+            label={pin.resolved ? "Resolved" : "Resolve"}
+            className="[&_span]:text-[10px] [&_span]:text-[#555]"
+            disabled={isTemp}
+          />
+          {/* Reply count / toggle */}
+          {(pin.reply_count > 0 || onAddReply) && !isTemp && (
+            <button
+              onClick={handleToggleReplies}
+              className={`flex items-center gap-1 text-[10px] cursor-pointer transition-colors ${
+                repliesOpen ? "text-[#F5C518]" : "text-[#555] hover:text-[#999]"
+              }`}
+            >
+              <MessageSquare className="w-3 h-3" />
+              {pin.reply_count > 0 && <span>{pin.reply_count}</span>}
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-0.5">
+          {canEdit && !isTemp && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-[#333] hover:text-[#999] transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+          {canDelete && !isTemp && (
+            <button
+              onClick={onDelete}
+              className="text-[#333] hover:text-red-400 transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Reply thread */}
+      {repliesOpen && (
+        <div
+          className="border-t border-[#ffffff06] px-3 py-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {replies ? (
+            replies.length > 0 ? (
+              <div className="flex flex-col gap-2 mb-2">
+                {replies.map((reply) => (
+                  <div key={reply.id} className="flex gap-2">
+                    <div className="w-4 h-4 rounded-full bg-[#222] flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[8px] text-[#555] font-bold">
+                        {reply.user_name?.charAt(0)?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-medium text-[#999]">
+                          {reply.user_name}
+                        </span>
+                        <span className="text-[9px] text-[#444]">
+                          {timeAgo(reply.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#777] leading-relaxed">
+                        {reply.content}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-[#444] mb-2">No replies yet</p>
+            )
+          ) : (
+            <div className="flex justify-center py-2">
+              <Loader2 className="w-3 h-3 animate-spin text-[#555]" />
+            </div>
+          )}
+
+          {/* Reply input */}
+          {onAddReply && (
+            <div className="flex items-center gap-1.5">
+              <input
+                ref={replyRef}
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitReply();
+                  }
+                }}
+                placeholder="Reply…"
+                className="flex-1 bg-[#1A1A1A] border border-[#ffffff0a] rounded px-2 py-1 text-[11px] text-white placeholder-[#444] outline-none focus:border-[#F5C518]/30"
+              />
+              <button
+                onClick={handleSubmitReply}
+                disabled={!replyText.trim() || replySubmitting}
+                className="text-[#555] hover:text-[#F5C518] disabled:opacity-30 transition-colors cursor-pointer p-1"
+              >
+                {replySubmitting ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Send className="w-3 h-3" />
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

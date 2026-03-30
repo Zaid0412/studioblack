@@ -307,6 +307,9 @@ export interface DbPinComment {
   resolved: boolean;
   task_id: string | null;
   request_approval: boolean;
+  parent_id: string | null;
+  updated_at: string | null;
+  reply_count: number;
   created_at: string;
 }
 

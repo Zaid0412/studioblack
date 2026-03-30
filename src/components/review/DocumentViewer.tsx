@@ -281,7 +281,7 @@ export function DocumentViewer({
         <div className="flex items-center gap-2 bg-[#0D0D0D]/90 border border-[#333] backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
           <MapPin className="w-3.5 h-3.5 text-[#F5C518] shrink-0" />
           <span className="text-[12px] text-[#A0A0A0] whitespace-nowrap">
-            Click anywhere on the document to place a pin
+            Click anywhere to place a pin · Press <kbd className="text-[#F5C518] font-medium">P</kbd> or <kbd className="text-[#F5C518] font-medium">Esc</kbd> to exit
           </span>
         </div>
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback, useRef } from "react";
 import { Check } from "lucide-react";
 import type { DbPinComment } from "@/types";
 
@@ -10,48 +11,91 @@ interface PinOverlayProps {
   onSelectPin: (pinId: string) => void;
   /** Temporary pin shown while the user is typing a comment. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
+  /** Callback when a pin is dragged to a new position. */
+  onRepositionPin?: (
+    pinId: string,
+    xPercent: number,
+    yPercent: number,
+    page: number
+  ) => void;
+  /** Whether pin-place mode is active — disables drag when true. */
+  pinMode?: boolean;
+  /** Current user ID — only the author can drag their own pin. */
+  currentUserId?: string;
 }
 
-/** Compact circular pin marker. Anchor point is bottom-center (the tail tip). */
+/** Minimum pixels of movement before a click becomes a drag. */
+const DRAG_THRESHOLD = 4;
+
+/**
+ * MapPin-shaped marker using the Lucide MapPin silhouette.
+ * Anchor point is the bottom tip.
+ */
 function PinMarker({
   label,
   selected,
   resolved,
   pulsing,
+  dragging,
 }: {
   label: React.ReactNode;
   selected?: boolean;
   resolved?: boolean;
   pulsing?: boolean;
+  dragging?: boolean;
 }) {
+  const fill = selected
+    ? "#F5C518"
+    : resolved
+      ? "#444"
+      : "#dc2626";
+
+  const stroke = selected
+    ? "#d4a910"
+    : resolved
+      ? "#333"
+      : "#991b1b";
+
   return (
     <div className={`relative flex flex-col items-center ${pulsing ? "animate-pulse" : ""}`}>
-      {/* Outer glow ring when selected */}
+      {/* Glow when selected */}
       {selected && (
-        <div className="absolute -top-[3px] left-1/2 -translate-x-1/2 w-[30px] h-[30px] rounded-full bg-[#F5C518]/20 blur-[2px]" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-11 h-11 rounded-full bg-[#F5C518]/25 blur-sm" />
       )}
-      {/* Circle body */}
-      <div
-        className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md border-[1.5px] ${
-          selected
-            ? "bg-[#F5C518] border-[#F5C518] text-[#0D0D0D] shadow-[0_0_8px_rgba(245,197,24,0.5)]"
-            : resolved
-              ? "bg-[#2A2A2A] border-[#444] text-[#666]"
-              : "bg-[#1A1A1A] border-[#555] text-white"
-        }`}
+      {/* Lucide MapPin silhouette */}
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="none"
+        className={`drop-shadow-md transition-transform ${dragging ? "scale-125" : ""}`}
       >
-        {label}
-      </div>
-      {/* Tail / pointer */}
+        {/* Outer pin shape (Lucide MapPin path) */}
+        <path
+          d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1"
+        />
+        {/* Inner circle — darker background for the label */}
+        <circle
+          cx="12"
+          cy="10"
+          r="5"
+          fill={selected ? "#0D0D0D" : resolved ? "#2A2A2A" : "rgba(0,0,0,0.35)"}
+        />
+      </svg>
+      {/* Label overlaid on the inner circle */}
       <div
-        className={`w-0 h-0 -mt-[1px] border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] ${
-          selected
-            ? "border-t-[#F5C518]"
-            : resolved
-              ? "border-t-[#2A2A2A]"
-              : "border-t-[#1A1A1A]"
-        }`}
-      />
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ paddingBottom: 8 }}
+      >
+        <span className={`text-[10px] font-bold leading-none ${
+          selected ? "text-[#F5C518]" : resolved ? "text-[#666]" : "text-white"
+        }`}>
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
@@ -63,7 +107,21 @@ export function PinOverlay({
   selectedPinId,
   onSelectPin,
   pendingPin,
+  onRepositionPin,
+  pinMode = false,
+  currentUserId,
 }: PinOverlayProps) {
+  const [dragState, setDragState] = useState<{
+    pinId: string;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    isDragging: boolean;
+  } | null>(null);
+
+  const overlayRef = useRef<HTMLDivElement>(null);
+
   const pagePins = pins
     .filter(
       (p) =>
@@ -89,29 +147,133 @@ export function PinOverlay({
   const indexMap = new Map(pinnedAll.map((p, i) => [p.id, i + 1]));
   const pinnedCount = pinnedAll.length;
 
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent, pin: DbPinComment) => {
+      // Only the author can drag their own pin
+      if (pinMode || !onRepositionPin) return;
+      if (currentUserId && pin.user_id !== currentUserId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      setDragState({
+        pinId: pin.id,
+        startX: e.clientX,
+        startY: e.clientY,
+        currentX: e.clientX,
+        currentY: e.clientY,
+        isDragging: false,
+      });
+    },
+    [pinMode, onRepositionPin, currentUserId]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragState) return;
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+      const moved = Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD;
+      setDragState((prev) =>
+        prev
+          ? {
+              ...prev,
+              currentX: e.clientX,
+              currentY: e.clientY,
+              isDragging: prev.isDragging || moved,
+            }
+          : null
+      );
+    },
+    [dragState]
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (!dragState) return;
+
+      if (dragState.isDragging && overlayRef.current && onRepositionPin) {
+        const rect = overlayRef.current.getBoundingClientRect();
+        const xPercent = Math.max(
+          0,
+          Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+        );
+        const yPercent = Math.max(
+          0,
+          Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
+        );
+        onRepositionPin(dragState.pinId, xPercent, yPercent, page);
+      } else {
+        // It was a click, not a drag
+        onSelectPin(dragState.pinId);
+      }
+
+      setDragState(null);
+    },
+    [dragState, onRepositionPin, onSelectPin, page]
+  );
+
+  // Compute drag position as percentage
+  function getDragPosition(pin: DbPinComment) {
+    if (
+      !dragState ||
+      dragState.pinId !== pin.id ||
+      !dragState.isDragging ||
+      !overlayRef.current
+    ) {
+      return { left: pin.x_percent!, top: pin.y_percent! };
+    }
+    const rect = overlayRef.current.getBoundingClientRect();
+    return {
+      left: Math.max(
+        0,
+        Math.min(100, ((dragState.currentX - rect.left) / rect.width) * 100)
+      ),
+      top: Math.max(
+        0,
+        Math.min(100, ((dragState.currentY - rect.top) / rect.height) * 100)
+      ),
+    };
+  }
+
   return (
-    <div className="absolute inset-0 pointer-events-none z-10">
+    <div
+      ref={overlayRef}
+      className="absolute inset-0 pointer-events-none z-10"
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+    >
       {pagePins.map((pin) => {
         const index = indexMap.get(pin.id) ?? 0;
         const isSelected = pin.id === selectedPinId;
+        const pos = getDragPosition(pin);
+        const isDragging =
+          dragState?.pinId === pin.id && dragState.isDragging;
+        const canDrag = currentUserId ? pin.user_id === currentUserId : true;
 
         return (
-          <button
+          <div
             key={pin.id}
-            onClick={() => onSelectPin(pin.id)}
+            onPointerDown={(e) => handlePointerDown(e, pin)}
             style={{
-              left: `${pin.x_percent}%`,
-              top: `${pin.y_percent}%`,
+              left: `${pos.left}%`,
+              top: `${pos.top}%`,
               transform: "translate(-50%, -100%)",
             }}
-            className="absolute pointer-events-auto cursor-pointer transition-transform hover:scale-110"
+            className={`absolute pointer-events-auto transition-transform duration-200 ease-out will-change-transform ${
+              isDragging
+                ? "cursor-grabbing z-20"
+                : canDrag && !pinMode
+                  ? "cursor-pointer hover:scale-110"
+                  : "cursor-pointer"
+            }`}
           >
             <PinMarker
               label={pin.resolved ? <Check className="w-3 h-3" /> : index}
               selected={isSelected}
               resolved={pin.resolved}
+              dragging={isDragging}
             />
-          </button>
+          </div>
         );
       })}
 

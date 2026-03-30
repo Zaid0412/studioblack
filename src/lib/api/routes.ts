@@ -33,6 +33,7 @@ export const API = {
   attachmentUnfreeze:    (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/unfreeze`,
   attachmentPins:        (pid: string, fid: string)               => `/api/projects/${pid}/attachments/${fid}/pins`,
   attachmentPin:         (pid: string, fid: string, pinId: string) => `/api/projects/${pid}/attachments/${fid}/pins/${pinId}`,
+  attachmentPinReplies:  (pid: string, fid: string, pinId: string) => `/api/projects/${pid}/attachments/${fid}/pins/${pinId}/replies`,
 
   // ── Project → Versions ─────────────────────────
   versionHistory:        (pid: string, group: string)  => `/api/projects/${pid}/versions/${group}`,

@@ -6,6 +6,16 @@ export function list(projectId: string, attachmentId: string) {
   return apiGet<DbPinComment[]>(API.attachmentPins(projectId, attachmentId));
 }
 
+export function listReplies(
+  projectId: string,
+  attachmentId: string,
+  pinId: string
+) {
+  return apiGet<DbPinComment[]>(
+    API.attachmentPinReplies(projectId, attachmentId, pinId)
+  );
+}
+
 export function create(
   projectId: string,
   attachmentId: string,
@@ -19,6 +29,7 @@ export function create(
       assigned_to: string;
       due_date?: string;
     };
+    parent_id?: string;
   }
 ) {
   return apiPost<DbPinComment>(
@@ -36,6 +47,30 @@ export function resolve(
   return apiPatch<DbPinComment>(
     API.attachmentPin(projectId, attachmentId, pinId),
     { resolved }
+  );
+}
+
+export function editContent(
+  projectId: string,
+  attachmentId: string,
+  pinId: string,
+  content: string
+) {
+  return apiPatch<DbPinComment>(
+    API.attachmentPin(projectId, attachmentId, pinId),
+    { content }
+  );
+}
+
+export function reposition(
+  projectId: string,
+  attachmentId: string,
+  pinId: string,
+  coords: { x_percent: number; y_percent: number; page: number }
+) {
+  return apiPatch<DbPinComment>(
+    API.attachmentPin(projectId, attachmentId, pinId),
+    coords
   );
 }
 

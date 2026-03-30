@@ -67,6 +67,7 @@ export default function DesignReviewPage({
   const pinState = usePinComments({
     projectId: id,
     attachmentId: activeFileId,
+    userName: session?.user?.name ?? "",
   });
 
   // Fetch project members for assignee dropdown
@@ -114,6 +115,26 @@ export default function DesignReviewPage({
     pinState.setPinMode(!pinState.pinMode);
     setPendingPin(null);
   }, [pinState.setPinMode, pinState.pinMode]);
+
+  // Keyboard shortcut: P to toggle pin mode, Escape to exit
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+
+      if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        handleTogglePinMode();
+      } else if (e.key === "Escape" && pinState.pinMode) {
+        e.preventDefault();
+        pinState.setPinMode(false);
+        setPendingPin(null);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleTogglePinMode, pinState.pinMode, pinState.setPinMode]);
 
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
@@ -367,6 +388,9 @@ export default function DesignReviewPage({
                     selectedPinId={pinState.selectedPinId}
                     onSelectPin={pinState.setSelectedPinId}
                     pendingPin={pendingPin}
+                    onRepositionPin={pinState.repositionPin}
+                    pinMode={pinState.pinMode}
+                    currentUserId={session?.user?.id ?? ""}
                   />
                 )
               : undefined
@@ -380,6 +404,9 @@ export default function DesignReviewPage({
               selectedPinId={pinState.selectedPinId}
               onSelectPin={pinState.setSelectedPinId}
               pendingPin={pendingPin}
+              onRepositionPin={pinState.repositionPin}
+              pinMode={pinState.pinMode}
+              currentUserId={session?.user?.id ?? ""}
             />
           )}
         </DocumentViewer>
@@ -390,6 +417,7 @@ export default function DesignReviewPage({
           selectedPinId={pinState.selectedPinId}
           onSelectPin={pinState.setSelectedPinId}
           onResolvePin={pinState.resolvePin}
+          onEditPin={pinState.editPin}
           onDeletePin={pinState.deletePin}
           currentUserId={session?.user?.id ?? ""}
           isStaff={isStaff}
@@ -405,6 +433,9 @@ export default function DesignReviewPage({
           onClearPendingPin={handleClearPendingPin}
           onRequestPin={handleRequestPin}
           members={members}
+          repliesMap={pinState.repliesMap}
+          onFetchReplies={pinState.fetchReplies}
+          onAddReply={pinState.addReply}
         />
 
         {/* PM: Reviews Panel (overlay) */}

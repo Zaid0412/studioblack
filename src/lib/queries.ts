@@ -838,15 +838,31 @@ export async function getTaskBucketCounts(orgId: string, userId: string) {
 
 // ── Pin Comments ─────────────────────────────────
 
+/** Fetch top-level pin comments (no replies) for an attachment. */
 export async function getPinComments(attachmentId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT pc.*, u.name AS user_name
+    `SELECT pc.*, u.name AS user_name,
+            (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count
      FROM pin_comment pc
      JOIN "user" u ON u.id = pc.user_id
-     WHERE pc.attachment_id = $1
+     WHERE pc.attachment_id = $1 AND pc.parent_id IS NULL
      ORDER BY pc.created_at ASC`,
     [attachmentId]
+  );
+  return rows;
+}
+
+/** Fetch replies for a specific pin comment. */
+export async function getPinCommentReplies(parentId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pc.*, u.name AS user_name, 0 AS reply_count
+     FROM pin_comment pc
+     JOIN "user" u ON u.id = pc.user_id
+     WHERE pc.parent_id = $1
+     ORDER BY pc.created_at ASC`,
+    [parentId]
   );
   return rows;
 }
@@ -854,7 +870,8 @@ export async function getPinComments(attachmentId: string) {
 export async function getPinCommentById(pinId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT pc.*, u.name AS user_name
+    `SELECT pc.*, u.name AS user_name,
+            (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count
      FROM pin_comment pc
      JOIN "user" u ON u.id = pc.user_id
      WHERE pc.id = $1`,
@@ -872,11 +889,12 @@ export async function createPinComment(params: {
   content: string;
   requestApproval?: boolean;
   taskId?: string | null;
+  parentId?: string | null;
 }) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id, parent_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING *`,
     [
       params.attachmentId,
@@ -887,19 +905,46 @@ export async function createPinComment(params: {
       params.content,
       params.requestApproval ?? false,
       params.taskId ?? null,
+      params.parentId ?? null,
     ]
   );
-  // Re-fetch with user name
+  // Re-fetch with user name + reply_count
   return getPinCommentById(rows[0].id);
 }
 
+/** Update resolved status of a pin comment. */
 export async function updatePinComment(pinId: string, resolved: boolean) {
   const pool = getPool();
-  const { rows } = await pool.query(
-    `UPDATE pin_comment SET resolved = $1 WHERE id = $2 RETURNING *`,
+  await pool.query(
+    `UPDATE pin_comment SET resolved = $1 WHERE id = $2`,
     [resolved, pinId]
   );
-  return rows[0] || null;
+  return getPinCommentById(pinId);
+}
+
+/** Update content of a pin comment. */
+export async function updatePinCommentContent(pinId: string, content: string) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE pin_comment SET content = $1, updated_at = NOW() WHERE id = $2`,
+    [content, pinId]
+  );
+  return getPinCommentById(pinId);
+}
+
+/** Update position of a pin comment. */
+export async function updatePinCommentPosition(
+  pinId: string,
+  xPercent: number,
+  yPercent: number,
+  page: number
+) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE pin_comment SET x_percent = $1, y_percent = $2, page = $3 WHERE id = $4`,
+    [xPercent, yPercent, page, pinId]
+  );
+  return getPinCommentById(pinId);
 }
 
 export async function deletePinComment(pinId: string) {

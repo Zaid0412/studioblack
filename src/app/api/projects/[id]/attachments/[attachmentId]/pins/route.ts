@@ -40,7 +40,39 @@ export const POST = withAuth(
     }
 
     const body = await req.json();
-    const { x_percent, y_percent, page, content, request_approval, assign_as_task } = body;
+    const { x_percent, y_percent, page, content, request_approval, assign_as_task, parent_id } = body;
+
+    // Validate content (shared by replies and top-level)
+    if (typeof content !== "string" || !content.trim()) {
+      return NextResponse.json(
+        { error: "content must be a non-empty string" },
+        { status: 400 }
+      );
+    }
+    if (content.trim().length > 5000) {
+      return NextResponse.json(
+        { error: "content must be 5000 characters or less" },
+        { status: 400 }
+      );
+    }
+
+    // If this is a reply, validate parent exists and belongs to same attachment
+    if (parent_id) {
+      const parent = await getPinCommentById(parent_id);
+      if (!parent || parent.attachment_id !== attachmentId) {
+        return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
+      }
+      const reply = await createPinComment({
+        attachmentId,
+        userId: user.id,
+        xPercent: null,
+        yPercent: null,
+        page: null,
+        content: content.trim(),
+        parentId: parent_id,
+      });
+      return NextResponse.json(reply, { status: 201 });
+    }
 
     // Coordinate validation: all-or-nothing
     const hasX = x_percent !== undefined && x_percent !== null;
@@ -75,20 +107,6 @@ export const POST = withAuth(
           { status: 400 }
         );
       }
-    }
-
-    // Validate content
-    if (typeof content !== "string" || !content.trim()) {
-      return NextResponse.json(
-        { error: "content must be a non-empty string" },
-        { status: 400 }
-      );
-    }
-    if (content.trim().length > 5000) {
-      return NextResponse.json(
-        { error: "content must be 5000 characters or less" },
-        { status: 400 }
-      );
     }
 
     const xVal = hasAllCoords ? x_percent : null;
