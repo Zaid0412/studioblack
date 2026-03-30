@@ -91,8 +91,18 @@ export default function DesignReviewPage({
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  const initialPinId = searchParams.get("pinId");
+  const [commentsOpen, setCommentsOpen] = useState(
+    searchParams.get("comments") === "open"
+  );
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  // Auto-select pin comment from URL param (deep link from tasks)
+  useEffect(() => {
+    if (initialPinId && pinState.pins.length > 0) {
+      pinState.setSelectedPinId(initialPinId);
+    }
+  }, [initialPinId, pinState.pins.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTogglePinMode = useCallback(() => {
     pinState.setPinMode(!pinState.pinMode);

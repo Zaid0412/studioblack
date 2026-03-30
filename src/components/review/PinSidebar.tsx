@@ -117,6 +117,14 @@ export function PinSidebar({
 }: PinSidebarProps) {
   const { shouldRender, stage } = useSlide(open);
   const [showNewForm, setShowNewForm] = useState(false);
+  const selectedRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-scroll to selected pin comment (e.g. from deep link)
+  useEffect(() => {
+    if (selectedPinId && selectedRef.current) {
+      selectedRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selectedPinId]);
 
   // Show form when pendingPin is set (from document click)
   const formVisible = showNewForm || !!pendingPin;
@@ -212,9 +220,12 @@ export function PinSidebar({
               return (
                 <button
                   key={pin.id}
+                  ref={isSelected ? selectedRef : undefined}
                   onClick={() => onSelectPin(pin.id)}
                   className={`w-full text-left px-3 py-3 border-b border-[#1A1A1A] transition-colors cursor-pointer ${
-                    isSelected ? "bg-[#111]" : "hover:bg-[#111]/50"
+                    isSelected
+                      ? "bg-[#F5C518]/5 border-l-2 border-l-[#F5C518]"
+                      : "hover:bg-[#111]/50"
                   }`}
                 >
                   {/* Pin number / icon + author + time + badges */}
