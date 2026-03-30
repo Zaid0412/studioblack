@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback } from "react";
+import { use, useState, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -23,7 +23,12 @@ import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
-import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
+import {
+  attachments as attachmentsApi,
+  projects as projectsApi,
+  upload,
+  ApiError,
+} from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { isPdf } from "@/lib/fileUtils";
 
@@ -62,6 +67,19 @@ export default function DesignReviewPage({
     projectId: id,
     attachmentId: activeFileId,
   });
+
+  // Fetch project members for assignee dropdown
+  const [members, setMembers] = useState<
+    { user_id: string; name: string }[]
+  >([]);
+  useEffect(() => {
+    projectsApi
+      .get<{
+        members: { user_id: string; name: string; email: string }[];
+      }>(id)
+      .then((p) => setMembers(p.members ?? []))
+      .catch(() => {});
+  }, [id]);
 
   // Pending pin: stores the click coordinates while the form is open
   const [pendingPin, setPendingPin] = useState<{
@@ -369,7 +387,7 @@ export default function DesignReviewPage({
           onCancelPending={handlePinFormCancel}
           onClearPendingPin={handleClearPendingPin}
           onRequestPin={handleRequestPin}
-          members={[]}
+          members={members}
         />
 
         {/* PM: Reviews Panel (overlay) */}
