@@ -296,6 +296,12 @@ export function useNotifications({
     window.dispatchEvent(new Event("notifications-changed"));
   };
 
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([loadInvitations(), loadDbNotifs()]);
+    setLoading(false);
+  }, [loadInvitations, loadDbNotifs]);
+
   return {
     loading,
     notifications,
@@ -303,6 +309,7 @@ export function useNotifications({
     groups,
     loadingIds,
     pendingInviteIds,
+    refresh,
     handleNotificationClick,
     handleMarkAllRead,
     handleClearAll,

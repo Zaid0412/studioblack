@@ -23,6 +23,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/formatTime";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -59,6 +60,7 @@ export function NotificationPanel() {
     groups,
     loadingIds,
     pendingInviteIds,
+    refresh,
     handleNotificationClick,
     handleMarkAllRead,
     handleClearAll,
@@ -103,6 +105,7 @@ export function NotificationPanel() {
             {t("title")}
           </span>
           <div className="flex items-center gap-1.5">
+            <RefreshButton onRefresh={refresh} tooltip="Refresh notifications" />
             <button
               onClick={handleMarkAllRead}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-muted hover:text-text-secondary transition-colors text-xs cursor-pointer"
