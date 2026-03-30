@@ -222,13 +222,7 @@ export function PinOverlay({
     }
 
     setDragState(null);
-  }, [
-    dragState,
-    onRepositionPin,
-    onRepositionPendingPin,
-    onSelectPin,
-    page,
-  ]);
+  }, [dragState, onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
 
   return (
     <div
