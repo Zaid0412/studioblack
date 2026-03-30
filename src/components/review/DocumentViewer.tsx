@@ -36,6 +36,7 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const [numPages, setNumPages] = useState(0);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const pdfjsRef = useRef<PdfjsLib | null>(null);
@@ -53,20 +54,29 @@ export function DocumentViewer({
     const moduleScript = document.createElement("script");
     moduleScript.type = "module";
     moduleScript.textContent = `
-      import * as pdfjsLib from "https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.min.mjs";
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
-      window.__pdfjsLib = pdfjsLib;
-      window.dispatchEvent(new Event("pdfjsReady"));
+      try {
+        const pdfjsLib = await import("https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.min.mjs");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
+        window.__pdfjsLib = pdfjsLib;
+        window.dispatchEvent(new Event("pdfjsReady"));
+      } catch (e) {
+        window.dispatchEvent(new CustomEvent("pdfjsError", { detail: e?.message || "Failed to load PDF library" }));
+      }
     `;
     document.head.appendChild(moduleScript);
 
     const onReady = () => {
       pdfjsRef.current = (window as WindowWithPdfjs).__pdfjsLib ?? null;
     };
+    const onError = (e: Event) => {
+      setPdfError((e as CustomEvent).detail || "Failed to load PDF viewer");
+    };
     window.addEventListener("pdfjsReady", onReady);
+    window.addEventListener("pdfjsError", onError);
 
     return () => {
       window.removeEventListener("pdfjsReady", onReady);
+      window.removeEventListener("pdfjsError", onError);
     };
   }, []);
 
@@ -74,6 +84,7 @@ export function DocumentViewer({
   useEffect(() => {
     if (!isPdf(fileName)) return;
 
+    setPdfError(null);
     let cancelled = false;
     const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(fileUrl)}`;
 
@@ -108,6 +119,7 @@ export function DocumentViewer({
         // Render will happen after state update via the render effect
       } catch (err) {
         console.error("[DocumentViewer] PDF load error:", err);
+        if (!cancelled) setPdfError("Failed to load PDF. Please try again.");
       } finally {
         if (!cancelled) setPdfLoading(false);
       }
@@ -195,11 +207,22 @@ export function DocumentViewer({
           className="absolute inset-0 overflow-auto"
           style={{ cursor: pinMode ? PIN_CURSOR : undefined }}
         >
-          {pdfLoading && (
+          {pdfError ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3">
+              <FileText className="w-12 h-12 text-[#666666]" />
+              <p className="text-[#A0A0A0] text-sm text-center max-w-xs">{pdfError}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="text-[13px] text-[#F5C518] hover:underline cursor-pointer"
+              >
+                Reload page
+              </button>
+            </div>
+          ) : pdfLoading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
             </div>
-          )}
+          ) : null}
           {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
             <div
               key={pageNum}

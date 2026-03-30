@@ -740,7 +740,9 @@ export async function getTasks(filters: TaskFilters) {
        SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
        FROM task_checklist_item GROUP BY task_id
      ) cl ON cl.task_id = t.id
-     LEFT JOIN pin_comment pc ON pc.task_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT id, attachment_id FROM pin_comment WHERE task_id = t.id LIMIT 1
+     ) pc ON true
      WHERE ${conditions.join(" AND ")}
      ORDER BY
        CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
@@ -806,7 +808,9 @@ export async function getTaskById(
        SELECT task_id, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE is_done)::int AS done
        FROM task_checklist_item GROUP BY task_id
      ) cl ON cl.task_id = t.id
-     LEFT JOIN pin_comment pc ON pc.task_id = t.id
+     LEFT JOIN LATERAL (
+       SELECT id, attachment_id FROM pin_comment WHERE task_id = t.id LIMIT 1
+     ) pc ON true
      WHERE ${conditions.join(" AND ")}`,
     params
   );

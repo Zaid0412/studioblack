@@ -46,7 +46,8 @@ export default function DesignReviewPage({
 
   const { role } = useUserRole();
   const isClient = role === "client";
-  const isStaff = role === "pm" || role === "architect";
+  const isPm = role === "pm";
+  const isStaff = isPm || role === "architect";
   const { data: session } = authClient.useSession();
 
   const review = useDesignReview({
@@ -112,7 +113,7 @@ export default function DesignReviewPage({
   const handleTogglePinMode = useCallback(() => {
     pinState.setPinMode(!pinState.pinMode);
     setPendingPin(null);
-  }, [pinState]);
+  }, [pinState.setPinMode, pinState.pinMode]);
 
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
@@ -121,7 +122,7 @@ export default function DesignReviewPage({
       // Exit pin mode — cursor goes back to normal after placing a pin
       pinState.setPinMode(false);
     },
-    [pinState]
+    [pinState.setPinMode]
   );
 
   const handlePinFormSubmit = useCallback(
@@ -136,7 +137,7 @@ export default function DesignReviewPage({
       await pinState.addPin(data);
       setPendingPin(null);
     },
-    [pinState]
+    [pinState.addPin]
   );
 
   const handlePinFormCancel = useCallback(() => {
@@ -149,7 +150,7 @@ export default function DesignReviewPage({
 
   const handleRequestPin = useCallback(() => {
     pinState.setPinMode(true);
-  }, [pinState]);
+  }, [pinState.setPinMode]);
 
   const handleDownload = useCallback(async () => {
     if (!attachment) return;
@@ -392,6 +393,7 @@ export default function DesignReviewPage({
           onDeletePin={pinState.deletePin}
           currentUserId={session?.user?.id ?? ""}
           isStaff={isStaff}
+          isPm={isPm}
           open={commentsOpen}
           onClose={() => {
             setCommentsOpen(false);

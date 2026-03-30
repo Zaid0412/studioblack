@@ -62,6 +62,8 @@ interface PinSidebarProps {
   onDeletePin: (pinId: string) => void;
   currentUserId: string;
   isStaff: boolean;
+  /** Whether the current user is a PM (org owner/admin) — PMs can delete any comment. */
+  isPm: boolean;
   open: boolean;
   onClose: () => void;
   /** When set, the form for a new pin is shown at the top of the sidebar. */
@@ -107,6 +109,7 @@ export function PinSidebar({
   onDeletePin,
   currentUserId,
   isStaff,
+  isPm,
   open,
   onClose,
   pendingPin,
@@ -216,7 +219,7 @@ export function PinSidebar({
                 pin.page !== null;
               const pinIndex = pinIndexMap.get(pin.id);
               const isSelected = pin.id === selectedPinId;
-              const canDelete = pin.user_id === currentUserId;
+              const canDelete = pin.user_id === currentUserId || isPm;
 
               return (
                 <button

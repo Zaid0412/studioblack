@@ -73,11 +73,13 @@ export default function ProjectDetailPage({
       .then((task) => {
         if (task?.phase_id) setActivePhaseId(task.phase_id);
       })
-      .catch(() => {});
-    // Clean up URL param after consuming it
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("highlightTask");
-    router.replace(`${window.location.pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+      .catch(() => {})
+      .finally(() => {
+        // Clean up URL param after consuming it
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("highlightTask");
+        router.replace(`${window.location.pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+      });
   }, [highlightTaskId, project, setActivePhaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || roleLoading) {

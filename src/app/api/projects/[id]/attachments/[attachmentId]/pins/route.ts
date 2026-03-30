@@ -84,6 +84,12 @@ export const POST = withAuth(
         { status: 400 }
       );
     }
+    if (content.trim().length > 5000) {
+      return NextResponse.json(
+        { error: "content must be 5000 characters or less" },
+        { status: 400 }
+      );
+    }
 
     const xVal = hasAllCoords ? x_percent : null;
     const yVal = hasAllCoords ? y_percent : null;

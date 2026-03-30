@@ -29,6 +29,13 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // Only the comment author or staff (org owner/admin) can resolve/unresolve
+    const isPm = user.role === "owner" || user.role === "admin";
+    const isArchitect = user.role === "member";
+    if (pin.user_id !== user.id && !isPm && !isArchitect) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     if (typeof body.resolved !== "boolean") {
       return NextResponse.json(
