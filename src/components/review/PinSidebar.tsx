@@ -14,7 +14,6 @@ import {
   Pencil,
   MessageSquare,
   Send,
-  ChevronDown,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -36,25 +35,41 @@ import {
  * Returns: [shouldRender, animating] — render while closing, animating = "in" | "out" | null
  */
 function useSlide(open: boolean, durationMs = 200) {
-  const [render, setRender] = useState(open);
+  // "closing" stays true during the exit animation, then flips to false
+  const [closing, setClosing] = useState(false);
   const [stage, setStage] = useState<"in" | "out" | null>(open ? "in" : null);
+
+  // Render when open OR during exit animation
+  const shouldRender = open || closing;
 
   useEffect(() => {
     if (open) {
-      setRender(true);
-      // Force a frame so the initial translate(100%) is painted before we animate in
-      requestAnimationFrame(() => requestAnimationFrame(() => setStage("in")));
-    } else if (render) {
-      setStage("out");
+      // Double-rAF so the initial offscreen position paints before we animate in
+      const raf = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setClosing(false);
+          setStage("in");
+        });
+      });
+      return () => cancelAnimationFrame(raf);
+    } else {
+      // Start exit animation
+      const raf = requestAnimationFrame(() => {
+        setStage("out");
+        setClosing(true);
+      });
       const timer = setTimeout(() => {
-        setRender(false);
+        setClosing(false);
         setStage(null);
       }, durationMs);
-      return () => clearTimeout(timer);
+      return () => {
+        cancelAnimationFrame(raf);
+        clearTimeout(timer);
+      };
     }
-  }, [open, render, durationMs]);
+  }, [open, durationMs]);
 
-  return { shouldRender: render, stage };
+  return { shouldRender, stage };
 }
 import type { DbPinComment } from "@/types";
 
@@ -66,7 +81,6 @@ interface PinSidebarProps {
   onEditPin: (pinId: string, content: string) => void | Promise<void>;
   onDeletePin: (pinId: string) => void;
   currentUserId: string;
-  isStaff: boolean;
   /** Whether the current user is a PM (org owner/admin) — PMs can delete any comment. */
   isPm: boolean;
   open: boolean;
@@ -118,7 +132,6 @@ export function PinSidebar({
   onEditPin,
   onDeletePin,
   currentUserId,
-  isStaff,
   isPm,
   open,
   onClose,

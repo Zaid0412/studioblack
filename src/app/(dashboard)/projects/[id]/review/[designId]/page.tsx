@@ -47,7 +47,6 @@ export default function DesignReviewPage({
   const { role } = useUserRole();
   const isClient = role === "client";
   const isPm = role === "pm";
-  const isStaff = isPm || role === "architect";
   const { data: session } = authClient.useSession();
 
   const review = useDesignReview({
@@ -117,7 +116,7 @@ export default function DesignReviewPage({
   const handleTogglePinMode = useCallback(() => {
     pinState.setPinMode(!pinState.pinMode);
     setPendingPin(null);
-  }, [pinState.setPinMode, pinState.pinMode]);
+  }, [pinState]);
 
   // Keyboard shortcut: P to toggle pin mode, Escape to exit
   useEffect(() => {
@@ -137,7 +136,7 @@ export default function DesignReviewPage({
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleTogglePinMode, pinState.pinMode, pinState.setPinMode]);
+  }, [handleTogglePinMode, pinState]);
 
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
@@ -146,7 +145,7 @@ export default function DesignReviewPage({
       // Exit pin mode — cursor goes back to normal after placing a pin
       pinState.setPinMode(false);
     },
-    [pinState.setPinMode]
+    [pinState]
   );
 
   const handlePinFormSubmit = useCallback(
@@ -161,7 +160,7 @@ export default function DesignReviewPage({
       await pinState.addPin(data);
       setPendingPin(null);
     },
-    [pinState.addPin]
+    [pinState]
   );
 
   const handlePinFormCancel = useCallback(() => {
@@ -174,7 +173,7 @@ export default function DesignReviewPage({
 
   const handleRequestPin = useCallback(() => {
     pinState.setPinMode(true);
-  }, [pinState.setPinMode]);
+  }, [pinState]);
 
   const handleDownload = useCallback(async () => {
     if (!attachment) return;
@@ -423,7 +422,6 @@ export default function DesignReviewPage({
           onEditPin={pinState.editPin}
           onDeletePin={pinState.deletePin}
           currentUserId={session?.user?.id ?? ""}
-          isStaff={isStaff}
           isPm={isPm}
           open={commentsOpen}
           onClose={() => {

@@ -117,9 +117,10 @@ export function PinOverlay({
     pinId: string;
     startX: number;
     startY: number;
-    currentX: number;
-    currentY: number;
     isDragging: boolean;
+    /** Current drag position as percentages (computed in event handlers). */
+    leftPercent: number;
+    topPercent: number;
   } | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -161,9 +162,9 @@ export function PinOverlay({
         pinId: pin.id,
         startX: e.clientX,
         startY: e.clientY,
-        currentX: e.clientX,
-        currentY: e.clientY,
         isDragging: false,
+        leftPercent: pin.x_percent!,
+        topPercent: pin.y_percent!,
       });
     },
     [pinMode, onRepositionPin, currentUserId]
@@ -171,17 +172,18 @@ export function PinOverlay({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!dragState) return;
+      if (!dragState || !overlayRef.current) return;
       const dx = e.clientX - dragState.startX;
       const dy = e.clientY - dragState.startY;
       const moved = Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD;
+      const rect = overlayRef.current.getBoundingClientRect();
       setDragState((prev) =>
         prev
           ? {
               ...prev,
-              currentX: e.clientX,
-              currentY: e.clientY,
               isDragging: prev.isDragging || moved,
+              leftPercent: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
+              topPercent: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
             }
           : null
       );
@@ -190,20 +192,11 @@ export function PinOverlay({
   );
 
   const handlePointerUp = useCallback(
-    (e: React.PointerEvent) => {
+    () => {
       if (!dragState) return;
 
-      if (dragState.isDragging && overlayRef.current && onRepositionPin) {
-        const rect = overlayRef.current.getBoundingClientRect();
-        const xPercent = Math.max(
-          0,
-          Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
-        );
-        const yPercent = Math.max(
-          0,
-          Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
-        );
-        onRepositionPin(dragState.pinId, xPercent, yPercent, page);
+      if (dragState.isDragging && onRepositionPin) {
+        onRepositionPin(dragState.pinId, dragState.leftPercent, dragState.topPercent, page);
       } else {
         // It was a click, not a drag
         onSelectPin(dragState.pinId);
@@ -213,29 +206,6 @@ export function PinOverlay({
     },
     [dragState, onRepositionPin, onSelectPin, page]
   );
-
-  // Compute drag position as percentage
-  function getDragPosition(pin: DbPinComment) {
-    if (
-      !dragState ||
-      dragState.pinId !== pin.id ||
-      !dragState.isDragging ||
-      !overlayRef.current
-    ) {
-      return { left: pin.x_percent!, top: pin.y_percent! };
-    }
-    const rect = overlayRef.current.getBoundingClientRect();
-    return {
-      left: Math.max(
-        0,
-        Math.min(100, ((dragState.currentX - rect.left) / rect.width) * 100)
-      ),
-      top: Math.max(
-        0,
-        Math.min(100, ((dragState.currentY - rect.top) / rect.height) * 100)
-      ),
-    };
-  }
 
   return (
     <div
@@ -247,8 +217,10 @@ export function PinOverlay({
       {pagePins.map((pin) => {
         const index = indexMap.get(pin.id) ?? 0;
         const isSelected = pin.id === selectedPinId;
-        const pos = getDragPosition(pin);
         const isDragging = dragState?.pinId === pin.id && dragState.isDragging;
+        const pos = isDragging
+          ? { left: dragState.leftPercent, top: dragState.topPercent }
+          : { left: pin.x_percent!, top: pin.y_percent! };
         const canDrag = currentUserId ? pin.user_id === currentUserId : true;
 
         return (

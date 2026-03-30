@@ -867,6 +867,7 @@ export async function getPinCommentReplies(parentId: string) {
   return rows;
 }
 
+/** Fetch a single pin comment by ID with user name and reply count. */
 export async function getPinCommentById(pinId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
@@ -880,6 +881,7 @@ export async function getPinCommentById(pinId: string) {
   return rows[0] || null;
 }
 
+/** Insert a new pin comment (or reply) and return the created row. */
 export async function createPinComment(params: {
   attachmentId: string;
   userId: string;
@@ -947,6 +949,7 @@ export async function updatePinCommentPosition(
   return getPinCommentById(pinId);
 }
 
+/** Delete a pin comment by ID (cascades to replies). */
 export async function deletePinComment(pinId: string) {
   const pool = getPool();
   await pool.query(`DELETE FROM pin_comment WHERE id = $1`, [pinId]);

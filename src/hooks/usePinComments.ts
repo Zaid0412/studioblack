@@ -10,6 +10,7 @@ interface UsePinCommentsParams {
   userName?: string;
 }
 
+/** Manages pin comment state with optimistic updates for a given attachment. */
 export function usePinComments({
   projectId,
   attachmentId,

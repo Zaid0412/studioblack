@@ -2,10 +2,12 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
 import type { DbPinComment } from "@/types";
 
+/** Fetch all top-level pin comments for an attachment. */
 export function list(projectId: string, attachmentId: string) {
   return apiGet<DbPinComment[]>(API.attachmentPins(projectId, attachmentId));
 }
 
+/** Fetch replies for a specific pin comment. */
 export function listReplies(
   projectId: string,
   attachmentId: string,
@@ -16,6 +18,7 @@ export function listReplies(
   );
 }
 
+/** Create a new pin comment or reply. */
 export function create(
   projectId: string,
   attachmentId: string,
@@ -38,6 +41,7 @@ export function create(
   );
 }
 
+/** Toggle the resolved status of a pin comment. */
 export function resolve(
   projectId: string,
   attachmentId: string,
@@ -50,6 +54,7 @@ export function resolve(
   );
 }
 
+/** Update the text content of a pin comment. */
 export function editContent(
   projectId: string,
   attachmentId: string,
@@ -62,6 +67,7 @@ export function editContent(
   );
 }
 
+/** Move a pin to new coordinates on the document. */
 export function reposition(
   projectId: string,
   attachmentId: string,
@@ -74,6 +80,7 @@ export function reposition(
   );
 }
 
+/** Delete a pin comment. */
 export function remove(projectId: string, attachmentId: string, pinId: string) {
   return apiDelete(API.attachmentPin(projectId, attachmentId, pinId));
 }
