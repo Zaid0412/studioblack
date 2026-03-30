@@ -856,17 +856,28 @@ export async function getPinCommentById(pinId: string) {
 export async function createPinComment(params: {
   attachmentId: string;
   userId: string;
-  xPercent: number;
-  yPercent: number;
-  page: number;
+  xPercent: number | null;
+  yPercent: number | null;
+  page: number | null;
   content: string;
+  requestApproval?: boolean;
+  taskId?: string | null;
 }) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
-    [params.attachmentId, params.userId, params.xPercent, params.yPercent, params.page, params.content]
+    [
+      params.attachmentId,
+      params.userId,
+      params.xPercent,
+      params.yPercent,
+      params.page,
+      params.content,
+      params.requestApproval ?? false,
+      params.taskId ?? null,
+    ]
   );
   // Re-fetch with user name
   return getPinCommentById(rows[0].id);

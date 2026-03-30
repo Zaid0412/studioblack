@@ -10,10 +10,15 @@ export function create(
   projectId: string,
   attachmentId: string,
   data: {
-    x_percent: number;
-    y_percent: number;
-    page: number;
+    x_percent?: number | null;
+    y_percent?: number | null;
+    page?: number | null;
     content: string;
+    request_approval?: boolean;
+    assign_as_task?: {
+      assigned_to: string;
+      due_date?: string;
+    };
   }
 ) {
   return apiPost<DbPinComment>(

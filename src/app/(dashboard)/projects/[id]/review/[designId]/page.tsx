@@ -92,22 +92,31 @@ export default function DesignReviewPage({
   );
 
   const handlePinFormSubmit = useCallback(
-    async (content: string) => {
-      if (!pendingPin) return;
-      await pinState.addPin(
-        pendingPin.xPercent,
-        pendingPin.yPercent,
-        pendingPin.page,
-        content
-      );
+    async (data: {
+      content: string;
+      xPercent?: number | null;
+      yPercent?: number | null;
+      page?: number | null;
+      requestApproval?: boolean;
+      assignAsTask?: { assignedTo: string; dueDate?: string };
+    }) => {
+      await pinState.addPin(data);
       setPendingPin(null);
     },
-    [pendingPin, pinState]
+    [pinState]
   );
 
   const handlePinFormCancel = useCallback(() => {
     setPendingPin(null);
   }, []);
+
+  const handleClearPendingPin = useCallback(() => {
+    setPendingPin(null);
+  }, []);
+
+  const handleRequestPin = useCallback(() => {
+    pinState.setPinMode(true);
+  }, [pinState]);
 
   const handleDownload = useCallback(async () => {
     if (!attachment) return;
@@ -356,8 +365,11 @@ export default function DesignReviewPage({
             setPendingPin(null);
           }}
           pendingPin={pendingPin}
-          onPendingSubmit={handlePinFormSubmit}
-          onPendingCancel={handlePinFormCancel}
+          onSubmitComment={handlePinFormSubmit}
+          onCancelPending={handlePinFormCancel}
+          onClearPendingPin={handleClearPendingPin}
+          onRequestPin={handleRequestPin}
+          members={[]}
         />
 
         {/* PM: Reviews Panel (overlay) */}

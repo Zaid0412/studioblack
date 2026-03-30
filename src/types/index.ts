@@ -300,11 +300,13 @@ export interface DbPinComment {
   attachment_id: string;
   user_id: string;
   user_name: string;
-  x_percent: number;
-  y_percent: number;
-  page: number;
+  x_percent: number | null;
+  y_percent: number | null;
+  page: number | null;
   content: string;
   resolved: boolean;
+  task_id: string | null;
+  request_approval: boolean;
   created_at: string;
 }
 

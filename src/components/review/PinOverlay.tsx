@@ -85,18 +85,29 @@ export function PinOverlay({
   pendingPin,
 }: PinOverlayProps) {
   const pagePins = pins
-    .filter((p) => p.page === page)
+    .filter(
+      (p) =>
+        p.page !== null &&
+        p.x_percent !== null &&
+        p.y_percent !== null &&
+        p.page === page
+    )
     .sort(
       (a, b) =>
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
 
-  // Build a global index map (1-based, ordered by created_at across all pages)
-  const sortedAll = [...pins].sort(
-    (a, b) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
-  const indexMap = new Map(sortedAll.map((p, i) => [p.id, i + 1]));
+  // Build a global index map (1-based, ordered by created_at) — only pinned comments
+  const pinnedAll = [...pins]
+    .filter(
+      (p) => p.page !== null && p.x_percent !== null && p.y_percent !== null
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  const indexMap = new Map(pinnedAll.map((p, i) => [p.id, i + 1]));
+  const pinnedCount = pinnedAll.length;
 
   return (
     <div className="absolute inset-0 pointer-events-none z-10">
@@ -135,7 +146,7 @@ export function PinOverlay({
           className="absolute"
         >
           <PinMarker
-            label={pins.length + 1}
+            label={pinnedCount + 1}
             selected
             pulsing
           />

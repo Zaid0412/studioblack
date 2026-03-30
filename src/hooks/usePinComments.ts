@@ -37,13 +37,27 @@ export function usePinComments({ projectId, attachmentId }: UsePinCommentsParams
   }, [fetchPins]);
 
   const addPin = useCallback(
-    async (xPercent: number, yPercent: number, page: number, content: string) => {
+    async (data: {
+      xPercent?: number | null;
+      yPercent?: number | null;
+      page?: number | null;
+      content: string;
+      requestApproval?: boolean;
+      assignAsTask?: { assignedTo: string; dueDate?: string };
+    }) => {
       try {
         const pin = await pinComments.create(projectId, attachmentId, {
-          x_percent: xPercent,
-          y_percent: yPercent,
-          page,
-          content,
+          x_percent: data.xPercent ?? null,
+          y_percent: data.yPercent ?? null,
+          page: data.page ?? null,
+          content: data.content,
+          request_approval: data.requestApproval,
+          assign_as_task: data.assignAsTask
+            ? {
+                assigned_to: data.assignAsTask.assignedTo,
+                due_date: data.assignAsTask.dueDate,
+              }
+            : undefined,
         });
         setPins((prev) => [...prev, pin]);
       } catch {
