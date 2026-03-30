@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import {
   MapPin,
   Check,
-  ChevronDown,
   Trash2,
   X,
   MessageCircle,
@@ -13,6 +12,14 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/DatePicker";
 import {
   Tooltip,
   TooltipTrigger,
@@ -490,37 +497,37 @@ function NewPinForm({
           className="overflow-hidden transition-[height] duration-200 ease-out"
           style={{ height: expandHeight ?? "auto" }}
         >
-          <div className="px-3 pb-3 flex flex-col gap-2.5 border-t border-[#ffffff0a] pt-2.5">
+          <div className="px-3 pb-3 flex flex-col gap-3 border-t border-[#ffffff0a] pt-2.5">
             <div className="flex items-center gap-3">
               <label className="text-[11px] text-text-muted w-[60px] shrink-0">
                 Assignee
               </label>
-              <div className="relative flex-1">
-                <select
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full rounded-md border border-[#ffffff0a] bg-bg-secondary pl-2.5 pr-7 py-1.5 text-[12px] text-text-primary outline-none focus:border-accent/50 cursor-pointer appearance-none"
-                >
-                  <option value="">Select User</option>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger className="flex-1 h-8 text-[12px] rounded-md border-[#ffffff0a] bg-bg-secondary">
+                  <SelectValue placeholder="Select User" />
+                </SelectTrigger>
+                <SelectContent>
                   {members.map((m) => (
-                    <option key={m.user_id} value={m.user_id}>
+                    <SelectItem key={m.user_id} value={m.user_id}>
                       {m.name}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
-              </div>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex items-center gap-3">
               <label className="text-[11px] text-text-muted w-[60px] shrink-0">
                 Due Date
               </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+              <DatePicker
+                value={dueDate ? new Date(dueDate + "T00:00:00") : undefined}
+                onChange={(d) =>
+                  setDueDate(
+                    d ? d.toISOString().split("T")[0] : ""
+                  )
+                }
                 placeholder="Select Date"
-                className="flex-1 rounded-md border border-[#ffffff0a] bg-bg-secondary px-2.5 py-1.5 text-[12px] text-text-primary outline-none focus:border-accent/50 cursor-pointer"
+                className="flex-1 [&_button]:h-8 [&_button]:text-[12px] [&_button]:rounded-md [&_button]:border-[#ffffff0a] [&_button]:bg-bg-secondary [&_button]:px-2.5 [&_button]:py-1.5"
               />
             </div>
           </div>
