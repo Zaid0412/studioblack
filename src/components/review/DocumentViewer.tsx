@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, MapPin } from "lucide-react";
 import { isImage, isPdf } from "@/lib/fileUtils";
 
 // Pin cursor as a data URI — encoded at module load time
@@ -185,8 +185,8 @@ export function DocumentViewer({
 
   return (
     <div
-      className={`flex-1 min-h-0 bg-[#1A1A1A] overflow-hidden ${
-        isPdf(fileName) ? "relative" : "flex items-center justify-center"
+      className={`flex-1 min-h-0 bg-[#1A1A1A] overflow-hidden relative ${
+        isPdf(fileName) ? "" : "flex items-center justify-center"
       }`}
     >
       {isPdf(fileName) ? (
@@ -246,6 +246,22 @@ export function DocumentViewer({
           </a>
         </div>
       )}
+
+      {/* Pin mode hint */}
+      <div
+        className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-200 ease-out ${
+          pinMode
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-2 pointer-events-none"
+        }`}
+      >
+        <div className="flex items-center gap-2 bg-[#0D0D0D]/90 border border-[#333] backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
+          <MapPin className="w-3.5 h-3.5 text-[#F5C518] shrink-0" />
+          <span className="text-[12px] text-[#A0A0A0] whitespace-nowrap">
+            Click anywhere on the document to place a pin
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

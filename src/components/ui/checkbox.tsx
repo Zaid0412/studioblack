@@ -60,19 +60,27 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
         {/* Visual box */}
         <span
           className={cn(
-            "relative mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all duration-150",
+            "relative flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors duration-150",
             isActive
               ? "border-accent bg-accent"
               : "border-border-light bg-bg-secondary hover:border-text-muted",
             disabled && "pointer-events-none"
           )}
         >
-          {checked && !indeterminate && (
-            <Check className="h-3 w-3 text-text-on-accent" strokeWidth={3} />
-          )}
-          {indeterminate && (
-            <Minus className="h-3 w-3 text-text-on-accent" strokeWidth={3} />
-          )}
+          <Check
+            className={cn(
+              "absolute h-3 w-3 text-text-on-accent transition-opacity duration-150",
+              checked && !indeterminate ? "opacity-100" : "opacity-0"
+            )}
+            strokeWidth={3}
+          />
+          <Minus
+            className={cn(
+              "absolute h-3 w-3 text-text-on-accent transition-opacity duration-150",
+              indeterminate ? "opacity-100" : "opacity-0"
+            )}
+            strokeWidth={3}
+          />
         </span>
 
         {/* Label + description */}

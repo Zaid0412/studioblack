@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type KeyboardEvent } from "react";
 import {
   MapPin,
   Check,
+  ChevronDown,
   Trash2,
   X,
   MessageCircle,
@@ -373,92 +374,109 @@ function NewPinForm({
     onSubmit(data);
   }
 
+  const expandRef = useRef<HTMLDivElement>(null);
+  const [expandHeight, setExpandHeight] = useState<number | null>(
+    assignAsTask ? null : 0
+  );
+
+  // Measure and animate the expand section
+  useEffect(() => {
+    if (assignAsTask) {
+      const el = expandRef.current;
+      if (el) {
+        // Measure natural height
+        el.style.height = "auto";
+        const h = el.scrollHeight;
+        el.style.height = "0px";
+        // Force reflow then animate to measured height
+        requestAnimationFrame(() => {
+          setExpandHeight(h);
+        });
+      }
+    } else {
+      setExpandHeight(0);
+    }
+  }, [assignAsTask]);
+
   return (
-    <div className="border-b border-[#222] p-3 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-semibold text-white">
-          Add New Comment
-        </span>
-        <button
-          onClick={onCancel}
-          className="text-[#666] hover:text-white transition-colors cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Textarea card */}
-      <div className="rounded-lg border border-[#333] bg-[#1A1A1A] overflow-hidden">
-        {/* Pin badge inside textarea area */}
-        {pinAttached && pendingPin && (
-          <div className="px-2.5 pt-2 flex items-center gap-1">
-            <span className="inline-flex items-center gap-1 bg-[#F5C518]/15 text-[#F5C518] text-[10px] font-medium px-1.5 py-0.5 rounded">
-              <MapPin className="w-3 h-3" />
-              Page {pendingPin.page}
-            </span>
-            <button
-              onClick={() => {
-                setPinAttached(false);
-                onClearPin?.();
-              }}
-              className="text-[#555] hover:text-[#A0A0A0] transition-colors cursor-pointer"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        )}
-
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Write your comment..."
-          rows={3}
-          className="w-full resize-none bg-transparent px-2.5 py-2 text-[13px] text-white placeholder-[#555] outline-none! focus-visible:outline-none! border-none"
-        />
-
-        {/* Toolbar inside textarea card */}
-        <div className="flex items-center justify-end gap-1 px-2 pb-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={() => {
-                  if (pinAttached && pendingPin) {
-                    setPinAttached(false);
-                    onClearPin?.();
-                  } else {
-                    onRequestPin?.();
-                  }
-                }}
-                className={`p-1.5 rounded transition-colors cursor-pointer ${
-                  pinAttached && pendingPin
-                    ? "text-[#F5C518] bg-[#F5C518]/10"
-                    : "text-[#555] hover:text-[#A0A0A0]"
-                }`}
-
-              >
-                <MapPin className="w-3.5 h-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              {pinAttached && pendingPin
-                ? "Unpin from document"
-                : "Place a pin on the document"}
-            </TooltipContent>
-          </Tooltip>
+    <div className="border-b border-[#222] p-3">
+      {/* Outer card wrapping the entire form */}
+      <div className="rounded-lg border border-[#ffffff0a] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+          <span className="text-[13px] font-semibold text-white">
+            Add New Comment
+          </span>
+          <button
+            onClick={onCancel}
+            className="text-[#666] hover:text-white transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      </div>
 
-      {/* Assign as task — bordered card section */}
-      <div
-        className={`rounded-lg border overflow-hidden transition-colors ${
-          assignAsTask ? "border-accent/30 bg-accent/5" : "border-border"
-        }`}
-      >
-        <div className="px-3 py-2.5">
+        {/* Textarea area */}
+        <div className="mx-3 rounded-lg border border-[#333] bg-[#1A1A1A] transition-colors duration-200 focus-within:border-[#F5C518]/30">
+          {/* Pin badge row */}
+          {pinAttached && pendingPin && (
+            <div className="px-3 pt-2.5 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-[#F5C518]" />
+              <button
+                onClick={() => {
+                  setPinAttached(false);
+                  onClearPin?.();
+                }}
+                className="text-[#555] hover:text-[#A0A0A0] transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Write your comment..."
+            rows={4}
+            className="w-full resize-none bg-transparent px-3 py-2.5 text-[13px] text-white placeholder-[#555] outline-none! focus-visible:outline-none! border-none"
+          />
+
+          {/* Bottom toolbar */}
+          <div className="flex items-center justify-end gap-0.5 px-2 py-1.5 border-t border-[#333]/60">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pinAttached && pendingPin) {
+                      setPinAttached(false);
+                      onClearPin?.();
+                    } else {
+                      onRequestPin?.();
+                    }
+                  }}
+                  className={`p-1.5 rounded transition-colors cursor-pointer ${
+                    pinAttached && pendingPin
+                      ? "text-[#F5C518] bg-[#F5C518]/10"
+                      : "text-[#555] hover:text-[#A0A0A0]"
+                  }`}
+                >
+                  <MapPin className="w-4 h-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                {pinAttached && pendingPin
+                  ? "Unpin from document"
+                  : "Place a pin on the document"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Assign as task */}
+        <div className="px-3 py-2.5 border-t border-[#ffffff0a] mt-3">
           <Checkbox
             checked={assignAsTask}
             onCheckedChange={setAssignAsTask}
@@ -466,27 +484,35 @@ function NewPinForm({
           />
         </div>
 
-        {assignAsTask && (
-          <div className="px-3 pb-3 flex flex-col gap-2 border-t border-border/50">
-            <div className="flex items-center gap-2 mt-2">
-              <label className="text-[11px] text-text-muted w-16 shrink-0">
+        {/* Animated expand for task fields */}
+        <div
+          ref={expandRef}
+          className="overflow-hidden transition-[height] duration-200 ease-out"
+          style={{ height: expandHeight ?? "auto" }}
+        >
+          <div className="px-3 pb-3 flex flex-col gap-2.5 border-t border-[#ffffff0a] pt-2.5">
+            <div className="flex items-center gap-3">
+              <label className="text-[11px] text-text-muted w-[60px] shrink-0">
                 Assignee
               </label>
-              <select
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                className="flex-1 rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-[12px] text-text-primary outline-none focus:border-accent/50 cursor-pointer appearance-none"
-              >
-                <option value="">Select User</option>
-                {members.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+              <div className="relative flex-1">
+                <select
+                  value={assignedTo}
+                  onChange={(e) => setAssignedTo(e.target.value)}
+                  className="w-full rounded-md border border-[#ffffff0a] bg-bg-secondary pl-2.5 pr-7 py-1.5 text-[12px] text-text-primary outline-none focus:border-accent/50 cursor-pointer appearance-none"
+                >
+                  <option value="">Select User</option>
+                  {members.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] text-text-muted w-16 shrink-0">
+            <div className="flex items-center gap-3">
+              <label className="text-[11px] text-text-muted w-[60px] shrink-0">
                 Due Date
               </label>
               <input
@@ -494,29 +520,33 @@ function NewPinForm({
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 placeholder="Select Date"
-                className="flex-1 rounded-md border border-border bg-bg-secondary px-2.5 py-1.5 text-[12px] text-text-primary outline-none focus:border-accent/50 cursor-pointer"
+                className="flex-1 rounded-md border border-[#ffffff0a] bg-bg-secondary px-2.5 py-1.5 text-[12px] text-text-primary outline-none focus:border-accent/50 cursor-pointer"
               />
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Request for approval — aligned with assign as task */}
+        <div className="px-3 py-2.5 border-t border-[#ffffff0a]">
+          <Checkbox
+            checked={requestApproval}
+            onCheckedChange={setRequestApproval}
+            label="Request for approval"
+            className="[&_span]:text-text-secondary"
+          />
+        </div>
+
+        {/* Submit */}
+        <div className="px-3 pb-3 pt-1">
+          <button
+            onClick={handleSubmit}
+            disabled={!content.trim()}
+            className="rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-text-on-accent hover:bg-accent-hover disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
+          >
+            Submit
+          </button>
+        </div>
       </div>
-
-      {/* Request for approval — standalone */}
-      <Checkbox
-        checked={requestApproval}
-        onCheckedChange={setRequestApproval}
-        label="Request for approval"
-        className="[&_span]:text-text-secondary"
-      />
-
-      {/* Submit button */}
-      <button
-        onClick={handleSubmit}
-        disabled={!content.trim()}
-        className="w-full rounded-lg bg-[#F5C518] py-2 text-[13px] font-semibold text-[#0D0D0D] hover:bg-[#F5C518]/90 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
-      >
-        Submit
-      </button>
     </div>
   );
 }
