@@ -1,26 +1,31 @@
 "use client";
 
-import { use, useRef, useState, useCallback } from "react";
+import { use, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { PDFViewerRef } from "@embedpdf/react-pdf-viewer";
-import { ArrowLeft, FileText, Loader2, ClipboardCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  Loader2,
+  ClipboardCheck,
+  MessageCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDesignReview } from "@/hooks/useDesignReview";
-import { useCommentTool } from "@/hooks/useCommentTool";
-import { usePdfPlugins } from "@/hooks/usePdfPlugins";
-import { useAnnotationTracker } from "@/hooks/useAnnotationTracker";
+import { usePinComments } from "@/hooks/usePinComments";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
 import { ReviewToolbar } from "@/components/review/ReviewToolbar";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
+import { PinOverlay } from "@/components/review/PinOverlay";
+import { PinSidebar } from "@/components/review/PinSidebar";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
 import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
-import { displayName, isPdf } from "@/lib/fileUtils";
+import { isPdf } from "@/lib/fileUtils";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
 export default function DesignReviewPage({
@@ -31,12 +36,12 @@ export default function DesignReviewPage({
   const { id, designId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const viewerRef = useRef<PDFViewerRef>(null);
   const t = useTranslations("clientReview");
   const tc = useTranslations("common");
 
   const { role } = useUserRole();
   const isClient = role === "client";
+  const isStaff = role === "pm" || role === "architect";
   const { data: session } = authClient.useSession();
 
   const review = useDesignReview({
@@ -52,23 +57,72 @@ export default function DesignReviewPage({
     setAttachment,
     fetchAttachment,
   } = review;
-  const plugins = usePdfPlugins({ viewerRef, attachment });
-  const { commentToolActive, toggleCommentTool } = useCommentTool({
-    viewerRef,
+
+  const pinState = usePinComments({
+    projectId: id,
+    attachmentId: activeFileId,
   });
-  const annotations = useAnnotationTracker({
-    viewerRef,
-    enabled:
-      isClient &&
-      !review.loading &&
-      !!attachment &&
-      isPdf(attachment.file_name),
-  });
+
+  // Pending pin: stores the click coordinates while the form is open
+  const [pendingPin, setPendingPin] = useState<{
+    xPercent: number;
+    yPercent: number;
+    page: number;
+  } | null>(null);
 
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+
+  const handleTogglePinMode = useCallback(() => {
+    pinState.setPinMode(!pinState.pinMode);
+    setPendingPin(null);
+  }, [pinState]);
+
+  const handlePinClick = useCallback(
+    (xPercent: number, yPercent: number, page: number) => {
+      setPendingPin({ xPercent, yPercent, page });
+      setCommentsOpen(true);
+      // Exit pin mode — cursor goes back to normal after placing a pin
+      pinState.setPinMode(false);
+    },
+    [pinState]
+  );
+
+  const handlePinFormSubmit = useCallback(
+    async (content: string) => {
+      if (!pendingPin) return;
+      await pinState.addPin(
+        pendingPin.xPercent,
+        pendingPin.yPercent,
+        pendingPin.page,
+        content
+      );
+      setPendingPin(null);
+    },
+    [pendingPin, pinState]
+  );
+
+  const handlePinFormCancel = useCallback(() => {
+    setPendingPin(null);
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    if (!attachment) return;
+    try {
+      const blob = await upload.downloadFile(attachment.file_url);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = attachment.file_name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[handleDownload]", err);
+    }
+  }, [attachment]);
 
   const handleUploadSuccess = useCallback(async () => {
     const updated = await fetchAttachment(activeFileId);
@@ -104,43 +158,15 @@ export default function DesignReviewPage({
     }
   }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
 
-  // Client: submit a review with optional annotated PDF
+  // Client: submit a review
   async function handleSubmitReview(
     status: "approved" | "rejected",
     comment: string
   ) {
-    let annotatedFileUrl: string | null = null;
-
-    if (annotations.hasChanges && isPdf(attachment?.file_name || "")) {
-      const buffer = await annotations.exportAnnotatedPdf();
-      if (buffer && buffer.byteLength > 0) {
-        const blob = new Blob([buffer], { type: "application/pdf" });
-        const baseName = attachment!.file_name.replace(/\.pdf$/i, "");
-        const reviewFileName = `${baseName}_review.pdf`;
-        const file = new File([blob], reviewFileName, {
-          type: "application/pdf",
-        });
-
-        try {
-          const { url } = await upload.uploadFile(file);
-          annotatedFileUrl = url;
-        } catch {
-          toast({
-            title: tc("error"),
-            description: "Failed to upload annotated PDF.",
-            variant: "error",
-          });
-          return;
-        }
-      }
-    }
-
     try {
       await attachmentsApi.submitReview(id, activeFileId, {
         status,
         comment,
-        annotatedFileUrl: annotatedFileUrl ?? undefined,
-        annotationCount: annotations.annotationCount,
       });
     } catch (err) {
       toast({
@@ -162,7 +188,6 @@ export default function DesignReviewPage({
       variant: status === "approved" ? "success" : "error",
     });
 
-    annotations.reset();
     const updated = await fetchAttachment(activeFileId);
     if (updated) setAttachment(updated);
   }
@@ -215,12 +240,9 @@ export default function DesignReviewPage({
           backPath={`/projects/${id}`}
           fileName={fileName}
           fileUrl={fileUrl}
-          commentToolActive={commentToolActive}
-          onToggleCommentTool={toggleCommentTool}
-          onScreenshot={plugins.handleScreenshot}
-          onDownload={plugins.handleDownload}
-          onPrint={plugins.handlePrint}
-          onFullscreen={plugins.handleFullscreen}
+          pinModeActive={pinState.pinMode}
+          onTogglePinMode={handleTogglePinMode}
+          onDownload={handleDownload}
           onUploadNewVersion={
             !isClient && attachment?.version_group && !attachment?.frozen_at
               ? () => setUploadOpen(true)
@@ -246,24 +268,44 @@ export default function DesignReviewPage({
             ) : undefined
           }
           rightSlot={
-            !isClient ? (
+            <>
+              {/* Comments sidebar toggle */}
               <button
-                onClick={() => setReviewsOpen(!reviewsOpen)}
+                onClick={() => setCommentsOpen(!commentsOpen)}
                 className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                  reviewsOpen
+                  commentsOpen
                     ? "bg-[#F5C518]/15 text-[#F5C518]"
-                    : review.reviews.length > 0
+                    : pinState.pins.length > 0
                       ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
                       : "text-[#A0A0A0] hover:text-white"
                 }`}
-                title="Reviews"
+                title="Pin comments"
               >
-                <ClipboardCheck className="w-3.5 h-3.5" />
-                {review.reviews.length > 0 && (
-                  <span>{review.reviews.length}</span>
+                <MessageCircle className="w-3.5 h-3.5" />
+                {pinState.unresolvedCount > 0 && (
+                  <span>{pinState.unresolvedCount}</span>
                 )}
               </button>
-            ) : undefined
+              {/* PM: Reviews toggle */}
+              {!isClient && (
+                <button
+                  onClick={() => setReviewsOpen(!reviewsOpen)}
+                  className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                    reviewsOpen
+                      ? "bg-[#F5C518]/15 text-[#F5C518]"
+                      : review.reviews.length > 0
+                        ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
+                        : "text-[#A0A0A0] hover:text-white"
+                  }`}
+                  title="Reviews"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  {review.reviews.length > 0 && (
+                    <span>{review.reviews.length}</span>
+                  )}
+                </button>
+              )}
+            </>
           }
         />
 
@@ -271,12 +313,51 @@ export default function DesignReviewPage({
           activeFileId={activeFileId}
           fileName={fileName}
           fileUrl={fileUrl}
-          viewerRef={viewerRef}
-          annotations
-          annotationAuthor={displayName(
-            session?.user?.name,
-            isClient ? "Client" : undefined
+          pinMode={pinState.pinMode}
+          onPinClick={handlePinClick}
+          renderPageOverlay={
+            isPdf(fileName)
+              ? (page) => (
+                  <PinOverlay
+                    pins={pinState.pins}
+                    page={page}
+                    selectedPinId={pinState.selectedPinId}
+                    onSelectPin={pinState.setSelectedPinId}
+                    pendingPin={pendingPin}
+                  />
+                )
+              : undefined
+          }
+        >
+          {/* Pin markers overlay — for images (page 1) */}
+          {!isPdf(fileName) && (
+            <PinOverlay
+              pins={pinState.pins}
+              page={1}
+              selectedPinId={pinState.selectedPinId}
+              onSelectPin={pinState.setSelectedPinId}
+              pendingPin={pendingPin}
+            />
           )}
+        </DocumentViewer>
+
+        {/* Pin comments sidebar */}
+        <PinSidebar
+          pins={pinState.pins}
+          selectedPinId={pinState.selectedPinId}
+          onSelectPin={pinState.setSelectedPinId}
+          onResolvePin={pinState.resolvePin}
+          onDeletePin={pinState.deletePin}
+          currentUserId={session?.user?.id ?? ""}
+          isStaff={isStaff}
+          open={commentsOpen}
+          onClose={() => {
+            setCommentsOpen(false);
+            setPendingPin(null);
+          }}
+          pendingPin={pendingPin}
+          onPendingSubmit={handlePinFormSubmit}
+          onPendingCancel={handlePinFormCancel}
         />
 
         {/* PM: Reviews Panel (overlay) */}
@@ -290,9 +371,8 @@ export default function DesignReviewPage({
         {/* Client: Review Submit Bar */}
         {isClient && (
           <ReviewSubmitBar
-            annotationCount={annotations.annotationCount}
-            hasChanges={annotations.hasChanges}
             onSubmit={handleSubmitReview}
+            pinCount={pinState.unresolvedCount}
           />
         )}
       </div>

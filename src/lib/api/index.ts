@@ -1,6 +1,7 @@
 export { ApiError } from "./client";
 export * as projects from "./projects";
 export * as attachments from "./attachments";
+export * as pinComments from "./pinComments";
 export * as comments from "./comments";
 export * as tasks from "./tasks";
 export * as notifications from "./notifications";

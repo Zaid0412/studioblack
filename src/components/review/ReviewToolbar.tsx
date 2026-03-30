@@ -8,8 +8,7 @@ import {
   Download,
   ExternalLink,
   Ellipsis,
-  MessageCircle,
-  Camera,
+  MapPin,
   Printer,
   Lock,
   Maximize,
@@ -18,25 +17,16 @@ import {
 } from "lucide-react";
 
 interface ReviewToolbarProps {
-  /** Where the back button navigates to */
   backPath: string;
   fileName: string;
   fileUrl: string;
-  commentToolActive: boolean;
-  onToggleCommentTool: () => void;
-  onScreenshot: () => void;
+  pinModeActive: boolean;
+  onTogglePinMode: () => void;
   onDownload: () => void;
-  onPrint: () => void;
-  onFullscreen: () => void;
-  /** Slot rendered after the filename (e.g. status badge) */
   leftSlot?: ReactNode;
-  /** Slot rendered before the comment button (e.g. reviews toggle) */
   rightSlot?: ReactNode;
-  /** Called when "Upload New Version" is clicked in the more menu */
   onUploadNewVersion?: () => void;
-  /** Whether the file is frozen */
   frozen?: boolean;
-  /** Called when freeze/unfreeze is clicked */
   onToggleFreeze?: () => void;
 }
 
@@ -47,12 +37,9 @@ export function ReviewToolbar({
   backPath,
   fileName,
   fileUrl,
-  commentToolActive,
-  onToggleCommentTool,
-  onScreenshot,
+  pinModeActive,
+  onTogglePinMode,
   onDownload,
-  onPrint,
-  onFullscreen,
   leftSlot,
   rightSlot,
   onUploadNewVersion,
@@ -101,18 +88,11 @@ export function ReviewToolbar({
         {rightSlot && <div className="w-px h-4 bg-[#333]" />}
 
         <button
-          onClick={onToggleCommentTool}
-          className={`cursor-pointer transition-colors ${commentToolActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
-          title="Comment tool"
+          onClick={onTogglePinMode}
+          className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+          title="Pin comment"
         >
-          <MessageCircle className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onScreenshot}
-          className="text-[#A0A0A0] hover:text-white cursor-pointer"
-          title="Screenshot"
-        >
-          <Camera className="w-4 h-4" />
+          <MapPin className="w-4 h-4" />
         </button>
         <button
           onClick={onDownload}
@@ -135,7 +115,7 @@ export function ReviewToolbar({
             <div className="absolute right-0 top-full mt-1 w-44 bg-[#242424] border border-[#333333] rounded-lg shadow-xl py-1 z-50">
               <button
                 onClick={() => {
-                  onPrint();
+                  window.print();
                   setMoreMenuOpen(false);
                 }}
                 className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
@@ -145,7 +125,7 @@ export function ReviewToolbar({
               </button>
               <button
                 onClick={() => {
-                  onFullscreen();
+                  document.documentElement.requestFullscreen?.();
                   setMoreMenuOpen(false);
                 }}
                 className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"

@@ -294,6 +294,20 @@ export interface DbAttachmentReview {
   created_at: string;
 }
 
+/** A pin comment placed on an attachment at a specific position. */
+export interface DbPinComment {
+  id: string;
+  attachment_id: string;
+  user_id: string;
+  user_name: string;
+  x_percent: number;
+  y_percent: number;
+  page: number;
+  content: string;
+  resolved: boolean;
+  created_at: string;
+}
+
 /** DB notification row from the notifications API. */
 export interface DbNotificationRow {
   id: string;

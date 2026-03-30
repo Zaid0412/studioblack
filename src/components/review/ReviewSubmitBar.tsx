@@ -6,21 +6,16 @@ import {
   AlertTriangle,
   Loader2,
   MessageSquare,
-  Pencil,
 } from "lucide-react";
 
 interface ReviewSubmitBarProps {
-  annotationCount: number;
-  hasChanges: boolean;
   onSubmit: (status: "approved" | "rejected", comment: string) => Promise<void>;
+  /** Number of unresolved pin comments on this file. */
+  pinCount?: number;
 }
 
 /** Bottom bar for submitting a design review with approve/reject actions and comment. */
-export function ReviewSubmitBar({
-  annotationCount,
-  hasChanges,
-  onSubmit,
-}: ReviewSubmitBarProps) {
+export function ReviewSubmitBar({ onSubmit, pinCount = 0 }: ReviewSubmitBarProps) {
   const [expanded, setExpanded] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState<"approved" | "rejected" | null>(
@@ -47,22 +42,17 @@ export function ReviewSubmitBar({
           className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-[#222222] transition-colors"
         >
           <div className="flex items-center gap-3">
-            {hasChanges ? (
-              <div className="flex items-center gap-2">
-                <Pencil className="w-4 h-4 text-[#F5C518]" />
-                <span className="text-[13px] font-medium text-white">
-                  {annotationCount} annotation
-                  {annotationCount !== 1 ? "s" : ""}
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-[#666666]" />
+              <span className="text-[13px] text-[#A0A0A0]">
+                Submit your review
+              </span>
+              {pinCount > 0 && (
+                <span className="text-[11px] text-[#F5C518] bg-[#F5C518]/10 px-1.5 py-0.5 rounded-full">
+                  {pinCount} comment{pinCount !== 1 ? "s" : ""}
                 </span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-[#666666]" />
-                <span className="text-[13px] text-[#A0A0A0]">
-                  Submit your review
-                </span>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <span className="text-[11px] text-[#666666]">
             {expanded ? "Collapse" : "Expand"}
@@ -76,11 +66,7 @@ export function ReviewSubmitBar({
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder={
-                hasChanges
-                  ? "Add an overall summary of your feedback (optional)..."
-                  : "Leave a comment about this design (optional)..."
-              }
+              placeholder="Leave a comment about this design (optional)..."
               className="w-full rounded-lg border border-[#333333] bg-[#0D0D0D] px-3 py-2.5 text-sm text-white placeholder:text-[#555555] resize-none focus:outline-none focus:border-[#F5C518] mb-3"
               rows={3}
             />
@@ -97,7 +83,7 @@ export function ReviewSubmitBar({
                 ) : (
                   <CheckCircle2 className="w-4 h-4" />
                 )}
-                {hasChanges ? "Approve with Notes" : "Approve"}
+                Approve
               </button>
               <button
                 onClick={() => handleSubmit("rejected")}
@@ -112,14 +98,6 @@ export function ReviewSubmitBar({
                 Request Changes
               </button>
             </div>
-
-            {hasChanges && (
-              <p className="text-[11px] text-[#555555] mt-2 text-center">
-                Your {annotationCount} annotation
-                {annotationCount !== 1 ? "s" : ""} will be saved with the
-                review.
-              </p>
-            )}
           </div>
         )}
       </div>

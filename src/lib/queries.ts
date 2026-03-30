@@ -825,3 +825,63 @@ export async function getTaskBucketCounts(orgId: string, userId: string) {
   );
   return rows[0];
 }
+
+// ── Pin Comments ─────────────────────────────────
+
+export async function getPinComments(attachmentId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pc.*, u.name AS user_name
+     FROM pin_comment pc
+     JOIN "user" u ON u.id = pc.user_id
+     WHERE pc.attachment_id = $1
+     ORDER BY pc.created_at ASC`,
+    [attachmentId]
+  );
+  return rows;
+}
+
+export async function getPinCommentById(pinId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT pc.*, u.name AS user_name
+     FROM pin_comment pc
+     JOIN "user" u ON u.id = pc.user_id
+     WHERE pc.id = $1`,
+    [pinId]
+  );
+  return rows[0] || null;
+}
+
+export async function createPinComment(params: {
+  attachmentId: string;
+  userId: string;
+  xPercent: number;
+  yPercent: number;
+  page: number;
+  content: string;
+}) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [params.attachmentId, params.userId, params.xPercent, params.yPercent, params.page, params.content]
+  );
+  // Re-fetch with user name
+  return getPinCommentById(rows[0].id);
+}
+
+export async function updatePinComment(pinId: string, resolved: boolean) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `UPDATE pin_comment SET resolved = $1 WHERE id = $2 RETURNING *`,
+    [resolved, pinId]
+  );
+  return rows[0] || null;
+}
+
+export async function deletePinComment(pinId: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM pin_comment WHERE id = $1`, [pinId]);
+}
