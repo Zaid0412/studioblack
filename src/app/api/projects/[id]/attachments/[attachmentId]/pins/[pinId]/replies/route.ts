@@ -6,10 +6,10 @@ import { withAuth } from "@/lib/withAuth";
 export const GET = withAuth(
   { projectAccess: true },
   async (req, ctx, params) => {
-    const { pinId } = params;
+    const { attachmentId, pinId } = params;
 
     const pin = await getPinCommentById(pinId);
-    if (!pin) {
+    if (!pin || pin.attachment_id !== attachmentId) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

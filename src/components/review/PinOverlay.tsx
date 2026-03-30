@@ -28,6 +28,8 @@ interface PinOverlayProps {
 
 /** Minimum pixels of movement before a click becomes a drag. */
 const DRAG_THRESHOLD = 4;
+/** Sentinel ID used for the pending (unsaved) pin in drag state. */
+const PENDING_ID = "__pending__";
 
 /**
  * MapPin-shaped marker using the Lucide MapPin silhouette.
@@ -116,7 +118,6 @@ export function PinOverlay({
   currentUserId,
   onRepositionPendingPin,
 }: PinOverlayProps) {
-  const PENDING_ID = "__pending__";
   const [dragState, setDragState] = useState<{
     pinId: string;
     startX: number;
@@ -227,7 +228,6 @@ export function PinOverlay({
     onRepositionPendingPin,
     onSelectPin,
     page,
-    PENDING_ID,
   ]);
 
   return (

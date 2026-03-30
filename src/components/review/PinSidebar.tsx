@@ -53,15 +53,16 @@ function useSlide(open: boolean, durationMs = 200) {
       });
       return () => cancelAnimationFrame(raf);
     } else {
-      // Start exit animation
+      // Start exit animation — timeout starts inside rAF to avoid race
+      let timer: ReturnType<typeof setTimeout>;
       const raf = requestAnimationFrame(() => {
         setStage("out");
         setClosing(true);
+        timer = setTimeout(() => {
+          setClosing(false);
+          setStage(null);
+        }, durationMs);
       });
-      const timer = setTimeout(() => {
-        setClosing(false);
-        setStage(null);
-      }, durationMs);
       return () => {
         cancelAnimationFrame(raf);
         clearTimeout(timer);
