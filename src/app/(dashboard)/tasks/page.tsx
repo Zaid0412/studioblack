@@ -341,11 +341,17 @@ export default function TasksPage() {
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
                     onClick={setDetailTask}
-                    onGoToProject={(t) =>
-                      router.push(
-                        `/projects/${t.project_id}?highlightTask=${t.id}`
-                      )
-                    }
+                    onGoToProject={(t) => {
+                      if (t.pin_comment_id && t.pin_attachment_id) {
+                        router.push(
+                          `/projects/${t.project_id}/review/${t.pin_attachment_id}?comments=open&pinId=${t.pin_comment_id}`
+                        );
+                      } else {
+                        router.push(
+                          `/projects/${t.project_id}?highlightTask=${t.id}`
+                        );
+                      }
+                    }}
                   />
                 ))
               )}

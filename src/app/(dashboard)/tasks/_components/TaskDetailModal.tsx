@@ -356,7 +356,11 @@ export function TaskDetailModal({
               <DetailRow label="Project">
                 {task.project_name ? (
                   <a
-                    href={`/projects/${task.project_id}?highlightTask=${task.id}`}
+                    href={
+                      task.pin_comment_id && task.pin_attachment_id
+                        ? `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`
+                        : `/projects/${task.project_id}?highlightTask=${task.id}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[11px] font-medium text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded cursor-pointer hover:bg-blue-500/20 transition-colors"
@@ -670,9 +674,15 @@ export function TaskDetailModal({
                   size="sm"
                   onClick={() => {
                     onOpenChange(false);
-                    router.push(
-                      `/projects/${task.project_id}?highlightTask=${task.id}`
-                    );
+                    if (task.pin_comment_id && task.pin_attachment_id) {
+                      router.push(
+                        `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`
+                      );
+                    } else {
+                      router.push(
+                        `/projects/${task.project_id}?highlightTask=${task.id}`
+                      );
+                    }
                   }}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
