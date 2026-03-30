@@ -8,6 +8,8 @@ interface SidebarContextValue {
   isCollapsed: boolean;
   /** Toggle between collapsed and expanded states. */
   toggle: () => void;
+  /** Force collapse the sidebar. */
+  collapse: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextValue | undefined>(
@@ -23,9 +25,10 @@ const SidebarContext = createContext<SidebarContextValue | undefined>(
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const toggle = useCallback(() => setIsCollapsed((prev) => !prev), []);
+  const collapse = useCallback(() => setIsCollapsed(true), []);
 
   return (
-    <SidebarContext.Provider value={{ isCollapsed, toggle }}>
+    <SidebarContext.Provider value={{ isCollapsed, toggle, collapse }}>
       {children}
     </SidebarContext.Provider>
   );

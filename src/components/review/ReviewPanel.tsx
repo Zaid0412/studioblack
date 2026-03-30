@@ -30,7 +30,7 @@ function formatDate(dateStr: string) {
  */
 export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
   return (
-    <div className="absolute right-0 top-0 bottom-0 w-72 z-40 bg-[#0D0D0D] border-l border-[#222] flex flex-col overflow-hidden shadow-2xl">
+    <div className="w-72 shrink-0 bg-[#0D0D0D] border-l border-[#222] flex flex-col overflow-hidden">
       {/* Header */}
       <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-[#222]">
         <div className="flex items-center gap-2">

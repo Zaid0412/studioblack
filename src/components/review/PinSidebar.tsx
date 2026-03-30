@@ -178,9 +178,10 @@ export function PinSidebar({
 
   return (
     <div
-      className="absolute right-0 top-10 bottom-0 w-72 z-40 bg-[#0D0D0D] border-l border-[#222] flex flex-col overflow-hidden shadow-2xl transition-transform duration-200 ease-out"
+      className="w-72 shrink-0 bg-[#0D0D0D] border-l border-[#222] flex flex-col overflow-hidden transition-[width,opacity] duration-200 ease-out"
       style={{
-        transform: stage === "in" ? "translateX(0)" : "translateX(100%)",
+        width: stage === "in" ? undefined : 0,
+        opacity: stage === "in" ? 1 : 0,
       }}
     >
       {/* Header */}

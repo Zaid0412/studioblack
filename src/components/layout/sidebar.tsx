@@ -10,16 +10,17 @@ import {
   History,
   LogOut,
   ChevronsLeft,
+  ChevronUp,
   CheckSquare,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { useSidebar } from "./SidebarContext";
 import { Avatar } from "@/components/ui/avatar";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
@@ -136,38 +137,6 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
         </span>
       </Link>
 
-      {/* Organisation name */}
-      {orgName && (
-        <div
-          className={cn(
-            "border-b border-border-default pb-3 mb-1 transition-all duration-200",
-            isCollapsed ? "px-2" : "px-4"
-          )}
-        >
-          {isCollapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/organisation"
-                  className="flex items-center justify-center w-8 h-8 rounded-md bg-bg-elevated text-text-muted hover:text-text-primary transition-colors"
-                >
-                  <Building2 className="h-4 w-4" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right">{orgName}</TooltipContent>
-            </Tooltip>
-          ) : (
-            <Link
-              href="/organisation"
-              className="flex items-center gap-2 text-text-muted hover:text-text-primary transition-colors group"
-            >
-              <Building2 className="h-3.5 w-3.5 shrink-0" />
-              <span className="text-xs font-medium truncate">{orgName}</span>
-            </Link>
-          )}
-        </div>
-      )}
-
       {/* Navigation */}
       <nav
         className={cn(
@@ -212,71 +181,70 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
         </button>
       </div>
 
-      {/* User section */}
+      {/* User menu */}
       <div
         className={cn(
           "border-t border-border-default transition-all duration-200",
-          isCollapsed ? "p-2" : "p-4"
+          isCollapsed ? "p-2" : "px-3 py-2"
         )}
       >
-        {isCollapsed ? (
-          <div className="flex flex-col items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="cursor-default">
-                  <Avatar
-                    initials={user.initials}
-                    size="sm"
-                    src={user.avatar}
-                    color={avatarColor(user.id)}
-                  />
+        <Popover>
+          <PopoverTrigger asChild>
+            {isCollapsed ? (
+              <button className="flex items-center justify-center w-full cursor-pointer rounded-lg p-1 hover:bg-bg-elevated/50 transition-colors">
+                <Avatar
+                  initials={user.initials}
+                  size="sm"
+                  src={user.avatar}
+                  color={avatarColor(user.id)}
+                />
+              </button>
+            ) : (
+              <button className="flex items-center gap-2.5 w-full cursor-pointer rounded-lg px-2 py-1.5 hover:bg-bg-elevated/50 transition-colors overflow-hidden">
+                <Avatar
+                  initials={user.initials}
+                  size="sm"
+                  src={user.avatar}
+                  color={avatarColor(user.id)}
+                />
+                <div className="flex flex-col min-w-0 flex-1 text-left">
+                  <span className="text-xs font-medium text-text-primary truncate">
+                    {user.name}
+                  </span>
+                  <span className="text-[10px] text-text-muted truncate">
+                    {user.email}
+                  </span>
                 </div>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <div className="flex flex-col">
-                  <span className="font-medium">{user.name}</span>
-                  <span className="text-text-muted">{user.email}</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={handleLogout}
-                  className="p-1.5 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
-                  aria-label={t("logout")}
+                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+              </button>
+            )}
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="start"
+            className="w-56 p-1.5"
+          >
+            {orgName && (
+              <>
+                <Link
+                  href="/organisation"
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors text-xs"
                 >
-                  <LogOut className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right">{t("logout")}</TooltipContent>
-            </Tooltip>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Avatar
-              initials={user.initials}
-              size="sm"
-              src={user.avatar}
-              color={avatarColor(user.id)}
-            />
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-medium text-text-primary truncate">
-                {user.name}
-              </span>
-              <span className="text-xs text-text-muted truncate">
-                {user.email}
-              </span>
-            </div>
+                  <Building2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{orgName}</span>
+                </Link>
+                <div className="border-t border-border-default my-1" />
+              </>
+            )}
             <button
               onClick={handleLogout}
-              className="p-1.5 rounded-md text-text-muted hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
-              title={t("logout")}
+              className="flex items-center gap-2 px-2.5 py-2 rounded-md text-red-400 hover:bg-red-400/10 transition-colors text-xs w-full cursor-pointer"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" />
+              {t("logout")}
             </button>
-          </div>
-        )}
+          </PopoverContent>
+        </Popover>
       </div>
     </aside>
   );

@@ -31,6 +31,7 @@ import {
 } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { isPdf } from "@/lib/fileUtils";
+import { useSidebar } from "@/components/layout/SidebarContext";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
 export default function DesignReviewPage({
@@ -48,6 +49,10 @@ export default function DesignReviewPage({
   const isClient = role === "client";
   const isPm = role === "pm";
   const { data: session } = authClient.useSession();
+  const { collapse } = useSidebar();
+
+  // Auto-collapse main sidebar when entering the file viewer
+  useEffect(() => { collapse(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const review = useDesignReview({
     projectId: id,
@@ -308,7 +313,9 @@ export default function DesignReviewPage({
         onSelectFile={setActiveFileId}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
+      <div className="flex-1 flex min-w-0">
+        {/* Document area: toolbar + viewer + overlays */}
+        <div className="flex-1 flex flex-col min-w-0 relative">
         <ReviewToolbar
           backPath={`/projects/${id}`}
           fileName={fileName}
@@ -344,7 +351,11 @@ export default function DesignReviewPage({
             <>
               {/* Comments sidebar toggle */}
               <button
-                onClick={() => setCommentsOpen(!commentsOpen)}
+                onClick={() => {
+                  const next = !commentsOpen;
+                  setCommentsOpen(next);
+                  if (next) setReviewsOpen(false);
+                }}
                 className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
                   commentsOpen
                     ? "bg-[#F5C518]/15 text-[#F5C518]"
@@ -362,7 +373,11 @@ export default function DesignReviewPage({
               {/* PM: Reviews toggle */}
               {!isClient && (
                 <button
-                  onClick={() => setReviewsOpen(!reviewsOpen)}
+                  onClick={() => {
+                    const next = !reviewsOpen;
+                    setReviewsOpen(next);
+                    if (next) setCommentsOpen(false);
+                  }}
                   className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
                     reviewsOpen
                       ? "bg-[#F5C518]/15 text-[#F5C518]"
@@ -422,7 +437,24 @@ export default function DesignReviewPage({
           )}
         </DocumentViewer>
 
-        {/* Pin comments sidebar */}
+        {/* Client: Review Submit Bar */}
+        {isClient && (
+          <ReviewSubmitBar
+            onSubmit={handleSubmitReview}
+            pinCount={pinState.unresolvedCount}
+          />
+        )}
+        </div>
+
+        {/* PM: Reviews Panel — flex sibling, pushes document viewer */}
+        {!isClient && reviewsOpen && (
+          <ReviewPanel
+            reviews={review.reviews}
+            onClose={() => setReviewsOpen(false)}
+          />
+        )}
+
+        {/* Pin comments sidebar — flex sibling, pushes document viewer */}
         <PinSidebar
           pins={pinState.pins}
           selectedPinId={pinState.selectedPinId}
@@ -447,22 +479,6 @@ export default function DesignReviewPage({
           onFetchReplies={pinState.fetchReplies}
           onAddReply={pinState.addReply}
         />
-
-        {/* PM: Reviews Panel (overlay) */}
-        {!isClient && reviewsOpen && (
-          <ReviewPanel
-            reviews={review.reviews}
-            onClose={() => setReviewsOpen(false)}
-          />
-        )}
-
-        {/* Client: Review Submit Bar */}
-        {isClient && (
-          <ReviewSubmitBar
-            onSubmit={handleSubmitReview}
-            pinCount={pinState.unresolvedCount}
-          />
-        )}
       </div>
 
       {/* PM: Upload New Version Dialog */}
