@@ -780,7 +780,9 @@ function NewPinForm({
                 value={dueDate ? new Date(dueDate + "T00:00:00") : undefined}
                 onChange={(d) =>
                   setDueDate(
-                    d ? d.toISOString().split("T")[0] : ""
+                    d
+                      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                      : ""
                   )
                 }
                 placeholder="Select Date"
