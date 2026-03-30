@@ -227,7 +227,10 @@ export function PinSidebar({
             setShowNewForm(false);
             onCancelPending?.();
           }}
-          onClearPin={onClearPendingPin}
+          onClearPin={() => {
+            setShowNewForm(true);
+            onClearPendingPin?.();
+          }}
           onRequestPin={onRequestPin}
         />
       )}

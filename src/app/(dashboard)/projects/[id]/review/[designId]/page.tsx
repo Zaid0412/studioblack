@@ -171,6 +171,13 @@ export default function DesignReviewPage({
     setPendingPin(null);
   }, []);
 
+  const handleRepositionPendingPin = useCallback(
+    (xPercent: number, yPercent: number) => {
+      setPendingPin((prev) => (prev ? { ...prev, xPercent, yPercent } : null));
+    },
+    []
+  );
+
   const handleRequestPin = useCallback(() => {
     pinState.setPinMode(true);
   }, [pinState]);
@@ -393,6 +400,7 @@ export default function DesignReviewPage({
                     onRepositionPin={pinState.repositionPin}
                     pinMode={pinState.pinMode}
                     currentUserId={session?.user?.id ?? ""}
+                    onRepositionPendingPin={handleRepositionPendingPin}
                   />
                 )
               : undefined
@@ -409,6 +417,7 @@ export default function DesignReviewPage({
               onRepositionPin={pinState.repositionPin}
               pinMode={pinState.pinMode}
               currentUserId={session?.user?.id ?? ""}
+              onRepositionPendingPin={handleRepositionPendingPin}
             />
           )}
         </DocumentViewer>

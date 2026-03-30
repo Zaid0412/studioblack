@@ -22,6 +22,8 @@ interface PinOverlayProps {
   pinMode?: boolean;
   /** Current user ID — only the author can drag their own pin. */
   currentUserId?: string;
+  /** Callback when the pending pin is dragged to a new position. */
+  onRepositionPendingPin?: (xPercent: number, yPercent: number) => void;
 }
 
 /** Minimum pixels of movement before a click becomes a drag. */
@@ -112,7 +114,9 @@ export function PinOverlay({
   onRepositionPin,
   pinMode = false,
   currentUserId,
+  onRepositionPendingPin,
 }: PinOverlayProps) {
+  const PENDING_ID = "__pending__";
   const [dragState, setDragState] = useState<{
     pinId: string;
     startX: number;
@@ -195,16 +199,20 @@ export function PinOverlay({
     () => {
       if (!dragState) return;
 
-      if (dragState.isDragging && onRepositionPin) {
-        onRepositionPin(dragState.pinId, dragState.leftPercent, dragState.topPercent, page);
-      } else {
+      if (dragState.isDragging) {
+        if (dragState.pinId === PENDING_ID) {
+          onRepositionPendingPin?.(dragState.leftPercent, dragState.topPercent);
+        } else {
+          onRepositionPin?.(dragState.pinId, dragState.leftPercent, dragState.topPercent, page);
+        }
+      } else if (dragState.pinId !== PENDING_ID) {
         // It was a click, not a drag
         onSelectPin(dragState.pinId);
       }
 
       setDragState(null);
     },
-    [dragState, onRepositionPin, onSelectPin, page]
+    [dragState, onRepositionPin, onRepositionPendingPin, onSelectPin, page, PENDING_ID]
   );
 
   return (
@@ -250,19 +258,46 @@ export function PinOverlay({
         );
       })}
 
-      {/* Pending pin — pulsing while user types the comment */}
-      {pendingPin && pendingPin.page === page && (
-        <div
-          style={{
-            left: `${pendingPin.xPercent}%`,
-            top: `${pendingPin.yPercent}%`,
-            transform: "translate(-50%, -100%)",
-          }}
-          className="absolute"
-        >
-          <PinMarker label={pinnedCount + 1} selected pulsing />
-        </div>
-      )}
+      {/* Pending pin — draggable while user types the comment */}
+      {pendingPin && pendingPin.page === page && (() => {
+        const isPendingDragging = dragState?.pinId === PENDING_ID && dragState.isDragging;
+        const pendingPos = isPendingDragging
+          ? { left: dragState.leftPercent, top: dragState.topPercent }
+          : { left: pendingPin.xPercent, top: pendingPin.yPercent };
+        return (
+          <div
+            onPointerDown={(e) => {
+              if (!onRepositionPendingPin) return;
+              e.preventDefault();
+              e.stopPropagation();
+              (e.target as HTMLElement).setPointerCapture(e.pointerId);
+              setDragState({
+                pinId: PENDING_ID,
+                startX: e.clientX,
+                startY: e.clientY,
+                isDragging: false,
+                leftPercent: pendingPin.xPercent,
+                topPercent: pendingPin.yPercent,
+              });
+            }}
+            style={{
+              left: `${pendingPos.left}%`,
+              top: `${pendingPos.top}%`,
+              transform: "translate(-50%, -100%)",
+            }}
+            className={`absolute pointer-events-auto transition-transform duration-200 ease-out will-change-transform ${
+              isPendingDragging ? "cursor-grabbing z-20" : "cursor-grab hover:scale-110"
+            }`}
+          >
+            <PinMarker
+              label={pinnedCount + 1}
+              selected
+              pulsing={!isPendingDragging}
+              dragging={isPendingDragging}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
