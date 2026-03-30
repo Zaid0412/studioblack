@@ -105,7 +105,10 @@ export function NotificationPanel() {
             {t("title")}
           </span>
           <div className="flex items-center gap-1.5">
-            <RefreshButton onRefresh={refresh} tooltip="Refresh notifications" />
+            <RefreshButton
+              onRefresh={refresh}
+              tooltip="Refresh notifications"
+            />
             <button
               onClick={handleMarkAllRead}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-muted hover:text-text-secondary transition-colors text-xs cursor-pointer"

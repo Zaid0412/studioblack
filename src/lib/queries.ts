@@ -915,10 +915,10 @@ export async function createPinComment(params: {
 /** Update resolved status of a pin comment. */
 export async function updatePinComment(pinId: string, resolved: boolean) {
   const pool = getPool();
-  await pool.query(
-    `UPDATE pin_comment SET resolved = $1 WHERE id = $2`,
-    [resolved, pinId]
-  );
+  await pool.query(`UPDATE pin_comment SET resolved = $1 WHERE id = $2`, [
+    resolved,
+    pinId,
+  ]);
   return getPinCommentById(pinId);
 }
 

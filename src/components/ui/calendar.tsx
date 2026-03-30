@@ -47,8 +47,7 @@ function Calendar({
         today:
           "[&>button]:bg-[#F5C518]/20 [&>button]:text-[#F5C518] [&>button]:font-bold [&>button]:border [&>button]:border-[#F5C518]/60",
         outside: "[&>button]:text-text-muted/40",
-        disabled:
-          "[&>button]:text-text-muted/30 [&>button]:cursor-not-allowed",
+        disabled: "[&>button]:text-text-muted/30 [&>button]:cursor-not-allowed",
         hidden: "invisible",
         ...classNames,
       }}

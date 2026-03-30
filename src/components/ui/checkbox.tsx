@@ -4,8 +4,10 @@ import { forwardRef, type InputHTMLAttributes } from "react";
 import { Check, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface CheckboxProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "onChange"> {
+interface CheckboxProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "type" | "onChange"
+> {
   checked?: boolean;
   indeterminate?: boolean;
   onCheckedChange?: (checked: boolean) => void;

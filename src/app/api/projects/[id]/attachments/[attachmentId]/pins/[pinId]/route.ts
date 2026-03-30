@@ -79,16 +79,27 @@ export const PATCH = withAuth(
       }
       const { x_percent, y_percent, page } = body;
       if (
-        typeof x_percent !== "number" || x_percent < 0 || x_percent > 100 ||
-        typeof y_percent !== "number" || y_percent < 0 || y_percent > 100 ||
-        typeof page !== "number" || !Number.isInteger(page) || page < 1
+        typeof x_percent !== "number" ||
+        x_percent < 0 ||
+        x_percent > 100 ||
+        typeof y_percent !== "number" ||
+        y_percent < 0 ||
+        y_percent > 100 ||
+        typeof page !== "number" ||
+        !Number.isInteger(page) ||
+        page < 1
       ) {
         return NextResponse.json(
           { error: "Invalid coordinates" },
           { status: 400 }
         );
       }
-      const updated = await updatePinCommentPosition(pinId, x_percent, y_percent, page);
+      const updated = await updatePinCommentPosition(
+        pinId,
+        x_percent,
+        y_percent,
+        page
+      );
       return NextResponse.json(updated);
     }
 

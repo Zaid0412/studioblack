@@ -78,7 +78,10 @@ export default function ProjectDetailPage({
         // Clean up URL param after consuming it
         const params = new URLSearchParams(searchParams.toString());
         params.delete("highlightTask");
-        router.replace(`${window.location.pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+        router.replace(
+          `${window.location.pathname}${params.size ? `?${params}` : ""}`,
+          { scroll: false }
+        );
       });
   }, [highlightTaskId, project, setActivePhaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 

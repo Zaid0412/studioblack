@@ -44,20 +44,14 @@ function PinMarker({
   pulsing?: boolean;
   dragging?: boolean;
 }) {
-  const fill = selected
-    ? "#F5C518"
-    : resolved
-      ? "#444"
-      : "#dc2626";
+  const fill = selected ? "#F5C518" : resolved ? "#444" : "#dc2626";
 
-  const stroke = selected
-    ? "#d4a910"
-    : resolved
-      ? "#333"
-      : "#991b1b";
+  const stroke = selected ? "#d4a910" : resolved ? "#333" : "#991b1b";
 
   return (
-    <div className={`relative flex flex-col items-center ${pulsing ? "animate-pulse" : ""}`}>
+    <div
+      className={`relative flex flex-col items-center ${pulsing ? "animate-pulse" : ""}`}
+    >
       {/* Glow when selected */}
       {selected && (
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-11 h-11 rounded-full bg-[#F5C518]/25 blur-sm" />
@@ -82,7 +76,9 @@ function PinMarker({
           cx="12"
           cy="10"
           r="5"
-          fill={selected ? "#0D0D0D" : resolved ? "#2A2A2A" : "rgba(0,0,0,0.35)"}
+          fill={
+            selected ? "#0D0D0D" : resolved ? "#2A2A2A" : "rgba(0,0,0,0.35)"
+          }
         />
       </svg>
       {/* Label overlaid on the inner circle */}
@@ -90,9 +86,15 @@ function PinMarker({
         className="absolute inset-0 flex items-center justify-center"
         style={{ paddingBottom: 8 }}
       >
-        <span className={`text-[10px] font-bold leading-none ${
-          selected ? "text-[#F5C518]" : resolved ? "text-[#666]" : "text-white"
-        }`}>
+        <span
+          className={`text-[10px] font-bold leading-none ${
+            selected
+              ? "text-[#F5C518]"
+              : resolved
+                ? "text-[#666]"
+                : "text-white"
+          }`}
+        >
           {label}
         </span>
       </div>
@@ -246,8 +248,7 @@ export function PinOverlay({
         const index = indexMap.get(pin.id) ?? 0;
         const isSelected = pin.id === selectedPinId;
         const pos = getDragPosition(pin);
-        const isDragging =
-          dragState?.pinId === pin.id && dragState.isDragging;
+        const isDragging = dragState?.pinId === pin.id && dragState.isDragging;
         const canDrag = currentUserId ? pin.user_id === currentUserId : true;
 
         return (
@@ -287,11 +288,7 @@ export function PinOverlay({
           }}
           className="absolute"
         >
-          <PinMarker
-            label={pinnedCount + 1}
-            selected
-            pulsing
-          />
+          <PinMarker label={pinnedCount + 1} selected pulsing />
         </div>
       )}
     </div>

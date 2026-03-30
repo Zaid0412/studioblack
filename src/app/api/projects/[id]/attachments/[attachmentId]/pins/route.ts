@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getPinComments, createPinComment, getAttachmentById, getPinCommentById } from "@/lib/queries";
+import {
+  getPinComments,
+  createPinComment,
+  getAttachmentById,
+  getPinCommentById,
+} from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
@@ -40,7 +45,15 @@ export const POST = withAuth(
     }
 
     const body = await req.json();
-    const { x_percent, y_percent, page, content, request_approval, assign_as_task, parent_id } = body;
+    const {
+      x_percent,
+      y_percent,
+      page,
+      content,
+      request_approval,
+      assign_as_task,
+      parent_id,
+    } = body;
 
     // Validate content (shared by replies and top-level)
     if (typeof content !== "string" || !content.trim()) {
@@ -60,7 +73,10 @@ export const POST = withAuth(
     if (parent_id) {
       const parent = await getPinCommentById(parent_id);
       if (!parent || parent.attachment_id !== attachmentId) {
-        return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Parent comment not found" },
+          { status: 404 }
+        );
       }
       const reply = await createPinComment({
         attachmentId,
@@ -83,7 +99,10 @@ export const POST = withAuth(
 
     if (hasAnyCoord && !hasAllCoords) {
       return NextResponse.json(
-        { error: "x_percent, y_percent, and page must all be provided together or all omitted" },
+        {
+          error:
+            "x_percent, y_percent, and page must all be provided together or all omitted",
+        },
         { status: 400 }
       );
     }
@@ -138,28 +157,25 @@ export const POST = withAuth(
         );
         if (!projRows[0]) {
           await client.query("ROLLBACK");
-          return NextResponse.json({ error: "Project not found" }, { status: 404 });
+          return NextResponse.json(
+            { error: "Project not found" },
+            { status: 404 }
+          );
         }
         const orgId = projRows[0].org_id;
 
         // Truncate content for task title
-        const taskTitle = content.trim().length > 100
-          ? content.trim().slice(0, 97) + "..."
-          : content.trim();
+        const taskTitle =
+          content.trim().length > 100
+            ? content.trim().slice(0, 97) + "..."
+            : content.trim();
 
         // Create task
         const { rows: taskRows } = await client.query(
           `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, due_date, status, priority, category)
            VALUES ($1, $2, $3, $4, $5, $6, 'todo', 'medium', 'review')
            RETURNING id`,
-          [
-            orgId,
-            id,
-            taskTitle,
-            user.id,
-            assigned_to,
-            due_date || null,
-          ]
+          [orgId, id, taskTitle, user.id, assigned_to, due_date || null]
         );
         const taskId = taskRows[0].id;
 

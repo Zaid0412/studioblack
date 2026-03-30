@@ -1,14 +1,21 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type ReactNode,
+} from "react";
 import { Download, FileText, Loader2, MapPin } from "lucide-react";
 import { isImage, isPdf } from "@/lib/fileUtils";
 
 // Pin cursor as a data URI — encoded at module load time
 const PIN_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="22" viewBox="0 0 24 32" fill="none"><path d="M12 0C5.372 0 0 5.372 0 12c0 7 12 20 12 20s12-13 12-20c0-6.628-5.372-12-12-12z" fill="#F5C518"/><circle cx="12" cy="12" r="4" fill="#0D0D0D"/></svg>`;
-const PIN_CURSOR = typeof window !== "undefined"
-  ? `url("data:image/svg+xml;base64,${btoa(PIN_CURSOR_SVG)}") 8 22, crosshair`
-  : "crosshair";
+const PIN_CURSOR =
+  typeof window !== "undefined"
+    ? `url("data:image/svg+xml;base64,${btoa(PIN_CURSOR_SVG)}") 8 22, crosshair`
+    : "crosshair";
 
 interface DocumentViewerProps {
   activeFileId: string;
@@ -210,7 +217,9 @@ export function DocumentViewer({
           {pdfError ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <FileText className="w-12 h-12 text-[#666666]" />
-              <p className="text-[#A0A0A0] text-sm text-center max-w-xs">{pdfError}</p>
+              <p className="text-[#A0A0A0] text-sm text-center max-w-xs">
+                {pdfError}
+              </p>
               <button
                 onClick={() => window.location.reload()}
                 className="text-[13px] text-[#F5C518] hover:underline cursor-pointer"
@@ -281,7 +290,9 @@ export function DocumentViewer({
         <div className="flex items-center gap-2 bg-[#0D0D0D]/90 border border-[#333] backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
           <MapPin className="w-3.5 h-3.5 text-[#F5C518] shrink-0" />
           <span className="text-[12px] text-[#A0A0A0] whitespace-nowrap">
-            Click anywhere to place a pin · Press <kbd className="text-[#F5C518] font-medium">P</kbd> or <kbd className="text-[#F5C518] font-medium">Esc</kbd> to exit
+            Click anywhere to place a pin · Press{" "}
+            <kbd className="text-[#F5C518] font-medium">P</kbd> or{" "}
+            <kbd className="text-[#F5C518] font-medium">Esc</kbd> to exit
           </span>
         </div>
       </div>

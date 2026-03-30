@@ -15,7 +15,10 @@ interface ReviewSubmitBarProps {
 }
 
 /** Bottom bar for submitting a design review with approve/reject actions and comment. */
-export function ReviewSubmitBar({ onSubmit, pinCount = 0 }: ReviewSubmitBarProps) {
+export function ReviewSubmitBar({
+  onSubmit,
+  pinCount = 0,
+}: ReviewSubmitBarProps) {
   const [expanded, setExpanded] = useState(false);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState<"approved" | "rejected" | null>(

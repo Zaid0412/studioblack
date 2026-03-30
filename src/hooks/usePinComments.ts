@@ -119,9 +119,7 @@ export function usePinComments({
         await pinComments.resolve(projectId, attachmentId, pinId, resolved);
       } catch {
         setPins((prev) =>
-          prev.map((p) =>
-            p.id === pinId ? { ...p, resolved: !resolved } : p
-          )
+          prev.map((p) => (p.id === pinId ? { ...p, resolved: !resolved } : p))
         );
         toast({
           title: "Error",
@@ -148,12 +146,7 @@ export function usePinComments({
         )
       );
       try {
-        await pinComments.editContent(
-          projectId,
-          attachmentId,
-          pinId,
-          content
-        );
+        await pinComments.editContent(projectId, attachmentId, pinId, content);
       } catch {
         // Rollback
         setPins((ps) =>
@@ -197,12 +190,7 @@ export function usePinComments({
   // ── Reposition ────────────────────────────────────────────────────────
 
   const repositionPin = useCallback(
-    async (
-      pinId: string,
-      xPercent: number,
-      yPercent: number,
-      page: number
-    ) => {
+    async (pinId: string, xPercent: number, yPercent: number, page: number) => {
       const prev = pins.find((p) => p.id === pinId);
       if (!prev) return;
 

@@ -139,7 +139,10 @@ export function PinSidebar({
   // Auto-scroll to selected pin comment (e.g. from deep link)
   useEffect(() => {
     if (selectedPinId && selectedRef.current) {
-      selectedRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      selectedRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   }, [selectedPinId]);
 
@@ -162,7 +165,9 @@ export function PinSidebar({
   return (
     <div
       className="absolute right-0 top-10 bottom-0 w-72 z-40 bg-[#0D0D0D] border-l border-[#222] flex flex-col overflow-hidden shadow-2xl transition-transform duration-200 ease-out"
-      style={{ transform: stage === "in" ? "translateX(0)" : "translateX(100%)" }}
+      style={{
+        transform: stage === "in" ? "translateX(0)" : "translateX(100%)",
+      }}
     >
       {/* Header */}
       <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-[#222]">
@@ -220,7 +225,8 @@ export function PinSidebar({
           <div className="flex flex-col items-center justify-center py-12 px-4">
             <MapPin className="w-8 h-8 text-[#333] mb-3" />
             <p className="text-[12px] text-[#555] text-center">
-              No comments yet. Click the <MapPin className="w-3 h-3 inline" /> button and click anywhere on the file to add one.
+              No comments yet. Click the <MapPin className="w-3 h-3 inline" />{" "}
+              button and click anywhere on the file to add one.
             </p>
           </div>
         ) : (
@@ -388,10 +394,7 @@ function PinCard({
 
       {/* Content — inline edit or display */}
       {editing ? (
-        <div
-          className="px-3 pb-2 ml-7"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="px-3 pb-2 ml-7" onClick={(e) => e.stopPropagation()}>
           <textarea
             ref={editRef}
             value={editContent}

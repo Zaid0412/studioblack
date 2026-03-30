@@ -74,10 +74,6 @@ export function reposition(
   );
 }
 
-export function remove(
-  projectId: string,
-  attachmentId: string,
-  pinId: string
-) {
+export function remove(projectId: string, attachmentId: string, pinId: string) {
   return apiDelete(API.attachmentPin(projectId, attachmentId, pinId));
 }
