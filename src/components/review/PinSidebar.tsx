@@ -10,6 +10,7 @@ import {
   Plus,
   CheckSquare,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -72,7 +73,7 @@ interface PinSidebarProps {
     page?: number | null;
     requestApproval?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
-  }) => void;
+  }) => void | Promise<void>;
   onCancelPending?: () => void;
   /** Clear the visual pending pin from the document without closing the form. */
   onClearPendingPin?: () => void;
@@ -207,7 +208,7 @@ export function PinSidebar({
             </p>
           </div>
         ) : (
-          <div className="py-1">
+          <div className="flex flex-col gap-1.5 p-2">
             {sorted.map((pin) => {
               const isPinned =
                 pin.x_percent !== null &&
@@ -215,29 +216,29 @@ export function PinSidebar({
                 pin.page !== null;
               const pinIndex = pinIndexMap.get(pin.id);
               const isSelected = pin.id === selectedPinId;
-              const canDelete = pin.user_id === currentUserId || isStaff;
+              const canDelete = pin.user_id === currentUserId;
 
               return (
                 <button
                   key={pin.id}
                   ref={isSelected ? selectedRef : undefined}
                   onClick={() => onSelectPin(pin.id)}
-                  className={`w-full text-left px-3 py-3 border-b border-[#1A1A1A] transition-colors cursor-pointer ${
+                  className={`group w-full text-left rounded-lg border transition-colors cursor-pointer ${
                     isSelected
-                      ? "bg-[#F5C518]/5 border-l-2 border-l-[#F5C518]"
-                      : "hover:bg-[#111]/50"
+                      ? "bg-[#F5C518]/5 border-[#F5C518]/20"
+                      : "bg-[#141414] border-[#ffffff08] hover:border-[#ffffff12] hover:bg-[#181818]"
                   }`}
                 >
-                  {/* Pin number / icon + author + time + badges */}
-                  <div className="flex items-center gap-2 mb-1.5">
+                  {/* Header: pin badge + author + time */}
+                  <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
                     {isPinned ? (
                       <span
-                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
+                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
                           isSelected
                             ? "bg-[#F5C518] text-[#0D0D0D]"
                             : pin.resolved
-                              ? "bg-[#1A1A1A] text-[#555]"
-                              : "bg-[#1A1A1A] text-white"
+                              ? "bg-[#222] text-[#555]"
+                              : "bg-[#222] text-white"
                         }`}
                       >
                         {pin.resolved ? (
@@ -249,7 +250,7 @@ export function PinSidebar({
                     ) : (
                       <span
                         className={`w-5 h-5 flex items-center justify-center shrink-0 ${
-                          isSelected ? "text-[#F5C518]" : "text-[#555]"
+                          isSelected ? "text-[#F5C518]" : "text-[#444]"
                         }`}
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
@@ -257,17 +258,17 @@ export function PinSidebar({
                     )}
                     <span
                       className={`text-[12px] font-medium truncate ${
-                        pin.resolved ? "text-[#555]" : "text-[#A0A0A0]"
+                        pin.resolved ? "text-[#555]" : "text-white"
                       }`}
                     >
                       {pin.user_name}
                     </span>
                     {/* Badges */}
                     {pin.task_id !== null && (
-                      <CheckSquare className="w-3 h-3 text-[#555] shrink-0" />
+                      <CheckSquare className="w-3 h-3 text-[#444] shrink-0" />
                     )}
                     {pin.request_approval && (
-                      <ShieldCheck className="w-3 h-3 text-[#555] shrink-0" />
+                      <ShieldCheck className="w-3 h-3 text-[#444] shrink-0" />
                     )}
                     <span className="text-[10px] text-[#555] ml-auto shrink-0">
                       {timeAgo(pin.created_at)}
@@ -276,18 +277,18 @@ export function PinSidebar({
 
                   {/* Content */}
                   <p
-                    className={`text-[12px] ml-7 leading-relaxed ${
+                    className={`text-[12px] px-3 pb-2 ml-7 leading-relaxed ${
                       pin.resolved
                         ? "text-[#555] line-through"
-                        : "text-[#A0A0A0]"
+                        : "text-[#999]"
                     }`}
                   >
                     {pin.content}
                   </p>
 
-                  {/* Actions */}
+                  {/* Actions bar */}
                   <div
-                    className="flex items-center gap-3 ml-7 mt-2"
+                    className="flex items-center justify-between px-3 py-1.5 border-t border-[#ffffff06]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Checkbox
@@ -302,7 +303,7 @@ export function PinSidebar({
                           e.stopPropagation();
                           onDeletePin(pin.id);
                         }}
-                        className="text-[#555] hover:text-red-400 transition-colors cursor-pointer"
+                        className="text-[#333] hover:text-red-400 transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -336,7 +337,7 @@ function NewPinForm({
     page?: number | null;
     requestApproval?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
-  }) => void;
+  }) => void | Promise<void>;
   onCancel: () => void;
   /** Clear the visual pending pin from the document. */
   onClearPin?: () => void;
@@ -349,6 +350,7 @@ function NewPinForm({
   const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [requestApproval, setRequestApproval] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -372,8 +374,8 @@ function NewPinForm({
     }
   }
 
-  function handleSubmit() {
-    if (!content.trim()) return;
+  async function handleSubmit() {
+    if (!content.trim() || submitting) return;
     const data: Parameters<typeof onSubmit>[0] = {
       content: content.trim(),
       xPercent: pinAttached && pendingPin ? pendingPin.xPercent : null,
@@ -389,7 +391,12 @@ function NewPinForm({
         dueDate: dueDate || undefined,
       };
     }
-    onSubmit(data);
+    setSubmitting(true);
+    try {
+      await onSubmit(data);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const expandRef = useRef<HTMLDivElement>(null);
@@ -558,10 +565,11 @@ function NewPinForm({
         <div className="px-3 pb-3 pt-1">
           <button
             onClick={handleSubmit}
-            disabled={!content.trim()}
-            className="rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-text-on-accent hover:bg-accent-hover disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer"
+            disabled={!content.trim() || submitting}
+            className="rounded-lg bg-accent px-5 py-2 text-[13px] font-semibold text-text-on-accent hover:bg-accent-hover disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer flex items-center gap-2"
           >
-            Submit
+            {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {submitting ? "Submitting…" : "Submit"}
           </button>
         </div>
       </div>

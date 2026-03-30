@@ -12,7 +12,7 @@ interface PinOverlayProps {
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
 }
 
-/** A map-style pin marker with a number or icon inside. Anchor point is the pin tip (bottom center). */
+/** Compact circular pin marker. Anchor point is bottom-center (the tail tip). */
 function PinMarker({
   label,
   selected,
@@ -24,54 +24,34 @@ function PinMarker({
   resolved?: boolean;
   pulsing?: boolean;
 }) {
-  const fill = selected
-    ? "#F5C518"
-    : resolved
-      ? "#444444"
-      : "#1A1A1A";
-  const stroke = selected
-    ? "#F5C518"
-    : resolved
-      ? "#555555"
-      : "#A0A0A0";
-
   return (
     <div className={`relative flex flex-col items-center ${pulsing ? "animate-pulse" : ""}`}>
-      <svg
-        width="28"
-        height="36"
-        viewBox="0 0 28 36"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className={`drop-shadow-lg ${selected ? "drop-shadow-[0_0_6px_rgba(245,197,24,0.4)]" : ""}`}
-      >
-        <path
-          d="M14 0C6.268 0 0 6.268 0 14c0 8.5 14 22 14 22s14-13.5 14-22C28 6.268 21.732 0 14 0Z"
-          fill={fill}
-          stroke={stroke}
-          strokeWidth="1.5"
-        />
-        {/* White/dark circle for the number */}
-        <circle
-          cx="14"
-          cy="13"
-          r="8"
-          fill={selected ? "#0D0D0D" : resolved ? "#333333" : "#0D0D0D"}
-          opacity={resolved ? 0.5 : 0.3}
-        />
-      </svg>
-      {/* Number/icon centered in the pin head */}
-      <span
-        className={`absolute top-[5px] left-1/2 -translate-x-1/2 flex items-center justify-center w-5 h-5 text-[10px] font-bold ${
+      {/* Outer glow ring when selected */}
+      {selected && (
+        <div className="absolute -top-[3px] left-1/2 -translate-x-1/2 w-[30px] h-[30px] rounded-full bg-[#F5C518]/20 blur-[2px]" />
+      )}
+      {/* Circle body */}
+      <div
+        className={`relative w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shadow-md border-[1.5px] ${
           selected
-            ? "text-[#0D0D0D]"
+            ? "bg-[#F5C518] border-[#F5C518] text-[#0D0D0D] shadow-[0_0_8px_rgba(245,197,24,0.5)]"
             : resolved
-              ? "text-[#777]"
-              : "text-white"
+              ? "bg-[#2A2A2A] border-[#444] text-[#666]"
+              : "bg-[#1A1A1A] border-[#555] text-white"
         }`}
       >
         {label}
-      </span>
+      </div>
+      {/* Tail / pointer */}
+      <div
+        className={`w-0 h-0 -mt-[1px] border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-t-[6px] ${
+          selected
+            ? "border-t-[#F5C518]"
+            : resolved
+              ? "border-t-[#2A2A2A]"
+              : "border-t-[#1A1A1A]"
+        }`}
+      />
     </div>
   );
 }
