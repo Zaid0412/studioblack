@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { tasks } from "@/lib/api";
 import { Loader2 } from "lucide-react";
@@ -62,6 +62,7 @@ export default function ProjectDetailPage({
 
   const uploadTriggerRef = useRef<(() => void) | null>(null);
 
+  const router = useRouter();
   const searchParams = useSearchParams();
   const highlightTaskId = searchParams.get("highlightTask");
 
@@ -73,7 +74,11 @@ export default function ProjectDetailPage({
         if (task?.phase_id) setActivePhaseId(task.phase_id);
       })
       .catch(() => {});
-  }, [highlightTaskId, project, setActivePhaseId]);
+    // Clean up URL param after consuming it
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("highlightTask");
+    router.replace(`${window.location.pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+  }, [highlightTaskId, project, setActivePhaseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || roleLoading) {
     return (

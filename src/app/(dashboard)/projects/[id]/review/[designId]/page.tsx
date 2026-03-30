@@ -101,6 +101,11 @@ export default function DesignReviewPage({
   useEffect(() => {
     if (initialPinId && pinState.pins.length > 0) {
       pinState.setSelectedPinId(initialPinId);
+      // Clean up URL params after consuming them
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("pinId");
+      params.delete("comments");
+      router.replace(`${window.location.pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
     }
   }, [initialPinId, pinState.pins.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
