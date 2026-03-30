@@ -895,9 +895,14 @@ export async function createPinComment(params: {
 }) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id, parent_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     RETURNING *`,
+    `WITH inserted AS (
+       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *
+     )
+     SELECT i.*, u.name AS user_name, 0::int AS reply_count
+     FROM inserted i
+     JOIN "user" u ON u.id = i.user_id`,
     [
       params.attachmentId,
       params.userId,
@@ -910,8 +915,7 @@ export async function createPinComment(params: {
       params.parentId ?? null,
     ]
   );
-  // Re-fetch with user name + reply_count
-  return getPinCommentById(rows[0].id);
+  return rows[0];
 }
 
 /** Update resolved status of a pin comment. */
