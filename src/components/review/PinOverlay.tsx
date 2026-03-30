@@ -186,8 +186,14 @@ export function PinOverlay({
           ? {
               ...prev,
               isDragging: prev.isDragging || moved,
-              leftPercent: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
-              topPercent: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
+              leftPercent: Math.max(
+                0,
+                Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+              ),
+              topPercent: Math.max(
+                0,
+                Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
+              ),
             }
           : null
       );
@@ -195,25 +201,34 @@ export function PinOverlay({
     [dragState]
   );
 
-  const handlePointerUp = useCallback(
-    () => {
-      if (!dragState) return;
+  const handlePointerUp = useCallback(() => {
+    if (!dragState) return;
 
-      if (dragState.isDragging) {
-        if (dragState.pinId === PENDING_ID) {
-          onRepositionPendingPin?.(dragState.leftPercent, dragState.topPercent);
-        } else {
-          onRepositionPin?.(dragState.pinId, dragState.leftPercent, dragState.topPercent, page);
-        }
-      } else if (dragState.pinId !== PENDING_ID) {
-        // It was a click, not a drag
-        onSelectPin(dragState.pinId);
+    if (dragState.isDragging) {
+      if (dragState.pinId === PENDING_ID) {
+        onRepositionPendingPin?.(dragState.leftPercent, dragState.topPercent);
+      } else {
+        onRepositionPin?.(
+          dragState.pinId,
+          dragState.leftPercent,
+          dragState.topPercent,
+          page
+        );
       }
+    } else if (dragState.pinId !== PENDING_ID) {
+      // It was a click, not a drag
+      onSelectPin(dragState.pinId);
+    }
 
-      setDragState(null);
-    },
-    [dragState, onRepositionPin, onRepositionPendingPin, onSelectPin, page, PENDING_ID]
-  );
+    setDragState(null);
+  }, [
+    dragState,
+    onRepositionPin,
+    onRepositionPendingPin,
+    onSelectPin,
+    page,
+    PENDING_ID,
+  ]);
 
   return (
     <div
@@ -259,45 +274,50 @@ export function PinOverlay({
       })}
 
       {/* Pending pin — draggable while user types the comment */}
-      {pendingPin && pendingPin.page === page && (() => {
-        const isPendingDragging = dragState?.pinId === PENDING_ID && dragState.isDragging;
-        const pendingPos = isPendingDragging
-          ? { left: dragState.leftPercent, top: dragState.topPercent }
-          : { left: pendingPin.xPercent, top: pendingPin.yPercent };
-        return (
-          <div
-            onPointerDown={(e) => {
-              if (!onRepositionPendingPin) return;
-              e.preventDefault();
-              e.stopPropagation();
-              (e.target as HTMLElement).setPointerCapture(e.pointerId);
-              setDragState({
-                pinId: PENDING_ID,
-                startX: e.clientX,
-                startY: e.clientY,
-                isDragging: false,
-                leftPercent: pendingPin.xPercent,
-                topPercent: pendingPin.yPercent,
-              });
-            }}
-            style={{
-              left: `${pendingPos.left}%`,
-              top: `${pendingPos.top}%`,
-              transform: "translate(-50%, -100%)",
-            }}
-            className={`absolute pointer-events-auto transition-transform duration-200 ease-out will-change-transform ${
-              isPendingDragging ? "cursor-grabbing z-20" : "cursor-grab hover:scale-110"
-            }`}
-          >
-            <PinMarker
-              label={pinnedCount + 1}
-              selected
-              pulsing={!isPendingDragging}
-              dragging={isPendingDragging}
-            />
-          </div>
-        );
-      })()}
+      {pendingPin &&
+        pendingPin.page === page &&
+        (() => {
+          const isPendingDragging =
+            dragState?.pinId === PENDING_ID && dragState.isDragging;
+          const pendingPos = isPendingDragging
+            ? { left: dragState.leftPercent, top: dragState.topPercent }
+            : { left: pendingPin.xPercent, top: pendingPin.yPercent };
+          return (
+            <div
+              onPointerDown={(e) => {
+                if (!onRepositionPendingPin) return;
+                e.preventDefault();
+                e.stopPropagation();
+                (e.target as HTMLElement).setPointerCapture(e.pointerId);
+                setDragState({
+                  pinId: PENDING_ID,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  isDragging: false,
+                  leftPercent: pendingPin.xPercent,
+                  topPercent: pendingPin.yPercent,
+                });
+              }}
+              style={{
+                left: `${pendingPos.left}%`,
+                top: `${pendingPos.top}%`,
+                transform: "translate(-50%, -100%)",
+              }}
+              className={`absolute pointer-events-auto transition-transform duration-200 ease-out will-change-transform ${
+                isPendingDragging
+                  ? "cursor-grabbing z-20"
+                  : "cursor-grab hover:scale-110"
+              }`}
+            >
+              <PinMarker
+                label={pinnedCount + 1}
+                selected
+                pulsing={!isPendingDragging}
+                dragging={isPendingDragging}
+              />
+            </div>
+          );
+        })()}
     </div>
   );
 }
