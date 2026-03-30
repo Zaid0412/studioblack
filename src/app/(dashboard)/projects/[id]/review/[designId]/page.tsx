@@ -52,7 +52,9 @@ export default function DesignReviewPage({
   const { collapse } = useSidebar();
 
   // Auto-collapse main sidebar when entering the file viewer
-  useEffect(() => { collapse(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    collapse();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const review = useDesignReview({
     projectId: id,
@@ -316,134 +318,134 @@ export default function DesignReviewPage({
       <div className="flex-1 flex min-w-0">
         {/* Document area: toolbar + viewer + overlays */}
         <div className="flex-1 flex flex-col min-w-0 relative">
-        <ReviewToolbar
-          backPath={`/projects/${id}`}
-          fileName={fileName}
-          fileUrl={fileUrl}
-          pinModeActive={pinState.pinMode}
-          onTogglePinMode={handleTogglePinMode}
-          onDownload={handleDownload}
-          onUploadNewVersion={
-            !isClient && attachment?.version_group && !attachment?.frozen_at
-              ? () => setUploadOpen(true)
-              : undefined
-          }
-          frozen={!isClient ? !!attachment?.frozen_at : undefined}
-          onToggleFreeze={!isClient ? handleToggleFreeze : undefined}
-          leftSlot={
-            isClient &&
-            attachment.review_status &&
-            attachment.review_status !== "pending" ? (
-              <span
-                className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                  attachment.review_status === "approved"
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : "bg-amber-500/20 text-amber-400"
-                }`}
-              >
-                {attachment.review_status === "approved"
-                  ? t("approved")
-                  : t("changesRequested")}
-              </span>
-            ) : undefined
-          }
-          rightSlot={
-            <>
-              {/* Comments sidebar toggle */}
-              <button
-                onClick={() => {
-                  const next = !commentsOpen;
-                  setCommentsOpen(next);
-                  if (next) setReviewsOpen(false);
-                }}
-                className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                  commentsOpen
-                    ? "bg-[#F5C518]/15 text-[#F5C518]"
-                    : pinState.pins.length > 0
-                      ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
-                      : "text-[#A0A0A0] hover:text-white"
-                }`}
-                title="Pin comments"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                {pinState.unresolvedCount > 0 && (
-                  <span>{pinState.unresolvedCount}</span>
-                )}
-              </button>
-              {/* PM: Reviews toggle */}
-              {!isClient && (
+          <ReviewToolbar
+            backPath={`/projects/${id}`}
+            fileName={fileName}
+            fileUrl={fileUrl}
+            pinModeActive={pinState.pinMode}
+            onTogglePinMode={handleTogglePinMode}
+            onDownload={handleDownload}
+            onUploadNewVersion={
+              !isClient && attachment?.version_group && !attachment?.frozen_at
+                ? () => setUploadOpen(true)
+                : undefined
+            }
+            frozen={!isClient ? !!attachment?.frozen_at : undefined}
+            onToggleFreeze={!isClient ? handleToggleFreeze : undefined}
+            leftSlot={
+              isClient &&
+              attachment.review_status &&
+              attachment.review_status !== "pending" ? (
+                <span
+                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                    attachment.review_status === "approved"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-amber-500/20 text-amber-400"
+                  }`}
+                >
+                  {attachment.review_status === "approved"
+                    ? t("approved")
+                    : t("changesRequested")}
+                </span>
+              ) : undefined
+            }
+            rightSlot={
+              <>
+                {/* Comments sidebar toggle */}
                 <button
                   onClick={() => {
-                    const next = !reviewsOpen;
-                    setReviewsOpen(next);
-                    if (next) setCommentsOpen(false);
+                    const next = !commentsOpen;
+                    setCommentsOpen(next);
+                    if (next) setReviewsOpen(false);
                   }}
                   className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                    reviewsOpen
+                    commentsOpen
                       ? "bg-[#F5C518]/15 text-[#F5C518]"
-                      : review.reviews.length > 0
+                      : pinState.pins.length > 0
                         ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
                         : "text-[#A0A0A0] hover:text-white"
                   }`}
-                  title="Reviews"
+                  title="Pin comments"
                 >
-                  <ClipboardCheck className="w-3.5 h-3.5" />
-                  {review.reviews.length > 0 && (
-                    <span>{review.reviews.length}</span>
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  {pinState.unresolvedCount > 0 && (
+                    <span>{pinState.unresolvedCount}</span>
                   )}
                 </button>
-              )}
-            </>
-          }
-        />
+                {/* PM: Reviews toggle */}
+                {!isClient && (
+                  <button
+                    onClick={() => {
+                      const next = !reviewsOpen;
+                      setReviewsOpen(next);
+                      if (next) setCommentsOpen(false);
+                    }}
+                    className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                      reviewsOpen
+                        ? "bg-[#F5C518]/15 text-[#F5C518]"
+                        : review.reviews.length > 0
+                          ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
+                          : "text-[#A0A0A0] hover:text-white"
+                    }`}
+                    title="Reviews"
+                  >
+                    <ClipboardCheck className="w-3.5 h-3.5" />
+                    {review.reviews.length > 0 && (
+                      <span>{review.reviews.length}</span>
+                    )}
+                  </button>
+                )}
+              </>
+            }
+          />
 
-        <DocumentViewer
-          activeFileId={activeFileId}
-          fileName={fileName}
-          fileUrl={fileUrl}
-          pinMode={pinState.pinMode}
-          onPinClick={handlePinClick}
-          renderPageOverlay={
-            isPdf(fileName)
-              ? (page) => (
-                  <PinOverlay
-                    pins={pinState.pins}
-                    page={page}
-                    selectedPinId={pinState.selectedPinId}
-                    onSelectPin={pinState.setSelectedPinId}
-                    pendingPin={pendingPin}
-                    onRepositionPin={pinState.repositionPin}
-                    pinMode={pinState.pinMode}
-                    currentUserId={session?.user?.id ?? ""}
-                    onRepositionPendingPin={handleRepositionPendingPin}
-                  />
-                )
-              : undefined
-          }
-        >
-          {/* Pin markers overlay — for images (page 1) */}
-          {!isPdf(fileName) && (
-            <PinOverlay
-              pins={pinState.pins}
-              page={1}
-              selectedPinId={pinState.selectedPinId}
-              onSelectPin={pinState.setSelectedPinId}
-              pendingPin={pendingPin}
-              onRepositionPin={pinState.repositionPin}
-              pinMode={pinState.pinMode}
-              currentUserId={session?.user?.id ?? ""}
-              onRepositionPendingPin={handleRepositionPendingPin}
+          <DocumentViewer
+            activeFileId={activeFileId}
+            fileName={fileName}
+            fileUrl={fileUrl}
+            pinMode={pinState.pinMode}
+            onPinClick={handlePinClick}
+            renderPageOverlay={
+              isPdf(fileName)
+                ? (page) => (
+                    <PinOverlay
+                      pins={pinState.pins}
+                      page={page}
+                      selectedPinId={pinState.selectedPinId}
+                      onSelectPin={pinState.setSelectedPinId}
+                      pendingPin={pendingPin}
+                      onRepositionPin={pinState.repositionPin}
+                      pinMode={pinState.pinMode}
+                      currentUserId={session?.user?.id ?? ""}
+                      onRepositionPendingPin={handleRepositionPendingPin}
+                    />
+                  )
+                : undefined
+            }
+          >
+            {/* Pin markers overlay — for images (page 1) */}
+            {!isPdf(fileName) && (
+              <PinOverlay
+                pins={pinState.pins}
+                page={1}
+                selectedPinId={pinState.selectedPinId}
+                onSelectPin={pinState.setSelectedPinId}
+                pendingPin={pendingPin}
+                onRepositionPin={pinState.repositionPin}
+                pinMode={pinState.pinMode}
+                currentUserId={session?.user?.id ?? ""}
+                onRepositionPendingPin={handleRepositionPendingPin}
+              />
+            )}
+          </DocumentViewer>
+
+          {/* Client: Review Submit Bar */}
+          {isClient && (
+            <ReviewSubmitBar
+              onSubmit={handleSubmitReview}
+              pinCount={pinState.unresolvedCount}
             />
           )}
-        </DocumentViewer>
-
-        {/* Client: Review Submit Bar */}
-        {isClient && (
-          <ReviewSubmitBar
-            onSubmit={handleSubmitReview}
-            pinCount={pinState.unresolvedCount}
-          />
-        )}
         </div>
 
         {/* PM: Reviews Panel — flex sibling, pushes document viewer */}

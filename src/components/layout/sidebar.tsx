@@ -219,11 +219,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
               </button>
             )}
           </PopoverTrigger>
-          <PopoverContent
-            side="top"
-            align="start"
-            className="w-56 p-1.5"
-          >
+          <PopoverContent side="top" align="start" className="w-56 p-1.5">
             {orgName && (
               <>
                 <Link
