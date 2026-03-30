@@ -12,6 +12,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 /**
  * Manages open/close with a slide animation.
@@ -138,13 +143,17 @@ export function PinSidebar({
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowNewForm(true)}
-            className="text-[#666] hover:text-[#F5C518] transition-colors cursor-pointer p-0.5"
-            title="New comment"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setShowNewForm(true)}
+                className="text-[#666] hover:text-[#F5C518] transition-colors cursor-pointer p-0.5"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">New comment</TooltipContent>
+          </Tooltip>
           <button
             onClick={onClose}
             className="text-[#666] hover:text-white transition-colors cursor-pointer"
@@ -412,35 +421,37 @@ function NewPinForm({
 
         {/* Toolbar inside textarea card */}
         <div className="flex items-center justify-end gap-1 px-2 pb-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              if (pinAttached && pendingPin) {
-                // Detach: remove pin from document
-                setPinAttached(false);
-                onClearPin?.();
-              } else {
-                // Attach: enter pin mode so user can click document
-                onRequestPin?.();
-              }
-            }}
-            className={`p-1.5 rounded transition-colors cursor-pointer ${
-              pinAttached && pendingPin
-                ? "text-[#F5C518] bg-[#F5C518]/10"
-                : "text-[#555] hover:text-[#A0A0A0]"
-            }`}
-            title={
-              pinAttached && pendingPin
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pinAttached && pendingPin) {
+                    setPinAttached(false);
+                    onClearPin?.();
+                  } else {
+                    onRequestPin?.();
+                  }
+                }}
+                className={`p-1.5 rounded transition-colors cursor-pointer ${
+                  pinAttached && pendingPin
+                    ? "text-[#F5C518] bg-[#F5C518]/10"
+                    : "text-[#555] hover:text-[#A0A0A0]"
+                }`}
+
+              >
+                <MapPin className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {pinAttached && pendingPin
                 ? "Unpin from document"
-                : "Click to place a pin on the document"
-            }
-          >
-            <MapPin className="w-3.5 h-3.5" />
-          </button>
+                : "Place a pin on the document"}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
-      {/* Assign as task — bordered card section */}
       {/* Assign as task — bordered card section */}
       <div
         className={`rounded-lg border overflow-hidden transition-colors ${

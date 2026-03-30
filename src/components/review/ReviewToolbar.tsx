@@ -15,6 +15,11 @@ import {
   Unlock,
   Upload,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 
 interface ReviewToolbarProps {
   backPath: string;
@@ -69,13 +74,17 @@ export function ReviewToolbar({
     <div className="h-10 shrink-0 bg-[#1A1A1A] px-3 flex items-center justify-between gap-2">
       {/* Left: Back + filename + leftSlot */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <button
-          onClick={() => router.push(backPath)}
-          className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer shrink-0"
-          title="Back to project"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => router.push(backPath)}
+              className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Back to project</TooltipContent>
+        </Tooltip>
         <span className="text-white text-[13px] font-medium truncate">
           {fileName}
         </span>
@@ -87,30 +96,42 @@ export function ReviewToolbar({
         {rightSlot}
         {rightSlot && <div className="w-px h-4 bg-[#333]" />}
 
-        <button
-          onClick={onTogglePinMode}
-          className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
-          title="Pin comment"
-        >
-          <MapPin className="w-4 h-4" />
-        </button>
-        <button
-          onClick={onDownload}
-          className="text-[#A0A0A0] hover:text-white cursor-pointer"
-          title="Download file"
-        >
-          <Download className="w-4 h-4" />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onTogglePinMode}
+              className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+            >
+              <MapPin className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Pin comment</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onDownload}
+              className="text-[#A0A0A0] hover:text-white cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Download file</TooltipContent>
+        </Tooltip>
 
         {/* More options dropdown */}
         <div className="relative" ref={moreMenuRef}>
-          <button
-            className="text-[#A0A0A0] hover:text-white cursor-pointer"
-            title="More options"
-            onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-          >
-            <Ellipsis className="w-4 h-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="text-[#A0A0A0] hover:text-white cursor-pointer"
+                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+              >
+                <Ellipsis className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">More options</TooltipContent>
+          </Tooltip>
           {moreMenuOpen && (
             <div className="absolute right-0 top-full mt-1 w-44 bg-[#242424] border border-[#333333] rounded-lg shadow-xl py-1 z-50">
               <button
