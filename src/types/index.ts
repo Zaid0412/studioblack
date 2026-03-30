@@ -384,6 +384,10 @@ export interface Task {
   is_starred: boolean;
   checklist_total: number;
   checklist_done: number;
+  /** Set when the task was created from a pin comment. */
+  pin_comment_id: string | null;
+  /** The attachment the pin comment belongs to. */
+  pin_attachment_id: string | null;
 }
 
 /** A single checklist item on a task. */
