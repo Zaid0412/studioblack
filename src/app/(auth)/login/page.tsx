@@ -81,7 +81,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center bg-bg-primary px-8">
         <div className="w-full max-w-sm">
           {/* Mobile logo (hidden on desktop) */}
-          <div className="flex items-center gap-2.5 -ml-3 lg:hidden">
+          <div className={`flex items-center gap-2.5 lg:hidden ${session?.user ? "justify-center" : "-ml-3"}`}>
             <BrandLogo size="lg" />
             {branding.showLogoText && (
               <span className="text-base font-semibold text-text-primary">
