@@ -60,9 +60,11 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
             <BrandLogo size="md" />
-            <span className="text-lg font-semibold text-text-primary">
-              {branding.appName}
-            </span>
+            {branding.showLogoText && (
+              <span className="text-lg font-semibold text-text-primary">
+                {branding.appName}
+              </span>
+            )}
           </div>
 
           {/* Hero text */}
@@ -81,9 +83,11 @@ export default function LoginPage() {
           {/* Mobile logo (hidden on desktop) */}
           <div className="flex items-center gap-2.5 mb-10 lg:hidden">
             <BrandLogo size="sm" />
-            <span className="text-base font-semibold text-text-primary">
-              {branding.appName}
-            </span>
+            {branding.showLogoText && (
+              <span className="text-base font-semibold text-text-primary">
+                {branding.appName}
+              </span>
+            )}
           </div>
 
           {session?.user ? (

@@ -94,9 +94,11 @@ export function MobileSidebarSheet({
             onClick={onClose}
           >
             <BrandLogo size="sm" />
-            <span className="text-sm font-semibold text-text-primary">
-              {branding.appName}
-            </span>
+            {branding.showLogoText && (
+              <span className="text-sm font-semibold text-text-primary">
+                {branding.appName}
+              </span>
+            )}
           </Link>
           <button
             onClick={onClose}

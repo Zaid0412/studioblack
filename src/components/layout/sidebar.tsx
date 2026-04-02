@@ -111,14 +111,24 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       {/* Logo */}
       <Link
         href="/dashboard"
-        className="flex items-center gap-2.5 pt-6 pb-5 px-4 overflow-hidden"
+        className={cn(
+          "flex px-4 overflow-hidden",
+          branding.showLogoText ? "items-center gap-2.5 pt-6 pb-5" : "justify-center pt-3 pb-2"
+        )}
       >
         {branding.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={branding.logoUrl}
             alt={branding.appName}
-            className="h-8 w-8 rounded-md object-contain shrink-0 bg-logo-bg p-1"
+            className={cn(
+              "object-contain",
+              branding.showLogoText
+                ? "h-8 w-8 rounded-md bg-logo-bg p-1 shrink-0"
+                : isCollapsed
+                  ? "h-8 w-8"
+                  : "max-h-20 max-w-[calc(var(--sidebar-width)-2rem)]"
+            )}
           />
         ) : (
           <div className="flex items-center justify-center w-8 h-8 rounded-md bg-accent shrink-0">
@@ -127,14 +137,16 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
             </span>
           </div>
         )}
-        <span
-          className={cn(
-            "text-base font-semibold text-text-primary whitespace-nowrap transition-opacity duration-200",
-            isCollapsed ? "opacity-0" : "opacity-100"
-          )}
-        >
-          {branding.appName}
-        </span>
+        {branding.showLogoText && (
+          <span
+            className={cn(
+              "text-base font-semibold text-text-primary whitespace-nowrap transition-opacity duration-200",
+              isCollapsed ? "opacity-0" : "opacity-100"
+            )}
+          >
+            {branding.appName}
+          </span>
+        )}
       </Link>
 
       {/* Navigation */}

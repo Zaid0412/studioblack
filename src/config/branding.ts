@@ -9,6 +9,8 @@ export const branding = {
   tagline: "Design Reviews, Simplified",
   subtitle: "Streamlined architectural design review & approval",
   logoUrl: "/logo.png",
+  /** Set to false when the logo image already contains the app name. */
+  showLogoText: false,
   supportEmail: "support@studioblack.com",
 } as const;
 
