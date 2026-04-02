@@ -11,7 +11,7 @@ export default function NotFound() {
         alt={branding.appName}
         width={160}
         height={160}
-        className="mb-4 h-36 w-36 object-contain"
+        className="mb-1 h-40 w-40 object-contain"
       />
 
       <h1 className="text-[120px] font-extrabold leading-none tracking-tight text-[#F5C518]">
