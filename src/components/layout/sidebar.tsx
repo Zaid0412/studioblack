@@ -113,7 +113,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
         href="/dashboard"
         className={cn(
           "flex px-4 overflow-hidden",
-          branding.showLogoText ? "items-center gap-2.5 pt-6 pb-5" : "justify-center pt-3 pb-2"
+          branding.showLogoText
+            ? "items-center gap-2.5 pt-6 pb-5"
+            : "justify-center pt-3 pb-2"
         )}
       >
         {branding.logoUrl ? (

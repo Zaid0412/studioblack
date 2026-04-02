@@ -43,7 +43,9 @@ export function SplashScreen() {
           alt=""
           width={branding.showLogoText ? 64 : 96}
           height={branding.showLogoText ? 64 : 96}
-          className={branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-24 w-24"}
+          className={
+            branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-24 w-24"
+          }
         />
       </div>
 

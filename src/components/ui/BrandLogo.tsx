@@ -16,11 +16,19 @@ export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
 
   // When logo contains app name, render larger
   const dims = branding.showLogoText
-    ? size === "sm" ? "h-8 w-8" : "h-10 w-10"
-    : size === "sm" ? "h-10 w-10" : "h-14 w-14";
+    ? size === "sm"
+      ? "h-8 w-8"
+      : "h-10 w-10"
+    : size === "sm"
+      ? "h-10 w-10"
+      : "h-14 w-14";
   const imgSize = branding.showLogoText
-    ? (size === "sm" ? 32 : 40)
-    : (size === "sm" ? 40 : 56);
+    ? size === "sm"
+      ? 32
+      : 40
+    : size === "sm"
+      ? 40
+      : 56;
 
   return branding.logoUrl ? (
     <Image
