@@ -124,7 +124,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
             src={branding.logoUrl}
             alt={branding.appName}
             className={cn(
-              "object-contain",
+              "object-contain transition-all duration-200 ease-out",
               branding.showLogoText
                 ? "h-8 w-8 rounded-md bg-logo-bg p-1 shrink-0"
                 : isCollapsed
