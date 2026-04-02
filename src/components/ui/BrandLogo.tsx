@@ -10,25 +10,18 @@ import { branding } from "@/config/branding";
  * @param props.size - `"sm"` (32×32) for compact contexts, `"md"` (40×40) for the
  *   auth hero panel.
  */
-export function BrandLogo({ size = "md" }: { size?: "sm" | "md" }) {
+export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const textSize = size === "sm" ? "text-base" : "text-lg";
   const rounded = size === "sm" ? "rounded-md" : "rounded-lg";
 
-  // When logo contains app name, render larger
-  const dims = branding.showLogoText
-    ? size === "sm"
-      ? "h-8 w-8"
-      : "h-10 w-10"
-    : size === "sm"
-      ? "h-10 w-10"
-      : "h-14 w-14";
-  const imgSize = branding.showLogoText
-    ? size === "sm"
-      ? 32
-      : 40
-    : size === "sm"
-      ? 40
-      : 56;
+  const sizeMap = {
+    sm: { withText: "h-8 w-8", noText: "h-10 w-10", withTextPx: 32, noTextPx: 40 },
+    md: { withText: "h-10 w-10", noText: "h-14 w-14", withTextPx: 40, noTextPx: 56 },
+    lg: { withText: "h-12 w-12", noText: "h-28 w-28", withTextPx: 48, noTextPx: 112 },
+  };
+  const s = sizeMap[size];
+  const dims = branding.showLogoText ? s.withText : s.noText;
+  const imgSize = branding.showLogoText ? s.withTextPx : s.noTextPx;
 
   return branding.logoUrl ? (
     <Image
