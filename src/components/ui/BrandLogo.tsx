@@ -15,9 +15,24 @@ export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const rounded = size === "sm" ? "rounded-md" : "rounded-lg";
 
   const sizeMap = {
-    sm: { withText: "h-8 w-8", noText: "h-10 w-10", withTextPx: 32, noTextPx: 40 },
-    md: { withText: "h-10 w-10", noText: "h-14 w-14", withTextPx: 40, noTextPx: 56 },
-    lg: { withText: "h-12 w-12", noText: "h-36 w-36", withTextPx: 48, noTextPx: 144 },
+    sm: {
+      withText: "h-8 w-8",
+      noText: "h-10 w-10",
+      withTextPx: 32,
+      noTextPx: 40,
+    },
+    md: {
+      withText: "h-10 w-10",
+      noText: "h-14 w-14",
+      withTextPx: 40,
+      noTextPx: 56,
+    },
+    lg: {
+      withText: "h-12 w-12",
+      noText: "h-36 w-36",
+      withTextPx: 48,
+      noTextPx: 144,
+    },
   };
   const s = sizeMap[size];
   const dims = branding.showLogoText ? s.withText : s.noText;
