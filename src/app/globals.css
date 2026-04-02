@@ -227,11 +227,13 @@ h6 {
     transform: scale(0.95);
   }
 }
-@keyframes splash-spin {
-  from {
-    transform: rotate(0deg);
+@keyframes splash-dot {
+  0%, 80%, 100% {
+    opacity: 0.25;
+    transform: scale(0.8);
   }
-  to {
-    transform: rotate(360deg);
+  40% {
+    opacity: 1;
+    transform: scale(1);
   }
 }
