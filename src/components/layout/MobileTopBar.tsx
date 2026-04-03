@@ -27,11 +27,13 @@ export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <BrandLogo size="sm" />
-          <span className="text-sm font-semibold text-text-primary">
-            {branding.appName}
-          </span>
+        <Link href="/dashboard" className="flex items-center gap-2 -ml-2">
+          <BrandLogo size="md" />
+          {branding.showLogoText && (
+            <span className="text-sm font-semibold text-text-primary">
+              {branding.appName}
+            </span>
+          )}
         </Link>
       </div>
 

@@ -55,9 +55,11 @@ export default function OnboardingPage() {
       <div className="w-full max-w-md">
         <div className="flex items-center gap-2.5 mb-8 justify-center">
           <BrandLogo size="sm" />
-          <span className="text-base font-semibold text-text-primary">
-            {branding.appName}
-          </span>
+          {branding.showLogoText && (
+            <span className="text-base font-semibold text-text-primary">
+              {branding.appName}
+            </span>
+          )}
         </div>
 
         <Card>

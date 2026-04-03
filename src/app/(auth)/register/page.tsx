@@ -94,11 +94,13 @@ export default function RegisterPage() {
         {/* Branding content at bottom */}
         <div className="relative z-10 flex flex-col justify-end p-16 pb-20">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <BrandLogo size="md" />
-            <span className="text-lg font-semibold text-text-primary">
-              {branding.appName}
-            </span>
+          <div className="flex items-center gap-3 -ml-5">
+            <BrandLogo size="lg" />
+            {branding.showLogoText && (
+              <span className="text-lg font-semibold text-text-primary">
+                {branding.appName}
+              </span>
+            )}
           </div>
 
           {/* Hero text */}
@@ -115,11 +117,13 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center bg-bg-primary px-8">
         <div className="w-full max-w-sm">
           {/* Mobile logo (hidden on desktop) */}
-          <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-            <BrandLogo size="sm" />
-            <span className="text-base font-semibold text-text-primary">
-              {branding.appName}
-            </span>
+          <div className="flex items-center gap-2.5 -ml-3 lg:hidden">
+            <BrandLogo size="lg" />
+            {branding.showLogoText && (
+              <span className="text-base font-semibold text-text-primary">
+                {branding.appName}
+              </span>
+            )}
           </div>
 
           {session?.user ? (

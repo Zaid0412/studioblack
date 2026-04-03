@@ -87,16 +87,18 @@ export function MobileSidebarSheet({
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-5 pb-4">
+        <div className="flex items-center justify-between px-4 pt-2 pb-2">
           <Link
             href="/dashboard"
             className="flex items-center gap-2"
             onClick={onClose}
           >
-            <BrandLogo size="sm" />
-            <span className="text-sm font-semibold text-text-primary">
-              {branding.appName}
-            </span>
+            <BrandLogo size="md" />
+            {branding.showLogoText && (
+              <span className="text-sm font-semibold text-text-primary">
+                {branding.appName}
+              </span>
+            )}
           </Link>
           <button
             onClick={onClose}

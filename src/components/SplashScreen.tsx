@@ -35,20 +35,26 @@ export function SplashScreen() {
       style={{ opacity: hidden ? 0 : 1 }}
       aria-hidden="true"
     >
-      {/* Logo with pulse animation */}
-      <div className="animate-[splash-pulse_1.5s_ease-in-out_infinite]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={branding.logoUrl}
-          alt=""
-          width={64}
-          height={64}
-          className="rounded-xl"
-        />
-      </div>
+      {/* Logo */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={branding.logoUrl}
+        alt=""
+        width={branding.showLogoText ? 64 : 96}
+        height={branding.showLogoText ? 64 : 96}
+        className={branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"}
+      />
 
-      {/* Spinning ring around logo */}
-      <div className="absolute w-[112px] h-[112px] rounded-full border-2 border-[#1A1A1A] border-t-[#F5C518] animate-[splash-spin_1.2s_linear_infinite]" />
+      {/* Animated dots */}
+      <div className="flex items-center gap-2">
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+          <div
+            key={i}
+            className="w-2 h-2 rounded-full bg-[#F5C518] animate-[splash-dot_1.4s_ease-in-out_infinite]"
+            style={{ animationDelay: `${i * 0.2}s` }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
