@@ -116,7 +116,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       <Link
         href="/dashboard"
         className={cn(
-          "flex overflow-hidden",
+          "flex overflow-hidden transition-all duration-200 ease-out",
           isCollapsed ? "px-2" : "px-4",
           branding.showLogoText
             ? "items-center gap-2.5 pt-6 pb-5"
@@ -134,7 +134,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
                 ? "h-8 w-8 rounded-md bg-logo-bg p-1 shrink-0"
                 : isCollapsed
                   ? "h-14 w-14"
-                  : "max-h-28 max-w-[calc(var(--sidebar-width)-0.5rem)]"
+                  : "h-24 w-24"
             )}
           />
         ) : (
