@@ -17,8 +17,8 @@ export function ApprovalHistory({ approvals }: ApprovalHistoryProps) {
   return (
     <div className="px-4 lg:px-10 pb-4">
       <div className="flex items-center gap-2 mb-3">
-        <History className="w-4 h-4 text-[#666666]" />
-        <span className="text-[13px] font-semibold text-white">
+        <History className="w-4 h-4 text-text-muted" />
+        <span className="text-[13px] font-semibold text-text-primary">
           {t("approvalHistory")}
         </span>
       </div>
@@ -26,7 +26,7 @@ export function ApprovalHistory({ approvals }: ApprovalHistoryProps) {
         {approvals.map((a) => (
           <div
             key={a.id}
-            className="flex items-center gap-3 rounded-lg bg-[#1A1A1A] border border-[#333333] px-4 py-3"
+            className="flex items-center gap-3 rounded-lg bg-bg-secondary border border-border-default px-4 py-3"
           >
             {a.decision === "approved" ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
@@ -34,17 +34,17 @@ export function ApprovalHistory({ approvals }: ApprovalHistoryProps) {
               <AlertTriangle className="w-4 h-4 text-[#F59E0B] shrink-0" />
             )}
             <div className="flex flex-col flex-1">
-              <span className="text-[13px] text-[#A0A0A0]">
-                <span className="font-medium text-white">{a.user_name}</span>{" "}
+              <span className="text-[13px] text-text-secondary">
+                <span className="font-medium text-text-primary">{a.user_name}</span>{" "}
                 {a.decision === "approved"
                   ? t("approvedProject")
                   : t("requestedChanges")}
               </span>
               {a.comment && (
-                <span className="text-[11px] text-[#666666]">{a.comment}</span>
+                <span className="text-[11px] text-text-muted">{a.comment}</span>
               )}
             </div>
-            <span className="text-[11px] text-[#666666] shrink-0">
+            <span className="text-[11px] text-text-muted shrink-0">
               {new Date(a.created_at).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",

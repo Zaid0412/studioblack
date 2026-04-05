@@ -93,10 +93,10 @@ export function VersionHistoryDialog({
                 return (
                   <div
                     key={v.id}
-                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-white/[0.02] ${
+                    className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50 ${
                       isCurrent
                         ? "border-[#F5C518]/30 bg-[#F5C518]/5"
-                        : "border-[#333333] bg-[#1A1A1A]"
+                        : "border-border-default bg-bg-secondary"
                     }`}
                     onClick={() => {
                       onOpenChange(false);
@@ -105,7 +105,7 @@ export function VersionHistoryDialog({
                   >
                     {/* Version badge + icon */}
                     <div className="relative shrink-0">
-                      <FileText className="w-5 h-5 text-[#A0A0A0]" />
+                      <FileText className="w-5 h-5 text-text-secondary" />
                       <span
                         className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
                       >
@@ -116,7 +116,7 @@ export function VersionHistoryDialog({
                     {/* File info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white truncate">
+                        <span className="text-sm font-medium text-text-primary truncate">
                           {v.file_name}
                         </span>
                         {isCurrent && (
@@ -136,11 +136,11 @@ export function VersionHistoryDialog({
                           >
                             {deriveInitials(v.uploaded_by_name || "")}
                           </div>
-                          <span className="text-xs text-[#A0A0A0]">
+                          <span className="text-xs text-text-secondary">
                             {v.uploaded_by_name || "—"}
                           </span>
                         </div>
-                        <span className="text-xs text-[#666666]">
+                        <span className="text-xs text-text-muted">
                           {new Date(v.created_at).toLocaleDateString("en-GB", {
                             day: "2-digit",
                             month: "short",

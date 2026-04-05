@@ -26,7 +26,7 @@ export function CommentsSection({
   return (
     <div className="px-4 lg:px-10 pb-8">
       <div className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
           <MessageSquare className="w-4 h-4" />
           Comments ({comments.length})
         </h3>
@@ -42,7 +42,7 @@ export function CommentsSection({
               }
             }}
             placeholder="Leave a comment..."
-            className="flex-1 rounded-lg border border-[#333333] bg-[#1A1A1A] px-3 py-2.5 text-sm text-white placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#F5C518] focus:ring-1 focus:ring-[#F5C518]/30"
+            className="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
             rows={2}
           />
           <Button
@@ -60,7 +60,7 @@ export function CommentsSection({
         </div>
 
         {comments.length === 0 ? (
-          <p className="text-sm text-[#666666] py-4 text-center">
+          <p className="text-sm text-text-muted py-4 text-center">
             No comments yet.
           </p>
         ) : (
@@ -68,7 +68,7 @@ export function CommentsSection({
             {comments.map((comment) => (
               <div
                 key={comment.id}
-                className="flex flex-col gap-2 rounded-xl bg-[#1A1A1A] p-4"
+                className="flex flex-col gap-2 rounded-xl bg-bg-secondary p-4"
               >
                 <div className="flex items-center gap-2.5">
                   <Avatar
@@ -77,10 +77,10 @@ export function CommentsSection({
                     color={avatarColor(comment.user_id)}
                   />
                   <div className="flex flex-col">
-                    <span className="text-[13px] font-semibold text-white">
+                    <span className="text-[13px] font-semibold text-text-primary">
                       {comment.user_name}
                     </span>
-                    <span className="text-[11px] text-[#666666]">
+                    <span className="text-[11px] text-text-muted">
                       {new Date(comment.created_at).toLocaleDateString(
                         "en-US",
                         { month: "short", day: "numeric", year: "numeric" }
@@ -88,7 +88,7 @@ export function CommentsSection({
                     </span>
                   </div>
                 </div>
-                <p className="text-[13px] text-[#A0A0A0] leading-relaxed">
+                <p className="text-[13px] text-text-secondary leading-relaxed">
                   {comment.content}
                 </p>
               </div>

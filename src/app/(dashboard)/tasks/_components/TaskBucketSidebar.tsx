@@ -105,7 +105,7 @@ export function TaskBucketSidebar({
                 className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${
                   isActive
                     ? "bg-accent/10 text-accent border-l-2 border-accent font-semibold"
-                    : "text-text-secondary hover:text-text-primary hover:bg-white/[0.03] border-l-2 border-transparent"
+                    : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated/50 border-l-2 border-transparent"
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />

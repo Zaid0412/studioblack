@@ -24,10 +24,10 @@ export function PendingTasksBanner({
   if (pendingTasks.length === 0) return null;
 
   return (
-    <div className="px-4 lg:px-10 py-3 bg-[#1A1600] border-b border-[#333333]">
+    <div className="px-4 lg:px-10 py-3 bg-[#1A1600] border-b border-border-default">
       <div className="flex items-center gap-2 mb-2">
         <ClipboardCheck className="w-4 h-4 text-[#F5C518]" />
-        <span className="text-[13px] font-semibold text-white">
+        <span className="text-[13px] font-semibold text-text-primary">
           {t("tasksPendingReview")} ({pendingTasks.length})
         </span>
       </div>
@@ -35,13 +35,13 @@ export function PendingTasksBanner({
         {pendingTasks.map((task) => (
           <div
             key={task.id}
-            className="flex items-center gap-3 rounded-lg bg-[#0D0D0D] px-4 py-3"
+            className="flex items-center gap-3 rounded-lg bg-bg-primary px-4 py-3"
           >
             <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-[13px] font-medium text-white">
+              <span className="text-[13px] font-medium text-text-primary">
                 {task.title}
               </span>
-              <span className="text-[11px] text-[#666666]">
+              <span className="text-[11px] text-text-muted">
                 {t("phase")}: {task.phase_name}
                 {task.assigned_name && ` · By ${task.assigned_name}`}
               </span>

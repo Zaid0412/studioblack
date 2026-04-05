@@ -37,7 +37,7 @@ export function RefreshButton({
           <button
             onClick={handleClick}
             disabled={spinning}
-            className="p-2 rounded-md text-[#666666] hover:text-white hover:bg-[#2A2A2A] transition-colors cursor-pointer disabled:opacity-50"
+            className="p-2 rounded-md text-text-muted hover:text-white hover:bg-bg-elevated transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw
               className={`w-4 h-4 ${spinning ? "animate-spin" : ""}`}

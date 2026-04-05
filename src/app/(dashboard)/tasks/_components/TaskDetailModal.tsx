@@ -86,7 +86,7 @@ function fileTypeBadge(ext: string): {
     default:
       return {
         bg: "#222222",
-        text: "#A0A0A0",
+        text: "var(--text-secondary)",
         label: ext.toUpperCase() || "FILE",
       };
   }
@@ -134,14 +134,14 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center h-9 px-3.5 gap-0">
-      <span className="text-xs text-[#666666] w-[90px] shrink-0">{label}</span>
+      <span className="text-xs text-text-muted w-[90px] shrink-0">{label}</span>
       <div className="flex items-center gap-1.5 min-w-0">{children}</div>
     </div>
   );
 }
 
 function DetailSep() {
-  return <div className="h-px bg-[#222222]" />;
+  return <div className="h-px bg-bg-secondary" />;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,12 +176,12 @@ function SortableChecklistItem({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 group py-1.5 px-1 rounded hover:bg-white/[0.02]"
+      className="flex items-center gap-2 group py-1.5 px-1 rounded hover:bg-bg-elevated/50"
     >
       <button
         {...attributes}
         {...listeners}
-        className="p-0 shrink-0 text-[#444444] hover:text-[#888888] cursor-grab active:cursor-grabbing transition-colors touch-none"
+        className="p-0 shrink-0 text-text-muted hover:text-text-secondary cursor-grab active:cursor-grabbing transition-colors touch-none"
       >
         <GripVertical className="w-3.5 h-3.5" />
       </button>
@@ -189,8 +189,8 @@ function SortableChecklistItem({
         onClick={() => onToggle(item)}
         className={`w-4 h-4 rounded-[3px] border shrink-0 flex items-center justify-center cursor-pointer transition-colors ${
           item.is_done
-            ? "bg-[#F5C518] border-[#F5C518]"
-            : "border-[#666666] hover:border-[#A0A0A0]"
+            ? "bg-accent border-accent"
+            : "border-text-muted hover:border-text-secondary"
         }`}
       >
         {item.is_done && (
@@ -211,14 +211,14 @@ function SortableChecklistItem({
       </button>
       <span
         className={`text-[13px] flex-1 ${
-          item.is_done ? "text-[#666666] line-through" : "text-[#A0A0A0]"
+          item.is_done ? "text-text-muted line-through" : "text-text-secondary"
         }`}
       >
         {item.title}
       </span>
       <button
         onClick={() => onDelete(item)}
-        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[#666666] hover:text-red-400 transition-all cursor-pointer"
+        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
       >
         <X className="w-3 h-3" />
       </button>
@@ -299,8 +299,8 @@ export function TaskDetailModal({
               <Star
                 className={`w-4 h-4 ${
                   task.is_starred
-                    ? "fill-[#F5C518] text-[#F5C518]"
-                    : "text-[#666666] hover:text-[#F5C518]"
+                    ? "fill-accent text-accent"
+                    : "text-text-muted hover:text-accent"
                 }`}
               />
             </button>
@@ -318,28 +318,28 @@ export function TaskDetailModal({
             </div>
           </DialogHeader>
 
-          <div className="h-px bg-[#333333]" />
+          <div className="h-px bg-border-default" />
 
           {/* Body */}
           <div className="flex flex-col gap-4 px-6 py-4 max-h-[60vh] overflow-y-auto">
             {/* Description */}
             {task.description ? (
-              <p className="text-[13px] text-[#A0A0A0] whitespace-pre-wrap leading-relaxed">
+              <p className="text-[13px] text-text-secondary whitespace-pre-wrap leading-relaxed">
                 {task.description}
               </p>
             ) : (
-              <p className="text-[13px] text-[#666666] italic">
+              <p className="text-[13px] text-text-muted italic">
                 No description
               </p>
             )}
 
             {/* Details card */}
-            <div className="flex flex-col rounded-lg bg-[#151515] overflow-hidden shrink-0">
+            <div className="flex flex-col rounded-lg bg-bg-secondary overflow-hidden shrink-0">
               <DetailRow label="Status">
                 <span
                   className={`w-[7px] h-[7px] rounded-full ${STATUS_DOT[task.status] ?? "bg-gray-400"}`}
                 />
-                <span className="text-xs font-medium text-white">
+                <span className="text-xs font-medium text-text-primary">
                   {STATUS_LABEL[task.status] ?? task.status}
                 </span>
               </DetailRow>
@@ -348,7 +348,7 @@ export function TaskDetailModal({
                 <span
                   className={`w-[7px] h-[7px] rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                 />
-                <span className="text-xs font-medium text-white">
+                <span className="text-xs font-medium text-text-primary">
                   {PRIORITY_LABEL[task.priority]}
                 </span>
               </DetailRow>
@@ -368,22 +368,22 @@ export function TaskDetailModal({
                     {task.project_name}
                   </a>
                 ) : (
-                  <span className="text-xs text-[#666666]">&mdash;</span>
+                  <span className="text-xs text-text-muted">&mdash;</span>
                 )}
               </DetailRow>
               <DetailSep />
               <DetailRow label="Phase">
                 {task.phase_name ? (
-                  <span className="text-xs text-[#A0A0A0]">
+                  <span className="text-xs text-text-secondary">
                     {task.phase_name}
                   </span>
                 ) : (
-                  <span className="text-xs text-[#666666]">&mdash;</span>
+                  <span className="text-xs text-text-muted">&mdash;</span>
                 )}
               </DetailRow>
               <DetailSep />
               <DetailRow label="Category">
-                <span className="text-[11px] font-medium text-[#A0A0A0] bg-[#222222] px-2 py-0.5 rounded">
+                <span className="text-[11px] font-medium text-text-secondary bg-bg-secondary px-2 py-0.5 rounded">
                   {capitalize(task.category)}
                 </span>
               </DetailRow>
@@ -396,31 +396,31 @@ export function TaskDetailModal({
                       size="sm"
                       color={avatarColor(task.assigned_to_name)}
                     />
-                    <span className="text-xs text-white">
+                    <span className="text-xs text-text-primary">
                       {task.assigned_to_name}
                     </span>
                   </>
                 ) : (
-                  <span className="text-xs text-[#666666]">Unassigned</span>
+                  <span className="text-xs text-text-muted">Unassigned</span>
                 )}
               </DetailRow>
               <DetailSep />
               <DetailRow label="Due">
                 {task.due_date ? (
                   <>
-                    <Calendar className="w-3.5 h-3.5 text-[#A0A0A0]" />
+                    <Calendar className="w-3.5 h-3.5 text-text-secondary" />
                     <span
                       className={`text-xs ${
                         isOverdue(task.due_date, task.status)
                           ? "text-red-500"
-                          : "text-[#A0A0A0]"
+                          : "text-text-secondary"
                       }`}
                     >
                       {formatFullDate(task.due_date)}
                     </span>
                   </>
                 ) : (
-                  <span className="text-xs text-[#666666]">&mdash;</span>
+                  <span className="text-xs text-text-muted">&mdash;</span>
                 )}
               </DetailRow>
               <DetailSep />
@@ -442,23 +442,23 @@ export function TaskDetailModal({
             </div>
 
             {/* Checklist */}
-            <div className="flex flex-col gap-2.5 border-t border-[#333333] pt-3 shrink-0">
+            <div className="flex flex-col gap-2.5 border-t border-border-default pt-3 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <ListChecks className="w-3.5 h-3.5 text-[#666666]" />
-                  <span className="text-[11px] font-medium text-[#666666] uppercase tracking-wider">
+                  <ListChecks className="w-3.5 h-3.5 text-text-muted" />
+                  <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
                     Checklist
                   </span>
                 </div>
                 {checklistItems.length > 0 && (
-                  <span className="text-[11px] text-[#666666]">
+                  <span className="text-[11px] text-text-muted">
                     {doneCount}/{checklistItems.length} completed
                   </span>
                 )}
               </div>
               {loadingChecklist ? (
                 <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 text-[#666666] animate-spin" />
+                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
                 </div>
               ) : (
                 <>
@@ -474,21 +474,21 @@ export function TaskDetailModal({
                       value={newItemTitle}
                       onChange={(e) => setNewItemTitle(e.target.value)}
                       placeholder="Add item..."
-                      className="flex-1 text-[13px] bg-transparent border border-[#333333] rounded px-2.5 py-1.5 text-white placeholder:text-[#666666] outline-none focus:border-[#F5C518] transition-colors"
+                      className="flex-1 text-[13px] bg-transparent border border-border-default rounded px-2.5 py-1.5 text-text-primary placeholder:text-text-muted outline-none focus:border-accent transition-colors"
                       disabled={addingItem}
                     />
                     <button
                       type="submit"
                       disabled={!newItemTitle.trim() || addingItem}
-                      className="px-3 py-1.5 rounded bg-[#F5C518] text-black text-xs font-semibold disabled:opacity-30 hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold disabled:opacity-30 hover:bg-accent/90 transition-colors cursor-pointer disabled:cursor-not-allowed"
                     >
                       Add
                     </button>
                   </form>
                   {checklistItems.length > 0 && (
-                    <div className="w-full h-[3px] rounded-full bg-[#333333] overflow-hidden">
+                    <div className="w-full h-[3px] rounded-full bg-border-default overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-[#F5C518] transition-all duration-200"
+                        className="h-full rounded-full bg-accent transition-all duration-200"
                         style={{
                           width: `${(doneCount / checklistItems.length) * 100}%`,
                         }}
@@ -521,16 +521,16 @@ export function TaskDetailModal({
             </div>
 
             {/* Attachments */}
-            <div className="flex flex-col gap-2.5 border-t border-[#333333] pt-3 shrink-0">
+            <div className="flex flex-col gap-2.5 border-t border-border-default pt-3 shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Paperclip className="w-3.5 h-3.5 text-[#666666]" />
-                  <span className="text-[11px] font-medium text-[#666666] uppercase tracking-wider">
+                  <Paperclip className="w-3.5 h-3.5 text-text-muted" />
+                  <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
                     Attachments
                   </span>
                 </div>
                 {attachments.length > 0 && (
-                  <span className="text-[11px] text-[#666666]">
+                  <span className="text-[11px] text-text-muted">
                     {attachments.length} file
                     {attachments.length !== 1 ? "s" : ""}
                   </span>
@@ -539,7 +539,7 @@ export function TaskDetailModal({
 
               {loadingAttachments ? (
                 <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 text-[#666666] animate-spin" />
+                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
                 </div>
               ) : attachments.length > 0 ? (
                 <div className="flex flex-col gap-1">
@@ -552,7 +552,7 @@ export function TaskDetailModal({
                     const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(att.file_url)}`;
                     return (
                       <div key={att.id} className="flex flex-col">
-                        <div className="flex items-center gap-2.5 group py-1.5 px-2 rounded hover:bg-white/[0.02]">
+                        <div className="flex items-center gap-2.5 group py-1.5 px-2 rounded hover:bg-bg-elevated/50">
                           <span
                             className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
                             style={{
@@ -563,10 +563,10 @@ export function TaskDetailModal({
                             {badge.label}
                           </span>
                           <div className="flex flex-col min-w-0 flex-1">
-                            <span className="text-[13px] text-white truncate">
+                            <span className="text-[13px] text-text-primary truncate">
                               {att.file_name}
                             </span>
-                            <span className="text-[11px] text-[#555555]">
+                            <span className="text-[11px] text-text-secondary">
                               {formatFileSize(att.file_size)}
                               {att.file_size != null && " · "}
                               {formatFullDate(att.created_at)}
@@ -583,7 +583,7 @@ export function TaskDetailModal({
                                   setPreviewId(att.id);
                                 }
                               }}
-                              className={`p-1 rounded transition-colors cursor-pointer ${isPreviewing ? "text-[#F5C518]" : "text-[#666666] hover:text-white"}`}
+                              className={`p-1 rounded transition-colors cursor-pointer ${isPreviewing ? "text-accent" : "text-text-muted hover:text-text-primary"}`}
                               title={isPreviewing ? "Hide preview" : "Preview"}
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -594,7 +594,7 @@ export function TaskDetailModal({
                               href={proxyUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="p-1 rounded text-[#666666] hover:text-white transition-colors cursor-pointer"
+                              className="p-1 rounded text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                               title="Open in new tab"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
@@ -602,14 +602,14 @@ export function TaskDetailModal({
                           )}
                           <button
                             onClick={() => handleDownload(att)}
-                            className="p-1 rounded text-[#666666] hover:text-white transition-colors cursor-pointer"
+                            className="p-1 rounded text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                             title="Download"
                           >
                             <Download className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => deleteAttachment(att)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-[#666666] hover:text-red-400 transition-all cursor-pointer"
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
                             title="Delete"
                           >
                             <X className="w-3 h-3" />
@@ -619,14 +619,14 @@ export function TaskDetailModal({
                           <div className="px-2 pb-2 relative">
                             {previewLoading === att.id && (
                               <div className="flex items-center justify-center py-6">
-                                <Loader2 className="w-4 h-4 text-[#666666] animate-spin" />
+                                <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
                               </div>
                             )}
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={proxyUrl}
                               alt={att.file_name}
-                              className={`w-full max-h-48 object-contain rounded bg-[#0d0d0d] border border-[#333333] cursor-pointer hover:opacity-90 transition-opacity ${previewLoading === att.id ? "hidden" : ""}`}
+                              className={`w-full max-h-48 object-contain rounded bg-bg-primary border border-border-default cursor-pointer hover:opacity-90 transition-opacity ${previewLoading === att.id ? "hidden" : ""}`}
                               onLoadStart={() => setPreviewLoading(att.id)}
                               onLoad={() => setPreviewLoading(null)}
                               onError={() => setPreviewLoading(null)}
@@ -652,7 +652,7 @@ export function TaskDetailModal({
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center justify-center gap-1.5 w-full py-2 rounded border border-dashed border-[#333333] text-[#666666] hover:border-[#555555] hover:text-[#A0A0A0] transition-colors text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1.5 w-full py-2 rounded border border-dashed border-border-default text-text-muted hover:border-border-light hover:text-text-secondary transition-colors text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -665,7 +665,7 @@ export function TaskDetailModal({
           </div>
 
           {/* Footer */}
-          <div className="h-px bg-[#333333]" />
+          <div className="h-px bg-border-default" />
           <DialogFooter className="flex-row justify-between sm:justify-between px-6 py-3">
             <div className="flex gap-2">
               {task.project_id && (

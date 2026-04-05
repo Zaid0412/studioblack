@@ -98,7 +98,7 @@ export function TaskRow({
       {/* ── Desktop row ── */}
       <div
         onClick={() => onClick(task)}
-        className="hidden lg:flex items-center min-h-[56px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-white/[0.02] transition-colors gap-3 cursor-pointer"
+        className="hidden lg:flex items-center min-h-[56px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors gap-3 cursor-pointer"
       >
         {/* Priority dot */}
         <div className="w-3 flex justify-center shrink-0">
@@ -245,7 +245,7 @@ export function TaskRow({
       {/* ── Mobile card ── */}
       <div
         onClick={() => onClick(task)}
-        className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-white/[0.02] transition-colors cursor-pointer lg:hidden"
+        className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden"
       >
         {/* Row 1: priority dot + title + star + menu */}
         <div className="flex items-center gap-2">
