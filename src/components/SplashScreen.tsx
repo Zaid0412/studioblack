@@ -38,7 +38,7 @@ export function SplashScreen() {
       {/* Logo */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={branding.logoUrl}
+        src={document.documentElement.getAttribute("data-theme") === "dark" ? branding.logoUrl : (branding.logoUrlDark ?? branding.logoUrl)}
         alt=""
         width={branding.showLogoText ? 64 : 96}
         height={branding.showLogoText ? 64 : 96}
@@ -50,7 +50,7 @@ export function SplashScreen() {
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
-            className="w-2 h-2 rounded-full bg-[#F5C518] animate-[splash-dot_1.4s_ease-in-out_infinite]"
+            className="w-2 h-2 rounded-full bg-[var(--accent)] animate-[splash-dot_1.4s_ease-in-out_infinite]"
             style={{ animationDelay: `${i * 0.2}s` }}
           />
         ))}

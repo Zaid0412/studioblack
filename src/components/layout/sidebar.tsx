@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
+import { useTheme } from "@/components/ThemeProvider";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
+  const { mode } = useTheme();
+  const logoSrc =
+    mode === "dark" ? branding.logoUrl : (branding.logoUrlDark ?? branding.logoUrl);
 
   const [orgName, setOrgName] = useState<string | null>(null);
   useEffect(() => {
@@ -118,10 +122,10 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
             : "justify-center pt-3 pb-2"
         )}
       >
-        {branding.logoUrl ? (
+        {logoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={branding.logoUrl}
+            src={logoSrc}
             alt={branding.appName}
             className={cn(
               "object-contain transition-all duration-200 ease-out",
