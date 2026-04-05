@@ -116,10 +116,11 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       <Link
         href="/dashboard"
         className={cn(
-          "flex px-4 overflow-hidden",
+          "flex overflow-hidden",
+          isCollapsed ? "px-2" : "px-4",
           branding.showLogoText
             ? "items-center gap-2.5 pt-6 pb-5"
-            : "justify-center pt-3 pb-2"
+            : "justify-center py-0"
         )}
       >
         {logoSrc ? (
@@ -132,8 +133,8 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
               branding.showLogoText
                 ? "h-8 w-8 rounded-md bg-logo-bg p-1 shrink-0"
                 : isCollapsed
-                  ? "h-8 w-8"
-                  : "max-h-20 max-w-[calc(var(--sidebar-width)-2rem)]"
+                  ? "h-14 w-14"
+                  : "max-h-28 max-w-[calc(var(--sidebar-width)-0.5rem)]"
             )}
           />
         ) : (
