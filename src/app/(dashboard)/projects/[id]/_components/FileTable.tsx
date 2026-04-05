@@ -596,7 +596,7 @@ export function FileTable({
                         )}
                         {/* Version badge — hidden when checkbox is showing */}
                         <span
-                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none transition-opacity ${
+                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} ${vc.border} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none transition-opacity ${
                             hasSelection
                               ? "opacity-0"
                               : "opacity-100 group-hover:opacity-0"
@@ -685,7 +685,7 @@ export function FileTable({
                         )}
                         {!hasSelection && (
                           <span
-                            className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
+                            className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} ${vc.border} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
                           >
                             V{att.version || 1}
                           </span>

@@ -60,16 +60,16 @@ export function displayName(
 
 /** Version number → badge colors (bg + text). Cycles for V7+. */
 const VERSION_COLORS = [
-  { bg: "bg-[#0A1A2E]", text: "text-[#3B82F6]" }, // V1 — blue
-  { bg: "bg-[#1A0A2E]", text: "text-[#A855F7]" }, // V2 — purple
-  { bg: "bg-[#0A2E2A]", text: "text-[#14B8A6]" }, // V3 — teal
-  { bg: "bg-[#2E1A0A]", text: "text-[#F59E0B]" }, // V4 — amber
-  { bg: "bg-[#2E0A1A]", text: "text-[#EC4899]" }, // V5 — pink
-  { bg: "bg-[#0A2E14]", text: "text-[#22C55E]" }, // V6 — green
+  { bg: "bg-blue-100", text: "text-blue-700", border: "border border-blue-200" }, // V1 — blue
+  { bg: "bg-purple-100", text: "text-purple-700", border: "border border-purple-200" }, // V2 — purple
+  { bg: "bg-teal-100", text: "text-teal-700", border: "border border-teal-200" }, // V3 — teal
+  { bg: "bg-amber-100", text: "text-amber-700", border: "border border-amber-200" }, // V4 — amber
+  { bg: "bg-pink-100", text: "text-pink-700", border: "border border-pink-200" }, // V5 — pink
+  { bg: "bg-green-100", text: "text-green-700", border: "border border-green-200" }, // V6 — green
 ];
 
 /** Return badge color classes for a given version number (cycles for V7+). */
-export function versionColor(version: number): { bg: string; text: string } {
+export function versionColor(version: number): { bg: string; text: string; border: string } {
   const idx =
     (((version - 1) % VERSION_COLORS.length) + VERSION_COLORS.length) %
     VERSION_COLORS.length;
@@ -80,17 +80,17 @@ export function versionColor(version: number): { bg: string; text: string } {
 export function statusBadge(status: string | undefined) {
   switch (status) {
     case "approved":
-      return { bg: "bg-[#0A2E14]", text: "text-[#22C55E]", label: "Approved" };
+      return { bg: "bg-green-500/15", text: "text-green-600", label: "Approved" };
     case "rejected":
       return {
-        bg: "bg-[#2E1F0A]",
-        text: "text-[#F59E0B]",
+        bg: "bg-amber-500/15",
+        text: "text-amber-600",
         label: "Changes Requested",
       };
     case "reviewed":
-      return { bg: "bg-[#242424]", text: "text-[#A0A0A0]", label: "Reviewed" };
+      return { bg: "bg-bg-elevated", text: "text-text-secondary", label: "Reviewed" };
     case "pending":
     default:
-      return { bg: "bg-[#242424]", text: "text-[#666666]", label: "Draft" };
+      return { bg: "bg-bg-elevated", text: "text-text-muted", label: "Draft" };
   }
 }
