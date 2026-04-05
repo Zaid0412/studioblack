@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Edit } from "lucide-react";
+import { Edit, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkflowSteps } from "@/components/project/WorkflowSteps";
 import type { DbStep } from "@/types";
@@ -54,12 +54,13 @@ export function WorkflowBar({ projectId, steps, onUpload }: WorkflowBarProps) {
           {t("editProject") || "Edit Project"}
         </Button>
         <Button
-          className="!text-xs !bg-danger !text-white hover:!bg-danger-hover"
+          className="!text-xs"
           onClick={() =>
             onUpload ? onUpload() : router.push(`/projects/${projectId}/upload`)
           }
         >
-          {t("actionsButton") || "Actions"}
+          <Upload className="w-3.5 h-3.5" />
+          {t("actionsButton") || "Upload Designs"}
         </Button>
       </div>
     </div>
