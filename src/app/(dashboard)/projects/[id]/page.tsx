@@ -146,7 +146,6 @@ export default function ProjectDetailPage({
       {!isClient && (
         <WorkflowBar
           projectId={id}
-          steps={project.steps}
           onUpload={() => uploadTriggerRef.current?.()}
         />
       )}
