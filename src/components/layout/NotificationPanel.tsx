@@ -97,7 +97,7 @@ export function NotificationPanel() {
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        className="w-[calc(100vw-2rem)] lg:w-[400px] p-0 border-border-default bg-[#141414] rounded-xl overflow-hidden"
+        className="w-[calc(100vw-2rem)] lg:w-[400px] p-0 border-border-default bg-bg-primary rounded-xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between h-[52px] px-4 lg:px-5 border-b border-border-default">
@@ -189,7 +189,7 @@ export function NotificationPanel() {
                           <span
                             className={cn(
                               "text-xs leading-snug line-clamp-2",
-                              isUnread ? "text-[#8A8A8A]" : "text-text-muted"
+                              isUnread ? "text-text-secondary" : "text-text-muted"
                             )}
                           >
                             {notification.description}
