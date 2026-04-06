@@ -13,6 +13,7 @@ import { env } from "@/env";
 import {
   createNotification,
   createNotificationForClient,
+  createNotificationsForTeam,
 } from "@/lib/notifications";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins — list pin comments. */
@@ -273,6 +274,47 @@ export const POST = withAuth(
               sendNotificationEmail(r.email, subject, body).catch(
                 console.error
               );
+            })
+            .catch(console.error);
+        }
+
+        // Notify the rest of the team when changes are requested (fire-and-forget)
+        if (reqChanges) {
+          const safeReviewer = escapeHtml(user.name || user.email);
+
+          // In-app notifications for all team members (except the client)
+          createNotificationsForTeam(
+            id,
+            user.id,
+            "review_changes_requested",
+            `${user.name || "Client"} requested changes on "${attachment.file_name}"`,
+            taskTitle
+          );
+
+          // Email the rest of the team (excluding assignee who was already emailed above)
+          pool
+            .query(
+              `SELECT DISTINCT u.email, u.name, p.name AS project_name
+               FROM project p
+               JOIN member m ON m."organizationId" = p.org_id
+               JOIN "user" u ON u.id = m."userId"
+               WHERE p.id = $1 AND m."userId" != $2 AND m."userId" != $3`,
+              [id, user.id, assignedTo]
+            )
+            .then(({ rows: teamMembers }) => {
+              const projectUrl = escapeHtml(
+                `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+              );
+              const safeFileName = escapeHtml(attachment.file_name);
+              const safeComment = `<p style="color:#555;margin-top:12px;">"${escapeHtml(taskTitle)}"</p>`;
+
+              for (const member of teamMembers) {
+                const subject = `Changes Requested: ${attachment.file_name}`;
+                const body = `<p><strong>${safeReviewer}</strong> requested changes on <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`;
+                sendNotificationEmail(member.email, subject, body).catch(
+                  console.error
+                );
+              }
             })
             .catch(console.error);
         }
