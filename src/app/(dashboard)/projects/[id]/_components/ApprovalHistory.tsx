@@ -35,7 +35,9 @@ export function ApprovalHistory({ approvals }: ApprovalHistoryProps) {
             )}
             <div className="flex flex-col flex-1">
               <span className="text-[13px] text-text-secondary">
-                <span className="font-medium text-text-primary">{a.user_name}</span>{" "}
+                <span className="font-medium text-text-primary">
+                  {a.user_name}
+                </span>{" "}
                 {a.decision === "approved"
                   ? t("approvedProject")
                   : t("requestedChanges")}

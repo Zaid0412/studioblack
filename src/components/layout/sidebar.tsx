@@ -58,7 +58,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const { isCollapsed, toggle } = useSidebar();
   const { mode } = useTheme();
   const logoSrc =
-    mode === "dark" ? branding.logoUrl : (branding.logoUrlDark ?? branding.logoUrl);
+    mode === "dark"
+      ? branding.logoUrl
+      : (branding.logoUrlDark ?? branding.logoUrl);
 
   const [orgName, setOrgName] = useState<string | null>(null);
   useEffect(() => {

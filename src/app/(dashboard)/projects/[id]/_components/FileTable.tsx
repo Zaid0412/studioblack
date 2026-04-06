@@ -550,7 +550,9 @@ export function FileTable({
                   {/* Desktop row */}
                   <div
                     className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
-                      isSelected ? "bg-accent/[0.06]" : "hover:bg-bg-elevated/50"
+                      isSelected
+                        ? "bg-accent/[0.06]"
+                        : "hover:bg-bg-elevated/50"
                     }`}
                     onClick={(e) =>
                       hasSelection

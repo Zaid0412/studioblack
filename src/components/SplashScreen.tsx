@@ -38,7 +38,11 @@ export function SplashScreen() {
       {/* Logo */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={document.documentElement.getAttribute("data-theme") === "dark" ? branding.logoUrl : (branding.logoUrlDark ?? branding.logoUrl)}
+        src={
+          document.documentElement.getAttribute("data-theme") === "dark"
+            ? branding.logoUrl
+            : (branding.logoUrlDark ?? branding.logoUrl)
+        }
         alt=""
         width={branding.showLogoText ? 64 : 96}
         height={branding.showLogoText ? 64 : 96}

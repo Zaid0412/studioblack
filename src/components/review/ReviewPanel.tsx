@@ -35,7 +35,9 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
       <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-border-default">
         <div className="flex items-center gap-2">
           <ClipboardCheck className="w-4 h-4 text-text-muted" />
-          <span className="text-[13px] font-medium text-text-primary">Reviews</span>
+          <span className="text-[13px] font-medium text-text-primary">
+            Reviews
+          </span>
           {reviews.length > 0 && (
             <span className="text-[11px] text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded-full">
               {reviews.length}

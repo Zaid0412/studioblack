@@ -188,7 +188,9 @@ export function PinSidebar({
       <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-border-default">
         <div className="flex items-center gap-2">
           <MessageCircle className="w-4 h-4 text-text-muted" />
-          <span className="text-[13px] font-medium text-text-primary">Comments</span>
+          <span className="text-[13px] font-medium text-text-primary">
+            Comments
+          </span>
           {pins.length > 0 && (
             <span className="text-[11px] text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded-full">
               {pins.length}
@@ -450,7 +452,9 @@ function PinCard({
       ) : (
         <p
           className={`text-[12px] px-3 pb-2 ml-7 leading-relaxed ${
-            pin.resolved ? "text-text-secondary line-through" : "text-text-muted"
+            pin.resolved
+              ? "text-text-secondary line-through"
+              : "text-text-muted"
           }`}
         >
           {pin.content}
@@ -475,7 +479,9 @@ function PinCard({
             <button
               onClick={handleToggleReplies}
               className={`flex items-center gap-1 text-[10px] cursor-pointer transition-colors ${
-                repliesOpen ? "text-[#F5C518]" : "text-text-secondary hover:text-text-muted"
+                repliesOpen
+                  ? "text-[#F5C518]"
+                  : "text-text-secondary hover:text-text-muted"
               }`}
             >
               <MessageSquare className="w-3 h-3" />
@@ -536,7 +542,9 @@ function PinCard({
                 ))}
               </div>
             ) : (
-              <p className="text-[10px] text-text-secondary mb-2">No replies yet</p>
+              <p className="text-[10px] text-text-secondary mb-2">
+                No replies yet
+              </p>
             )
           ) : (
             <div className="flex justify-center py-2">

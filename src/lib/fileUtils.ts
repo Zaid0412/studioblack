@@ -60,16 +60,44 @@ export function displayName(
 
 /** Version number → badge colors (bg + text). Cycles for V7+. */
 const VERSION_COLORS = [
-  { bg: "bg-blue-100", text: "text-blue-700", border: "border border-blue-200" }, // V1 — blue
-  { bg: "bg-purple-100", text: "text-purple-700", border: "border border-purple-200" }, // V2 — purple
-  { bg: "bg-teal-100", text: "text-teal-700", border: "border border-teal-200" }, // V3 — teal
-  { bg: "bg-amber-100", text: "text-amber-700", border: "border border-amber-200" }, // V4 — amber
-  { bg: "bg-pink-100", text: "text-pink-700", border: "border border-pink-200" }, // V5 — pink
-  { bg: "bg-green-100", text: "text-green-700", border: "border border-green-200" }, // V6 — green
+  {
+    bg: "bg-blue-100",
+    text: "text-blue-700",
+    border: "border border-blue-200",
+  }, // V1 — blue
+  {
+    bg: "bg-purple-100",
+    text: "text-purple-700",
+    border: "border border-purple-200",
+  }, // V2 — purple
+  {
+    bg: "bg-teal-100",
+    text: "text-teal-700",
+    border: "border border-teal-200",
+  }, // V3 — teal
+  {
+    bg: "bg-amber-100",
+    text: "text-amber-700",
+    border: "border border-amber-200",
+  }, // V4 — amber
+  {
+    bg: "bg-pink-100",
+    text: "text-pink-700",
+    border: "border border-pink-200",
+  }, // V5 — pink
+  {
+    bg: "bg-green-100",
+    text: "text-green-700",
+    border: "border border-green-200",
+  }, // V6 — green
 ];
 
 /** Return badge color classes for a given version number (cycles for V7+). */
-export function versionColor(version: number): { bg: string; text: string; border: string } {
+export function versionColor(version: number): {
+  bg: string;
+  text: string;
+  border: string;
+} {
   const idx =
     (((version - 1) % VERSION_COLORS.length) + VERSION_COLORS.length) %
     VERSION_COLORS.length;
@@ -80,7 +108,11 @@ export function versionColor(version: number): { bg: string; text: string; borde
 export function statusBadge(status: string | undefined) {
   switch (status) {
     case "approved":
-      return { bg: "bg-green-500/15", text: "text-green-600", label: "Approved" };
+      return {
+        bg: "bg-green-500/15",
+        text: "text-green-600",
+        label: "Approved",
+      };
     case "rejected":
       return {
         bg: "bg-amber-500/15",
@@ -88,7 +120,11 @@ export function statusBadge(status: string | undefined) {
         label: "Changes Requested",
       };
     case "reviewed":
-      return { bg: "bg-bg-elevated", text: "text-text-secondary", label: "Reviewed" };
+      return {
+        bg: "bg-bg-elevated",
+        text: "text-text-secondary",
+        label: "Reviewed",
+      };
     case "pending":
     default:
       return { bg: "bg-bg-elevated", text: "text-text-muted", label: "Draft" };

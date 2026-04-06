@@ -40,7 +40,9 @@ export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const dims = branding.showLogoText ? s.withText : s.noText;
   const imgSize = branding.showLogoText ? s.withTextPx : s.noTextPx;
   const logoSrc =
-    mode === "dark" ? branding.logoUrl : (branding.logoUrlDark ?? branding.logoUrl);
+    mode === "dark"
+      ? branding.logoUrl
+      : (branding.logoUrlDark ?? branding.logoUrl);
 
   return logoSrc ? (
     <Image
