@@ -373,9 +373,13 @@ function PinCard({
       ref={selectedRef}
       onClick={onSelect}
       className={`group w-full text-left rounded-lg border transition-colors cursor-pointer ${
-        isSelected
-          ? "bg-accent/5 border-accent/20"
-          : "bg-bg-secondary border-border-default hover:border-border-light hover:bg-bg-elevated"
+        pin.request_changes
+          ? isSelected
+            ? "bg-amber-500/10 border-amber-500/30"
+            : "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/30"
+          : isSelected
+            ? "bg-accent/5 border-accent/20"
+            : "bg-bg-secondary border-border-default hover:border-border-light hover:bg-bg-elevated"
       } ${isTemp ? "opacity-60" : ""}`}
       role="button"
       tabIndex={0}
@@ -417,7 +421,10 @@ function PinCard({
           <ShieldCheck className="w-3 h-3 text-text-secondary shrink-0" />
         )}
         {pin.request_changes && (
-          <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+            <AlertTriangle className="w-2.5 h-2.5" />
+            Changes Requested
+          </span>
         )}
         <span className="text-[10px] text-text-secondary ml-auto shrink-0 flex items-center gap-1">
           {pin.updated_at && <span>(edited)</span>}
