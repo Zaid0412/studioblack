@@ -28,7 +28,7 @@ export default async function RootLayout({
         {/* Block FOUC: apply data-theme before first paint */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("studioblack-theme")==="dark"){document.documentElement.setAttribute("data-theme","dark")}}catch(e){}`,
+            __html: `try{if(localStorage.getItem("studioblack-theme-v2")==="dark"){document.documentElement.setAttribute("data-theme","dark")}}catch(e){}`,
           }}
         />
         {/* Fontshare: Satoshi (body) + Cabinet Grotesk (headings) */}
