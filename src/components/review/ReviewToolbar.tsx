@@ -71,21 +71,21 @@ export function ReviewToolbar({
   }, [moreMenuOpen]);
 
   return (
-    <div className="h-10 shrink-0 bg-[#1A1A1A] px-3 flex items-center justify-between gap-2">
+    <div className="h-10 shrink-0 bg-bg-secondary px-3 flex items-center justify-between gap-2">
       {/* Left: Back + filename + leftSlot */}
       <div className="flex items-center gap-2.5 min-w-0">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={() => router.push(backPath)}
-              className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer shrink-0"
+              className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">Back to project</TooltipContent>
         </Tooltip>
-        <span className="text-white text-[13px] font-medium truncate">
+        <span className="text-text-primary text-[13px] font-medium truncate">
           {fileName}
         </span>
         {leftSlot}
@@ -94,13 +94,13 @@ export function ReviewToolbar({
       {/* Right: Utility icons */}
       <div className="flex items-center gap-2 shrink-0">
         {rightSlot}
-        {rightSlot && <div className="w-px h-4 bg-[#333]" />}
+        {rightSlot && <div className="w-px h-4 bg-border-default" />}
 
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={onTogglePinMode}
-              className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-[#A0A0A0] hover:text-white"}`}
+              className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-text-secondary hover:text-text-primary"}`}
             >
               <MapPin className="w-4 h-4" />
             </button>
@@ -111,7 +111,7 @@ export function ReviewToolbar({
           <TooltipTrigger asChild>
             <button
               onClick={onDownload}
-              className="text-[#A0A0A0] hover:text-white cursor-pointer"
+              className="text-text-secondary hover:text-text-primary cursor-pointer"
             >
               <Download className="w-4 h-4" />
             </button>
@@ -124,7 +124,7 @@ export function ReviewToolbar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="text-[#A0A0A0] hover:text-white cursor-pointer"
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
                 onClick={() => setMoreMenuOpen(!moreMenuOpen)}
               >
                 <Ellipsis className="w-4 h-4" />
@@ -133,13 +133,13 @@ export function ReviewToolbar({
             <TooltipContent side="bottom">More options</TooltipContent>
           </Tooltip>
           {moreMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-[#242424] border border-[#333333] rounded-lg shadow-xl py-1 z-50">
+            <div className="absolute right-0 top-full mt-1 w-44 bg-bg-elevated border border-border-default rounded-lg shadow-xl py-1 z-50">
               <button
                 onClick={() => {
                   window.print();
                   setMoreMenuOpen(false);
                 }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 Print
@@ -149,7 +149,7 @@ export function ReviewToolbar({
                   document.documentElement.requestFullscreen?.();
                   setMoreMenuOpen(false);
                 }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
               >
                 <Maximize className="w-4 h-4" />
                 Fullscreen
@@ -160,7 +160,7 @@ export function ReviewToolbar({
                     onUploadNewVersion();
                     setMoreMenuOpen(false);
                   }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
                 >
                   <Upload className="w-4 h-4" />
                   Upload New Version
@@ -172,7 +172,7 @@ export function ReviewToolbar({
                     onToggleFreeze();
                     setMoreMenuOpen(false);
                   }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
                 >
                   {frozen ? (
                     <Unlock className="w-4 h-4" />
@@ -187,7 +187,7 @@ export function ReviewToolbar({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMoreMenuOpen(false)}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-[#A0A0A0] hover:text-white hover:bg-[#333333] transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors"
               >
                 <ExternalLink className="w-4 h-4" />
                 Open in new tab

@@ -379,7 +379,7 @@ export function FileTable({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleBulkDownload}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-white/[0.04] border border-border-default hover:bg-white/[0.08] transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download
@@ -406,7 +406,7 @@ export function FileTable({
                   <>
                     <button
                       onClick={handleBulkMarkReviewed}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-white/[0.04] border border-border-default hover:bg-white/[0.08] transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                     >
                       <ClipboardCheck className="w-3.5 h-3.5" />
                       Mark Reviewed
@@ -550,7 +550,9 @@ export function FileTable({
                   {/* Desktop row */}
                   <div
                     className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
-                      isSelected ? "bg-accent/[0.06]" : "hover:bg-white/[0.02]"
+                      isSelected
+                        ? "bg-accent/[0.06]"
+                        : "hover:bg-bg-elevated/50"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -596,7 +598,7 @@ export function FileTable({
                         )}
                         {/* Version badge — hidden when checkbox is showing */}
                         <span
-                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none transition-opacity ${
+                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} ${vc.border} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none transition-opacity ${
                             hasSelection
                               ? "opacity-0"
                               : "opacity-100 group-hover:opacity-0"
@@ -651,7 +653,7 @@ export function FileTable({
 
                   {/* Mobile card */}
                   <div
-                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-white/[0.02] transition-colors cursor-pointer lg:hidden ${
+                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden ${
                       isSelected ? "bg-accent/[0.06]" : ""
                     }`}
                     onClick={(e) =>
@@ -685,7 +687,7 @@ export function FileTable({
                         )}
                         {!hasSelection && (
                           <span
-                            className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
+                            className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} ${vc.border} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
                           >
                             V{att.version || 1}
                           </span>

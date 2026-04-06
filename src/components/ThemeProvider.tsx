@@ -59,8 +59,8 @@ function applyTheme(theme: Theme, mode: ThemeMode) {
   appliedKeys = keys;
 
   // Keep data-theme attr in sync (used by CSS fallback to prevent FOUC)
-  if (mode === "light") {
-    root.setAttribute("data-theme", "light");
+  if (mode === "dark") {
+    root.setAttribute("data-theme", "dark");
   } else {
     root.removeAttribute("data-theme");
   }
@@ -80,12 +80,12 @@ interface ThemeProviderProps {
  * to the active theme.
  */
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [mode, setMode] = useState<ThemeMode>("dark");
+  const [mode, setMode] = useState<ThemeMode>("light");
 
-  // Sync persisted preference on mount (SSR renders "dark", client corrects)
+  // Sync persisted preference on mount (SSR renders "light", client corrects)
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light") setMode("light"); // eslint-disable-line react-hooks/set-state-in-effect -- sync from external store on mount
+    if (stored === "dark") setMode("dark"); // eslint-disable-line react-hooks/set-state-in-effect -- sync from external store on mount
   }, []);
 
   const theme = mode === "dark" ? defaultTheme : lightTheme;

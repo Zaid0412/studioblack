@@ -38,16 +38,16 @@ export function ReviewSubmitBar({
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg">
-      <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl shadow-2xl overflow-hidden">
+      <div className="bg-bg-secondary border border-border-default rounded-xl shadow-2xl overflow-hidden">
         {/* Collapsed bar — always visible */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-[#222222] transition-colors"
+          className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-bg-elevated transition-colors"
         >
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-[#666666]" />
-              <span className="text-[13px] text-[#A0A0A0]">
+              <MessageSquare className="w-4 h-4 text-text-muted" />
+              <span className="text-[13px] text-text-secondary">
                 Submit your review
               </span>
               {pinCount > 0 && (
@@ -57,20 +57,20 @@ export function ReviewSubmitBar({
               )}
             </div>
           </div>
-          <span className="text-[11px] text-[#666666]">
+          <span className="text-[11px] text-text-muted">
             {expanded ? "Collapse" : "Expand"}
           </span>
         </button>
 
         {/* Expanded panel */}
         {expanded && (
-          <div className="border-t border-[#333333] p-4">
+          <div className="border-t border-border-default p-4">
             {/* Summary comment */}
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Leave a comment about this design (optional)..."
-              className="w-full rounded-lg border border-[#333333] bg-[#0D0D0D] px-3 py-2.5 text-sm text-white placeholder:text-[#555555] resize-none focus:outline-none focus:border-[#F5C518] mb-3"
+              className="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-[#F5C518] mb-3"
               rows={3}
             />
 

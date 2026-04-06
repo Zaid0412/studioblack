@@ -289,8 +289,8 @@ export default function DesignReviewPage({
         className="flex flex-col items-center justify-center -m-4 lg:-m-8 gap-4"
         style={{ height: "calc(100vh)" }}
       >
-        <FileText className="w-12 h-12 text-[#666666]" />
-        <p className="text-[#A0A0A0] text-sm">Attachment not found</p>
+        <FileText className="w-12 h-12 text-text-muted" />
+        <p className="text-text-secondary text-sm">Attachment not found</p>
         <Button
           variant="ghost"
           size="sm"
@@ -362,8 +362,8 @@ export default function DesignReviewPage({
                     commentsOpen
                       ? "bg-[#F5C518]/15 text-[#F5C518]"
                       : pinState.pins.length > 0
-                        ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
-                        : "text-[#A0A0A0] hover:text-white"
+                        ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
+                        : "text-text-secondary hover:text-text-primary"
                   }`}
                   title="Pin comments"
                 >
@@ -384,8 +384,8 @@ export default function DesignReviewPage({
                       reviewsOpen
                         ? "bg-[#F5C518]/15 text-[#F5C518]"
                         : review.reviews.length > 0
-                          ? "bg-[#242424] text-[#A0A0A0] hover:text-white"
-                          : "text-[#A0A0A0] hover:text-white"
+                          ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
+                          : "text-text-secondary hover:text-text-primary"
                     }`}
                     title="Reviews"
                   >

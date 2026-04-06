@@ -93,9 +93,9 @@ function PinMarker({
         <span
           className={`text-[10px] font-bold leading-none ${
             selected
-              ? "text-[#F5C518]"
+              ? "text-accent"
               : resolved
-                ? "text-[#666]"
+                ? "text-text-muted"
                 : "text-white"
           }`}
         >

@@ -9,6 +9,7 @@ export const branding = {
   tagline: "Design Reviews, Simplified",
   subtitle: "Streamlined architectural design review & approval",
   logoUrl: "/logo.png",
+  logoUrlDark: "/logo-dark.png",
   showLogoText: false,
   supportEmail: "support@studioblack.com",
 } as const;

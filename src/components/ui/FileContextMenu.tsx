@@ -59,7 +59,7 @@ export function FileContextMenu({
           className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         >
-          <MoreVertical size={16} color="#666666" />
+          <MoreVertical size={16} color="var(--text-muted)" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

@@ -1,12 +1,13 @@
 "use client";
 
-import { Menu } from "lucide-react";
+import { Menu, Sun, Moon } from "lucide-react";
 import Link from "next/link";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarColor } from "@/lib/avatarUtils";
+import { useTheme } from "@/components/ThemeProvider";
 import type { User } from "@/types";
 
 interface MobileTopBarProps {
@@ -16,6 +17,8 @@ interface MobileTopBarProps {
 
 /** Top navigation bar for mobile viewports with hamburger, logo, and avatar. */
 export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
+  const { mode, toggleTheme } = useTheme();
+
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-bg-primary border-b border-border-default lg:hidden">
       {/* Left: hamburger + logo */}
@@ -37,8 +40,21 @@ export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
         </Link>
       </div>
 
-      {/* Right: notifications + avatar */}
+      {/* Right: theme toggle + notifications + avatar */}
       <div className="flex items-center gap-2">
+        <button
+          onClick={toggleTheme}
+          className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+          aria-label={
+            mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
+          }
+        >
+          {mode === "dark" ? (
+            <Sun className="w-4.5 h-4.5" />
+          ) : (
+            <Moon className="w-4.5 h-4.5" />
+          )}
+        </button>
         <NotificationPanel />
         <Link href="/settings" className="shrink-0">
           <Avatar

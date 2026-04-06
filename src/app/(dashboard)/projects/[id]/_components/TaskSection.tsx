@@ -243,7 +243,7 @@ export function TaskSection({
               return (
                 <div key={task.id} data-task-id={task.id}>
                   {/* Desktop row */}
-                  <div className="hidden lg:flex items-center min-h-[52px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-white/[0.02] transition-colors gap-3">
+                  <div className="hidden lg:flex items-center min-h-[52px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors gap-3">
                     <div className="w-3 flex justify-center shrink-0">
                       <span
                         className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}

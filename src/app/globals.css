@@ -1,54 +1,8 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-/* ─── Default (dark) theme variables — keep in sync with src/config/themes/default.ts ─── */
+/* ─── Default (light) theme variables — keep in sync with src/config/themes/light.ts ─── */
 :root {
-  --bg-primary: #0d0d0d;
-  --bg-secondary: #1a1a1a;
-  --bg-elevated: #242424;
-  --bg-input: #2a2a2a;
-
-  --accent: #f5c518;
-  --accent-hover: #d4a90d;
-
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-muted: #666666;
-  --text-on-accent: #0d0d0d;
-
-  --border: #333333;
-  --border-light: #444444;
-
-  --status-draft: #666666;
-  --status-submitted: #3b82f6;
-  --status-approved-arch: #22c55e;
-  --status-approved-client: #f5c518;
-  --status-changes: #f59e0b;
-
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --error: #ef4444;
-  --info: #3b82f6;
-
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --danger-muted: rgba(239, 68, 68, 0.15);
-  --danger-border: rgba(239, 68, 68, 0.4);
-
-  --logo-bg: transparent;
-
-  --sidebar-width: 200px;
-  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
-  --font-heading:
-    "Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif;
-
-  /* ─── Radix / shadcn animation tokens ─── */
-  --radius: 0.75rem;
-}
-
-/* ─── Light theme overrides — keep in sync with src/config/themes/light.ts ─── */
-/* Applied instantly via data-theme attr (blocking script) to prevent FOUC */
-:root[data-theme="light"] {
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;
   --bg-elevated: #ebebeb;
@@ -82,6 +36,52 @@
   --danger-border: rgba(220, 38, 38, 0.3);
 
   --logo-bg: #1a1a1a;
+
+  --sidebar-width: 200px;
+  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-heading:
+    "Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif;
+
+  /* ─── Radix / shadcn animation tokens ─── */
+  --radius: 0.75rem;
+}
+
+/* ─── Dark theme overrides — keep in sync with src/config/themes/default.ts ─── */
+/* Applied instantly via data-theme attr (blocking script) to prevent FOUC */
+:root[data-theme="dark"] {
+  --bg-primary: #0d0d0d;
+  --bg-secondary: #1a1a1a;
+  --bg-elevated: #242424;
+  --bg-input: #2a2a2a;
+
+  --accent: #f5c518;
+  --accent-hover: #d4a90d;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+  --text-on-accent: #0d0d0d;
+
+  --border: #333333;
+  --border-light: #444444;
+
+  --status-draft: #666666;
+  --status-submitted: #3b82f6;
+  --status-approved-arch: #22c55e;
+  --status-approved-client: #f5c518;
+  --status-changes: #f59e0b;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+  --info: #3b82f6;
+
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --danger-muted: rgba(239, 68, 68, 0.15);
+  --danger-border: rgba(239, 68, 68, 0.4);
+
+  --logo-bg: transparent;
 }
 
 /* ─── Tailwind v4 theme extension ─── */

@@ -97,10 +97,10 @@ export function NotificationPanel() {
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        className="w-[calc(100vw-2rem)] lg:w-[400px] p-0 border-border-default bg-[#141414] rounded-xl overflow-hidden"
+        className="w-[calc(100vw-2rem)] lg:w-[400px] p-0 border-border-default bg-bg-primary rounded-xl overflow-hidden"
       >
         {/* Header */}
-        <div className="flex items-center justify-between h-[52px] px-4 lg:px-5 border-b border-[#222222]">
+        <div className="flex items-center justify-between h-[52px] px-4 lg:px-5 border-b border-border-default">
           <span className="text-[15px] font-semibold text-text-primary">
             {t("title")}
           </span>
@@ -155,12 +155,12 @@ export function NotificationPanel() {
                   return (
                     <div key={notification.id}>
                       {idx > 0 && (
-                        <div className="h-px bg-[#222222] mx-4 lg:mx-5" />
+                        <div className="h-px bg-border-default mx-4 lg:mx-5" />
                       )}
                       <div
                         className={cn(
-                          "flex items-start gap-3 px-4 lg:px-5 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors",
-                          isUnread && "bg-[#1A1A1A]/50"
+                          "flex items-start gap-3 px-4 lg:px-5 py-3 cursor-pointer hover:bg-bg-elevated/50 transition-colors",
+                          isUnread && "bg-bg-secondary/50"
                         )}
                         onClick={() => handleNotificationClick(notification)}
                         role="button"
@@ -189,7 +189,9 @@ export function NotificationPanel() {
                           <span
                             className={cn(
                               "text-xs leading-snug line-clamp-2",
-                              isUnread ? "text-[#8A8A8A]" : "text-text-muted"
+                              isUnread
+                                ? "text-text-secondary"
+                                : "text-text-muted"
                             )}
                           >
                             {notification.description}
@@ -221,7 +223,7 @@ export function NotificationPanel() {
                               </Button>
                             </div>
                           )}
-                          <span className="text-[11px] text-[#5A5A5A]">
+                          <span className="text-[11px] text-text-muted">
                             {relativeTime(notification.createdAt)}
                           </span>
                         </div>
@@ -234,7 +236,7 @@ export function NotificationPanel() {
                                   e.stopPropagation();
                                   handleDeleteOne(notification.id);
                                 }}
-                                className="p-0.5 rounded text-[#444444] hover:text-red-400 transition-colors cursor-pointer"
+                                className="p-0.5 rounded text-text-muted hover:text-red-400 transition-colors cursor-pointer"
                                 aria-label="Delete notification"
                               >
                                 <X className="w-3.5 h-3.5" />

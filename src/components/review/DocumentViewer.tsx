@@ -204,7 +204,7 @@ export function DocumentViewer({
 
   return (
     <div
-      className={`flex-1 min-h-0 bg-[#1A1A1A] overflow-hidden relative ${
+      className={`flex-1 min-h-0 bg-bg-secondary overflow-hidden relative ${
         isPdf(fileName) ? "" : "flex items-center justify-center"
       }`}
     >
@@ -216,8 +216,8 @@ export function DocumentViewer({
         >
           {pdfError ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
-              <FileText className="w-12 h-12 text-[#666666]" />
-              <p className="text-[#A0A0A0] text-sm text-center max-w-xs">
+              <FileText className="w-12 h-12 text-text-muted" />
+              <p className="text-text-secondary text-sm text-center max-w-xs">
                 {pdfError}
               </p>
               <button
@@ -266,12 +266,12 @@ export function DocumentViewer({
         </div>
       ) : (
         <div className="flex flex-col items-center gap-4">
-          <FileText className="w-16 h-16 text-[#666666]" />
-          <p className="text-[#A0A0A0] text-sm">Preview not available</p>
+          <FileText className="w-16 h-16 text-text-muted" />
+          <p className="text-text-secondary text-sm">Preview not available</p>
           <a
             href={fileUrl}
             download
-            className="inline-flex items-center gap-2 bg-[#F5C518] text-[#0D0D0D] rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#F5C518]/90 transition-colors"
+            className="inline-flex items-center gap-2 bg-[#F5C518] text-text-on-accent rounded-lg px-4 py-2 text-sm font-semibold hover:bg-[#F5C518]/90 transition-colors"
           >
             <Download className="w-4 h-4" />
             Download
@@ -287,9 +287,9 @@ export function DocumentViewer({
             : "opacity-0 translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="flex items-center gap-2 bg-[#0D0D0D]/90 border border-[#333] backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
+        <div className="flex items-center gap-2 bg-bg-primary/90 border border-border-default backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
           <MapPin className="w-3.5 h-3.5 text-[#F5C518] shrink-0" />
-          <span className="text-[12px] text-[#A0A0A0] whitespace-nowrap">
+          <span className="text-[12px] text-text-secondary whitespace-nowrap">
             Click anywhere to place a pin · Press{" "}
             <kbd className="text-[#F5C518] font-medium">P</kbd> or{" "}
             <kbd className="text-[#F5C518] font-medium">Esc</kbd> to exit

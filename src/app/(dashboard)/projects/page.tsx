@@ -402,7 +402,7 @@ export default function ProjectsPage() {
                 {paginatedRows.map((project) => (
                   <div
                     key={project.id}
-                    className="flex items-center h-14 px-4 border-b border-border-default last:border-b-0 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                    className="flex items-center h-14 px-4 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                     onClick={() => router.push(`/projects/${project.id}`)}
                   >
                     <div className="flex-1 min-w-0">
@@ -533,7 +533,7 @@ export default function ProjectsPage() {
               {paginatedRows.map((project) => (
                 <div
                   key={project.id}
-                  className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-white/[0.02] transition-colors cursor-pointer"
+                  className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer"
                   onClick={() => router.push(`/projects/${project.id}`)}
                 >
                   <div className="flex items-center justify-between gap-2">

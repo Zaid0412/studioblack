@@ -88,7 +88,7 @@ export default function ProjectDetailPage({
   if (loading || roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <Loader2 className="w-5 h-5 animate-spin text-[#666666]" />
+        <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
       </div>
     );
   }
@@ -96,7 +96,7 @@ export default function ProjectDetailPage({
   if (error || !project) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <p className="text-[#666666]">{tc("projectNotFound")}</p>
+        <p className="text-text-muted">{tc("projectNotFound")}</p>
       </div>
     );
   }
@@ -146,7 +146,6 @@ export default function ProjectDetailPage({
       {!isClient && (
         <WorkflowBar
           projectId={id}
-          steps={project.steps}
           onUpload={() => uploadTriggerRef.current?.()}
         />
       )}
@@ -205,7 +204,7 @@ export default function ProjectDetailPage({
       {isClient && <ApprovalHistory approvals={approvals} />}
 
       {/* Separator between tasks/files and comments */}
-      <div className="mx-4 lg:mx-10 border-t border-[#333333] mt-2 mb-8" />
+      <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
 
       <CommentsSection
         comments={comments}

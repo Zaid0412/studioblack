@@ -42,7 +42,7 @@ export function RequestChangesDialog({
           value={comment}
           onChange={(e) => onCommentChange(e.target.value)}
           placeholder={t("requestChangesPlaceholder")}
-          className="w-full rounded-lg border border-[#333333] bg-[#2A2A2A] px-3 py-2.5 text-sm text-white placeholder:text-[#666666] resize-none focus:outline-none focus:border-[#F5C518]"
+          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-[#F5C518]"
           rows={4}
           autoFocus
         />
@@ -52,14 +52,14 @@ export function RequestChangesDialog({
               onOpenChange(false);
               onCommentChange("");
             }}
-            className="px-4 py-2 text-[13px] text-[#A0A0A0] hover:text-white transition-colors cursor-pointer"
+            className="px-4 py-2 text-[13px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
           >
             {tc("cancel")}
           </button>
           <button
             onClick={onSubmit}
             disabled={submitting}
-            className="bg-[#F5C518] text-[#0D0D0D] rounded-lg px-4 py-2 text-[13px] font-semibold hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:opacity-50"
+            className="bg-[#F5C518] text-text-on-accent rounded-lg px-4 py-2 text-[13px] font-semibold hover:bg-[#F5C518]/90 transition-colors cursor-pointer disabled:opacity-50"
           >
             {submitting ? t("submitting") : t("submit")}
           </button>

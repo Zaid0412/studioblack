@@ -24,7 +24,7 @@ function statusDot(status?: string) {
   if (status === "approved") return "bg-emerald-500";
   if (status === "rejected") return "bg-red-500";
   if (status === "changes_requested") return "bg-amber-500";
-  return "bg-[#555]";
+  return "bg-text-muted";
 }
 
 /** Sidebar panel listing phase files with active selection and review status indicators. */
@@ -36,14 +36,14 @@ export function ThumbnailPanel({
   onSelectFile,
 }: ThumbnailPanelProps) {
   return (
-    <div className="hidden lg:flex w-40 shrink-0 bg-bg-primary border-r border-[#222] flex-col overflow-hidden">
+    <div className="hidden lg:flex w-40 shrink-0 bg-bg-primary border-r border-border-default flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-3 border-b border-[#222]">
+      <div className="px-3 py-3 border-b border-border-default">
         <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
           {phaseName || "Files"}
         </p>
         {!loading && (
-          <p className="text-[11px] text-[#555] mt-0.5">
+          <p className="text-[11px] text-text-muted mt-0.5">
             {phaseFiles.length} file{phaseFiles.length !== 1 ? "s" : ""}
           </p>
         )}
@@ -53,10 +53,12 @@ export function ThumbnailPanel({
       <div className="flex-1 overflow-y-auto py-1">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-4 h-4 animate-spin text-[#555]" />
+            <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
           </div>
         ) : phaseFiles.length === 0 ? (
-          <p className="text-[11px] text-[#555] px-3 py-4">No files found</p>
+          <p className="text-[11px] text-text-muted px-3 py-4">
+            No files found
+          </p>
         ) : (
           phaseFiles.map((file) => {
             const isActive = file.id === activeFileId;
@@ -67,7 +69,7 @@ export function ThumbnailPanel({
                 className={`w-full text-left px-3 py-2 flex items-center gap-2.5 transition-colors cursor-pointer ${
                   isActive
                     ? "bg-bg-secondary border-l-2 border-accent"
-                    : "border-l-2 border-transparent hover:bg-[#141414]"
+                    : "border-l-2 border-transparent hover:bg-bg-secondary"
                 }`}
               >
                 <div className={isActive ? "text-accent" : "text-text-muted"}>

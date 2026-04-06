@@ -12,6 +12,8 @@ import {
   ChevronsLeft,
   ChevronUp,
   CheckSquare,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { useSidebar } from "./SidebarContext";
@@ -24,6 +26,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
+import { useTheme } from "@/components/ThemeProvider";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { cn } from "@/lib/utils";
@@ -55,6 +58,11 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
+  const { mode, toggleTheme } = useTheme();
+  const logoSrc =
+    mode === "dark"
+      ? branding.logoUrl
+      : (branding.logoUrlDark ?? branding.logoUrl);
 
   const [orgName, setOrgName] = useState<string | null>(null);
   useEffect(() => {
@@ -112,24 +120,25 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       <Link
         href="/dashboard"
         className={cn(
-          "flex px-4 overflow-hidden",
+          "flex overflow-hidden transition-all duration-200 ease-out",
+          isCollapsed ? "px-2" : "px-4",
           branding.showLogoText
             ? "items-center gap-2.5 pt-6 pb-5"
-            : "justify-center pt-3 pb-2"
+            : "justify-center py-0"
         )}
       >
-        {branding.logoUrl ? (
+        {logoSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={branding.logoUrl}
+            src={logoSrc}
             alt={branding.appName}
             className={cn(
               "object-contain transition-all duration-200 ease-out",
               branding.showLogoText
                 ? "h-8 w-8 rounded-md bg-logo-bg p-1 shrink-0"
                 : isCollapsed
-                  ? "h-8 w-8"
-                  : "max-h-20 max-w-[calc(var(--sidebar-width)-2rem)]"
+                  ? "h-14 w-14"
+                  : "h-24 w-24"
             )}
           />
         ) : (
@@ -246,6 +255,23 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
                 <div className="border-t border-border-default my-1" />
               </>
             )}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-between px-2.5 py-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors text-xs w-full cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                {mode === "dark" ? (
+                  <Moon className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <Sun className="h-3.5 w-3.5 shrink-0" />
+                )}
+                {mode === "dark" ? "Dark Mode" : "Light Mode"}
+              </span>
+              <span className="text-[10px] text-text-muted">
+                {mode === "dark" ? "Switch to light" : "Switch to dark"}
+              </span>
+            </button>
+            <div className="border-t border-border-default my-1" />
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-2.5 py-2 rounded-md text-red-400 hover:bg-red-400/10 transition-colors text-xs w-full cursor-pointer"

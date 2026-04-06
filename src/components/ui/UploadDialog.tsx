@@ -152,7 +152,7 @@ export function UploadDialog({
               className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-5 lg:p-8 transition-colors ${
                 dragOver
                   ? "border-accent bg-accent/10"
-                  : "border-border-default hover:border-[#555555]"
+                  : "border-border-default hover:border-border-light"
               }`}
             >
               <Upload className="h-8 w-8 text-text-secondary" />

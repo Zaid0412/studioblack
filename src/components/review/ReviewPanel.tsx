@@ -30,21 +30,23 @@ function formatDate(dateStr: string) {
  */
 export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
   return (
-    <div className="w-72 shrink-0 bg-[#0D0D0D] border-l border-[#222] flex flex-col overflow-hidden">
+    <div className="w-72 shrink-0 bg-bg-primary border-l border-border-default flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-[#222]">
+      <div className="h-10 shrink-0 px-3 flex items-center justify-between border-b border-border-default">
         <div className="flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4 text-[#666]" />
-          <span className="text-[13px] font-medium text-white">Reviews</span>
+          <ClipboardCheck className="w-4 h-4 text-text-muted" />
+          <span className="text-[13px] font-medium text-text-primary">
+            Reviews
+          </span>
           {reviews.length > 0 && (
-            <span className="text-[11px] text-[#666] bg-[#1A1A1A] px-1.5 py-0.5 rounded-full">
+            <span className="text-[11px] text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded-full">
               {reviews.length}
             </span>
           )}
         </div>
         <button
           onClick={onClose}
-          className="text-[#666] hover:text-white transition-colors cursor-pointer"
+          className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
@@ -54,8 +56,8 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
       <div className="flex-1 overflow-y-auto">
         {reviews.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4">
-            <ClipboardCheck className="w-8 h-8 text-[#333] mb-3" />
-            <p className="text-[12px] text-[#555] text-center">
+            <ClipboardCheck className="w-8 h-8 text-text-secondary mb-3" />
+            <p className="text-[12px] text-text-secondary text-center">
               No reviews yet
             </p>
           </div>
@@ -67,8 +69,8 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
               return (
                 <div
                   key={rev.id}
-                  className={`px-3 py-3 border-b border-[#1A1A1A] ${
-                    isLatest ? "bg-[#111]" : ""
+                  className={`px-3 py-3 border-b border-border-default ${
+                    isLatest ? "bg-bg-secondary" : ""
                   }`}
                 >
                   {/* Status + reviewer */}
@@ -80,13 +82,13 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
                     )}
                     <span
                       className={`text-[12px] font-medium truncate ${
-                        isLatest ? "text-white" : "text-[#A0A0A0]"
+                        isLatest ? "text-text-primary" : "text-text-secondary"
                       }`}
                     >
                       {displayName(rev.reviewer_name)}
                     </span>
                     {isLatest && (
-                      <span className="text-[9px] text-[#555] bg-[#1A1A1A] border border-[#333] px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
+                      <span className="text-[9px] text-text-secondary bg-bg-secondary border border-border-default px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0">
                         Latest
                       </span>
                     )}
@@ -111,7 +113,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
 
                   {/* Comment */}
                   {rev.comment && (
-                    <p className="text-[11px] text-[#888] ml-5.5 mb-1.5 leading-relaxed">
+                    <p className="text-[11px] text-text-muted ml-5.5 mb-1.5 leading-relaxed">
                       {rev.comment}
                     </p>
                   )}
@@ -130,7 +132,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
                   )}
 
                   {/* Timestamp */}
-                  <p className="text-[10px] text-[#555] ml-5.5 mt-1.5">
+                  <p className="text-[10px] text-text-secondary ml-5.5 mt-1.5">
                     {formatDate(rev.created_at)}
                   </p>
                 </div>
