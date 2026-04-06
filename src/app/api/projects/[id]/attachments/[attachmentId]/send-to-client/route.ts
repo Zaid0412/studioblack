@@ -37,13 +37,22 @@ export const POST = withAuth(
     }
 
     const pool = getPool();
-    const { rows } = await pool.query(
-      `UPDATE attachment
-       SET sent_to_client_at = NOW(), sent_to_client_by = $1
-       WHERE id = $2
-       RETURNING *`,
-      [user.id, attachmentId]
-    );
+
+    // Update attachment + fetch project info in parallel (single round-trip each)
+    const [{ rows }, { rows: projRows }] = await Promise.all([
+      pool.query(
+        `UPDATE attachment
+         SET sent_to_client_at = NOW(), sent_to_client_by = $1
+         WHERE id = $2
+         RETURNING *`,
+        [user.id, attachmentId]
+      ),
+      pool.query(
+        `SELECT p.name AS project_name, p.client_email
+         FROM project p WHERE p.id = $1`,
+        [id]
+      ),
+    ]);
 
     // In-app notification to client
     createNotificationForClient(
@@ -51,31 +60,23 @@ export const POST = withAuth(
       "design_sent_for_review",
       "New design ready for review",
       `"${attachment.file_name}" has been sent for your review`
-    );
+    ).catch(console.error);
 
     // Email notification to client (fire-and-forget)
-    pool
-      .query(
-        `SELECT p.name AS project_name, p.client_email
-         FROM project p WHERE p.id = $1`,
-        [id]
-      )
-      .then(({ rows: projRows }) => {
-        const proj = projRows[0];
-        if (!proj?.client_email) return;
-        const senderName = escapeHtml(user.name || user.email);
-        const projectUrl = escapeHtml(
-          `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
-        );
-        const subject = `Design Ready for Review: ${proj.project_name}`;
-        const body = `<p><strong>${senderName}</strong> has sent a design for your review in <strong>${escapeHtml(proj.project_name)}</strong>.</p>
-          <p style="color: #666;">File: ${escapeHtml(attachment.file_name)}</p>
-          <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Design →</a></p>`;
-        sendNotificationEmail(proj.client_email, subject, body).catch(
-          console.error
-        );
-      })
-      .catch(console.error);
+    const proj = projRows[0];
+    if (proj?.client_email) {
+      const senderName = escapeHtml(user.name || user.email);
+      const projectUrl = escapeHtml(
+        `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+      );
+      const subject = `Design Ready for Review: ${proj.project_name}`;
+      const body = `<p><strong>${senderName}</strong> has sent a design for your review in <strong>${escapeHtml(proj.project_name)}</strong>.</p>
+        <p style="color: #666;">File: ${escapeHtml(attachment.file_name)}</p>
+        <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Design →</a></p>`;
+      sendNotificationEmail(proj.client_email, subject, body).catch(
+        console.error
+      );
+    }
 
     return NextResponse.json(rows[0]);
   }

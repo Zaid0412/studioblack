@@ -304,12 +304,12 @@ export default function DesignReviewPage({
 
   // Client: submit an approval review (rejection goes through pin comment flow)
   async function handleSubmitReview(
-    _status: "approved" | "rejected",
+    status: "approved" | "rejected",
     comment: string
   ) {
     try {
       await attachmentsApi.submitReview(id, activeFileId, {
-        status: "approved",
+        status,
         comment,
       });
     } catch (err) {
@@ -338,7 +338,7 @@ export default function DesignReviewPage({
         className="flex items-center justify-center -m-4 lg:-m-8"
         style={{ height: "calc(100vh)" }}
       >
-        <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }

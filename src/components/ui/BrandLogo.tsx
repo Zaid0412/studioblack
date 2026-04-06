@@ -32,6 +32,7 @@ const sizeMap = {
   },
 } as const;
 
+/** Renders the app logo with optional text, adapting to the current theme. */
 export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const { mode } = useTheme();
   const textSize = size === "sm" ? "text-base" : "text-lg";

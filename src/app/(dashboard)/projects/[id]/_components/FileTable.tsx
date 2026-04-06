@@ -11,6 +11,7 @@ import {
   Download,
   X,
   Trash2,
+  Send,
   ClipboardCheck,
   ChevronUp,
   ChevronDown,
@@ -417,6 +418,29 @@ export function FileTable({
     }
   }, [selectedFiles, projectId, clearSelection, onRefresh]);
 
+  const handleBulkSendToClient = useCallback(async () => {
+    const unsent = selectedFiles.filter((att) => !att.sent_to_client_at);
+    if (unsent.length === 0) return;
+    try {
+      await Promise.all(
+        unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
+      );
+      toast({
+        title: "Sent to client",
+        description: `${unsent.length} file(s) sent to client.`,
+        variant: "success",
+      });
+      clearSelection();
+      onRefresh();
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to send files to client.",
+        variant: "error",
+      });
+    }
+  }, [selectedFiles, projectId, clearSelection, onRefresh]);
+
   const handleBulkFreeze = useCallback(async () => {
     try {
       await Promise.all(
@@ -523,6 +547,13 @@ export function FileTable({
                 )}
                 {isStaff && (
                   <>
+                    <button
+                      onClick={handleBulkSendToClient}
+                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Send to Client
+                    </button>
                     <button
                       onClick={handleBulkMarkReviewed}
                       className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
@@ -705,12 +736,12 @@ export function FileTable({
                 <div key={att.id}>
                   {/* Desktop row */}
                   <div
-                    className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
+                    className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer border-l-2 ${
                       isSelected
-                        ? "bg-accent/[0.06]"
+                        ? "bg-accent/[0.06] border-l-transparent"
                         : isNewForClient
-                          ? "bg-blue-500/[0.04] hover:bg-blue-500/[0.08] border-l-2 border-l-blue-500"
-                          : "hover:bg-bg-elevated/50"
+                          ? "bg-blue-500/[0.04] hover:bg-blue-500/[0.08] border-l-blue-500"
+                          : "hover:bg-bg-elevated/50 border-l-transparent"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -821,12 +852,12 @@ export function FileTable({
 
                   {/* Mobile card */}
                   <div
-                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden ${
+                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden border-l-2 ${
                       isSelected
-                        ? "bg-accent/[0.06]"
+                        ? "bg-accent/[0.06] border-l-transparent"
                         : isNewForClient
-                          ? "bg-blue-500/[0.04] border-l-2 border-l-blue-500"
-                          : ""
+                          ? "bg-blue-500/[0.04] border-l-blue-500"
+                          : "border-l-transparent"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -911,28 +942,26 @@ export function FileTable({
       </div>
 
       {!readOnly && (
-        <>
-          <UploadDialog
-            open={uploadOpen}
-            onOpenChange={setUploadOpen}
-            projectId={projectId}
-            phaseId={activePhaseId}
-            versionGroup={uploadVersionGroup}
-            initialFiles={droppedFiles}
-            onSuccess={handleUploadSuccess}
-          />
+        <UploadDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          projectId={projectId}
+          phaseId={activePhaseId}
+          versionGroup={uploadVersionGroup}
+          initialFiles={droppedFiles}
+          onSuccess={handleUploadSuccess}
+        />
+      )}
 
-          {versionHistoryGroup && (
-            <VersionHistoryDialog
-              open={!!versionHistoryGroup}
-              onOpenChange={(open) => {
-                if (!open) setVersionHistoryGroup(null);
-              }}
-              projectId={projectId}
-              versionGroup={versionHistoryGroup}
-            />
-          )}
-        </>
+      {versionHistoryGroup && (
+        <VersionHistoryDialog
+          open={!!versionHistoryGroup}
+          onOpenChange={(open) => {
+            if (!open) setVersionHistoryGroup(null);
+          }}
+          projectId={projectId}
+          versionGroup={versionHistoryGroup}
+        />
       )}
     </div>
   );
