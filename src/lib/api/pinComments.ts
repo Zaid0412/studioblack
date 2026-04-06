@@ -28,6 +28,7 @@ export function create(
     page?: number | null;
     content: string;
     request_approval?: boolean;
+    request_changes?: boolean;
     assign_as_task?: {
       assigned_to: string;
       due_date?: string;

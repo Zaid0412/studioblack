@@ -1,106 +1,119 @@
 "use client";
 
-import { useState } from "react";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  MessageSquare,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle2, AlertTriangle, Loader2, X } from "lucide-react";
 
 interface ReviewSubmitBarProps {
   onSubmit: (status: "approved" | "rejected", comment: string) => Promise<void>;
-  /** Number of unresolved pin comments on this file. */
-  pinCount?: number;
+  /** Called when client clicks "Request Changes" — triggers pin mode on the review page. */
+  onRequestChanges?: () => void;
 }
 
 /** Bottom bar for submitting a design review with approve/reject actions and comment. */
 export function ReviewSubmitBar({
   onSubmit,
-  pinCount = 0,
+  onRequestChanges,
 }: ReviewSubmitBarProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<
+    "approved" | "rejected" | null
+  >(null);
   const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState<"approved" | "rejected" | null>(
-    null
-  );
+  const [submitting, setSubmitting] = useState(false);
+  const [requestingChanges, setRequestingChanges] = useState(false);
 
-  async function handleSubmit(status: "approved" | "rejected") {
-    setSubmitting(status);
+  // Reset requestingChanges when the user returns to the button view
+  useEffect(() => {
+    if (!selectedAction) setRequestingChanges(false);
+  }, [selectedAction]);
+
+  function handleActionClick(action: "approved" | "rejected") {
+    setSelectedAction(action);
+  }
+
+  function handleCancel() {
+    setSelectedAction(null);
+    setComment("");
+  }
+
+  async function handleConfirm() {
+    if (!selectedAction || !comment.trim()) return;
+    setSubmitting(true);
     try {
-      await onSubmit(status, comment);
+      await onSubmit(selectedAction, comment.trim());
       setComment("");
-      setExpanded(false);
+      setSelectedAction(null);
     } finally {
-      setSubmitting(null);
+      setSubmitting(false);
     }
   }
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg">
       <div className="bg-bg-secondary border border-border-default rounded-xl shadow-2xl overflow-hidden">
-        {/* Collapsed bar — always visible */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-bg-elevated transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-text-muted" />
-              <span className="text-[13px] text-text-secondary">
-                Submit your review
-              </span>
-              {pinCount > 0 && (
-                <span className="text-[11px] text-[#F5C518] bg-[#F5C518]/10 px-1.5 py-0.5 rounded-full">
-                  {pinCount} comment{pinCount !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
+        {/* Action buttons — visible when no action selected */}
+        {!selectedAction && (
+          <div className="flex items-center gap-2 p-3">
+            <button
+              onClick={() => handleActionClick("approved")}
+              className="flex-1 flex items-center justify-center gap-2 border border-green-600 text-green-600 rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-green-600/10 transition-colors cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Approve
+            </button>
+            <button
+              onClick={() => {
+                if (requestingChanges) return;
+                setRequestingChanges(true);
+                onRequestChanges?.();
+              }}
+              disabled={requestingChanges}
+              className="flex-1 flex items-center justify-center gap-2 border border-amber-500 text-amber-500 rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-amber-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Request Changes
+            </button>
           </div>
-          <span className="text-[11px] text-text-muted">
-            {expanded ? "Collapse" : "Expand"}
-          </span>
-        </button>
+        )}
 
-        {/* Expanded panel */}
-        {expanded && (
-          <div className="border-t border-border-default p-4">
-            {/* Summary comment */}
+        {/* Comment panel — visible after clicking Approve */}
+        {selectedAction === "approved" && (
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                <span className="text-[13px] font-medium text-text-primary">
+                  Approve design
+                </span>
+              </div>
+              <button
+                onClick={handleCancel}
+                className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Leave a comment about this design (optional)..."
-              className="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-[#F5C518] mb-3"
+              placeholder="Add a comment about your approval..."
+              className="w-full rounded-lg border border-border-default bg-bg-primary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent mb-3"
               rows={3}
+              autoFocus
             />
 
-            {/* Submit buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleSubmit("approved")}
-                disabled={submitting !== null}
-                className="flex-1 flex items-center justify-center gap-2 border border-[#22C55E] text-[#22C55E] rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-[#22C55E]/10 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {submitting === "approved" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4" />
-                )}
-                Approve
-              </button>
-              <button
-                onClick={() => handleSubmit("rejected")}
-                disabled={submitting !== null}
-                className="flex-1 flex items-center justify-center gap-2 border border-[#F59E0B] text-[#F59E0B] rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-[#F59E0B]/10 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {submitting === "rejected" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4" />
-                )}
-                Request Changes
-              </button>
-            </div>
+            <button
+              onClick={handleConfirm}
+              disabled={submitting || !comment.trim()}
+              className="w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 text-white hover:bg-green-700"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              Confirm Approval
+            </button>
           </div>
         )}
       </div>

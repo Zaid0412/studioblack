@@ -3,6 +3,8 @@ import { getTasks, getTaskBucketCounts } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { createNotification } from "@/lib/notifications";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import { env } from "@/env";
 
 const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
 const VALID_CATEGORIES = [
@@ -173,6 +175,27 @@ export const POST = withAuth(
         description: `"${title.trim()}" was assigned to you by ${user.name}`,
         projectId: projectId || undefined,
       }).catch((err) => console.error("Notification error:", err));
+
+      // Email the assignee
+      pool
+        .query(`SELECT u.email, u.name FROM "user" u WHERE u.id = $1`, [
+          assignedTo,
+        ])
+        .then(({ rows }) => {
+          const r = rows[0];
+          if (!r?.email) return;
+          const subject = "New Task Assigned to You";
+          const projectUrl = projectId
+            ? escapeHtml(
+                `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(projectId)}`
+              )
+            : null;
+          const body = `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a new task.</p>
+            <p style="color: #666;">${escapeHtml(title.trim())}</p>
+            ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`;
+          sendNotificationEmail(r.email, subject, body).catch(console.error);
+        })
+        .catch(console.error);
     }
 
     return NextResponse.json(task, { status: 201 });

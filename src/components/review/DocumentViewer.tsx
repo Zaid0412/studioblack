@@ -84,6 +84,7 @@ export function DocumentViewer({
     return () => {
       window.removeEventListener("pdfjsReady", onReady);
       window.removeEventListener("pdfjsError", onError);
+      moduleScript.remove();
     };
   }, []);
 
@@ -99,12 +100,16 @@ export function DocumentViewer({
       // Wait for pdfjs to be available
       let lib = pdfjsRef.current;
       if (!lib) {
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
+          let attempts = 0;
           const check = () => {
+            if (cancelled) return reject(new Error("cancelled"));
             lib = (window as WindowWithPdfjs).__pdfjsLib ?? null;
             if (lib) {
               pdfjsRef.current = lib;
               resolve();
+            } else if (++attempts > 100) {
+              reject(new Error("PDF library load timeout"));
             } else {
               setTimeout(check, 100);
             }

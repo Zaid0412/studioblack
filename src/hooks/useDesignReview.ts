@@ -91,21 +91,21 @@ export function useDesignReview({
       if (cancelled) return;
       setAttachment(att);
 
+      if (fetchReviews) {
+        try {
+          const reviewData = await attachmentsApi.getReviewHistory(
+            projectId,
+            activeFileId
+          );
+          if (cancelled) return;
+          setReviews(reviewData);
+        } catch {
+          if (!cancelled) setReviews([]);
+        }
+      }
+
       if (isFirst) {
         isInitialLoad.current = false;
-
-        if (fetchReviews) {
-          try {
-            const reviewData = await attachmentsApi.getReviewHistory(
-              projectId,
-              activeFileId
-            );
-            if (cancelled) return;
-            setReviews(reviewData);
-          } catch {
-            if (!cancelled) setReviews([]);
-          }
-        }
 
         if (att?.phase_id) {
           const [files, name] = await Promise.all([

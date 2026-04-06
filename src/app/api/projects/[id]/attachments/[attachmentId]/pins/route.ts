@@ -8,7 +8,12 @@ import {
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
-import { createNotification } from "@/lib/notifications";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import { env } from "@/env";
+import {
+  createNotification,
+  createNotificationForClient,
+} from "@/lib/notifications";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins — list pin comments. */
 export const GET = withAuth(
@@ -51,6 +56,7 @@ export const POST = withAuth(
       page,
       content,
       request_approval,
+      request_changes,
       assign_as_task,
       parent_id,
     } = body;
@@ -132,17 +138,36 @@ export const POST = withAuth(
     const yVal = hasAllCoords ? y_percent : null;
     const pageVal = hasAllCoords ? page : null;
     const reqApproval = request_approval === true;
+    const reqChanges = request_changes === true;
 
-    // If assign_as_task is provided, use a transaction to create task + pin comment
+    // Validate mutual exclusivity
+    if (reqApproval && reqChanges) {
+      return NextResponse.json(
+        {
+          error: "request_approval and request_changes are mutually exclusive",
+        },
+        { status: 400 }
+      );
+    }
+
+    // If assign_as_task is provided, validate early
     if (assign_as_task) {
-      const { assigned_to, due_date } = assign_as_task;
-
+      const { assigned_to } = assign_as_task;
       if (!assigned_to || typeof assigned_to !== "string") {
         return NextResponse.json(
           { error: "assign_as_task.assigned_to is required" },
           { status: 400 }
         );
       }
+    }
+
+    // Shared helper: create a task + pin comment in a single transaction
+    const needsTask = assign_as_task || (reqChanges && !assign_as_task);
+    if (needsTask) {
+      const assignedTo = assign_as_task
+        ? assign_as_task.assigned_to
+        : attachment.uploaded_by;
+      const dueDate = assign_as_task?.due_date || null;
 
       const pool = getPool();
       const client = await pool.connect();
@@ -150,7 +175,6 @@ export const POST = withAuth(
       try {
         await client.query("BEGIN");
 
-        // Get org_id from the project
         const { rows: projRows } = await client.query(
           `SELECT org_id FROM project WHERE id = $1`,
           [id]
@@ -164,25 +188,22 @@ export const POST = withAuth(
         }
         const orgId = projRows[0].org_id;
 
-        // Truncate content for task title
         const taskTitle =
           content.trim().length > 100
             ? content.trim().slice(0, 97) + "..."
             : content.trim();
 
-        // Create task
         const { rows: taskRows } = await client.query(
           `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, due_date, status, priority, category)
            VALUES ($1, $2, $3, $4, $5, $6, 'todo', 'medium', 'review')
            RETURNING id`,
-          [orgId, id, taskTitle, user.id, assigned_to, due_date || null]
+          [orgId, id, taskTitle, user.id, assignedTo, dueDate]
         );
         const taskId = taskRows[0].id;
 
-        // Create pin comment linked to task
         const { rows: pinRows } = await client.query(
-          `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            RETURNING *`,
           [
             attachmentId,
@@ -192,25 +213,70 @@ export const POST = withAuth(
             pageVal,
             content.trim(),
             reqApproval,
+            reqChanges,
             taskId,
           ]
         );
 
+        // Request changes: also reject the attachment
+        if (reqChanges) {
+          await client.query(
+            `UPDATE attachment SET review_status = 'rejected', reviewed_by = $1 WHERE id = $2`,
+            [user.id, attachmentId]
+          );
+        }
+
         await client.query("COMMIT");
 
         // Notify assignee (fire-and-forget, outside transaction)
-        if (assigned_to !== user.id) {
+        if (assignedTo !== user.id) {
+          const notifTitle = reqChanges
+            ? "Changes requested on your design"
+            : "New task assigned to you";
+          const notifDesc = reqChanges
+            ? `"${taskTitle}" — changes requested by ${user.name}`
+            : `"${taskTitle}" was assigned to you by ${user.name}`;
           createNotification({
-            userId: assigned_to,
+            userId: assignedTo,
             type: "task_assigned",
-            title: "New task assigned to you",
-            description: `"${taskTitle}" was assigned to you by ${user.name}`,
+            title: notifTitle,
+            description: notifDesc,
             projectId: id,
             taskId,
           });
+
+          // Email the assignee
+          pool
+            .query(
+              `SELECT u.email, u.name, p.name AS project_name
+               FROM "user" u
+               JOIN project p ON p.id = $2
+               WHERE u.id = $1`,
+              [assignedTo, id]
+            )
+            .then(({ rows }) => {
+              const r = rows[0];
+              if (!r?.email) return;
+              const projectUrl = escapeHtml(
+                `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+              );
+              const subject = reqChanges
+                ? `Changes Requested: ${r.project_name}`
+                : `New Task Assigned: ${r.project_name}`;
+              const body = reqChanges
+                ? `<p><strong>${escapeHtml(user.name || user.email)}</strong> requested changes on your design in <strong>${escapeHtml(r.project_name)}</strong>.</p>
+                   <p style="color: #666;">${escapeHtml(taskTitle)}</p>
+                   <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`
+                : `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a task in <strong>${escapeHtml(r.project_name)}</strong>.</p>
+                   <p style="color: #666;">${escapeHtml(taskTitle)}</p>
+                   <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`;
+              sendNotificationEmail(r.email, subject, body).catch(
+                console.error
+              );
+            })
+            .catch(console.error);
         }
 
-        // Re-fetch with user name
         const pin = await getPinCommentById(pinRows[0].id);
         return NextResponse.json(pin, { status: 201 });
       } catch (err) {
@@ -219,6 +285,16 @@ export const POST = withAuth(
       } finally {
         client.release();
       }
+    }
+
+    // If request_approval, notify the client
+    if (reqApproval) {
+      createNotificationForClient(
+        id,
+        "review_approval_requested",
+        "Approval requested",
+        `Approval requested for "${attachment.file_name}"`
+      );
     }
 
     // Standard path: no task creation
@@ -230,6 +306,7 @@ export const POST = withAuth(
       page: pageVal,
       content: content.trim(),
       requestApproval: reqApproval,
+      requestChanges: reqChanges,
     });
 
     return NextResponse.json(pin, { status: 201 });

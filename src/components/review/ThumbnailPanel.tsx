@@ -1,12 +1,12 @@
 "use client";
 
 import { FileText, Image, FileIcon, Loader2 } from "lucide-react";
+import { isPdf, isImage } from "@/lib/fileUtils";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { isPdf, isImage } from "@/lib/fileUtils";
 import type { DbAttachment } from "@/types";
 
 interface ThumbnailPanelProps {
@@ -102,7 +102,7 @@ export function ThumbnailPanel({
                       className={`w-2 h-2 rounded-full shrink-0 ${statusDot(file.review_status)}`}
                     />
                   </TooltipTrigger>
-                  <TooltipContent>
+                  <TooltipContent side="right">
                     {file.review_status || "pending"}
                   </TooltipContent>
                 </Tooltip>

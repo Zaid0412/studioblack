@@ -1,0 +1,1 @@
+ALTER TABLE pin_comment ADD COLUMN IF NOT EXISTS request_changes BOOLEAN NOT NULL DEFAULT false;

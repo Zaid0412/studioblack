@@ -80,6 +80,18 @@ export default function DesignReviewPage({
     attachmentId: activeFileId,
     userName: session?.user?.name ?? "",
   });
+  // Destructure stable callbacks (from useState/useCallback) to avoid stale deps
+  const {
+    setPinMode,
+    setSelectedPinId,
+    addPin,
+    resolvePin,
+    editPin,
+    deletePin,
+    repositionPin,
+    fetchReplies,
+    addReply,
+  } = pinState;
 
   // Fetch project members for assignee dropdown
   const [members, setMembers] = useState<{ user_id: string; name: string }[]>(
@@ -109,11 +121,18 @@ export default function DesignReviewPage({
     searchParams.get("comments") === "open"
   );
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [requestChangesMode, setRequestChangesMode] = useState(false);
+
+  // Reset transient UI state when switching files
+  useEffect(() => {
+    setRequestChangesMode(false); // eslint-disable-line react-hooks/set-state-in-effect -- sync reset on file switch
+    setPendingPin(null);
+  }, [activeFileId]);
 
   // Auto-select pin comment from URL param (deep link from tasks)
   useEffect(() => {
     if (initialPinId && pinState.pins.length > 0) {
-      pinState.setSelectedPinId(initialPinId);
+      setSelectedPinId(initialPinId);
       // Clean up URL params after consuming them
       const params = new URLSearchParams(searchParams.toString());
       params.delete("pinId");
@@ -126,9 +145,9 @@ export default function DesignReviewPage({
   }, [initialPinId, pinState.pins.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTogglePinMode = useCallback(() => {
-    pinState.setPinMode(!pinState.pinMode);
+    setPinMode((prev) => !prev);
     setPendingPin(null);
-  }, [pinState]);
+  }, [setPinMode]);
 
   // Keyboard shortcut: P to toggle pin mode, Escape to exit
   useEffect(() => {
@@ -140,24 +159,24 @@ export default function DesignReviewPage({
       if (e.key === "p" || e.key === "P") {
         e.preventDefault();
         handleTogglePinMode();
-      } else if (e.key === "Escape" && pinState.pinMode) {
+      } else if (e.key === "Escape") {
         e.preventDefault();
-        pinState.setPinMode(false);
+        setPinMode(false);
         setPendingPin(null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleTogglePinMode, pinState]);
+  }, [handleTogglePinMode, setPinMode]);
 
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
       setPendingPin({ xPercent, yPercent, page });
       setCommentsOpen(true);
       // Exit pin mode — cursor goes back to normal after placing a pin
-      pinState.setPinMode(false);
+      setPinMode(false);
     },
-    [pinState]
+    [setPinMode]
   );
 
   const handlePinFormSubmit = useCallback(
@@ -167,12 +186,26 @@ export default function DesignReviewPage({
       yPercent?: number | null;
       page?: number | null;
       requestApproval?: boolean;
+      requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {
-      await pinState.addPin(data);
+      await addPin(data);
       setPendingPin(null);
+      setRequestChangesMode(false);
+
+      if (data.requestChanges) {
+        toast({
+          title: "Changes requested",
+          description: "A task has been created for the architect",
+          variant: "success",
+        });
+        // Update local attachment status so the UI reflects the change
+        setAttachment((prev) =>
+          prev ? { ...prev, review_status: "rejected" } : prev
+        );
+      }
     },
-    [pinState]
+    [addPin, setAttachment]
   );
 
   const handlePinFormCancel = useCallback(() => {
@@ -191,8 +224,14 @@ export default function DesignReviewPage({
   );
 
   const handleRequestPin = useCallback(() => {
-    pinState.setPinMode(true);
-  }, [pinState]);
+    setPinMode(true);
+  }, [setPinMode]);
+
+  const handleRequestChanges = useCallback(() => {
+    setRequestChangesMode(true);
+    setPinMode(true);
+    setCommentsOpen(true);
+  }, [setPinMode]);
 
   const handleDownload = useCallback(async () => {
     if (!attachment) return;
@@ -203,7 +242,7 @@ export default function DesignReviewPage({
       a.href = url;
       a.download = attachment.file_name;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("[handleDownload]", err);
     }
@@ -243,14 +282,14 @@ export default function DesignReviewPage({
     }
   }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
 
-  // Client: submit a review
+  // Client: submit an approval review (rejection goes through pin comment flow)
   async function handleSubmitReview(
-    status: "approved" | "rejected",
+    _status: "approved" | "rejected",
     comment: string
   ) {
     try {
       await attachmentsApi.submitReview(id, activeFileId, {
-        status,
+        status: "approved",
         comment,
       });
     } catch (err) {
@@ -264,13 +303,9 @@ export default function DesignReviewPage({
     }
 
     toast({
-      title:
-        status === "approved" ? t("approvedToast") : t("changesRequestedToast"),
-      description:
-        status === "approved"
-          ? t("approvedDescription")
-          : t("changesRequestedDescription"),
-      variant: status === "approved" ? "success" : "error",
+      title: t("approvedToast"),
+      description: t("approvedDescription"),
+      variant: "success",
     });
 
     const updated = await fetchAttachment(activeFileId);
@@ -322,7 +357,9 @@ export default function DesignReviewPage({
 
       <div className="flex-1 flex min-w-0">
         {/* Document area: toolbar + viewer + overlays */}
-        <div className="flex-1 flex flex-col min-w-0 relative">
+        <div
+          className={`flex-1 flex flex-col min-w-0 relative ${isClient ? "pb-20" : ""}`}
+        >
           <ReviewToolbar
             backPath={`/projects/${id}`}
             fileName={fileName}
@@ -425,9 +462,9 @@ export default function DesignReviewPage({
                       pins={pinState.pins}
                       page={page}
                       selectedPinId={pinState.selectedPinId}
-                      onSelectPin={pinState.setSelectedPinId}
+                      onSelectPin={setSelectedPinId}
                       pendingPin={pendingPin}
-                      onRepositionPin={pinState.repositionPin}
+                      onRepositionPin={repositionPin}
                       pinMode={pinState.pinMode}
                       currentUserId={session?.user?.id ?? ""}
                       onRepositionPendingPin={handleRepositionPendingPin}
@@ -442,9 +479,9 @@ export default function DesignReviewPage({
                 pins={pinState.pins}
                 page={1}
                 selectedPinId={pinState.selectedPinId}
-                onSelectPin={pinState.setSelectedPinId}
+                onSelectPin={setSelectedPinId}
                 pendingPin={pendingPin}
-                onRepositionPin={pinState.repositionPin}
+                onRepositionPin={repositionPin}
                 pinMode={pinState.pinMode}
                 currentUserId={session?.user?.id ?? ""}
                 onRepositionPendingPin={handleRepositionPendingPin}
@@ -456,7 +493,7 @@ export default function DesignReviewPage({
           {isClient && (
             <ReviewSubmitBar
               onSubmit={handleSubmitReview}
-              pinCount={pinState.unresolvedCount}
+              onRequestChanges={handleRequestChanges}
             />
           )}
         </div>
@@ -473,26 +510,29 @@ export default function DesignReviewPage({
         <PinSidebar
           pins={pinState.pins}
           selectedPinId={pinState.selectedPinId}
-          onSelectPin={pinState.setSelectedPinId}
-          onResolvePin={pinState.resolvePin}
-          onEditPin={pinState.editPin}
-          onDeletePin={pinState.deletePin}
+          onSelectPin={setSelectedPinId}
+          onResolvePin={resolvePin}
+          onEditPin={editPin}
+          onDeletePin={deletePin}
           currentUserId={session?.user?.id ?? ""}
           isPm={isPm}
+          role={role}
           open={commentsOpen}
           onClose={() => {
             setCommentsOpen(false);
             setPendingPin(null);
+            setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}
           onClearPendingPin={handleClearPendingPin}
           onRequestPin={handleRequestPin}
+          requestChangesMode={requestChangesMode}
           members={members}
           repliesMap={pinState.repliesMap}
-          onFetchReplies={pinState.fetchReplies}
-          onAddReply={pinState.addReply}
+          onFetchReplies={fetchReplies}
+          onAddReply={addReply}
         />
       </div>
 
