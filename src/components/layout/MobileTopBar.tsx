@@ -45,9 +45,15 @@ export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
         <button
           onClick={toggleTheme}
           className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
-          aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={
+            mode === "dark" ? "Switch to light mode" : "Switch to dark mode"
+          }
         >
-          {mode === "dark" ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+          {mode === "dark" ? (
+            <Sun className="w-4.5 h-4.5" />
+          ) : (
+            <Moon className="w-4.5 h-4.5" />
+          )}
         </button>
         <NotificationPanel />
         <Link href="/settings" className="shrink-0">
