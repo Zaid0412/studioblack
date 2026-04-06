@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -12,6 +12,9 @@ import {
   X,
   Trash2,
   ClipboardCheck,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
@@ -23,6 +26,39 @@ import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
 import type { DbAttachment } from "@/types";
+
+type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
+type SortDirection = "asc" | "desc";
+type SortConfig = { key: SortKey; direction: SortDirection } | null;
+
+const STATUS_WEIGHT: Record<string, number> = {
+  pending: 0,
+  reviewed: 1,
+  approved: 2,
+  rejected: 3,
+};
+
+function nextSortDirection(current: SortConfig, key: SortKey): SortConfig {
+  if (!current || current.key !== key) return { key, direction: "asc" };
+  if (current.direction === "asc") return { key, direction: "desc" };
+  return null;
+}
+
+function SortIcon({
+  sortKey,
+  config,
+}: {
+  sortKey: SortKey;
+  config: SortConfig;
+}) {
+  if (!config || config.key !== sortKey)
+    return <ChevronsUpDown className="w-3 h-3 text-text-muted" />;
+  return config.direction === "asc" ? (
+    <ChevronUp className="w-3 h-3 text-text-primary" />
+  ) : (
+    <ChevronDown className="w-3 h-3 text-text-primary" />
+  );
+}
 
 interface FileTableProps {
   projectId: string;
@@ -60,6 +96,53 @@ export function FileTable({
   const te = useTranslations("emptyStates");
   const isClient = userRole === "client";
   const isStaff = userRole === "pm" || userRole === "architect";
+
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+
+  // Reset sort when switching phases
+  useEffect(() => {
+    setSortConfig(null);
+  }, [activePhaseId]);
+
+  const sortedFiles = useMemo(() => {
+    if (!sortConfig) return phaseFiles;
+    const { key, direction } = sortConfig;
+    const sorted = [...phaseFiles].sort((a, b) => {
+      let cmp = 0;
+      switch (key) {
+        case "name":
+          cmp = a.file_name.localeCompare(b.file_name, undefined, {
+            sensitivity: "base",
+          });
+          break;
+        case "type":
+          cmp = fileType(a.file_name).localeCompare(
+            fileType(b.file_name),
+            undefined,
+            { sensitivity: "base" }
+          );
+          break;
+        case "uploadedBy":
+          cmp = (a.uploaded_by_name || "").localeCompare(
+            b.uploaded_by_name || "",
+            undefined,
+            { sensitivity: "base" }
+          );
+          break;
+        case "uploadedOn":
+          cmp =
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          break;
+        case "status":
+          cmp =
+            (STATUS_WEIGHT[a.review_status || "pending"] ?? 0) -
+            (STATUS_WEIGHT[b.review_status || "pending"] ?? 0);
+          break;
+      }
+      return direction === "desc" ? -cmp : cmp;
+    });
+    return sorted;
+  }, [phaseFiles, sortConfig]);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadVersionGroup, setUploadVersionGroup] = useState<string | null>(
@@ -431,21 +514,51 @@ export function FileTable({
             </>
           ) : (
             <>
-              <div className="flex-1 text-xs font-medium text-text-secondary">
+              <button
+                onClick={() =>
+                  setSortConfig(nextSortDirection(sortConfig, "name"))
+                }
+                className="flex-1 flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
+              >
                 {t("fileName") || "Name of File"}
-              </div>
-              <div className="w-[120px] text-xs font-medium text-text-secondary">
+                <SortIcon sortKey="name" config={sortConfig} />
+              </button>
+              <button
+                onClick={() =>
+                  setSortConfig(nextSortDirection(sortConfig, "type"))
+                }
+                className="w-[120px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
+              >
                 {t("fileType") || "Type of File"}
-              </div>
-              <div className="w-[140px] text-xs font-medium text-text-secondary">
+                <SortIcon sortKey="type" config={sortConfig} />
+              </button>
+              <button
+                onClick={() =>
+                  setSortConfig(nextSortDirection(sortConfig, "uploadedBy"))
+                }
+                className="w-[140px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
+              >
                 {t("uploadedBy") || "Uploaded by"}
-              </div>
-              <div className="w-[110px] text-xs font-medium text-text-secondary">
+                <SortIcon sortKey="uploadedBy" config={sortConfig} />
+              </button>
+              <button
+                onClick={() =>
+                  setSortConfig(nextSortDirection(sortConfig, "uploadedOn"))
+                }
+                className="w-[110px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
+              >
                 {t("uploadedOn") || "Uploaded On"}
-              </div>
-              <div className="w-[140px] text-xs font-medium text-text-secondary">
+                <SortIcon sortKey="uploadedOn" config={sortConfig} />
+              </button>
+              <button
+                onClick={() =>
+                  setSortConfig(nextSortDirection(sortConfig, "status"))
+                }
+                className="w-[140px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
+              >
                 {t("statusLabel").replace(":", "") || "Status"}
-              </div>
+                <SortIcon sortKey="status" config={sortConfig} />
+              </button>
               <div className="w-[50px]" />
             </>
           )}
@@ -460,7 +573,7 @@ export function FileTable({
                 Drop files to upload
               </p>
             </div>
-          ) : phaseFiles.length === 0 ? (
+          ) : sortedFiles.length === 0 ? (
             readOnly ? (
               <EmptyState
                 icon={Upload}
@@ -479,7 +592,7 @@ export function FileTable({
               />
             )
           ) : (
-            phaseFiles.map((att) => {
+            sortedFiles.map((att) => {
               const badge = statusBadge(att.review_status);
               const color = avatarColor(att.uploaded_by || "");
               const vc = versionColor(att.version || 1);
