@@ -364,8 +364,8 @@ function PinCard({
       onClick={onSelect}
       className={`group w-full text-left rounded-lg border transition-colors cursor-pointer ${
         isSelected
-          ? "bg-[#F5C518]/5 border-[#F5C518]/20"
-          : "bg-[#141414] border-[#ffffff08] hover:border-[#ffffff12] hover:bg-[#181818]"
+          ? "bg-accent/5 border-accent/20"
+          : "bg-bg-secondary border-border-default hover:border-border-light hover:bg-bg-elevated"
       } ${isTemp ? "opacity-60" : ""}`}
       role="button"
       tabIndex={0}
@@ -737,7 +737,7 @@ function NewPinForm({
           />
 
           {/* Bottom toolbar */}
-          <div className="flex items-center justify-end gap-0.5 px-2 py-1.5 border-t border-[#333]/60">
+          <div className="flex items-center justify-end gap-0.5 px-2 py-1.5 border-t border-border-default/60">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

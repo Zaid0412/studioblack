@@ -13,19 +13,19 @@ interface WorkflowStepsProps {
 
 const dotStyle: Record<string, { dot: string; line: string; label: string }> = {
   completed: {
-    dot: "w-3 h-3 rounded-full bg-[#22C55E]",
-    line: "h-0 w-8 border-t border-[#333333]",
-    label: "text-[11px] font-medium text-white",
+    dot: "w-3 h-3 rounded-full bg-success",
+    line: "h-0 w-8 border-t border-border-default",
+    label: "text-[11px] font-medium text-text-primary",
   },
   in_progress: {
-    dot: "w-3.5 h-3.5 rounded-full bg-[#F5C518] ring-2 ring-[#F5C518]",
-    line: "h-0 w-8 border-t border-[#333333]",
-    label: "text-[11px] font-semibold text-[#F5C518]",
+    dot: "w-3.5 h-3.5 rounded-full bg-accent ring-2 ring-accent",
+    line: "h-0 w-8 border-t border-border-default",
+    label: "text-[11px] font-semibold text-accent",
   },
   pending: {
-    dot: "w-3 h-3 rounded-full bg-[#333333]",
-    line: "h-0 w-8 border-t border-[#333333]",
-    label: "text-[11px] font-medium text-[#666666]",
+    dot: "w-3 h-3 rounded-full bg-border-default",
+    line: "h-0 w-8 border-t border-border-default",
+    label: "text-[11px] font-medium text-text-muted",
   },
 };
 

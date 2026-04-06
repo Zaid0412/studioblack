@@ -85,7 +85,7 @@ function fileTypeBadge(ext: string): {
       return { bg: "#3F2E1E", text: "#FB923C", label: "SVG" };
     default:
       return {
-        bg: "#222222",
+        bg: "var(--bg-elevated)",
         text: "var(--text-secondary)",
         label: ext.toUpperCase() || "FILE",
       };
@@ -425,7 +425,7 @@ export function TaskDetailModal({
               </DetailRow>
               <DetailSep />
               <DetailRow label="Created">
-                <span className="text-xs text-[#555555]">
+                <span className="text-xs text-text-secondary">
                   {formatFullDate(task.created_at)} by {task.created_by_name}
                 </span>
               </DetailRow>

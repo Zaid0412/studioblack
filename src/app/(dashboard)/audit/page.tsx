@@ -76,7 +76,7 @@ export default function AuditPage() {
       <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
         {loading ? (
           <div className="py-12 text-center">
-            <Loader2 className="w-5 h-5 animate-spin text-[#666] mx-auto" />
+            <Loader2 className="w-5 h-5 animate-spin text-text-muted mx-auto" />
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
