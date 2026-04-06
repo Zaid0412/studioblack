@@ -12,6 +12,8 @@ import {
   ChevronsLeft,
   ChevronUp,
   CheckSquare,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { NavItem } from "./NavItem";
 import { useSidebar } from "./SidebarContext";
@@ -56,7 +58,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
-  const { mode } = useTheme();
+  const { mode, toggleTheme } = useTheme();
   const logoSrc =
     mode === "dark"
       ? branding.logoUrl
@@ -253,6 +255,23 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
                 <div className="border-t border-border-default my-1" />
               </>
             )}
+            <button
+              onClick={toggleTheme}
+              className="flex items-center justify-between px-2.5 py-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors text-xs w-full cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                {mode === "dark" ? (
+                  <Moon className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <Sun className="h-3.5 w-3.5 shrink-0" />
+                )}
+                {mode === "dark" ? "Dark Mode" : "Light Mode"}
+              </span>
+              <span className="text-[10px] text-text-muted">
+                {mode === "dark" ? "Switch to light" : "Switch to dark"}
+              </span>
+            </button>
+            <div className="border-t border-border-default my-1" />
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 px-2.5 py-2 rounded-md text-red-400 hover:bg-red-400/10 transition-colors text-xs w-full cursor-pointer"
