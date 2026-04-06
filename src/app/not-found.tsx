@@ -23,7 +23,7 @@ export default function NotFound() {
         className="mb-1 h-40 w-40 object-contain hidden [[data-theme=dark]_&]:block"
       />
 
-      <h1 className="text-[120px] font-extrabold leading-none tracking-tight text-accent">
+      <h1 className="text-[120px] font-extrabold leading-none tracking-tight text-text-primary">
         404
       </h1>
 
