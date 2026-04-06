@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { avatarColor } from "@/lib/avatarUtils";
 import {
   PRIORITY_DOT,
@@ -102,30 +103,38 @@ export function TaskRow({
       >
         {/* Priority dot */}
         <div className="w-3 flex justify-center shrink-0">
-          <span
-            className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
-            title={capitalize(task.priority)}
-          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+              />
+            </TooltipTrigger>
+            <TooltipContent>{capitalize(task.priority)}</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Star toggle */}
         <div className="w-6 flex justify-center shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStar(task);
-            }}
-            className="p-0.5 rounded transition-colors cursor-pointer"
-            title={task.is_starred ? "Unstar" : "Star"}
-          >
-            <Star
-              className={`w-4 h-4 ${
-                task.is_starred
-                  ? "fill-accent text-accent"
-                  : "text-text-muted hover:text-accent"
-              }`}
-            />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleStar(task);
+                }}
+                className="p-0.5 rounded transition-colors cursor-pointer"
+              >
+                <Star
+                  className={`w-4 h-4 ${
+                    task.is_starred
+                      ? "fill-accent text-accent"
+                      : "text-text-muted hover:text-accent"
+                  }`}
+                />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{task.is_starred ? "Unstar" : "Star"}</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Title + description */}
@@ -208,33 +217,41 @@ export function TaskRow({
 
         {/* Status badge (clickable) */}
         <div className="w-[100px] shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStatus(task);
-            }}
-            className="cursor-pointer"
-            title="Click to change status"
-          >
-            <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
-              {STATUS_LABEL[task.status] ?? task.status}
-            </Badge>
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleStatus(task);
+                }}
+                className="cursor-pointer"
+              >
+                <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
+                  {STATUS_LABEL[task.status] ?? task.status}
+                </Badge>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Click to change status</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Go to project */}
         <div className="w-8 flex justify-center shrink-0">
           {task.project_id && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onGoToProject(task);
-              }}
-              className="p-1 rounded-md text-text-muted hover:text-accent hover:bg-bg-input transition-colors cursor-pointer"
-              title="Go to project"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onGoToProject(task);
+                  }}
+                  className="p-1 rounded-md text-text-muted hover:text-accent hover:bg-bg-input transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Go to project</TooltipContent>
+            </Tooltip>
           )}
         </div>
 

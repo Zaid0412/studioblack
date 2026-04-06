@@ -23,6 +23,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/formatTime";
@@ -116,13 +117,17 @@ export function NotificationPanel() {
               <CheckCheck className="w-3.5 h-3.5" />
               {t("markAllRead")}
             </button>
-            <button
-              onClick={handleClearAll}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-muted hover:text-red-400 transition-colors text-xs cursor-pointer"
-              title={t("clearAll")}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleClearAll}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-bg-secondary text-text-muted hover:text-red-400 transition-colors text-xs cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{t("clearAll")}</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 

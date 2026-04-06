@@ -39,6 +39,7 @@ import {
 } from "@/lib/taskUtils";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import { toast } from "@/components/ui/useToast";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
 import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
@@ -245,28 +246,36 @@ export function TaskSection({
                   {/* Desktop row */}
                   <div className="hidden lg:flex items-center min-h-[52px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors gap-3">
                     <div className="w-3 flex justify-center shrink-0">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
-                        title={capitalize(task.priority)}
-                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent>{capitalize(task.priority)}</TooltipContent>
+                      </Tooltip>
                     </div>
                     <div className="w-6 flex justify-center shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleStar(task);
-                        }}
-                        className="p-0.5 rounded transition-colors cursor-pointer"
-                        title={task.is_starred ? "Unstar" : "Star"}
-                      >
-                        <Star
-                          className={`w-3.5 h-3.5 ${
-                            task.is_starred
-                              ? "fill-accent text-accent"
-                              : "text-text-muted hover:text-accent"
-                          }`}
-                        />
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleStar(task);
+                            }}
+                            className="p-0.5 rounded transition-colors cursor-pointer"
+                          >
+                            <Star
+                              className={`w-3.5 h-3.5 ${
+                                task.is_starred
+                                  ? "fill-accent text-accent"
+                                  : "text-text-muted hover:text-accent"
+                              }`}
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>{task.is_starred ? "Unstar" : "Star"}</TooltipContent>
+                      </Tooltip>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -325,17 +334,21 @@ export function TaskSection({
                       )}
                     </div>
                     <div className="w-[100px] shrink-0">
-                      <button
-                        onClick={() => toggleStatus(task)}
-                        className="cursor-pointer"
-                        title="Click to change status"
-                      >
-                        <Badge
-                          variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}
-                        >
-                          {STATUS_LABEL[task.status] ?? task.status}
-                        </Badge>
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => toggleStatus(task)}
+                            className="cursor-pointer"
+                          >
+                            <Badge
+                              variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}
+                            >
+                              {STATUS_LABEL[task.status] ?? task.status}
+                            </Badge>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Click to change status</TooltipContent>
+                      </Tooltip>
                     </div>
                     <div className="w-8 flex justify-end shrink-0">
                       {actionMenu}
