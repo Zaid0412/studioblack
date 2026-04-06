@@ -189,7 +189,9 @@ export function NotificationPanel() {
                           <span
                             className={cn(
                               "text-xs leading-snug line-clamp-2",
-                              isUnread ? "text-text-secondary" : "text-text-muted"
+                              isUnread
+                                ? "text-text-secondary"
+                                : "text-text-muted"
                             )}
                           >
                             {notification.description}

@@ -56,7 +56,9 @@ export function ThumbnailPanel({
             <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
           </div>
         ) : phaseFiles.length === 0 ? (
-          <p className="text-[11px] text-text-muted px-3 py-4">No files found</p>
+          <p className="text-[11px] text-text-muted px-3 py-4">
+            No files found
+          </p>
         ) : (
           phaseFiles.map((file) => {
             const isActive = file.id === activeFileId;
