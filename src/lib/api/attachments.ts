@@ -75,6 +75,11 @@ export function markReviewed(projectId: string, fileId: string) {
   });
 }
 
+/** Send an attachment to the client for approval. */
+export function sendToClient(projectId: string, fileId: string) {
+  return apiPost(API.attachmentSendToClient(projectId, fileId));
+}
+
 /** Delete an attachment. */
 export function remove(projectId: string, fileId: string) {
   return apiDelete(API.attachment(projectId, fileId));

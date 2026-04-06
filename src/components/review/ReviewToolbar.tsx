@@ -12,6 +12,7 @@ import {
   Printer,
   Lock,
   Maximize,
+  Send,
   Unlock,
   Upload,
 } from "lucide-react";
@@ -31,6 +32,7 @@ interface ReviewToolbarProps {
   leftSlot?: ReactNode;
   rightSlot?: ReactNode;
   onUploadNewVersion?: () => void;
+  onSendToClient?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
 }
@@ -48,6 +50,7 @@ export function ReviewToolbar({
   leftSlot,
   rightSlot,
   onUploadNewVersion,
+  onSendToClient,
   frozen,
   onToggleFreeze,
 }: ReviewToolbarProps) {
@@ -164,6 +167,18 @@ export function ReviewToolbar({
                 >
                   <Upload className="w-4 h-4" />
                   Upload New Version
+                </button>
+              )}
+              {onSendToClient && (
+                <button
+                  onClick={() => {
+                    onSendToClient();
+                    setMoreMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  Send to Client
                 </button>
               )}
               {onToggleFreeze && (

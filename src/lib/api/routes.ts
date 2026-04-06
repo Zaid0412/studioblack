@@ -31,6 +31,7 @@ export const API = {
   attachmentReview:      (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/review`,
   attachmentFreeze:      (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/freeze`,
   attachmentUnfreeze:    (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/unfreeze`,
+  attachmentSendToClient:(pid: string, fid: string)               => `/api/projects/${pid}/attachments/${fid}/send-to-client`,
   attachmentPins:        (pid: string, fid: string)               => `/api/projects/${pid}/attachments/${fid}/pins`,
   attachmentPin:         (pid: string, fid: string, pinId: string) => `/api/projects/${pid}/attachments/${fid}/pins/${pinId}`,
   attachmentPinReplies:  (pid: string, fid: string, pinId: string) => `/api/projects/${pid}/attachments/${fid}/pins/${pinId}/replies`,

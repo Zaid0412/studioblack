@@ -15,6 +15,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  Send,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
@@ -232,6 +233,27 @@ export function FileTable({
         toast({
           title: "Error",
           description: "Failed to update freeze status.",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, onRefresh]
+  );
+
+  const handleSendToClient = useCallback(
+    async (att: DbAttachment) => {
+      try {
+        await attachmentsApi.sendToClient(projectId, att.id);
+        toast({
+          title: "Sent to client",
+          description: `"${att.file_name}" is now visible to the client.`,
+          variant: "success",
+        });
+        onRefresh();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to send file to client.",
           variant: "error",
         });
       }
@@ -655,6 +677,11 @@ export function FileTable({
                         ? () => handleMarkReviewed(att)
                         : undefined
                     }
+                    onSendToClient={
+                      isStaff && !att.sent_to_client_at
+                        ? () => handleSendToClient(att)
+                        : undefined
+                    }
                     frozen={!!att.frozen_at}
                     onToggleFreeze={
                       isStaff ? () => handleToggleFreeze(att) : undefined
@@ -730,6 +757,9 @@ export function FileTable({
                       </div>
                       {att.frozen_at && (
                         <Lock className="w-3 h-3 text-accent shrink-0" />
+                      )}
+                      {isStaff && att.sent_to_client_at && (
+                        <Send className="w-3 h-3 text-emerald-400 shrink-0" />
                       )}
                       <span className="text-[13px] font-medium text-text-primary truncate">
                         {att.file_name}
@@ -816,6 +846,9 @@ export function FileTable({
                       </div>
                       {att.frozen_at && (
                         <Lock className="w-3 h-3 text-accent shrink-0" />
+                      )}
+                      {isStaff && att.sent_to_client_at && (
+                        <Send className="w-3 h-3 text-emerald-400 shrink-0" />
                       )}
                       <span className="text-[13px] font-medium text-text-primary truncate flex-1">
                         {att.file_name}

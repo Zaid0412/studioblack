@@ -179,6 +179,8 @@ export interface DbAttachment {
   version_group?: string;
   review_status?: string;
   frozen_at?: string | null;
+  sent_to_client_at?: string | null;
+  sent_to_client_by?: string | null;
   reviewed_by_name?: string | null;
   versions?: DbAttachment[];
 }

@@ -8,6 +8,7 @@ import {
   Lock,
   MoreVertical,
   Pencil,
+  Send,
   Trash2,
   Unlock,
   Upload,
@@ -31,6 +32,7 @@ interface FileContextMenuProps {
   onApprove?: () => void;
   onReject?: () => void;
   onMarkReviewed?: () => void;
+  onSendToClient?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
 }
@@ -46,6 +48,7 @@ export function FileContextMenu({
   onApprove,
   onReject,
   onMarkReviewed,
+  onSendToClient,
   frozen,
   onToggleFreeze,
 }: FileContextMenuProps) {
@@ -112,6 +115,15 @@ export function FileContextMenu({
             <ClipboardCheck />
             Mark Reviewed
           </DropdownMenuItem>
+        )}
+        {onSendToClient && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onSendToClient}>
+              <Send />
+              Send to Client
+            </DropdownMenuItem>
+          </>
         )}
         {onToggleFreeze && (
           <>

@@ -261,6 +261,7 @@ export async function getAttachments(filters: {
   phaseId?: string;
   taskId?: string;
   all?: boolean;
+  clientOnly?: boolean;
 }) {
   const pool = getPool();
   let query = `SELECT a.*, u.name AS uploaded_by_name
@@ -274,6 +275,11 @@ export async function getAttachments(filters: {
                    LIMIT 1
                  )`;
   const params: string[] = [filters.projectId];
+
+  // Clients can only see files explicitly sent to them
+  if (filters.clientOnly) {
+    query += ` AND a.sent_to_client_at IS NOT NULL`;
+  }
 
   if (!filters.all) {
     if (filters.taskId) {
