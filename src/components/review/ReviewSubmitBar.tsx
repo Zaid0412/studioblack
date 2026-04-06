@@ -7,15 +7,12 @@ interface ReviewSubmitBarProps {
   onSubmit: (status: "approved" | "rejected", comment: string) => Promise<void>;
   /** Called when client clicks "Request Changes" — triggers pin mode on the review page. */
   onRequestChanges?: () => void;
-  /** Number of unresolved pin comments on this file. */
-  pinCount?: number;
 }
 
 /** Bottom bar for submitting a design review with approve/reject actions and comment. */
 export function ReviewSubmitBar({
   onSubmit,
   onRequestChanges,
-  pinCount = 0,
 }: ReviewSubmitBarProps) {
   const [selectedAction, setSelectedAction] = useState<
     "approved" | "rejected" | null
@@ -64,11 +61,6 @@ export function ReviewSubmitBar({
               <AlertTriangle className="w-4 h-4" />
               Request Changes
             </button>
-            {pinCount > 0 && (
-              <span className="text-[11px] text-accent bg-accent/10 px-1.5 py-0.5 rounded-full shrink-0">
-                {pinCount} comment{pinCount !== 1 ? "s" : ""}
-              </span>
-            )}
           </div>
         )}
 

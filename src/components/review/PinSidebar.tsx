@@ -646,10 +646,11 @@ function NewPinForm({
     textareaRef.current?.focus();
   }, []);
 
-  // Sync pinAttached when pendingPin changes
+  // Sync pinAttached when pendingPin changes and auto-focus textarea
   useEffect(() => {
     if (pendingPin) {
       setPinAttached(true);
+      textareaRef.current?.focus();
     }
   }, [pendingPin]);
 

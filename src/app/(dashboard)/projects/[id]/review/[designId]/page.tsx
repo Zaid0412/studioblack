@@ -453,7 +453,6 @@ export default function DesignReviewPage({
             <ReviewSubmitBar
               onSubmit={handleSubmitReview}
               onRequestChanges={handleRequestChanges}
-              pinCount={pinState.unresolvedCount}
             />
           )}
         </div>
