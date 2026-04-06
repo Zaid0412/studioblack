@@ -39,7 +39,11 @@ import {
 } from "@/lib/taskUtils";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import { toast } from "@/components/ui/useToast";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
 import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
@@ -252,7 +256,9 @@ export function TaskSection({
                             className={`w-2.5 h-2.5 rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                           />
                         </TooltipTrigger>
-                        <TooltipContent>{capitalize(task.priority)}</TooltipContent>
+                        <TooltipContent>
+                          {capitalize(task.priority)}
+                        </TooltipContent>
                       </Tooltip>
                     </div>
                     <div className="w-6 flex justify-center shrink-0">
@@ -274,7 +280,9 @@ export function TaskSection({
                             />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent>{task.is_starred ? "Unstar" : "Star"}</TooltipContent>
+                        <TooltipContent>
+                          {task.is_starred ? "Unstar" : "Star"}
+                        </TooltipContent>
                       </Tooltip>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -341,7 +349,9 @@ export function TaskSection({
                             className="cursor-pointer"
                           >
                             <Badge
-                              variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}
+                              variant={
+                                STATUS_BADGE_VARIANT[task.status] ?? "draft"
+                              }
                             >
                               {STATUS_LABEL[task.status] ?? task.status}
                             </Badge>

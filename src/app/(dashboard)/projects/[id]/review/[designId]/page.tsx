@@ -11,7 +11,11 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useDesignReview } from "@/hooks/useDesignReview";
 import { usePinComments } from "@/hooks/usePinComments";
 import { useUserRole } from "@/hooks/useUserRole";

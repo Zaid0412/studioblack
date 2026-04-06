@@ -18,7 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { avatarColor } from "@/lib/avatarUtils";
 import {
   PRIORITY_DOT,
@@ -133,7 +137,9 @@ export function TaskRow({
                 />
               </button>
             </TooltipTrigger>
-            <TooltipContent>{task.is_starred ? "Unstar" : "Star"}</TooltipContent>
+            <TooltipContent>
+              {task.is_starred ? "Unstar" : "Star"}
+            </TooltipContent>
           </Tooltip>
         </div>
 

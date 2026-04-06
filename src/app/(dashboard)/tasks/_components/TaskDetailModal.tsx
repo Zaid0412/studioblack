@@ -311,7 +311,9 @@ export function TaskDetailModal({
                   />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>{task.is_starred ? "Unstar" : "Star"}</TooltipContent>
+              <TooltipContent>
+                {task.is_starred ? "Unstar" : "Star"}
+              </TooltipContent>
             </Tooltip>
           )}
           {/* Header */}
@@ -603,7 +605,9 @@ export function TaskDetailModal({
                                   <Eye className="w-3.5 h-3.5" />
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{isPreviewing ? "Hide preview" : "Preview"}</TooltipContent>
+                              <TooltipContent>
+                                {isPreviewing ? "Hide preview" : "Preview"}
+                              </TooltipContent>
                             </Tooltip>
                           )}
                           {canOpen && (
