@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -100,10 +100,12 @@ export function FileTable({
 
   const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
-  // Reset sort when switching phases
-  useEffect(() => {
+  // Reset sort when switching phases (render-time reset, not effect)
+  const prevPhaseRef = useRef(activePhaseId);
+  if (prevPhaseRef.current !== activePhaseId) {
+    prevPhaseRef.current = activePhaseId;
     setSortConfig(null);
-  }, [activePhaseId]);
+  }
 
   const sortedFiles = useMemo(() => {
     if (!sortConfig) return phaseFiles;
