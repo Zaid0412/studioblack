@@ -104,6 +104,7 @@ export default function DesignReviewPage({
     searchParams.get("comments") === "open"
   );
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [requestChangesMode, setRequestChangesMode] = useState(false);
 
   // Auto-select pin comment from URL param (deep link from tasks)
   useEffect(() => {
@@ -167,6 +168,7 @@ export default function DesignReviewPage({
     }) => {
       await pinState.addPin(data);
       setPendingPin(null);
+      setRequestChangesMode(false);
     },
     [pinState]
   );
@@ -188,6 +190,12 @@ export default function DesignReviewPage({
 
   const handleRequestPin = useCallback(() => {
     pinState.setPinMode(true);
+  }, [pinState]);
+
+  const handleRequestChanges = useCallback(() => {
+    setRequestChangesMode(true);
+    pinState.setPinMode(true);
+    setCommentsOpen(true);
   }, [pinState]);
 
   const handleDownload = useCallback(async () => {
@@ -444,6 +452,7 @@ export default function DesignReviewPage({
           {isClient && (
             <ReviewSubmitBar
               onSubmit={handleSubmitReview}
+              onRequestChanges={handleRequestChanges}
               pinCount={pinState.unresolvedCount}
             />
           )}
@@ -472,12 +481,14 @@ export default function DesignReviewPage({
           onClose={() => {
             setCommentsOpen(false);
             setPendingPin(null);
+            setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}
           onClearPendingPin={handleClearPendingPin}
           onRequestPin={handleRequestPin}
+          requestChangesMode={requestChangesMode}
           members={members}
           repliesMap={pinState.repliesMap}
           onFetchReplies={pinState.fetchReplies}

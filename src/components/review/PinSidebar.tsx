@@ -105,6 +105,8 @@ interface PinSidebarProps {
   onClearPendingPin?: () => void;
   /** Enter pin mode so the user can click the document to place a pin. */
   onRequestPin?: () => void;
+  /** When true, the new comment form pre-checks "Request changes" and locks it. */
+  requestChangesMode?: boolean;
   /** Member data for assignee dropdown */
   members: { user_id: string; name: string }[];
   /** Replies keyed by parent pin ID. */
@@ -146,6 +148,7 @@ export function PinSidebar({
   onCancelPending,
   onClearPendingPin,
   onRequestPin,
+  requestChangesMode,
   members,
   repliesMap,
   onFetchReplies,
@@ -166,7 +169,7 @@ export function PinSidebar({
   }, [selectedPinId]);
 
   // Show form when pendingPin is set (from document click)
-  const formVisible = showNewForm || !!pendingPin;
+  const formVisible = showNewForm || !!pendingPin || !!requestChangesMode;
 
   if (!shouldRender) return null;
 
@@ -229,6 +232,7 @@ export function PinSidebar({
           pendingPin={pendingPin ?? null}
           members={members}
           role={role}
+          requestChangesMode={requestChangesMode}
           onSubmit={(data) => {
             onSubmitComment(data);
             setShowNewForm(false);
@@ -601,6 +605,7 @@ function NewPinForm({
   pendingPin,
   members,
   role,
+  requestChangesMode,
   onSubmit,
   onCancel,
   onClearPin,
@@ -610,6 +615,8 @@ function NewPinForm({
   members: { user_id: string; name: string }[];
   /** Current user role — used to gate comment form options. */
   role?: UserRole | null;
+  /** When true, pre-check and lock "Request changes". */
+  requestChangesMode?: boolean;
   onSubmit: (data: {
     content: string;
     xPercent?: number | null;
@@ -631,7 +638,7 @@ function NewPinForm({
   const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [requestApproval, setRequestApproval] = useState(false);
-  const [requestChanges, setRequestChanges] = useState(false);
+  const [requestChanges, setRequestChanges] = useState(!!requestChangesMode);
   const [submitting, setSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -791,12 +798,14 @@ function NewPinForm({
             <Checkbox
               checked={requestChanges}
               onCheckedChange={(checked: boolean) => {
+                if (requestChangesMode) return;
                 setRequestChanges(checked);
                 if (checked) {
                   setPinAttached(true);
                   if (!pendingPin) onRequestPin?.();
                 }
               }}
+              disabled={requestChangesMode}
               label="Request changes"
               className="[&_span]:text-text-secondary"
             />
