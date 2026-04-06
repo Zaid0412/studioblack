@@ -169,8 +169,20 @@ export default function DesignReviewPage({
       await pinState.addPin(data);
       setPendingPin(null);
       setRequestChangesMode(false);
+
+      if (data.requestChanges) {
+        toast({
+          title: "Changes requested",
+          description: "A task has been created for the architect",
+          variant: "success",
+        });
+        // Update local attachment status so the UI reflects the change
+        setAttachment((prev) =>
+          prev ? { ...prev, review_status: "rejected" } : prev
+        );
+      }
     },
-    [pinState]
+    [pinState, setAttachment]
   );
 
   const handlePinFormCancel = useCallback(() => {
