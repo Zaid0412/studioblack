@@ -35,7 +35,8 @@ const STATUS_WEIGHT: Record<string, number> = {
   pending: 0,
   reviewed: 1,
   approved: 2,
-  rejected: 3,
+  changes_requested: 3,
+  rejected: 4,
 };
 
 function nextSortDirection(current: SortConfig, key: SortKey): SortConfig {
@@ -514,51 +515,46 @@ export function FileTable({
             </>
           ) : (
             <>
-              <button
-                onClick={() =>
-                  setSortConfig(nextSortDirection(sortConfig, "name"))
-                }
-                className="flex-1 flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
-              >
-                {t("fileName") || "Name of File"}
-                <SortIcon sortKey="name" config={sortConfig} />
-              </button>
-              <button
-                onClick={() =>
-                  setSortConfig(nextSortDirection(sortConfig, "type"))
-                }
-                className="w-[120px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
-              >
-                {t("fileType") || "Type of File"}
-                <SortIcon sortKey="type" config={sortConfig} />
-              </button>
-              <button
-                onClick={() =>
-                  setSortConfig(nextSortDirection(sortConfig, "uploadedBy"))
-                }
-                className="w-[140px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
-              >
-                {t("uploadedBy") || "Uploaded by"}
-                <SortIcon sortKey="uploadedBy" config={sortConfig} />
-              </button>
-              <button
-                onClick={() =>
-                  setSortConfig(nextSortDirection(sortConfig, "uploadedOn"))
-                }
-                className="w-[110px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
-              >
-                {t("uploadedOn") || "Uploaded On"}
-                <SortIcon sortKey="uploadedOn" config={sortConfig} />
-              </button>
-              <button
-                onClick={() =>
-                  setSortConfig(nextSortDirection(sortConfig, "status"))
-                }
-                className="w-[140px] flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none"
-              >
-                {t("statusLabel").replace(":", "") || "Status"}
-                <SortIcon sortKey="status" config={sortConfig} />
-              </button>
+              {(
+                [
+                  {
+                    key: "name" as SortKey,
+                    width: "flex-1",
+                    label: t("fileName") || "Name of File",
+                  },
+                  {
+                    key: "type" as SortKey,
+                    width: "w-[120px]",
+                    label: t("fileType") || "Type of File",
+                  },
+                  {
+                    key: "uploadedBy" as SortKey,
+                    width: "w-[140px]",
+                    label: t("uploadedBy") || "Uploaded by",
+                  },
+                  {
+                    key: "uploadedOn" as SortKey,
+                    width: "w-[110px]",
+                    label: t("uploadedOn") || "Uploaded On",
+                  },
+                  {
+                    key: "status" as SortKey,
+                    width: "w-[140px]",
+                    label: t("statusLabel").replace(":", "") || "Status",
+                  },
+                ] as const
+              ).map(({ key, width, label }) => (
+                <button
+                  key={key}
+                  onClick={() =>
+                    setSortConfig(nextSortDirection(sortConfig, key))
+                  }
+                  className={`${width} flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none`}
+                >
+                  {label}
+                  <SortIcon sortKey={key} config={sortConfig} />
+                </button>
+              ))}
               <div className="w-[50px]" />
             </>
           )}
