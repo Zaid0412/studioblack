@@ -39,6 +39,7 @@ export function SplashScreen() {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={
+          typeof document !== "undefined" &&
           document.documentElement.getAttribute("data-theme") === "dark"
             ? branding.logoUrl
             : (branding.logoUrlDark ?? branding.logoUrl)
