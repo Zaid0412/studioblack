@@ -890,7 +890,7 @@ function NewPinForm({
             <Checkbox
               checked={requestApproval}
               onCheckedChange={setRequestApproval}
-              label="Request for approval"
+              label="Notify client for review"
               className="[&_span]:text-text-secondary"
             />
           </div>
