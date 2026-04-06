@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -98,14 +98,26 @@ export function FileTable({
   const isClient = userRole === "client";
   const isStaff = userRole === "pm" || userRole === "architect";
 
-  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+  const [sortState, setSortState] = useState<{
+    phaseId: string | null;
+    sort: SortConfig;
+  }>({ phaseId: activePhaseId, sort: null });
 
-  // Reset sort when switching phases (render-time reset, not effect)
-  const prevPhaseRef = useRef(activePhaseId);
-  if (prevPhaseRef.current !== activePhaseId) {
-    prevPhaseRef.current = activePhaseId;
-    setSortConfig(null);
-  }
+  // Auto-reset: if the phase changed, the derived sortConfig becomes null
+  const sortConfig =
+    sortState.phaseId === activePhaseId ? sortState.sort : null;
+
+  const updateSort = useCallback(
+    (key: SortKey) =>
+      setSortState((prev) => ({
+        phaseId: activePhaseId,
+        sort: nextSortDirection(
+          prev.phaseId === activePhaseId ? prev.sort : null,
+          key
+        ),
+      })),
+    [activePhaseId]
+  );
 
   const sortedFiles = useMemo(() => {
     if (!sortConfig) return phaseFiles;
@@ -548,9 +560,7 @@ export function FileTable({
               ).map(({ key, width, label }) => (
                 <button
                   key={key}
-                  onClick={() =>
-                    setSortConfig(nextSortDirection(sortConfig, key))
-                  }
+                  onClick={() => updateSort(key)}
                   className={`${width} flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none`}
                 >
                   {label}
