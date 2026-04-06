@@ -21,7 +21,7 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = "studioblack-theme";
+const STORAGE_KEY = "studioblack-theme-v2";
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
