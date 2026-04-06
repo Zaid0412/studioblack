@@ -15,7 +15,6 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
-  Send,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
@@ -623,15 +622,16 @@ export function FileTable({
             )
           ) : (
             sortedFiles.map((att) => {
-              const badge =
+              const isNewForClient =
                 isClient &&
-                (!att.review_status || att.review_status === "pending")
-                  ? {
-                      bg: "bg-blue-500/15",
-                      text: "text-blue-500",
-                      label: "Awaiting Review",
-                    }
-                  : statusBadge(att.review_status);
+                (!att.review_status || att.review_status === "pending");
+              const badge = isNewForClient
+                ? {
+                    bg: "bg-blue-500/15",
+                    text: "text-blue-500",
+                    label: "New",
+                  }
+                : statusBadge(att.review_status);
               const color = avatarColor(att.uploaded_by || "");
               const vc = versionColor(att.version || 1);
 
@@ -708,7 +708,9 @@ export function FileTable({
                     className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
                       isSelected
                         ? "bg-accent/[0.06]"
-                        : "hover:bg-bg-elevated/50"
+                        : isNewForClient
+                          ? "bg-blue-500/[0.04] hover:bg-blue-500/[0.08] border-l-2 border-l-blue-500"
+                          : "hover:bg-bg-elevated/50"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -766,10 +768,17 @@ export function FileTable({
                       {att.frozen_at && (
                         <Lock className="w-3 h-3 text-accent shrink-0" />
                       )}
-                      {isStaff && att.sent_to_client_at && (
-                        <Send className="w-3 h-3 text-emerald-400 shrink-0" />
+                      {isNewForClient && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                       )}
-                      <span className="text-[13px] font-medium text-text-primary truncate">
+                      {isStaff && att.sent_to_client_at && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
+                          Sent
+                        </span>
+                      )}
+                      <span
+                        className={`text-[13px] font-medium truncate ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
+                      >
                         {att.file_name}
                       </span>
                     </div>
@@ -813,7 +822,11 @@ export function FileTable({
                   {/* Mobile card */}
                   <div
                     className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden ${
-                      isSelected ? "bg-accent/[0.06]" : ""
+                      isSelected
+                        ? "bg-accent/[0.06]"
+                        : isNewForClient
+                          ? "bg-blue-500/[0.04] border-l-2 border-l-blue-500"
+                          : ""
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -855,10 +868,17 @@ export function FileTable({
                       {att.frozen_at && (
                         <Lock className="w-3 h-3 text-accent shrink-0" />
                       )}
-                      {isStaff && att.sent_to_client_at && (
-                        <Send className="w-3 h-3 text-emerald-400 shrink-0" />
+                      {isNewForClient && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                       )}
-                      <span className="text-[13px] font-medium text-text-primary truncate flex-1">
+                      {isStaff && att.sent_to_client_at && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
+                          Sent
+                        </span>
+                      )}
+                      <span
+                        className={`text-[13px] font-medium truncate flex-1 ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
+                      >
                         {att.file_name}
                       </span>
                       <span
