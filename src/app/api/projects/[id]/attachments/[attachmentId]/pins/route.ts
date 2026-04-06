@@ -138,16 +138,34 @@ export const POST = withAuth(
     const reqApproval = request_approval === true;
     const reqChanges = request_changes === true;
 
-    // If assign_as_task is provided, use a transaction to create task + pin comment
-    if (assign_as_task) {
-      const { assigned_to, due_date } = assign_as_task;
+    // Validate mutual exclusivity
+    if (reqApproval && reqChanges) {
+      return NextResponse.json(
+        {
+          error: "request_approval and request_changes are mutually exclusive",
+        },
+        { status: 400 }
+      );
+    }
 
+    // If assign_as_task is provided, validate early
+    if (assign_as_task) {
+      const { assigned_to } = assign_as_task;
       if (!assigned_to || typeof assigned_to !== "string") {
         return NextResponse.json(
           { error: "assign_as_task.assigned_to is required" },
           { status: 400 }
         );
       }
+    }
+
+    // Shared helper: create a task + pin comment in a single transaction
+    const needsTask = assign_as_task || (reqChanges && !assign_as_task);
+    if (needsTask) {
+      const assignedTo = assign_as_task
+        ? assign_as_task.assigned_to
+        : attachment.uploaded_by;
+      const dueDate = assign_as_task?.due_date || null;
 
       const pool = getPool();
       const client = await pool.connect();
@@ -155,7 +173,6 @@ export const POST = withAuth(
       try {
         await client.query("BEGIN");
 
-        // Get org_id from the project
         const { rows: projRows } = await client.query(
           `SELECT org_id FROM project WHERE id = $1`,
           [id]
@@ -169,22 +186,19 @@ export const POST = withAuth(
         }
         const orgId = projRows[0].org_id;
 
-        // Truncate content for task title
         const taskTitle =
           content.trim().length > 100
             ? content.trim().slice(0, 97) + "..."
             : content.trim();
 
-        // Create task
         const { rows: taskRows } = await client.query(
           `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, due_date, status, priority, category)
            VALUES ($1, $2, $3, $4, $5, $6, 'todo', 'medium', 'review')
            RETURNING id`,
-          [orgId, id, taskTitle, user.id, assigned_to, due_date || null]
+          [orgId, id, taskTitle, user.id, assignedTo, dueDate]
         );
         const taskId = taskRows[0].id;
 
-        // Create pin comment linked to task
         const { rows: pinRows } = await client.query(
           `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -202,107 +216,34 @@ export const POST = withAuth(
           ]
         );
 
+        // Request changes: also reject the attachment
+        if (reqChanges) {
+          await client.query(
+            `UPDATE attachment SET review_status = 'rejected', reviewed_by = $1 WHERE id = $2`,
+            [user.id, attachmentId]
+          );
+        }
+
         await client.query("COMMIT");
 
         // Notify assignee (fire-and-forget, outside transaction)
-        if (assigned_to !== user.id) {
+        if (assignedTo !== user.id) {
+          const notifTitle = reqChanges
+            ? "Changes requested on your design"
+            : "New task assigned to you";
+          const notifDesc = reqChanges
+            ? `"${taskTitle}" — changes requested by ${user.name}`
+            : `"${taskTitle}" was assigned to you by ${user.name}`;
           createNotification({
-            userId: assigned_to,
+            userId: assignedTo,
             type: "task_assigned",
-            title: "New task assigned to you",
-            description: `"${taskTitle}" was assigned to you by ${user.name}`,
+            title: notifTitle,
+            description: notifDesc,
             projectId: id,
             taskId,
           });
         }
 
-        // Re-fetch with user name
-        const pin = await getPinCommentById(pinRows[0].id);
-        return NextResponse.json(pin, { status: 201 });
-      } catch (err) {
-        await client.query("ROLLBACK");
-        throw err;
-      } finally {
-        client.release();
-      }
-    }
-
-    // Request changes path: create task assigned to uploader, reject attachment
-    if (reqChanges && !assign_as_task) {
-      const pool = getPool();
-      const client = await pool.connect();
-
-      try {
-        await client.query("BEGIN");
-
-        // Get org_id from the project
-        const { rows: projRows } = await client.query(
-          `SELECT org_id FROM project WHERE id = $1`,
-          [id]
-        );
-        if (!projRows[0]) {
-          await client.query("ROLLBACK");
-          return NextResponse.json(
-            { error: "Project not found" },
-            { status: 404 }
-          );
-        }
-        const orgId = projRows[0].org_id;
-
-        // Truncate content for task title
-        const taskTitle =
-          content.trim().length > 100
-            ? content.trim().slice(0, 97) + "..."
-            : content.trim();
-
-        // Create task auto-assigned to the architect who uploaded the file
-        const { rows: taskRows } = await client.query(
-          `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, status, priority, category)
-           VALUES ($1, $2, $3, $4, $5, 'todo', 'medium', 'review')
-           RETURNING id`,
-          [orgId, id, taskTitle, user.id, attachment.uploaded_by]
-        );
-        const taskId = taskRows[0].id;
-
-        // Create pin comment linked to task with request_changes flag
-        const { rows: pinRows } = await client.query(
-          `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-           RETURNING *`,
-          [
-            attachmentId,
-            user.id,
-            xVal,
-            yVal,
-            pageVal,
-            content.trim(),
-            reqApproval,
-            true,
-            taskId,
-          ]
-        );
-
-        // Mark attachment as rejected
-        await client.query(
-          `UPDATE attachment SET review_status = 'rejected', reviewed_by = $1 WHERE id = $2`,
-          [user.id, attachmentId]
-        );
-
-        await client.query("COMMIT");
-
-        // Notify the architect (fire-and-forget, outside transaction)
-        if (attachment.uploaded_by !== user.id) {
-          createNotification({
-            userId: attachment.uploaded_by,
-            type: "task_assigned",
-            title: "Changes requested on your design",
-            description: `"${taskTitle}" — changes requested by ${user.name}`,
-            projectId: id,
-            taskId,
-          });
-        }
-
-        // Re-fetch with user name
         const pin = await getPinCommentById(pinRows[0].id);
         return NextResponse.json(pin, { status: 201 });
       } catch (err) {

@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import type { DbPinComment, UserRole } from "@/types";
 
 /**
  * Manages open/close with a slide animation.
@@ -73,7 +74,6 @@ function useSlide(open: boolean, durationMs = 200) {
 
   return { shouldRender, stage };
 }
-import type { DbPinComment, UserRole } from "@/types";
 
 interface PinSidebarProps {
   pins: DbPinComment[];
@@ -421,7 +421,7 @@ function PinCard({
           <ShieldCheck className="w-3 h-3 text-text-secondary shrink-0" />
         )}
         {pin.request_changes && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
             <AlertTriangle className="w-2.5 h-2.5" />
             Changes Requested
           </span>

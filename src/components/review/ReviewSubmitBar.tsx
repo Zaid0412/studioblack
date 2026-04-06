@@ -19,6 +19,7 @@ export function ReviewSubmitBar({
   >(null);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [requestingChanges, setRequestingChanges] = useState(false);
 
   function handleActionClick(action: "approved" | "rejected") {
     setSelectedAction(action);
@@ -55,8 +56,13 @@ export function ReviewSubmitBar({
               Approve
             </button>
             <button
-              onClick={() => onRequestChanges?.()}
-              className="flex-1 flex items-center justify-center gap-2 border border-amber-500 text-amber-500 rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-amber-500/10 transition-colors cursor-pointer"
+              onClick={() => {
+                if (requestingChanges) return;
+                setRequestingChanges(true);
+                onRequestChanges?.();
+              }}
+              disabled={requestingChanges}
+              className="flex-1 flex items-center justify-center gap-2 border border-amber-500 text-amber-500 rounded-lg px-4 py-2.5 text-[13px] font-medium hover:bg-amber-500/10 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <AlertTriangle className="w-4 h-4" />
               Request Changes
