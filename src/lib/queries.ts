@@ -261,6 +261,7 @@ export async function getAttachments(filters: {
   phaseId?: string;
   taskId?: string;
   all?: boolean;
+  clientOnly?: boolean;
 }) {
   const pool = getPool();
   let query = `SELECT a.*, u.name AS uploaded_by_name
@@ -274,6 +275,11 @@ export async function getAttachments(filters: {
                    LIMIT 1
                  )`;
   const params: string[] = [filters.projectId];
+
+  // Clients can only see files explicitly sent to them
+  if (filters.clientOnly) {
+    query += ` AND a.sent_to_client_at IS NOT NULL`;
+  }
 
   if (!filters.all) {
     if (filters.taskId) {
@@ -401,17 +407,19 @@ export async function deleteAttachment(
 /** Get all versions of a file (by version_group), scoped to project. */
 export async function getAttachmentVersionHistory(
   versionGroup: string,
-  projectId: string
+  projectId: string,
+  clientOnly?: boolean
 ) {
   const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT a.*, u.name AS uploaded_by_name
+  let query = `SELECT a.*, u.name AS uploaded_by_name
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
-     WHERE a.version_group = $1 AND a.project_id = $2
-     ORDER BY a.version DESC`,
-    [versionGroup, projectId]
-  );
+     WHERE a.version_group = $1 AND a.project_id = $2`;
+  if (clientOnly) {
+    query += ` AND a.sent_to_client_at IS NOT NULL`;
+  }
+  query += ` ORDER BY a.version DESC`;
+  const { rows } = await pool.query(query, [versionGroup, projectId]);
   return rows;
 }
 
@@ -745,9 +753,6 @@ export async function getTasks(filters: TaskFilters) {
      ) pc ON true
      WHERE ${conditions.join(" AND ")}
      ORDER BY
-       CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
-       CASE WHEN t.due_date IS NULL THEN 1 ELSE 0 END,
-       t.due_date ASC NULLS LAST,
        t.created_at DESC
      LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     values

@@ -5,10 +5,14 @@ import { withAuth } from "@/lib/withAuth";
 /** GET /api/projects/[id]/versions/[versionGroup] — get all versions by group. */
 export const GET = withAuth(
   { projectAccess: true },
-  async (req, ctx, params) => {
+  async (req, { user }, params) => {
     const { id, versionGroup } = params;
 
-    const versions = await getAttachmentVersionHistory(versionGroup, id);
+    const versions = await getAttachmentVersionHistory(
+      versionGroup,
+      id,
+      user.role === "client"
+    );
     if (versions.length === 0) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

@@ -112,7 +112,7 @@ export default function ProjectDetailPage({
       <ProjectHeader
         projectName={project.name}
         description={undefined}
-        onRefresh={!isClient ? refreshAll : undefined}
+        onRefresh={refreshAll}
         actions={
           showApprovalButtons ? (
             <ApprovalButtons

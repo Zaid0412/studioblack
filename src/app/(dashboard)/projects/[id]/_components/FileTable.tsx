@@ -11,6 +11,7 @@ import {
   Download,
   X,
   Trash2,
+  Send,
   ClipboardCheck,
   ChevronUp,
   ChevronDown,
@@ -239,6 +240,27 @@ export function FileTable({
     [projectId, onRefresh]
   );
 
+  const handleSendToClient = useCallback(
+    async (att: DbAttachment) => {
+      try {
+        await attachmentsApi.sendToClient(projectId, att.id);
+        toast({
+          title: "Sent to client",
+          description: `"${att.file_name}" is now visible to the client.`,
+          variant: "success",
+        });
+        onRefresh();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to send file to client.",
+          variant: "error",
+        });
+      }
+    },
+    [projectId, onRefresh]
+  );
+
   const handleRemove = useCallback(
     async (att: DbAttachment) => {
       try {
@@ -396,6 +418,29 @@ export function FileTable({
     }
   }, [selectedFiles, projectId, clearSelection, onRefresh]);
 
+  const handleBulkSendToClient = useCallback(async () => {
+    const unsent = selectedFiles.filter((att) => !att.sent_to_client_at);
+    if (unsent.length === 0) return;
+    try {
+      await Promise.all(
+        unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
+      );
+      toast({
+        title: "Sent to client",
+        description: `${unsent.length} file(s) sent to client.`,
+        variant: "success",
+      });
+      clearSelection();
+      onRefresh();
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to send files to client.",
+        variant: "error",
+      });
+    }
+  }, [selectedFiles, projectId, clearSelection, onRefresh]);
+
   const handleBulkFreeze = useCallback(async () => {
     try {
       await Promise.all(
@@ -503,6 +548,13 @@ export function FileTable({
                 {isStaff && (
                   <>
                     <button
+                      onClick={handleBulkSendToClient}
+                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Send to Client
+                    </button>
+                    <button
                       onClick={handleBulkMarkReviewed}
                       className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                     >
@@ -584,9 +636,9 @@ export function FileTable({
           ) : sortedFiles.length === 0 ? (
             readOnly ? (
               <EmptyState
-                icon={Upload}
-                title={t("noFilesYet")}
-                description={t("noFilesDescription")}
+                icon={FileText}
+                title="No designs to review"
+                description="Your team hasn't shared any designs for review yet. You'll be notified when a design is ready."
               />
             ) : (
               <EmptyState
@@ -601,7 +653,16 @@ export function FileTable({
             )
           ) : (
             sortedFiles.map((att) => {
-              const badge = statusBadge(att.review_status);
+              const isNewForClient =
+                isClient &&
+                (!att.review_status || att.review_status === "pending");
+              const badge = isNewForClient
+                ? {
+                    bg: "bg-blue-500/15",
+                    text: "text-blue-500",
+                    label: "New",
+                  }
+                : statusBadge(att.review_status);
               const color = avatarColor(att.uploaded_by || "");
               const vc = versionColor(att.version || 1);
 
@@ -655,6 +716,11 @@ export function FileTable({
                         ? () => handleMarkReviewed(att)
                         : undefined
                     }
+                    onSendToClient={
+                      isStaff && !att.sent_to_client_at
+                        ? () => handleSendToClient(att)
+                        : undefined
+                    }
                     frozen={!!att.frozen_at}
                     onToggleFreeze={
                       isStaff ? () => handleToggleFreeze(att) : undefined
@@ -670,10 +736,12 @@ export function FileTable({
                 <div key={att.id}>
                   {/* Desktop row */}
                   <div
-                    className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
+                    className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer border-l-2 ${
                       isSelected
-                        ? "bg-accent/[0.06]"
-                        : "hover:bg-bg-elevated/50"
+                        ? "bg-accent/[0.06] border-l-transparent"
+                        : isNewForClient
+                          ? "bg-blue-500/[0.04] hover:bg-blue-500/[0.08] border-l-blue-500"
+                          : "hover:bg-bg-elevated/50 border-l-transparent"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -731,7 +799,17 @@ export function FileTable({
                       {att.frozen_at && (
                         <Lock className="w-3 h-3 text-accent shrink-0" />
                       )}
-                      <span className="text-[13px] font-medium text-text-primary truncate">
+                      {isNewForClient && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                      {isStaff && att.sent_to_client_at && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
+                          Sent
+                        </span>
+                      )}
+                      <span
+                        className={`text-[13px] font-medium truncate ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
+                      >
                         {att.file_name}
                       </span>
                     </div>
@@ -774,8 +852,12 @@ export function FileTable({
 
                   {/* Mobile card */}
                   <div
-                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden ${
-                      isSelected ? "bg-accent/[0.06]" : ""
+                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden border-l-2 ${
+                      isSelected
+                        ? "bg-accent/[0.06] border-l-transparent"
+                        : isNewForClient
+                          ? "bg-blue-500/[0.04] border-l-blue-500"
+                          : "border-l-transparent"
                     }`}
                     onClick={(e) =>
                       hasSelection
@@ -817,7 +899,17 @@ export function FileTable({
                       {att.frozen_at && (
                         <Lock className="w-3 h-3 text-accent shrink-0" />
                       )}
-                      <span className="text-[13px] font-medium text-text-primary truncate flex-1">
+                      {isNewForClient && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                      )}
+                      {isStaff && att.sent_to_client_at && (
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
+                          Sent
+                        </span>
+                      )}
+                      <span
+                        className={`text-[13px] font-medium truncate flex-1 ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
+                      >
                         {att.file_name}
                       </span>
                       <span
@@ -850,28 +942,26 @@ export function FileTable({
       </div>
 
       {!readOnly && (
-        <>
-          <UploadDialog
-            open={uploadOpen}
-            onOpenChange={setUploadOpen}
-            projectId={projectId}
-            phaseId={activePhaseId}
-            versionGroup={uploadVersionGroup}
-            initialFiles={droppedFiles}
-            onSuccess={handleUploadSuccess}
-          />
+        <UploadDialog
+          open={uploadOpen}
+          onOpenChange={setUploadOpen}
+          projectId={projectId}
+          phaseId={activePhaseId}
+          versionGroup={uploadVersionGroup}
+          initialFiles={droppedFiles}
+          onSuccess={handleUploadSuccess}
+        />
+      )}
 
-          {versionHistoryGroup && (
-            <VersionHistoryDialog
-              open={!!versionHistoryGroup}
-              onOpenChange={(open) => {
-                if (!open) setVersionHistoryGroup(null);
-              }}
-              projectId={projectId}
-              versionGroup={versionHistoryGroup}
-            />
-          )}
-        </>
+      {versionHistoryGroup && (
+        <VersionHistoryDialog
+          open={!!versionHistoryGroup}
+          onOpenChange={(open) => {
+            if (!open) setVersionHistoryGroup(null);
+          }}
+          projectId={projectId}
+          versionGroup={versionHistoryGroup}
+        />
       )}
     </div>
   );

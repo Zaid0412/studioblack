@@ -282,14 +282,34 @@ export default function DesignReviewPage({
     }
   }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
 
+  const handleSendToClient = useCallback(async () => {
+    if (!attachment) return;
+    try {
+      await attachmentsApi.sendToClient(id, attachment.id);
+      toast({
+        title: "Sent to client",
+        description: `"${attachment.file_name}" is now visible to the client.`,
+        variant: "success",
+      });
+      const updated = await fetchAttachment(activeFileId);
+      if (updated) setAttachment(updated);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to send file to client.",
+        variant: "error",
+      });
+    }
+  }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
+
   // Client: submit an approval review (rejection goes through pin comment flow)
   async function handleSubmitReview(
-    _status: "approved" | "rejected",
+    status: "approved" | "rejected",
     comment: string
   ) {
     try {
       await attachmentsApi.submitReview(id, activeFileId, {
-        status: "approved",
+        status,
         comment,
       });
     } catch (err) {
@@ -318,7 +338,7 @@ export default function DesignReviewPage({
         className="flex items-center justify-center -m-4 lg:-m-8"
         style={{ height: "calc(100vh)" }}
       >
-        <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -370,6 +390,11 @@ export default function DesignReviewPage({
             onUploadNewVersion={
               !isClient && attachment?.version_group && !attachment?.frozen_at
                 ? () => setUploadOpen(true)
+                : undefined
+            }
+            onSendToClient={
+              !isClient && !attachment?.sent_to_client_at
+                ? handleSendToClient
                 : undefined
             }
             frozen={!isClient ? !!attachment?.frozen_at : undefined}

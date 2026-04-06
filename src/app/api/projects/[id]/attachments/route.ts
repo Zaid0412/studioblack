@@ -6,11 +6,7 @@ import {
   uploadNewVersion,
 } from "@/lib/queries";
 import { getPool } from "@/lib/db";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
-import {
-  createNotificationsForTeam,
-  createNotificationForClient,
-} from "@/lib/notifications";
+import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
 import { env } from "@/env";
@@ -18,7 +14,7 @@ import { env } from "@/env";
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
   { projectAccess: true },
-  async (req, _ctx, params) => {
+  async (req, { user }, params) => {
     const { id } = params;
 
     const { searchParams } = req.nextUrl;
@@ -27,6 +23,7 @@ export const GET = withAuth(
       phaseId: searchParams.get("phaseId") || undefined,
       taskId: searchParams.get("taskId") || undefined,
       all: searchParams.get("all") === "true",
+      clientOnly: user.role === "client",
     });
 
     return NextResponse.json(attachments);
@@ -106,25 +103,15 @@ export const POST = withAuth(
       }
     }
 
-    // Helper to send upload notifications
+    // Helper to send upload notifications (team only — client is notified via send-to-client)
     const sendUploadNotifications = async (attachmentFileName: string) => {
       try {
         const pool = getPool();
         const { rows: project } = await pool.query(
-          `SELECT name, client_email FROM project WHERE id = $1`,
+          `SELECT name FROM project WHERE id = $1`,
           [id]
         );
         const proj = project[0];
-        if (proj?.client_email) {
-          const uploaderName = user.name || user.email;
-          const subject = `New Design Uploaded: ${proj.name}`;
-          const body = `<p><strong>${escapeHtml(uploaderName)}</strong> has uploaded a new file to your project <strong>${escapeHtml(proj.name)}</strong>.</p>
-          <p style="color: #666;">File: ${escapeHtml(attachmentFileName)}</p>
-          ${description ? `<p style="color: #666;">Description: ${escapeHtml(description)}</p>` : ""}
-          <p style="margin-top: 16px;"><a href="${env().NEXT_PUBLIC_APP_URL}/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
-          sendNotificationEmail(proj.client_email, subject, body);
-        }
-        // In-app notifications
         const uploaderName = user.name || user.email;
         const notifTitle = `New upload: ${attachmentFileName}`;
         const notifDesc = `${uploaderName} uploaded a file to ${proj?.name || "project"}`;
@@ -135,9 +122,8 @@ export const POST = withAuth(
           notifTitle,
           notifDesc
         );
-        await createNotificationForClient(id, "upload", notifTitle, notifDesc);
       } catch (err) {
-        console.error("[attachment] Failed to send notification email:", err);
+        console.error("[attachment] Failed to send notification:", err);
       }
     };
 
