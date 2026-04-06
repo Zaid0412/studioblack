@@ -407,17 +407,19 @@ export async function deleteAttachment(
 /** Get all versions of a file (by version_group), scoped to project. */
 export async function getAttachmentVersionHistory(
   versionGroup: string,
-  projectId: string
+  projectId: string,
+  clientOnly?: boolean
 ) {
   const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT a.*, u.name AS uploaded_by_name
+  let query = `SELECT a.*, u.name AS uploaded_by_name
      FROM attachment a
      JOIN "user" u ON u.id = a.uploaded_by
-     WHERE a.version_group = $1 AND a.project_id = $2
-     ORDER BY a.version DESC`,
-    [versionGroup, projectId]
-  );
+     WHERE a.version_group = $1 AND a.project_id = $2`;
+  if (clientOnly) {
+    query += ` AND a.sent_to_client_at IS NOT NULL`;
+  }
+  query += ` ORDER BY a.version DESC`;
+  const { rows } = await pool.query(query, [versionGroup, projectId]);
   return rows;
 }
 
