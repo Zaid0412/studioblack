@@ -606,9 +606,9 @@ export function FileTable({
           ) : sortedFiles.length === 0 ? (
             readOnly ? (
               <EmptyState
-                icon={Upload}
-                title={t("noFilesYet")}
-                description={t("noFilesDescription")}
+                icon={FileText}
+                title="No designs to review"
+                description="Your team hasn't shared any designs for review yet. You'll be notified when a design is ready."
               />
             ) : (
               <EmptyState
@@ -623,7 +623,15 @@ export function FileTable({
             )
           ) : (
             sortedFiles.map((att) => {
-              const badge = statusBadge(att.review_status);
+              const badge =
+                isClient &&
+                (!att.review_status || att.review_status === "pending")
+                  ? {
+                      bg: "bg-blue-500/15",
+                      text: "text-blue-500",
+                      label: "Awaiting Review",
+                    }
+                  : statusBadge(att.review_status);
               const color = avatarColor(att.uploaded_by || "");
               const vc = versionColor(att.version || 1);
 
