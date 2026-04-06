@@ -41,6 +41,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { avatarColor } from "@/lib/avatarUtils";
 import {
   PRIORITY_DOT,
@@ -291,27 +296,37 @@ export function TaskDetailModal({
         <DialogContent className="max-w-lg p-0 gap-0 overflow-hidden">
           {/* Star button — aligned vertically with the dialog close X */}
           {onToggleStar && (
-            <button
-              onClick={() => onToggleStar(task)}
-              className="absolute right-11 top-4 p-0 rounded transition-colors cursor-pointer z-10"
-              title={task.is_starred ? "Unstar" : "Star"}
-            >
-              <Star
-                className={`w-4 h-4 ${
-                  task.is_starred
-                    ? "fill-accent text-accent"
-                    : "text-text-muted hover:text-accent"
-                }`}
-              />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onToggleStar(task)}
+                  className="absolute right-11 top-4 p-0 rounded transition-colors cursor-pointer z-10"
+                >
+                  <Star
+                    className={`w-4 h-4 ${
+                      task.is_starred
+                        ? "fill-accent text-accent"
+                        : "text-text-muted hover:text-accent"
+                    }`}
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {task.is_starred ? "Unstar" : "Star"}
+              </TooltipContent>
+            </Tooltip>
           )}
           {/* Header */}
           <DialogHeader className="px-6 pr-20 pt-5 pb-4">
             <div className="flex items-center gap-2.5">
-              <span
-                className={`w-2.5 h-2.5 rounded-full shrink-0 ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
-                title={PRIORITY_LABEL[task.priority]}
-              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>{PRIORITY_LABEL[task.priority]}</TooltipContent>
+              </Tooltip>
               <DialogTitle className="text-base font-semibold flex-1">
                 {task.title}
               </DialogTitle>
@@ -573,47 +588,65 @@ export function TaskDetailModal({
                             </span>
                           </div>
                           {canPreview && (
-                            <button
-                              onClick={() => {
-                                if (isPreviewing) {
-                                  setPreviewId(null);
-                                  setPreviewLoading(null);
-                                } else {
-                                  setPreviewLoading(att.id);
-                                  setPreviewId(att.id);
-                                }
-                              }}
-                              className={`p-1 rounded transition-colors cursor-pointer ${isPreviewing ? "text-accent" : "text-text-muted hover:text-text-primary"}`}
-                              title={isPreviewing ? "Hide preview" : "Preview"}
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => {
+                                    if (isPreviewing) {
+                                      setPreviewId(null);
+                                      setPreviewLoading(null);
+                                    } else {
+                                      setPreviewLoading(att.id);
+                                      setPreviewId(att.id);
+                                    }
+                                  }}
+                                  className={`p-1 rounded transition-colors cursor-pointer ${isPreviewing ? "text-accent" : "text-text-muted hover:text-text-primary"}`}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {isPreviewing ? "Hide preview" : "Preview"}
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                           {canOpen && (
-                            <a
-                              href={proxyUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-                              title="Open in new tab"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href={proxyUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1 rounded text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent>Open in new tab</TooltipContent>
+                            </Tooltip>
                           )}
-                          <button
-                            onClick={() => handleDownload(att)}
-                            className="p-1 rounded text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-                            title="Download"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => deleteAttachment(att)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
-                            title="Delete"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => handleDownload(att)}
+                                className="p-1 rounded text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Download</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => deleteAttachment(att)}
+                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
                         </div>
                         {canPreview && isPreviewing && (
                           <div className="px-2 pb-2 relative">

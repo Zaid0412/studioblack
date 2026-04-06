@@ -11,6 +11,11 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useDesignReview } from "@/hooks/useDesignReview";
 import { usePinComments } from "@/hooks/usePinComments";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -352,48 +357,56 @@ export default function DesignReviewPage({
             rightSlot={
               <>
                 {/* Comments sidebar toggle */}
-                <button
-                  onClick={() => {
-                    const next = !commentsOpen;
-                    setCommentsOpen(next);
-                    if (next) setReviewsOpen(false);
-                  }}
-                  className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                    commentsOpen
-                      ? "bg-[#F5C518]/15 text-[#F5C518]"
-                      : pinState.pins.length > 0
-                        ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                        : "text-text-secondary hover:text-text-primary"
-                  }`}
-                  title="Pin comments"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  {pinState.unresolvedCount > 0 && (
-                    <span>{pinState.unresolvedCount}</span>
-                  )}
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => {
+                        const next = !commentsOpen;
+                        setCommentsOpen(next);
+                        if (next) setReviewsOpen(false);
+                      }}
+                      className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                        commentsOpen
+                          ? "bg-[#F5C518]/15 text-[#F5C518]"
+                          : pinState.pins.length > 0
+                            ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
+                            : "text-text-secondary hover:text-text-primary"
+                      }`}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      {pinState.unresolvedCount > 0 && (
+                        <span>{pinState.unresolvedCount}</span>
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Pin comments</TooltipContent>
+                </Tooltip>
                 {/* PM: Reviews toggle */}
                 {!isClient && (
-                  <button
-                    onClick={() => {
-                      const next = !reviewsOpen;
-                      setReviewsOpen(next);
-                      if (next) setCommentsOpen(false);
-                    }}
-                    className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
-                      reviewsOpen
-                        ? "bg-[#F5C518]/15 text-[#F5C518]"
-                        : review.reviews.length > 0
-                          ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
-                          : "text-text-secondary hover:text-text-primary"
-                    }`}
-                    title="Reviews"
-                  >
-                    <ClipboardCheck className="w-3.5 h-3.5" />
-                    {review.reviews.length > 0 && (
-                      <span>{review.reviews.length}</span>
-                    )}
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          const next = !reviewsOpen;
+                          setReviewsOpen(next);
+                          if (next) setCommentsOpen(false);
+                        }}
+                        className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
+                          reviewsOpen
+                            ? "bg-[#F5C518]/15 text-[#F5C518]"
+                            : review.reviews.length > 0
+                              ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
+                              : "text-text-secondary hover:text-text-primary"
+                        }`}
+                      >
+                        <ClipboardCheck className="w-3.5 h-3.5" />
+                        {review.reviews.length > 0 && (
+                          <span>{review.reviews.length}</span>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reviews</TooltipContent>
+                  </Tooltip>
                 )}
               </>
             }
