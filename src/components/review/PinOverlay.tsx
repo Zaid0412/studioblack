@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Check } from "lucide-react";
+import { sortPinsByDate, isPinned, buildPinIndexMap } from "@/lib/pinUtils";
 import type { DbPinComment } from "@/types";
 
 interface PinOverlayProps {
@@ -129,31 +130,17 @@ export function PinOverlay({
   } | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef(dragState);
+  useEffect(() => {
+    dragStateRef.current = dragState;
+  }, [dragState]);
 
-  const pagePins = pins
-    .filter(
-      (p) =>
-        p.page !== null &&
-        p.x_percent !== null &&
-        p.y_percent !== null &&
-        p.page === page
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+  const pagePins = sortPinsByDate(
+    pins.filter((p) => isPinned(p) && p.page === page)
+  );
 
-  // Build a global index map (1-based, ordered by created_at) — only pinned comments
-  const pinnedAll = [...pins]
-    .filter(
-      (p) => p.page !== null && p.x_percent !== null && p.y_percent !== null
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-  const indexMap = new Map(pinnedAll.map((p, i) => [p.id, i + 1]));
-  const pinnedCount = pinnedAll.length;
+  const indexMap = buildPinIndexMap(pins);
+  const pinnedCount = pins.filter(isPinned).length;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, pin: DbPinComment) => {
@@ -175,54 +162,48 @@ export function PinOverlay({
     [pinMode, onRepositionPin, currentUserId]
   );
 
-  const handlePointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!dragState || !overlayRef.current) return;
-      const dx = e.clientX - dragState.startX;
-      const dy = e.clientY - dragState.startY;
-      const moved = Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD;
-      const rect = overlayRef.current.getBoundingClientRect();
-      setDragState((prev) =>
-        prev
-          ? {
-              ...prev,
-              isDragging: prev.isDragging || moved,
-              leftPercent: Math.max(
-                0,
-                Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
-              ),
-              topPercent: Math.max(
-                0,
-                Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
-              ),
-            }
-          : null
-      );
-    },
-    [dragState]
-  );
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const ds = dragStateRef.current;
+    if (!ds || !overlayRef.current) return;
+    const dx = e.clientX - ds.startX;
+    const dy = e.clientY - ds.startY;
+    const moved = Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD;
+    const rect = overlayRef.current.getBoundingClientRect();
+    setDragState((prev) =>
+      prev
+        ? {
+            ...prev,
+            isDragging: prev.isDragging || moved,
+            leftPercent: Math.max(
+              0,
+              Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)
+            ),
+            topPercent: Math.max(
+              0,
+              Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)
+            ),
+          }
+        : null
+    );
+  }, []);
 
   const handlePointerUp = useCallback(() => {
-    if (!dragState) return;
+    const ds = dragStateRef.current;
+    if (!ds) return;
 
-    if (dragState.isDragging) {
-      if (dragState.pinId === PENDING_ID) {
-        onRepositionPendingPin?.(dragState.leftPercent, dragState.topPercent);
+    if (ds.isDragging) {
+      if (ds.pinId === PENDING_ID) {
+        onRepositionPendingPin?.(ds.leftPercent, ds.topPercent);
       } else {
-        onRepositionPin?.(
-          dragState.pinId,
-          dragState.leftPercent,
-          dragState.topPercent,
-          page
-        );
+        onRepositionPin?.(ds.pinId, ds.leftPercent, ds.topPercent, page);
       }
-    } else if (dragState.pinId !== PENDING_ID) {
+    } else if (ds.pinId !== PENDING_ID) {
       // It was a click, not a drag
-      onSelectPin(dragState.pinId);
+      onSelectPin(ds.pinId);
     }
 
     setDragState(null);
-  }, [dragState, onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
+  }, [onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
 
   return (
     <div

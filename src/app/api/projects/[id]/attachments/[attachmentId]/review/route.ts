@@ -9,6 +9,7 @@ import { createNotificationsForTeam } from "@/lib/notifications";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
+import { env } from "@/env";
 
 const VALID_STATUSES = ["approved", "rejected"];
 
@@ -132,6 +133,9 @@ export const PATCH = withAuth(
         const safeComment = comment
           ? `<p style="color:#555;margin-top:12px;">"${escapeHtml(comment)}"</p>`
           : "";
+        const projectUrl = escapeHtml(
+          `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+        );
 
         for (const member of teamMembers) {
           const subject =
@@ -140,8 +144,8 @@ export const PATCH = withAuth(
               : `Changes Requested: ${attachment.file_name}`;
           const body =
             status === "approved"
-              ? `<p><strong>${safeReviewer}</strong> approved <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;">The file has been frozen and is ready for the next phase.</p>`
-              : `<p><strong>${safeReviewer}</strong> requested changes on <strong>${safeFileName}</strong>.</p>${safeComment}`;
+              ? `<p><strong>${safeReviewer}</strong> approved <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;">The file has been frozen and is ready for the next phase.</p><p style="margin-top:8px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`
+              : `<p><strong>${safeReviewer}</strong> requested changes on <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`;
 
           sendNotificationEmail(member.email, subject, body).catch(
             console.error

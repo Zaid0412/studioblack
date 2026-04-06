@@ -178,17 +178,21 @@ export const POST = withAuth(
 
       // Email the assignee
       pool
-        .query(
-          `SELECT u.email, u.name FROM "user" u WHERE u.id = $1`,
-          [assignedTo]
-        )
+        .query(`SELECT u.email, u.name FROM "user" u WHERE u.id = $1`, [
+          assignedTo,
+        ])
         .then(({ rows }) => {
           const r = rows[0];
           if (!r?.email) return;
           const subject = "New Task Assigned to You";
+          const projectUrl = projectId
+            ? escapeHtml(
+                `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(projectId)}`
+              )
+            : null;
           const body = `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a new task.</p>
             <p style="color: #666;">${escapeHtml(title.trim())}</p>
-            ${projectId ? `<p style="margin-top: 16px;"><a href="${env().NEXT_PUBLIC_APP_URL}/projects/${projectId}" style="color: #2563eb;">View Project →</a></p>` : ""}`;
+            ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`;
           sendNotificationEmail(r.email, subject, body).catch(console.error);
         })
         .catch(console.error);

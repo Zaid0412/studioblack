@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, AlertTriangle, Loader2, X } from "lucide-react";
 
 interface ReviewSubmitBarProps {
@@ -20,6 +20,11 @@ export function ReviewSubmitBar({
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [requestingChanges, setRequestingChanges] = useState(false);
+
+  // Reset requestingChanges when the user returns to the button view
+  useEffect(() => {
+    if (!selectedAction) setRequestingChanges(false);
+  }, [selectedAction]);
 
   function handleActionClick(action: "approved" | "rejected") {
     setSelectedAction(action);

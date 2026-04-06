@@ -249,23 +249,27 @@ export const POST = withAuth(
           pool
             .query(
               `SELECT u.email, u.name, p.name AS project_name
-               FROM "user" u, project p
-               WHERE u.id = $1 AND p.id = $2`,
+               FROM "user" u
+               JOIN project p ON p.id = $2
+               WHERE u.id = $1`,
               [assignedTo, id]
             )
             .then(({ rows }) => {
               const r = rows[0];
               if (!r?.email) return;
+              const projectUrl = escapeHtml(
+                `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+              );
               const subject = reqChanges
                 ? `Changes Requested: ${r.project_name}`
                 : `New Task Assigned: ${r.project_name}`;
               const body = reqChanges
                 ? `<p><strong>${escapeHtml(user.name || user.email)}</strong> requested changes on your design in <strong>${escapeHtml(r.project_name)}</strong>.</p>
                    <p style="color: #666;">${escapeHtml(taskTitle)}</p>
-                   <p style="margin-top: 16px;"><a href="${env().NEXT_PUBLIC_APP_URL}/projects/${id}" style="color: #2563eb;">View Project →</a></p>`
+                   <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`
                 : `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a task in <strong>${escapeHtml(r.project_name)}</strong>.</p>
                    <p style="color: #666;">${escapeHtml(taskTitle)}</p>
-                   <p style="margin-top: 16px;"><a href="${env().NEXT_PUBLIC_APP_URL}/projects/${id}" style="color: #2563eb;">View Project →</a></p>`;
+                   <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`;
               sendNotificationEmail(r.email, subject, body).catch(
                 console.error
               );

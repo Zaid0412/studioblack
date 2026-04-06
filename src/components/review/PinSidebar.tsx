@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+import { sortPinsByDate, isPinned, buildPinIndexMap } from "@/lib/pinUtils";
 import type { DbPinComment, UserRole } from "@/types";
 
 /**
@@ -45,27 +46,35 @@ function useSlide(open: boolean, durationMs = 200) {
   const shouldRender = open || closing;
 
   useEffect(() => {
+    let cancelled = false;
     if (open) {
       // Double-rAF so the initial offscreen position paints before we animate in
       const raf = requestAnimationFrame(() => {
         requestAnimationFrame(() => {
+          if (cancelled) return;
           setClosing(false);
           setStage("in");
         });
       });
-      return () => cancelAnimationFrame(raf);
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf);
+      };
     } else {
       // Start exit animation — timeout starts inside rAF to avoid race
       let timer: ReturnType<typeof setTimeout>;
       const raf = requestAnimationFrame(() => {
+        if (cancelled) return;
         setStage("out");
         setClosing(true);
         timer = setTimeout(() => {
+          if (cancelled) return;
           setClosing(false);
           setStage(null);
         }, durationMs);
       });
       return () => {
+        cancelled = true;
         cancelAnimationFrame(raf);
         clearTimeout(timer);
       };
@@ -173,16 +182,8 @@ export function PinSidebar({
 
   if (!shouldRender) return null;
 
-  const sorted = [...pins].sort(
-    (a, b) =>
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
-
-  // Build index map for pinned comments only (those with coordinates)
-  const pinnedSorted = sorted.filter(
-    (p) => p.x_percent !== null && p.y_percent !== null && p.page !== null
-  );
-  const pinIndexMap = new Map(pinnedSorted.map((p, i) => [p.id, i + 1]));
+  const sorted = sortPinsByDate(pins);
+  const pinIndexMap = buildPinIndexMap(pins);
 
   return (
     <div
@@ -316,8 +317,7 @@ function PinCard({
   onExpandReplies?: () => void;
   onAddReply?: (content: string) => void | Promise<void>;
 }) {
-  const isPinned =
-    pin.x_percent !== null && pin.y_percent !== null && pin.page !== null;
+  const pinHasCoords = isPinned(pin);
   const canDelete = pin.user_id === currentUserId || isPm;
   const canEdit = pin.user_id === currentUserId;
   const isTemp = pin.id.startsWith("temp-");
@@ -386,7 +386,7 @@ function PinCard({
     >
       {/* Header: pin badge + author + time */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-        {isPinned ? (
+        {pinHasCoords ? (
           <span
             className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
               isSelected

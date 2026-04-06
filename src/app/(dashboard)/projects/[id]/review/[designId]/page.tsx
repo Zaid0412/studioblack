@@ -242,7 +242,7 @@ export default function DesignReviewPage({
       a.href = url;
       a.download = attachment.file_name;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err) {
       console.error("[handleDownload]", err);
     }
