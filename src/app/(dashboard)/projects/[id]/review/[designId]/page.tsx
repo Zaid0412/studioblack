@@ -162,6 +162,7 @@ export default function DesignReviewPage({
       yPercent?: number | null;
       page?: number | null;
       requestApproval?: boolean;
+      requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {
       await pinState.addPin(data);
@@ -466,6 +467,7 @@ export default function DesignReviewPage({
           onDeletePin={pinState.deletePin}
           currentUserId={session?.user?.id ?? ""}
           isPm={isPm}
+          role={role}
           open={commentsOpen}
           onClose={() => {
             setCommentsOpen(false);

@@ -57,6 +57,7 @@ export function usePinComments({
       page?: number | null;
       content: string;
       requestApproval?: boolean;
+      requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {
       // Optimistic: insert a temp pin immediately
@@ -73,6 +74,7 @@ export function usePinComments({
         resolved: false,
         task_id: null,
         request_approval: data.requestApproval ?? false,
+        request_changes: data.requestChanges ?? false,
         parent_id: null,
         updated_at: null,
         reply_count: 0,
@@ -87,6 +89,7 @@ export function usePinComments({
           page: data.page ?? null,
           content: data.content,
           request_approval: data.requestApproval,
+          request_changes: data.requestChanges,
           assign_as_task: data.assignAsTask
             ? {
                 assigned_to: data.assignAsTask.assignedTo,

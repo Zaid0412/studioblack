@@ -890,14 +890,15 @@ export async function createPinComment(params: {
   page: number | null;
   content: string;
   requestApproval?: boolean;
+  requestChanges?: boolean;
   taskId?: string | null;
   parentId?: string | null;
 }) {
   const pool = getPool();
   const { rows } = await pool.query(
     `WITH inserted AS (
-       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, task_id, parent_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, parent_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *
      )
      SELECT i.*, u.name AS user_name, 0::int AS reply_count
@@ -911,6 +912,7 @@ export async function createPinComment(params: {
       params.page,
       params.content,
       params.requestApproval ?? false,
+      params.requestChanges ?? false,
       params.taskId ?? null,
       params.parentId ?? null,
     ]

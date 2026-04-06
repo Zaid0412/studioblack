@@ -10,6 +10,7 @@ import {
   Plus,
   CheckSquare,
   ShieldCheck,
+  AlertTriangle,
   Loader2,
   Pencil,
   MessageSquare,
@@ -72,7 +73,7 @@ function useSlide(open: boolean, durationMs = 200) {
 
   return { shouldRender, stage };
 }
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, UserRole } from "@/types";
 
 interface PinSidebarProps {
   pins: DbPinComment[];
@@ -84,6 +85,8 @@ interface PinSidebarProps {
   currentUserId: string;
   /** Whether the current user is a PM (org owner/admin) — PMs can delete any comment. */
   isPm: boolean;
+  /** Current user role — used to gate comment form options. */
+  role?: UserRole | null;
   open: boolean;
   onClose: () => void;
   /** When set, the form for a new pin is shown at the top of the sidebar. */
@@ -94,6 +97,7 @@ interface PinSidebarProps {
     yPercent?: number | null;
     page?: number | null;
     requestApproval?: boolean;
+    requestChanges?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
   }) => void | Promise<void>;
   onCancelPending?: () => void;
@@ -134,6 +138,7 @@ export function PinSidebar({
   onDeletePin,
   currentUserId,
   isPm,
+  role,
   open,
   onClose,
   pendingPin,
@@ -223,6 +228,7 @@ export function PinSidebar({
         <NewPinForm
           pendingPin={pendingPin ?? null}
           members={members}
+          role={role}
           onSubmit={(data) => {
             onSubmitComment(data);
             setShowNewForm(false);
@@ -405,6 +411,9 @@ function PinCard({
         )}
         {pin.request_approval && (
           <ShieldCheck className="w-3 h-3 text-text-secondary shrink-0" />
+        )}
+        {pin.request_changes && (
+          <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
         )}
         <span className="text-[10px] text-text-secondary ml-auto shrink-0 flex items-center gap-1">
           {pin.updated_at && <span>(edited)</span>}
@@ -591,6 +600,7 @@ function PinCard({
 function NewPinForm({
   pendingPin,
   members,
+  role,
   onSubmit,
   onCancel,
   onClearPin,
@@ -598,12 +608,15 @@ function NewPinForm({
 }: {
   pendingPin: { xPercent: number; yPercent: number; page: number } | null;
   members: { user_id: string; name: string }[];
+  /** Current user role — used to gate comment form options. */
+  role?: UserRole | null;
   onSubmit: (data: {
     content: string;
     xPercent?: number | null;
     yPercent?: number | null;
     page?: number | null;
     requestApproval?: boolean;
+    requestChanges?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
   }) => void | Promise<void>;
   onCancel: () => void;
@@ -618,6 +631,7 @@ function NewPinForm({
   const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [requestApproval, setRequestApproval] = useState(false);
+  const [requestChanges, setRequestChanges] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -652,6 +666,9 @@ function NewPinForm({
     };
     if (requestApproval) {
       data.requestApproval = true;
+    }
+    if (requestChanges) {
+      data.requestChanges = true;
     }
     if (assignAsTask && assignedTo) {
       data.assignAsTask = {
@@ -768,68 +785,99 @@ function NewPinForm({
           </div>
         </div>
 
-        {/* Assign as task */}
-        <div className="px-3 py-2.5 border-t border-[#ffffff0a] mt-3">
-          <Checkbox
-            checked={assignAsTask}
-            onCheckedChange={setAssignAsTask}
-            label="Assign as task"
-          />
-        </div>
+        {/* Request changes — only for PM and Client */}
+        {(role === "pm" || role === "client") && (
+          <div className="px-3 py-2.5 border-t border-[#ffffff0a] mt-3">
+            <Checkbox
+              checked={requestChanges}
+              onCheckedChange={(checked: boolean) => {
+                setRequestChanges(checked);
+                if (checked) {
+                  setPinAttached(true);
+                  if (!pendingPin) onRequestPin?.();
+                }
+              }}
+              label="Request changes"
+              className="[&_span]:text-text-secondary"
+            />
+            {requestChanges && !pendingPin && (
+              <p className="text-[11px] text-amber-500 mt-1.5 ml-6">
+                Click on the document to place a pin
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Assign as task — hidden when requestChanges is checked (task is auto-created) */}
+        {!requestChanges && (
+          <div
+            className={`px-3 py-2.5 border-t border-[#ffffff0a] ${role === "pm" || role === "client" ? "" : "mt-3"}`}
+          >
+            <Checkbox
+              checked={assignAsTask}
+              onCheckedChange={setAssignAsTask}
+              label="Assign as task"
+            />
+          </div>
+        )}
 
         {/* Animated expand for task fields */}
-        <div
-          ref={expandRef}
-          className="overflow-hidden transition-[height] duration-200 ease-out"
-          style={{ height: expandHeight ?? "auto" }}
-        >
-          <div className="px-3 pb-3 flex flex-col gap-3 border-t border-[#ffffff0a] pt-2.5">
-            <div className="flex items-center gap-3">
-              <label className="text-[11px] text-text-muted w-[60px] shrink-0">
-                Assignee
-              </label>
-              <Select value={assignedTo} onValueChange={setAssignedTo}>
-                <SelectTrigger className="flex-1 h-8 text-[12px] rounded-md border-[#ffffff0a] bg-bg-secondary">
-                  <SelectValue placeholder="Select User" />
-                </SelectTrigger>
-                <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="text-[11px] text-text-muted w-[60px] shrink-0">
-                Due Date
-              </label>
-              <DatePicker
-                value={dueDate ? new Date(dueDate + "T00:00:00") : undefined}
-                onChange={(d) =>
-                  setDueDate(
-                    d
-                      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-                      : ""
-                  )
-                }
-                placeholder="Select Date"
-                className="flex-1 [&_button]:h-8 [&_button]:text-[12px] [&_button]:rounded-md [&_button]:border-[#ffffff0a] [&_button]:bg-bg-secondary [&_button]:px-2.5 [&_button]:py-1.5"
-              />
+        {!requestChanges && (
+          <div
+            ref={expandRef}
+            className="overflow-hidden transition-[height] duration-200 ease-out"
+            style={{ height: expandHeight ?? "auto" }}
+          >
+            <div className="px-3 pb-3 flex flex-col gap-3 border-t border-[#ffffff0a] pt-2.5">
+              <div className="flex items-center gap-3">
+                <label className="text-[11px] text-text-muted w-[60px] shrink-0">
+                  Assignee
+                </label>
+                <Select value={assignedTo} onValueChange={setAssignedTo}>
+                  <SelectTrigger className="flex-1 h-8 text-[12px] rounded-md border-[#ffffff0a] bg-bg-secondary">
+                    <SelectValue placeholder="Select User" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-[11px] text-text-muted w-[60px] shrink-0">
+                  Due Date
+                </label>
+                <DatePicker
+                  value={dueDate ? new Date(dueDate + "T00:00:00") : undefined}
+                  onChange={(d) =>
+                    setDueDate(
+                      d
+                        ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+                        : ""
+                    )
+                  }
+                  placeholder="Select Date"
+                  className="flex-1 [&_button]:h-8 [&_button]:text-[12px] [&_button]:rounded-md [&_button]:border-[#ffffff0a] [&_button]:bg-bg-secondary [&_button]:px-2.5 [&_button]:py-1.5"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Request for approval — aligned with assign as task */}
-        <div className="px-3 py-2.5 border-t border-[#ffffff0a]">
-          <Checkbox
-            checked={requestApproval}
-            onCheckedChange={setRequestApproval}
-            label="Request for approval"
-            className="[&_span]:text-text-secondary"
-          />
-        </div>
+        {/* Request for approval — only for architects (not PM, not client) */}
+        {role !== "pm" && role !== "client" && (
+          <div className="px-3 py-2.5 border-t border-[#ffffff0a]">
+            <Checkbox
+              checked={requestApproval}
+              onCheckedChange={setRequestApproval}
+              label="Request for approval"
+              className="[&_span]:text-text-secondary"
+            />
+          </div>
+        )}
 
         {/* Submit */}
         <div className="px-3 pb-3 pt-1">
