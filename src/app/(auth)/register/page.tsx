@@ -172,6 +172,7 @@ export default function RegisterPage() {
                   placeholder={t("passwordPlaceholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
                 <Input
@@ -180,6 +181,7 @@ export default function RegisterPage() {
                   placeholder={t("confirmPasswordPlaceholder")}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
 
