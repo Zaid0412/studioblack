@@ -56,16 +56,15 @@ export const auth = betterAuth({
           console.error("[auth] Auto-delete verification failed:", err);
         }
       },
-      afterDelete: async (user) => {
+      beforeDelete: async (user) => {
         const pool = getPool();
-        // Clean up better-auth org plugin tables (not cascaded automatically)
+        // Clean up better-auth org plugin tables BEFORE user row is deleted,
+        // otherwise FK constraints on member/invitation block the deletion.
         await pool.query(`DELETE FROM "member" WHERE "userId" = $1`, [user.id]);
         await pool.query(`DELETE FROM "invitation" WHERE "inviterId" = $1`, [
           user.id,
         ]);
-        console.log(
-          `[auth] User ${user.email} deleted — org membership cleaned up`
-        );
+        console.log(`[auth] Cleaned up org membership for ${user.email}`);
       },
     },
     additionalFields: {
