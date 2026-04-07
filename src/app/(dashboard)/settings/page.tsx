@@ -39,6 +39,7 @@ export default function SettingsPage() {
 
       {!isClient && (
         <PasswordSection
+          email={settings.email}
           currentPassword={settings.currentPassword}
           setCurrentPassword={settings.setCurrentPassword}
           newPassword={settings.newPassword}

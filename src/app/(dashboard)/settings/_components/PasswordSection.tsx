@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 interface PasswordSectionProps {
+  email: string;
   currentPassword: string;
   setCurrentPassword: (value: string) => void;
   newPassword: string;
@@ -20,6 +21,7 @@ interface PasswordSectionProps {
 
 /** Password change form with current, new, and confirm fields. */
 export function PasswordSection({
+  email,
   currentPassword,
   setCurrentPassword,
   newPassword,
@@ -52,6 +54,13 @@ export function PasswordSection({
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col gap-4">
+            <input
+              type="email"
+              value={email}
+              autoComplete="username"
+              readOnly
+              hidden
+            />
             <Input
               label={t("currentPassword")}
               type="password"
