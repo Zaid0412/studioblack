@@ -60,10 +60,9 @@ export const auth = betterAuth({
         const pool = getPool();
         // Clean up better-auth org plugin tables (not cascaded automatically)
         await pool.query(`DELETE FROM "member" WHERE "userId" = $1`, [user.id]);
-        await pool.query(
-          `DELETE FROM "invitation" WHERE "inviterId" = $1`,
-          [user.id]
-        );
+        await pool.query(`DELETE FROM "invitation" WHERE "inviterId" = $1`, [
+          user.id,
+        ]);
         console.log(
           `[auth] User ${user.email} deleted — org membership cleaned up`
         );
