@@ -82,6 +82,7 @@ export default function OrganisationPage() {
       <MembersList
         members={org.members}
         currentUserRole={org.currentUserRole}
+        onUpdateRole={org.handleUpdateMemberRole}
         onRemoveMember={org.handleRemoveMember}
       />
 

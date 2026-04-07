@@ -165,6 +165,29 @@ export function useOrganisation() {
     await loadOrg();
   };
 
+  const handleUpdateMemberRole = async (memberId: string, role: string) => {
+    if (!activeOrg) return;
+    const { error } = await authClient.organization.updateMemberRole({
+      memberId,
+      role,
+      organizationId: activeOrg.id,
+    });
+    if (error) {
+      toast({
+        title: tc("error") ?? "Error",
+        description: error.message ?? t("changeRoleError"),
+        variant: "error",
+      });
+      return;
+    }
+    toast({
+      title: t("roleUpdated"),
+      description: t("roleUpdatedDescription"),
+      variant: "success",
+    });
+    await loadOrg();
+  };
+
   const handleRemoveMember = async (memberId: string) => {
     const { error } = await authClient.organization.removeMember({
       memberIdOrEmail: memberId,
@@ -272,6 +295,7 @@ export function useOrganisation() {
     handleInvite,
 
     // Members
+    handleUpdateMemberRole,
     handleRemoveMember,
     handleCancelInvitation,
 
