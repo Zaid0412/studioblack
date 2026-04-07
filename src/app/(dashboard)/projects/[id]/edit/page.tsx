@@ -191,6 +191,7 @@ export default function EditProjectPage({
             type="email"
             value={clientEmail}
             onChange={(e) => setClientEmail(e.target.value)}
+            autoComplete="email"
           />
           <Input
             label={t("address")}
