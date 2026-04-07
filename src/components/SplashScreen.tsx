@@ -35,19 +35,24 @@ export function SplashScreen() {
       style={{ opacity: hidden ? 0 : 1 }}
       aria-hidden="true"
     >
-      {/* Logo */}
+      {/* Logo — two imgs, CSS hides the wrong one based on data-theme.
+           data-theme is set by ThemeProvider's blocking <script> in <head>,
+           so the correct logo shows before React hydrates. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={
-          typeof document !== "undefined" &&
-          document.documentElement.getAttribute("data-theme") === "dark"
-            ? branding.logoUrl
-            : (branding.logoUrlDark ?? branding.logoUrl)
-        }
+        src={branding.logoUrl}
         alt=""
         width={branding.showLogoText ? 64 : 96}
         height={branding.showLogoText ? 64 : 96}
-        className={branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"}
+        className={`${branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"} splash-logo-dark`}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={branding.logoUrlDark ?? branding.logoUrl}
+        alt=""
+        width={branding.showLogoText ? 64 : 96}
+        height={branding.showLogoText ? 64 : 96}
+        className={`${branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"} splash-logo-light`}
       />
 
       {/* Animated dots */}
