@@ -44,18 +44,6 @@ export const auth = betterAuth({
   user: {
     deleteUser: {
       enabled: true,
-      sendDeleteAccountVerification: async ({ token }) => {
-        // Skip email verification — delete immediately by following the callback URL server-side
-        const baseUrl = getBaseURL();
-        try {
-          await fetch(`${baseUrl}/api/auth/delete-user/verify?token=${token}`, {
-            method: "GET",
-            redirect: "follow",
-          });
-        } catch (err) {
-          console.error("[auth] Auto-delete verification failed:", err);
-        }
-      },
       beforeDelete: async (user) => {
         const pool = getPool();
         try {

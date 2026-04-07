@@ -162,6 +162,7 @@ export default function RegisterPage() {
                   placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
                   readOnly={!!inviteEmail}
                   className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
                   required
