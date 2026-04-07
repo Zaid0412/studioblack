@@ -382,6 +382,7 @@
     "deleteForever": "Kalıcı olarak sil",
     "deleting": "Siliniyor...",
     "deleteError": "Hesap silinemedi. Şifrenizi kontrol edip tekrar deneyin.",
+    "deleteErrorSoleOwner": "Bir organizasyonun tek sahibisiniz. Hesabınızı silmeden önce sahipliği başka bir üyeye devredin.",
     "cancel": "İptal",
     "changePassword": "Şifre Değiştir",
     "changePasswordDesc": "Hesap şifrenizi güncelleyin. Değişiklik yapmak için mevcut şifreniz gereklidir.",
@@ -509,6 +510,7 @@
     "roleOwner": "Sahip",
     "rolePM": "Proje Yöneticisi",
     "roleArchitect": "Mimar",
-    "roleClient": "Müşteri"
+    "roleClient": "Müşteri",
+    "leaveOrganisation": "Organizasyondan Ayrıl"
   }
 }

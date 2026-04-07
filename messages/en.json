@@ -382,6 +382,7 @@
     "deleteForever": "Delete permanently",
     "deleting": "Deleting...",
     "deleteError": "Could not delete account. Check your password and try again.",
+    "deleteErrorSoleOwner": "You are the sole owner of an organisation. Transfer ownership to another member before deleting your account.",
     "cancel": "Cancel",
     "changePassword": "Change Password",
     "changePasswordDesc": "Update your account password. You'll need your current password to make changes.",
@@ -509,6 +510,7 @@
     "roleOwner": "Owner",
     "rolePM": "Project Manager",
     "roleArchitect": "Architect",
-    "roleClient": "Client"
+    "roleClient": "Client",
+    "leaveOrganisation": "Leave Organisation"
   }
 }

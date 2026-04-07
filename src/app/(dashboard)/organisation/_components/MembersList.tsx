@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { MoreHorizontal, Crown, Shield, User as UserIcon } from "lucide-react";
+import { MoreHorizontal, Shield, User as UserIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -24,7 +24,6 @@ interface MembersListProps {
 }
 
 const roleOptions = [
-  { value: "owner", icon: Crown, labelKey: "roleOwner" },
   { value: "admin", icon: Shield, labelKey: "rolePM" },
   { value: "member", icon: UserIcon, labelKey: "roleArchitect" },
 ] as const;
@@ -70,35 +69,38 @@ export function MembersList({
                   {roleLabel(member.role, t)}
                 </span>
               </div>
-              {currentUserRole === "owner" && member.role !== "owner" && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {roleOptions
-                      .filter((r) => r.value !== member.role)
-                      .map((r) => (
-                        <DropdownMenuItem
-                          key={r.value}
-                          onClick={() => onUpdateRole(member.id, r.value)}
-                        >
-                          <r.icon className="w-3.5 h-3.5 mr-2" />
-                          {t("changeRoleTo", { role: t(r.labelKey) })}
-                        </DropdownMenuItem>
-                      ))}
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-red-500 focus:text-red-500"
-                      onClick={() => onRemoveMember(member.id)}
-                    >
-                      {t("removeMember")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+              {member.role !== "owner" &&
+                (currentUserRole === "owner" ||
+                  currentUserRole === "admin") && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer">
+                        <MoreHorizontal className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {currentUserRole === "owner" &&
+                        roleOptions
+                          .filter((r) => r.value !== member.role)
+                          .map((r) => (
+                            <DropdownMenuItem
+                              key={r.value}
+                              onClick={() => onUpdateRole(member.id, r.value)}
+                            >
+                              <r.icon className="w-3.5 h-3.5 mr-2" />
+                              {t("changeRoleTo", { role: t(r.labelKey) })}
+                            </DropdownMenuItem>
+                          ))}
+                      {currentUserRole === "owner" && <DropdownMenuSeparator />}
+                      <DropdownMenuItem
+                        className="text-red-500 focus:text-red-500"
+                        onClick={() => onRemoveMember(member.id)}
+                      >
+                        {t("removeMember")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
             </div>
           ))}
         </div>
