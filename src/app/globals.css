@@ -84,6 +84,20 @@
   --logo-bg: transparent;
 }
 
+/* ─── Splash screen logo: swap light/dark via data-theme ─── */
+.splash-logo-dark {
+  display: none;
+}
+.splash-logo-light {
+  display: block;
+}
+:root[data-theme="dark"] .splash-logo-dark {
+  display: block;
+}
+:root[data-theme="dark"] .splash-logo-light {
+  display: none;
+}
+
 /* ─── Tailwind v4 theme extension ─── */
 @theme inline {
   /* Backgrounds */
