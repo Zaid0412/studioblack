@@ -27,7 +27,9 @@ interface FortuneSheetCell {
 
 interface FortuneSheetData {
   name: string;
-  celldata: FortuneSheetCell[];
+  celldata?: FortuneSheetCell[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any[][];
   order: number;
   row?: number;
   column?: number;
@@ -55,19 +57,43 @@ export async function fortuneSheetToXlsx(
     let maxRow = 0;
     let maxCol = 0;
 
-    for (const cell of sheet.celldata) {
-      if (cell.v == null) continue;
-      const addr = XLSX.utils.encode_cell({ r: cell.r, c: cell.c });
-      maxRow = Math.max(maxRow, cell.r);
-      maxCol = Math.max(maxCol, cell.c);
+    if (sheet.celldata && Array.isArray(sheet.celldata)) {
+      // Original format: sparse array of {r, c, v}
+      for (const cell of sheet.celldata) {
+        if (cell.v == null) continue;
+        const addr = XLSX.utils.encode_cell({ r: cell.r, c: cell.c });
+        maxRow = Math.max(maxRow, cell.r);
+        maxCol = Math.max(maxCol, cell.c);
 
-      const cellType = cell.v.ct?.t === "n" ? "n" : "s";
-      const cellValue = cell.v.v ?? "";
+        const cellType = cell.v.ct?.t === "n" ? "n" : "s";
+        const cellValue = cell.v.v ?? "";
 
-      ws[addr] = {
-        v: cellType === "n" ? Number(cellValue) || 0 : String(cellValue),
-        t: cellType,
-      };
+        ws[addr] = {
+          v: cellType === "n" ? Number(cellValue) || 0 : String(cellValue),
+          t: cellType,
+        };
+      }
+    } else if (sheet.data && Array.isArray(sheet.data)) {
+      // Fortune Sheet internal format: 2D array [row][col] of cell objects
+      for (let r = 0; r < sheet.data.length; r++) {
+        const row = sheet.data[r];
+        if (!Array.isArray(row)) continue;
+        for (let c = 0; c < row.length; c++) {
+          const cell = row[c];
+          if (!cell || cell.v == null) continue;
+          const addr = XLSX.utils.encode_cell({ r, c });
+          maxRow = Math.max(maxRow, r);
+          maxCol = Math.max(maxCol, c);
+
+          const cellType = cell.ct?.t === "n" ? "n" : "s";
+          const cellValue = cell.v ?? "";
+
+          ws[addr] = {
+            v: cellType === "n" ? Number(cellValue) || 0 : String(cellValue),
+            t: cellType,
+          };
+        }
+      }
     }
 
     ws["!ref"] = XLSX.utils.encode_range({
