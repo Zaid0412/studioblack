@@ -76,7 +76,7 @@ export function VersionHistoryDialog({
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-[#F5C518]" />
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
             </div>
           ) : versions.length === 0 ? (
             <p className="text-sm text-text-muted text-center py-8">
@@ -95,7 +95,7 @@ export function VersionHistoryDialog({
                     key={v.id}
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50 ${
                       isCurrent
-                        ? "border-[#F5C518]/30 bg-[#F5C518]/5"
+                        ? "border-accent/30 bg-accent/5"
                         : "border-border-default bg-bg-secondary"
                     }`}
                     onClick={() => {
@@ -120,12 +120,12 @@ export function VersionHistoryDialog({
                           {v.file_name}
                         </span>
                         {isCurrent && (
-                          <span className="text-[10px] font-medium text-[#F5C518] bg-[#2A1F00] px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
                             Latest
                           </span>
                         )}
                         {v.frozen_at && (
-                          <Lock className="w-3 h-3 text-[#F5C518]" />
+                          <Lock className="w-3 h-3 text-accent" />
                         )}
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
