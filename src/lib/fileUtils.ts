@@ -1,8 +1,8 @@
 /** Shared file type/extension utilities. */
 
-/** Accepted file types for design uploads (PDF, CAD, images, design tools). */
+/** Accepted file types for design uploads (PDF, CAD, images, design tools, spreadsheets). */
 export const UPLOAD_ACCEPTED_TYPES =
-  ".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch";
+  ".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch,.xls,.xlsx,.csv";
 
 /** Format a byte count as a human-readable string (B / KB / MB). */
 export function formatFileSize(bytes: number): string {
@@ -12,6 +12,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
+const SPREADSHEET_EXTENSIONS = ["xls", "xlsx", "csv"];
 
 /** Extracts the lowercase file extension from a filename. */
 export function getFileExtension(fileName: string): string {
@@ -28,6 +29,11 @@ export function isPdf(fileName: string): boolean {
   return getFileExtension(fileName) === "pdf";
 }
 
+/** Returns true if the filename has a spreadsheet extension (.xls, .xlsx, .csv). */
+export function isSpreadsheet(fileName: string): boolean {
+  return SPREADSHEET_EXTENSIONS.includes(getFileExtension(fileName));
+}
+
 /** File extension → display type label. */
 export function fileType(name: string): string {
   const ext = name.split(".").pop()?.toLowerCase() || "";
@@ -41,6 +47,9 @@ export function fileType(name: string): string {
     svg: "SVG",
     psd: "PSD",
     ai: "AI",
+    xls: "XLS",
+    xlsx: "XLSX",
+    csv: "CSV",
   };
   return map[ext] || ext.toUpperCase() || "FILE";
 }

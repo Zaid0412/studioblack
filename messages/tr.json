@@ -306,7 +306,10 @@
     "deleteDescription": "Bu işlem geri alınamaz. Bu projeyle ilişkili tüm tasarım dosyaları, incelemeler ve yorumlar kalıcı olarak silinecektir.",
     "deletedToast": "Proje silindi",
     "deletedDescription": "{name} silindi.",
-    "deleteConfirm": "Projeyi Sil"
+    "deleteConfirm": "Projeyi Sil",
+    "assignTeam": "Mimar Ata",
+    "assignTeamPlaceholder": "Mimar seçin…",
+    "noArchitects": "Organizasyonunuzda mimar bulunmuyor."
   },
   "team": {
     "title": "Ekip Yönetimi",

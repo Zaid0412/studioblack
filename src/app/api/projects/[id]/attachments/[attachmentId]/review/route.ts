@@ -82,6 +82,26 @@ export const PATCH = withAuth(
           [attachmentId]
         );
       }
+
+      // Auto-create a review task for the architect when rejected
+      if (status === "rejected") {
+        const {
+          rows: [project],
+        } = await client.query(`SELECT org_id FROM project WHERE id = $1`, [
+          id,
+        ]);
+        if (project) {
+          const taskTitle = comment
+            ? comment.slice(0, 100)
+            : `Changes requested on "${attachment.file_name}"`;
+          await client.query(
+            `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, status, priority, category)
+             VALUES ($1, $2, $3, $4, $5, 'todo', 'medium', 'review')`,
+            [project.org_id, id, taskTitle, user.id, attachment.uploaded_by]
+          );
+        }
+      }
+
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");

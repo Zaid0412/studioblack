@@ -44,6 +44,7 @@ export function update<T>(
     address?: string | null;
     city?: string | null;
     state?: string | null;
+    architectIds?: string[];
   }
 ) {
   return apiPatch<T>(API.project(id), data);

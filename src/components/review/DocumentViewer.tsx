@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from "react";
 import { Download, FileText, Loader2, MapPin } from "lucide-react";
-import { isImage, isPdf } from "@/lib/fileUtils";
+import { isImage, isPdf, isSpreadsheet } from "@/lib/fileUtils";
+import { SpreadsheetViewer } from "./SpreadsheetViewer";
 
 // Pin cursor as a data URI — encoded at module load time
 const PIN_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="22" viewBox="0 0 24 32" fill="none"><path d="M12 0C5.372 0 0 5.372 0 12c0 7 12 20 12 20s12-13 12-20c0-6.628-5.372-12-12-12z" fill="#F5C518"/><circle cx="12" cy="12" r="4" fill="#0D0D0D"/></svg>`;
@@ -210,7 +211,9 @@ export function DocumentViewer({
   return (
     <div
       className={`flex-1 min-h-0 bg-bg-secondary overflow-hidden relative ${
-        isPdf(fileName) ? "" : "flex items-center justify-center"
+        isPdf(fileName) || isSpreadsheet(fileName)
+          ? ""
+          : "flex items-center justify-center"
       }`}
     >
       {isPdf(fileName) ? (
@@ -267,6 +270,21 @@ export function DocumentViewer({
             alt={fileName}
             className="max-w-full max-h-full object-contain"
           />
+          {children}
+        </div>
+      ) : isSpreadsheet(fileName) ? (
+        <div className="absolute inset-0">
+          <SpreadsheetViewer fileUrl={fileUrl} fileName={fileName}>
+            {renderPageOverlay?.(1)}
+          </SpreadsheetViewer>
+          {/* Transparent overlay intercepts clicks for pin mode — Fortune Sheet swallows clicks otherwise */}
+          {pinMode && (
+            <div
+              className="absolute inset-0 z-10"
+              style={{ cursor: PIN_CURSOR }}
+              onClick={handleImageClick}
+            />
+          )}
           {children}
         </div>
       ) : (

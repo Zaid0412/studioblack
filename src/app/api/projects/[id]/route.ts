@@ -61,6 +61,20 @@ export const PATCH = withAuth(
     // Only owners/admins (PMs) can change project status
     const isPM = orgRole === "owner" || orgRole === "admin";
 
+    // Validate architectIds if provided
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (isPM && Array.isArray(body.architectIds)) {
+      for (const aid of body.architectIds) {
+        if (typeof aid !== "string" || !UUID_RE.test(aid)) {
+          return NextResponse.json(
+            { error: "Invalid architect ID format" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Build dynamic update
     const allowedFields = isPM
       ? [
@@ -101,12 +115,43 @@ export const PATCH = withAuth(
     updates.push(`updated_at = now()`);
     values.push(id);
 
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE project SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
-      values
-    );
+    // Run project update + architect sync in a single transaction
+    const client = await pool.connect();
+    let updated;
+    try {
+      await client.query("BEGIN");
+
+      const {
+        rows: [row],
+      } = await client.query(
+        `UPDATE project SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+      updated = row;
+
+      // Sync architect assignments if provided (PM only)
+      if (isPM && Array.isArray(body.architectIds)) {
+        await client.query(
+          `DELETE FROM project_member WHERE project_id = $1 AND role = 'architect'`,
+          [id]
+        );
+        if (body.architectIds.length > 0) {
+          await client.query(
+            `INSERT INTO project_member (project_id, user_id, role)
+             SELECT $1, unnest($2::uuid[]), 'architect'
+             ON CONFLICT (project_id, user_id) DO NOTHING`,
+            [id, body.architectIds]
+          );
+        }
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
 
     return NextResponse.json(updated);
   }
