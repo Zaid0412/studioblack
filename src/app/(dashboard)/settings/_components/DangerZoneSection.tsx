@@ -17,8 +17,8 @@ import {
 interface DangerZoneSectionProps {
   deleteOpen: boolean;
   setDeleteOpen: (value: boolean) => void;
-  deleteConfirm: string;
-  setDeleteConfirm: (value: string) => void;
+  deletePassword: string;
+  setDeletePassword: (value: string) => void;
   isDeleting: boolean;
   handleDeleteAccount: () => void;
 }
@@ -27,8 +27,8 @@ interface DangerZoneSectionProps {
 export function DangerZoneSection({
   deleteOpen,
   setDeleteOpen,
-  deleteConfirm,
-  setDeleteConfirm,
+  deletePassword,
+  setDeletePassword,
   isDeleting,
   handleDeleteAccount,
 }: DangerZoneSectionProps) {
@@ -63,7 +63,7 @@ export function DangerZoneSection({
         onOpenChange={(open) => {
           setDeleteOpen(open);
           if (!open) {
-            setDeleteConfirm("");
+            setDeletePassword("");
           }
         }}
       >
@@ -77,13 +77,13 @@ export function DangerZoneSection({
           <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-text-primary">
-                {t("typeDelete")}
+                {t("currentPassword")}
               </label>
               <Input
-                value={deleteConfirm}
-                onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder={t("deleteConfirmWord")}
-                autoComplete="off"
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                autoComplete="current-password"
               />
             </div>
           </div>
@@ -92,7 +92,7 @@ export function DangerZoneSection({
               variant="ghost"
               onClick={() => {
                 setDeleteOpen(false);
-                setDeleteConfirm("");
+                setDeletePassword("");
               }}
               disabled={isDeleting}
             >
@@ -101,7 +101,7 @@ export function DangerZoneSection({
             <Button
               className="bg-danger hover:bg-danger-hover text-white"
               onClick={handleDeleteAccount}
-              disabled={deleteConfirm !== t("deleteConfirmWord") || isDeleting}
+              disabled={!deletePassword || isDeleting}
             >
               {isDeleting ? t("deleting") : t("deleteForever")}
             </Button>
