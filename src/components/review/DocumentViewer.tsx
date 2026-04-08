@@ -271,8 +271,15 @@ export function DocumentViewer({
           {children}
         </div>
       ) : isSpreadsheet(fileName) ? (
-        <div className="absolute inset-0">
-          <SpreadsheetViewer fileUrl={fileUrl} fileName={fileName} />
+        <div
+          className="absolute inset-0"
+          style={{ cursor: pinMode ? PIN_CURSOR : undefined }}
+          onClick={handleImageClick}
+        >
+          <SpreadsheetViewer fileUrl={fileUrl} fileName={fileName}>
+            {renderPageOverlay?.(1)}
+          </SpreadsheetViewer>
+          {children}
         </div>
       ) : (
         <div className="flex flex-col items-center gap-4">
