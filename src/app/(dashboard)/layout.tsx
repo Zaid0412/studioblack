@@ -99,23 +99,23 @@ export default async function DashboardLayout({
       <SidebarProvider>
         <UserRoleProvider role={effectiveRole} userId={user.id}>
           <div className="flex h-screen overflow-hidden">
-          {/* Desktop sidebar — hidden on mobile */}
-          <div className="hidden lg:block">
-            <Sidebar variant={effectiveRole} user={user} />
-          </div>
+            {/* Desktop sidebar — hidden on mobile */}
+            <div className="hidden lg:block">
+              <Sidebar variant={effectiveRole} user={user} />
+            </div>
 
-          <div className="flex flex-col flex-1 min-h-0 min-w-0">
-            {/* Mobile top bar + bottom nav + sidebar sheet */}
-            <MobileShell user={user} variant={effectiveRole} />
+            <div className="flex flex-col flex-1 min-h-0 min-w-0">
+              {/* Mobile top bar + bottom nav + sidebar sheet */}
+              <MobileShell user={user} variant={effectiveRole} />
 
-            <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 pb-20 lg:p-8 lg:pr-20 lg:pb-8">
-              <div className="fixed top-4 right-4 lg:right-8 z-50 hidden lg:block">
-                <NotificationPanel />
-              </div>
-              <ErrorBoundary>{children}</ErrorBoundary>
-            </main>
+              <main className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 pb-20 lg:p-8 lg:pr-20 lg:pb-8">
+                <div className="fixed top-4 right-4 lg:right-8 z-50 hidden lg:block">
+                  <NotificationPanel />
+                </div>
+                <ErrorBoundary>{children}</ErrorBoundary>
+              </main>
+            </div>
           </div>
-        </div>
         </UserRoleProvider>
       </SidebarProvider>
     </SWRProvider>

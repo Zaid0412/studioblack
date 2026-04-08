@@ -37,6 +37,7 @@ Roles: org owner/admin = PM, org member = architect, no org + client_email match
 Route Handlers in `src/app/api/` wrapped with `withAuth()`. Client-side fetch via typed wrappers in `src/lib/api/`.
 
 **Client-side API structure (`src/lib/api/`):**
+
 - `client.ts` — base `apiGet`, `apiPost`, `apiPatch`, `apiDelete` wrappers with typed responses and `ApiError` class
 - `routes.ts` — `API` object with URL builder functions (e.g., `API.tasks()` → `"/api/tasks"`, `API.project(id)` → `"/api/projects/${id}"`)
 - Domain files (`tasks.ts`, `notifications.ts`, `attachments.ts`, etc.) — export typed functions using the base wrappers + route builders

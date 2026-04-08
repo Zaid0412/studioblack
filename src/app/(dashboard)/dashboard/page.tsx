@@ -69,11 +69,12 @@ export default function DashboardPage() {
   const { data, isLoading: dashLoading } = useSWR<DashboardData>(
     !roleLoading && role && role !== "client" ? "/api/dashboard" : null
   );
-  const { data: clientProjects = [], isLoading: clientLoading } = useSWR<ClientProject[]>(
-    !roleLoading && role === "client" ? "/api/client/projects" : null
-  );
+  const { data: clientProjects = [], isLoading: clientLoading } = useSWR<
+    ClientProject[]
+  >(!roleLoading && role === "client" ? "/api/client/projects" : null);
 
-  const loading = roleLoading || (role === "client" ? clientLoading : dashLoading);
+  const loading =
+    roleLoading || (role === "client" ? clientLoading : dashLoading);
 
   if (loading) {
     return (

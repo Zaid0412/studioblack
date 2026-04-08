@@ -144,10 +144,17 @@ export default function ProjectsPage() {
   const te = useTranslations("emptyStates");
   const router = useRouter();
   const { role: userRole, loading: roleLoading } = useUserRole();
-  const swrKey = !roleLoading && userRole
-    ? userRole === "client" ? "/api/client/projects" : "/api/projects"
-    : null;
-  const { data: projects = [], isLoading: projectsLoading, mutate } = useSWR<DbProjectRow[]>(swrKey);
+  const swrKey =
+    !roleLoading && userRole
+      ? userRole === "client"
+        ? "/api/client/projects"
+        : "/api/projects"
+      : null;
+  const {
+    data: projects = [],
+    isLoading: projectsLoading,
+    mutate,
+  } = useSWR<DbProjectRow[]>(swrKey);
   const loading = roleLoading || projectsLoading;
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -192,7 +199,9 @@ export default function ProjectsPage() {
     },
   });
 
-  const handleRefresh = useCallback(() => mutate(), [mutate]);
+  const handleRefresh = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   const isStaff = userRole === "pm" || userRole === "architect";
   const isPm = userRole === "pm";

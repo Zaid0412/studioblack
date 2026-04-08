@@ -17,7 +17,11 @@ export default function AuditPage() {
   const te = useTranslations("emptyStates");
   const [search, setSearch] = useState("");
 
-  const { data: entries = [], isLoading: loading, mutate } = useSWR<DbNotificationRow[]>("/api/notifications");
+  const {
+    data: entries = [],
+    isLoading: loading,
+    mutate,
+  } = useSWR<DbNotificationRow[]>("/api/notifications");
 
   const filtered = useMemo(
     () =>
@@ -35,7 +39,13 @@ export default function AuditPage() {
       <PageHeader
         title={t("title")}
         subtitle={t("subtitle")}
-        actions={<RefreshButton onRefresh={() => mutate()} />}
+        actions={
+          <RefreshButton
+            onRefresh={() => {
+              mutate();
+            }}
+          />
+        }
       />
 
       <SearchInput
