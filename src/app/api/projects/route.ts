@@ -107,8 +107,10 @@ export const POST = withAuth(
       });
 
       // Notify assigned architects
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       if (architectIds?.length) {
         const pool = getPool();
+        const projectUrl = `${baseUrl}/projects/${project.id}`;
         for (const archId of architectIds) {
           const { rows } = await pool.query(
             `SELECT email, name FROM "user" WHERE id = $1`,
@@ -119,7 +121,7 @@ export const POST = withAuth(
               rows[0].email,
               "New Project Assignment",
               `<p>You've been assigned to project <strong>${escapeHtml(name)}</strong>.</p>
-             <p>Log in to view the project details and start working.</p>`
+             <p><a href="${projectUrl}">View the project</a> to see details and start working.</p>`
             ).catch(console.error);
           }
         }
@@ -132,7 +134,6 @@ export const POST = withAuth(
           `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
           [clientEmail]
         );
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
         const isRegistered = clientRows.length > 0;
         const link = isRegistered
           ? `${baseUrl}/login`
