@@ -97,13 +97,7 @@ export const PATCH = withAuth(
           await client.query(
             `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, status, priority, category)
              VALUES ($1, $2, $3, $4, $5, 'todo', 'medium', 'review')`,
-            [
-              project.org_id,
-              id,
-              taskTitle,
-              user.id,
-              attachment.uploaded_by,
-            ]
+            [project.org_id, id, taskTitle, user.id, attachment.uploaded_by]
           );
         }
       }

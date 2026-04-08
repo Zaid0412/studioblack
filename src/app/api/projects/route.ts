@@ -107,7 +107,8 @@ export const POST = withAuth(
       });
 
       // Notify assigned architects
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const baseUrl =
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
       if (architectIds?.length) {
         const pool = getPool();
         const projectUrl = `${baseUrl}/projects/${project.id}`;

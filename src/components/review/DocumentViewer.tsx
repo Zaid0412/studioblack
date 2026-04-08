@@ -211,7 +211,9 @@ export function DocumentViewer({
   return (
     <div
       className={`flex-1 min-h-0 bg-bg-secondary overflow-hidden relative ${
-        isPdf(fileName) || isSpreadsheet(fileName) ? "" : "flex items-center justify-center"
+        isPdf(fileName) || isSpreadsheet(fileName)
+          ? ""
+          : "flex items-center justify-center"
       }`}
     >
       {isPdf(fileName) ? (

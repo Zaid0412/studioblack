@@ -134,9 +134,7 @@ export function UploadDialog({
     (index: number) => {
       const trimmed = editValue.trim();
       if (trimmed) {
-        const ext = getFileExtension(
-          displayNames[index] || files[index].name
-        );
+        const ext = getFileExtension(displayNames[index] || files[index].name);
         const newName = ext ? `${trimmed}.${ext}` : trimmed;
         setDisplayNames((prev) => {
           const next = [...prev];
