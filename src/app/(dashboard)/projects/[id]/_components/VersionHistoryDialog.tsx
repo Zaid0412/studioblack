@@ -95,7 +95,7 @@ export function VersionHistoryDialog({
                     key={v.id}
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50 ${
                       isCurrent
-                        ? "border-accent/30 bg-accent/5"
+                        ? "border-accent/40 bg-accent/10 ring-1 ring-accent/20"
                         : "border-border-default bg-bg-secondary"
                     }`}
                     onClick={() => {
@@ -120,7 +120,7 @@ export function VersionHistoryDialog({
                           {v.file_name}
                         </span>
                         {isCurrent && (
-                          <span className="text-[10px] font-medium text-accent bg-accent/10 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] font-semibold text-accent bg-accent/15 px-1.5 py-0.5 rounded-full">
                             Latest
                           </span>
                         )}
