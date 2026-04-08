@@ -19,6 +19,8 @@ interface DangerZoneSectionProps {
   setDeleteOpen: (value: boolean) => void;
   deleteConfirm: string;
   setDeleteConfirm: (value: string) => void;
+  deletePassword: string;
+  setDeletePassword: (value: string) => void;
   isDeleting: boolean;
   handleDeleteAccount: () => void;
 }
@@ -29,6 +31,8 @@ export function DangerZoneSection({
   setDeleteOpen,
   deleteConfirm,
   setDeleteConfirm,
+  deletePassword,
+  setDeletePassword,
   isDeleting,
   handleDeleteAccount,
 }: DangerZoneSectionProps) {
@@ -64,6 +68,7 @@ export function DangerZoneSection({
           setDeleteOpen(open);
           if (!open) {
             setDeleteConfirm("");
+            setDeletePassword("");
           }
         }}
       >
@@ -86,6 +91,17 @@ export function DangerZoneSection({
                 autoComplete="off"
               />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-text-primary">
+                {t("currentPassword")}
+              </label>
+              <Input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button
@@ -93,6 +109,7 @@ export function DangerZoneSection({
               onClick={() => {
                 setDeleteOpen(false);
                 setDeleteConfirm("");
+                setDeletePassword("");
               }}
               disabled={isDeleting}
             >
@@ -101,7 +118,11 @@ export function DangerZoneSection({
             <Button
               className="bg-danger hover:bg-danger-hover text-white"
               onClick={handleDeleteAccount}
-              disabled={deleteConfirm !== t("deleteConfirmWord") || isDeleting}
+              disabled={
+                deleteConfirm !== t("deleteConfirmWord") ||
+                !deletePassword ||
+                isDeleting
+              }
             >
               {isDeleting ? t("deleting") : t("deleteForever")}
             </Button>

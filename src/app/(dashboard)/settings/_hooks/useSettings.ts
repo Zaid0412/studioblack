@@ -27,6 +27,7 @@ export function useSettings() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Sync form state when session loads
@@ -139,6 +140,7 @@ export function useSettings() {
     setIsDeleting(true);
     try {
       const { error } = await authClient.deleteUser({
+        password: deletePassword,
         callbackURL: "/login",
       });
       if (error) {
@@ -203,6 +205,8 @@ export function useSettings() {
     setDeleteOpen,
     deleteConfirm,
     setDeleteConfirm,
+    deletePassword,
+    setDeletePassword,
     isDeleting,
     handleDeleteAccount,
   };

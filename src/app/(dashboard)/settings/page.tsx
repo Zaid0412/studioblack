@@ -64,6 +64,8 @@ export default function SettingsPage() {
           setDeleteOpen={settings.setDeleteOpen}
           deleteConfirm={settings.deleteConfirm}
           setDeleteConfirm={settings.setDeleteConfirm}
+          deletePassword={settings.deletePassword}
+          setDeletePassword={settings.setDeletePassword}
           isDeleting={settings.isDeleting}
           handleDeleteAccount={settings.handleDeleteAccount}
         />
