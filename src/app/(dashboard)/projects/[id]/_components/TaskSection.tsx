@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Loader2,
@@ -83,6 +83,7 @@ export function TaskSection({
   // -- Data state --
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
 
   // -- Fetch tasks (filtered by phase on the server) --
   const fetchTasks = useCallback(async () => {
@@ -106,7 +107,11 @@ export function TaskSection({
   }, [projectId, activePhaseId]);
 
   useEffect(() => {
-    setLoading(true);
+    // Only show loading spinner on initial load, not on phase switches
+    if (!initialLoadDone.current) {
+      setLoading(true);
+      initialLoadDone.current = true;
+    }
     fetchTasks();
   }, [fetchTasks]);
 

@@ -1,4 +1,5 @@
-import { apiGet } from "@/lib/api/client";
+import { apiGet, ApiError } from "@/lib/api/client";
+import { toast } from "@/components/ui/useToast";
 import type { SWRConfiguration } from "swr";
 
 /** Default fetcher for SWR — uses our existing apiGet wrapper (handles errors, auth cookies). */
@@ -8,6 +9,16 @@ export const swrFetcher = <T>(url: string) => apiGet<T>(url);
 export const swrConfig: SWRConfiguration = {
   fetcher: swrFetcher,
   revalidateOnFocus: true,
+  revalidateOnReconnect: true,
   dedupingInterval: 5000,
   errorRetryCount: 3,
+  onError: (error: unknown) => {
+    if (error instanceof ApiError && error.status === 401) return;
+    toast({
+      title: "Error",
+      description:
+        error instanceof Error ? error.message : "Failed to load data",
+      variant: "error",
+    });
+  },
 };
