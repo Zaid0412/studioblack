@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { Loader2, FileText } from "lucide-react";
 import "@fortune-sheet/react/dist/index.css";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Workbook = dynamic(
+  () => import("@fortune-sheet/react").then((mod) => mod.Workbook),
+  { ssr: false }
+) as React.ComponentType<any>;
 
 interface FortuneSheetCell {
   r: number;
@@ -53,28 +60,6 @@ export function SpreadsheetViewer({
   const [sheetData, setSheetData] = useState<FortuneSheetData[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [WorkbookComponent, setWorkbookComponent] =
-    useState<React.ComponentType<Record<string, unknown>> | null>(null);
-
-  // Dynamically import Fortune Sheet (heavy dependency — only load when needed)
-  useEffect(() => {
-    let cancelled = false;
-    async function loadComponent() {
-      try {
-        const mod = await import("@fortune-sheet/react");
-        if (!cancelled) {
-          setWorkbookComponent(() => mod.Workbook);
-        }
-      } catch (err) {
-        console.error("[SpreadsheetViewer] Failed to load Fortune Sheet:", err);
-        if (!cancelled) setError("Failed to load spreadsheet viewer.");
-      }
-    }
-    loadComponent();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Fetch and parse the Excel file
   useEffect(() => {
@@ -241,7 +226,7 @@ export function SpreadsheetViewer({
     };
   }, [fileUrl, fileName]);
 
-  if (loading || !WorkbookComponent) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
@@ -262,7 +247,7 @@ export function SpreadsheetViewer({
 
   return (
     <div className="relative w-full h-full">
-      <WorkbookComponent
+      <Workbook
         data={sheetData}
         onChange={() => {}}
         showToolbar={false}
