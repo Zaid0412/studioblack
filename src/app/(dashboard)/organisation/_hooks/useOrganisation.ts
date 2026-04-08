@@ -95,6 +95,7 @@ export function useOrganisation() {
   // Visibility-gated polling — silent refresh on tab focus, no loading flash
   useEffect(() => {
     if (!isVisible) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOrg();
     const interval = setInterval(() => loadOrg(), 30000);
     return () => clearInterval(interval);
