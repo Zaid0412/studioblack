@@ -8,6 +8,7 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { Notification, DbNotificationRow } from "@/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,21 +119,30 @@ export function useNotifications({
     }
   }, []);
 
-  // Initial load + polling + event listener
+  const isVisible = usePageVisibility();
+
+  // Initial load + polling (paused when tab is hidden)
   useEffect(() => {
     async function load() {
       await Promise.all([loadInvitations(), loadDbNotifs()]);
       setLoading(false);
     }
     load();
-    const interval = setInterval(load, 30000);
     const handleRefresh = () => load();
     window.addEventListener("notifications-changed", handleRefresh);
+
+    if (!isVisible) {
+      return () => {
+        window.removeEventListener("notifications-changed", handleRefresh);
+      };
+    }
+
+    const interval = setInterval(load, 30000);
     return () => {
       clearInterval(interval);
       window.removeEventListener("notifications-changed", handleRefresh);
     };
-  }, [loadInvitations, loadDbNotifs]);
+  }, [loadInvitations, loadDbNotifs, isVisible]);
 
   const notifications: Notification[] = useMemo(
     () =>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { OrgMember, OrgInvitation } from "@/types";
 
 /** Hook managing organisation state, members, invitations, and CRUD operations. */
@@ -83,12 +84,17 @@ export function useOrganisation() {
     setLoading(false);
   };
 
+  const isVisible = usePageVisibility();
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOrg(true);
+
+    if (!isVisible) return;
+
     const interval = setInterval(() => loadOrg(), 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isVisible]);
 
   const generateSlug = (name: string) =>
     name
