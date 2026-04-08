@@ -273,14 +273,18 @@ export function DocumentViewer({
           {children}
         </div>
       ) : isSpreadsheet(fileName) ? (
-        <div
-          className="absolute inset-0"
-          style={{ cursor: pinMode ? PIN_CURSOR : undefined }}
-          onClick={handleImageClick}
-        >
+        <div className="absolute inset-0">
           <SpreadsheetViewer fileUrl={fileUrl} fileName={fileName}>
             {renderPageOverlay?.(1)}
           </SpreadsheetViewer>
+          {/* Transparent overlay intercepts clicks for pin mode — Fortune Sheet swallows clicks otherwise */}
+          {pinMode && (
+            <div
+              className="absolute inset-0 z-10"
+              style={{ cursor: PIN_CURSOR }}
+              onClick={handleImageClick}
+            />
+          )}
           {children}
         </div>
       ) : (

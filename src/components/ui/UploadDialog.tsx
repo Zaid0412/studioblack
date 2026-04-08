@@ -54,6 +54,9 @@ export function UploadDialog({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [uploadedIndices, setUploadedIndices] = useState<Set<number>>(
+    new Set()
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +78,7 @@ export function UploadDialog({
     setSuccess(false);
     setError("");
     setDragOver(false);
+    setUploadedIndices(new Set());
   }, []);
 
   const handleOpenChange = useCallback(
@@ -155,6 +159,7 @@ export function UploadDialog({
 
     try {
       for (let i = 0; i < files.length; i++) {
+        if (uploadedIndices.has(i)) continue; // skip already-uploaded on retry
         const file = files[i];
         const { url } = await upload.uploadFile(file);
         const fileName = displayNames[i] || file.name;
@@ -165,6 +170,7 @@ export function UploadDialog({
           phaseId: phaseId || null,
           ...(versionGroup ? { versionGroup } : {}),
         });
+        setUploadedIndices((prev) => new Set(prev).add(i));
       }
 
       setSuccess(true);
@@ -174,7 +180,14 @@ export function UploadDialog({
         onOpenChange(false);
       }, 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const uploaded = uploadedIndices.size;
+      const total = files.length;
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setError(
+        uploaded > 0
+          ? `${msg} (${uploaded}/${total} files uploaded — click Upload to retry remaining)`
+          : msg
+      );
     } finally {
       setUploading(false);
     }

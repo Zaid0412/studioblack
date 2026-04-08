@@ -224,7 +224,8 @@ export function SpreadsheetViewer({
     return () => {
       cancelled = true;
     };
-  }, [fileUrl, fileName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileUrl]);
 
   if (loading) {
     return (

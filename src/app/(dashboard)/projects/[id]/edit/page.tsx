@@ -88,12 +88,16 @@ export default function EditProjectPage({
 
   useEffect(() => {
     async function loadArchitects() {
-      const { data } = await authClient.organization.getFullOrganization();
-      if (data?.members) {
-        const assignable = (data.members as OrgMember[]).filter(
-          (m) => m.role === "member" || m.role === "admin"
-        );
-        setArchitects(assignable);
+      try {
+        const { data } = await authClient.organization.getFullOrganization();
+        if (data?.members) {
+          const assignable = (data.members as OrgMember[]).filter(
+            (m) => m.role === "member" || m.role === "admin"
+          );
+          setArchitects(assignable);
+        }
+      } catch {
+        console.error("Failed to load org members");
       }
     }
     loadArchitects();
