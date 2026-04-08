@@ -145,7 +145,9 @@ export function useSettings() {
         const isSoleOwner = error.message?.includes("sole owner");
         toast({
           title: t("error"),
-          description: isSoleOwner ? t("deleteErrorSoleOwner") : t("deleteError"),
+          description: isSoleOwner
+            ? t("deleteErrorSoleOwner")
+            : t("deleteError"),
           variant: "error",
         });
         setIsDeleting(false);
