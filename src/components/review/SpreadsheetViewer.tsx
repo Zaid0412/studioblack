@@ -58,6 +58,36 @@ interface SpreadsheetViewerProps {
   children?: ReactNode;
 }
 
+/** Extract cell values from Fortune Sheet data for stable comparison. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractCellValues(data: any): string {
+  if (!Array.isArray(data)) return "";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return data.map((sheet: any) => {
+    // Fortune Sheet internal format: 2D array
+    if (sheet?.data && Array.isArray(sheet.data)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return sheet.data.map((row: any) => {
+        if (!Array.isArray(row)) return "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return row.map((cell: any) => {
+          if (!cell) return "";
+          return cell.v ?? cell.m ?? "";
+        }).join("|");
+      }).join("\n");
+    }
+    // Original celldata format: sparse array of {r, c, v}
+    if (sheet?.celldata && Array.isArray(sheet.celldata)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return sheet.celldata.map((cell: any) => {
+        if (!cell?.v) return "";
+        return `${cell.r},${cell.c}:${cell.v.v ?? cell.v.m ?? ""}`;
+      }).join("|");
+    }
+    return "";
+  }).join("|||");
+}
+
 /**
  * Renders Excel/CSV files using Fortune Sheet.
  * When canEdit=true, enables editing and shows a "Save as New Version" button.
@@ -86,7 +116,6 @@ export function SpreadsheetViewer({
   const committedDirtyRef = useRef(false);
   // The cell value when editing started (before user types anything)
   const preEditValueRef = useRef<string>("");
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch and parse the Excel file
   useEffect(() => {
@@ -255,11 +284,7 @@ export function SpreadsheetViewer({
     if (!canEdit) return;
 
     function isFortuneSheetEditor(el: HTMLElement) {
-      return (
-        el.closest(".fortune-sheet-cell-input") ||
-        el.closest(".luckysheet-input-box") ||
-        el.id === "luckysheet-input-box"
-      );
+      return !!el.closest(".luckysheet-input-box");
     }
 
     // Capture the cell's original value when editing begins
@@ -287,25 +312,6 @@ export function SpreadsheetViewer({
     };
   }, [canEdit]);
 
-  // Extract only cell values from Fortune Sheet data for stable comparison
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const extractCellValues = useCallback((data: any): string => {
-    if (!Array.isArray(data)) return "";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return data.map((sheet: any) => {
-      if (!sheet?.data) return "";
-      // sheet.data is a 2D array of cell objects
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return sheet.data.map((row: any) => {
-        if (!Array.isArray(row)) return "";
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return row.map((cell: any) => {
-          if (!cell) return "";
-          return cell.v ?? cell.m ?? "";
-        }).join("|");
-      }).join("\n");
-    }).join("|||");
-  }, []);
 
   // Track committed changes — compare cell values against snapshot
   const handleChange = useCallback(
@@ -327,7 +333,7 @@ export function SpreadsheetViewer({
       committedDirtyRef.current = hasChanges;
       setDirty(hasChanges);
     },
-    [extractCellValues]
+    []
   );
 
   // Save as new version
@@ -401,7 +407,7 @@ export function SpreadsheetViewer({
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-full">
+    <div className="relative w-full h-full">
       <Workbook
         data={sheetData}
         onChange={canEdit ? handleChange : () => {}}

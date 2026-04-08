@@ -56,6 +56,7 @@ export async function fortuneSheetToXlsx(
     const ws: Record<string, unknown> = {};
     let maxRow = 0;
     let maxCol = 0;
+    let hasCells = false;
 
     if (sheet.celldata && Array.isArray(sheet.celldata)) {
       // Original format: sparse array of {r, c, v}
@@ -64,12 +65,14 @@ export async function fortuneSheetToXlsx(
         const addr = XLSX.utils.encode_cell({ r: cell.r, c: cell.c });
         maxRow = Math.max(maxRow, cell.r);
         maxCol = Math.max(maxCol, cell.c);
+        hasCells = true;
 
         const cellType = cell.v.ct?.t === "n" ? "n" : "s";
-        const cellValue = cell.v.v ?? "";
+        const cellValue = cell.v.v;
 
+        if (cellValue == null || cellValue === "") continue;
         ws[addr] = {
-          v: cellType === "n" ? Number(cellValue) || 0 : String(cellValue),
+          v: cellType === "n" ? Number(cellValue) : String(cellValue),
           t: cellType,
         };
       }
@@ -84,17 +87,21 @@ export async function fortuneSheetToXlsx(
           const addr = XLSX.utils.encode_cell({ r, c });
           maxRow = Math.max(maxRow, r);
           maxCol = Math.max(maxCol, c);
+          hasCells = true;
 
           const cellType = cell.ct?.t === "n" ? "n" : "s";
-          const cellValue = cell.v ?? "";
+          const cellValue = cell.v;
 
+          if (cellValue == null || cellValue === "") continue;
           ws[addr] = {
-            v: cellType === "n" ? Number(cellValue) || 0 : String(cellValue),
+            v: cellType === "n" ? Number(cellValue) : String(cellValue),
             t: cellType,
           };
         }
       }
     }
+
+    if (!hasCells) continue;
 
     ws["!ref"] = XLSX.utils.encode_range({
       s: { r: 0, c: 0 },

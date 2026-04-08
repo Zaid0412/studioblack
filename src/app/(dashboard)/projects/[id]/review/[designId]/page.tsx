@@ -264,23 +264,32 @@ export default function DesignReviewPage({
   const handleSaveSpreadsheet = useCallback(
     async (blob: Blob, newFileName: string) => {
       if (!attachment?.version_group) return;
-      const file = new File([blob], newFileName, { type: blob.type });
-      const { url } = await upload.uploadFile(file);
-      const created = await attachmentsApi.create(id, {
-        fileUrl: url,
-        fileName: newFileName,
-        versionGroup: attachment.version_group,
-        phaseId: attachment.phase_id,
-      });
-      toast({
-        title: "Version saved",
-        description: `New version of "${newFileName}" created.`,
-        variant: "success",
-      });
-      // Navigate to the new version
-      router.push(`/projects/${id}/review/${created.id}`);
+      try {
+        const file = new File([blob], newFileName, { type: blob.type });
+        const { url } = await upload.uploadFile(file);
+        const created = await attachmentsApi.create(id, {
+          fileUrl: url,
+          fileName: newFileName,
+          versionGroup: attachment.version_group,
+          phaseId: attachment.phase_id,
+        });
+        toast({
+          title: "Version saved",
+          description: `New version of "${newFileName}" created.`,
+          variant: "success",
+        });
+        router.push(`/projects/${id}/review/${created.id}`);
+      } catch (err) {
+        console.error("[handleSaveSpreadsheet]", err);
+        toast({
+          title: "Save failed",
+          description: "Could not save the spreadsheet. Please try again.",
+          variant: "destructive",
+        });
+        throw err; // Re-throw so SpreadsheetViewer knows save failed
+      }
     },
-    [id, attachment, router]
+    [id, attachment, router, upload, toast]
   );
 
   const handleToggleFreeze = useCallback(async () => {
