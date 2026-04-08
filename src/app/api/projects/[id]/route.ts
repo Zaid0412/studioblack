@@ -108,6 +108,21 @@ export const PATCH = withAuth(
       values
     );
 
+    // Sync architect assignments if provided (PM only)
+    if (isPM && Array.isArray(body.architectIds)) {
+      await pool.query(
+        `DELETE FROM project_member WHERE project_id = $1 AND role = 'architect'`,
+        [id]
+      );
+      for (const userId of body.architectIds) {
+        await pool.query(
+          `INSERT INTO project_member (project_id, user_id, role) VALUES ($1, $2, 'architect')
+           ON CONFLICT (project_id, user_id) DO NOTHING`,
+          [id, userId]
+        );
+      }
+    }
+
     return NextResponse.json(updated);
   }
 );
