@@ -289,7 +289,7 @@ export default function DesignReviewPage({
         throw err; // Re-throw so SpreadsheetViewer knows save failed
       }
     },
-    [id, attachment, router, upload, toast]
+    [id, attachment, router]
   );
 
   const handleToggleFreeze = useCallback(async () => {
