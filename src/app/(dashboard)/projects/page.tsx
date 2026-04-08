@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
+import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import {
@@ -51,7 +52,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/useToast";
-import { projects as projectsApi, clientPortal } from "@/lib/api";
+import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
@@ -143,8 +144,11 @@ export default function ProjectsPage() {
   const te = useTranslations("emptyStates");
   const router = useRouter();
   const { role: userRole, loading: roleLoading } = useUserRole();
-  const [projects, setProjects] = useState<DbProjectRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const swrKey = !roleLoading && userRole
+    ? userRole === "client" ? "/api/client/projects" : "/api/projects"
+    : null;
+  const { data: projects = [], isLoading: projectsLoading, mutate } = useSWR<DbProjectRow[]>(swrKey);
+  const loading = roleLoading || projectsLoading;
   const [deleteTarget, setDeleteTarget] = useState<DbProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
@@ -188,39 +192,7 @@ export default function ProjectsPage() {
     },
   });
 
-  useEffect(() => {
-    if (roleLoading || !userRole) return;
-
-    async function fetchProjects() {
-      try {
-        if (userRole === "client") {
-          // Client API returns a simpler shape — cast to match table columns
-          const data = await clientPortal.listProjects<DbProjectRow>();
-          setProjects(data);
-        } else {
-          setProjects(await projectsApi.list<DbProjectRow>());
-        }
-      } catch {
-        setProjects([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchProjects();
-  }, [userRole, roleLoading]);
-
-  const handleRefresh = useCallback(async () => {
-    try {
-      if (userRole === "client") {
-        setProjects(await clientPortal.listProjects<DbProjectRow>());
-      } else {
-        setProjects(await projectsApi.list<DbProjectRow>());
-      }
-    } catch {
-      /* keep current list on refresh failure */
-    }
-  }, [userRole]);
+  const handleRefresh = useCallback(() => mutate(), [mutate]);
 
   const isStaff = userRole === "pm" || userRole === "architect";
   const isPm = userRole === "pm";
@@ -615,8 +587,9 @@ export default function ProjectsPage() {
                   setDeleting(true);
                   try {
                     await projectsApi.remove(deleteTarget.id);
-                    setProjects((prev) =>
-                      prev.filter((p) => p.id !== deleteTarget.id)
+                    mutate(
+                      (prev) => prev?.filter((p) => p.id !== deleteTarget.id),
+                      { revalidate: false }
                     );
                     toast({
                       title: "Project deleted",

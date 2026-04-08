@@ -8,6 +8,7 @@ import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { deriveInitials } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { SWRProvider } from "@/components/providers/SWRProvider";
 import type { User } from "@/types";
 
 /**
@@ -94,9 +95,10 @@ export default async function DashboardLayout({
   };
 
   return (
-    <SidebarProvider>
-      <UserRoleProvider role={effectiveRole} userId={user.id}>
-        <div className="flex h-screen overflow-hidden">
+    <SWRProvider>
+      <SidebarProvider>
+        <UserRoleProvider role={effectiveRole} userId={user.id}>
+          <div className="flex h-screen overflow-hidden">
           {/* Desktop sidebar — hidden on mobile */}
           <div className="hidden lg:block">
             <Sidebar variant={effectiveRole} user={user} />
@@ -114,7 +116,8 @@ export default async function DashboardLayout({
             </main>
           </div>
         </div>
-      </UserRoleProvider>
-    </SidebarProvider>
+        </UserRoleProvider>
+      </SidebarProvider>
+    </SWRProvider>
   );
 }
