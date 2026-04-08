@@ -531,7 +531,6 @@ export default function DesignReviewPage({
                 )}
               </>
             }
-            }
             rightSlot={
               <>
                 {/* Comments sidebar toggle */}
