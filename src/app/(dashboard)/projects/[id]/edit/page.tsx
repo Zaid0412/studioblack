@@ -1,14 +1,15 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2, Loader2, X, Check } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Card } from "@/components/ui/card";
+import { Avatar } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,17 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
+import { authClient } from "@/lib/authClient";
+import { deriveInitials, cn } from "@/lib/utils";
+import { avatarColor } from "@/lib/avatarUtils";
+import type { OrgMember } from "@/types";
+
+interface ProjectMember {
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface ProjectData {
   id: string;
@@ -36,6 +48,7 @@ interface ProjectData {
   city: string | null;
   state: string | null;
   status: string;
+  members?: ProjectMember[];
 }
 
 /** Project settings and edit form. */
@@ -67,6 +80,47 @@ export default function EditProjectPage({
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
 
+  // Org members (architects) for assignment
+  const [architects, setArchitects] = useState<OrgMember[]>([]);
+  const [selectedArchitects, setSelectedArchitects] = useState<string[]>([]);
+  const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
+  const teamDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    async function loadArchitects() {
+      const { data } = await authClient.organization.getFullOrganization();
+      if (data?.members) {
+        const assignable = (data.members as OrgMember[]).filter(
+          (m) => m.role === "member" || m.role === "admin"
+        );
+        setArchitects(assignable);
+      }
+    }
+    loadArchitects();
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        teamDropdownRef.current &&
+        !teamDropdownRef.current.contains(e.target as Node)
+      ) {
+        setTeamDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const toggleArchitect = (userId: string) => {
+    setSelectedArchitects((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
   useEffect(() => {
     projects
       .get<ProjectData>(id)
@@ -84,6 +138,13 @@ export default function EditProjectPage({
         setAddress(data.address || "");
         setCity(data.city || "");
         setState(data.state || "");
+        if (data.members) {
+          setSelectedArchitects(
+            data.members
+              .filter((m: ProjectMember) => m.role === "architect")
+              .map((m: ProjectMember) => m.user_id)
+          );
+        }
       })
       .catch(() => setProject(null))
       .finally(() => setLoading(false));
@@ -105,6 +166,7 @@ export default function EditProjectPage({
         address: address.trim() || null,
         city: city.trim() || null,
         state: state.trim() || null,
+        architectIds: selectedArchitects,
       });
       toast({
         title: t("updatedToast"),
@@ -193,6 +255,90 @@ export default function EditProjectPage({
             onChange={(e) => setClientEmail(e.target.value)}
             autoComplete="email"
           />
+          {/* Assign Team */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("assignTeam")}
+            </label>
+            {architects.length === 0 ? (
+              <p className="text-xs text-text-muted">{t("noArchitects")}</p>
+            ) : (
+              <div className="relative" ref={teamDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setTeamDropdownOpen(!teamDropdownOpen)}
+                  className="flex items-center flex-wrap gap-1.5 w-full min-h-[42px] rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary cursor-pointer hover:border-accent/50 transition-colors"
+                >
+                  {selectedArchitects.length === 0 ? (
+                    <span className="text-text-muted">
+                      {t("assignTeamPlaceholder")}
+                    </span>
+                  ) : (
+                    selectedArchitects.map((userId) => {
+                      const member = architects.find(
+                        (a) => a.user.id === userId
+                      );
+                      if (!member) return null;
+                      return (
+                        <span
+                          key={userId}
+                          className="inline-flex items-center gap-1 rounded-md bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium"
+                        >
+                          {member.user.name}
+                          <X
+                            className="w-3 h-3 cursor-pointer hover:text-error"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleArchitect(userId);
+                            }}
+                          />
+                        </span>
+                      );
+                    })
+                  )}
+                </button>
+                {teamDropdownOpen && (
+                  <div className="absolute z-10 mt-1 w-full rounded-lg border border-border-default bg-bg-primary shadow-lg py-1 max-h-48 overflow-y-auto">
+                    {architects.map((member) => {
+                      const isSelected = selectedArchitects.includes(
+                        member.user.id
+                      );
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => toggleArchitect(member.user.id)}
+                          className={cn(
+                            "flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-bg-elevated/50 transition-colors cursor-pointer",
+                            isSelected && "bg-accent/5"
+                          )}
+                        >
+                          <Avatar
+                            initials={deriveInitials(member.user.name)}
+                            size="sm"
+                            src={member.user.image ?? undefined}
+                            color={avatarColor(member.user.id)}
+                          />
+                          <div className="flex flex-col items-start min-w-0 flex-1">
+                            <span className="text-sm font-medium text-text-primary truncate">
+                              {member.user.name}
+                            </span>
+                            <span className="text-xs text-text-muted truncate">
+                              {member.user.email}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-accent shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <Input
             label={t("address")}
             value={address}

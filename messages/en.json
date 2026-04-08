@@ -306,7 +306,10 @@
     "deleteDescription": "This action cannot be undone. All design files, reviews, and comments associated with this project will be permanently removed.",
     "deletedToast": "Project deleted",
     "deletedDescription": "{name} has been deleted.",
-    "deleteConfirm": "Delete Project"
+    "deleteConfirm": "Delete Project",
+    "assignTeam": "Assign Architects",
+    "assignTeamPlaceholder": "Select architects…",
+    "noArchitects": "No architects available in your organisation."
   },
   "team": {
     "title": "Team Management",
