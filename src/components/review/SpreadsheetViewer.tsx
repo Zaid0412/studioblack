@@ -5,10 +5,10 @@ import dynamic from "next/dynamic";
 import { Loader2, FileText } from "lucide-react";
 import "@fortune-sheet/react/dist/index.css";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const Workbook = dynamic(
   () => import("@fortune-sheet/react").then((mod) => mod.Workbook),
   { ssr: false }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ) as React.ComponentType<any>;
 
 interface FortuneSheetCell {
