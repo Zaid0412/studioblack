@@ -9,8 +9,20 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Upload, FileText, X, Loader2, CheckCircle2 } from "lucide-react";
-import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
+import {
+  Upload,
+  FileText,
+  X,
+  Loader2,
+  CheckCircle2,
+  Pencil,
+  Check,
+} from "lucide-react";
+import {
+  formatFileSize,
+  getFileExtension,
+  UPLOAD_ACCEPTED_TYPES,
+} from "@/lib/fileUtils";
 import { upload, attachments } from "@/lib/api";
 
 interface UploadDialogProps {
@@ -34,21 +46,30 @@ export function UploadDialog({
   onSuccess,
 }: UploadDialogProps) {
   const [files, setFiles] = useState<File[]>([]);
+  const [displayNames, setDisplayNames] = useState<string[]>([]);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialFiles && initialFiles.length > 0) {
-      setFiles(versionGroup ? [initialFiles[0]] : initialFiles);
+      const selected = versionGroup ? [initialFiles[0]] : initialFiles;
+      setFiles(selected);
+      setDisplayNames(selected.map((f) => f.name));
     }
   }, [initialFiles, versionGroup]);
 
   const resetState = useCallback(() => {
     setFiles([]);
+    setDisplayNames([]);
+    setEditingIndex(null);
+    setEditValue("");
     setDescription("");
     setUploading(false);
     setSuccess(false);
@@ -69,8 +90,10 @@ export function UploadDialog({
       const arr = Array.from(incoming);
       if (versionGroup) {
         setFiles([arr[0]]);
+        setDisplayNames([arr[0].name]);
       } else {
         setFiles((prev) => [...prev, ...arr]);
+        setDisplayNames((prev) => [...prev, ...arr.map((f) => f.name)]);
       }
     },
     [versionGroup]
@@ -89,7 +112,43 @@ export function UploadDialog({
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
+    setDisplayNames((prev) => prev.filter((_, i) => i !== index));
+    setEditingIndex(null);
   }, []);
+
+  const startEditing = useCallback(
+    (index: number) => {
+      const name = displayNames[index] || files[index].name;
+      const ext = getFileExtension(name);
+      // Strip extension for editing — we'll re-append it on confirm
+      const baseName = ext ? name.slice(0, -(ext.length + 1)) : name;
+      setEditingIndex(index);
+      setEditValue(baseName);
+      // Focus the input after render
+      setTimeout(() => editInputRef.current?.focus(), 0);
+    },
+    [displayNames, files]
+  );
+
+  const confirmRename = useCallback(
+    (index: number) => {
+      const trimmed = editValue.trim();
+      if (trimmed) {
+        const ext = getFileExtension(
+          displayNames[index] || files[index].name
+        );
+        const newName = ext ? `${trimmed}.${ext}` : trimmed;
+        setDisplayNames((prev) => {
+          const next = [...prev];
+          next[index] = newName;
+          return next;
+        });
+      }
+      setEditingIndex(null);
+      setEditValue("");
+    },
+    [editValue, displayNames, files]
+  );
 
   const handleUpload = async () => {
     if (files.length === 0) return;
@@ -97,8 +156,10 @@ export function UploadDialog({
     setError("");
 
     try {
-      for (const file of files) {
-        const { url, fileName } = await upload.uploadFile(file);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const { url } = await upload.uploadFile(file);
+        const fileName = displayNames[i] || file.name;
         await attachments.create(projectId, {
           fileUrl: url,
           fileName,
@@ -178,7 +239,7 @@ export function UploadDialog({
 
             {/* Selected files */}
             {files.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
                 {files.map((file, i) => (
                   <div
                     key={`${file.name}-${i}`}
@@ -186,9 +247,42 @@ export function UploadDialog({
                   >
                     <FileText className="h-4 w-4 shrink-0 text-text-secondary" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-text-primary">
-                        {file.name}
-                      </p>
+                      {editingIndex === i ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") confirmRename(i);
+                              if (e.key === "Escape") {
+                                setEditingIndex(null);
+                                setEditValue("");
+                              }
+                            }}
+                            className="w-full min-w-0 rounded border border-accent bg-bg-primary px-1.5 py-0.5 text-sm text-text-primary outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => confirmRename(i)}
+                            className="shrink-0 rounded p-0.5 text-accent hover:bg-accent/10 transition-colors"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startEditing(i)}
+                          className="group flex items-center gap-1.5 min-w-0 max-w-full cursor-pointer"
+                        >
+                          <p className="truncate text-sm text-text-primary">
+                            {displayNames[i] || file.name}
+                          </p>
+                          <Pencil className="h-3 w-3 shrink-0 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      )}
                       <p className="text-xs text-text-secondary">
                         {formatFileSize(file.size)}
                       </p>
