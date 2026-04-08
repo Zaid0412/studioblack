@@ -2,7 +2,14 @@
 
 import { useEffect, useReducer } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Lock, Download, Loader2 } from "lucide-react";
+import {
+  FileText,
+  Lock,
+  Download,
+  Loader2,
+  AlertCircle,
+  Eye,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { attachments } from "@/lib/api";
-import { statusBadge, versionColor } from "@/lib/fileUtils";
+import { statusBadge, versionColor, fileType } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import type { DbAttachment } from "@/types";
@@ -20,6 +27,8 @@ interface VersionHistoryDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   versionGroup: string;
+  /** ID of the version currently being viewed (if any). */
+  currentAttachmentId?: string;
 }
 
 /** Display version history for a file group in a modal dialog. */
@@ -28,22 +37,32 @@ export function VersionHistoryDialog({
   onOpenChange,
   projectId,
   versionGroup,
+  currentAttachmentId,
 }: VersionHistoryDialogProps) {
   const router = useRouter();
 
-  type State = { loading: boolean; versions: DbAttachment[] };
+  type State = {
+    loading: boolean;
+    error: boolean;
+    versions: DbAttachment[];
+    retryCount: number;
+  };
   type Action =
     | { type: "fetch" }
     | { type: "fetched"; versions: DbAttachment[] }
-    | { type: "error" };
-  const [{ loading, versions }, dispatch] = useReducer(
-    (_: State, action: Action): State => {
-      if (action.type === "fetch") return { loading: true, versions: [] };
+    | { type: "error" }
+    | { type: "retry" };
+  const [{ loading, error, versions, retryCount }, dispatch] = useReducer(
+    (state: State, action: Action): State => {
+      if (action.type === "fetch")
+        return { ...state, loading: true, error: false, versions: [] };
       if (action.type === "fetched")
-        return { loading: false, versions: action.versions };
-      return { loading: false, versions: [] };
+        return { ...state, loading: false, error: false, versions: action.versions };
+      if (action.type === "retry")
+        return { ...state, loading: true, error: false, versions: [], retryCount: state.retryCount + 1 };
+      return { ...state, loading: false, error: true, versions: [] };
     },
-    { loading: true, versions: [] }
+    { loading: true, error: false, versions: [], retryCount: 0 }
   );
 
   useEffect(() => {
@@ -61,7 +80,7 @@ export function VersionHistoryDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, projectId, versionGroup]);
+  }, [open, projectId, versionGroup, retryCount]);
 
   const latestName = versions[0]?.file_name || "File";
 
@@ -78,6 +97,19 @@ export function VersionHistoryDialog({
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-5 h-5 animate-spin text-accent" />
             </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-2">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-sm text-text-muted text-center">
+                Failed to load version history.
+              </p>
+              <button
+                className="text-xs text-accent hover:underline cursor-pointer"
+                onClick={() => dispatch({ type: "retry" })}
+              >
+                Retry
+              </button>
+            </div>
           ) : versions.length === 0 ? (
             <p className="text-sm text-text-muted text-center py-8">
               No versions found.
@@ -88,15 +120,18 @@ export function VersionHistoryDialog({
                 const badge = statusBadge(v.review_status);
                 const color = avatarColor(v.uploaded_by || "");
                 const vc = versionColor(v.version || 1);
-                const isCurrent = i === 0;
+                const isLatest = i === 0;
+                const isViewing = v.id === currentAttachmentId;
 
                 return (
                   <div
                     key={v.id}
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50 ${
-                      isCurrent
+                      isViewing
                         ? "border-accent/40 bg-accent/10 ring-1 ring-accent/20"
-                        : "border-border-default bg-bg-secondary"
+                        : isLatest
+                          ? "border-accent/20 bg-accent/5"
+                          : "border-border-default bg-bg-secondary"
                     }`}
                     onClick={() => {
                       onOpenChange(false);
@@ -119,7 +154,13 @@ export function VersionHistoryDialog({
                         <span className="text-sm font-medium text-text-primary truncate">
                           {v.file_name}
                         </span>
-                        {isCurrent && (
+                        {isViewing && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent bg-accent/15 px-1.5 py-0.5 rounded-full">
+                            <Eye className="w-2.5 h-2.5" />
+                            Viewing
+                          </span>
+                        )}
+                        {isLatest && !isViewing && (
                           <span className="text-[10px] font-semibold text-accent bg-accent/15 px-1.5 py-0.5 rounded-full">
                             Latest
                           </span>
@@ -147,6 +188,9 @@ export function VersionHistoryDialog({
                             year: "numeric",
                           })}
                         </span>
+                        <span className="text-[10px] text-text-muted uppercase">
+                          {fileType(v.file_name)}
+                        </span>
                       </div>
                     </div>
 
@@ -158,15 +202,14 @@ export function VersionHistoryDialog({
                     </span>
 
                     {/* Download */}
-                    <button
+                    <a
+                      href={v.file_url}
+                      download={v.file_name}
                       className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(v.file_url, "_blank");
-                      }}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <Download className="w-3.5 h-3.5" />
-                    </button>
+                    </a>
                   </div>
                 );
               })}
