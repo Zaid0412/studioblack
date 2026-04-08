@@ -26,7 +26,6 @@ export function useSettings() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -203,8 +202,6 @@ export function useSettings() {
     // Delete
     deleteOpen,
     setDeleteOpen,
-    deleteConfirm,
-    setDeleteConfirm,
     deletePassword,
     setDeletePassword,
     isDeleting,

@@ -17,8 +17,6 @@ import {
 interface DangerZoneSectionProps {
   deleteOpen: boolean;
   setDeleteOpen: (value: boolean) => void;
-  deleteConfirm: string;
-  setDeleteConfirm: (value: string) => void;
   deletePassword: string;
   setDeletePassword: (value: string) => void;
   isDeleting: boolean;
@@ -29,8 +27,6 @@ interface DangerZoneSectionProps {
 export function DangerZoneSection({
   deleteOpen,
   setDeleteOpen,
-  deleteConfirm,
-  setDeleteConfirm,
   deletePassword,
   setDeletePassword,
   isDeleting,
@@ -67,7 +63,6 @@ export function DangerZoneSection({
         onOpenChange={(open) => {
           setDeleteOpen(open);
           if (!open) {
-            setDeleteConfirm("");
             setDeletePassword("");
           }
         }}
@@ -80,17 +75,6 @@ export function DangerZoneSection({
             <DialogDescription>{t("deleteConfirmDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-primary">
-                {t("typeDelete")}
-              </label>
-              <Input
-                value={deleteConfirm}
-                onChange={(e) => setDeleteConfirm(e.target.value)}
-                placeholder={t("deleteConfirmWord")}
-                autoComplete="off"
-              />
-            </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-text-primary">
                 {t("currentPassword")}
@@ -108,7 +92,6 @@ export function DangerZoneSection({
               variant="ghost"
               onClick={() => {
                 setDeleteOpen(false);
-                setDeleteConfirm("");
                 setDeletePassword("");
               }}
               disabled={isDeleting}
@@ -118,11 +101,7 @@ export function DangerZoneSection({
             <Button
               className="bg-danger hover:bg-danger-hover text-white"
               onClick={handleDeleteAccount}
-              disabled={
-                deleteConfirm !== t("deleteConfirmWord") ||
-                !deletePassword ||
-                isDeleting
-              }
+              disabled={!deletePassword || isDeleting}
             >
               {isDeleting ? t("deleting") : t("deleteForever")}
             </Button>
