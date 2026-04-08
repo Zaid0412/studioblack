@@ -26,6 +26,10 @@ interface DocumentViewerProps {
   onPinClick?: (xPercent: number, yPercent: number, page: number) => void;
   /** Overlay rendered per PDF page (receives page number) or once for images. */
   renderPageOverlay?: (page: number) => ReactNode;
+  /** Allow spreadsheet editing (uploader only, not frozen/approved). */
+  canEditSpreadsheet?: boolean;
+  /** Called when spreadsheet edits are saved as a new version. */
+  onSaveSpreadsheet?: (blob: Blob, newFileName: string) => Promise<void>;
   children?: ReactNode;
 }
 
@@ -40,6 +44,8 @@ export function DocumentViewer({
   pinMode = false,
   onPinClick,
   renderPageOverlay,
+  canEditSpreadsheet,
+  onSaveSpreadsheet,
   children,
 }: DocumentViewerProps) {
   const [numPages, setNumPages] = useState(0);
@@ -274,7 +280,12 @@ export function DocumentViewer({
         </div>
       ) : isSpreadsheet(fileName) ? (
         <div className="absolute inset-0">
-          <SpreadsheetViewer fileUrl={fileUrl} fileName={fileName}>
+          <SpreadsheetViewer
+            fileUrl={fileUrl}
+            fileName={fileName}
+            canEdit={canEditSpreadsheet}
+            onSave={onSaveSpreadsheet}
+          >
             {renderPageOverlay?.(1)}
           </SpreadsheetViewer>
           {/* Transparent overlay intercepts clicks for pin mode — Fortune Sheet swallows clicks otherwise */}

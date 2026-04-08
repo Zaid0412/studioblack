@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
-import { Loader2, FileText } from "lucide-react";
+import { Loader2, FileText, Save, Check } from "lucide-react";
+import { fortuneSheetToXlsx } from "@/lib/spreadsheetUtils";
+import { getFileExtension } from "@/lib/fileUtils";
 import "@fortune-sheet/react/dist/index.css";
 
 const Workbook = dynamic(
@@ -45,21 +53,40 @@ interface FortuneSheetData {
 interface SpreadsheetViewerProps {
   fileUrl: string;
   fileName: string;
+  canEdit?: boolean;
+  onSave?: (blob: Blob, newFileName: string) => Promise<void>;
   children?: ReactNode;
 }
 
 /**
- * Renders Excel/CSV files using Fortune Sheet for faithful Excel-like rendering.
- * Supports formatting, merged cells, column widths, and multiple sheets.
+ * Renders Excel/CSV files using Fortune Sheet.
+ * When canEdit=true, enables editing and shows a "Save as New Version" button.
  */
 export function SpreadsheetViewer({
   fileUrl,
   fileName,
+  canEdit = false,
+  onSave,
   children,
 }: SpreadsheetViewerProps) {
   const [sheetData, setSheetData] = useState<FortuneSheetData[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Track latest sheet data via ref to avoid re-renders on every keystroke
+  const latestDataRef = useRef<FortuneSheetData[] | null>(null);
+  // Snapshot of initial data (JSON string) — used to detect real changes
+  const initialSnapshotRef = useRef<string | null>(null);
+  // Debounce timer for locking the snapshot after onChange stops firing
+  const snapshotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks whether committed (Enter'd) changes exist, separate from in-progress typing
+  const committedDirtyRef = useRef(false);
+  // The cell value when editing started (before user types anything)
+  const preEditValueRef = useRef<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Fetch and parse the Excel file
   useEffect(() => {
@@ -68,6 +95,10 @@ export function SpreadsheetViewer({
     async function load() {
       setLoading(true);
       setError(null);
+      setDirty(false);
+      initialSnapshotRef.current = null;
+      committedDirtyRef.current = false;
+      if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
       try {
         const XLSX = await import("xlsx");
 
@@ -90,7 +121,6 @@ export function SpreadsheetViewer({
             const merges: { r: number; c: number; rs: number; cs: number }[] =
               [];
 
-            // Parse merged cells
             if (ws["!merges"]) {
               for (const merge of ws["!merges"]) {
                 merges.push({
@@ -102,7 +132,6 @@ export function SpreadsheetViewer({
               }
             }
 
-            // Build merge lookup for tagging cells
             const mergeMap = new Map<
               string,
               { r: number; c: number; rs: number; cs: number }
@@ -111,7 +140,6 @@ export function SpreadsheetViewer({
               mergeMap.set(`${m.r},${m.c}`, m);
             }
 
-            // Parse column widths
             const columnWidths: Record<string, number> = {};
             if (ws["!cols"]) {
               ws["!cols"].forEach(
@@ -125,7 +153,6 @@ export function SpreadsheetViewer({
               );
             }
 
-            // Parse row heights
             const rowHeights: Record<string, number> = {};
             if (ws["!rows"]) {
               ws["!rows"].forEach(
@@ -139,7 +166,6 @@ export function SpreadsheetViewer({
               );
             }
 
-            // Parse cells
             for (const addr in ws) {
               if (addr.startsWith("!")) continue;
               const cell = ws[addr];
@@ -154,7 +180,6 @@ export function SpreadsheetViewer({
                 },
               };
 
-              // Basic style mapping from SheetJS cell style
               if (cell.s) {
                 if (cell.s.font?.bold) cellValue.bl = 1;
                 if (cell.s.font?.italic) cellValue.it = 1;
@@ -163,16 +188,13 @@ export function SpreadsheetViewer({
                   cellValue.fc = `#${cell.s.font.color.rgb}`;
                 if (cell.s.fill?.fgColor?.rgb)
                   cellValue.bg = `#${cell.s.fill.fgColor.rgb}`;
-                // Horizontal alignment
                 if (cell.s.alignment?.horizontal === "center") cellValue.ht = 0;
                 else if (cell.s.alignment?.horizontal === "right")
                   cellValue.ht = 2;
-                // Vertical alignment
                 if (cell.s.alignment?.vertical === "center") cellValue.vt = 0;
                 else if (cell.s.alignment?.vertical === "top") cellValue.vt = 1;
               }
 
-              // Tag merged cell origin
               const mergeInfo = mergeMap.get(`${decoded.r},${decoded.c}`);
               if (mergeInfo) {
                 cellValue.mc = mergeInfo;
@@ -181,7 +203,6 @@ export function SpreadsheetViewer({
               celldata.push({ r: decoded.r, c: decoded.c, v: cellValue });
             }
 
-            // Determine grid size from range
             const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
             const rowCount = Math.max(range.e.r + 1, 50);
             const colCount = Math.max(range.e.c + 1, 26);
@@ -211,7 +232,10 @@ export function SpreadsheetViewer({
           }
         );
 
-        if (!cancelled) setSheetData(sheets);
+        if (!cancelled) {
+          setSheetData(sheets);
+          latestDataRef.current = sheets;
+        }
       } catch (err) {
         console.error("[SpreadsheetViewer] Load error:", err);
         if (!cancelled) setError("Failed to load spreadsheet.");
@@ -224,8 +248,138 @@ export function SpreadsheetViewer({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileUrl]);
+
+  // Real-time dirty tracking while typing in Fortune Sheet's cell editor
+  useEffect(() => {
+    if (!canEdit) return;
+
+    function isFortuneSheetEditor(el: HTMLElement) {
+      return (
+        el.closest(".fortune-sheet-cell-input") ||
+        el.closest(".luckysheet-input-box") ||
+        el.id === "luckysheet-input-box"
+      );
+    }
+
+    // Capture the cell's original value when editing begins
+    function onFocus(e: Event) {
+      const target = e.target as HTMLElement;
+      if (!isFortuneSheetEditor(target)) return;
+      preEditValueRef.current = (target as HTMLTextAreaElement).value ?? "";
+    }
+
+    // Compare live textarea value to pre-edit value on each keystroke
+    function onInput(e: Event) {
+      if (!initialSnapshotRef.current) return;
+      const target = e.target as HTMLElement;
+      if (!isFortuneSheetEditor(target)) return;
+      const currentVal = (target as HTMLTextAreaElement).value ?? "";
+      const cellChanged = currentVal !== preEditValueRef.current;
+      setDirty(cellChanged || committedDirtyRef.current);
+    }
+
+    document.addEventListener("focus", onFocus, true);
+    document.addEventListener("input", onInput, true);
+    return () => {
+      document.removeEventListener("focus", onFocus, true);
+      document.removeEventListener("input", onInput, true);
+    };
+  }, [canEdit]);
+
+  // Extract only cell values from Fortune Sheet data for stable comparison
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extractCellValues = useCallback((data: any): string => {
+    if (!Array.isArray(data)) return "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return data.map((sheet: any) => {
+      if (!sheet?.data) return "";
+      // sheet.data is a 2D array of cell objects
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return sheet.data.map((row: any) => {
+        if (!Array.isArray(row)) return "";
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return row.map((cell: any) => {
+          if (!cell) return "";
+          return cell.v ?? cell.m ?? "";
+        }).join("|");
+      }).join("\n");
+    }).join("|||");
+  }, []);
+
+  // Track committed changes — compare cell values against snapshot
+  const handleChange = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data: any) => {
+      latestDataRef.current = data;
+      const values = extractCellValues(data);
+
+      // Snapshot not locked yet — debounce until onChange stops for 1s
+      if (!initialSnapshotRef.current) {
+        if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current);
+        snapshotTimerRef.current = setTimeout(() => {
+          initialSnapshotRef.current = values;
+        }, 1000);
+        return;
+      }
+
+      const hasChanges = values !== initialSnapshotRef.current;
+      committedDirtyRef.current = hasChanges;
+      setDirty(hasChanges);
+    },
+    [extractCellValues]
+  );
+
+  // Save as new version
+  const handleSave = useCallback(async () => {
+    if (!onSave || !latestDataRef.current || saving) return;
+    setSaving(true);
+    try {
+      const arrayBuffer = await fortuneSheetToXlsx(latestDataRef.current);
+      const blob = new Blob([arrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      // If original was CSV, upgrade to xlsx
+      const ext = getFileExtension(fileName);
+      const newFileName =
+        ext === "csv" ? fileName.replace(/\.csv$/i, ".xlsx") : fileName;
+
+      await onSave(blob, newFileName);
+      setDirty(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (err) {
+      console.error("[SpreadsheetViewer] Save error:", err);
+    } finally {
+      setSaving(false);
+    }
+  }, [onSave, saving, fileName]);
+
+  // Ctrl+S / Cmd+S keyboard shortcut
+  useEffect(() => {
+    if (!canEdit || !onSave) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [canEdit, onSave, handleSave]);
+
+  // Unsaved changes warning
+  useEffect(() => {
+    if (!dirty) return;
+
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty]);
 
   if (loading) {
     return (
@@ -247,16 +401,47 @@ export function SpreadsheetViewer({
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full h-full">
       <Workbook
         data={sheetData}
-        onChange={() => {}}
-        showToolbar={false}
-        showFormulaBar={false}
+        onChange={canEdit ? handleChange : () => {}}
+        showToolbar={canEdit}
+        showFormulaBar={canEdit}
         showSheetTabs={sheetData.length > 1}
-        allowEdit={false}
-        cellContextMenu={[]}
+        allowEdit={canEdit}
+        cellContextMenu={canEdit ? undefined : []}
       />
+
+      {/* Floating save button — always mounted when canEdit, animated via opacity/translate */}
+      {canEdit && onSave && (
+        <button
+          onClick={handleSave}
+          disabled={saving || !dirty}
+          className={`absolute bottom-4 right-4 z-20 flex items-center gap-2 rounded-lg bg-[#F5C518] text-[#0D0D0D] px-4 py-2.5 text-sm font-semibold shadow-lg hover:bg-[#F5C518]/90 transition-all duration-200 ease-out cursor-pointer ${
+            dirty
+              ? saving ? "opacity-60" : "opacity-100 translate-y-0"
+              : "opacity-0 translate-y-2 pointer-events-none"
+          }`}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : saveSuccess ? (
+            <>
+              <Check className="w-4 h-4" />
+              Saved
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              Save as New Version
+            </>
+          )}
+        </button>
+      )}
+
       {children}
     </div>
   );

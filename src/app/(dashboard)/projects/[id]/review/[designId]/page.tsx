@@ -35,7 +35,7 @@ import {
   ApiError,
 } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
-import { isPdf } from "@/lib/fileUtils";
+import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
 import { useSidebar } from "@/components/layout/SidebarContext";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
@@ -252,6 +252,36 @@ export default function DesignReviewPage({
     const updated = await fetchAttachment(activeFileId);
     if (updated) setAttachment(updated);
   }, [fetchAttachment, activeFileId, setAttachment]);
+
+  // Spreadsheet editing: allowed for the uploader when not frozen/approved
+  const canEditSpreadsheet =
+    !!attachment &&
+    isSpreadsheet(attachment.file_name) &&
+    session?.user?.id === attachment.uploaded_by &&
+    attachment.review_status !== "approved" &&
+    !attachment.frozen_at;
+
+  const handleSaveSpreadsheet = useCallback(
+    async (blob: Blob, newFileName: string) => {
+      if (!attachment?.version_group) return;
+      const file = new File([blob], newFileName, { type: blob.type });
+      const { url } = await upload.uploadFile(file);
+      const created = await attachmentsApi.create(id, {
+        fileUrl: url,
+        fileName: newFileName,
+        versionGroup: attachment.version_group,
+        phaseId: attachment.phase_id,
+      });
+      toast({
+        title: "Version saved",
+        description: `New version of "${newFileName}" created.`,
+        variant: "success",
+      });
+      // Navigate to the new version
+      router.push(`/projects/${id}/review/${created.id}`);
+    },
+    [id, attachment, router]
+  );
 
   const handleToggleFreeze = useCallback(async () => {
     if (!attachment) return;
@@ -478,6 +508,8 @@ export default function DesignReviewPage({
             activeFileId={activeFileId}
             fileName={fileName}
             fileUrl={fileUrl}
+            canEditSpreadsheet={canEditSpreadsheet}
+            onSaveSpreadsheet={handleSaveSpreadsheet}
             pinMode={pinState.pinMode}
             onPinClick={handlePinClick}
             renderPageOverlay={
