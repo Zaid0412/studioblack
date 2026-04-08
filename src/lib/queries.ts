@@ -635,6 +635,7 @@ interface TaskFilters {
   status?: string;
   priority?: string;
   category?: string;
+  phaseId?: string;
   search?: string;
   page?: number;
   limit?: number;
@@ -700,6 +701,11 @@ export async function getTasks(filters: TaskFilters) {
   if (filters.category) {
     conditions.push(`t.category = $${idx}`);
     values.push(filters.category);
+    idx++;
+  }
+  if (filters.phaseId) {
+    conditions.push(`(t.phase_id = $${idx} OR t.phase_id IS NULL)`);
+    values.push(filters.phaseId);
     idx++;
   }
   if (filters.search) {

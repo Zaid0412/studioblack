@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Plus,
   Loader2,
@@ -83,12 +83,14 @@ export function TaskSection({
   // -- Data state --
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialLoadDone = useRef(false);
 
-  // -- Fetch tasks --
+  // -- Fetch tasks (filtered by phase on the server) --
   const fetchTasks = useCallback(async () => {
     try {
       const data = await tasksApi.list({
         projectId,
+        phaseId: activePhaseId,
         limit: "100",
       });
       setAllTasks(data.tasks ?? []);
@@ -102,10 +104,14 @@ export function TaskSection({
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, activePhaseId]);
 
   useEffect(() => {
-    setLoading(true);
+    // Only show loading spinner on initial load, not on phase switches
+    if (!initialLoadDone.current) {
+      setLoading(true);
+      initialLoadDone.current = true;
+    }
     fetchTasks();
   }, [fetchTasks]);
 
@@ -148,12 +154,6 @@ export function TaskSection({
     return () => clearTimeout(timer);
   }, [highlightTaskId, loading]);
 
-  // -- Filter by active phase (client-side) --
-  const filteredTasks = useMemo(
-    () => allTasks.filter((t) => t.phase_id === activePhaseId || !t.phase_id),
-    [allTasks, activePhaseId]
-  );
-
   // =========================================================================
   // Render
   // =========================================================================
@@ -166,7 +166,7 @@ export function TaskSection({
           <CheckSquare className="w-5 h-5 text-text-secondary" />
           <h2 className="text-base font-semibold text-text-primary">Tasks</h2>
           <Badge variant="draft" className="text-[10px] px-2 py-0.5">
-            {filteredTasks.length}
+            {allTasks.length}
           </Badge>
         </div>
         <Button size="sm" onClick={openCreate}>
@@ -181,7 +181,7 @@ export function TaskSection({
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
           </div>
-        ) : filteredTasks.length === 0 ? (
+        ) : allTasks.length === 0 ? (
           <EmptyState
             icon={CheckSquare}
             title="No tasks yet"
@@ -213,7 +213,7 @@ export function TaskSection({
             </div>
 
             {/* Table body */}
-            {filteredTasks.map((task) => {
+            {allTasks.map((task) => {
               const actionMenu = (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

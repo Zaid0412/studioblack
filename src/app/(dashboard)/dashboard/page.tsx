@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import {
   FolderOpen,
@@ -15,8 +15,6 @@ import {
   Plus,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { dashboard as dashboardApi, clientPortal } from "@/lib/api";
-import { toast } from "@/components/ui/useToast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
@@ -68,45 +66,17 @@ export default function DashboardPage() {
   const router = useRouter();
   const { role, session, loading: roleLoading } = useUserRole();
 
-  // PM/Architect state
-  const [data, setData] = useState<DashboardData | null>(null);
-  // Client state
-  const [clientProjects, setClientProjects] = useState<ClientProject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: dashLoading } = useSWR<DashboardData>(
+    !roleLoading && role && role !== "client" ? "/api/dashboard" : null
+  );
+  const { data: clientProjects = [], isLoading: clientLoading } = useSWR<
+    ClientProject[]
+  >(!roleLoading && role === "client" ? "/api/client/projects" : null);
 
-  useEffect(() => {
-    if (roleLoading || !role) return;
+  const loading =
+    roleLoading || (role === "client" ? clientLoading : dashLoading);
 
-    if (role === "client") {
-      clientPortal
-        .listProjects<ClientProject>()
-        .then(setClientProjects)
-        .catch(() => {
-          setClientProjects([]);
-          toast({
-            title: "Error",
-            description: "Failed to load projects",
-            variant: "error",
-          });
-        })
-        .finally(() => setLoading(false));
-    } else {
-      dashboardApi
-        .get<DashboardData>()
-        .then(setData)
-        .catch(() => {
-          setData(null);
-          toast({
-            title: "Error",
-            description: "Failed to load dashboard",
-            variant: "error",
-          });
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [role, roleLoading]);
-
-  if (roleLoading || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 animate-spin text-text-muted" />

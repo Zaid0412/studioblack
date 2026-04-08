@@ -38,6 +38,7 @@ export const GET = withAuth(
     const status = searchParams.get("status") || undefined;
     const priority = searchParams.get("priority") || undefined;
     const category = searchParams.get("category") || undefined;
+    const phaseId = searchParams.get("phaseId") || undefined;
     const search = (searchParams.get("search") || undefined)?.slice(0, 200);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const limit = Math.min(
@@ -62,6 +63,7 @@ export const GET = withAuth(
         status,
         priority,
         category,
+        phaseId,
         search,
         page,
         limit,

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
+import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { FolderOpen, Search, Loader2 } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
@@ -8,44 +9,19 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { activityIcons } from "@/lib/activityConstants";
-import { notifications } from "@/lib/api";
-
-interface AuditEntry {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  created_at: string;
-  project_name: string | null;
-}
+import type { DbNotificationRow } from "@/types";
 
 /** Audit history page showing recent notifications as activity log. */
 export default function AuditPage() {
   const t = useTranslations("audit");
   const te = useTranslations("emptyStates");
   const [search, setSearch] = useState("");
-  const [entries, setEntries] = useState<AuditEntry[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchEntries = useCallback(() => {
-    notifications
-      .list()
-      .then((data) => setEntries(data))
-      .catch(() => setEntries([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    fetchEntries();
-  }, [fetchEntries]);
-
-  const handleRefresh = useCallback(async () => {
-    try {
-      setEntries(await notifications.list());
-    } catch {
-      // ignore refresh errors
-    }
-  }, []);
+  const {
+    data: entries = [],
+    isLoading: loading,
+    mutate,
+  } = useSWR<DbNotificationRow[]>("/api/notifications");
 
   const filtered = useMemo(
     () =>
@@ -63,7 +39,13 @@ export default function AuditPage() {
       <PageHeader
         title={t("title")}
         subtitle={t("subtitle")}
-        actions={<RefreshButton onRefresh={handleRefresh} />}
+        actions={
+          <RefreshButton
+            onRefresh={() => {
+              mutate();
+            }}
+          />
+        }
       />
 
       <SearchInput
