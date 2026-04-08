@@ -125,6 +125,16 @@ export const POST = withAuth(
         }
       }
 
+      // Notify client
+      if (clientEmail) {
+        sendNotificationEmail(
+          clientEmail,
+          "You've Been Added to a Project",
+          `<p>You've been added to project <strong>${escapeHtml(name)}</strong> as a client.</p>
+           <p>Log in to view the project details and track progress.</p>`
+        ).catch(console.error);
+      }
+
       return NextResponse.json(project, { status: 201 });
     } catch (err) {
       console.error("Failed to create project:", err);
