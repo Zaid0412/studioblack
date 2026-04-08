@@ -127,11 +127,23 @@ export const POST = withAuth(
 
       // Notify client
       if (clientEmail) {
+        const pool = getPool();
+        const { rows: clientRows } = await pool.query(
+          `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
+          [clientEmail]
+        );
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const isRegistered = clientRows.length > 0;
+        const link = isRegistered
+          ? `${baseUrl}/login`
+          : `${baseUrl}/register?email=${encodeURIComponent(clientEmail)}`;
+        const linkLabel = isRegistered ? "Log in" : "Create your account";
+
         sendNotificationEmail(
           clientEmail,
           "You've Been Added to a Project",
           `<p>You've been added to project <strong>${escapeHtml(name)}</strong> as a client.</p>
-           <p>Log in to view the project details and track progress.</p>`
+           <p><a href="${link}">${linkLabel}</a> to view the project details and track progress.</p>`
         ).catch(console.error);
       }
 
