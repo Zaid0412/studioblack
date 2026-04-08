@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type ReactNode } from "react";
 import { Loader2, FileText } from "lucide-react";
+import "@fortune-sheet/react/dist/index.css";
 
 interface FortuneSheetCell {
   r: number;
@@ -28,7 +29,10 @@ interface FortuneSheetData {
   row?: number;
   column?: number;
   config?: Record<string, unknown>;
-  frozen?: { type: string; range?: { row_focus: number; column_focus: number } };
+  frozen?: {
+    type: string;
+    range?: { row_focus: number; column_focus: number };
+  };
 }
 
 interface SpreadsheetViewerProps {
@@ -49,18 +53,15 @@ export function SpreadsheetViewer({
   const [sheetData, setSheetData] = useState<FortuneSheetData[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [WorkbookComponent, setWorkbookComponent] = useState<React.ComponentType<Record<string, unknown>> | null>(null);
+  const [WorkbookComponent, setWorkbookComponent] =
+    useState<React.ComponentType<Record<string, unknown>> | null>(null);
 
   // Dynamically import Fortune Sheet (heavy dependency — only load when needed)
   useEffect(() => {
     let cancelled = false;
     async function loadComponent() {
       try {
-        const [mod] = await Promise.all([
-          import("@fortune-sheet/react"),
-          // Load CSS via side-effect import
-          import("@fortune-sheet/react/dist/index.css"),
-        ]);
+        const mod = await import("@fortune-sheet/react");
         if (!cancelled) {
           setWorkbookComponent(() => mod.Workbook);
         }
@@ -70,7 +71,9 @@ export function SpreadsheetViewer({
       }
     }
     loadComponent();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch and parse the Excel file
@@ -99,7 +102,8 @@ export function SpreadsheetViewer({
           (name, idx) => {
             const ws = workbook.Sheets[name];
             const celldata: FortuneSheetCell[] = [];
-            const merges: { r: number; c: number; rs: number; cs: number }[] = [];
+            const merges: { r: number; c: number; rs: number; cs: number }[] =
+              [];
 
             // Parse merged cells
             if (ws["!merges"]) {
@@ -114,7 +118,10 @@ export function SpreadsheetViewer({
             }
 
             // Build merge lookup for tagging cells
-            const mergeMap = new Map<string, { r: number; c: number; rs: number; cs: number }>();
+            const mergeMap = new Map<
+              string,
+              { r: number; c: number; rs: number; cs: number }
+            >();
             for (const m of merges) {
               mergeMap.set(`${m.r},${m.c}`, m);
             }
@@ -122,19 +129,29 @@ export function SpreadsheetViewer({
             // Parse column widths
             const columnWidths: Record<string, number> = {};
             if (ws["!cols"]) {
-              ws["!cols"].forEach((col: { wpx?: number; wch?: number } | undefined, i: number) => {
-                if (col?.wpx) columnWidths[String(i)] = col.wpx;
-                else if (col?.wch) columnWidths[String(i)] = col.wch * 8;
-              });
+              ws["!cols"].forEach(
+                (
+                  col: { wpx?: number; wch?: number } | undefined,
+                  i: number
+                ) => {
+                  if (col?.wpx) columnWidths[String(i)] = col.wpx;
+                  else if (col?.wch) columnWidths[String(i)] = col.wch * 8;
+                }
+              );
             }
 
             // Parse row heights
             const rowHeights: Record<string, number> = {};
             if (ws["!rows"]) {
-              ws["!rows"].forEach((row: { hpx?: number; hpt?: number } | undefined, i: number) => {
-                if (row?.hpx) rowHeights[String(i)] = row.hpx;
-                else if (row?.hpt) rowHeights[String(i)] = row.hpt * 1.333;
-              });
+              ws["!rows"].forEach(
+                (
+                  row: { hpx?: number; hpt?: number } | undefined,
+                  i: number
+                ) => {
+                  if (row?.hpx) rowHeights[String(i)] = row.hpx;
+                  else if (row?.hpt) rowHeights[String(i)] = row.hpt * 1.333;
+                }
+              );
             }
 
             // Parse cells
@@ -171,9 +188,7 @@ export function SpreadsheetViewer({
               }
 
               // Tag merged cell origin
-              const mergeInfo = mergeMap.get(
-                `${decoded.r},${decoded.c}`
-              );
+              const mergeInfo = mergeMap.get(`${decoded.r},${decoded.c}`);
               if (mergeInfo) {
                 cellValue.mc = mergeInfo;
               }
@@ -202,10 +217,7 @@ export function SpreadsheetViewer({
                 ...(merges.length > 0
                   ? {
                       merge: Object.fromEntries(
-                        merges.map((m) => [
-                          `${m.r}_${m.c}`,
-                          m,
-                        ])
+                        merges.map((m) => [`${m.r}_${m.c}`, m])
                       ),
                     }
                   : {}),
