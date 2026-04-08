@@ -44,20 +44,42 @@ export const auth = betterAuth({
   user: {
     deleteUser: {
       enabled: true,
-      sendDeleteAccountVerification: async ({ token }) => {
-        // Skip email verification — delete immediately by following the callback URL server-side
-        const baseUrl = getBaseURL();
+      beforeDelete: async (user) => {
+        const pool = getPool();
         try {
-          await fetch(`${baseUrl}/api/auth/delete-user/verify?token=${token}`, {
-            method: "GET",
-            redirect: "follow",
-          });
+          // Block deletion if user is the sole owner of any organization
+          const { rows: soleOwnerOrgs } = await pool.query(
+            `SELECT m."organizationId" FROM "member" m
+             WHERE m."userId" = $1 AND m.role = 'owner'
+             AND NOT EXISTS (
+               SELECT 1 FROM "member" m2
+               WHERE m2."organizationId" = m."organizationId"
+                 AND m2."userId" != $1 AND m2.role = 'owner'
+             )`,
+            [user.id]
+          );
+          if (soleOwnerOrgs.length > 0) {
+            throw new Error(
+              "Cannot delete account: you are the sole owner of an organization. Transfer ownership first."
+            );
+          }
+
+          // Clean up better-auth org plugin tables BEFORE user row is deleted,
+          // otherwise FK constraints on member/invitation block the deletion.
+          await pool.query(`DELETE FROM "member" WHERE "userId" = $1`, [
+            user.id,
+          ]);
+          await pool.query(`DELETE FROM "invitation" WHERE "inviterId" = $1`, [
+            user.id,
+          ]);
+          console.log(`[auth] Cleaned up org membership for ${user.email}`);
         } catch (err) {
-          console.error("[auth] Auto-delete verification failed:", err);
+          // Re-throw sole-owner guard — let everything else fail gracefully
+          if (err instanceof Error && err.message.includes("sole owner")) {
+            throw err;
+          }
+          console.error("[auth] beforeDelete cleanup failed:", err);
         }
-      },
-      afterDelete: async (user) => {
-        console.log(`[auth] User ${user.email} deleted successfully`);
       },
     },
     additionalFields: {

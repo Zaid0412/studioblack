@@ -154,6 +154,7 @@ export default function RegisterPage() {
                   placeholder={t("namePlaceholder")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  autoComplete="name"
                   required
                 />
                 <Input
@@ -162,6 +163,7 @@ export default function RegisterPage() {
                   placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
                   readOnly={!!inviteEmail}
                   className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
                   required
@@ -172,6 +174,7 @@ export default function RegisterPage() {
                   placeholder={t("passwordPlaceholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
                 <Input
@@ -180,6 +183,7 @@ export default function RegisterPage() {
                   placeholder={t("confirmPasswordPlaceholder")}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
 

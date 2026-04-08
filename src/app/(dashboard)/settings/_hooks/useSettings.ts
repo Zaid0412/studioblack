@@ -142,14 +142,21 @@ export function useSettings() {
         callbackURL: "/login",
       });
       if (error) {
+        const isSoleOwner = error.message?.includes("sole owner");
         toast({
           title: t("error"),
-          description: t("deleteError"),
+          description: isSoleOwner
+            ? t("deleteErrorSoleOwner")
+            : t("deleteError"),
           variant: "error",
         });
         setIsDeleting(false);
         return;
       }
+      // Clear client-side session cache before redirecting so the login
+      // page doesn't see a stale session and bounce back to dashboard.
+      await authClient.signOut();
+      setIsDeleting(false);
       router.push("/login");
     } catch {
       toast({

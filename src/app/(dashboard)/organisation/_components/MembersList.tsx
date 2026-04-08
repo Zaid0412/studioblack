@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Shield, User as UserIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from "@/components/ui/DropdownMenu";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
@@ -18,13 +19,20 @@ import type { OrgMember } from "@/types";
 interface MembersListProps {
   members: OrgMember[];
   currentUserRole: string | null;
+  onUpdateRole: (memberId: string, role: string) => void;
   onRemoveMember: (memberId: string) => void;
 }
+
+const roleOptions = [
+  { value: "admin", icon: Shield, labelKey: "rolePM" },
+  { value: "member", icon: UserIcon, labelKey: "roleArchitect" },
+] as const;
 
 /** Renders the organisation members table with roles and remove actions. */
 export function MembersList({
   members,
   currentUserRole,
+  onUpdateRole,
   onRemoveMember,
 }: MembersListProps) {
   const t = useTranslations("organisation");
@@ -71,6 +79,19 @@ export function MembersList({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {currentUserRole === "owner" &&
+                        roleOptions
+                          .filter((r) => r.value !== member.role)
+                          .map((r) => (
+                            <DropdownMenuItem
+                              key={r.value}
+                              onClick={() => onUpdateRole(member.id, r.value)}
+                            >
+                              <r.icon className="w-3.5 h-3.5 mr-2" />
+                              {t("changeRoleTo", { role: t(r.labelKey) })}
+                            </DropdownMenuItem>
+                          ))}
+                      {currentUserRole === "owner" && <DropdownMenuSeparator />}
                       <DropdownMenuItem
                         className="text-red-500 focus:text-red-500"
                         onClick={() => onRemoveMember(member.id)}

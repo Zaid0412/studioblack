@@ -67,6 +67,7 @@ export function InviteDialog({
             placeholder={t("inviteEmailPlaceholder")}
             value={inviteEmail}
             onChange={(e) => setInviteEmail(e.target.value)}
+            autoComplete="email"
           />
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-text-primary">

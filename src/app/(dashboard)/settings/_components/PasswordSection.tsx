@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 interface PasswordSectionProps {
+  email: string;
   currentPassword: string;
   setCurrentPassword: (value: string) => void;
   newPassword: string;
@@ -20,6 +21,7 @@ interface PasswordSectionProps {
 
 /** Password change form with current, new, and confirm fields. */
 export function PasswordSection({
+  email,
   currentPassword,
   setCurrentPassword,
   newPassword,
@@ -44,44 +46,59 @@ export function PasswordSection({
           <p className="text-sm text-text-muted">{t("changePasswordDesc")}</p>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <Input
-            label={t("currentPassword")}
-            type="password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-          <Input
-            label={t("newPassword")}
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-          <Input
-            label={t("confirmNewPassword")}
-            type="password"
-            value={confirmNewPassword}
-            onChange={(e) => setConfirmNewPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-        </div>
-
-        <Separator />
-
-        <Button
-          className="self-start"
-          onClick={handleChangePassword}
-          disabled={
-            !currentPassword ||
-            !newPassword ||
-            !confirmNewPassword ||
-            isChangingPassword
-          }
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleChangePassword();
+          }}
+          className="flex flex-col gap-6"
         >
-          {isChangingPassword ? t("updatingPassword") : t("updatePassword")}
-        </Button>
+          <div className="flex flex-col gap-4">
+            <input
+              type="email"
+              value={email}
+              autoComplete="username"
+              readOnly
+              hidden
+            />
+            <Input
+              label={t("currentPassword")}
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+            <Input
+              label={t("newPassword")}
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <Input
+              label={t("confirmNewPassword")}
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <Separator />
+
+          <Button
+            type="submit"
+            className="self-start"
+            disabled={
+              !currentPassword ||
+              !newPassword ||
+              !confirmNewPassword ||
+              isChangingPassword
+            }
+          >
+            {isChangingPassword ? t("updatingPassword") : t("updatePassword")}
+          </Button>
+        </form>
       </div>
     </Card>
   );

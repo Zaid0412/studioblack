@@ -106,11 +106,13 @@ export function ProfileSection({
             label={t("fullName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
           />
           <Input
             label={t("email")}
             type="email"
             value={email}
+            autoComplete="email"
             disabled
             className="cursor-not-allowed"
           />

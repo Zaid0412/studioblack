@@ -355,6 +355,7 @@ export default function CreateProjectPage() {
               placeholder={t("clientEmailPlaceholder")}
               value={clientEmail}
               onChange={(e) => setClientEmail(e.target.value)}
+              autoComplete="email"
             />
             <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
           </div>
