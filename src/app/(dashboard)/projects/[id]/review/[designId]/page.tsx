@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback, useEffect } from "react";
+import { use, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -9,6 +9,8 @@ import {
   Loader2,
   ClipboardCheck,
   MessageCircle,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +37,8 @@ import {
   ApiError,
 } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
-import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
+import { isPdf, isSpreadsheet, versionColor } from "@/lib/fileUtils";
+import type { DbAttachment } from "@/types";
 import { useSidebar } from "@/components/layout/SidebarContext";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
@@ -105,6 +108,31 @@ export default function DesignReviewPage({
       .then((p) => setMembers(p.members ?? []))
       .catch(() => {});
   }, [id]);
+
+  // Fetch version list for the version switcher
+  const [versions, setVersions] = useState<DbAttachment[]>([]);
+  const [versionMenuOpen, setVersionMenuOpen] = useState(false);
+  const versionMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!attachment?.version_group) return;
+    attachmentsApi
+      .getVersionHistory(id, attachment.version_group)
+      .then(setVersions)
+      .catch(() => {});
+  }, [id, attachment?.version_group]);
+
+  // Close version menu on click outside
+  useEffect(() => {
+    if (!versionMenuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (versionMenuRef.current && !versionMenuRef.current.contains(e.target as Node)) {
+        setVersionMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [versionMenuOpen]);
 
   // Pending pin: stores the click coordinates while the form is open
   const [pendingPin, setPendingPin] = useState<{
@@ -439,21 +467,70 @@ export default function DesignReviewPage({
             frozen={!isClient ? !!attachment?.frozen_at : undefined}
             onToggleFreeze={!isClient ? handleToggleFreeze : undefined}
             leftSlot={
-              isClient &&
-              attachment.review_status &&
-              attachment.review_status !== "pending" ? (
-                <span
-                  className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                    attachment.review_status === "approved"
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "bg-amber-500/20 text-amber-400"
-                  }`}
-                >
-                  {attachment.review_status === "approved"
-                    ? t("approved")
-                    : t("changesRequested")}
-                </span>
-              ) : undefined
+              <>
+                {/* Version switcher */}
+                {versions.length > 1 && (
+                  <div className="relative" ref={versionMenuRef}>
+                    <button
+                      onClick={() => setVersionMenuOpen(!versionMenuOpen)}
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full cursor-pointer transition-colors ${
+                        (() => {
+                          const vc = versionColor(attachment.version || 1);
+                          return `${vc.bg} ${vc.text}`;
+                        })()
+                      }`}
+                    >
+                      V{attachment.version || 1}
+                      <ChevronDown className={`w-3 h-3 transition-transform ${versionMenuOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {versionMenuOpen && (
+                      <div className="absolute left-0 top-full mt-1 w-56 bg-bg-elevated border border-border-default rounded-lg shadow-xl py-1 z-50">
+                        {versions.map((v) => {
+                          const vc = versionColor(v.version || 1);
+                          const isActive = v.id === activeFileId;
+                          return (
+                            <button
+                              key={v.id}
+                              onClick={() => {
+                                setVersionMenuOpen(false);
+                                if (!isActive) router.push(`/projects/${id}/review/${v.id}`);
+                              }}
+                              className={`flex items-center gap-2.5 w-full px-3 py-2 text-[13px] transition-colors cursor-pointer ${
+                                isActive
+                                  ? "bg-accent/10 text-text-primary"
+                                  : "text-text-secondary hover:text-text-primary hover:bg-bg-input"
+                              }`}
+                            >
+                              <span className={`inline-flex items-center justify-center rounded-full ${vc.bg} min-w-[22px] h-[16px] px-1 text-[9px] font-bold ${vc.text}`}>
+                                V{v.version || 1}
+                              </span>
+                              <span className="truncate flex-1 text-left">{v.file_name}</span>
+                              {isActive && <Check className="w-3.5 h-3.5 text-accent shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Client review status badge */}
+                {isClient &&
+                  attachment.review_status &&
+                  attachment.review_status !== "pending" && (
+                  <span
+                    className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
+                      attachment.review_status === "approved"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : "bg-amber-500/20 text-amber-400"
+                    }`}
+                  >
+                    {attachment.review_status === "approved"
+                      ? t("approved")
+                      : t("changesRequested")}
+                  </span>
+                )}
+              </>
+            }
             }
             rightSlot={
               <>
