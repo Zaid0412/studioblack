@@ -34,6 +34,8 @@ interface TaskBucketSidebarProps {
   activeBucket: Bucket;
   counts: BucketCounts;
   onSelect: (bucket: Bucket) => void;
+  /** When "architect", hides buckets that don't apply (All, Created by Me). */
+  role?: "pm" | "architect";
 }
 
 // ---------------------------------------------------------------------------
@@ -53,17 +55,29 @@ const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
 // Component
 // ---------------------------------------------------------------------------
 
+/** Buckets hidden from architects — they only see their own tasks. */
+const ARCHITECT_HIDDEN_BUCKETS: Set<Bucket> = new Set([
+  "all",
+  "created_by_me",
+]);
+
 /** Sidebar listing task buckets (all, my tasks, starred, etc.) with counts. */
 export function TaskBucketSidebar({
   activeBucket,
   counts,
   onSelect,
+  role,
 }: TaskBucketSidebarProps) {
+  const visibleBuckets =
+    role === "architect"
+      ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
+      : BUCKETS;
+
   return (
     <>
       {/* ── Mobile: horizontal pill bar ── */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-none lg:hidden -mx-1 px-1">
-        {BUCKETS.map((bucket) => {
+        {visibleBuckets.map((bucket) => {
           const isActive = activeBucket === bucket.key;
           const count = counts[bucket.key] ?? 0;
           const Icon = bucket.icon;
@@ -94,7 +108,7 @@ export function TaskBucketSidebar({
       {/* ── Desktop: vertical sidebar ── */}
       <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default overflow-hidden self-start">
         <div className="flex flex-col py-2">
-          {BUCKETS.map((bucket) => {
+          {visibleBuckets.map((bucket) => {
             const isActive = activeBucket === bucket.key;
             const count = counts[bucket.key] ?? 0;
             const Icon = bucket.icon;

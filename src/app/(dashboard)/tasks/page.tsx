@@ -120,6 +120,7 @@ export default function TasksPage() {
   const tasks = data?.tasks ?? [];
   const counts = (data?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
   const totalTasks = data?.total ?? 0;
+  const taskRole = data?.role;
   const isRefreshing = isValidating && !isLoading;
 
   // Adapters: translate SWR mutate into setTasks/setCounts for useTaskCrud
@@ -274,6 +275,7 @@ export default function TasksPage() {
         <TaskBucketSidebar
           activeBucket={activeBucket}
           counts={counts}
+          role={taskRole}
           onSelect={(bucket) =>
             setParam("bucket", bucket === "all" ? "" : bucket)
           }

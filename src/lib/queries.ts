@@ -600,6 +600,19 @@ export async function getLatestAttachmentReview(attachmentId: string) {
 // Access control
 // ---------------------------------------------------------------------------
 
+/** Get a user's role within an organization (owner/admin/member or null). */
+export async function getMemberRole(
+  orgId: string,
+  userId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
+    [orgId, userId]
+  );
+  return rows[0]?.role ?? null;
+}
+
 /** Get a user's org role for a project (owner/admin/member or null). */
 export async function getOrgRole(
   projectId: string,
@@ -670,6 +683,8 @@ interface TaskFilters {
     | "upcoming"
     | "completed";
   userId: string;
+  /** When true, all buckets are scoped to tasks assigned to the user. */
+  assigneeOnly?: boolean;
   projectId?: string;
   status?: string;
   priority?: string;
@@ -719,6 +734,13 @@ export async function getTasks(filters: TaskFilters) {
     default:
       // "all" — exclude archived
       conditions.push(`t.status != 'archived'`);
+  }
+
+  // Architects can only see tasks assigned to them
+  if (filters.assigneeOnly) {
+    conditions.push(`t.assigned_to = $${idx}`);
+    values.push(filters.userId);
+    idx++;
   }
 
   // Additional filters
@@ -868,8 +890,13 @@ export async function getTaskById(
 }
 
 /** Get task counts for each smart bucket in a single query. */
-export async function getTaskBucketCounts(orgId: string, userId: string) {
+export async function getTaskBucketCounts(
+  orgId: string,
+  userId: string,
+  assigneeOnly?: boolean
+) {
   const pool = getPool();
+  const assigneeFilter = assigneeOnly ? " AND t.assigned_to = $2" : "";
   const { rows } = await pool.query(
     `SELECT
        COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all,
@@ -880,7 +907,7 @@ export async function getTaskBucketCounts(orgId: string, userId: string) {
        COUNT(*) FILTER (WHERE t.status = 'completed')::int AS completed
      FROM task t
      LEFT JOIN task_star ts ON ts.task_id = t.id AND ts.user_id = $2
-     WHERE t.org_id = $1`,
+     WHERE t.org_id = $1${assigneeFilter}`,
     [orgId, userId]
   );
   return rows[0];
