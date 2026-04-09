@@ -17,9 +17,15 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname } = request.nextUrl;
 
-  // Authenticated user on /login or /register → redirect to dashboard
-  if (sessionCookie && (pathname === "/login" || pathname === "/register")) {
+  // Authenticated user on auth pages → redirect to dashboard
+  const authPages = ["/login", "/register", "/forgot-password"];
+  if (sessionCookie && authPages.includes(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // /reset-password is always public (token-based, may be used while logged out)
+  if (pathname === "/reset-password") {
+    return NextResponse.next();
   }
 
   // Unauthenticated → redirect to login
@@ -39,6 +45,6 @@ export const config = {
      * - /_next/static and /_next/image (Next.js internals)
      * - Static file extensions (images, fonts, favicon, etc.)
      */
-    "/((?!login|register|api/auth|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
+    "/((?!login|register|forgot-password|reset-password|api/auth|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
   ],
 };
