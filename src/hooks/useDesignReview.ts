@@ -1,10 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  attachments as attachmentsApi,
-  projects as projectsApi,
-} from "@/lib/api";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import useSWR from "swr";
 import type { DbAttachment, DbAttachmentReview, DbPhase } from "@/types";
 
 interface UseDesignReviewParams {
@@ -27,125 +24,94 @@ export function useDesignReview({
   fetchReviews = false,
 }: UseDesignReviewParams) {
   const [activeFileId, setActiveFileId] = useState(designId);
-  const [attachment, setAttachment] = useState<DbAttachment | null>(null);
-  const [phaseFiles, setPhaseFiles] = useState<DbAttachment[]>([]);
-  const [phaseName, setPhaseName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [filesLoading, setFilesLoading] = useState(true);
-  const [reviews, setReviews] = useState<DbAttachmentReview[]>([]);
 
-  const fetchAttachment = useCallback(
-    async (fileId: string) => {
-      try {
-        return await attachmentsApi.get(projectId, fileId);
-      } catch {
-        return null;
-      }
-    },
-    [projectId]
+  // -- Active attachment (SWR) --
+  const {
+    data: attachmentData,
+    isLoading: loading,
+    mutate: mutateAttachment,
+  } = useSWR<DbAttachment>(
+    `/api/projects/${projectId}/attachments/${activeFileId}`
   );
 
-  const fetchPhaseFiles = useCallback(
-    async (phaseId: string) => {
-      try {
-        return await attachmentsApi.list(projectId, { phaseId });
-      } catch {
-        return [];
-      }
-    },
-    [projectId]
+  const attachment = attachmentData ?? null;
+
+  // -- Reviews (SWR, conditional) --
+  const { data: reviews = [] } = useSWR<DbAttachmentReview[]>(
+    fetchReviews
+      ? `/api/projects/${projectId}/attachments/${activeFileId}/review`
+      : null
   );
 
-  const fetchAllFiles = useCallback(async () => {
-    try {
-      return await attachmentsApi.list(projectId, { all: true });
-    } catch {
-      return [];
-    }
-  }, [projectId]);
-
-  const fetchPhaseName = useCallback(
-    async (phaseId: string) => {
-      try {
-        const data = await projectsApi.get<{ phases?: DbPhase[] }>(projectId);
-        const phase = data.phases?.find((p: DbPhase) => p.id === phaseId);
-        return phase?.name || "";
-      } catch {
-        return "";
-      }
-    },
-    [projectId]
-  );
-
-  const isInitialLoad = useRef(true);
+  // -- Phase files: determined once from the first attachment's phase_id --
+  // `undefined` = not yet determined, `null` = no phase, `string` = phase id
+  const [initialPhaseId, setInitialPhaseId] = useState<
+    string | null | undefined
+  >(undefined);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const isFirst = isInitialLoad.current;
-      if (isFirst) {
-        setLoading(true);
-      }
-
-      const att = await fetchAttachment(activeFileId);
-      if (cancelled) return;
-      setAttachment(att);
-
-      if (fetchReviews) {
-        try {
-          const reviewData = await attachmentsApi.getReviewHistory(
-            projectId,
-            activeFileId
-          );
-          if (cancelled) return;
-          setReviews(reviewData);
-        } catch {
-          if (!cancelled) setReviews([]);
-        }
-      }
-
-      if (isFirst) {
-        isInitialLoad.current = false;
-
-        if (att?.phase_id) {
-          const [files, name] = await Promise.all([
-            fetchPhaseFiles(att.phase_id),
-            fetchPhaseName(att.phase_id),
-          ]);
-          if (cancelled) return;
-          setPhaseFiles(files);
-          setPhaseName(name);
-        } else {
-          const files = await fetchAllFiles();
-          if (cancelled) return;
-          setPhaseFiles(files);
-        }
-        setFilesLoading(false);
-      }
-
-      if (!isFirst && activeFileId !== designId) {
-        window.history.replaceState(
-          null,
-          "",
-          `${basePath}/${projectId}/review/${activeFileId}`
-        );
-      }
-
-      setLoading(false);
+    if (attachmentData && initialPhaseId === undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from fetched data
+      setInitialPhaseId(attachmentData.phase_id || null);
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFileId]);
+  }, [attachmentData, initialPhaseId]);
+
+  const phaseFilesKey =
+    initialPhaseId !== undefined
+      ? initialPhaseId
+        ? `/api/projects/${projectId}/attachments?phaseId=${initialPhaseId}`
+        : `/api/projects/${projectId}/attachments?all=true`
+      : null;
+
+  const { data: phaseFiles = [], isLoading: filesLoading } =
+    useSWR<DbAttachment[]>(phaseFilesKey);
+
+  // -- Phase name from project data (shares SWR cache with useProjectDetail) --
+  const { data: projectData } = useSWR<{ phases?: DbPhase[] }>(
+    initialPhaseId ? `/api/projects/${projectId}` : null
+  );
+
+  const phaseName = useMemo(() => {
+    if (!initialPhaseId || !projectData?.phases) return "";
+    return projectData.phases.find((p) => p.id === initialPhaseId)?.name || "";
+  }, [initialPhaseId, projectData]);
+
+  // -- URL replacement on file switch --
+  useEffect(() => {
+    if (activeFileId !== designId) {
+      window.history.replaceState(
+        null,
+        "",
+        `${basePath}/${projectId}/review/${activeFileId}`
+      );
+    }
+  }, [activeFileId, designId, basePath, projectId]);
+
+  // -- Helpers for consumer mutations --
+  const refreshAttachment = useCallback(
+    () => mutateAttachment(),
+    [mutateAttachment]
+  );
+
+  const updateAttachment = useCallback(
+    (updater: (prev: DbAttachment | null) => DbAttachment | null) => {
+      mutateAttachment(
+        (prev) => {
+          const result = updater(prev ?? null);
+          return result ?? undefined;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutateAttachment]
+  );
 
   return {
     activeFileId,
     setActiveFileId,
     attachment,
-    setAttachment,
-    fetchAttachment,
+    updateAttachment,
+    refreshAttachment,
     phaseFiles,
     filesLoading,
     phaseName,

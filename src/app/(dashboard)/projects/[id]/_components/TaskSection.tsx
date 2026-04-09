@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Plus,
   Loader2,
@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Star,
 } from "lucide-react";
+import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -24,10 +25,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { avatarColor } from "@/lib/avatarUtils";
-import { tasks as tasksApi } from "@/lib/api";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import type { Task, TaskFormData } from "@/types";
+import type { TaskListResponse } from "@/lib/api/tasks";
+import { useSwrFieldAdapter } from "@/lib/swr";
 import {
   PRIORITY_DOT,
   STATUS_BADGE_VARIANT,
@@ -38,7 +40,6 @@ import {
   capitalize,
 } from "@/lib/taskUtils";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
-import { toast } from "@/components/ui/useToast";
 import {
   Tooltip,
   TooltipTrigger,
@@ -80,40 +81,25 @@ export function TaskSection({
     [activePhaseId]
   );
 
-  // -- Data state --
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const initialLoadDone = useRef(false);
+  // -- Task data (SWR, filtered by phase on the server) --
+  const {
+    data: taskData,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useSWR<TaskListResponse>(
+    `/api/tasks?projectId=${projectId}&phaseId=${activePhaseId}&limit=100`,
+    { keepPreviousData: true }
+  );
 
-  // -- Fetch tasks (filtered by phase on the server) --
-  const fetchTasks = useCallback(async () => {
-    try {
-      const data = await tasksApi.list({
-        projectId,
-        phaseId: activePhaseId,
-        limit: "100",
-      });
-      setAllTasks(data.tasks ?? []);
-    } catch {
-      setAllTasks([]);
-      toast({
-        title: "Error",
-        description: "Failed to load tasks",
-        variant: "error",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, activePhaseId]);
+  const allTasks = taskData?.tasks ?? [];
+  const isRefreshing = isValidating && !isLoading;
 
-  useEffect(() => {
-    // Only show loading spinner on initial load, not on phase switches
-    if (!initialLoadDone.current) {
-      setLoading(true);
-      initialLoadDone.current = true;
-    }
-    fetchTasks();
-  }, [fetchTasks]);
+  // Adapter: translate SWR mutate into setTasks for useTaskCrud
+  const setAllTasks = useSwrFieldAdapter<TaskListResponse, Task[]>(
+    mutate,
+    "tasks"
+  );
 
   // -- CRUD hook --
   const {
@@ -134,7 +120,9 @@ export function TaskSection({
     openEdit,
     openCreate,
   } = useTaskCrud({
-    fetchTasks,
+    fetchTasks: () => {
+      mutate();
+    },
     setTasks: setAllTasks,
     defaultForm: emptyForm,
     projectId,
@@ -142,7 +130,7 @@ export function TaskSection({
 
   // -- Highlight task from URL --
   useEffect(() => {
-    if (!highlightTaskId || loading) return;
+    if (!highlightTaskId || isLoading) return;
     const timer = setTimeout(() => {
       const el = document.querySelector(`[data-task-id="${highlightTaskId}"]`);
       if (el) {
@@ -152,7 +140,7 @@ export function TaskSection({
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [highlightTaskId, loading]);
+  }, [highlightTaskId, isLoading]);
 
   // =========================================================================
   // Render
@@ -176,8 +164,10 @@ export function TaskSection({
       </div>
 
       {/* Task list */}
-      <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
-        {loading ? (
+      <div
+        className={`rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
+      >
+        {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
           </div>
