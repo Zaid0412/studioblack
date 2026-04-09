@@ -439,6 +439,29 @@ export async function updateAttachmentReviewStatus(
   return row;
 }
 
+/** Set or clear the frozen_at timestamp on an attachment. */
+export async function setAttachmentFreezeStatus(
+  attachmentId: string,
+  projectId: string,
+  freeze: boolean
+) {
+  const attachment = await getAttachmentById(attachmentId, projectId);
+  if (!attachment) return { error: "not_found" as const, data: null };
+
+  if (freeze && attachment.frozen_at) {
+    return { error: "already_frozen" as const, data: null };
+  }
+
+  const pool = getPool();
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE attachment SET frozen_at = ${freeze ? "NOW()" : "NULL"} WHERE id = $1 RETURNING id, file_name, file_url, frozen_at, review_status`,
+    [attachmentId]
+  );
+  return { error: null, data: updated };
+}
+
 /** Upload a new version of an existing file (same version_group, incremented version). */
 export async function uploadNewVersion(
   versionGroup: string,
@@ -620,6 +643,19 @@ export async function hasProjectAccess(
 // ---------------------------------------------------------------------------
 // Task Manager
 // ---------------------------------------------------------------------------
+
+/** Check that a task exists and belongs to the given org. */
+export async function verifyTaskAccess(
+  taskId: string,
+  orgId: string | null
+): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+    [taskId, orgId]
+  );
+  return rows.length > 0;
+}
 
 interface TaskFilters {
   orgId: string;

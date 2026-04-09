@@ -45,8 +45,12 @@ interface TaskRowProps {
   onToggleStatus: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
-  onClick: (task: Task) => void;
-  onGoToProject: (task: Task) => void;
+  /** When undefined, the row is not clickable. */
+  onClick?: (task: Task) => void;
+  /** When undefined, the go-to-project button is hidden. */
+  onGoToProject?: (task: Task) => void;
+  /** Show the project badge column. Default `true`. */
+  showProject?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +66,9 @@ export function TaskRow({
   onDelete,
   onClick,
   onGoToProject,
+  showProject = true,
 }: TaskRowProps) {
+  const isClickable = !!onClick;
   // Shared action menu used in both layouts
   const actionMenu = (
     <DropdownMenu>
@@ -99,11 +105,11 @@ export function TaskRow({
   );
 
   return (
-    <>
+    <div data-task-id={task.id}>
       {/* ── Desktop row ── */}
       <div
-        onClick={() => onClick(task)}
-        className="hidden lg:flex items-center min-h-[56px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors gap-3 cursor-pointer"
+        onClick={isClickable ? () => onClick(task) : undefined}
+        className={`hidden lg:flex items-center min-h-[56px] px-4 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors gap-3${isClickable ? " cursor-pointer" : ""}`}
       >
         {/* Priority dot */}
         <div className="w-3 flex justify-center shrink-0">
@@ -163,25 +169,27 @@ export function TaskRow({
         </div>
 
         {/* Project + phase badge */}
-        <div className="w-[120px] shrink-0">
-          {task.project_name ? (
-            <div className="flex flex-col gap-0.5">
-              <Badge
-                variant="info"
-                className="text-[10px] px-2 py-0.5 truncate max-w-full"
-              >
-                {task.project_name}
-              </Badge>
-              {task.phase_name && (
-                <span className="text-[10px] text-text-muted truncate">
-                  {task.phase_name}
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-[13px] text-text-muted">&mdash;</span>
-          )}
-        </div>
+        {showProject && (
+          <div className="w-[120px] shrink-0">
+            {task.project_name ? (
+              <div className="flex flex-col gap-0.5">
+                <Badge
+                  variant="info"
+                  className="text-[10px] px-2 py-0.5 truncate max-w-full"
+                >
+                  {task.project_name}
+                </Badge>
+                {task.phase_name && (
+                  <span className="text-[10px] text-text-muted truncate">
+                    {task.phase_name}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="text-[13px] text-text-muted">&mdash;</span>
+            )}
+          </div>
+        )}
 
         {/* Category badge */}
         <div className="w-[90px] shrink-0">
@@ -242,24 +250,26 @@ export function TaskRow({
         </div>
 
         {/* Go to project */}
-        <div className="w-8 flex justify-center shrink-0">
-          {task.project_id && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onGoToProject(task);
-                  }}
-                  className="p-1 rounded-md text-text-muted hover:text-accent hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Go to project</TooltipContent>
-            </Tooltip>
-          )}
-        </div>
+        {onGoToProject && (
+          <div className="w-8 flex justify-center shrink-0">
+            {task.project_id && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onGoToProject(task);
+                    }}
+                    className="p-1 rounded-md text-text-muted hover:text-accent hover:bg-bg-input transition-colors cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Go to project</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="w-8 flex justify-end shrink-0">{actionMenu}</div>
@@ -267,8 +277,8 @@ export function TaskRow({
 
       {/* ── Mobile card ── */}
       <div
-        onClick={() => onClick(task)}
-        className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden"
+        onClick={isClickable ? () => onClick(task) : undefined}
+        className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 transition-colors lg:hidden${isClickable ? " active:bg-bg-elevated/50 cursor-pointer" : ""}`}
       >
         {/* Row 1: priority dot + title + star + menu */}
         <div className="flex items-center gap-2">
@@ -315,7 +325,7 @@ export function TaskRow({
           <Badge variant="draft" className="text-[10px] px-2 py-0.5">
             {capitalize(task.category)}
           </Badge>
-          {task.project_name && (
+          {showProject && task.project_name && (
             <Badge
               variant="info"
               className="text-[10px] px-2 py-0.5 truncate max-w-[140px]"
@@ -351,6 +361,6 @@ export function TaskRow({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

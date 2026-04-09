@@ -137,6 +137,116 @@ function ProjectDropdown({
   );
 }
 
+/** Shared card used by grid (desktop) and mobile list views. */
+function ProjectCard({
+  project,
+  variant,
+  isStaff,
+  isPm,
+  onDelete,
+  onClick,
+}: {
+  project: DbProjectRow;
+  variant: "grid" | "mobile";
+  isStaff: boolean;
+  isPm: boolean;
+  onDelete: (project: DbProjectRow) => void;
+  onClick: () => void;
+}) {
+  const clientDisplay = project.client_name || project.client_email;
+
+  if (variant === "mobile") {
+    return (
+      <div
+        className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer"
+        onClick={onClick}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-text-primary truncate">
+            {project.name}
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant={statusToBadgeVariant(project.status)}>
+              <span className="capitalize">{project.status}</span>
+            </Badge>
+            <ProjectDropdown
+              project={project}
+              isStaff={isStaff}
+              isPm={isPm}
+              onDelete={onDelete}
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-text-secondary">
+          {isStaff && clientDisplay && (
+            <span className="truncate">{clientDisplay}</span>
+          )}
+          {project.category && (
+            <span className="capitalize">{project.category}</span>
+          )}
+          <span className="text-text-muted ml-auto shrink-0">
+            {relativeTime(project.updated_at || project.created_at)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Grid card
+  return (
+    <div
+      className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 transition-colors cursor-pointer"
+      onClick={onClick}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="text-sm font-semibold text-text-primary line-clamp-2">
+          {project.name}
+        </span>
+        <ProjectDropdown
+          project={project}
+          isStaff={isStaff}
+          isPm={isPm}
+          onDelete={onDelete}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Badge variant={statusToBadgeVariant(project.status)}>
+          <span className="capitalize">{project.status}</span>
+        </Badge>
+        {project.category && (
+          <span className="text-xs text-text-muted capitalize">
+            {project.category}
+          </span>
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5 text-xs text-text-secondary">
+        {isStaff && clientDisplay && (
+          <span className="truncate">{clientDisplay}</span>
+        )}
+        {isStaff && project.estimation_inr != null && (
+          <span className="text-text-muted">
+            ₹{Number(project.estimation_inr).toLocaleString("en-IN")}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center justify-between text-xs text-text-muted pt-2 border-t border-border-default mt-auto">
+        {project.deadline ? (
+          <span className="flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {new Date(project.deadline).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        ) : (
+          <span />
+        )}
+        <span>{relativeTime(project.updated_at || project.created_at)}</span>
+      </div>
+    </div>
+  );
+}
+
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {
   const t = useTranslations("projects");
@@ -443,68 +553,15 @@ export default function ProjectsPage() {
             >
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                 {paginatedRows.map((project) => (
-                  <div
+                  <ProjectCard
                     key={project.id}
-                    className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 transition-colors cursor-pointer"
+                    project={project}
+                    variant="grid"
+                    isStaff={isStaff}
+                    isPm={isPm}
+                    onDelete={setDeleteTarget}
                     onClick={() => router.push(`/projects/${project.id}`)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-sm font-semibold text-text-primary line-clamp-2">
-                        {project.name}
-                      </span>
-                      <ProjectDropdown
-                        project={project}
-                        isStaff={isStaff}
-                        isPm={isPm}
-                        onDelete={setDeleteTarget}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={statusToBadgeVariant(project.status)}>
-                        <span className="capitalize">{project.status}</span>
-                      </Badge>
-                      {project.category && (
-                        <span className="text-xs text-text-muted capitalize">
-                          {project.category}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1.5 text-xs text-text-secondary">
-                      {isStaff &&
-                        (project.client_name || project.client_email) && (
-                          <span className="truncate">
-                            {project.client_name || project.client_email}
-                          </span>
-                        )}
-                      {isStaff && project.estimation_inr != null && (
-                        <span className="text-text-muted">
-                          ₹
-                          {Number(project.estimation_inr).toLocaleString(
-                            "en-IN"
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-text-muted pt-2 border-t border-border-default mt-auto">
-                      {project.deadline ? (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(project.deadline).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                            }
-                          )}
-                        </span>
-                      ) : (
-                        <span />
-                      )}
-                      <span>
-                        {relativeTime(project.updated_at || project.created_at)}
-                      </span>
-                    </div>
-                  </div>
+                  />
                 ))}
               </div>
             </div>
@@ -512,42 +569,15 @@ export default function ProjectsPage() {
             {/* ── Mobile card list (hidden on desktop) ── */}
             <div className="flex flex-col gap-0 lg:hidden flex-1">
               {paginatedRows.map((project) => (
-                <div
+                <ProjectCard
                   key={project.id}
-                  className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer"
+                  project={project}
+                  variant="mobile"
+                  isStaff={isStaff}
+                  isPm={isPm}
+                  onDelete={setDeleteTarget}
                   onClick={() => router.push(`/projects/${project.id}`)}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-text-primary truncate">
-                      {project.name}
-                    </span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant={statusToBadgeVariant(project.status)}>
-                        <span className="capitalize">{project.status}</span>
-                      </Badge>
-                      <ProjectDropdown
-                        project={project}
-                        isStaff={isStaff}
-                        isPm={isPm}
-                        onDelete={setDeleteTarget}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-text-secondary">
-                    {isStaff &&
-                      (project.client_name || project.client_email) && (
-                        <span className="truncate">
-                          {project.client_name || project.client_email}
-                        </span>
-                      )}
-                    {project.category && (
-                      <span className="capitalize">{project.category}</span>
-                    )}
-                    <span className="text-text-muted ml-auto shrink-0">
-                      {relativeTime(project.updated_at || project.created_at)}
-                    </span>
-                  </div>
-                </div>
+                />
               ))}
             </div>
           </>
