@@ -13,6 +13,8 @@ import { getSessionCookie } from "better-auth/cookies";
  * 1. Middleware → fast cookie-presence gate (prevents unnecessary rendering)
  * 2. Layouts → full session validation with role-based guards
  */
+const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
+
 /** Route-protection middleware: redirects unauthenticated users to login and authenticated users away from auth pages. */
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
