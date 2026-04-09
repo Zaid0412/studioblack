@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getTasks, getTaskBucketCounts } from "@/lib/queries";
+import { getTasks, getTaskBucketCounts, getMemberRole } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { createNotification } from "@/lib/notifications";
@@ -46,6 +46,13 @@ export const GET = withAuth(
       Math.max(1, parseInt(searchParams.get("limit") || "200", 10))
     );
 
+    // Architects only see tasks assigned to them
+    const memberRole = await getMemberRole(orgId, user.id);
+    if (!memberRole) {
+      return NextResponse.json({ tasks: [], counts: {}, total: 0 });
+    }
+    const isArchitect = memberRole === "member";
+
     const [taskResult, counts] = await Promise.all([
       getTasks({
         orgId,
@@ -59,6 +66,7 @@ export const GET = withAuth(
               | "completed")
           : "all",
         userId: user.id,
+        assigneeOnly: isArchitect,
         projectId,
         status,
         priority,
@@ -68,13 +76,14 @@ export const GET = withAuth(
         page,
         limit,
       }),
-      getTaskBucketCounts(orgId, user.id),
+      getTaskBucketCounts(orgId, user.id, isArchitect),
     ]);
 
     return NextResponse.json({
       tasks: taskResult.tasks,
       counts,
       total: taskResult.total,
+      role: isArchitect ? "architect" : "pm",
     });
   }
 );

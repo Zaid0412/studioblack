@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   ListTodo,
   User,
@@ -7,6 +8,7 @@ import {
   Star,
   Clock,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -34,6 +36,8 @@ interface TaskBucketSidebarProps {
   activeBucket: Bucket;
   counts: BucketCounts;
   onSelect: (bucket: Bucket) => void;
+  /** When "architect", hides buckets that don't apply (All, Created by Me). */
+  role?: "pm" | "architect";
 }
 
 // ---------------------------------------------------------------------------
@@ -53,17 +57,44 @@ const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
 // Component
 // ---------------------------------------------------------------------------
 
+/** Buckets hidden from architects — they only see their own tasks. */
+const ARCHITECT_HIDDEN_BUCKETS: Set<Bucket> = new Set(["all", "created_by_me"]);
+
 /** Sidebar listing task buckets (all, my tasks, starred, etc.) with counts. */
 export function TaskBucketSidebar({
   activeBucket,
   counts,
   onSelect,
+  role,
 }: TaskBucketSidebarProps) {
+  const visibleBuckets = useMemo(
+    () =>
+      role === "architect"
+        ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
+        : BUCKETS,
+    [role]
+  );
+
+  if (!role) {
+    return (
+      <>
+        {/* Mobile placeholder */}
+        <div className="flex items-center justify-center h-10 lg:hidden">
+          <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+        </div>
+        {/* Desktop placeholder */}
+        <aside className="hidden lg:flex items-center justify-center w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default self-start min-h-[200px]">
+          <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+        </aside>
+      </>
+    );
+  }
+
   return (
     <>
       {/* ── Mobile: horizontal pill bar ── */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-none lg:hidden -mx-1 px-1">
-        {BUCKETS.map((bucket) => {
+        {visibleBuckets.map((bucket) => {
           const isActive = activeBucket === bucket.key;
           const count = counts[bucket.key] ?? 0;
           const Icon = bucket.icon;
@@ -94,7 +125,7 @@ export function TaskBucketSidebar({
       {/* ── Desktop: vertical sidebar ── */}
       <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default overflow-hidden self-start">
         <div className="flex flex-col py-2">
-          {BUCKETS.map((bucket) => {
+          {visibleBuckets.map((bucket) => {
             const isActive = activeBucket === bucket.key;
             const count = counts[bucket.key] ?? 0;
             const Icon = bucket.icon;
