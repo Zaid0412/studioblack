@@ -902,9 +902,9 @@ export async function getTaskBucketCounts(
        COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all,
        COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS my_tasks,
        COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS created_by_me,
-       COUNT(*) FILTER (WHERE ts.task_id IS NOT NULL)::int AS starred,
-       COUNT(*) FILTER (WHERE t.due_date IS NOT NULL AND t.status NOT IN ('completed', 'archived'))::int AS upcoming,
-       COUNT(*) FILTER (WHERE t.status = 'completed')::int AS completed
+       COUNT(*) FILTER (WHERE ts.task_id IS NOT NULL AND t.status != 'archived'${assigneeFilter})::int AS starred,
+       COUNT(*) FILTER (WHERE t.due_date IS NOT NULL AND t.status NOT IN ('completed', 'archived')${assigneeFilter})::int AS upcoming,
+       COUNT(*) FILTER (WHERE t.status = 'completed'${assigneeFilter})::int AS completed
      FROM task t
      LEFT JOIN task_star ts ON ts.task_id = t.id AND ts.user_id = $2
      WHERE t.org_id = $1${assigneeFilter}`,

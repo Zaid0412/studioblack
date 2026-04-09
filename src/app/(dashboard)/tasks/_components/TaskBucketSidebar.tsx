@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   ListTodo,
   User,
@@ -56,10 +57,7 @@ const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
 // ---------------------------------------------------------------------------
 
 /** Buckets hidden from architects — they only see their own tasks. */
-const ARCHITECT_HIDDEN_BUCKETS: Set<Bucket> = new Set([
-  "all",
-  "created_by_me",
-]);
+const ARCHITECT_HIDDEN_BUCKETS: Set<Bucket> = new Set(["all", "created_by_me"]);
 
 /** Sidebar listing task buckets (all, my tasks, starred, etc.) with counts. */
 export function TaskBucketSidebar({
@@ -68,10 +66,13 @@ export function TaskBucketSidebar({
   onSelect,
   role,
 }: TaskBucketSidebarProps) {
-  const visibleBuckets =
-    role === "architect"
-      ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
-      : BUCKETS;
+  const visibleBuckets = useMemo(
+    () =>
+      role === "architect"
+        ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
+        : BUCKETS,
+    [role]
+  );
 
   return (
     <>

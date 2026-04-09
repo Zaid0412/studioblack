@@ -48,6 +48,9 @@ export const GET = withAuth(
 
     // Architects only see tasks assigned to them
     const memberRole = await getMemberRole(orgId, user.id);
+    if (!memberRole) {
+      return NextResponse.json({ tasks: [], counts: {}, total: 0 });
+    }
     const isArchitect = memberRole === "member";
 
     const [taskResult, counts] = await Promise.all([
