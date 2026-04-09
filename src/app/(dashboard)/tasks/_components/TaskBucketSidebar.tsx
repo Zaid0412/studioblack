@@ -8,6 +8,7 @@ import {
   Star,
   Clock,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -70,11 +71,24 @@ export function TaskBucketSidebar({
     () =>
       role === "architect"
         ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
-        : role === undefined
-          ? [] // hide all buckets until role is known
-          : BUCKETS,
+        : BUCKETS,
     [role]
   );
+
+  if (!role) {
+    return (
+      <>
+        {/* Mobile placeholder */}
+        <div className="flex items-center justify-center h-10 lg:hidden">
+          <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+        </div>
+        {/* Desktop placeholder */}
+        <aside className="hidden lg:flex items-center justify-center w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default self-start min-h-[200px]">
+          <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+        </aside>
+      </>
+    );
+  }
 
   return (
     <>
