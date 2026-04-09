@@ -55,10 +55,6 @@ export default function ForgotPasswordPage() {
     await sendResetLink();
   };
 
-  const handleResend = async () => {
-    await sendResetLink();
-  };
-
   return (
     <AuthPageLayout>
       <h2 className="text-2xl font-bold text-text-primary mb-2">
@@ -75,7 +71,7 @@ export default function ForgotPasswordPage() {
             variant="secondary"
             className="w-full"
             disabled={cooldown > 0 || isLoading}
-            onClick={handleResend}
+            onClick={sendResetLink}
           >
             {cooldown > 0
               ? t("resendIn", { seconds: cooldown })

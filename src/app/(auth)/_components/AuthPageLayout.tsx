@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
+import { getSafeReturnTo } from "@/lib/utils";
 
 interface AuthPageLayoutProps {
   children: React.ReactNode;
@@ -32,7 +33,7 @@ export function AuthPageLayout({
   // Redirect authenticated users
   useEffect(() => {
     if (!session?.user) return;
-    const destination = returnTo || "/dashboard";
+    const destination = getSafeReturnTo(returnTo);
     if (redirectDelay > 0) {
       const timeout = setTimeout(() => {
         router.push(destination);

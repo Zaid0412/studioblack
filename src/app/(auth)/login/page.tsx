@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
+import { getSafeReturnTo } from "@/lib/utils";
 import { AuthPageLayout } from "../_components/AuthPageLayout";
 
 /** Login page with email/password and optional magic-link. */
@@ -20,6 +21,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const forgotPasswordHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (email) params.set("email", email);
+    if (returnTo) params.set("returnTo", returnTo);
+    const qs = params.toString();
+    return `/forgot-password${qs ? `?${qs}` : ""}`;
+  }, [email, returnTo]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +46,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push(returnTo || "/dashboard");
+    router.push(getSafeReturnTo(returnTo));
   };
 
   return (
@@ -69,13 +78,7 @@ export default function LoginPage() {
           />
           <div className="flex justify-end mt-1.5">
             <Link
-              href={(() => {
-                const params = new URLSearchParams();
-                if (email) params.set("email", email);
-                if (returnTo) params.set("returnTo", returnTo);
-                const qs = params.toString();
-                return `/forgot-password${qs ? `?${qs}` : ""}`;
-              })()}
+              href={forgotPasswordHref}
               className="text-xs text-text-muted hover:text-accent transition-colors"
             >
               {t("forgotPassword")}

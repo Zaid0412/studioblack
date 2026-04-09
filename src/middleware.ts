@@ -13,13 +13,14 @@ import { getSessionCookie } from "better-auth/cookies";
  * 1. Middleware → fast cookie-presence gate (prevents unnecessary rendering)
  * 2. Layouts → full session validation with role-based guards
  */
+const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
+
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   // Authenticated user on auth pages → redirect to dashboard
-  const authPages = ["/login", "/register", "/forgot-password"];
-  if (sessionCookie && authPages.includes(pathname)) {
+  if (sessionCookie && AUTH_PAGES.has(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -28,11 +29,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Unauthenticated → redirect to login with returnTo
+  // Unauthenticated → redirect to login with returnTo (preserving query string)
   if (!sessionCookie) {
     const loginUrl = new URL("/login", request.url);
-    if (pathname !== "/") {
-      loginUrl.searchParams.set("returnTo", pathname);
+    const returnPath = pathname + search;
+    if (returnPath !== "/") {
+      loginUrl.searchParams.set("returnTo", returnPath);
     }
     return NextResponse.redirect(loginUrl);
   }

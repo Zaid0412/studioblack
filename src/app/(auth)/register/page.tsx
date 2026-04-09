@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/authClient";
+import { getSafeReturnTo } from "@/lib/utils";
 import { AuthPageLayout } from "../_components/AuthPageLayout";
 
 /** Registration page with name, email, and password fields. */
@@ -69,7 +70,7 @@ export default function RegisterPage() {
       }
     }
 
-    router.push(returnTo || "/dashboard");
+    router.push(getSafeReturnTo(returnTo));
   };
 
   return (
