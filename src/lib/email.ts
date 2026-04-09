@@ -94,6 +94,29 @@ export async function sendNotificationEmail(
 }
 
 /**
+ * Send a password reset email.
+ */
+export async function sendPasswordResetEmail(email: string, url: string) {
+  const safeUrl = escapeHtml(url);
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} — Reset Your Password`,
+    `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
+        <p>We received a request to reset your password. Click the button below to choose a new one:</p>
+        <a href="${safeUrl}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">
+          Reset Password
+        </a>
+        <p style="color: #666; font-size: 13px; margin-top: 24px;">
+          This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+        </p>
+      </div>
+    `
+  );
+}
+
+/**
  * Send an org invitation email.
  */
 export async function sendInvitationEmail(

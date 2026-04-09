@@ -13,18 +13,30 @@ import { getSessionCookie } from "better-auth/cookies";
  * 1. Middleware → fast cookie-presence gate (prevents unnecessary rendering)
  * 2. Layouts → full session validation with role-based guards
  */
+const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
+
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
-  // Authenticated user on /login or /register → redirect to dashboard
-  if (sessionCookie && (pathname === "/login" || pathname === "/register")) {
+  // Authenticated user on auth pages → redirect to dashboard
+  if (sessionCookie && AUTH_PAGES.has(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // Unauthenticated → redirect to login
+  // /reset-password is always public (token-based, may be used while logged out)
+  if (pathname === "/reset-password") {
+    return NextResponse.next();
+  }
+
+  // Unauthenticated → redirect to login with returnTo (preserving query string)
   if (!sessionCookie) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    const returnPath = pathname + search;
+    if (returnPath !== "/") {
+      loginUrl.searchParams.set("returnTo", returnPath);
+    }
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
@@ -39,6 +51,6 @@ export const config = {
      * - /_next/static and /_next/image (Next.js internals)
      * - Static file extensions (images, fonts, favicon, etc.)
      */
-    "/((?!login|register|api/auth|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
+    "/((?!login|register|forgot-password|reset-password|api/auth|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
   ],
 };
