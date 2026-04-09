@@ -27,7 +27,6 @@ export function create(
     y_percent?: number | null;
     page?: number | null;
     content: string;
-    request_approval?: boolean;
     request_changes?: boolean;
     assign_as_task?: {
       assigned_to: string;

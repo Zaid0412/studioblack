@@ -9,7 +9,6 @@ import {
   MessageCircle,
   Plus,
   CheckSquare,
-  ShieldCheck,
   AlertTriangle,
   Loader2,
   Pencil,
@@ -105,7 +104,6 @@ interface PinSidebarProps {
     xPercent?: number | null;
     yPercent?: number | null;
     page?: number | null;
-    requestApproval?: boolean;
     requestChanges?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
   }) => void | Promise<void>;
@@ -417,9 +415,6 @@ function PinCard({
         {pin.task_id !== null && (
           <CheckSquare className="w-3 h-3 text-text-secondary shrink-0" />
         )}
-        {pin.request_approval && (
-          <ShieldCheck className="w-3 h-3 text-text-secondary shrink-0" />
-        )}
         {pin.request_changes && (
           <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
             <AlertTriangle className="w-2.5 h-2.5" />
@@ -629,7 +624,6 @@ function NewPinForm({
     xPercent?: number | null;
     yPercent?: number | null;
     page?: number | null;
-    requestApproval?: boolean;
     requestChanges?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
   }) => void | Promise<void>;
@@ -644,7 +638,6 @@ function NewPinForm({
   const [assignAsTask, setAssignAsTask] = useState(false);
   const [assignedTo, setAssignedTo] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [requestApproval, setRequestApproval] = useState(false);
   const [requestChanges, setRequestChanges] = useState(!!requestChangesMode);
   const [submitting, setSubmitting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -679,9 +672,6 @@ function NewPinForm({
       yPercent: pinAttached && pendingPin ? pendingPin.yPercent : null,
       page: pinAttached && pendingPin ? pendingPin.page : null,
     };
-    if (requestApproval) {
-      data.requestApproval = true;
-    }
     if (requestChanges) {
       data.requestChanges = true;
     }
@@ -881,18 +871,6 @@ function NewPinForm({
                 />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Request for approval — only for architects (not PM, not client) */}
-        {role !== "pm" && role !== "client" && (
-          <div className="px-3 py-2.5 border-t border-[#ffffff0a]">
-            <Checkbox
-              checked={requestApproval}
-              onCheckedChange={setRequestApproval}
-              label="Notify client for review"
-              className="[&_span]:text-text-secondary"
-            />
           </div>
         )}
 

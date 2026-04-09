@@ -12,7 +12,6 @@ import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { env } from "@/env";
 import {
   createNotification,
-  createNotificationForClient,
   createNotificationsForTeam,
 } from "@/lib/notifications";
 
@@ -56,7 +55,6 @@ export const POST = withAuth(
       y_percent,
       page,
       content,
-      request_approval,
       request_changes,
       assign_as_task,
       parent_id,
@@ -138,18 +136,7 @@ export const POST = withAuth(
     const xVal = hasAllCoords ? x_percent : null;
     const yVal = hasAllCoords ? y_percent : null;
     const pageVal = hasAllCoords ? page : null;
-    const reqApproval = request_approval === true;
     const reqChanges = request_changes === true;
-
-    // Validate mutual exclusivity
-    if (reqApproval && reqChanges) {
-      return NextResponse.json(
-        {
-          error: "request_approval and request_changes are mutually exclusive",
-        },
-        { status: 400 }
-      );
-    }
 
     // If assign_as_task is provided, validate early
     if (assign_as_task) {
@@ -213,7 +200,7 @@ export const POST = withAuth(
             yVal,
             pageVal,
             content.trim(),
-            reqApproval,
+            false,
             reqChanges,
             taskId,
           ]
@@ -329,16 +316,6 @@ export const POST = withAuth(
       }
     }
 
-    // If request_approval, notify the client
-    if (reqApproval) {
-      createNotificationForClient(
-        id,
-        "review_approval_requested",
-        "Approval requested",
-        `Approval requested for "${attachment.file_name}"`
-      );
-    }
-
     // Standard path: no task creation
     const pin = await createPinComment({
       attachmentId,
@@ -347,7 +324,6 @@ export const POST = withAuth(
       yPercent: yVal,
       page: pageVal,
       content: content.trim(),
-      requestApproval: reqApproval,
       requestChanges: reqChanges,
     });
 
