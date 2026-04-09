@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Plus,
   Loader2,
@@ -29,6 +29,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
 import type { Task, TaskFormData } from "@/types";
 import type { TaskListResponse } from "@/lib/api/tasks";
+import { useSwrFieldAdapter } from "@/lib/swr";
 import {
   PRIORITY_DOT,
   STATUS_BADGE_VARIANT,
@@ -84,6 +85,7 @@ export function TaskSection({
   const {
     data: taskData,
     isLoading,
+    isValidating,
     mutate,
   } = useSWR<TaskListResponse>(
     `/api/tasks?projectId=${projectId}&phaseId=${activePhaseId}&limit=100`,
@@ -91,21 +93,12 @@ export function TaskSection({
   );
 
   const allTasks = taskData?.tasks ?? [];
+  const isRefreshing = isValidating && !isLoading;
 
   // Adapter: translate SWR mutate into setTasks for useTaskCrud
-  const setAllTasks: React.Dispatch<React.SetStateAction<Task[]>> = useCallback(
-    (action) => {
-      mutate(
-        (prev) => {
-          if (!prev) return prev;
-          const newTasks =
-            typeof action === "function" ? action(prev.tasks) : action;
-          return { ...prev, tasks: newTasks };
-        },
-        { revalidate: false }
-      );
-    },
-    [mutate]
+  const setAllTasks = useSwrFieldAdapter<TaskListResponse, Task[]>(
+    mutate,
+    "tasks"
   );
 
   // -- CRUD hook --
@@ -171,7 +164,9 @@ export function TaskSection({
       </div>
 
       {/* Task list */}
-      <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
+      <div
+        className={`rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
+      >
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-5 h-5 animate-spin text-text-muted" />

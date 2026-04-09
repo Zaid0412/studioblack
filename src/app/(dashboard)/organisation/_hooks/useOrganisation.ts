@@ -15,13 +15,19 @@ interface OrgData {
   currentUserRole: string | null;
 }
 
+/** Track whether setActive has been attempted to avoid repeating on every SWR revalidation. */
+let activationAttempted = false;
+
 /** Fetches org data via authClient. Used as custom SWR fetcher. */
 async function orgFetcher(): Promise<OrgData | null> {
   // First try to get the active org
   let { data } = await authClient.organization.getFullOrganization();
 
-  // If no active org, list all orgs and activate the first one
-  if (!data) {
+  // If no active org, list all orgs and activate the first one.
+  // Only attempt once per session to avoid SWR background revalidation
+  // repeatedly calling setActive (e.g., overriding another tab's selection).
+  if (!data && !activationAttempted) {
+    activationAttempted = true;
     const listRes = await authClient.organization.list();
     if (listRes.data && listRes.data.length > 0) {
       const firstOrg = listRes.data[0];

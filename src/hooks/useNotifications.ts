@@ -120,7 +120,10 @@ export function useNotifications({
     () => invData?.notifications ?? [],
     [invData]
   );
-  const pendingInviteIds = invData?.pendingIds ?? new Map<string, string>();
+  const pendingInviteIds = useMemo(
+    () => invData?.pendingIds ?? new Map<string, string>(),
+    [invData]
+  );
   const loading = dbLoading || invLoading;
 
   // Listen for cross-component refresh events
@@ -271,12 +274,12 @@ export function useNotifications({
     const { error } = await authClient.organization.acceptInvitation({
       invitationId,
     });
+    setLoadingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(notifId);
+      return next;
+    });
     if (error) {
-      setLoadingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(notifId);
-        return next;
-      });
       toast({
         title: t("acceptError"),
         description: error.message ?? "",

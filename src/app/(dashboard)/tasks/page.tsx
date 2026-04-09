@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { Plus, Loader2, CheckSquare } from "lucide-react";
@@ -12,6 +12,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { authClient } from "@/lib/authClient";
 import { projects as projectsApi } from "@/lib/api";
 import type { TaskListResponse } from "@/lib/api/tasks";
+import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import type { Task, TaskFormData } from "@/types";
 import { TaskDetailModal } from "./_components/TaskDetailModal";
@@ -111,46 +112,25 @@ export default function TasksPage() {
     currentPage,
   ]);
 
-  const { data, isLoading, mutate } = useSWR<TaskListResponse>(swrKey, {
-    keepPreviousData: true,
-  });
+  const { data, isLoading, isValidating, mutate } = useSWR<TaskListResponse>(
+    swrKey,
+    { keepPreviousData: true }
+  );
 
   const tasks = data?.tasks ?? [];
   const counts = (data?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
   const totalTasks = data?.total ?? 0;
+  const isRefreshing = isValidating && !isLoading;
 
   // Adapters: translate SWR mutate into setTasks/setCounts for useTaskCrud
-  const setTasks: React.Dispatch<React.SetStateAction<Task[]>> = useCallback(
-    (action) => {
-      mutate(
-        (prev) => {
-          if (!prev) return prev;
-          const newTasks =
-            typeof action === "function" ? action(prev.tasks) : action;
-          return { ...prev, tasks: newTasks };
-        },
-        { revalidate: false }
-      );
-    },
-    [mutate]
+  const setTasks = useSwrFieldAdapter<TaskListResponse, Task[]>(
+    mutate,
+    "tasks"
   );
-
-  const setCounts: React.Dispatch<
-    React.SetStateAction<Record<string, number>>
-  > = useCallback(
-    (action) => {
-      mutate(
-        (prev) => {
-          if (!prev) return prev;
-          const newCounts =
-            typeof action === "function" ? action(prev.counts) : action;
-          return { ...prev, counts: newCounts };
-        },
-        { revalidate: false }
-      );
-    },
-    [mutate]
-  );
+  const setCounts = useSwrFieldAdapter<
+    TaskListResponse,
+    Record<string, number>
+  >(mutate, "counts");
 
   // -- Side data --
   const [members, setMembers] = useState<OrgMember[]>([]);
@@ -338,7 +318,9 @@ export default function TasksPage() {
             </div>
 
             {/* Table body */}
-            <div className="flex-1">
+            <div
+              className={`flex-1 transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
+            >
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
