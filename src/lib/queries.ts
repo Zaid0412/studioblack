@@ -451,13 +451,16 @@ export async function setAttachmentFreezeStatus(
   if (freeze && attachment.frozen_at) {
     return { error: "already_frozen" as const, data: null };
   }
+  if (!freeze && !attachment.frozen_at) {
+    return { error: "already_unfrozen" as const, data: null };
+  }
 
   const pool = getPool();
   const {
     rows: [updated],
   } = await pool.query(
-    `UPDATE attachment SET frozen_at = ${freeze ? "NOW()" : "NULL"} WHERE id = $1 RETURNING id, file_name, file_url, frozen_at, review_status`,
-    [attachmentId]
+    `UPDATE attachment SET frozen_at = CASE WHEN $2 THEN NOW() ELSE NULL END WHERE id = $1 RETURNING id, file_name, file_url, frozen_at, review_status`,
+    [attachmentId, freeze]
   );
   return { error: null, data: updated };
 }

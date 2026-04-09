@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { PROJECT_PHASES } from "@/lib/constants";
+import { useOrgMembers } from "@/hooks/useOrgMembers";
 import {
   ProjectForm,
   type ProjectFormData,
@@ -20,6 +21,7 @@ export default function CreateProjectPage() {
   const router = useRouter();
   const t = useTranslations("createProject");
   const tc = useTranslations("common");
+  const { members: architects } = useOrgMembers();
   const [phases, setPhases] = useState<string[]>([...PROJECT_PHASES]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -94,6 +96,7 @@ export default function CreateProjectPage() {
 
       <ProjectForm
         mode="create"
+        architects={architects}
         onSubmit={handleSubmit}
         onCancel={() => router.push("/projects")}
         submitting={isSubmitting}

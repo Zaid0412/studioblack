@@ -27,6 +27,12 @@ export const PATCH = withAuth(
     if (error === "not_found") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    if (error === "already_unfrozen") {
+      return NextResponse.json(
+        { error: "Already unfrozen" },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json(data);
   }

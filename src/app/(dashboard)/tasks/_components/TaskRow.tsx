@@ -54,6 +54,48 @@ interface TaskRowProps {
 }
 
 // ---------------------------------------------------------------------------
+// Table Header
+// ---------------------------------------------------------------------------
+
+interface TaskRowHeaderProps {
+  /** Show the project column header. Default `true`. */
+  showProject?: boolean;
+  /** Show the go-to-project spacer column. Default `false`. */
+  showGoToProject?: boolean;
+}
+
+/** Desktop table header that matches TaskRow column widths. */
+export function TaskRowHeader({
+  showProject = true,
+  showGoToProject = false,
+}: TaskRowHeaderProps) {
+  return (
+    <div className="hidden lg:flex items-center h-11 px-4 bg-bg-elevated gap-3">
+      <div className="w-3" /> {/* priority dot spacer */}
+      <div className="w-6" /> {/* star spacer */}
+      <div className="flex-1 text-xs font-bold text-text-muted">Task</div>
+      {showProject && (
+        <div className="w-[120px] text-xs font-bold text-text-muted">
+          Project
+        </div>
+      )}
+      <div className="w-[90px] text-xs font-bold text-text-muted">
+        Category
+      </div>
+      <div className="w-[80px] text-xs font-bold text-text-muted">
+        Assignee
+      </div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">
+        Due Date
+      </div>
+      <div className="w-[100px] text-xs font-bold text-text-muted">Status</div>
+      {showGoToProject && <div className="w-8" />}
+      <div className="w-8" />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 

@@ -11,7 +11,10 @@ import type { Task, TaskFormData } from "@/types";
 import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
-import { TaskRow } from "@/app/(dashboard)/tasks/_components/TaskRow";
+import {
+  TaskRow,
+  TaskRowHeader,
+} from "@/app/(dashboard)/tasks/_components/TaskRow";
 import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
 import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
@@ -147,27 +150,7 @@ export function TaskSection({
           />
         ) : (
           <>
-            {/* Desktop table header */}
-            <div className="hidden lg:flex items-center h-10 px-4 bg-bg-elevated gap-3">
-              <div className="w-3" />
-              <div className="w-6" />
-              <div className="flex-1 text-xs font-bold text-text-muted">
-                Task
-              </div>
-              <div className="w-[90px] text-xs font-bold text-text-muted">
-                Category
-              </div>
-              <div className="w-[80px] text-xs font-bold text-text-muted">
-                Assignee
-              </div>
-              <div className="w-[90px] text-xs font-bold text-text-muted">
-                Due Date
-              </div>
-              <div className="w-[100px] text-xs font-bold text-text-muted">
-                Status
-              </div>
-              <div className="w-8" />
-            </div>
+            <TaskRowHeader showProject={false} />
 
             {/* Table body */}
             {allTasks.map((task) => (

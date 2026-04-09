@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
+import { useOrgMembers } from "@/hooks/useOrgMembers";
 import {
   ProjectForm,
   type ProjectFormData,
@@ -57,6 +58,7 @@ export default function EditProjectPage({
   const router = useRouter();
   const t = useTranslations("editProject");
   const tc = useTranslations("common");
+  const { members: architects } = useOrgMembers();
 
   const [project, setProject] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,6 +186,7 @@ export default function EditProjectPage({
       <ProjectForm
         mode="edit"
         initialData={initialData}
+        architects={architects}
         onSubmit={handleSave}
         onCancel={() => router.push(`/projects/${id}`)}
         submitting={saving}

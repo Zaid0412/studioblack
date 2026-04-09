@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { authClient } from "@/lib/authClient";
 import { deriveInitials, cn } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import type { OrgMember } from "@/types";
@@ -34,9 +33,25 @@ export interface ProjectFormData {
   selectedArchitects: string[];
 }
 
+const EMPTY_FORM: ProjectFormData = {
+  name: "",
+  clientEmail: "",
+  clientName: "",
+  category: "",
+  deadline: undefined,
+  scope: "",
+  areaSqft: "",
+  estimationInr: "",
+  address: "",
+  city: "",
+  state: "",
+  selectedArchitects: [],
+};
+
 interface ProjectFormProps {
   mode: "create" | "edit";
   initialData?: Partial<ProjectFormData>;
+  architects: OrgMember[];
   onSubmit: (data: ProjectFormData) => void | Promise<void>;
   onCancel: () => void;
   submitting: boolean;
@@ -54,6 +69,7 @@ interface ProjectFormProps {
 export function ProjectForm({
   mode,
   initialData,
+  architects,
   onSubmit,
   onCancel,
   submitting,
@@ -63,65 +79,19 @@ export function ProjectForm({
   footerExtra,
   submitLabel,
 }: ProjectFormProps) {
-  const [name, setName] = useState(initialData?.name ?? "");
-  const [clientEmail, setClientEmail] = useState(
-    initialData?.clientEmail ?? ""
-  );
-  const [clientName, setClientName] = useState(initialData?.clientName ?? "");
-  const [category, setCategory] = useState(initialData?.category ?? "");
-  const [deadline, setDeadline] = useState<Date | undefined>(
-    initialData?.deadline
-  );
-  const [scope, setScope] = useState(initialData?.scope ?? "");
-  const [areaSqft, setAreaSqft] = useState(initialData?.areaSqft ?? "");
-  const [estimationInr, setEstimationInr] = useState(
-    initialData?.estimationInr ?? ""
-  );
-  const [address, setAddress] = useState(initialData?.address ?? "");
-  const [city, setCity] = useState(initialData?.city ?? "");
-  const [state, setState] = useState(initialData?.state ?? "");
+  const [form, setForm] = useState<ProjectFormData>(() => ({
+    ...EMPTY_FORM,
+    ...initialData,
+  }));
 
-  // Org members (architects) for assignment
-  const [architects, setArchitects] = useState<OrgMember[]>([]);
-  const [selectedArchitects, setSelectedArchitects] = useState<string[]>(
-    initialData?.selectedArchitects ?? []
-  );
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
   const teamDropdownRef = useRef<HTMLDivElement>(null);
 
   // Sync when initialData changes (edit mode loads async)
   useEffect(() => {
     if (!initialData) return;
-    setName(initialData.name ?? ""); // eslint-disable-line react-hooks/set-state-in-effect -- one-time sync from async-loaded data
-    setClientEmail(initialData.clientEmail ?? "");
-    setClientName(initialData.clientName ?? "");
-    setCategory(initialData.category ?? "");
-    setDeadline(initialData.deadline);
-    setScope(initialData.scope ?? "");
-    setAreaSqft(initialData.areaSqft ?? "");
-    setEstimationInr(initialData.estimationInr ?? "");
-    setAddress(initialData.address ?? "");
-    setCity(initialData.city ?? "");
-    setState(initialData.state ?? "");
-    setSelectedArchitects(initialData.selectedArchitects ?? []);
+    setForm({ ...EMPTY_FORM, ...initialData }); // eslint-disable-line react-hooks/set-state-in-effect -- one-time sync from async-loaded data
   }, [initialData]);
-
-  useEffect(() => {
-    async function loadArchitects() {
-      try {
-        const { data } = await authClient.organization.getFullOrganization();
-        if (data?.members) {
-          const assignable = (data.members as OrgMember[]).filter(
-            (m) => m.role === "member" || m.role === "admin"
-          );
-          setArchitects(assignable);
-        }
-      } catch {
-        console.error("Failed to load org members");
-      }
-    }
-    loadArchitects();
-  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -136,30 +106,25 @@ export function ProjectForm({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const updateField = useCallback(
+    <K extends keyof ProjectFormData>(key: K, value: ProjectFormData[K]) => {
+      setForm((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
   const toggleArchitect = (userId: string) => {
-    setSelectedArchitects((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
+    setForm((prev) => ({
+      ...prev,
+      selectedArchitects: prev.selectedArchitects.includes(userId)
+        ? prev.selectedArchitects.filter((id) => id !== userId)
+        : [...prev.selectedArchitects, userId],
+    }));
   };
 
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({
-      name,
-      clientEmail,
-      clientName,
-      category,
-      deadline,
-      scope,
-      areaSqft,
-      estimationInr,
-      address,
-      city,
-      state,
-      selectedArchitects,
-    });
+    onSubmit(form);
   }
 
   return (
@@ -176,8 +141,8 @@ export function ProjectForm({
           placeholder={
             mode === "create" ? t("projectNamePlaceholder") : undefined
           }
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={form.name}
+          onChange={(e) => updateField("name", e.target.value)}
           required
         />
 
@@ -187,7 +152,10 @@ export function ProjectForm({
               {t("category")}
               <span className="text-error ml-0.5">*</span>
             </label>
-            <Select value={category} onValueChange={setCategory}>
+            <Select
+              value={form.category}
+              onValueChange={(v) => updateField("category", v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t("categoryPlaceholder")} />
               </SelectTrigger>
@@ -220,14 +188,14 @@ export function ProjectForm({
           <>
             <Input
               label={t("client")}
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
+              value={form.clientName ?? ""}
+              onChange={(e) => updateField("clientName", e.target.value)}
             />
             <Input
               label={t("clientEmail")}
               type="email"
-              value={clientEmail}
-              onChange={(e) => setClientEmail(e.target.value)}
+              value={form.clientEmail}
+              onChange={(e) => updateField("clientEmail", e.target.value)}
               autoComplete="email"
             />
           </>
@@ -247,13 +215,15 @@ export function ProjectForm({
                 onClick={() => setTeamDropdownOpen(!teamDropdownOpen)}
                 className="flex items-center flex-wrap gap-1.5 w-full min-h-[42px] rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary cursor-pointer hover:border-accent/50 transition-colors"
               >
-                {selectedArchitects.length === 0 ? (
+                {form.selectedArchitects.length === 0 ? (
                   <span className="text-text-muted">
                     {t("assignTeamPlaceholder")}
                   </span>
                 ) : (
-                  selectedArchitects.map((userId) => {
-                    const member = architects.find((a) => a.user.id === userId);
+                  form.selectedArchitects.map((userId) => {
+                    const member = architects.find(
+                      (a) => a.user.id === userId
+                    );
                     if (!member) return null;
                     return (
                       <span
@@ -276,7 +246,7 @@ export function ProjectForm({
               {teamDropdownOpen && (
                 <div className="absolute z-10 mt-1 w-full rounded-lg border border-border-default bg-bg-primary shadow-lg py-1 max-h-48 overflow-y-auto">
                   {architects.map((member) => {
-                    const isSelected = selectedArchitects.includes(
+                    const isSelected = form.selectedArchitects.includes(
                       member.user.id
                     );
                     return (
@@ -318,29 +288,29 @@ export function ProjectForm({
         <Input
           label={t("address")}
           placeholder={mode === "create" ? t("addressPlaceholder") : undefined}
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          value={form.address}
+          onChange={(e) => updateField("address", e.target.value)}
         />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label={t("city")}
             placeholder={mode === "create" ? t("cityPlaceholder") : undefined}
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
+            value={form.city}
+            onChange={(e) => updateField("city", e.target.value)}
           />
           <Input
             label={t("state")}
             placeholder={mode === "create" ? t("statePlaceholder") : undefined}
-            value={state}
-            onChange={(e) => setState(e.target.value)}
+            value={form.state}
+            onChange={(e) => updateField("state", e.target.value)}
           />
         </div>
 
         <DatePicker
           label={t("deadline")}
           placeholder={mode === "create" ? t("deadlinePlaceholder") : undefined}
-          value={deadline}
-          onChange={setDeadline}
+          value={form.deadline}
+          onChange={(d) => updateField("deadline", d)}
         />
 
         {/* Project Scope */}
@@ -351,8 +321,8 @@ export function ProjectForm({
           <Input
             label={t("scope")}
             placeholder={mode === "create" ? t("scopePlaceholder") : undefined}
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
+            value={form.scope}
+            onChange={(e) => updateField("scope", e.target.value)}
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -361,8 +331,8 @@ export function ProjectForm({
                 mode === "create" ? t("areaSqftPlaceholder") : undefined
               }
               type="number"
-              value={areaSqft}
-              onChange={(e) => setAreaSqft(e.target.value)}
+              value={form.areaSqft}
+              onChange={(e) => updateField("areaSqft", e.target.value)}
             />
             <Input
               label={t("estimationInr")}
@@ -370,8 +340,8 @@ export function ProjectForm({
                 mode === "create" ? t("estimationInrPlaceholder") : undefined
               }
               type="number"
-              value={estimationInr}
-              onChange={(e) => setEstimationInr(e.target.value)}
+              value={form.estimationInr}
+              onChange={(e) => updateField("estimationInr", e.target.value)}
             />
           </div>
         </div>
@@ -383,8 +353,8 @@ export function ProjectForm({
               label={t("clientEmail")}
               type="email"
               placeholder={t("clientEmailPlaceholder")}
-              value={clientEmail}
-              onChange={(e) => setClientEmail(e.target.value)}
+              value={form.clientEmail}
+              onChange={(e) => updateField("clientEmail", e.target.value)}
               autoComplete="email"
             />
             <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
@@ -396,7 +366,7 @@ export function ProjectForm({
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 mt-4">
           <Button
             type="submit"
-            disabled={submitting || !name.trim()}
+            disabled={submitting || !form.name.trim()}
             className="w-full lg:w-auto"
           >
             {submitting ? tc("loading") : submitLabel}

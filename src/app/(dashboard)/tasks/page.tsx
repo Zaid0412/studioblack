@@ -24,7 +24,7 @@ import {
   type BucketCounts,
 } from "./_components/TaskBucketSidebar";
 import { TaskFilterBar } from "./_components/TaskFilterBar";
-import { TaskRow } from "./_components/TaskRow";
+import { TaskRow, TaskRowHeader } from "./_components/TaskRow";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -291,31 +291,7 @@ export default function TasksPage() {
 
           {/* Task list */}
           <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
-            {/* Table header (desktop only) */}
-            <div className="hidden lg:flex items-center h-11 px-4 bg-bg-elevated gap-3">
-              <div className="w-3" /> {/* priority dot spacer */}
-              <div className="w-6" /> {/* star spacer */}
-              <div className="flex-1 text-xs font-bold text-text-muted">
-                Task
-              </div>
-              <div className="w-[120px] text-xs font-bold text-text-muted">
-                Project
-              </div>
-              <div className="w-[90px] text-xs font-bold text-text-muted">
-                Category
-              </div>
-              <div className="w-[80px] text-xs font-bold text-text-muted">
-                Assignee
-              </div>
-              <div className="w-[90px] text-xs font-bold text-text-muted">
-                Due Date
-              </div>
-              <div className="w-[100px] text-xs font-bold text-text-muted">
-                Status
-              </div>
-              <div className="w-8" /> {/* go-to-project spacer */}
-              <div className="w-8" />
-            </div>
+            <TaskRowHeader showGoToProject />
 
             {/* Table body */}
             <div
