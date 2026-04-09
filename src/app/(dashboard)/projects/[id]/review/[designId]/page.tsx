@@ -185,7 +185,6 @@ export default function DesignReviewPage({
       xPercent?: number | null;
       yPercent?: number | null;
       page?: number | null;
-      requestApproval?: boolean;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {

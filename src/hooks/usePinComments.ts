@@ -56,7 +56,6 @@ export function usePinComments({
       yPercent?: number | null;
       page?: number | null;
       content: string;
-      requestApproval?: boolean;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {
@@ -73,7 +72,7 @@ export function usePinComments({
         content: data.content,
         resolved: false,
         task_id: null,
-        request_approval: data.requestApproval ?? false,
+        request_approval: false,
         request_changes: data.requestChanges ?? false,
         parent_id: null,
         updated_at: null,
@@ -88,7 +87,6 @@ export function usePinComments({
           y_percent: data.yPercent ?? null,
           page: data.page ?? null,
           content: data.content,
-          request_approval: data.requestApproval,
           request_changes: data.requestChanges,
           assign_as_task: data.assignAsTask
             ? {

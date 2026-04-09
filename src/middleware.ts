@@ -15,6 +15,7 @@ import { getSessionCookie } from "better-auth/cookies";
  */
 const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
 
+/** Route-protection middleware: redirects unauthenticated users to login and authenticated users away from auth pages. */
 export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname, search } = request.nextUrl;
