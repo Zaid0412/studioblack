@@ -70,7 +70,9 @@ export function TaskBucketSidebar({
     () =>
       role === "architect"
         ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
-        : BUCKETS,
+        : role === undefined
+          ? [] // hide all buckets until role is known
+          : BUCKETS,
     [role]
   );
 
