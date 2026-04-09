@@ -72,6 +72,7 @@ interface ProjectFormProps {
   submitLabel: string;
 }
 
+/** Shared project form for create and edit modes. */
 export function ProjectForm({
   mode,
   initialData,
