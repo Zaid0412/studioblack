@@ -1,23 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
+import { getSafeReturnTo } from "@/lib/utils";
 import { AuthPageLayout } from "../_components/AuthPageLayout";
 
 /** Login page with email/password and optional magic-link. */
 export default function LoginPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const forgotPasswordHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (email) params.set("email", email);
+    if (returnTo) params.set("returnTo", returnTo);
+    const qs = params.toString();
+    return `/forgot-password${qs ? `?${qs}` : ""}`;
+  }, [email, returnTo]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +46,7 @@ export default function LoginPage() {
       return;
     }
 
-    // All roles go to /dashboard — layout adapts based on role
-    router.push("/dashboard");
+    router.push(getSafeReturnTo(returnTo));
   };
 
   return (
@@ -56,15 +66,25 @@ export default function LoginPage() {
           autoComplete="username"
           required
         />
-        <Input
-          label={t("password")}
-          type="password"
-          placeholder={t("passwordPlaceholder")}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-          required
-        />
+        <div>
+          <Input
+            label={t("password")}
+            type="password"
+            placeholder={t("passwordPlaceholder")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+          <div className="flex justify-end mt-1.5">
+            <Link
+              href={forgotPasswordHref}
+              className="text-xs text-text-muted hover:text-accent transition-colors"
+            >
+              {t("forgotPassword")}
+            </Link>
+          </div>
+        </div>
 
         {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
 
@@ -92,7 +112,11 @@ export default function LoginPage() {
       <p className="text-sm text-text-muted text-center mt-8">
         {t("noAccount")}{" "}
         <Link
-          href="/register"
+          href={
+            returnTo
+              ? `/register?returnTo=${encodeURIComponent(returnTo)}`
+              : "/register"
+          }
           className="text-accent hover:underline font-medium"
         >
           {t("signUpLink")}
