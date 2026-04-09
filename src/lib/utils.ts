@@ -11,6 +11,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Validate and sanitize a returnTo URL to prevent open redirects.
+ * Only allows relative paths — rejects absolute URLs and protocol-relative URLs.
+ */
+export function getSafeReturnTo(
+  returnTo: string | null,
+  fallback = "/dashboard"
+): string {
+  if (!returnTo) return fallback;
+  if (returnTo.startsWith("/") && !returnTo.startsWith("//")) return returnTo;
+  return fallback;
+}
+
 /** Derive 1–2 character initials from a full name. */
 export function deriveInitials(name: string): string {
   const initials = name

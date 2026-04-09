@@ -2,7 +2,11 @@ import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
 
 import { ac, owner, admin, member } from "@/lib/permissions";
-import { sendMagicLinkEmail, sendInvitationEmail } from "@/lib/email";
+import {
+  sendMagicLinkEmail,
+  sendInvitationEmail,
+  sendPasswordResetEmail,
+} from "@/lib/email";
 import { getPool } from "@/lib/db";
 import { env } from "@/env";
 
@@ -40,6 +44,9 @@ export const auth = betterAuth({
   database: getPool(),
   emailAndPassword: {
     enabled: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordResetEmail(user.email, url);
+    },
   },
   user: {
     deleteUser: {
