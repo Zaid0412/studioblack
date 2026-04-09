@@ -79,15 +79,9 @@ export function TaskRowHeader({
           Project
         </div>
       )}
-      <div className="w-[90px] text-xs font-bold text-text-muted">
-        Category
-      </div>
-      <div className="w-[80px] text-xs font-bold text-text-muted">
-        Assignee
-      </div>
-      <div className="w-[90px] text-xs font-bold text-text-muted">
-        Due Date
-      </div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">Category</div>
+      <div className="w-[80px] text-xs font-bold text-text-muted">Assignee</div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">Due Date</div>
       <div className="w-[100px] text-xs font-bold text-text-muted">Status</div>
       {showGoToProject && <div className="w-8" />}
       <div className="w-8" />

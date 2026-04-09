@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,9 +227,7 @@ export function ProjectForm({
                   </span>
                 ) : (
                   form.selectedArchitects.map((userId) => {
-                    const member = architects.find(
-                      (a) => a.user.id === userId
-                    );
+                    const member = architects.find((a) => a.user.id === userId);
                     if (!member) return null;
                     return (
                       <span
