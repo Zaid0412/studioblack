@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
@@ -25,19 +25,22 @@ export function AuthPageLayout({
 }: AuthPageLayoutProps) {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const { data: session } = authClient.useSession();
 
   // Redirect authenticated users
   useEffect(() => {
     if (!session?.user) return;
+    const destination = returnTo || "/dashboard";
     if (redirectDelay > 0) {
       const timeout = setTimeout(() => {
-        router.push("/dashboard");
+        router.push(destination);
       }, redirectDelay);
       return () => clearTimeout(timeout);
     }
-    router.push("/dashboard");
-  }, [session?.user, router, redirectDelay]);
+    router.push(destination);
+  }, [session?.user, router, redirectDelay, returnTo]);
 
   return (
     <div className="flex min-h-screen lg:h-screen">

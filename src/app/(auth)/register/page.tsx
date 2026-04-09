@@ -16,6 +16,7 @@ export default function RegisterPage() {
   const searchParams = useSearchParams();
   const invitationId = searchParams.get("invitationId");
   const inviteEmail = searchParams.get("email");
+  const returnTo = searchParams.get("returnTo");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(inviteEmail ?? "");
   const [password, setPassword] = useState("");
@@ -68,8 +69,7 @@ export default function RegisterPage() {
       }
     }
 
-    // All roles go to /dashboard — layout adapts based on role
-    router.push("/dashboard");
+    router.push(returnTo || "/dashboard");
   };
 
   return (
@@ -130,7 +130,14 @@ export default function RegisterPage() {
 
       <p className="text-sm text-text-muted text-center mt-8">
         {t("haveAccount")}{" "}
-        <Link href="/login" className="text-accent hover:underline font-medium">
+        <Link
+          href={
+            returnTo
+              ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+              : "/login"
+          }
+          className="text-accent hover:underline font-medium"
+        >
           {t("signInLink")}
         </Link>
       </p>

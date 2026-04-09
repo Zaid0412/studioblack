@@ -28,9 +28,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Unauthenticated → redirect to login
+  // Unauthenticated → redirect to login with returnTo
   if (!sessionCookie) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    if (pathname !== "/") {
+      loginUrl.searchParams.set("returnTo", pathname);
+    }
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

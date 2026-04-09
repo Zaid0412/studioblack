@@ -16,6 +16,7 @@ export default function ForgotPasswordPage() {
   const t = useTranslations("auth");
   const searchParams = useSearchParams();
   const prefillEmail = searchParams.get("email") ?? "";
+  const returnTo = searchParams.get("returnTo");
 
   const [email, setEmail] = useState(prefillEmail);
   const [isLoading, setIsLoading] = useState(false);
@@ -83,7 +84,11 @@ export default function ForgotPasswordPage() {
                 : t("resendResetLink")}
           </Button>
           <Link
-            href="/login"
+            href={
+              returnTo
+                ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+                : "/login"
+            }
             className="text-sm text-accent hover:underline font-medium text-center"
           >
             {t("backToLogin")}
@@ -112,7 +117,11 @@ export default function ForgotPasswordPage() {
           <p className="text-sm text-text-muted text-center mt-8">
             {t("rememberPassword")}{" "}
             <Link
-              href="/login"
+              href={
+                returnTo
+                  ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+                  : "/login"
+              }
               className="text-accent hover:underline font-medium"
             >
               {t("signInLink")}

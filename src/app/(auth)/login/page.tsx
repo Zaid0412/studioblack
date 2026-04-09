@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import { AuthPageLayout } from "../_components/AuthPageLayout";
 export default function LoginPage() {
   const t = useTranslations("auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +37,7 @@ export default function LoginPage() {
       return;
     }
 
-    // All roles go to /dashboard — layout adapts based on role
-    router.push("/dashboard");
+    router.push(returnTo || "/dashboard");
   };
 
   return (
@@ -68,11 +69,13 @@ export default function LoginPage() {
           />
           <div className="flex justify-end mt-1.5">
             <Link
-              href={
-                email
-                  ? `/forgot-password?email=${encodeURIComponent(email)}`
-                  : "/forgot-password"
-              }
+              href={(() => {
+                const params = new URLSearchParams();
+                if (email) params.set("email", email);
+                if (returnTo) params.set("returnTo", returnTo);
+                const qs = params.toString();
+                return `/forgot-password${qs ? `?${qs}` : ""}`;
+              })()}
               className="text-xs text-text-muted hover:text-accent transition-colors"
             >
               {t("forgotPassword")}
@@ -106,7 +109,11 @@ export default function LoginPage() {
       <p className="text-sm text-text-muted text-center mt-8">
         {t("noAccount")}{" "}
         <Link
-          href="/register"
+          href={
+            returnTo
+              ? `/register?returnTo=${encodeURIComponent(returnTo)}`
+              : "/register"
+          }
           className="text-accent hover:underline font-medium"
         >
           {t("signUpLink")}
