@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
+import { verifyTaskAccess } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 
 /** PATCH /api/tasks/[id]/checklist/reorder — bulk-update checklist item positions. */
@@ -7,14 +8,8 @@ export const PATCH = withAuth(
   { blockedRoles: ["client"] },
   async (req, { orgId }, params) => {
     try {
-      const pool = getPool();
       const taskId = params.id;
-
-      const { rows: taskRows } = await pool.query(
-        `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
-        [taskId, orgId]
-      );
-      if (taskRows.length === 0) {
+      if (!(await verifyTaskAccess(taskId, orgId))) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
@@ -27,6 +22,7 @@ export const PATCH = withAuth(
         );
       }
 
+      const pool = getPool();
       // Update positions in a single query using unnest
       await pool.query(
         `UPDATE task_checklist_item

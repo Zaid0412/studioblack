@@ -267,6 +267,30 @@ export function useNotifications({
     window.dispatchEvent(new Event("notifications-changed"));
   };
 
+  /** Remove an invitation from the SWR cache and notify other components. */
+  const removeInvitation = useCallback(
+    (notifId: string) => {
+      mutateInvitations(
+        (prev) =>
+          prev
+            ? {
+                notifications: prev.notifications.filter(
+                  (n) => n.id !== notifId
+                ),
+                pendingIds: (() => {
+                  const m = new Map(prev.pendingIds);
+                  m.delete(notifId);
+                  return m;
+                })(),
+              }
+            : prev,
+        { revalidate: false }
+      );
+      window.dispatchEvent(new Event("notifications-changed"));
+    },
+    [mutateInvitations]
+  );
+
   const handleAcceptInvite = async (notifId: string) => {
     const invitationId = pendingInviteIds.get(notifId);
     if (!invitationId) return;
@@ -292,21 +316,7 @@ export function useNotifications({
       description: t("invitationAcceptedDesc"),
       variant: "success",
     });
-    mutateInvitations(
-      (prev) =>
-        prev
-          ? {
-              notifications: prev.notifications.filter((n) => n.id !== notifId),
-              pendingIds: (() => {
-                const m = new Map(prev.pendingIds);
-                m.delete(notifId);
-                return m;
-              })(),
-            }
-          : prev,
-      { revalidate: false }
-    );
-    window.dispatchEvent(new Event("notifications-changed"));
+    removeInvitation(notifId);
     onClose();
     onNavigate("/organisation");
   };
@@ -335,21 +345,7 @@ export function useNotifications({
       title: t("invitationRejected"),
       description: t("invitationRejectedDesc"),
     });
-    mutateInvitations(
-      (prev) =>
-        prev
-          ? {
-              notifications: prev.notifications.filter((n) => n.id !== notifId),
-              pendingIds: (() => {
-                const m = new Map(prev.pendingIds);
-                m.delete(notifId);
-                return m;
-              })(),
-            }
-          : prev,
-      { revalidate: false }
-    );
-    window.dispatchEvent(new Event("notifications-changed"));
+    removeInvitation(notifId);
   };
 
   const refresh = useCallback(() => {

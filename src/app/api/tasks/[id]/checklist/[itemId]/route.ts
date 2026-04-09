@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
+import { verifyTaskAccess } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 
 /** PATCH /api/tasks/[id]/checklist/[itemId] — update a checklist item. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"] },
   async (req, { orgId }, params) => {
-    const pool = getPool();
     const { id: taskId, itemId } = params;
-
-    // Verify task exists and belongs to org
-    const { rows: taskRows } = await pool.query(
-      `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
-      [taskId, orgId]
-    );
-    if (taskRows.length === 0) {
+    if (!(await verifyTaskAccess(taskId, orgId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
@@ -55,6 +49,7 @@ export const PATCH = withAuth(
       );
     }
 
+    const pool = getPool();
     values.push(itemId, taskId);
     const {
       rows: [updated],
@@ -74,18 +69,12 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   { blockedRoles: ["client"] },
   async (_req, { orgId }, params) => {
-    const pool = getPool();
     const { id: taskId, itemId } = params;
-
-    // Verify task exists and belongs to org
-    const { rows: taskRows } = await pool.query(
-      `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
-      [taskId, orgId]
-    );
-    if (taskRows.length === 0) {
+    if (!(await verifyTaskAccess(taskId, orgId))) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const pool = getPool();
     const { rowCount } = await pool.query(
       `DELETE FROM task_checklist_item WHERE id = $1 AND task_id = $2`,
       [itemId, taskId]

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
-import { getAttachmentById } from "@/lib/queries";
+import { setAttachmentFreezeStatus } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
 
@@ -19,25 +18,19 @@ export const PATCH = withAuth(
       );
     }
 
-    const { id, attachmentId } = params;
+    const { error, data } = await setAttachmentFreezeStatus(
+      params.attachmentId,
+      params.id,
+      true
+    );
 
-    const attachment = await getAttachmentById(attachmentId, id);
-    if (!attachment) {
+    if (error === "not_found") {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-
-    if (attachment.frozen_at) {
+    if (error === "already_frozen") {
       return NextResponse.json({ error: "Already frozen" }, { status: 400 });
     }
 
-    const pool = getPool();
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE attachment SET frozen_at = NOW() WHERE id = $1 RETURNING id, file_name, file_url, frozen_at, review_status`,
-      [attachmentId]
-    );
-
-    return NextResponse.json(updated);
+    return NextResponse.json(data);
   }
 );
