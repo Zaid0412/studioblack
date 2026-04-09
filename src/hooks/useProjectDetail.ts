@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import useSWR from "swr";
 import type {
   DbAttachment,
   DbComment,
@@ -9,8 +10,6 @@ import type {
   DbPendingTask,
 } from "@/types";
 import {
-  projects as projectsApi,
-  attachments as attachmentsApi,
   comments as commentsApi,
   approvals as approvalsApi,
   tasks as tasksApi,
@@ -30,62 +29,52 @@ export function useProjectDetail(
 ) {
   const includeApprovals = options?.includeApprovals ?? false;
 
-  const [project, setProject] = useState<DbProjectDetail | null>(null);
-  const [attachments, setAttachments] = useState<DbAttachment[]>([]);
-  const [comments, setComments] = useState<DbComment[]>([]);
-  const [approvals, setApprovals] = useState<DbApproval[]>([]);
-  const [pendingTasks, setPendingTasks] = useState<DbPendingTask[]>([]);
+  // -- SWR data fetching --
+  const {
+    data: project,
+    isLoading: projectLoading,
+    error: projectError,
+    mutate: mutateProject,
+  } = useSWR<DbProjectDetail>(`/api/projects/${id}`);
+
+  const {
+    data: attachments = [],
+    isLoading: attachmentsLoading,
+    mutate: mutateAttachments,
+  } = useSWR<DbAttachment[]>(`/api/projects/${id}/attachments?all=true`);
+
+  const {
+    data: comments = [],
+    isLoading: commentsLoading,
+    mutate: mutateComments,
+  } = useSWR<DbComment[]>(`/api/projects/${id}/comments`);
+
+  const { data: approvals = [], mutate: mutateApprovals } = useSWR<
+    DbApproval[]
+  >(includeApprovals ? `/api/projects/${id}/approvals` : null);
+
+  const { data: pendingTasks = [], mutate: mutatePendingTasks } = useSWR<
+    DbPendingTask[]
+  >(includeApprovals ? `/api/projects/${id}/tasks/pending-review` : null);
+
+  // -- UI state --
   const [newComment, setNewComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [reviewingTaskId, setReviewingTaskId] = useState<string | null>(null);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
   const [changesComment, setChangesComment] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
-  const fetchAll = useCallback(
-    async (opts?: { setInitialPhase?: boolean }) => {
-      const fetches: Promise<unknown>[] = [
-        projectsApi.get<DbProjectDetail>(id).catch(() => null),
-        attachmentsApi
-          .list(id, { all: true })
-          .catch(() => [] as DbAttachment[]),
-        commentsApi.list(id).catch(() => [] as DbComment[]),
-      ];
+  const loading = projectLoading || attachmentsLoading || commentsLoading;
+  const error = !!projectError;
 
-      if (includeApprovals) {
-        fetches.push(
-          approvalsApi.list(id).catch(() => [] as DbApproval[]),
-          tasksApi.getPendingReview(id).catch(() => [] as DbPendingTask[])
-        );
-      }
-
-      const [projectData, attachData, commentData, approvalData, taskData] =
-        await Promise.all(fetches);
-      if (projectData) setProject(projectData as DbProjectDetail);
-      setAttachments(attachData as DbAttachment[]);
-      setComments(commentData as DbComment[]);
-      if (includeApprovals) {
-        setApprovals((approvalData as DbApproval[]) || []);
-        setPendingTasks((taskData as DbPendingTask[]) || []);
-      }
-      if (opts?.setInitialPhase) {
-        const p = projectData as DbProjectDetail | null;
-        if (p?.phases?.length) {
-          setActivePhaseId(p.phases[0].id);
-        }
-      }
-    },
-    [id, includeApprovals]
-  );
-
+  // Set initial phase when project data arrives
   useEffect(() => {
-    fetchAll({ setInitialPhase: true })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [fetchAll]);
+    if (project?.phases?.length && !activePhaseId) {
+      setActivePhaseId(project.phases[0].id);
+    }
+  }, [project, activePhaseId]);
 
   // --- Comments ---
   const handleSendComment = useCallback(async () => {
@@ -93,8 +82,7 @@ export function useProjectDetail(
     setSendingComment(true);
     try {
       await commentsApi.create(id, newComment.trim());
-      const updated = await commentsApi.list(id).catch(() => [] as DbComment[]);
-      setComments(updated);
+      mutateComments();
       setNewComment("");
     } catch {
       toast({
@@ -105,18 +93,29 @@ export function useProjectDetail(
     } finally {
       setSendingComment(false);
     }
-  }, [id, newComment, sendingComment]);
+  }, [id, newComment, sendingComment, mutateComments]);
 
   // --- Refresh ---
-  const refreshAttachments = useCallback(async () => {
-    try {
-      setAttachments(await attachmentsApi.list(id, { all: true }));
-    } catch {
-      /* keep existing */
-    }
-  }, [id]);
+  const refreshAttachments = useCallback(() => {
+    mutateAttachments();
+  }, [mutateAttachments]);
 
-  const refreshAll = useCallback(() => fetchAll(), [fetchAll]);
+  const refreshAll = useCallback(() => {
+    mutateProject();
+    mutateAttachments();
+    mutateComments();
+    if (includeApprovals) {
+      mutateApprovals();
+      mutatePendingTasks();
+    }
+  }, [
+    mutateProject,
+    mutateAttachments,
+    mutateComments,
+    includeApprovals,
+    mutateApprovals,
+    mutatePendingTasks,
+  ]);
 
   // --- Download ---
   const handleDownload = useCallback(async (att: DbAttachment) => {
@@ -140,12 +139,8 @@ export function useProjectDetail(
       setSubmittingDecision(true);
       try {
         await approvalsApi.submit(id, { decision, comment: comment || "" });
-        const [updatedApprovals, updatedProject] = await Promise.all([
-          approvalsApi.list(id).catch(() => [] as DbApproval[]),
-          projectsApi.get<DbProjectDetail>(id).catch(() => null),
-        ]);
-        setApprovals(updatedApprovals);
-        if (updatedProject) setProject(updatedProject);
+        mutateApprovals();
+        mutateProject();
       } catch {
         toast({
           title: "Error",
@@ -156,7 +151,7 @@ export function useProjectDetail(
         setSubmittingDecision(false);
       }
     },
-    [id, submittingDecision]
+    [id, submittingDecision, mutateApprovals, mutateProject]
   );
 
   // --- Client: task review ---
@@ -172,7 +167,9 @@ export function useProjectDetail(
           action,
           comment: comment || "",
         });
-        setPendingTasks((prev) => prev.filter((t) => t.id !== taskId));
+        mutatePendingTasks((prev) => prev?.filter((t) => t.id !== taskId), {
+          revalidate: false,
+        });
       } catch {
         toast({
           title: "Error",
@@ -183,7 +180,7 @@ export function useProjectDetail(
         setReviewingTaskId(null);
       }
     },
-    [id]
+    [id, mutatePendingTasks]
   );
 
   // --- Derived ---
@@ -201,7 +198,7 @@ export function useProjectDetail(
   );
 
   return {
-    project,
+    project: project ?? null,
     attachments,
     comments,
     approvals,

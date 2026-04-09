@@ -5,10 +5,10 @@ import {
   useCallback,
   useSyncExternalStore,
 } from "react";
+import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { Notification, DbNotificationRow } from "@/types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,6 +27,11 @@ function getYesterday() {
   return new Date(Date.now() - 86_400_000).toDateString();
 }
 
+interface InvitationData {
+  notifications: Notification[];
+  pendingIds: Map<string, string>;
+}
+
 export interface UseNotificationsOptions {
   t: TranslationFn;
   onNavigate: (path: string) => void;
@@ -39,13 +44,7 @@ export function useNotifications({
   onNavigate,
   onClose,
 }: UseNotificationsOptions) {
-  const [invitationNotifs, setInvitationNotifs] = useState<Notification[]>([]);
-  const [dbNotifs, setDbNotifs] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
-  const [pendingInviteIds, setPendingInviteIds] = useState<Map<string, string>>(
-    new Map()
-  );
 
   const roleLabel = useCallback(
     (role: string) => {
@@ -57,7 +56,18 @@ export function useNotifications({
     [t]
   );
 
-  const loadInvitations = useCallback(async () => {
+  // -- DB notifications (SWR with auto-polling) --
+  const {
+    data: dbRows = [],
+    isLoading: dbLoading,
+    mutate: mutateDbNotifs,
+  } = useSWR<DbNotificationRow[]>("/api/notifications", {
+    refreshInterval: 30000,
+  });
+
+  // -- Invitation notifications (SWR with custom fetcher) --
+  // SWR pauses refreshInterval when tab is hidden and revalidates on focus
+  const invitationFetcher = useCallback(async (): Promise<InvitationData> => {
     const allNotifs: Notification[] = [];
     const idMap = new Map<string, string>();
 
@@ -95,54 +105,49 @@ export function useNotifications({
       }
     }
 
-    setInvitationNotifs(allNotifs);
-    setPendingInviteIds(idMap);
+    return { notifications: allNotifs, pendingIds: idMap };
   }, [t, roleLabel]);
 
-  const loadDbNotifs = useCallback(async () => {
-    try {
-      const rows = await notificationsApi.list();
-      setDbNotifs(
-        rows.map((r: DbNotificationRow) => ({
-          id: r.id,
-          type: r.type as Notification["type"],
-          title: r.title,
-          description:
-            r.description + (r.project_name ? ` · ${r.project_name}` : ""),
-          read: r.read,
-          createdAt: r.created_at,
-          projectId: r.project_id ?? undefined,
-        }))
-      );
-    } catch (e) {
-      console.error("Failed to load notifications", e);
-    }
-  }, []);
+  const {
+    data: invData,
+    isLoading: invLoading,
+    mutate: mutateInvitations,
+  } = useSWR<InvitationData>("invitations", invitationFetcher, {
+    refreshInterval: 30000,
+  });
 
-  const isVisible = usePageVisibility();
+  const invitationNotifs = useMemo(
+    () => invData?.notifications ?? [],
+    [invData]
+  );
+  const pendingInviteIds = invData?.pendingIds ?? new Map<string, string>();
+  const loading = dbLoading || invLoading;
 
-  // Initial load + polling (paused when tab is hidden)
+  // Listen for cross-component refresh events
   useEffect(() => {
-    async function load() {
-      await Promise.all([loadInvitations(), loadDbNotifs()]);
-      setLoading(false);
-    }
-    load();
-    const handleRefresh = () => load();
-    window.addEventListener("notifications-changed", handleRefresh);
-
-    if (!isVisible) {
-      return () => {
-        window.removeEventListener("notifications-changed", handleRefresh);
-      };
-    }
-
-    const interval = setInterval(load, 30000);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("notifications-changed", handleRefresh);
+    const handler = () => {
+      mutateDbNotifs();
+      mutateInvitations();
     };
-  }, [loadInvitations, loadDbNotifs, isVisible]);
+    window.addEventListener("notifications-changed", handler);
+    return () => window.removeEventListener("notifications-changed", handler);
+  }, [mutateDbNotifs, mutateInvitations]);
+
+  // -- Transform DB rows → Notification[] --
+  const dbNotifs: Notification[] = useMemo(
+    () =>
+      dbRows.map((r) => ({
+        id: r.id,
+        type: r.type as Notification["type"],
+        title: r.title,
+        description:
+          r.description + (r.project_name ? ` · ${r.project_name}` : ""),
+        read: r.read,
+        createdAt: r.created_at,
+        projectId: r.project_id ?? undefined,
+      })),
+    [dbRows]
+  );
 
   const notifications: Notification[] = useMemo(
     () =>
@@ -200,8 +205,12 @@ export function useNotifications({
       !notification.id.startsWith("sent-")
     ) {
       await notificationsApi.markRead([notification.id]).catch(() => {});
-      setDbNotifs((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+      mutateDbNotifs(
+        (prev) =>
+          prev?.map((r) =>
+            r.id === notification.id ? { ...r, read: true } : r
+          ),
+        { revalidate: false }
       );
       window.dispatchEvent(new Event("notifications-changed"));
     }
@@ -212,8 +221,22 @@ export function useNotifications({
   };
 
   const handleMarkAllRead = async () => {
-    setInvitationNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-    setDbNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
+    mutateDbNotifs((prev) => prev?.map((r) => ({ ...r, read: true })), {
+      revalidate: false,
+    });
+    mutateInvitations(
+      (prev) =>
+        prev
+          ? {
+              ...prev,
+              notifications: prev.notifications.map((n) => ({
+                ...n,
+                read: true,
+              })),
+            }
+          : prev,
+      { revalidate: false }
+    );
     window.dispatchEvent(new Event("notifications-changed"));
     await notificationsApi.markAllRead().catch(() => {});
     toast({
@@ -225,15 +248,19 @@ export function useNotifications({
   const handleClearAll = async () => {
     if (!window.confirm(t("clearAllConfirm"))) return;
     await notificationsApi.clearAll().catch(() => {});
-    setDbNotifs([]);
-    setInvitationNotifs([]);
-    setPendingInviteIds(new Map());
+    mutateDbNotifs([], { revalidate: false });
+    mutateInvitations(
+      { notifications: [], pendingIds: new Map() },
+      { revalidate: false }
+    );
     window.dispatchEvent(new Event("notifications-changed"));
   };
 
   const handleDeleteOne = async (notifId: string) => {
     await notificationsApi.remove(notifId).catch(() => {});
-    setDbNotifs((prev) => prev.filter((n) => n.id !== notifId));
+    mutateDbNotifs((prev) => prev?.filter((r) => r.id !== notifId), {
+      revalidate: false,
+    });
     window.dispatchEvent(new Event("notifications-changed"));
   };
 
@@ -262,12 +289,20 @@ export function useNotifications({
       description: t("invitationAcceptedDesc"),
       variant: "success",
     });
-    setInvitationNotifs((prev) => prev.filter((n) => n.id !== notifId));
-    setPendingInviteIds((prev) => {
-      const next = new Map(prev);
-      next.delete(notifId);
-      return next;
-    });
+    mutateInvitations(
+      (prev) =>
+        prev
+          ? {
+              notifications: prev.notifications.filter((n) => n.id !== notifId),
+              pendingIds: (() => {
+                const m = new Map(prev.pendingIds);
+                m.delete(notifId);
+                return m;
+              })(),
+            }
+          : prev,
+      { revalidate: false }
+    );
     window.dispatchEvent(new Event("notifications-changed"));
     onClose();
     onNavigate("/organisation");
@@ -297,20 +332,27 @@ export function useNotifications({
       title: t("invitationRejected"),
       description: t("invitationRejectedDesc"),
     });
-    setInvitationNotifs((prev) => prev.filter((n) => n.id !== notifId));
-    setPendingInviteIds((prev) => {
-      const next = new Map(prev);
-      next.delete(notifId);
-      return next;
-    });
+    mutateInvitations(
+      (prev) =>
+        prev
+          ? {
+              notifications: prev.notifications.filter((n) => n.id !== notifId),
+              pendingIds: (() => {
+                const m = new Map(prev.pendingIds);
+                m.delete(notifId);
+                return m;
+              })(),
+            }
+          : prev,
+      { revalidate: false }
+    );
     window.dispatchEvent(new Event("notifications-changed"));
   };
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    await Promise.all([loadInvitations(), loadDbNotifs()]);
-    setLoading(false);
-  }, [loadInvitations, loadDbNotifs]);
+  const refresh = useCallback(() => {
+    mutateDbNotifs();
+    mutateInvitations();
+  }, [mutateDbNotifs, mutateInvitations]);
 
   return {
     loading,

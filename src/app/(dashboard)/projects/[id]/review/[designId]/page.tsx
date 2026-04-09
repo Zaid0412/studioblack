@@ -71,8 +71,8 @@ export default function DesignReviewPage({
     activeFileId,
     setActiveFileId,
     attachment,
-    setAttachment,
-    fetchAttachment,
+    updateAttachment,
+    refreshAttachment,
   } = review;
 
   const pinState = usePinComments({
@@ -200,12 +200,12 @@ export default function DesignReviewPage({
           variant: "success",
         });
         // Update local attachment status so the UI reflects the change
-        setAttachment((prev) =>
+        updateAttachment((prev) =>
           prev ? { ...prev, review_status: "rejected" } : prev
         );
       }
     },
-    [addPin, setAttachment]
+    [addPin, updateAttachment]
   );
 
   const handlePinFormCancel = useCallback(() => {
@@ -249,9 +249,8 @@ export default function DesignReviewPage({
   }, [attachment]);
 
   const handleUploadSuccess = useCallback(async () => {
-    const updated = await fetchAttachment(activeFileId);
-    if (updated) setAttachment(updated);
-  }, [fetchAttachment, activeFileId, setAttachment]);
+    await refreshAttachment();
+  }, [refreshAttachment]);
 
   const handleToggleFreeze = useCallback(async () => {
     if (!attachment) return;
@@ -271,8 +270,7 @@ export default function DesignReviewPage({
           variant: "success",
         });
       }
-      const updated = await fetchAttachment(activeFileId);
-      if (updated) setAttachment(updated);
+      await refreshAttachment();
     } catch {
       toast({
         title: "Error",
@@ -280,7 +278,7 @@ export default function DesignReviewPage({
         variant: "error",
       });
     }
-  }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
+  }, [id, attachment, refreshAttachment]);
 
   const handleSendToClient = useCallback(async () => {
     if (!attachment) return;
@@ -291,8 +289,7 @@ export default function DesignReviewPage({
         description: `"${attachment.file_name}" is now visible to the client.`,
         variant: "success",
       });
-      const updated = await fetchAttachment(activeFileId);
-      if (updated) setAttachment(updated);
+      await refreshAttachment();
     } catch {
       toast({
         title: "Error",
@@ -300,7 +297,7 @@ export default function DesignReviewPage({
         variant: "error",
       });
     }
-  }, [id, attachment, fetchAttachment, activeFileId, setAttachment]);
+  }, [id, attachment, refreshAttachment]);
 
   // Client: submit an approval review (rejection goes through pin comment flow)
   async function handleSubmitReview(
@@ -328,8 +325,7 @@ export default function DesignReviewPage({
       variant: "success",
     });
 
-    const updated = await fetchAttachment(activeFileId);
-    if (updated) setAttachment(updated);
+    await refreshAttachment();
   }
 
   if (review.loading) {

@@ -1,12 +1,57 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
-import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { OrgMember, OrgInvitation } from "@/types";
+
+interface OrgData {
+  org: { id: string; name: string; slug: string; logo?: string | null };
+  members: OrgMember[];
+  invitations: OrgInvitation[];
+  currentUserRole: string | null;
+}
+
+/** Fetches org data via authClient. Used as custom SWR fetcher. */
+async function orgFetcher(): Promise<OrgData | null> {
+  // First try to get the active org
+  let { data } = await authClient.organization.getFullOrganization();
+
+  // If no active org, list all orgs and activate the first one
+  if (!data) {
+    const listRes = await authClient.organization.list();
+    if (listRes.data && listRes.data.length > 0) {
+      const firstOrg = listRes.data[0];
+      await authClient.organization.setActive({
+        organizationId: firstOrg.id,
+      });
+      const retry = await authClient.organization.getFullOrganization();
+      data = retry.data;
+    }
+  }
+
+  if (!data) return null;
+
+  const members = (data.members as OrgMember[]) ?? [];
+
+  // Determine current user's role
+  const session = await authClient.getSession();
+  let currentUserRole: string | null = null;
+  if (session.data?.user) {
+    const me = members.find((m) => m.userId === session.data!.user.id);
+    currentUserRole = me?.role ?? null;
+  }
+
+  return {
+    org: { id: data.id, name: data.name, slug: data.slug, logo: data.logo },
+    members,
+    invitations: (data.invitations as OrgInvitation[]) ?? [],
+    currentUserRole,
+  };
+}
 
 /** Hook managing organisation state, members, invitations, and CRUD operations. */
 export function useOrganisation() {
@@ -14,92 +59,30 @@ export function useOrganisation() {
   const tc = useTranslations("common");
   const router = useRouter();
 
-  // Org state
-  const [activeOrg, setActiveOrg] = useState<{
-    id: string;
-    name: string;
-    slug: string;
-    logo?: string | null;
-  } | null>(null);
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [invitations, setInvitations] = useState<OrgInvitation[]>([]);
-  const [loading, setLoading] = useState(true);
+  // -- Org data (SWR with auto-polling, pauses when tab hidden) --
+  const {
+    data: orgData,
+    isLoading: loading,
+    mutate,
+  } = useSWR<OrgData | null>("org-full", orgFetcher, {
+    refreshInterval: 30000,
+  });
 
-  // Create org form
+  const activeOrg = orgData?.org ?? null;
+  const members = orgData?.members ?? [];
+  const invitations = orgData?.invitations ?? [];
+  const currentUserRole = orgData?.currentUserRole ?? null;
+
+  // -- UI state --
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-
-  // Current user's role in the org
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
-
-  // Leave org dialog
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-
-  // Invite dialog
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [isInviting, setIsInviting] = useState(false);
-
-  const loadOrg = async (showLoading = false) => {
-    if (showLoading) setLoading(true);
-
-    // First try to get the active org
-    let { data } = await authClient.organization.getFullOrganization();
-
-    // If no active org, list all orgs the user belongs to and activate the first one
-    if (!data) {
-      const listRes = await authClient.organization.list();
-      if (listRes.data && listRes.data.length > 0) {
-        const firstOrg = listRes.data[0];
-        await authClient.organization.setActive({
-          organizationId: firstOrg.id,
-        });
-        const retry = await authClient.organization.getFullOrganization();
-        data = retry.data;
-      }
-    }
-
-    if (data) {
-      setActiveOrg({
-        id: data.id,
-        name: data.name,
-        slug: data.slug,
-        logo: data.logo,
-      });
-      setMembers((data.members as OrgMember[]) ?? []);
-      setInvitations((data.invitations as OrgInvitation[]) ?? []);
-
-      // Determine current user's role in the org
-      const session = await authClient.getSession();
-      if (session.data?.user) {
-        const me = (data.members as OrgMember[])?.find(
-          (m) => m.userId === session.data!.user.id
-        );
-        setCurrentUserRole(me?.role ?? null);
-      }
-    }
-    setLoading(false);
-  };
-
-  const isVisible = usePageVisibility();
-
-  // Initial load — runs once
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadOrg(true);
-  }, []);
-
-  // Visibility-gated polling — silent refresh on tab focus, no loading flash
-  useEffect(() => {
-    if (!isVisible) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadOrg();
-    const interval = setInterval(() => loadOrg(), 30000);
-    return () => clearInterval(interval);
-  }, [isVisible]);
 
   const generateSlug = (name: string) =>
     name
@@ -124,9 +107,8 @@ export function useOrganisation() {
         variant: "error",
       });
       setIsCreating(false);
-      // If it already exists, try loading it
       if (error.code === "ORGANIZATION_ALREADY_EXISTS") {
-        await loadOrg();
+        await mutate();
       }
       return;
     }
@@ -137,7 +119,7 @@ export function useOrganisation() {
     });
     setOrgName("");
     setOrgSlug("");
-    await loadOrg();
+    await mutate();
     setIsCreating(false);
   };
 
@@ -145,7 +127,6 @@ export function useOrganisation() {
     if (!activeOrg) return;
     setIsInviting(true);
 
-    // Ensure active org is set on the session before inviting
     await authClient.organization.setActive({
       organizationId: activeOrg.id,
     });
@@ -173,7 +154,7 @@ export function useOrganisation() {
     setInviteRole("member");
     setInviteOpen(false);
     setIsInviting(false);
-    await loadOrg();
+    await mutate();
   };
 
   const handleUpdateMemberRole = async (memberId: string, role: string) => {
@@ -196,7 +177,7 @@ export function useOrganisation() {
       description: t("roleUpdatedDescription"),
       variant: "success",
     });
-    await loadOrg();
+    await mutate();
   };
 
   const handleRemoveMember = async (memberId: string) => {
@@ -216,7 +197,7 @@ export function useOrganisation() {
       description: t("memberRemovedDescription"),
       variant: "success",
     });
-    await loadOrg();
+    await mutate();
   };
 
   const handleCancelInvitation = async (invitationId: string) => {
@@ -236,14 +217,13 @@ export function useOrganisation() {
       description: t("inviteCancelledDescription"),
       variant: "success",
     });
-    await loadOrg();
+    await mutate();
   };
 
   const handleLeaveOrg = async () => {
     if (!activeOrg) return;
     setIsLeaving(true);
 
-    // Get current session to find own member ID
     const session = await authClient.getSession();
     if (!session.data?.user) {
       setIsLeaving(false);
@@ -277,6 +257,10 @@ export function useOrganisation() {
     });
     router.push("/dashboard");
   };
+
+  const refresh = useCallback(() => {
+    mutate();
+  }, [mutate]);
 
   return {
     // Org state
@@ -317,6 +301,6 @@ export function useOrganisation() {
     handleLeaveOrg,
 
     // Refresh
-    refresh: () => loadOrg(false),
+    refresh,
   };
 }

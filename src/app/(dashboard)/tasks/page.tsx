@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import { Plus, Loader2, CheckSquare } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -9,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { authClient } from "@/lib/authClient";
-import { tasks as tasksApi, projects as projectsApi } from "@/lib/api";
+import { projects as projectsApi } from "@/lib/api";
+import type { TaskListResponse } from "@/lib/api/tasks";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import type { Task, TaskFormData } from "@/types";
 import { TaskDetailModal } from "./_components/TaskDetailModal";
@@ -60,6 +62,15 @@ const EMPTY_FORM: TaskFormData = {
   dueDate: "",
 };
 
+const DEFAULT_COUNTS: BucketCounts = {
+  all: 0,
+  my_tasks: 0,
+  created_by_me: 0,
+  starred: 0,
+  upcoming: 0,
+  completed: 0,
+};
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -69,22 +80,6 @@ export default function TasksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // -- Data state --
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [counts, setCounts] = useState<BucketCounts>({
-    all: 0,
-    my_tasks: 0,
-    created_by_me: 0,
-    starred: 0,
-    upcoming: 0,
-    completed: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
-  const [phases, setPhases] = useState<PhaseOption[]>([]);
-  const [loadingPhases, setLoadingPhases] = useState(false);
-
   // -- Filter state (from URL) --
   const activeBucket = (searchParams.get("bucket") as Bucket) || "all";
   const searchValue = searchParams.get("search") || "";
@@ -93,6 +88,75 @@ export default function TasksPage() {
   const categoryFilter = searchParams.get("category") || "all";
   const projectFilter = searchParams.get("projectId") || "all";
   const currentPage = parseInt(searchParams.get("page") || "1", 10);
+
+  // -- Task data (SWR) --
+  const swrKey = useMemo(() => {
+    const params = new URLSearchParams();
+    if (activeBucket) params.set("bucket", activeBucket);
+    if (searchValue) params.set("search", searchValue);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (priorityFilter !== "all") params.set("priority", priorityFilter);
+    if (categoryFilter !== "all") params.set("category", categoryFilter);
+    if (projectFilter !== "all") params.set("projectId", projectFilter);
+    params.set("page", String(currentPage));
+    params.set("limit", String(PAGE_SIZE));
+    return `/api/tasks?${params.toString()}`;
+  }, [
+    activeBucket,
+    searchValue,
+    statusFilter,
+    priorityFilter,
+    categoryFilter,
+    projectFilter,
+    currentPage,
+  ]);
+
+  const { data, isLoading, mutate } = useSWR<TaskListResponse>(swrKey, {
+    keepPreviousData: true,
+  });
+
+  const tasks = data?.tasks ?? [];
+  const counts = (data?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
+  const totalTasks = data?.total ?? 0;
+
+  // Adapters: translate SWR mutate into setTasks/setCounts for useTaskCrud
+  const setTasks: React.Dispatch<React.SetStateAction<Task[]>> = useCallback(
+    (action) => {
+      mutate(
+        (prev) => {
+          if (!prev) return prev;
+          const newTasks =
+            typeof action === "function" ? action(prev.tasks) : action;
+          return { ...prev, tasks: newTasks };
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  const setCounts: React.Dispatch<
+    React.SetStateAction<Record<string, number>>
+  > = useCallback(
+    (action) => {
+      mutate(
+        (prev) => {
+          if (!prev) return prev;
+          const newCounts =
+            typeof action === "function" ? action(prev.counts) : action;
+          return { ...prev, counts: newCounts };
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  // -- Side data --
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [phases, setPhases] = useState<PhaseOption[]>([]);
+  const [loadingPhases, setLoadingPhases] = useState(false);
 
   // -- Fetch phases for a project --
   const fetchPhases = useCallback(async (projectId: string) => {
@@ -137,51 +201,7 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
-  // -- Total task count for pagination --
-  const [totalTasks, setTotalTasks] = useState(0);
-
-  // -- Fetch tasks --
-  const fetchTasks = useCallback(async () => {
-    try {
-      const params: Record<string, string> = {};
-      if (activeBucket) params.bucket = activeBucket;
-      if (searchValue) params.search = searchValue;
-      if (statusFilter !== "all") params.status = statusFilter;
-      if (priorityFilter !== "all") params.priority = priorityFilter;
-      if (categoryFilter !== "all") params.category = categoryFilter;
-      if (projectFilter !== "all") params.projectId = projectFilter;
-      params.page = String(currentPage);
-      params.limit = String(PAGE_SIZE);
-
-      const data = await tasksApi.list(params);
-      setTasks(data.tasks ?? []);
-      setTotalTasks(data.total ?? 0);
-      setCounts(
-        (data.counts as unknown as BucketCounts) ?? {
-          all: 0,
-          my_tasks: 0,
-          created_by_me: 0,
-          starred: 0,
-          upcoming: 0,
-          completed: 0,
-        }
-      );
-    } catch {
-      setTasks([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    activeBucket,
-    searchValue,
-    statusFilter,
-    priorityFilter,
-    categoryFilter,
-    projectFilter,
-    currentPage,
-  ]);
-
-  // -- Initial load: members, projects, tasks --
+  // -- Initial load: members + projects --
   useEffect(() => {
     async function loadSideData() {
       // Org members
@@ -212,11 +232,6 @@ export default function TasksPage() {
     loadSideData();
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    fetchTasks();
-  }, [fetchTasks]);
-
   // -- Task CRUD (dialog, delete, toggle, submit) --
   const {
     dialogOpen,
@@ -236,11 +251,11 @@ export default function TasksPage() {
     openEdit,
     openCreate,
   } = useTaskCrud({
-    fetchTasks,
+    fetchTasks: () => {
+      mutate();
+    },
     setTasks,
-    setCounts: setCounts as unknown as React.Dispatch<
-      React.SetStateAction<Record<string, number>>
-    >,
+    setCounts,
     defaultForm: EMPTY_FORM,
     onFetchPhases: fetchPhases,
   });
@@ -261,7 +276,11 @@ export default function TasksPage() {
         subtitle="Manage and track tasks across all projects"
         actions={
           <>
-            <RefreshButton onRefresh={fetchTasks} />
+            <RefreshButton
+              onRefresh={() => {
+                mutate();
+              }}
+            />
             <Button onClick={openCreate}>
               <Plus className="w-4 h-4" />
               New Task
@@ -320,7 +339,7 @@ export default function TasksPage() {
 
             {/* Table body */}
             <div className="flex-1">
-              {loading ? (
+              {isLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
                 </div>
@@ -358,7 +377,7 @@ export default function TasksPage() {
             </div>
 
             {/* Pagination */}
-            {!loading && totalTasks > 0 && (
+            {!isLoading && totalTasks > 0 && (
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -377,7 +396,7 @@ export default function TasksPage() {
         onOpenChange={(open) => {
           if (!open) {
             setDetailTask(null);
-            fetchTasks();
+            mutate();
           }
         }}
         onEdit={(task) => {
@@ -396,7 +415,9 @@ export default function TasksPage() {
           setDetailTask(null);
           setDeleteTarget(task);
         }}
-        onChecklistChange={fetchTasks}
+        onChecklistChange={() => {
+          mutate();
+        }}
       />
 
       {/* Create / Edit Task Dialog */}
