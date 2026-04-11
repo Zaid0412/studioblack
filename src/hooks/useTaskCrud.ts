@@ -127,15 +127,13 @@ export function useTaskCrud({
         if (formData.pendingFiles.length > 0) {
           for (const file of formData.pendingFiles) {
             postCreateWork.push(
-              upload
-                .uploadFile(file)
-                .then((result) =>
-                  tasksApi.addAttachment(created.id, {
-                    fileUrl: result.url,
-                    fileName: result.fileName,
-                    fileSize: file.size,
-                  })
-                )
+              upload.uploadFile(file).then((result) =>
+                tasksApi.addAttachment(created.id, {
+                  fileUrl: result.url,
+                  fileName: result.fileName,
+                  fileSize: file.size,
+                })
+              )
             );
           }
         }
