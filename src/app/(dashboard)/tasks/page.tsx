@@ -58,6 +58,8 @@ const EMPTY_FORM: TaskFormData = {
   projectId: "",
   phaseId: "",
   priority: "medium",
+  checklistItems: [],
+  pendingFiles: [],
   category: "general",
   assignedTo: "",
   dueDate: "",
@@ -80,6 +82,7 @@ const DEFAULT_COUNTS: BucketCounts = {
 export default function TasksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = authClient.useSession();
 
   // -- Filter state (from URL) --
   const activeBucket = (searchParams.get("bucket") as Bucket) || "all";
@@ -239,6 +242,7 @@ export default function TasksPage() {
     setCounts,
     defaultForm: EMPTY_FORM,
     onFetchPhases: fetchPhases,
+    currentUserId: session?.user?.id,
   });
 
   // -- Pagination (server-side) --

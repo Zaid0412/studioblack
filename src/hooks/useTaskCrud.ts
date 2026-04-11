@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { tasks as tasksApi } from "@/lib/api";
+import { tasks as tasksApi, upload } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { NEXT_STATUS } from "@/lib/taskUtils";
 import type { Task, TaskFormData } from "@/types";
@@ -11,6 +11,8 @@ interface UseTaskCrudOptions {
   defaultForm: TaskFormData;
   projectId?: string;
   onFetchPhases?: (projectId: string) => void;
+  /** Current user ID — used as default assignee when creating tasks. */
+  currentUserId?: string;
 }
 
 /** Shared CRUD operations for tasks: create, update, delete, star, and status toggle. */
@@ -21,6 +23,7 @@ export function useTaskCrud({
   defaultForm,
   projectId,
   onFetchPhases,
+  currentUserId,
 }: UseTaskCrudOptions) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -102,7 +105,46 @@ export function useTaskCrud({
       if (isEdit) {
         await tasksApi.update(editingTask!.id, body);
       } else {
-        await tasksApi.create(body as Parameters<typeof tasksApi.create>[0]);
+        const created = await tasksApi.create(
+          body as Parameters<typeof tasksApi.create>[0]
+        );
+
+        // Create checklist items and upload files in parallel after task creation
+        const postCreateWork: Promise<unknown>[] = [];
+
+        // Checklist items — create sequentially to preserve order
+        if (formData.checklistItems.length > 0) {
+          postCreateWork.push(
+            (async () => {
+              for (const title of formData.checklistItems) {
+                await tasksApi.addChecklistItem(created.id, title);
+              }
+            })()
+          );
+        }
+
+        // File uploads — upload and attach each file
+        if (formData.pendingFiles.length > 0) {
+          for (const file of formData.pendingFiles) {
+            postCreateWork.push(
+              upload
+                .uploadFile(file)
+                .then((result) =>
+                  tasksApi.addAttachment(created.id, {
+                    fileUrl: result.url,
+                    fileName: result.fileName,
+                    fileSize: file.size,
+                  })
+                )
+            );
+          }
+        }
+
+        if (postCreateWork.length > 0) {
+          await Promise.all(postCreateWork).catch((err) =>
+            console.error("Post-create attachment error:", err)
+          );
+        }
       }
 
       toast({
@@ -163,6 +205,8 @@ export function useTaskCrud({
         category: task.category,
         assignedTo: task.assigned_to || "",
         dueDate: task.due_date ? task.due_date.split("T")[0] : "",
+        checklistItems: [],
+        pendingFiles: [],
       });
       if (task.project_id && onFetchPhases) onFetchPhases(task.project_id);
       setDialogOpen(true);
@@ -172,9 +216,12 @@ export function useTaskCrud({
 
   const openCreate = useCallback(() => {
     setEditingTask(null);
-    setFormData(defaultForm);
+    setFormData({
+      ...defaultForm,
+      assignedTo: currentUserId || defaultForm.assignedTo,
+    });
     setDialogOpen(true);
-  }, [defaultForm]);
+  }, [defaultForm, currentUserId]);
 
   return {
     dialogOpen,

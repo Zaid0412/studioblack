@@ -426,4 +426,8 @@ export interface TaskFormData {
   category: string;
   assignedTo: string;
   dueDate: string;
+  /** Checklist items to create alongside the task (create mode only). */
+  checklistItems: string[];
+  /** Files to upload and attach after task creation (create mode only). */
+  pendingFiles: File[];
 }
