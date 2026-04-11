@@ -100,7 +100,7 @@ export default function DesignUploadPage({
   return (
     <div className="flex flex-col gap-6 max-w-[900px]">
       <button
-        onClick={() => router.push(`/projects/${id}`)}
+        onClick={() => router.back()}
         className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
       >
         <ArrowLeft className="w-4 h-4" />

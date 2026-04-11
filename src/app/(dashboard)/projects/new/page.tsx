@@ -85,7 +85,7 @@ export default function CreateProjectPage() {
   return (
     <div className="flex flex-col gap-6 max-w-[800px]">
       <button
-        onClick={() => router.push("/projects")}
+        onClick={() => router.back()}
         className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
       >
         <ArrowLeft className="w-4 h-4" />

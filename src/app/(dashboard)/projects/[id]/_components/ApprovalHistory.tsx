@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { History, CheckCircle2, AlertTriangle } from "lucide-react";
+import { formatDate } from "@/lib/formatDate";
 import type { DbApproval } from "@/types";
 
 interface ApprovalHistoryProps {
@@ -47,11 +48,7 @@ export function ApprovalHistory({ approvals }: ApprovalHistoryProps) {
               )}
             </div>
             <span className="text-[11px] text-text-muted shrink-0">
-              {new Date(a.created_at).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
+              {formatDate(a.created_at)}
             </span>
           </div>
         ))}

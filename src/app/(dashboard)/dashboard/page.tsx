@@ -10,6 +10,7 @@ import {
   Users,
   Calendar,
   Loader2,
+  AlertCircle,
   Activity,
   Clock,
   Plus,
@@ -22,6 +23,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { activityIcons, activityColors } from "@/lib/activityConstants";
 import { formatTimeAgo } from "@/lib/formatTime";
 import { useUserRole } from "@/hooks/useUserRole";
+import { formatShortDate, formatDate } from "@/lib/formatDate";
+import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
 
 interface DashboardData {
   stats: {
@@ -66,20 +69,65 @@ export default function DashboardPage() {
   const router = useRouter();
   const { role, session, loading: roleLoading } = useUserRole();
 
-  const { data, isLoading: dashLoading } = useSWR<DashboardData>(
+  const {
+    data,
+    isLoading: dashLoading,
+    error: dashError,
+    mutate: dashMutate,
+  } = useSWR<DashboardData>(
     !roleLoading && role && role !== "client" ? "/api/dashboard" : null
   );
-  const { data: clientProjects = [], isLoading: clientLoading } = useSWR<
-    ClientProject[]
-  >(!roleLoading && role === "client" ? "/api/client/projects" : null);
+  const {
+    data: clientProjects = [],
+    isLoading: clientLoading,
+    error: clientError,
+    mutate: clientMutate,
+  } = useSWR<ClientProject[]>(
+    !roleLoading && role === "client" ? "/api/client/projects" : null
+  );
 
   const loading =
     roleLoading || (role === "client" ? clientLoading : dashLoading);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
+      <div className="flex flex-col gap-7 max-w-[1200px]">
+        <div className="flex flex-col gap-2">
+          <SkeletonCard className="h-10 !p-0 !bg-transparent !rounded-none" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 flex flex-col gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <SkeletonRow key={i} columns={3} />
+            ))}
+          </div>
+          <div className="w-full lg:w-80 flex flex-col gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <SkeletonCard key={i} className="h-20" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const error = role === "client" ? clientError : dashError;
+  const retry = role === "client" ? clientMutate : dashMutate;
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <AlertCircle className="w-6 h-6 text-red-400" />
+        <p className="text-sm text-text-muted">
+          Something went wrong loading your dashboard.
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => retry()}>
+          Retry
+        </Button>
       </div>
     );
   }
@@ -185,10 +233,7 @@ export default function DashboardPage() {
                     {project.deadline && (
                       <div className="flex items-center gap-1.5 text-xs text-text-muted pt-2 border-t border-border-default">
                         <Calendar className="w-3 h-3 text-warning" />
-                        {new Date(project.deadline).toLocaleDateString(
-                          "en-US",
-                          { month: "short", day: "numeric" }
-                        )}
+                        {formatShortDate(project.deadline)}
                       </div>
                     )}
                   </div>
@@ -398,13 +443,7 @@ export default function DashboardPage() {
                   )}
                   <div className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Calendar className="w-3 h-3 text-warning" />
-                    <span>
-                      {new Date(project.deadline).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
+                    <span>{formatDate(project.deadline)}</span>
                   </div>
                 </div>
               </Card>

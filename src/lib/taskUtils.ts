@@ -101,19 +101,7 @@ export function isOverdue(dueDate: string | null, status?: string): boolean {
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
-/** Format an ISO date string as "Mon D" (e.g. "Mar 19"). */
-export function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-/** Format an ISO date string as "Mon D, YYYY" (e.g. "Mar 19, 2026"). */
-export function formatFullDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+export {
+  formatShortDate as formatDate,
+  formatDate as formatFullDate,
+} from "./formatDate";

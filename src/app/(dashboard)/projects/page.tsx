@@ -55,8 +55,10 @@ import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
+import { formatShortDate } from "@/lib/formatDate";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 const VIEW_MODE_KEY = "projects-view-mode";
 
@@ -233,10 +235,7 @@ function ProjectCard({
         {project.deadline ? (
           <span className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            {new Date(project.deadline).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
+            {formatShortDate(project.deadline)}
           </span>
         ) : (
           <span />
@@ -441,8 +440,10 @@ export default function ProjectsPage() {
       {/* Content area */}
       <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[480px] mb-8">
         {loading || roleLoading ? (
-          <div className="flex items-center justify-center py-12 flex-1">
-            <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+          <div className="flex flex-col">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonRow key={i} columns={5} />
+            ))}
           </div>
         ) : paginatedRows.length === 0 ? (
           <EmptyState

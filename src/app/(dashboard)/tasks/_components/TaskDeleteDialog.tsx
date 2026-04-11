@@ -1,6 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,22 +35,23 @@ export function TaskDeleteDialog({
   deleting,
   onDelete,
 }: TaskDeleteDialogProps) {
+  const t = useTranslations("tasks");
   return (
     <Dialog open={!!task} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete &ldquo;{task?.title}&rdquo;?</DialogTitle>
+          <DialogTitle>
+            {t("deleteTitle", { title: task?.title ?? "" })}
+          </DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-text-secondary">
-          This will permanently delete this task. This action cannot be undone.
-        </p>
+        <p className="text-sm text-text-secondary">{t("deleteDescription")}</p>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
+            <Button variant="secondary">{t("cancel")}</Button>
           </DialogClose>
           <Button variant="danger" disabled={deleting} onClick={onDelete}>
             <Trash2 className="w-4 h-4" />
-            {deleting ? "Deleting..." : "Delete"}
+            {deleting ? t("deleting") : t("delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -13,6 +13,7 @@ import { attachments } from "@/lib/api";
 import { statusBadge, versionColor } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
+import { formatDate } from "@/lib/formatDate";
 import type { DbAttachment } from "@/types";
 
 interface VersionHistoryDialogProps {
@@ -141,11 +142,7 @@ export function VersionHistoryDialog({
                           </span>
                         </div>
                         <span className="text-xs text-text-muted">
-                          {new Date(v.created_at).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                          })}
+                          {formatDate(v.created_at)}
                         </span>
                       </div>
                     </div>

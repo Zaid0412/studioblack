@@ -68,20 +68,34 @@ export function PasswordSection({
               onChange={(e) => setCurrentPassword(e.target.value)}
               autoComplete="current-password"
             />
-            <Input
-              label={t("newPassword")}
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-            <Input
-              label={t("confirmNewPassword")}
-              type="password"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              autoComplete="new-password"
-            />
+            <div>
+              <Input
+                label={t("newPassword")}
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              {newPassword && newPassword.length < 8 && (
+                <p className="text-xs text-red-400 mt-1">
+                  {t("passwordTooShort")}
+                </p>
+              )}
+            </div>
+            <div>
+              <Input
+                label={t("confirmNewPassword")}
+                type="password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                autoComplete="new-password"
+              />
+              {confirmNewPassword && newPassword !== confirmNewPassword && (
+                <p className="text-xs text-red-400 mt-1">
+                  {t("passwordMismatch")}
+                </p>
+              )}
+            </div>
           </div>
 
           <Separator />

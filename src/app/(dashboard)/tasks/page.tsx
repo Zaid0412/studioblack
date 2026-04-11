@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import { Plus, Loader2, CheckSquare } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -25,6 +26,7 @@ import {
 } from "./_components/TaskBucketSidebar";
 import { TaskFilterBar } from "./_components/TaskFilterBar";
 import { TaskRow, TaskRowHeader } from "./_components/TaskRow";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -80,6 +82,7 @@ const DEFAULT_COUNTS: BucketCounts = {
 
 /** Task manager page with smart buckets, filters, and CRUD. */
 export default function TasksPage() {
+  const t = useTranslations("tasks");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = authClient.useSession();
@@ -257,8 +260,8 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
       <PageHeader
-        title="Task Manager"
-        subtitle="Manage and track tasks across all projects"
+        title={t("pageTitle")}
+        subtitle={t("pageSubtitle")}
         actions={
           <>
             <RefreshButton
@@ -268,7 +271,7 @@ export default function TasksPage() {
             />
             <Button onClick={openCreate}>
               <Plus className="w-4 h-4" />
-              New Task
+              {t("newTask")}
             </Button>
           </>
         }
@@ -304,15 +307,17 @@ export default function TasksPage() {
               className={`flex-1 transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
             >
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+                <div className="flex flex-col">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <SkeletonRow key={i} columns={5} />
+                  ))}
                 </div>
               ) : tasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
-                  title="No tasks found"
-                  description="There are no tasks matching your current filters."
-                  action={{ label: "Create Task", onClick: openCreate }}
+                  title={t("noTasksTitle")}
+                  description={t("noTasksDescription")}
+                  action={{ label: t("createTask"), onClick: openCreate }}
                 />
               ) : (
                 tasks.map((task) => (
@@ -346,7 +351,11 @@ export default function TasksPage() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={(page) => setParam("page", String(page))}
-                showingText={`Showing ${startIdx + 1}–${endIdx} of ${totalTasks} tasks`}
+                showingText={t("showingTasks", {
+                  start: startIdx + 1,
+                  end: endIdx,
+                  total: totalTasks,
+                })}
               />
             )}
           </div>
