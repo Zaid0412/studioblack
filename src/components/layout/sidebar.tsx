@@ -65,7 +65,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       ? branding.logoUrl
       : (branding.logoUrlDark ?? branding.logoUrl);
 
-  const { data: orgSwr } = useSWR("org-full", () =>
+  const { data: orgSwr } = useSWR(["organization", "full"], () =>
     authClient.organization.getFullOrganization()
   );
   const orgName = useMemo(() => orgSwr?.data?.name ?? null, [orgSwr]);

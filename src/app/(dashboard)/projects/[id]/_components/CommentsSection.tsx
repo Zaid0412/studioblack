@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, MessageSquare, Send } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
@@ -24,12 +25,13 @@ export function CommentsSection({
   sendingComment,
   onSendComment,
 }: CommentsSectionProps) {
+  const t = useTranslations("projectDetail");
   return (
     <div className="px-4 lg:px-10 pb-8">
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
           <MessageSquare className="w-4 h-4" />
-          Comments ({comments.length})
+          {t("comments", { count: comments.length })}
         </h3>
 
         <div className="flex gap-3">
@@ -42,7 +44,7 @@ export function CommentsSection({
                 onSendComment();
               }
             }}
-            placeholder="Leave a comment... (Ctrl+Enter to send)"
+            placeholder={t("commentPlaceholder")}
             className="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
             rows={2}
           />
@@ -62,7 +64,7 @@ export function CommentsSection({
 
         {comments.length === 0 ? (
           <p className="text-sm text-text-muted py-4 text-center">
-            No comments yet.
+            {t("noCommentsYet")}
           </p>
         ) : (
           <div className="flex flex-col gap-3">

@@ -29,12 +29,11 @@ export function formatTimeAgo(timestamp: string, t: TFunc): string {
 }
 
 /** Short time display (e.g. "2:30 PM") for notification timestamps. */
-export function formatTimeShort(timestamp: string): string {
+export function formatTimeShort(timestamp: string, locale?: string): string {
   const date = new Date(timestamp);
-  return date.toLocaleTimeString("en-US", {
+  return date.toLocaleTimeString(locale, {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
   });
 }
 

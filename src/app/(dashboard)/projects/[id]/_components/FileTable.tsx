@@ -341,149 +341,132 @@ export function FileTable({
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
-  const selectedFiles = phaseFiles.filter((f) => selectedIds.has(f.id));
+  const selectedFiles = useMemo(
+    () => phaseFiles.filter((f) => selectedIds.has(f.id)),
+    [phaseFiles, selectedIds]
+  );
 
   const handleBulkDownload = useCallback(() => {
     for (const att of selectedFiles) onDownload(att);
     clearSelection();
   }, [selectedFiles, onDownload, clearSelection]);
 
-  const handleBulkReview = useCallback(
-    async (status: "approved" | "rejected") => {
+  // Shared bulk action helper — runs action, toasts, clears selection, refreshes
+  const bulkAction = useCallback(
+    async (
+      action: () => Promise<unknown>,
+      successTitle: string,
+      successDesc: string,
+      errorDesc: string
+    ) => {
       try {
-        await Promise.all(
-          selectedFiles.map((att) =>
-            attachmentsApi.submitReview(projectId, att.id, { status })
-          )
-        );
+        await action();
         toast({
-          title:
-            status === "approved" ? "Designs approved" : "Designs rejected",
-          description: `${selectedFiles.length} file(s) ${status}.`,
+          title: successTitle,
+          description: successDesc,
           variant: "success",
         });
         clearSelection();
         onRefresh();
       } catch {
-        toast({
-          title: "Error",
-          description: `Failed to ${status} designs.`,
-          variant: "error",
-        });
+        toast({ title: "Error", description: errorDesc, variant: "error" });
       }
     },
-    [selectedFiles, projectId, clearSelection, onRefresh]
+    [clearSelection, onRefresh]
   );
 
-  const handleBulkMarkReviewed = useCallback(async () => {
-    try {
-      await Promise.all(
-        selectedFiles.map((att) =>
-          attachmentsApi.markReviewed(projectId, att.id)
-        )
-      );
-      toast({
-        title: "Marked as reviewed",
-        description: `${selectedFiles.length} file(s) marked as reviewed.`,
-        variant: "success",
-      });
-      clearSelection();
-      onRefresh();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to mark as reviewed.",
-        variant: "error",
-      });
-    }
-  }, [selectedFiles, projectId, clearSelection, onRefresh]);
+  const handleBulkReview = useCallback(
+    (status: "approved" | "rejected") =>
+      bulkAction(
+        () =>
+          Promise.all(
+            selectedFiles.map((att) =>
+              attachmentsApi.submitReview(projectId, att.id, { status })
+            )
+          ),
+        status === "approved" ? "Designs approved" : "Designs rejected",
+        `${selectedFiles.length} file(s) ${status}.`,
+        `Failed to ${status} designs.`
+      ),
+    [selectedFiles, projectId, bulkAction]
+  );
 
-  const handleBulkRemove = useCallback(async () => {
-    try {
-      await Promise.all(
-        selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
-      );
-      toast({
-        title: "Files removed",
-        description: `${selectedFiles.length} file(s) removed.`,
-        variant: "success",
-      });
-      clearSelection();
-      onRefresh();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to remove files.",
-        variant: "error",
-      });
-    }
-  }, [selectedFiles, projectId, clearSelection, onRefresh]);
+  const handleBulkMarkReviewed = useCallback(
+    () =>
+      bulkAction(
+        () =>
+          Promise.all(
+            selectedFiles.map((att) =>
+              attachmentsApi.markReviewed(projectId, att.id)
+            )
+          ),
+        "Marked as reviewed",
+        `${selectedFiles.length} file(s) marked as reviewed.`,
+        "Failed to mark as reviewed."
+      ),
+    [selectedFiles, projectId, bulkAction]
+  );
 
-  const handleBulkSendToClient = useCallback(async () => {
+  const handleBulkRemove = useCallback(
+    () =>
+      bulkAction(
+        () =>
+          Promise.all(
+            selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
+          ),
+        "Files removed",
+        `${selectedFiles.length} file(s) removed.`,
+        "Failed to remove files."
+      ),
+    [selectedFiles, projectId, bulkAction]
+  );
+
+  const handleBulkSendToClient = useCallback(() => {
     const unsent = selectedFiles.filter((att) => !att.sent_to_client_at);
     if (unsent.length === 0) return;
-    try {
-      await Promise.all(
-        unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
-      );
-      toast({
-        title: "Sent to client",
-        description: `${unsent.length} file(s) sent to client.`,
-        variant: "success",
-      });
-      clearSelection();
-      onRefresh();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to send files to client.",
-        variant: "error",
-      });
-    }
-  }, [selectedFiles, projectId, clearSelection, onRefresh]);
+    return bulkAction(
+      () =>
+        Promise.all(
+          unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
+        ),
+      "Sent to client",
+      `${unsent.length} file(s) sent to client.`,
+      "Failed to send files to client."
+    );
+  }, [selectedFiles, projectId, bulkAction]);
 
-  const handleBulkFreeze = useCallback(async () => {
-    try {
-      await Promise.all(
-        selectedFiles
-          .filter((att) => !att.frozen_at)
-          .map((att) => attachmentsApi.freeze(projectId, att.id))
-      );
-      toast({
-        title: "Designs frozen",
-        description: `${selectedFiles.length} file(s) frozen.`,
-        variant: "success",
-      });
-      clearSelection();
-      onRefresh();
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to freeze designs.",
-        variant: "error",
-      });
-    }
-  }, [selectedFiles, projectId, clearSelection, onRefresh]);
+  const handleBulkFreeze = useCallback(
+    () =>
+      bulkAction(
+        () =>
+          Promise.all(
+            selectedFiles
+              .filter((att) => !att.frozen_at)
+              .map((att) => attachmentsApi.freeze(projectId, att.id))
+          ),
+        "Designs frozen",
+        `${selectedFiles.length} file(s) frozen.`,
+        "Failed to freeze designs."
+      ),
+    [selectedFiles, projectId, bulkAction]
+  );
 
   // Long-press on mobile to enter selection mode
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
 
-  const handleTouchStart = useCallback(
-    (attId: string) => {
-      longPressTriggered.current = false;
-      longPressTimer.current = setTimeout(() => {
-        longPressTriggered.current = true;
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(attId)) next.delete(attId);
-          else next.add(attId);
-          return next;
-        });
-      }, 400);
-    },
-    []
-  );
+  const handleTouchStart = useCallback((attId: string) => {
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(attId)) next.delete(attId);
+        else next.add(attId);
+        return next;
+      });
+    }, 400);
+  }, []);
 
   const handleTouchEnd = useCallback(() => {
     if (longPressTimer.current) {
@@ -497,6 +480,13 @@ export function FileTable({
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
+  }, []);
+
+  // Cleanup long-press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    };
   }, []);
 
   const reviewPath = (attId: string) =>
@@ -520,7 +510,13 @@ export function FileTable({
             <>
               <div
                 role="checkbox"
-                aria-checked={selectedIds.size === phaseFiles.length ? true : selectedIds.size > 0 ? "mixed" : false}
+                aria-checked={
+                  selectedIds.size === phaseFiles.length
+                    ? true
+                    : selectedIds.size > 0
+                      ? "mixed"
+                      : false
+                }
                 aria-label="Select all files"
                 tabIndex={0}
                 className="w-4 h-4 rounded-[3px] flex items-center justify-center cursor-pointer shrink-0"
@@ -655,7 +651,7 @@ export function FileTable({
                   {
                     key: "status" as SortKey,
                     width: "w-[140px]",
-                    label: t("statusLabel").replace(":", "") || "Status",
+                    label: t("statusLabel").replace(/[:\s]+$/, ""),
                   },
                 ] as const
               ).map(({ key, width, label }) => (
@@ -822,7 +818,15 @@ export function FileTable({
                             tabIndex={0}
                             className="absolute inset-0 flex items-center justify-center w-4 h-4 rounded-[3px] bg-accent"
                             onClick={(e) => toggleSelect(att.id, e)}
-                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleSelect(att.id, e as unknown as React.MouseEvent); } }}
+                            onKeyDown={(e) => {
+                              if (e.key === " " || e.key === "Enter") {
+                                e.preventDefault();
+                                toggleSelect(
+                                  att.id,
+                                  e as unknown as React.MouseEvent
+                                );
+                              }
+                            }}
                           >
                             <Check
                               className="w-3 h-3 text-black"
@@ -841,7 +845,15 @@ export function FileTable({
                                 : "opacity-0 group-hover:opacity-100"
                             }`}
                             onClick={(e) => toggleSelect(att.id, e)}
-                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleSelect(att.id, e as unknown as React.MouseEvent); } }}
+                            onKeyDown={(e) => {
+                              if (e.key === " " || e.key === "Enter") {
+                                e.preventDefault();
+                                toggleSelect(
+                                  att.id,
+                                  e as unknown as React.MouseEvent
+                                );
+                              }
+                            }}
                           />
                         )}
                         {/* Version badge — hidden when checkbox is showing */}
@@ -983,9 +995,7 @@ export function FileTable({
                     </div>
                     <div className="flex items-center gap-3 text-xs text-text-muted">
                       <span>{fileType(att.file_name)}</span>
-                      <span>
-                        {formatShortDate(att.created_at)}
-                      </span>
+                      <span>{formatShortDate(att.created_at)}</span>
                       {att.uploaded_by_name && (
                         <span className="ml-auto text-text-secondary truncate">
                           {att.uploaded_by_name}

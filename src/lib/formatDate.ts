@@ -1,22 +1,22 @@
 /**
  * Shared date formatting utilities.
  *
- * All formatters use en-US locale with consistent options.
+ * Locale defaults to `undefined` (browser locale) but can be overridden.
  * Centralises date display logic that was previously scattered
  * across 12+ components with inconsistent locale/format choices.
  */
 
 /** "Apr 11" — short date without year. */
-export function formatShortDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+export function formatShortDate(dateStr: string, locale?: string): string {
+  return new Date(dateStr).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
   });
 }
 
 /** "Apr 11, 2026" — date with year. */
-export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+export function formatDate(dateStr: string, locale?: string): string {
+  return new Date(dateStr).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -24,8 +24,8 @@ export function formatDate(dateStr: string): string {
 }
 
 /** "Apr 11, 2:30 PM" — short date with time. */
-export function formatShortDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+export function formatShortDateTime(dateStr: string, locale?: string): string {
+  return new Date(dateStr).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -34,8 +34,8 @@ export function formatShortDateTime(dateStr: string): string {
 }
 
 /** "Apr 11, 2026, 2:30 PM" — full date with time. */
-export function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+export function formatDateTime(dateStr: string, locale?: string): string {
+  return new Date(dateStr).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",

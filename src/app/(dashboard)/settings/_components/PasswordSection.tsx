@@ -77,7 +77,9 @@ export function PasswordSection({
                 autoComplete="new-password"
               />
               {newPassword && newPassword.length < 8 && (
-                <p className="text-xs text-red-400 mt-1">Minimum 8 characters</p>
+                <p className="text-xs text-red-400 mt-1">
+                  {t("passwordTooShort")}
+                </p>
               )}
             </div>
             <div>
@@ -89,7 +91,9 @@ export function PasswordSection({
                 autoComplete="new-password"
               />
               {confirmNewPassword && newPassword !== confirmNewPassword && (
-                <p className="text-xs text-red-400 mt-1">Passwords do not match</p>
+                <p className="text-xs text-red-400 mt-1">
+                  {t("passwordMismatch")}
+                </p>
               )}
             </div>
           </div>

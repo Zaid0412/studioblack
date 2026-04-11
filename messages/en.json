@@ -553,7 +553,15 @@
     "preview": "Preview",
     "openInNewTab": "Open in new tab",
     "download": "Download",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "statusTodo": "To Do",
+    "statusInProgress": "In Progress",
+    "statusCompleted": "Completed",
+    "statusArchived": "Archived",
+    "priorityLow": "Low",
+    "priorityMedium": "Medium",
+    "priorityHigh": "High",
+    "priorityUrgent": "Urgent"
   },
   "organisation": {
     "title": "Organisation",

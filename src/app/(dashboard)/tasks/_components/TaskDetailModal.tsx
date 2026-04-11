@@ -51,8 +51,6 @@ import { avatarColor } from "@/lib/avatarUtils";
 import {
   PRIORITY_DOT,
   STATUS_DOT,
-  STATUS_LABEL,
-  PRIORITY_LABEL,
   initials,
   capitalize,
   formatFullDate,
@@ -60,6 +58,24 @@ import {
 } from "@/lib/taskUtils";
 import type { Task } from "@/types";
 import { useTaskDetail, type ChecklistItem } from "../_hooks/useTaskDetail";
+
+// ---------------------------------------------------------------------------
+// i18n key maps
+// ---------------------------------------------------------------------------
+
+const STATUS_TKEY: Record<string, string> = {
+  todo: "statusTodo",
+  in_progress: "statusInProgress",
+  completed: "statusCompleted",
+  archived: "statusArchived",
+};
+
+const PRIORITY_TKEY: Record<string, string> = {
+  low: "priorityLow",
+  medium: "priorityMedium",
+  high: "priorityHigh",
+  urgent: "priorityUrgent",
+};
 
 // ---------------------------------------------------------------------------
 // File type color helpers
@@ -327,7 +343,9 @@ export function TaskDetailModal({
                     className={`w-2.5 h-2.5 rounded-full shrink-0 ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                   />
                 </TooltipTrigger>
-                <TooltipContent>{PRIORITY_LABEL[task.priority]}</TooltipContent>
+                <TooltipContent>
+                  {t(PRIORITY_TKEY[task.priority])}
+                </TooltipContent>
               </Tooltip>
               <DialogTitle className="text-base font-semibold flex-1">
                 {task.title}
@@ -357,7 +375,7 @@ export function TaskDetailModal({
                   className={`w-[7px] h-[7px] rounded-full ${STATUS_DOT[task.status] ?? "bg-gray-400"}`}
                 />
                 <span className="text-xs font-medium text-text-primary">
-                  {STATUS_LABEL[task.status] ?? task.status}
+                  {t(STATUS_TKEY[task.status] ?? task.status)}
                 </span>
               </DetailRow>
               <DetailSep />
@@ -366,7 +384,7 @@ export function TaskDetailModal({
                   className={`w-[7px] h-[7px] rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                 />
                 <span className="text-xs font-medium text-text-primary">
-                  {PRIORITY_LABEL[task.priority]}
+                  {t(PRIORITY_TKEY[task.priority])}
                 </span>
               </DetailRow>
               <DetailSep />
@@ -418,7 +436,9 @@ export function TaskDetailModal({
                     </span>
                   </>
                 ) : (
-                  <span className="text-xs text-text-muted">{t("unassigned")}</span>
+                  <span className="text-xs text-text-muted">
+                    {t("unassigned")}
+                  </span>
                 )}
               </DetailRow>
               <DetailSep />
@@ -443,7 +463,8 @@ export function TaskDetailModal({
               <DetailSep />
               <DetailRow label={t("created")}>
                 <span className="text-xs text-text-secondary">
-                  {formatFullDate(task.created_at)} {t("by")} {task.created_by_name}
+                  {formatFullDate(task.created_at)} {t("by")}{" "}
+                  {task.created_by_name}
                 </span>
               </DetailRow>
               {task.completed_at && (
@@ -469,7 +490,10 @@ export function TaskDetailModal({
                 </div>
                 {checklistItems.length > 0 && (
                   <span className="text-[11px] text-text-muted">
-                    {t("checklistCompleted", { done: doneCount, total: checklistItems.length })}
+                    {t("checklistCompleted", {
+                      done: doneCount,
+                      total: checklistItems.length,
+                    })}
                   </span>
                 )}
               </div>
@@ -623,7 +647,9 @@ export function TaskDetailModal({
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </a>
                               </TooltipTrigger>
-                              <TooltipContent>{t("openInNewTab")}</TooltipContent>
+                              <TooltipContent>
+                                {t("openInNewTab")}
+                              </TooltipContent>
                             </Tooltip>
                           )}
                           <Tooltip>

@@ -553,7 +553,15 @@
     "preview": "Önizleme",
     "openInNewTab": "Yeni sekmede aç",
     "download": "İndir",
-    "loading": "Yükleniyor..."
+    "loading": "Yükleniyor...",
+    "statusTodo": "Yapılacak",
+    "statusInProgress": "Devam Ediyor",
+    "statusCompleted": "Tamamlandı",
+    "statusArchived": "Arşivlendi",
+    "priorityLow": "Düşük",
+    "priorityMedium": "Orta",
+    "priorityHigh": "Yüksek",
+    "priorityUrgent": "Acil"
   },
   "organisation": {
     "title": "Organizasyon",

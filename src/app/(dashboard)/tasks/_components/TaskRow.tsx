@@ -28,7 +28,6 @@ import { avatarColor } from "@/lib/avatarUtils";
 import {
   PRIORITY_DOT,
   STATUS_BADGE_VARIANT,
-  STATUS_LABEL,
   initials,
   isOverdue,
   formatDate,
@@ -75,21 +74,42 @@ export function TaskRowHeader({
     <div className="hidden lg:flex items-center h-11 px-4 bg-bg-elevated gap-3">
       <div className="w-3" /> {/* priority dot spacer */}
       <div className="w-6" /> {/* star spacer */}
-      <div className="flex-1 text-xs font-bold text-text-muted">{t("task")}</div>
+      <div className="flex-1 text-xs font-bold text-text-muted">
+        {t("task")}
+      </div>
       {showProject && (
         <div className="w-[120px] text-xs font-bold text-text-muted">
           {t("project")}
         </div>
       )}
-      <div className="w-[90px] text-xs font-bold text-text-muted">{t("category")}</div>
-      <div className="w-[80px] text-xs font-bold text-text-muted">{t("assignee")}</div>
-      <div className="w-[90px] text-xs font-bold text-text-muted">{t("dueDate")}</div>
-      <div className="w-[100px] text-xs font-bold text-text-muted">{t("status")}</div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">
+        {t("category")}
+      </div>
+      <div className="w-[80px] text-xs font-bold text-text-muted">
+        {t("assignee")}
+      </div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">
+        {t("dueDate")}
+      </div>
+      <div className="w-[100px] text-xs font-bold text-text-muted">
+        {t("status")}
+      </div>
       {showGoToProject && <div className="w-8" />}
       <div className="w-8" />
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// i18n key maps
+// ---------------------------------------------------------------------------
+
+const STATUS_TKEY: Record<string, string> = {
+  todo: "statusTodo",
+  in_progress: "statusInProgress",
+  completed: "statusCompleted",
+  archived: "statusArchived",
+};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -280,7 +300,7 @@ export function TaskRow({
                 className="cursor-pointer"
               >
                 <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
-                  {STATUS_LABEL[task.status] ?? task.status}
+                  {t(STATUS_TKEY[task.status] ?? task.status)}
                 </Badge>
               </button>
             </TooltipTrigger>
@@ -358,7 +378,7 @@ export function TaskRow({
             className="cursor-pointer"
           >
             <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
-              {STATUS_LABEL[task.status] ?? task.status}
+              {t(STATUS_TKEY[task.status] ?? task.status)}
             </Badge>
           </button>
           <Badge variant="draft" className="text-[10px] px-2 py-0.5">
