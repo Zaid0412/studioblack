@@ -27,6 +27,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { PRIORITIES, CATEGORIES, capitalize } from "@/lib/taskUtils";
+import {
+  getFileExtension,
+  fileTypeBadge,
+  formatFileSize,
+  MAX_UPLOAD_SIZE,
+} from "@/lib/fileUtils";
+import { toast } from "@/components/ui/useToast";
 import type { Task, TaskFormData } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -54,34 +61,6 @@ export interface TaskFormDialogProps {
   onProjectChange?: (projectId: string) => void;
   // Members for assignment
   members: MemberOption[];
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const FILE_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  pdf: { bg: "#3B82F620", text: "#3B82F6" },
-  doc: { bg: "#3B82F620", text: "#3B82F6" },
-  docx: { bg: "#3B82F620", text: "#3B82F6" },
-  jpg: { bg: "#22C55E20", text: "#22C55E" },
-  jpeg: { bg: "#22C55E20", text: "#22C55E" },
-  png: { bg: "#22C55E20", text: "#22C55E" },
-  webp: { bg: "#22C55E20", text: "#22C55E" },
-  dwg: { bg: "#F59E0B20", text: "#F59E0B" },
-  dxf: { bg: "#F59E0B20", text: "#F59E0B" },
-};
-
-function getFileBadge(name: string) {
-  const ext = name.split(".").pop()?.toLowerCase() || "";
-  const colors = FILE_TYPE_COLORS[ext] || { bg: "#6B6B6B20", text: "#6B6B6B" };
-  return { label: ext.toUpperCase() || "FILE", ...colors };
-}
-
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,11 +114,23 @@ export function TaskFormDialog({
 
   const addFiles = useCallback(
     (files: FileList | File[]) => {
-      const newFiles = Array.from(files);
-      if (newFiles.length === 0) return;
+      const incoming = Array.from(files);
+      if (incoming.length === 0) return;
+
+      const tooLarge = incoming.filter((f) => f.size > MAX_UPLOAD_SIZE);
+      if (tooLarge.length > 0) {
+        toast({
+          title: "File too large",
+          description: `${tooLarge.map((f) => f.name).join(", ")} exceed${tooLarge.length === 1 ? "s" : ""} the 50 MB limit.`,
+          variant: "error",
+        });
+      }
+
+      const valid = incoming.filter((f) => f.size <= MAX_UPLOAD_SIZE);
+      if (valid.length === 0) return;
       setFormData((f) => ({
         ...f,
-        pendingFiles: [...f.pendingFiles, ...newFiles],
+        pendingFiles: [...f.pendingFiles, ...valid],
       }));
     },
     [setFormData]
@@ -493,7 +484,8 @@ export function TaskFormDialog({
                 {formData.pendingFiles.length > 0 && (
                   <div className="flex flex-col gap-1">
                     {formData.pendingFiles.map((file, i) => {
-                      const badge = getFileBadge(file.name);
+                      const ext = getFileExtension(file.name);
+                      const badge = fileTypeBadge(ext);
                       return (
                         <div
                           key={i}

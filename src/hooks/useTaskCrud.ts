@@ -139,9 +139,17 @@ export function useTaskCrud({
         }
 
         if (postCreateWork.length > 0) {
-          await Promise.all(postCreateWork).catch((err) =>
-            console.error("Post-create attachment error:", err)
-          );
+          try {
+            await Promise.all(postCreateWork);
+          } catch (err) {
+            console.error("Post-create attachment error:", err);
+            toast({
+              title: "Task created with issues",
+              description:
+                "Some checklist items or attachments failed to save. You can add them from the task detail view.",
+              variant: "warning",
+            });
+          }
         }
       }
 

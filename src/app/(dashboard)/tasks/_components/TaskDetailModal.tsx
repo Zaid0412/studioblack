@@ -57,45 +57,9 @@ import {
   formatFullDate,
   isOverdue,
 } from "@/lib/taskUtils";
+import { getFileExtension, fileTypeBadge } from "@/lib/fileUtils";
 import type { Task } from "@/types";
 import { useTaskDetail, type ChecklistItem } from "../_hooks/useTaskDetail";
-
-// ---------------------------------------------------------------------------
-// File type color helpers
-// ---------------------------------------------------------------------------
-
-function getFileExtension(name: string): string {
-  return (name.split(".").pop() ?? "").toLowerCase();
-}
-
-function fileTypeBadge(ext: string): {
-  bg: string;
-  text: string;
-  label: string;
-} {
-  switch (ext) {
-    case "pdf":
-      return { bg: "#1E3A5F", text: "#60A5FA", label: "PDF" };
-    case "png":
-    case "jpg":
-    case "jpeg":
-    case "webp":
-      return { bg: "#1E3F1E", text: "#4ADE80", label: ext.toUpperCase() };
-    case "dwg":
-    case "ai":
-    case "psd":
-    case "sketch":
-      return { bg: "#2D1E5F", text: "#A78BFA", label: ext.toUpperCase() };
-    case "svg":
-      return { bg: "#3F2E1E", text: "#FB923C", label: "SVG" };
-    default:
-      return {
-        bg: "var(--bg-elevated)",
-        text: "var(--text-secondary)",
-        label: ext.toUpperCase() || "FILE",
-      };
-  }
-}
 
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "svg", "gif"]);
 const PDF_EXTS = new Set(["pdf"]);
