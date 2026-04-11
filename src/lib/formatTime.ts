@@ -37,8 +37,8 @@ export function formatTimeShort(timestamp: string, locale?: string): string {
   });
 }
 
-/** Compact relative time without i18n (e.g. "5m ago", "3h ago", "2d ago"). */
-export function relativeTime(dateStr: string): string {
+/** Compact relative time using Intl.RelativeTimeFormat (locale-aware). */
+export function relativeTime(dateStr: string, locale?: string): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diffMs = now - then;
@@ -46,8 +46,13 @@ export function relativeTime(dateStr: string): string {
   const diffHrs = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMin < 60) return `${Math.max(1, diffMin)}m ago`;
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return formatShortDate(dateStr);
+  if (diffDays >= 7) return formatShortDate(dateStr, locale);
+
+  const rtf = new Intl.RelativeTimeFormat(locale, {
+    numeric: "always",
+    style: "narrow",
+  });
+  if (diffMin < 60) return rtf.format(-Math.max(1, diffMin), "minute");
+  if (diffHrs < 24) return rtf.format(-diffHrs, "hour");
+  return rtf.format(-diffDays, "day");
 }

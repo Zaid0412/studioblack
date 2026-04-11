@@ -369,10 +369,14 @@ export function FileTable({
         clearSelection();
         onRefresh();
       } catch {
-        toast({ title: "Error", description: errorDesc, variant: "error" });
+        toast({
+          title: t("bulkError"),
+          description: errorDesc,
+          variant: "error",
+        });
       }
     },
-    [clearSelection, onRefresh]
+    [clearSelection, onRefresh, t]
   );
 
   const handleBulkReview = useCallback(
@@ -384,11 +388,15 @@ export function FileTable({
               attachmentsApi.submitReview(projectId, att.id, { status })
             )
           ),
-        status === "approved" ? "Designs approved" : "Designs rejected",
-        `${selectedFiles.length} file(s) ${status}.`,
-        `Failed to ${status} designs.`
+        status === "approved"
+          ? t("bulkDesignsApproved")
+          : t("bulkDesignsRejected"),
+        status === "approved"
+          ? t("bulkFilesApproved", { count: selectedFiles.length })
+          : t("bulkFilesRejected", { count: selectedFiles.length }),
+        status === "approved" ? t("bulkApproveError") : t("bulkRejectError")
       ),
-    [selectedFiles, projectId, bulkAction]
+    [selectedFiles, projectId, bulkAction, t]
   );
 
   const handleBulkMarkReviewed = useCallback(
@@ -400,11 +408,11 @@ export function FileTable({
               attachmentsApi.markReviewed(projectId, att.id)
             )
           ),
-        "Marked as reviewed",
-        `${selectedFiles.length} file(s) marked as reviewed.`,
-        "Failed to mark as reviewed."
+        t("bulkMarkedReviewed"),
+        t("bulkMarkedReviewedDesc", { count: selectedFiles.length }),
+        t("bulkMarkReviewedError")
       ),
-    [selectedFiles, projectId, bulkAction]
+    [selectedFiles, projectId, bulkAction, t]
   );
 
   const handleBulkRemove = useCallback(
@@ -414,26 +422,26 @@ export function FileTable({
           Promise.all(
             selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
           ),
-        "Files removed",
-        `${selectedFiles.length} file(s) removed.`,
-        "Failed to remove files."
+        t("bulkFilesRemoved"),
+        t("bulkFilesRemovedDesc", { count: selectedFiles.length }),
+        t("bulkRemoveError")
       ),
-    [selectedFiles, projectId, bulkAction]
+    [selectedFiles, projectId, bulkAction, t]
   );
 
   const handleBulkSendToClient = useCallback(() => {
     const unsent = selectedFiles.filter((att) => !att.sent_to_client_at);
-    if (unsent.length === 0) return;
+    if (unsent.length === 0) return Promise.resolve();
     return bulkAction(
       () =>
         Promise.all(
           unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
         ),
-      "Sent to client",
-      `${unsent.length} file(s) sent to client.`,
-      "Failed to send files to client."
+      t("bulkSentToClient"),
+      t("bulkSentToClientDesc", { count: unsent.length }),
+      t("bulkSendToClientError")
     );
-  }, [selectedFiles, projectId, bulkAction]);
+  }, [selectedFiles, projectId, bulkAction, t]);
 
   const handleBulkFreeze = useCallback(
     () =>
@@ -444,11 +452,11 @@ export function FileTable({
               .filter((att) => !att.frozen_at)
               .map((att) => attachmentsApi.freeze(projectId, att.id))
           ),
-        "Designs frozen",
-        `${selectedFiles.length} file(s) frozen.`,
-        "Failed to freeze designs."
+        t("bulkDesignsFrozen"),
+        t("bulkDesignsFrozenDesc", { count: selectedFiles.length }),
+        t("bulkFreezeError")
       ),
-    [selectedFiles, projectId, bulkAction]
+    [selectedFiles, projectId, bulkAction, t]
   );
 
   // Long-press on mobile to enter selection mode
