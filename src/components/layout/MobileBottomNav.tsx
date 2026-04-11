@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
-import { useUserRole } from "@/contexts/UserRoleContext";
+import { useUserRole } from "@/hooks/useUserRole";
 import type { LucideIcon } from "lucide-react";
 
 interface Tab {

@@ -25,6 +25,7 @@ import {
 } from "./_components/TaskBucketSidebar";
 import { TaskFilterBar } from "./_components/TaskFilterBar";
 import { TaskRow, TaskRowHeader } from "./_components/TaskRow";
+import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -300,8 +301,10 @@ export default function TasksPage() {
               className={`flex-1 transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
             >
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+                <div className="flex flex-col">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <SkeletonRow key={i} columns={5} />
+                  ))}
                 </div>
               ) : tasks.length === 0 ? (
                 <EmptyState

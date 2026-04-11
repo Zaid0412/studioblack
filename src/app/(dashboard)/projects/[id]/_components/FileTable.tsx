@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -465,6 +465,40 @@ export function FileTable({
     }
   }, [selectedFiles, projectId, clearSelection, onRefresh]);
 
+  // Long-press on mobile to enter selection mode
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+
+  const handleTouchStart = useCallback(
+    (attId: string) => {
+      longPressTriggered.current = false;
+      longPressTimer.current = setTimeout(() => {
+        longPressTriggered.current = true;
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(attId)) next.delete(attId);
+          else next.add(attId);
+          return next;
+        });
+      }, 400);
+    },
+    []
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   const reviewPath = (attId: string) =>
     `${basePath}/${projectId}/review/${attId}`;
 
@@ -485,6 +519,10 @@ export function FileTable({
           {hasSelection ? (
             <>
               <div
+                role="checkbox"
+                aria-checked={selectedIds.size === phaseFiles.length ? true : selectedIds.size > 0 ? "mixed" : false}
+                aria-label="Select all files"
+                tabIndex={0}
                 className="w-4 h-4 rounded-[3px] flex items-center justify-center cursor-pointer shrink-0"
                 style={{
                   backgroundColor:
@@ -501,6 +539,16 @@ export function FileTable({
                     clearSelection();
                   } else {
                     setSelectedIds(new Set(phaseFiles.map((f) => f.id)));
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    if (selectedIds.size === phaseFiles.length) {
+                      clearSelection();
+                    } else {
+                      setSelectedIds(new Set(phaseFiles.map((f) => f.id)));
+                    }
                   }
                 }}
               >
@@ -768,8 +816,13 @@ export function FileTable({
                         {/* Checkbox — shown on hover or when in selection mode */}
                         {isSelected ? (
                           <div
+                            role="checkbox"
+                            aria-checked={true}
+                            aria-label={`Deselect ${att.file_name}`}
+                            tabIndex={0}
                             className="absolute inset-0 flex items-center justify-center w-4 h-4 rounded-[3px] bg-accent"
                             onClick={(e) => toggleSelect(att.id, e)}
+                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleSelect(att.id, e as unknown as React.MouseEvent); } }}
                           >
                             <Check
                               className="w-3 h-3 text-black"
@@ -778,12 +831,17 @@ export function FileTable({
                           </div>
                         ) : (
                           <div
+                            role="checkbox"
+                            aria-checked={false}
+                            aria-label={`Select ${att.file_name}`}
+                            tabIndex={0}
                             className={`absolute inset-0 w-4 h-4 rounded-[3px] border border-text-muted transition-opacity ${
                               hasSelection
                                 ? "opacity-100"
                                 : "opacity-0 group-hover:opacity-100"
                             }`}
                             onClick={(e) => toggleSelect(att.id, e)}
+                            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleSelect(att.id, e as unknown as React.MouseEvent); } }}
                           />
                         )}
                         {/* Version badge — hidden when checkbox is showing */}
@@ -856,11 +914,18 @@ export function FileTable({
                           ? "bg-blue-500/[0.04] border-l-blue-500"
                           : "border-l-transparent"
                     }`}
-                    onClick={(e) =>
+                    onTouchStart={() => handleTouchStart(att.id)}
+                    onTouchEnd={handleTouchEnd}
+                    onTouchMove={handleTouchMove}
+                    onClick={(e) => {
+                      if (longPressTriggered.current) {
+                        longPressTriggered.current = false;
+                        return;
+                      }
                       hasSelection
                         ? toggleSelect(att.id, e)
-                        : router.push(reviewPath(att.id))
-                    }
+                        : router.push(reviewPath(att.id));
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -934,6 +999,76 @@ export function FileTable({
           )}
         </div>
       </div>
+
+      {/* Mobile bulk action bar */}
+      {hasSelection && (
+        <div className="fixed bottom-14 inset-x-0 z-40 lg:hidden bg-bg-secondary border-t border-border-default px-4 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-accent shrink-0">
+              {selectedIds.size} selected
+            </span>
+            <button
+              onClick={clearSelection}
+              className="text-[10px] text-text-muted hover:text-text-primary cursor-pointer shrink-0"
+            >
+              Clear
+            </button>
+            <div className="flex-1" />
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleBulkDownload}
+                className="p-2 rounded-md text-text-secondary bg-bg-elevated border border-border-default hover:bg-bg-elevated/80 transition-colors cursor-pointer"
+                aria-label="Download selected"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+              {isClient && (
+                <>
+                  <button
+                    onClick={() => handleBulkReview("approved")}
+                    className="p-2 rounded-md text-emerald-400 bg-emerald-400/[0.08] border border-emerald-400/20 hover:bg-emerald-400/[0.15] transition-colors cursor-pointer"
+                    aria-label="Approve selected"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleBulkReview("rejected")}
+                    className="p-2 rounded-md text-red-400 bg-red-400/[0.08] border border-red-400/20 hover:bg-red-400/[0.15] transition-colors cursor-pointer"
+                    aria-label="Reject selected"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+              {isStaff && (
+                <>
+                  <button
+                    onClick={handleBulkSendToClient}
+                    className="p-2 rounded-md text-text-secondary bg-bg-elevated border border-border-default hover:bg-bg-elevated/80 transition-colors cursor-pointer"
+                    aria-label="Send to client"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleBulkFreeze}
+                    className="p-2 rounded-md text-accent bg-accent/[0.08] border border-accent/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
+                    aria-label="Freeze design"
+                  >
+                    <Lock className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleBulkRemove}
+                    className="p-2 rounded-md text-red-400 bg-red-400/[0.08] border border-red-400/20 hover:bg-red-400/[0.15] transition-colors cursor-pointer"
+                    aria-label="Remove selected"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {!readOnly && (
         <UploadDialog
