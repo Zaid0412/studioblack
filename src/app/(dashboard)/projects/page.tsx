@@ -55,6 +55,7 @@ import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
+import { formatShortDate } from "@/lib/formatDate";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -233,10 +234,7 @@ function ProjectCard({
         {project.deadline ? (
           <span className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            {new Date(project.deadline).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            })}
+            {formatShortDate(project.deadline)}
           </span>
         ) : (
           <span />

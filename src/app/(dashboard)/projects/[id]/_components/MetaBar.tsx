@@ -5,6 +5,7 @@ import { Calendar, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
+import { formatDate } from "@/lib/formatDate";
 import type { DbMember } from "@/types";
 
 interface MetaBarProps {
@@ -80,11 +81,7 @@ export function MetaBar({
           <div className="flex items-center gap-1.5 text-text-secondary">
             <Calendar className="w-3.5 h-3.5 text-accent" />
             {t("duePrefix")}{" "}
-            {new Date(deadline).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
+            {formatDate(deadline)}
           </div>
         )}
         {members.length > 0 && (
@@ -119,11 +116,7 @@ export function MetaBar({
       .filter((m) => m.role === "architect")
       .map((m) => m.name)
       .join(", ") || "\u2014";
-  const createdDate = new Date(createdAt).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const createdDate = formatDate(createdAt);
   return (
     <div className="px-4 lg:px-10 py-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-0 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4">

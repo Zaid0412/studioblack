@@ -9,20 +9,12 @@ import {
   ClipboardCheck,
 } from "lucide-react";
 import { displayName } from "@/lib/fileUtils";
+import { formatShortDateTime } from "@/lib/formatDate";
 import type { DbAttachmentReview } from "@/types";
 
 interface ReviewPanelProps {
   reviews: DbAttachmentReview[];
   onClose: () => void;
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 /**
@@ -133,7 +125,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
 
                   {/* Timestamp */}
                   <p className="text-[10px] text-text-secondary ml-5.5 mt-1.5">
-                    {formatDate(rev.created_at)}
+                    {formatShortDateTime(rev.created_at)}
                   </p>
                 </div>
               );

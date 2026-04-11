@@ -26,6 +26,7 @@ import { fileType, statusBadge, versionColor } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { avatarColor } from "@/lib/avatarUtils";
+import { formatDate, formatShortDate } from "@/lib/formatDate";
 import type { DbAttachment } from "@/types";
 
 type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
@@ -831,11 +832,7 @@ export function FileTable({
                     </div>
                     <div className="w-[110px]">
                       <span className="text-[12px] text-text-muted">
-                        {new Date(att.created_at).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {formatDate(att.created_at)}
                       </span>
                     </div>
                     <div className="w-[140px]">
@@ -922,10 +919,7 @@ export function FileTable({
                     <div className="flex items-center gap-3 text-xs text-text-muted">
                       <span>{fileType(att.file_name)}</span>
                       <span>
-                        {new Date(att.created_at).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                        })}
+                        {formatShortDate(att.created_at)}
                       </span>
                       {att.uploaded_by_name && (
                         <span className="ml-auto text-text-secondary truncate">

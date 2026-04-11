@@ -91,6 +91,7 @@ export function ProjectForm({
     ...initialData,
   }));
 
+  const [submitted, setSubmitted] = useState(false);
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
   const teamDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +132,8 @@ export function ProjectForm({
 
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
+    if (!form.name.trim() || (mode === "create" && !form.category)) return;
     onSubmit(form);
   }
 
@@ -143,15 +146,20 @@ export function ProjectForm({
           </h3>
         )}
 
-        <Input
-          label={t("projectName")}
-          placeholder={
-            mode === "create" ? t("projectNamePlaceholder") : undefined
-          }
-          value={form.name}
-          onChange={(e) => updateField("name", e.target.value)}
-          required
-        />
+        <div>
+          <Input
+            label={t("projectName")}
+            placeholder={
+              mode === "create" ? t("projectNamePlaceholder") : undefined
+            }
+            value={form.name}
+            onChange={(e) => updateField("name", e.target.value)}
+            required
+          />
+          {submitted && !form.name.trim() && (
+            <p className="text-xs text-red-400 mt-1">{t("projectNameRequired")}</p>
+          )}
+        </div>
 
         {mode === "create" && (
           <div className="flex flex-col gap-1.5">
@@ -188,6 +196,9 @@ export function ProjectForm({
                 </SelectItem>
               </SelectContent>
             </Select>
+            {submitted && !form.category && (
+              <p className="text-xs text-red-400 mt-1">{t("categoryRequired")}</p>
+            )}
           </div>
         )}
 

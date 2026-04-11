@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
+import { formatDate } from "@/lib/formatDate";
 import type { DbComment } from "@/types";
 
 interface CommentsSectionProps {
@@ -81,10 +82,7 @@ export function CommentsSection({
                       {comment.user_name}
                     </span>
                     <span className="text-[11px] text-text-muted">
-                      {new Date(comment.created_at).toLocaleDateString(
-                        "en-US",
-                        { month: "short", day: "numeric", year: "numeric" }
-                      )}
+                      {formatDate(comment.created_at)}
                     </span>
                   </div>
                 </div>

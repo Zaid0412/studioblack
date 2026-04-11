@@ -3,12 +3,14 @@
 import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { FolderOpen, Search, Loader2 } from "lucide-react";
+import { FolderOpen, Search, Loader2, AlertCircle } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { activityIcons } from "@/lib/activityConstants";
+import { formatShortDateTime } from "@/lib/formatDate";
 import type { DbNotificationRow } from "@/types";
 
 /** Audit history page showing recent notifications as activity log. */
@@ -20,6 +22,7 @@ export default function AuditPage() {
   const {
     data: entries = [],
     isLoading: loading,
+    error,
     mutate,
   } = useSWR<DbNotificationRow[]>("/api/notifications");
 
@@ -56,7 +59,15 @@ export default function AuditPage() {
       />
 
       <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        {loading ? (
+        {error ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <AlertCircle className="w-6 h-6 text-red-400" />
+            <p className="text-sm text-text-muted">Something went wrong loading audit history.</p>
+            <Button variant="secondary" size="sm" onClick={() => mutate()}>
+              Retry
+            </Button>
+          </div>
+        ) : loading ? (
           <div className="py-12 text-center">
             <Loader2 className="w-5 h-5 animate-spin text-text-muted mx-auto" />
           </div>
@@ -114,15 +125,7 @@ export default function AuditPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <span className="text-xs text-text-muted">
-                          {new Date(entry.created_at).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                            }
-                          )}
+                          {formatShortDateTime(entry.created_at)}
                         </span>
                       </td>
                     </tr>

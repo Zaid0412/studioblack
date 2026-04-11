@@ -5,6 +5,8 @@
  * and relativeTime (projects list) into one module.
  */
 
+import { formatShortDate } from "./formatDate";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TFunc = (key: string, values?: Record<string, any>) => string;
 
@@ -23,7 +25,7 @@ export function formatTimeAgo(timestamp: string, t: TFunc): string {
   if (diffHours < 1) return t("justNow");
   if (diffHours < 24) return t("hoursAgo", { count: diffHours });
   if (diffDays < 7) return t("daysAgo", { count: diffDays });
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return formatShortDate(timestamp);
 }
 
 /** Short time display (e.g. "2:30 PM") for notification timestamps. */
@@ -48,8 +50,5 @@ export function relativeTime(dateStr: string): string {
   if (diffMin < 60) return `${Math.max(1, diffMin)}m ago`;
   if (diffHrs < 24) return `${diffHrs}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+  return formatShortDate(dateStr);
 }

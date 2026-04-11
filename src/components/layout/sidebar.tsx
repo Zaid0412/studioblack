@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
@@ -64,17 +65,10 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       ? branding.logoUrl
       : (branding.logoUrlDark ?? branding.logoUrl);
 
-  const [orgName, setOrgName] = useState<string | null>(null);
-  useEffect(() => {
-    async function fetchOrgData() {
-      const { data: orgData } =
-        await authClient.organization.getFullOrganization();
-      if (orgData) {
-        setOrgName(orgData.name);
-      }
-    }
-    fetchOrgData();
-  }, []);
+  const { data: orgSwr } = useSWR("org-full", () =>
+    authClient.organization.getFullOrganization()
+  );
+  const orgName = useMemo(() => orgSwr?.data?.name ?? null, [orgSwr]);
 
   const handleLogout = async () => {
     await authClient.signOut();
