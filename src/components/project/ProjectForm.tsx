@@ -157,7 +157,9 @@ export function ProjectForm({
             required
           />
           {submitted && !form.name.trim() && (
-            <p className="text-xs text-red-400 mt-1">{t("projectNameRequired")}</p>
+            <p className="text-xs text-red-400 mt-1">
+              {t("projectNameRequired")}
+            </p>
           )}
         </div>
 
@@ -197,7 +199,9 @@ export function ProjectForm({
               </SelectContent>
             </Select>
             {submitted && !form.category && (
-              <p className="text-xs text-red-400 mt-1">{t("categoryRequired")}</p>
+              <p className="text-xs text-red-400 mt-1">
+                {t("categoryRequired")}
+              </p>
             )}
           </div>
         )}

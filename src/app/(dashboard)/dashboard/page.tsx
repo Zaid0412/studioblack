@@ -122,7 +122,9 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <AlertCircle className="w-6 h-6 text-red-400" />
-        <p className="text-sm text-text-muted">Something went wrong loading your dashboard.</p>
+        <p className="text-sm text-text-muted">
+          Something went wrong loading your dashboard.
+        </p>
         <Button variant="secondary" size="sm" onClick={() => retry()}>
           Retry
         </Button>
@@ -441,9 +443,7 @@ export default function DashboardPage() {
                   )}
                   <div className="flex items-center gap-1.5 text-xs text-text-muted">
                     <Calendar className="w-3 h-3 text-warning" />
-                    <span>
-                      {formatDate(project.deadline)}
-                    </span>
+                    <span>{formatDate(project.deadline)}</span>
                   </div>
                 </div>
               </Card>

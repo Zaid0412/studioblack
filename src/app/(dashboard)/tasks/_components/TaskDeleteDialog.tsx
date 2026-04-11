@@ -40,11 +40,11 @@ export function TaskDeleteDialog({
     <Dialog open={!!task} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("deleteTitle", { title: task?.title ?? "" })}</DialogTitle>
+          <DialogTitle>
+            {t("deleteTitle", { title: task?.title ?? "" })}
+          </DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-text-secondary">
-          {t("deleteDescription")}
-        </p>
+        <p className="text-sm text-text-secondary">{t("deleteDescription")}</p>
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="secondary">{t("cancel")}</Button>

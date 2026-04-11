@@ -160,7 +160,9 @@ export function TaskBucketSidebar({
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                <span className="flex-1 text-left">{t(BUCKET_LABEL_KEYS[key])}</span>
+                <span className="flex-1 text-left">
+                  {t(BUCKET_LABEL_KEYS[key])}
+                </span>
                 <span
                   className={`text-xs tabular-nums ${
                     isActive ? "text-accent" : "text-text-muted"

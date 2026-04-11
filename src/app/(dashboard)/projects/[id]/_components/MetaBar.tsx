@@ -80,8 +80,7 @@ export function MetaBar({
         {deadline && (
           <div className="flex items-center gap-1.5 text-text-secondary">
             <Calendar className="w-3.5 h-3.5 text-accent" />
-            {t("duePrefix")}{" "}
-            {formatDate(deadline)}
+            {t("duePrefix")} {formatDate(deadline)}
           </div>
         )}
         {members.length > 0 && (

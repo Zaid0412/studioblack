@@ -351,7 +351,11 @@ export default function TasksPage() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={(page) => setParam("page", String(page))}
-                showingText={t("showingTasks", { start: startIdx + 1, end: endIdx, total: totalTasks })}
+                showingText={t("showingTasks", {
+                  start: startIdx + 1,
+                  end: endIdx,
+                  total: totalTasks,
+                })}
               />
             )}
           </div>

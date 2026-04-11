@@ -101,4 +101,7 @@ export function isOverdue(dueDate: string | null, status?: string): boolean {
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
-export { formatShortDate as formatDate, formatDate as formatFullDate } from "./formatDate";
+export {
+  formatShortDate as formatDate,
+  formatDate as formatFullDate,
+} from "./formatDate";
