@@ -10,6 +10,7 @@ import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
 import { env } from "@/env";
+import { parseBody, createProjectAttachmentSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
@@ -47,39 +48,19 @@ export const POST = withAuth(
 
     const { id } = params;
 
+    const raw = await req.json();
+    const parsed = parseBody(createProjectAttachmentSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
     const { fileUrl, fileName, description, phaseId, taskId, versionGroup } =
-      await req.json();
-    if (!fileUrl || !fileName) {
-      return NextResponse.json(
-        { error: "fileUrl and fileName are required" },
-        { status: 400 }
-      );
-    }
+      parsed.data;
 
-    let fileUrlHostname: string;
-    try {
-      fileUrlHostname = new URL(fileUrl).hostname;
-    } catch {
-      return NextResponse.json(
-        { error: "fileUrl is not a valid URL" },
-        { status: 400 }
-      );
-    }
+    // Business logic: fileUrl must point to Supabase storage
     const supabaseHostname = new URL(env().NEXT_PUBLIC_SUPABASE_URL).hostname;
-    if (fileUrlHostname !== supabaseHostname) {
+    if (new URL(fileUrl).hostname !== supabaseHostname) {
       return NextResponse.json(
         { error: "fileUrl must point to the Supabase storage domain" },
-        { status: 400 }
-      );
-    }
-
-    if (
-      description &&
-      typeof description === "string" &&
-      description.length > 2000
-    ) {
-      return NextResponse.json(
-        { error: "Description must be at most 2000 characters" },
         { status: 400 }
       );
     }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
+import { parseBody, createTaskAttachmentSchema } from "@/lib/validations";
 
 /** GET /api/tasks/[id]/attachments — list attachments for a standalone task. */
 export const GET = withAuth(
@@ -43,15 +44,12 @@ export const POST = withAuth(
       }
 
       const task = taskRows[0];
-      const body = await req.json();
-      const { fileUrl, fileName, fileSize } = body;
-
-      if (!fileUrl || !fileName) {
-        return NextResponse.json(
-          { error: "fileUrl and fileName are required" },
-          { status: 400 }
-        );
+      const raw = await req.json();
+      const parsed = parseBody(createTaskAttachmentSchema, raw);
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
+      const { fileUrl, fileName, fileSize } = parsed.data;
 
       // Validate fileUrl is from our Supabase instance
       if (!fileUrl.startsWith(env().NEXT_PUBLIC_SUPABASE_URL)) {

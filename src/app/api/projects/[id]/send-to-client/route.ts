@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
-import { env } from "@/env";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 
 /**
  * POST /api/projects/[id]/send-to-client
@@ -65,36 +66,17 @@ export const POST = withAuth(
       );
     }
 
-    // Send magic link via better-auth
-    const baseUrl = env().BETTER_AUTH_URL || env().NEXT_PUBLIC_APP_URL;
-    const callbackURL = `/dashboard`;
-
+    // Send magic link via better-auth server API (direct call, no HTTP round-trip)
     try {
-      // Use the better-auth magic link API to send the email
-      const response = await fetch(
-        `${baseUrl}/api/auth/magic-link/send-magic-link`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: project.client_email,
-            callbackURL,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return NextResponse.json(
-          {
-            error:
-              (err as { message?: string }).message ||
-              "Failed to send magic link",
-          },
-          { status: 500 }
-        );
-      }
-    } catch {
+      await auth.api.signInMagicLink({
+        headers: await headers(),
+        body: {
+          email: project.client_email,
+          callbackURL: "/dashboard",
+        },
+      });
+    } catch (err) {
+      console.error("[send-to-client] Magic link error:", err);
       return NextResponse.json(
         { error: "Failed to send magic link email" },
         { status: 500 }

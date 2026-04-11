@@ -5,16 +5,8 @@ import { withAuth } from "@/lib/withAuth";
 import { createNotification } from "@/lib/notifications";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { env } from "@/env";
+import { parseBody, createTaskSchema } from "@/lib/validations";
 
-const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
-const VALID_CATEGORIES = [
-  "general",
-  "design",
-  "review",
-  "revision",
-  "production",
-  "handover",
-];
 const VALID_BUCKETS = [
   "all",
   "my_tasks",
@@ -99,7 +91,11 @@ export const POST = withAuth(
       );
     }
 
-    const body = await req.json();
+    const raw = await req.json();
+    const parsed = parseBody(createTaskSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
     const {
       title,
       description,
@@ -109,22 +105,13 @@ export const POST = withAuth(
       category,
       assignedTo,
       dueDate,
-    } = body;
+    } = parsed.data;
 
-    if (!title?.trim()) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
     if (phaseId && !projectId) {
       return NextResponse.json(
         { error: "Phase requires a project" },
         { status: 400 }
       );
-    }
-    if (priority && !VALID_PRIORITIES.includes(priority)) {
-      return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
-    }
-    if (category && !VALID_CATEGORIES.includes(category)) {
-      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     }
 
     const pool = getPool();

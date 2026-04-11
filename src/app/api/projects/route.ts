@@ -10,6 +10,7 @@ import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
+import { parseBody, createProjectSchema } from "@/lib/validations";
 
 /** GET /api/projects — list projects for the current user's org. */
 export const GET = withAuth({}, async (req, { session, user }) => {
@@ -64,7 +65,11 @@ export const POST = withAuth(
       );
     }
 
-    const body = await req.json();
+    const raw = await req.json();
+    const parsed = parseBody(createProjectSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
     const {
       name,
       clientName,
@@ -79,25 +84,18 @@ export const POST = withAuth(
       state,
       phases,
       architectIds,
-    } = body;
-
-    if (!name || !category) {
-      return NextResponse.json(
-        { error: "Name and category are required" },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     try {
       const project = await createProjectWithPhases({
         name,
         clientName,
-        clientEmail,
+        clientEmail: clientEmail ?? undefined,
         category,
-        deadline,
+        deadline: deadline ?? undefined,
         scope,
-        areaSqft,
-        estimationInr,
+        areaSqft: areaSqft ?? undefined,
+        estimationInr: estimationInr ?? undefined,
         address,
         city,
         state,

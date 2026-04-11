@@ -3,6 +3,7 @@ import { getPool } from "@/lib/db";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { parseBody, createApprovalSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/approvals — list approval records. */
 export const GET = withAuth(
@@ -29,13 +30,12 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id } = params;
 
-    const { decision, comment, phaseId } = await req.json();
-    if (!decision || !["approved", "changes_requested"].includes(decision)) {
-      return NextResponse.json(
-        { error: "decision must be 'approved' or 'changes_requested'" },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(createApprovalSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { decision, comment, phaseId } = parsed.data;
 
     const pool = getPool();
     const {

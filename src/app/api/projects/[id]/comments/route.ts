@@ -10,6 +10,7 @@ import {
   createNotificationForClient,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { parseBody, createCommentSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/comments — list comments. */
 export const GET = withAuth(
@@ -34,20 +35,12 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id } = params;
 
-    const { content, phaseId, taskId } = await req.json();
-    if (!content?.trim()) {
-      return NextResponse.json(
-        { error: "Content is required" },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(createCommentSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-
-    if (content.trim().length > 5000) {
-      return NextResponse.json(
-        { error: "Comment too long (max 5000 characters)" },
-        { status: 400 }
-      );
-    }
+    const { content, phaseId, taskId } = parsed.data;
 
     if (phaseId) {
       const phaseOwned = await verifyPhaseOwnership(phaseId, id);

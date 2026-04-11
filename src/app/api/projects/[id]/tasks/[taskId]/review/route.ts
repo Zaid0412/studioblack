@@ -6,6 +6,7 @@ import {
   createNotificationsForTeam,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { parseBody, submitTaskReviewSchema } from "@/lib/validations";
 
 /** POST /api/projects/[id]/tasks/[taskId]/review — client approves or requests changes. */
 export const POST = withAuth(
@@ -21,14 +22,12 @@ export const POST = withAuth(
       );
     }
 
-    const { action, comment } = await req.json();
-
-    if (!action || !["approved", "changes_requested"].includes(action)) {
-      return NextResponse.json(
-        { error: "action must be 'approved' or 'changes_requested'" },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(submitTaskReviewSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { action, comment } = parsed.data;
 
     const pool = getPool();
 

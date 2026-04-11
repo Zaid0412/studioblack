@@ -10,8 +10,7 @@ import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { withAuth } from "@/lib/withAuth";
 import { rateLimit } from "@/lib/rateLimit";
 import { env } from "@/env";
-
-const VALID_STATUSES = ["approved", "rejected"];
+import { parseBody, submitReviewSchema } from "@/lib/validations";
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/review — submit a review. */
 export const PATCH = withAuth(
@@ -30,23 +29,13 @@ export const PATCH = withAuth(
 
     const { id, attachmentId } = params;
 
-    const body = await req.json();
-    const { status, comment, annotatedFileUrl } = body;
-    const annotationCount =
-      body.annotationCount != null &&
-      Number.isInteger(Number(body.annotationCount)) &&
-      Number(body.annotationCount) >= 0
-        ? Number(body.annotationCount)
-        : 0;
-
-    if (!status || !VALID_STATUSES.includes(status)) {
-      return NextResponse.json(
-        {
-          error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
-        },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(submitReviewSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { status, comment, annotatedFileUrl } = parsed.data;
+    const annotationCount = parsed.data.annotationCount ?? 0;
 
     // Verify attachment belongs to this project
     const attachment = await getAttachmentById(attachmentId, id);

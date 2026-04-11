@@ -6,6 +6,7 @@ import {
 } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
+import { parseBody, updateAttachmentStatusSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/attachments/[attachmentId] — get single attachment with version history. */
 export const GET = withAuth(
@@ -68,15 +69,12 @@ export const PATCH = withAuth(
   { projectAccess: true },
   async (req, ctx, params) => {
     const { id, attachmentId } = params;
-    const body = await req.json();
-    const { reviewStatus } = body;
-
-    if (!reviewStatus) {
-      return NextResponse.json(
-        { error: "reviewStatus is required" },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(updateAttachmentStatusSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { reviewStatus } = parsed.data;
 
     const attachment = await getAttachmentById(attachmentId, id);
     if (!attachment) {

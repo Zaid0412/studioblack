@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { hostname: "studio-black.co.in" },
-      { hostname: "*.supabase.co" },
+      { hostname: "*.supabase.co", protocol: "https" as const },
     ],
   },
   async headers() {
@@ -34,6 +34,20 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-XSS-Protection", value: "0" },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://*.supabase.co",
+              "font-src 'self'",
+              "connect-src 'self' https://*.supabase.co",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join("; "),
+          },
         ],
       },
     ];

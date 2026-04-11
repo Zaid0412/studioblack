@@ -5,17 +5,7 @@ import { withAuth } from "@/lib/withAuth";
 import { createNotification } from "@/lib/notifications";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { env } from "@/env";
-
-const VALID_STATUSES = ["todo", "in_progress", "completed", "archived"];
-const VALID_PRIORITIES = ["low", "medium", "high", "urgent"];
-const VALID_CATEGORIES = [
-  "general",
-  "design",
-  "review",
-  "revision",
-  "production",
-  "handover",
-];
+import { parseBody, updateTaskSchema } from "@/lib/validations";
 
 /** GET /api/tasks/[id] — get a single task. */
 export const GET = withAuth(
@@ -42,7 +32,12 @@ export const PATCH = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const body = await req.json();
+      const raw = await req.json();
+      const parsed = parseBody(updateTaskSchema, raw);
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
+      }
+      const body = parsed.data;
       const pool = getPool();
 
       // Validate assignedTo belongs to the same org
@@ -76,42 +71,21 @@ export const PATCH = withAuth(
       const values: unknown[] = [];
       let idx = 1;
 
-      const fields: Record<
-        string,
-        { value: unknown; validate?: () => boolean }
-      > = {
-        title: {
-          value: body.title?.trim(),
-          validate: () => !!body.title?.trim(),
-        },
-        description: { value: body.description },
-        status: {
-          value: body.status,
-          validate: () => VALID_STATUSES.includes(body.status),
-        },
-        priority: {
-          value: body.priority,
-          validate: () => VALID_PRIORITIES.includes(body.priority),
-        },
-        category: {
-          value: body.category,
-          validate: () => VALID_CATEGORIES.includes(body.category),
-        },
-        assigned_to: { value: body.assignedTo },
-        project_id: { value: body.projectId },
-        phase_id: { value: body.phaseId },
-        due_date: { value: body.dueDate },
-        reminder_at: { value: body.reminderAt },
+      const fields: Record<string, unknown> = {
+        title: body.title,
+        description: body.description,
+        status: body.status,
+        priority: body.priority,
+        category: body.category,
+        assigned_to: body.assignedTo,
+        project_id: body.projectId,
+        phase_id: body.phaseId,
+        due_date: body.dueDate,
+        reminder_at: body.reminderAt,
       };
 
-      for (const [col, { value, validate }] of Object.entries(fields)) {
+      for (const [col, value] of Object.entries(fields)) {
         if (value !== undefined) {
-          if (validate && !validate()) {
-            return NextResponse.json(
-              { error: `Invalid ${col}` },
-              { status: 400 }
-            );
-          }
           updates.push(`${col} = $${idx}`);
           values.push(value === "" ? null : value);
           idx++;

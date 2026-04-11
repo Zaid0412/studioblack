@@ -2,17 +2,7 @@ import { NextResponse } from "next/server";
 import { getProjectById } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
-
-const VALID_PROJECT_STATUSES = ["draft", "active", "completed", "archived"];
-const VALID_CATEGORIES = [
-  "residential",
-  "commercial",
-  "healthcare",
-  "hospitality",
-  "institutional",
-  "retail",
-  "workspace",
-];
+import { parseBody, updateProjectSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id] — get project details. */
 export const GET = withAuth(
@@ -35,45 +25,17 @@ export const PATCH = withAuth(
   async (req, { orgRole }, params) => {
     const { id } = params;
 
-    const body = await req.json();
-
-    if (
-      body.status !== undefined &&
-      !VALID_PROJECT_STATUSES.includes(body.status)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid project status" },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(updateProjectSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    if (
-      body.category !== undefined &&
-      !VALID_CATEGORIES.includes(body.category)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid project category" },
-        { status: 400 }
-      );
-    }
+    const body = parsed.data;
 
     const pool = getPool();
 
     // Only owners/admins (PMs) can change project status
     const isPM = orgRole === "owner" || orgRole === "admin";
-
-    // Validate architectIds if provided
-    const UUID_RE =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (isPM && Array.isArray(body.architectIds)) {
-      for (const aid of body.architectIds) {
-        if (typeof aid !== "string" || !UUID_RE.test(aid)) {
-          return NextResponse.json(
-            { error: "Invalid architect ID format" },
-            { status: 400 }
-          );
-        }
-      }
-    }
 
     // Build dynamic update
     const allowedFields = isPM
@@ -96,11 +58,12 @@ export const PATCH = withAuth(
     const values: unknown[] = [];
     let idx = 1;
 
+    const bodyRecord = body as Record<string, unknown>;
     for (const field of allowedFields) {
       const camelField = field.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-      if (body[camelField] !== undefined) {
+      if (bodyRecord[camelField] !== undefined) {
         updates.push(`${field} = $${idx}`);
-        values.push(body[camelField]);
+        values.push(bodyRecord[camelField]);
         idx++;
       }
     }
@@ -159,7 +122,7 @@ export const PATCH = withAuth(
 
 /** DELETE /api/projects/[id] — delete project (PM only). */
 export const DELETE = withAuth(
-  { fetchOrgRole: true },
+  { projectAccess: true, fetchOrgRole: true },
   async (req, { orgRole }, params) => {
     const { id } = params;
 

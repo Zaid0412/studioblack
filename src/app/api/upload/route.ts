@@ -36,24 +36,48 @@ export const POST = withAuth({}, async (req, { user }) => {
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
 
-  // Validate file type
-  const BLOCKED_EXTENSIONS = [
-    ".exe",
-    ".bat",
-    ".cmd",
-    ".sh",
-    ".ps1",
-    ".msi",
-    ".dll",
-    ".com",
-    ".scr",
+  // Validate file type (allowlist approach)
+  const ALLOWED_EXTENSIONS = [
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".bmp",
+    ".tiff",
+    ".tif",
+    ".dwg",
+    ".dxf",
+    ".skp",
+    ".3ds",
+    ".max",
+    ".obj",
+    ".fbx",
+    ".blend",
+    ".psd",
+    ".ai",
+    ".eps",
+    ".indd",
+    ".mp4",
+    ".mov",
+    ".avi",
+    ".zip",
+    ".rar",
+    ".7z",
+    ".txt",
+    ".csv",
+    ".json",
   ];
-  const BLOCKED_TYPES = [
-    "application/x-executable",
-    "application/x-msdownload",
-  ];
-  const ext = "." + safeName.split(".").pop()?.toLowerCase();
-  if (BLOCKED_EXTENSIONS.includes(ext) || BLOCKED_TYPES.includes(file.type)) {
+  const ext = "." + (safeName.split(".").pop()?.toLowerCase() ?? "");
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
     return NextResponse.json(
       { error: "File type not allowed." },
       { status: 400 }
@@ -77,7 +101,7 @@ export const POST = withAuth({}, async (req, { user }) => {
   if (error) {
     console.error("[upload] Supabase error:", error);
     return NextResponse.json(
-      { error: "Upload failed: " + error.message },
+      { error: "Upload failed. Please try again." },
       { status: 500 }
     );
   }

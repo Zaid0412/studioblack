@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { verifyTaskAccess } from "@/lib/queries";
+import { parseBody, updateChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 
 /** PATCH /api/tasks/[id]/checklist/[itemId] — update a checklist item. */
@@ -12,33 +13,32 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const body = await req.json();
+    const raw = await req.json();
+    const parsed = parseBody(updateChecklistItemSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const { title, is_done, position } = parsed.data;
+
     const updates: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
 
-    if (body.title !== undefined) {
-      const title = body.title?.trim();
-      if (!title) {
-        return NextResponse.json(
-          { error: "Title cannot be empty" },
-          { status: 400 }
-        );
-      }
+    if (title !== undefined) {
       updates.push(`title = $${idx}`);
       values.push(title);
       idx++;
     }
 
-    if (body.is_done !== undefined) {
+    if (is_done !== undefined) {
       updates.push(`is_done = $${idx}`);
-      values.push(!!body.is_done);
+      values.push(is_done);
       idx++;
     }
 
-    if (body.position !== undefined) {
+    if (position !== undefined) {
       updates.push(`position = $${idx}`);
-      values.push(body.position);
+      values.push(position);
       idx++;
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { verifyTaskAccess } from "@/lib/queries";
+import { parseBody, reorderChecklistSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 
 /** PATCH /api/tasks/[id]/checklist/reorder — bulk-update checklist item positions. */
@@ -13,14 +14,12 @@ export const PATCH = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const body = await req.json();
-      const orderedIds: string[] = body.orderedIds;
-      if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-        return NextResponse.json(
-          { error: "orderedIds array is required" },
-          { status: 400 }
-        );
+      const raw = await req.json();
+      const parsed = parseBody(reorderChecklistSchema, raw);
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
+      const { orderedIds } = parsed.data;
 
       const pool = getPool();
       // Update positions in a single query using unnest

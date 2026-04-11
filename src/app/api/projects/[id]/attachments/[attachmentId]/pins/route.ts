@@ -14,6 +14,7 @@ import {
   createNotification,
   createNotificationsForTeam,
 } from "@/lib/notifications";
+import { parseBody, createPinSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins — list pin comments. */
 export const GET = withAuth(
@@ -49,7 +50,11 @@ export const POST = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const body = await req.json();
+    const raw = await req.json();
+    const parsed = parseBody(createPinSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
     const {
       x_percent,
       y_percent,
@@ -58,21 +63,7 @@ export const POST = withAuth(
       request_changes,
       assign_as_task,
       parent_id,
-    } = body;
-
-    // Validate content (shared by replies and top-level)
-    if (typeof content !== "string" || !content.trim()) {
-      return NextResponse.json(
-        { error: "content must be a non-empty string" },
-        { status: 400 }
-      );
-    }
-    if (content.trim().length > 5000) {
-      return NextResponse.json(
-        { error: "content must be 5000 characters or less" },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     // If this is a reply, validate parent exists and belongs to same attachment
     if (parent_id) {
@@ -112,42 +103,10 @@ export const POST = withAuth(
       );
     }
 
-    if (hasAllCoords) {
-      if (typeof x_percent !== "number" || x_percent < 0 || x_percent > 100) {
-        return NextResponse.json(
-          { error: "x_percent must be a number between 0 and 100" },
-          { status: 400 }
-        );
-      }
-      if (typeof y_percent !== "number" || y_percent < 0 || y_percent > 100) {
-        return NextResponse.json(
-          { error: "y_percent must be a number between 0 and 100" },
-          { status: 400 }
-        );
-      }
-      if (!Number.isInteger(page) || page < 1) {
-        return NextResponse.json(
-          { error: "page must be a positive integer" },
-          { status: 400 }
-        );
-      }
-    }
-
     const xVal = hasAllCoords ? x_percent : null;
     const yVal = hasAllCoords ? y_percent : null;
     const pageVal = hasAllCoords ? page : null;
     const reqChanges = request_changes === true;
-
-    // If assign_as_task is provided, validate early
-    if (assign_as_task) {
-      const { assigned_to } = assign_as_task;
-      if (!assigned_to || typeof assigned_to !== "string") {
-        return NextResponse.json(
-          { error: "assign_as_task.assigned_to is required" },
-          { status: 400 }
-        );
-      }
-    }
 
     // Shared helper: create a task + pin comment in a single transaction
     const needsTask = assign_as_task || (reqChanges && !assign_as_task);

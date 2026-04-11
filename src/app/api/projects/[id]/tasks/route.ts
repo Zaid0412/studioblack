@@ -7,8 +7,11 @@ import {
 import { getPool } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
-
-const VALID_TASK_STATUSES = ["pending", "in_progress", "completed"];
+import {
+  parseBody,
+  createPhaseTaskSchema,
+  updatePhaseTaskSchema,
+} from "@/lib/validations";
 
 /** GET /api/projects/[id]/tasks?phaseId=... — list tasks for a phase. */
 export const GET = withAuth(
@@ -43,14 +46,12 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id } = params;
 
-    const { phaseId, title, description, assignedTo, dueDate } =
-      await req.json();
-    if (!phaseId || !title?.trim()) {
-      return NextResponse.json(
-        { error: "phaseId and title are required" },
-        { status: 400 }
-      );
+    const raw = await req.json();
+    const parsed = parseBody(createPhaseTaskSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { phaseId, title, description, assignedTo, dueDate } = parsed.data;
 
     const phaseOwned = await verifyPhaseOwnership(phaseId, id);
     if (!phaseOwned) {
@@ -98,6 +99,11 @@ export const PATCH = withAuth(
   async (req, _ctx, params) => {
     const { id } = params;
 
+    const raw = await req.json();
+    const parsed = parseBody(updatePhaseTaskSchema, raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
     const {
       taskId,
       title,
@@ -106,29 +112,13 @@ export const PATCH = withAuth(
       assignedTo,
       dueDate,
       requiresClientReview,
-    } = await req.json();
-
-    if (!taskId) {
-      return NextResponse.json(
-        { error: "taskId is required" },
-        { status: 400 }
-      );
-    }
+    } = parsed.data;
 
     const taskOwned = await verifyTaskOwnership(taskId, id);
     if (!taskOwned) {
       return NextResponse.json(
         { error: "Task not found in this project" },
         { status: 404 }
-      );
-    }
-
-    if (status !== undefined && !VALID_TASK_STATUSES.includes(status)) {
-      return NextResponse.json(
-        {
-          error: `Invalid status. Must be one of: ${VALID_TASK_STATUSES.join(", ")}`,
-        },
-        { status: 400 }
       );
     }
 

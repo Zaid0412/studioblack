@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { verifyTaskAccess } from "@/lib/queries";
+import { parseBody, createChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 
 /** GET /api/tasks/[id]/checklist — list checklist items for a task. */
@@ -31,14 +32,12 @@ export const POST = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const body = await req.json();
-      const title = body.title?.trim();
-      if (!title) {
-        return NextResponse.json(
-          { error: "Title is required" },
-          { status: 400 }
-        );
+      const raw = await req.json();
+      const parsed = parseBody(createChecklistItemSchema, raw);
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
+      const { title } = parsed.data;
 
       const pool = getPool();
       const {
