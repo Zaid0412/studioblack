@@ -223,7 +223,7 @@ function SortableChecklistItem({
       </span>
       <button
         onClick={() => onDelete(item)}
-        className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
+        className="lg:opacity-0 lg:group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
       >
         <X className="w-3 h-3" />
       </button>
@@ -409,7 +409,7 @@ export function TaskDetailModal({
                     <Avatar
                       initials={initials(task.assigned_to_name)}
                       size="sm"
-                      color={avatarColor(task.assigned_to_name)}
+                      color={avatarColor(task.assigned_to || "")}
                     />
                     <span className="text-xs text-text-primary">
                       {task.assigned_to_name}
@@ -640,7 +640,7 @@ export function TaskDetailModal({
                             <TooltipTrigger asChild>
                               <button
                                 onClick={() => deleteAttachment(att)}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
+                                className="lg:opacity-0 lg:group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
                               >
                                 <X className="w-3 h-3" />
                               </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { UserPlus, LogOut } from "lucide-react";
+import { UserPlus, LogOut, Loader2 } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,9 @@ export default function OrganisationPage() {
     return (
       <div className="flex flex-col gap-6 max-w-[800px]">
         <PageHeader title={t("title")} />
-        <p className="text-sm text-text-muted">{tc("loading")}</p>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
+        </div>
       </div>
     );
   }

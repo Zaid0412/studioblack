@@ -240,7 +240,7 @@ export function TaskRow({
             <Avatar
               initials={initials(task.assigned_to_name)}
               size="sm"
-              color={avatarColor(task.assigned_to_name)}
+              color={avatarColor(task.assigned_to || "")}
             />
           ) : (
             <span className="text-[13px] text-text-muted">&mdash;</span>
@@ -378,7 +378,7 @@ export function TaskRow({
               <Avatar
                 initials={initials(task.assigned_to_name)}
                 size="xs"
-                color={avatarColor(task.assigned_to_name)}
+                color={avatarColor(task.assigned_to || "")}
               />
               <span className="truncate">{task.assigned_to_name}</span>
             </div>

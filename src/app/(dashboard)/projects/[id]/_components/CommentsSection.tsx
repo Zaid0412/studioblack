@@ -36,12 +36,12 @@ export function CommentsSection({
             value={newComment}
             onChange={(e) => onNewCommentChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 onSendComment();
               }
             }}
-            placeholder="Leave a comment..."
+            placeholder="Leave a comment... (Ctrl+Enter to send)"
             className="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
             rows={2}
           />

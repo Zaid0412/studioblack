@@ -6,10 +6,12 @@ import {
   LayoutDashboard,
   FolderOpen,
   CheckSquare,
+  Building2,
   Settings,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { useUserRole } from "@/contexts/UserRoleContext";
 import type { LucideIcon } from "lucide-react";
 
 interface Tab {
@@ -22,11 +24,16 @@ interface Tab {
 export function MobileBottomNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
+  const { role } = useUserRole();
+  const isStaff = role === "pm" || role === "architect";
 
   const tabs: Tab[] = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
+    ...(isStaff
+      ? [{ href: "/organisation", label: t("organisation"), icon: Building2 }]
+      : []),
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
