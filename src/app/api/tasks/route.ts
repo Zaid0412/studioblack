@@ -172,7 +172,7 @@ export const POST = withAuth(
         priority || "medium",
         category || "general",
         user.id,
-        assignedTo || null,
+        assignedTo || user.id,
         dueDate || null,
       ]
     );

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
+import { authClient } from "@/lib/authClient";
 import type { Task, TaskFormData } from "@/types";
 import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
@@ -38,6 +39,7 @@ export function TaskSection({
   phases,
   members,
 }: TaskSectionProps) {
+  const { data: session } = authClient.useSession();
   const emptyForm: TaskFormData = useMemo(
     () => ({
       title: "",
@@ -47,6 +49,8 @@ export function TaskSection({
       category: "general",
       assignedTo: "",
       dueDate: "",
+      checklistItems: [],
+      pendingFiles: [],
     }),
     [activePhaseId]
   );
@@ -96,6 +100,7 @@ export function TaskSection({
     setTasks: setAllTasks,
     defaultForm: emptyForm,
     projectId,
+    currentUserId: session?.user?.id,
   });
 
   // -- Highlight task from URL --

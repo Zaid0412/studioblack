@@ -67,6 +67,46 @@ export function displayName(
   return nameOrEmail;
 }
 
+/** File extension → badge colors (bg + text + label) for inline badges. */
+export function fileTypeBadge(ext: string): {
+  bg: string;
+  text: string;
+  label: string;
+} {
+  switch (ext) {
+    case "pdf":
+      return { bg: "#1E3A5F", text: "#60A5FA", label: "PDF" };
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "webp":
+      return { bg: "#1E3F1E", text: "#4ADE80", label: ext.toUpperCase() };
+    case "dwg":
+    case "ai":
+    case "psd":
+    case "sketch":
+      return { bg: "#2D1E5F", text: "#A78BFA", label: ext.toUpperCase() };
+    case "svg":
+      return { bg: "#3F2E1E", text: "#FB923C", label: "SVG" };
+    case "doc":
+    case "docx":
+      return { bg: "#1E3A5F", text: "#60A5FA", label: ext.toUpperCase() };
+    case "xls":
+    case "xlsx":
+    case "csv":
+      return { bg: "#1E3F1E", text: "#4ADE80", label: ext.toUpperCase() };
+    default:
+      return {
+        bg: "var(--bg-elevated)",
+        text: "var(--text-secondary)",
+        label: ext.toUpperCase() || "FILE",
+      };
+  }
+}
+
+/** Maximum upload size in bytes (50 MB). */
+export const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+
 /** Version number → badge colors (bg + text). Cycles for V7+. */
 const VERSION_COLORS = [
   {
