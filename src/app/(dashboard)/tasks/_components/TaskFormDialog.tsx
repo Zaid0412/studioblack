@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -67,20 +68,21 @@ export function TaskFormDialog({
   onProjectChange,
   members,
 }: TaskFormDialogProps) {
+  const t = useTranslations("tasks");
   const showProjectSelector = !!projects;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editingTask ? "Edit Task" : "New Task"}</DialogTitle>
+          <DialogTitle>{editingTask ? t("editTask") : t("newTask")}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
           {/* Title */}
           <Input
-            label="Title"
-            placeholder="Task title"
+            label={t("title")}
+            placeholder={t("titlePlaceholder")}
             value={formData.title}
             onChange={(e) =>
               setFormData((f) => ({ ...f, title: e.target.value }))
@@ -91,10 +93,10 @@ export function TaskFormDialog({
           {/* Description */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
-              Description
+              {t("description")}
             </label>
             <textarea
-              placeholder="Optional description..."
+              placeholder={t("descriptionPlaceholder")}
               value={formData.description}
               onChange={(e) =>
                 setFormData((f) => ({ ...f, description: e.target.value }))
@@ -109,7 +111,7 @@ export function TaskFormDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-medium text-text-secondary">
-                  Project
+                  {t("project")}
                 </label>
                 <Select
                   value={formData.projectId || "none"}
@@ -120,10 +122,10 @@ export function TaskFormDialog({
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="No project" />
+                    <SelectValue placeholder={t("noProject")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
+                    <SelectItem value="none">{t("noProject")}</SelectItem>
                     {projects!.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
@@ -134,7 +136,7 @@ export function TaskFormDialog({
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] font-medium text-text-secondary">
-                  Phase
+                  {t("phase")}
                 </label>
                 <Select
                   value={formData.phaseId || "none"}
@@ -148,11 +150,11 @@ export function TaskFormDialog({
                 >
                   <SelectTrigger>
                     <SelectValue
-                      placeholder={loadingPhases ? "Loading..." : "No phase"}
+                      placeholder={loadingPhases ? t("loading") : t("noPhase")}
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No phase</SelectItem>
+                    <SelectItem value="none">{t("noPhase")}</SelectItem>
                     {phases.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         {p.name}
@@ -165,7 +167,7 @@ export function TaskFormDialog({
           ) : (
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-medium text-text-secondary">
-                Phase
+                {t("phase")}
               </label>
               <Select
                 value={formData.phaseId || "none"}
@@ -177,10 +179,10 @@ export function TaskFormDialog({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="No phase" />
+                  <SelectValue placeholder={t("noPhase")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No phase</SelectItem>
+                  <SelectItem value="none">{t("noPhase")}</SelectItem>
                   {phases.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -195,7 +197,7 @@ export function TaskFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-medium text-text-secondary">
-                Priority
+                {t("priority")}
               </label>
               <Select
                 value={formData.priority}
@@ -217,7 +219,7 @@ export function TaskFormDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-medium text-text-secondary">
-                Category
+                {t("category")}
               </label>
               <Select
                 value={formData.category}
@@ -242,7 +244,7 @@ export function TaskFormDialog({
           {/* Assigned To */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">
-              Assigned To
+              {t("assignedTo")}
             </label>
             <Select
               value={formData.assignedTo || "none"}
@@ -254,10 +256,10 @@ export function TaskFormDialog({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Unassigned" />
+                <SelectValue placeholder={t("unassigned")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Unassigned</SelectItem>
+                <SelectItem value="none">{t("unassigned")}</SelectItem>
                 {members.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.name || m.email}
@@ -269,7 +271,7 @@ export function TaskFormDialog({
 
           {/* Due Date */}
           <Input
-            label="Due Date"
+            label={t("dueDate")}
             type="date"
             value={formData.dueDate}
             onChange={(e) =>
@@ -280,7 +282,7 @@ export function TaskFormDialog({
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
+            <Button variant="secondary">{t("cancel")}</Button>
           </DialogClose>
           <Button
             onClick={onSubmit}
@@ -289,9 +291,9 @@ export function TaskFormDialog({
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : editingTask ? (
-              "Save Changes"
+              t("saveChanges")
             ) : (
-              "Create Task"
+              t("createTask")
             )}
           </Button>
         </DialogFooter>

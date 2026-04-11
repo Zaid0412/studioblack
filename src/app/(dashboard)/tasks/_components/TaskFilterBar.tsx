@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { SearchInput } from "@/components/ui/SearchInput";
 import {
   Select,
@@ -40,10 +41,11 @@ export function TaskFilterBar({
   categoryFilter,
   onFilterChange,
 }: TaskFilterBarProps) {
+  const t = useTranslations("tasks");
   return (
     <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
       <SearchInput
-        placeholder="Search tasks..."
+        placeholder={t("searchPlaceholder")}
         value={searchValue}
         onChange={(e) => onFilterChange("search", e.target.value)}
         containerClassName="flex-1"
@@ -54,10 +56,10 @@ export function TaskFilterBar({
           onValueChange={(v) => onFilterChange("status", v)}
         >
           <SelectTrigger className="w-full lg:w-[150px]">
-            <SelectValue placeholder="All Status" />
+            <SelectValue placeholder={t("allStatus")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="all">{t("allStatus")}</SelectItem>
             {STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
                 {STATUS_LABEL[s]}
@@ -70,10 +72,10 @@ export function TaskFilterBar({
           onValueChange={(v) => onFilterChange("priority", v)}
         >
           <SelectTrigger className="w-full lg:w-[140px]">
-            <SelectValue placeholder="All Priority" />
+            <SelectValue placeholder={t("allPriority")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Priority</SelectItem>
+            <SelectItem value="all">{t("allPriority")}</SelectItem>
             {PRIORITIES.map((p) => (
               <SelectItem key={p} value={p}>
                 {capitalize(p)}
@@ -86,10 +88,10 @@ export function TaskFilterBar({
           onValueChange={(v) => onFilterChange("category", v)}
         >
           <SelectTrigger className="w-full lg:w-[150px]">
-            <SelectValue placeholder="All Category" />
+            <SelectValue placeholder={t("allCategory")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Category</SelectItem>
+            <SelectItem value="all">{t("allCategory")}</SelectItem>
             {CATEGORIES.map((c) => (
               <SelectItem key={c} value={c}>
                 {capitalize(c)}

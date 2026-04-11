@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   ListTodo,
   User,
@@ -44,13 +45,22 @@ interface TaskBucketSidebarProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
-  { key: "all", label: "All", icon: ListTodo },
-  { key: "my_tasks", label: "My Tasks", icon: User },
-  { key: "created_by_me", label: "Created by Me", icon: PenLine },
-  { key: "starred", label: "Starred", icon: Star },
-  { key: "upcoming", label: "Upcoming", icon: Clock },
-  { key: "completed", label: "Completed", icon: CheckCircle2 },
+const BUCKET_ICONS: Record<Bucket, React.ElementType> = {
+  all: ListTodo,
+  my_tasks: User,
+  created_by_me: PenLine,
+  starred: Star,
+  upcoming: Clock,
+  completed: CheckCircle2,
+};
+
+const BUCKET_KEYS: Bucket[] = [
+  "all",
+  "my_tasks",
+  "created_by_me",
+  "starred",
+  "upcoming",
+  "completed",
 ];
 
 // ---------------------------------------------------------------------------
@@ -60,6 +70,15 @@ const BUCKETS: { key: Bucket; label: string; icon: React.ElementType }[] = [
 /** Buckets hidden from architects — they only see their own tasks. */
 const ARCHITECT_HIDDEN_BUCKETS: Set<Bucket> = new Set(["all", "created_by_me"]);
 
+const BUCKET_LABEL_KEYS: Record<Bucket, string> = {
+  all: "bucketAll",
+  my_tasks: "bucketMyTasks",
+  created_by_me: "bucketCreatedByMe",
+  starred: "bucketStarred",
+  upcoming: "bucketUpcoming",
+  completed: "bucketCompleted",
+};
+
 /** Sidebar listing task buckets (all, my tasks, starred, etc.) with counts. */
 export function TaskBucketSidebar({
   activeBucket,
@@ -67,11 +86,12 @@ export function TaskBucketSidebar({
   onSelect,
   role,
 }: TaskBucketSidebarProps) {
+  const t = useTranslations("tasks");
   const visibleBuckets = useMemo(
     () =>
       role === "architect"
-        ? BUCKETS.filter((b) => !ARCHITECT_HIDDEN_BUCKETS.has(b.key))
-        : BUCKETS,
+        ? BUCKET_KEYS.filter((k) => !ARCHITECT_HIDDEN_BUCKETS.has(k))
+        : BUCKET_KEYS,
     [role]
   );
 
@@ -94,14 +114,14 @@ export function TaskBucketSidebar({
     <>
       {/* ── Mobile: horizontal pill bar ── */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-none lg:hidden -mx-1 px-1">
-        {visibleBuckets.map((bucket) => {
-          const isActive = activeBucket === bucket.key;
-          const count = counts[bucket.key] ?? 0;
-          const Icon = bucket.icon;
+        {visibleBuckets.map((key) => {
+          const isActive = activeBucket === key;
+          const count = counts[key] ?? 0;
+          const Icon = BUCKET_ICONS[key];
           return (
             <button
-              key={bucket.key}
-              onClick={() => onSelect(bucket.key)}
+              key={key}
+              onClick={() => onSelect(key)}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer shrink-0 ${
                 isActive
                   ? "bg-accent/10 text-accent"
@@ -109,7 +129,7 @@ export function TaskBucketSidebar({
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
-              {bucket.label}
+              {t(BUCKET_LABEL_KEYS[key])}
               <span
                 className={`text-[10px] tabular-nums ${
                   isActive ? "text-accent" : "text-text-muted"
@@ -125,14 +145,14 @@ export function TaskBucketSidebar({
       {/* ── Desktop: vertical sidebar ── */}
       <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default overflow-hidden self-start">
         <div className="flex flex-col py-2">
-          {visibleBuckets.map((bucket) => {
-            const isActive = activeBucket === bucket.key;
-            const count = counts[bucket.key] ?? 0;
-            const Icon = bucket.icon;
+          {visibleBuckets.map((key) => {
+            const isActive = activeBucket === key;
+            const count = counts[key] ?? 0;
+            const Icon = BUCKET_ICONS[key];
             return (
               <button
-                key={bucket.key}
-                onClick={() => onSelect(bucket.key)}
+                key={key}
+                onClick={() => onSelect(key)}
                 className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${
                   isActive
                     ? "bg-accent/10 text-accent border-l-2 border-accent font-semibold"
@@ -140,7 +160,7 @@ export function TaskBucketSidebar({
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
-                <span className="flex-1 text-left">{bucket.label}</span>
+                <span className="flex-1 text-left">{t(BUCKET_LABEL_KEYS[key])}</span>
                 <span
                   className={`text-xs tabular-nums ${
                     isActive ? "text-accent" : "text-text-muted"

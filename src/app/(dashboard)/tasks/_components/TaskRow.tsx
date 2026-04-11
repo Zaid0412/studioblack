@@ -9,6 +9,7 @@ import {
   Star,
   ExternalLink,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -69,20 +70,21 @@ export function TaskRowHeader({
   showProject = true,
   showGoToProject = false,
 }: TaskRowHeaderProps) {
+  const t = useTranslations("tasks");
   return (
     <div className="hidden lg:flex items-center h-11 px-4 bg-bg-elevated gap-3">
       <div className="w-3" /> {/* priority dot spacer */}
       <div className="w-6" /> {/* star spacer */}
-      <div className="flex-1 text-xs font-bold text-text-muted">Task</div>
+      <div className="flex-1 text-xs font-bold text-text-muted">{t("task")}</div>
       {showProject && (
         <div className="w-[120px] text-xs font-bold text-text-muted">
-          Project
+          {t("project")}
         </div>
       )}
-      <div className="w-[90px] text-xs font-bold text-text-muted">Category</div>
-      <div className="w-[80px] text-xs font-bold text-text-muted">Assignee</div>
-      <div className="w-[90px] text-xs font-bold text-text-muted">Due Date</div>
-      <div className="w-[100px] text-xs font-bold text-text-muted">Status</div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">{t("category")}</div>
+      <div className="w-[80px] text-xs font-bold text-text-muted">{t("assignee")}</div>
+      <div className="w-[90px] text-xs font-bold text-text-muted">{t("dueDate")}</div>
+      <div className="w-[100px] text-xs font-bold text-text-muted">{t("status")}</div>
       {showGoToProject && <div className="w-8" />}
       <div className="w-8" />
     </div>
@@ -104,6 +106,7 @@ export function TaskRow({
   onGoToProject,
   showProject = true,
 }: TaskRowProps) {
+  const t = useTranslations("tasks");
   const isClickable = !!onClick;
   // Shared action menu used in both layouts
   const actionMenu = (
@@ -121,20 +124,20 @@ export function TaskRow({
           <Star
             className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent" : ""}`}
           />
-          {task.is_starred ? "Unstar" : "Star"}
+          {task.is_starred ? t("unstar") : t("star")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onEdit(task)}>
           <Edit className="w-4 h-4" />
-          Edit Task
+          {t("editTask")}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onToggleStatus(task)}>
           <CheckCircle2 className="w-4 h-4" />
-          {task.status === "completed" ? "Reopen" : "Complete"}
+          {task.status === "completed" ? t("reopen") : t("complete")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem destructive onClick={() => onDelete(task)}>
           <Trash2 className="w-4 h-4" />
-          Delete Task
+          {t("deleteTask")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -180,7 +183,7 @@ export function TaskRow({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {task.is_starred ? "Unstar" : "Star"}
+              {task.is_starred ? t("unstar") : t("star")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -281,7 +284,7 @@ export function TaskRow({
                 </Badge>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Click to change status</TooltipContent>
+            <TooltipContent>{t("clickToChangeStatus")}</TooltipContent>
           </Tooltip>
         </div>
 
@@ -301,7 +304,7 @@ export function TaskRow({
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Go to project</TooltipContent>
+                <TooltipContent>{t("goToProject")}</TooltipContent>
               </Tooltip>
             )}
           </div>

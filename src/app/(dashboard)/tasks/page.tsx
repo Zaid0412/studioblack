@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
+import { useTranslations } from "next-intl";
 import { Plus, Loader2, CheckSquare } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -79,6 +80,7 @@ const DEFAULT_COUNTS: BucketCounts = {
 
 /** Task manager page with smart buckets, filters, and CRUD. */
 export default function TasksPage() {
+  const t = useTranslations("tasks");
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -254,8 +256,8 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
       <PageHeader
-        title="Task Manager"
-        subtitle="Manage and track tasks across all projects"
+        title={t("pageTitle")}
+        subtitle={t("pageSubtitle")}
         actions={
           <>
             <RefreshButton
@@ -265,7 +267,7 @@ export default function TasksPage() {
             />
             <Button onClick={openCreate}>
               <Plus className="w-4 h-4" />
-              New Task
+              {t("newTask")}
             </Button>
           </>
         }
@@ -309,9 +311,9 @@ export default function TasksPage() {
               ) : tasks.length === 0 ? (
                 <EmptyState
                   icon={CheckSquare}
-                  title="No tasks found"
-                  description="There are no tasks matching your current filters."
-                  action={{ label: "Create Task", onClick: openCreate }}
+                  title={t("noTasksTitle")}
+                  description={t("noTasksDescription")}
+                  action={{ label: t("createTask"), onClick: openCreate }}
                 />
               ) : (
                 tasks.map((task) => (
@@ -345,7 +347,7 @@ export default function TasksPage() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={(page) => setParam("page", String(page))}
-                showingText={`Showing ${startIdx + 1}–${endIdx} of ${totalTasks} tasks`}
+                showingText={t("showingTasks", { start: startIdx + 1, end: endIdx, total: totalTasks })}
               />
             )}
           </div>

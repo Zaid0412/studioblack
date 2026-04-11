@@ -32,6 +32,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -246,6 +247,7 @@ export function TaskDetailModal({
   onDelete,
   onChecklistChange,
 }: TaskDetailModalProps) {
+  const t = useTranslations("tasks");
   const router = useRouter();
 
   const {
@@ -312,7 +314,7 @@ export function TaskDetailModal({
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                {task.is_starred ? "Unstar" : "Star"}
+                {task.is_starred ? t("unstar") : t("star")}
               </TooltipContent>
             </Tooltip>
           )}
@@ -344,13 +346,13 @@ export function TaskDetailModal({
               </p>
             ) : (
               <p className="text-[13px] text-text-muted italic">
-                No description
+                {t("noDescription")}
               </p>
             )}
 
             {/* Details card */}
             <div className="flex flex-col rounded-lg bg-bg-secondary overflow-hidden shrink-0">
-              <DetailRow label="Status">
+              <DetailRow label={t("status")}>
                 <span
                   className={`w-[7px] h-[7px] rounded-full ${STATUS_DOT[task.status] ?? "bg-gray-400"}`}
                 />
@@ -359,7 +361,7 @@ export function TaskDetailModal({
                 </span>
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Priority">
+              <DetailRow label={t("priority")}>
                 <span
                   className={`w-[7px] h-[7px] rounded-full ${PRIORITY_DOT[task.priority] ?? "bg-gray-400"}`}
                 />
@@ -368,7 +370,7 @@ export function TaskDetailModal({
                 </span>
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Project">
+              <DetailRow label={t("project")}>
                 {task.project_name ? (
                   <a
                     href={
@@ -387,7 +389,7 @@ export function TaskDetailModal({
                 )}
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Phase">
+              <DetailRow label={t("phase")}>
                 {task.phase_name ? (
                   <span className="text-xs text-text-secondary">
                     {task.phase_name}
@@ -397,13 +399,13 @@ export function TaskDetailModal({
                 )}
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Category">
+              <DetailRow label={t("category")}>
                 <span className="text-[11px] font-medium text-text-secondary bg-bg-secondary px-2 py-0.5 rounded">
                   {capitalize(task.category)}
                 </span>
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Assignee">
+              <DetailRow label={t("assignee")}>
                 {task.assigned_to_name ? (
                   <>
                     <Avatar
@@ -416,11 +418,11 @@ export function TaskDetailModal({
                     </span>
                   </>
                 ) : (
-                  <span className="text-xs text-text-muted">Unassigned</span>
+                  <span className="text-xs text-text-muted">{t("unassigned")}</span>
                 )}
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Due">
+              <DetailRow label={t("due")}>
                 {task.due_date ? (
                   <>
                     <Calendar className="w-3.5 h-3.5 text-text-secondary" />
@@ -439,15 +441,15 @@ export function TaskDetailModal({
                 )}
               </DetailRow>
               <DetailSep />
-              <DetailRow label="Created">
+              <DetailRow label={t("created")}>
                 <span className="text-xs text-text-secondary">
-                  {formatFullDate(task.created_at)} by {task.created_by_name}
+                  {formatFullDate(task.created_at)} {t("by")} {task.created_by_name}
                 </span>
               </DetailRow>
               {task.completed_at && (
                 <>
                   <DetailSep />
-                  <DetailRow label="Completed">
+                  <DetailRow label={t("completed")}>
                     <span className="text-xs text-green-400">
                       {formatFullDate(task.completed_at)}
                     </span>
@@ -462,12 +464,12 @@ export function TaskDetailModal({
                 <div className="flex items-center gap-1.5">
                   <ListChecks className="w-3.5 h-3.5 text-text-muted" />
                   <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
-                    Checklist
+                    {t("checklist")}
                   </span>
                 </div>
                 {checklistItems.length > 0 && (
                   <span className="text-[11px] text-text-muted">
-                    {doneCount}/{checklistItems.length} completed
+                    {t("checklistCompleted", { done: doneCount, total: checklistItems.length })}
                   </span>
                 )}
               </div>
@@ -488,7 +490,7 @@ export function TaskDetailModal({
                       type="text"
                       value={newItemTitle}
                       onChange={(e) => setNewItemTitle(e.target.value)}
-                      placeholder="Add item..."
+                      placeholder={t("addItemPlaceholder")}
                       className="flex-1 text-[13px] bg-transparent border border-border-default rounded px-2.5 py-1.5 text-text-primary placeholder:text-text-muted outline-none focus:border-accent transition-colors"
                       disabled={addingItem}
                     />
@@ -497,7 +499,7 @@ export function TaskDetailModal({
                       disabled={!newItemTitle.trim() || addingItem}
                       className="px-3 py-1.5 rounded bg-accent text-black text-xs font-semibold disabled:opacity-30 hover:bg-accent/90 transition-colors cursor-pointer disabled:cursor-not-allowed"
                     >
-                      Add
+                      {t("add")}
                     </button>
                   </form>
                   {checklistItems.length > 0 && (
@@ -541,13 +543,12 @@ export function TaskDetailModal({
                 <div className="flex items-center gap-1.5">
                   <Paperclip className="w-3.5 h-3.5 text-text-muted" />
                   <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
-                    Attachments
+                    {t("attachments")}
                   </span>
                 </div>
                 {attachments.length > 0 && (
                   <span className="text-[11px] text-text-muted">
-                    {attachments.length} file
-                    {attachments.length !== 1 ? "s" : ""}
+                    {t("fileCount", { count: attachments.length })}
                   </span>
                 )}
               </div>
@@ -606,7 +607,7 @@ export function TaskDetailModal({
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                {isPreviewing ? "Hide preview" : "Preview"}
+                                {isPreviewing ? t("hidePreview") : t("preview")}
                               </TooltipContent>
                             </Tooltip>
                           )}
@@ -622,7 +623,7 @@ export function TaskDetailModal({
                                   <ExternalLink className="w-3.5 h-3.5" />
                                 </a>
                               </TooltipTrigger>
-                              <TooltipContent>Open in new tab</TooltipContent>
+                              <TooltipContent>{t("openInNewTab")}</TooltipContent>
                             </Tooltip>
                           )}
                           <Tooltip>
@@ -634,7 +635,7 @@ export function TaskDetailModal({
                                 <Download className="w-3.5 h-3.5" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent>Download</TooltipContent>
+                            <TooltipContent>{t("download")}</TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -645,7 +646,7 @@ export function TaskDetailModal({
                                 <X className="w-3 h-3" />
                               </button>
                             </TooltipTrigger>
-                            <TooltipContent>Delete</TooltipContent>
+                            <TooltipContent>{t("delete")}</TooltipContent>
                           </Tooltip>
                         </div>
                         {canPreview && isPreviewing && (
@@ -692,7 +693,7 @@ export function TaskDetailModal({
                 ) : (
                   <Upload className="w-3.5 h-3.5" />
                 )}
-                {uploading ? "Uploading..." : "Upload file"}
+                {uploading ? t("uploading") : t("uploadFile")}
               </button>
             </div>
           </div>
@@ -719,7 +720,7 @@ export function TaskDetailModal({
                   }}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  Go to Project
+                  {t("goToProject")}
                 </Button>
               )}
             </div>
@@ -733,7 +734,7 @@ export function TaskDetailModal({
                 }}
               >
                 <Edit className="w-3.5 h-3.5" />
-                Edit
+                {t("edit")}
               </Button>
               <Button
                 variant="secondary"
@@ -743,12 +744,12 @@ export function TaskDetailModal({
                 {task.status === "completed" ? (
                   <>
                     <RotateCcw className="w-3.5 h-3.5" />
-                    Reopen
+                    {t("reopen")}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Complete
+                    {t("complete")}
                   </>
                 )}
               </Button>
