@@ -942,9 +942,11 @@ export function FileTable({
                         longPressTriggered.current = false;
                         return;
                       }
-                      hasSelection
-                        ? toggleSelect(att.id, e)
-                        : router.push(reviewPath(att.id));
+                      if (hasSelection) {
+                        toggleSelect(att.id, e);
+                      } else {
+                        router.push(reviewPath(att.id));
+                      }
                     }}
                   >
                     <div className="flex items-center gap-2">

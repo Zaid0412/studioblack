@@ -54,7 +54,6 @@ interface SpreadsheetViewerProps {
  */
 export function SpreadsheetViewer({
   fileUrl,
-  fileName,
   children,
 }: SpreadsheetViewerProps) {
   const [sheetData, setSheetData] = useState<FortuneSheetData[] | null>(null);
@@ -69,7 +68,7 @@ export function SpreadsheetViewer({
       setLoading(true);
       setError(null);
       try {
-        const XLSX = await import("xlsx");
+        const ExcelJS = await import("exceljs");
 
         const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(fileUrl)}`;
         const res = await fetch(proxyUrl);
@@ -77,29 +76,31 @@ export function SpreadsheetViewer({
         const data = await res.arrayBuffer();
         if (cancelled) return;
 
-        const workbook = XLSX.read(data, {
-          type: "array",
-          cellStyles: true,
-          cellDates: true,
-        });
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(data);
 
-        const sheets: FortuneSheetData[] = workbook.SheetNames.map(
-          (name, idx) => {
-            const ws = workbook.Sheets[name];
+        const sheets: FortuneSheetData[] = workbook.worksheets.map(
+          (ws, idx) => {
             const celldata: FortuneSheetCell[] = [];
             const merges: { r: number; c: number; rs: number; cs: number }[] =
               [];
 
             // Parse merged cells
-            if (ws["!merges"]) {
-              for (const merge of ws["!merges"]) {
-                merges.push({
-                  r: merge.s.r,
-                  c: merge.s.c,
-                  rs: merge.e.r - merge.s.r + 1,
-                  cs: merge.e.c - merge.s.c + 1,
-                });
-              }
+            for (const mergeRange of ws.model.merges ?? []) {
+              // mergeRange is "A1:C3" — use worksheet's built-in decoding
+              const [topLeft, bottomRight] = mergeRange.split(":");
+              const tl = ws.getCell(topLeft);
+              const br = ws.getCell(bottomRight);
+              const tlRow = Number(tl.row);
+              const tlCol = Number(tl.col);
+              const brRow = Number(br.row);
+              const brCol = Number(br.col);
+              merges.push({
+                r: tlRow - 1,
+                c: tlCol - 1,
+                rs: brRow - tlRow + 1,
+                cs: brCol - tlCol + 1,
+              });
             }
 
             // Build merge lookup for tagging cells
@@ -113,81 +114,94 @@ export function SpreadsheetViewer({
 
             // Parse column widths
             const columnWidths: Record<string, number> = {};
-            if (ws["!cols"]) {
-              ws["!cols"].forEach(
-                (
-                  col: { wpx?: number; wch?: number } | undefined,
-                  i: number
-                ) => {
-                  if (col?.wpx) columnWidths[String(i)] = col.wpx;
-                  else if (col?.wch) columnWidths[String(i)] = col.wch * 8;
-                }
-              );
-            }
+            ws.columns.forEach((col, i) => {
+              if (col.width) columnWidths[String(i)] = Number(col.width) * 8;
+            });
 
             // Parse row heights
             const rowHeights: Record<string, number> = {};
-            if (ws["!rows"]) {
-              ws["!rows"].forEach(
-                (
-                  row: { hpx?: number; hpt?: number } | undefined,
-                  i: number
-                ) => {
-                  if (row?.hpx) rowHeights[String(i)] = row.hpx;
-                  else if (row?.hpt) rowHeights[String(i)] = row.hpt * 1.333;
-                }
-              );
-            }
+            ws.eachRow({ includeEmpty: false }, (row) => {
+              if (row.height) rowHeights[String(row.number - 1)] = row.height;
+            });
 
             // Parse cells
-            for (const addr in ws) {
-              if (addr.startsWith("!")) continue;
-              const cell = ws[addr];
-              const decoded = XLSX.utils.decode_cell(addr);
+            let maxRow = 0;
+            let maxCol = 0;
 
-              const cellValue: FortuneSheetCell["v"] = {
-                v: cell.v ?? "",
-                m: cell.w ?? String(cell.v ?? ""),
-                ct: {
-                  fa: cell.z || "General",
-                  t: cell.t === "n" ? "n" : cell.t === "d" ? "d" : "g",
-                },
-              };
+            ws.eachRow({ includeEmpty: false }, (row) => {
+              row.eachCell({ includeEmpty: false }, (cell) => {
+                const r = Number(cell.row) - 1;
+                const c = Number(cell.col) - 1;
+                if (r > maxRow) maxRow = r;
+                if (c > maxCol) maxCol = c;
 
-              // Basic style mapping from SheetJS cell style
-              if (cell.s) {
-                if (cell.s.font?.bold) cellValue.bl = 1;
-                if (cell.s.font?.italic) cellValue.it = 1;
-                if (cell.s.font?.sz) cellValue.fs = cell.s.font.sz;
-                if (cell.s.font?.color?.rgb)
-                  cellValue.fc = `#${cell.s.font.color.rgb}`;
-                if (cell.s.fill?.fgColor?.rgb)
-                  cellValue.bg = `#${cell.s.fill.fgColor.rgb}`;
-                // Horizontal alignment
-                if (cell.s.alignment?.horizontal === "center") cellValue.ht = 0;
-                else if (cell.s.alignment?.horizontal === "right")
-                  cellValue.ht = 2;
-                // Vertical alignment
-                if (cell.s.alignment?.vertical === "center") cellValue.vt = 0;
-                else if (cell.s.alignment?.vertical === "top") cellValue.vt = 1;
-              }
+                let rawValue: string | number | boolean | null;
+                if (cell.value instanceof Date) {
+                  rawValue = cell.value.toLocaleDateString();
+                } else if (
+                  cell.value != null &&
+                  typeof cell.value === "object" &&
+                  "result" in cell.value
+                ) {
+                  const result = (
+                    cell.value as { result?: string | number | boolean | null }
+                  ).result;
+                  rawValue = result ?? "";
+                } else {
+                  rawValue =
+                    (cell.value as string | number | boolean | null) ?? "";
+                }
 
-              // Tag merged cell origin
-              const mergeInfo = mergeMap.get(`${decoded.r},${decoded.c}`);
-              if (mergeInfo) {
-                cellValue.mc = mergeInfo;
-              }
+                const isNumber = typeof rawValue === "number";
+                const isDate = cell.value instanceof Date;
 
-              celldata.push({ r: decoded.r, c: decoded.c, v: cellValue });
-            }
+                const cellValue: FortuneSheetCell["v"] = {
+                  v: rawValue as string | number | boolean | null,
+                  m: cell.text || String(rawValue),
+                  ct: {
+                    fa: (cell.numFmt as string) || "General",
+                    t: isNumber ? "n" : isDate ? "d" : "g",
+                  },
+                };
 
-            // Determine grid size from range
-            const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-            const rowCount = Math.max(range.e.r + 1, 50);
-            const colCount = Math.max(range.e.c + 1, 26);
+                // Style mapping
+                const font = cell.font;
+                if (font) {
+                  if (font.bold) cellValue.bl = 1;
+                  if (font.italic) cellValue.it = 1;
+                  if (font.size) cellValue.fs = font.size;
+                  if (font.color?.argb)
+                    cellValue.fc = `#${font.color.argb.slice(2)}`;
+                }
+
+                const fill = cell.fill;
+                if (fill && fill.type === "pattern" && fill.fgColor?.argb) {
+                  cellValue.bg = `#${fill.fgColor.argb.slice(2)}`;
+                }
+
+                const alignment = cell.alignment;
+                if (alignment) {
+                  if (alignment.horizontal === "center") cellValue.ht = 0;
+                  else if (alignment.horizontal === "right") cellValue.ht = 2;
+                  if (alignment.vertical === "middle") cellValue.vt = 0;
+                  else if (alignment.vertical === "top") cellValue.vt = 1;
+                }
+
+                // Tag merged cell origin
+                const mergeInfo = mergeMap.get(`${r},${c}`);
+                if (mergeInfo) {
+                  cellValue.mc = mergeInfo;
+                }
+
+                celldata.push({ r, c, v: cellValue });
+              });
+            });
+
+            const rowCount = Math.max(maxRow + 1, 50);
+            const colCount = Math.max(maxCol + 1, 26);
 
             return {
-              name,
+              name: ws.name,
               celldata,
               order: idx,
               row: rowCount,
@@ -224,7 +238,6 @@ export function SpreadsheetViewer({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileUrl]);
 
   if (loading) {

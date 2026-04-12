@@ -16,7 +16,6 @@ import { LeaveDialog } from "./_components/LeaveDialog";
 /** Organisation management page — create org, invite & manage members. */
 export default function OrganisationPage() {
   const t = useTranslations("organisation");
-  const tc = useTranslations("common");
   const org = useOrganisation();
 
   if (org.loading) {

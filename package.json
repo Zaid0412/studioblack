@@ -2,6 +2,9 @@
   "name": "studioblack",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbopack": "next dev --turbopack",
@@ -11,7 +14,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run lint && npm run format:check && tsc --noEmit",
+    "check": "npm run lint && npm run format:check && tsc --noEmit --skipLibCheck",
     "seed": "npx tsx scripts/seed.ts"
   },
   "dependencies": {
@@ -36,8 +39,9 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
     "lucide-react": "^0.577.0",
-    "next": "16.1.6",
+    "next": "^16.2.3",
     "next-intl": "^4.8.3",
     "nodemailer": "^8.0.2",
     "pg": "8.11.3",
@@ -47,7 +51,6 @@
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
-    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

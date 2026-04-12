@@ -11,7 +11,6 @@ import {
   Upload,
   Trash2,
   FolderOpen,
-  Loader2,
   LayoutList,
   LayoutGrid,
   Calendar,
