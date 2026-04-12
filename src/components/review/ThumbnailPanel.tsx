@@ -60,7 +60,10 @@ export function ThumbnailPanel({
         {loading ? (
           <div className="flex flex-col py-1">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2.5 px-3 py-2 border-l-2 border-transparent">
+              <div
+                key={i}
+                className="flex items-center gap-2.5 px-3 py-2 border-l-2 border-transparent"
+              >
                 <Skeleton className="w-4 h-4 rounded shrink-0" />
                 <div className="flex-1 min-w-0">
                   <Skeleton className="h-3 w-full" />

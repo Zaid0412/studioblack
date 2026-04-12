@@ -253,7 +253,10 @@ export function SpreadsheetViewer({
         </div>
         {/* Data rows */}
         {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-px border-b border-border-default/50">
+          <div
+            key={i}
+            className="flex items-center gap-px border-b border-border-default/50"
+          >
             <Skeleton className="w-10 h-7 rounded-none" />
             {Array.from({ length: 8 }).map((_, j) => (
               <Skeleton key={j} className="flex-1 h-7 rounded-none" />

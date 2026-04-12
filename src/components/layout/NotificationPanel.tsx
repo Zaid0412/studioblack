@@ -145,7 +145,10 @@ export function NotificationPanel() {
               </div>
               {/* Notification row skeletons */}
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-start gap-3 px-4 lg:px-5 py-3">
+                <div
+                  key={i}
+                  className="flex items-start gap-3 px-4 lg:px-5 py-3"
+                >
                   <Skeleton className="w-2 h-2 rounded-full shrink-0 mt-1.5" />
                   <div className="flex flex-col gap-1.5 flex-1 min-w-0">
                     <Skeleton className="h-3.5 w-4/5" />
