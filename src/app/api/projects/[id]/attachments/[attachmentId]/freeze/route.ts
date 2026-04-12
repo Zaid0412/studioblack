@@ -1,23 +1,11 @@
 import { NextResponse } from "next/server";
 import { setAttachmentFreezeStatus } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { rateLimit } from "@/lib/rateLimit";
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/freeze — PM can freeze a file. */
 export const PATCH = withAuth(
-  { allowedRoles: ["pm"], projectAccess: true },
-  async (req, { user }, params) => {
-    const { allowed } = rateLimit(`freeze:${user.id}`, {
-      limit: 10,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
+  { allowedRoles: ["pm"], projectAccess: true, rateLimit: { limit: 10, windowMs: 60_000 } },
+  async (_req, _ctx, params) => {
     const { error, data } = await setAttachmentFreezeStatus(
       params.attachmentId,
       params.id,

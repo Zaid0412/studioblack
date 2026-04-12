@@ -256,3 +256,19 @@ export function parseBody<T extends z.ZodType>(
   }
   return { success: true, data: result.data };
 }
+
+/** Safely parse JSON from a request body and validate against a Zod schema.
+ *  Returns `{ success: true, data }` or `{ success: false, error }`.
+ *  Catches malformed JSON (returns "Invalid JSON body") before running Zod validation. */
+export async function parseRequest<T extends z.ZodType>(
+  req: Request,
+  schema: T
+): Promise<{ success: true; data: z.infer<T> } | { success: false; error: string }> {
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return { success: false, error: "Invalid JSON body" };
+  }
+  return parseBody(schema, raw);
+}

@@ -3,10 +3,10 @@ import {
   getAttachmentById,
   getAttachmentVersionHistory,
   deleteAttachment,
+  updateAttachmentStatus,
 } from "@/lib/queries";
-import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
-import { parseBody, updateAttachmentStatusSchema } from "@/lib/validations";
+import { parseRequest, updateAttachmentStatusSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/attachments/[attachmentId] — get single attachment with version history. */
 export const GET = withAuth(
@@ -69,8 +69,7 @@ export const PATCH = withAuth(
   { projectAccess: true },
   async (req, ctx, params) => {
     const { id, attachmentId } = params;
-    const raw = await req.json();
-    const parsed = parseBody(updateAttachmentStatusSchema, raw);
+    const parsed = await parseRequest(req, updateAttachmentStatusSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -81,13 +80,7 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const pool = getPool();
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE attachment SET review_status = $1 WHERE id = $2 AND project_id = $3 RETURNING *`,
-      [reviewStatus, attachmentId, id]
-    );
+    const updated = await updateAttachmentStatus(attachmentId, id, reviewStatus);
 
     return NextResponse.json(updated);
   }

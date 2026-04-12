@@ -3,12 +3,13 @@ import {
   getPhaseTasks,
   verifyPhaseOwnership,
   verifyTaskOwnership,
+  createPhaseTask,
+  updatePhaseTask,
 } from "@/lib/queries";
-import { getPool } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import {
-  parseBody,
+  parseRequest,
   createPhaseTaskSchema,
   updatePhaseTaskSchema,
 } from "@/lib/validations";
@@ -46,8 +47,7 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id } = params;
 
-    const raw = await req.json();
-    const parsed = parseBody(createPhaseTaskSchema, raw);
+    const parsed = await parseRequest(req, createPhaseTaskSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -61,21 +61,13 @@ export const POST = withAuth(
       );
     }
 
-    const pool = getPool();
-    const {
-      rows: [task],
-    } = await pool.query(
-      `INSERT INTO phase_task (phase_id, title, description, assigned_to, due_date)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-      [
-        phaseId,
-        title.trim(),
-        description || "",
-        assignedTo || null,
-        dueDate || null,
-      ]
-    );
+    const task = await createPhaseTask({
+      phaseId,
+      title: title.trim(),
+      description: description || "",
+      assignedTo: assignedTo || null,
+      dueDate: dueDate || null,
+    });
 
     // Notify the assignee if someone else created the task
     if (assignedTo && assignedTo !== user.id) {
@@ -99,8 +91,7 @@ export const PATCH = withAuth(
   async (req, _ctx, params) => {
     const { id } = params;
 
-    const raw = await req.json();
-    const parsed = parseBody(updatePhaseTaskSchema, raw);
+    const parsed = await parseRequest(req, updatePhaseTaskSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -122,11 +113,6 @@ export const PATCH = withAuth(
       );
     }
 
-    const pool = getPool();
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    let idx = 1;
-
     const fields: Record<string, unknown> = {
       title,
       description,
@@ -136,30 +122,14 @@ export const PATCH = withAuth(
       requires_client_review: requiresClientReview,
     };
 
-    for (const [col, val] of Object.entries(fields)) {
-      if (val !== undefined) {
-        updates.push(`${col} = $${idx}`);
-        values.push(val);
-        idx++;
-      }
-    }
+    const updated = await updatePhaseTask(taskId, fields);
 
-    if (updates.length === 0) {
+    if (!updated) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
       );
     }
-
-    updates.push(`updated_at = now()`);
-    values.push(taskId);
-
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE phase_task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
-      values
-    );
 
     return NextResponse.json(updated);
   }

@@ -3,14 +3,15 @@ import {
   getComments,
   verifyPhaseOwnership,
   verifyTaskOwnership,
+  createComment,
+  getProjectName,
 } from "@/lib/queries";
-import { getPool } from "@/lib/db";
 import {
   createNotificationsForTeam,
   createNotificationForClient,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
-import { parseBody, createCommentSchema } from "@/lib/validations";
+import { parseRequest, createCommentSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/comments — list comments. */
 export const GET = withAuth(
@@ -35,8 +36,7 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id } = params;
 
-    const raw = await req.json();
-    const parsed = parseBody(createCommentSchema, raw);
+    const parsed = await parseRequest(req, createCommentSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -61,23 +61,19 @@ export const POST = withAuth(
       }
     }
 
-    const pool = getPool();
-    const {
-      rows: [comment],
-    } = await pool.query(
-      `INSERT INTO comment (project_id, phase_id, task_id, user_id, content)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-      [id, phaseId || null, taskId || null, user.id, content.trim()]
-    );
+    const comment = await createComment({
+      projectId: id,
+      phaseId: phaseId || null,
+      taskId: taskId || null,
+      userId: user.id,
+      content: content.trim(),
+    });
 
     // Notify team + client about new comment
     try {
       const userName = user.name || user.email;
-      const {
-        rows: [proj],
-      } = await pool.query(`SELECT name FROM project WHERE id = $1`, [id]);
-      const title = `New comment on ${proj?.name || "project"}`;
+      const projName = await getProjectName(id);
+      const title = `New comment on ${projName || "project"}`;
       const desc = `${userName}: ${content.trim().slice(0, 100)}`;
       await createNotificationsForTeam(id, user.id, "comment", title, desc);
       if (user.role !== "client") {

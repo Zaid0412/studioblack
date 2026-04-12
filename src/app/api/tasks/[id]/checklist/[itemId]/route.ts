@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
-import { verifyTaskAccess } from "@/lib/queries";
-import { parseBody, updateChecklistItemSchema } from "@/lib/validations";
+import {
+  verifyTaskAccess,
+  updateChecklistItem,
+  deleteChecklistItem,
+} from "@/lib/queries";
+import { parseRequest, updateChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 
 /** PATCH /api/tasks/[id]/checklist/[itemId] — update a checklist item. */
@@ -13,50 +16,24 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const raw = await req.json();
-    const parsed = parseBody(updateChecklistItemSchema, raw);
+    const parsed = await parseRequest(req, updateChecklistItemSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const { title, is_done, position } = parsed.data;
 
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    let idx = 1;
-
-    if (title !== undefined) {
-      updates.push(`title = $${idx}`);
-      values.push(title);
-      idx++;
-    }
-
-    if (is_done !== undefined) {
-      updates.push(`is_done = $${idx}`);
-      values.push(is_done);
-      idx++;
-    }
-
-    if (position !== undefined) {
-      updates.push(`position = $${idx}`);
-      values.push(position);
-      idx++;
-    }
-
-    if (updates.length === 0) {
+    if (title === undefined && is_done === undefined && position === undefined) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
       );
     }
 
-    const pool = getPool();
-    values.push(itemId, taskId);
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE task_checklist_item SET ${updates.join(", ")} WHERE id = $${idx} AND task_id = $${idx + 1} RETURNING *`,
-      values
-    );
+    const updated = await updateChecklistItem(itemId, taskId, {
+      title,
+      is_done,
+      position,
+    });
 
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -74,13 +51,8 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const pool = getPool();
-    const { rowCount } = await pool.query(
-      `DELETE FROM task_checklist_item WHERE id = $1 AND task_id = $2`,
-      [itemId, taskId]
-    );
-
-    if (rowCount === 0) {
+    const deleted = await deleteChecklistItem(itemId, taskId);
+    if (!deleted) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     return NextResponse.json({ success: true });

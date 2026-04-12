@@ -5,12 +5,13 @@ import {
   createProjectWithPhases,
   getProjectsByOrgId,
   getProjectsByArchitectId,
+  getUsersByIds,
+  checkUserExistsByEmail,
 } from "@/lib/queries";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
-import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
-import { parseBody, createProjectSchema } from "@/lib/validations";
+import { parseRequest, createProjectSchema } from "@/lib/validations";
 
 /** GET /api/projects — list projects for the current user's org. */
 export const GET = withAuth({}, async (req, { session, user }) => {
@@ -65,8 +66,7 @@ export const POST = withAuth(
       );
     }
 
-    const raw = await req.json();
-    const parsed = parseBody(createProjectSchema, raw);
+    const parsed = await parseRequest(req, createProjectSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -108,17 +108,12 @@ export const POST = withAuth(
       // Notify assigned architects (fire-and-forget, parallel)
       const baseUrl = env().NEXT_PUBLIC_APP_URL;
       if (architectIds?.length) {
-        const pool = getPool();
         const projectUrl = escapeHtml(
           `${baseUrl}/projects/${encodeURIComponent(project.id)}`
         );
         const safeName = escapeHtml(name);
-        pool
-          .query(
-            `SELECT id, email, name FROM "user" WHERE id = ANY($1::uuid[])`,
-            [architectIds]
-          )
-          .then(({ rows }) => {
+        getUsersByIds(architectIds)
+          .then((rows) => {
             for (const arch of rows) {
               sendNotificationEmail(
                 arch.email,
@@ -133,13 +128,8 @@ export const POST = withAuth(
 
       // Notify client (fire-and-forget)
       if (clientEmail) {
-        const pool = getPool();
-        pool
-          .query(`SELECT id FROM "user" WHERE email = $1 LIMIT 1`, [
-            clientEmail,
-          ])
-          .then(({ rows: clientRows }) => {
-            const isRegistered = clientRows.length > 0;
+        checkUserExistsByEmail(clientEmail)
+          .then((isRegistered) => {
             const link = escapeHtml(
               isRegistered
                 ? `${baseUrl}/login`

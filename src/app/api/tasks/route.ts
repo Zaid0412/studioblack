@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { getTasks, getTaskBucketCounts, getMemberRole } from "@/lib/queries";
-import { getPool } from "@/lib/db";
+import {
+  getTasks,
+  getTaskBucketCounts,
+  getMemberRole,
+  validateOrgMembership,
+  validateProjectInOrg,
+  createTask,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { createNotification } from "@/lib/notifications";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import {
+  createNotification,
+  notifyUserByEmailWithContext,
+} from "@/lib/notifications";
+import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
-import { parseBody, createTaskSchema } from "@/lib/validations";
+import { parseRequest, createTaskSchema } from "@/lib/validations";
 
 const VALID_BUCKETS = [
   "all",
@@ -91,8 +100,7 @@ export const POST = withAuth(
       );
     }
 
-    const raw = await req.json();
-    const parsed = parseBody(createTaskSchema, raw);
+    const parsed = await parseRequest(req, createTaskSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -114,15 +122,9 @@ export const POST = withAuth(
       );
     }
 
-    const pool = getPool();
-
     // Validate assignedTo belongs to the org
     if (assignedTo) {
-      const { rows } = await pool.query(
-        'SELECT 1 FROM member WHERE "organizationId" = $1 AND "userId" = $2',
-        [orgId, assignedTo]
-      );
-      if (rows.length === 0) {
+      if (!(await validateOrgMembership(orgId, assignedTo))) {
         return NextResponse.json(
           { error: "Assignee not in organization" },
           { status: 400 }
@@ -132,11 +134,7 @@ export const POST = withAuth(
 
     // Validate projectId belongs to the org
     if (projectId) {
-      const { rows } = await pool.query(
-        "SELECT 1 FROM project WHERE id = $1 AND org_id = $2",
-        [projectId, orgId]
-      );
-      if (rows.length === 0) {
+      if (!(await validateProjectInOrg(projectId, orgId))) {
         return NextResponse.json(
           { error: "Project not in organization" },
           { status: 400 }
@@ -144,25 +142,18 @@ export const POST = withAuth(
       }
     }
 
-    const {
-      rows: [task],
-    } = await pool.query(
-      `INSERT INTO task (org_id, project_id, phase_id, title, description, priority, category, created_by, assigned_to, due_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING *`,
-      [
-        orgId,
-        projectId || null,
-        phaseId || null,
-        title.trim(),
-        description || "",
-        priority || "medium",
-        category || "general",
-        user.id,
-        assignedTo || user.id,
-        dueDate || null,
-      ]
-    );
+    const task = await createTask({
+      orgId,
+      projectId: projectId || null,
+      phaseId: phaseId || null,
+      title: title.trim(),
+      description: description || "",
+      priority: priority || "medium",
+      category: category || "general",
+      createdBy: user.id,
+      assignedTo: assignedTo || user.id,
+      dueDate: dueDate || null,
+    });
 
     // Notify assignee if different from creator
     if (assignedTo && assignedTo !== user.id) {
@@ -175,25 +166,19 @@ export const POST = withAuth(
       }).catch((err) => console.error("Notification error:", err));
 
       // Email the assignee
-      pool
-        .query(`SELECT u.email, u.name FROM "user" u WHERE u.id = $1`, [
-          assignedTo,
-        ])
-        .then(({ rows }) => {
-          const r = rows[0];
-          if (!r?.email) return;
-          const subject = "New Task Assigned to You";
-          const projectUrl = projectId
-            ? escapeHtml(
-                `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(projectId)}`
-              )
-            : null;
-          const body = `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a new task.</p>
+      notifyUserByEmailWithContext(assignedTo, projectId || null, () => {
+        const projectUrl = projectId
+          ? escapeHtml(
+              `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(projectId)}`
+            )
+          : null;
+        return {
+          subject: "New Task Assigned to You",
+          html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a new task.</p>
             <p style="color: #666;">${escapeHtml(title.trim())}</p>
-            ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`;
-          sendNotificationEmail(r.email, subject, body).catch(console.error);
-        })
-        .catch(console.error);
+            ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`,
+        };
+      });
     }
 
     return NextResponse.json(task, { status: 201 });

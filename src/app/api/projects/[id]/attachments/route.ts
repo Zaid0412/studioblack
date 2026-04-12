@@ -4,13 +4,13 @@ import {
   verifyPhaseOwnership,
   verifyTaskOwnership,
   uploadNewVersion,
+  getProjectName,
+  createProjectAttachment,
 } from "@/lib/queries";
-import { getPool } from "@/lib/db";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
-import { rateLimit } from "@/lib/rateLimit";
 import { env } from "@/env";
-import { parseBody, createProjectAttachmentSchema } from "@/lib/validations";
+import { parseRequest, createProjectAttachmentSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
@@ -33,23 +33,11 @@ export const GET = withAuth(
 
 /** POST /api/projects/[id]/attachments — add an attachment record. */
 export const POST = withAuth(
-  { projectAccess: true },
+  { projectAccess: true, rateLimit: { limit: 20, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { allowed } = rateLimit(`attach:${user.id}`, {
-      limit: 20,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
     const { id } = params;
 
-    const raw = await req.json();
-    const parsed = parseBody(createProjectAttachmentSchema, raw);
+    const parsed = await parseRequest(req, createProjectAttachmentSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -87,15 +75,10 @@ export const POST = withAuth(
     // Helper to send upload notifications (team only — client is notified via send-to-client)
     const sendUploadNotifications = async (attachmentFileName: string) => {
       try {
-        const pool = getPool();
-        const { rows: project } = await pool.query(
-          `SELECT name FROM project WHERE id = $1`,
-          [id]
-        );
-        const proj = project[0];
+        const projName = await getProjectName(id);
         const uploaderName = user.name || user.email;
         const notifTitle = `New upload: ${attachmentFileName}`;
-        const notifDesc = `${uploaderName} uploaded a file to ${proj?.name || "project"}`;
+        const notifDesc = `${uploaderName} uploaded a file to ${projName || "project"}`;
         await createNotificationsForTeam(
           id,
           user.id,
@@ -122,23 +105,15 @@ export const POST = withAuth(
       return NextResponse.json(attachment, { status: 201 });
     }
 
-    const pool = getPool();
-    const {
-      rows: [attachment],
-    } = await pool.query(
-      `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-      [
-        id,
-        phaseId || null,
-        taskId || null,
-        user.id,
-        fileUrl,
-        fileName,
-        description || "",
-      ]
-    );
+    const attachment = await createProjectAttachment({
+      projectId: id,
+      phaseId: phaseId || null,
+      taskId: taskId || null,
+      uploadedBy: user.id,
+      fileUrl,
+      fileName,
+      description: description || "",
+    });
 
     await sendUploadNotifications(fileName);
 

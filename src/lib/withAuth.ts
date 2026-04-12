@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { hasProjectAccess, getOrgRole } from "@/lib/queries";
+import { rateLimit } from "@/lib/rateLimit";
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 type User = NonNullable<Session>["user"];
@@ -22,6 +23,8 @@ interface WithAuthOptions {
   projectAccess?: boolean;
   /** If true, fetches getOrgRole() and includes it in context. */
   fetchOrgRole?: boolean;
+  /** Rate limit configuration. If provided, applies rate limiting before the handler runs. */
+  rateLimit?: { limit: number; windowMs: number };
 }
 
 type RouteParams = { params: Promise<Record<string, string>> };
@@ -98,6 +101,18 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       );
       if (!allowed) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    // Rate limit check
+    if (options.rateLimit) {
+      const key = `${req.method}:${req.nextUrl.pathname}:${user.id}`;
+      const { allowed } = rateLimit(key, options.rateLimit);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Too many requests. Please wait a moment." },
+          { status: 429 }
+        );
       }
     }
 

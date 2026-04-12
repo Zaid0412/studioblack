@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
-import { verifyTaskAccess } from "@/lib/queries";
-import { parseBody, createChecklistItemSchema } from "@/lib/validations";
+import {
+  verifyTaskAccess,
+  getChecklistItems,
+  createChecklistItem,
+} from "@/lib/queries";
+import { parseRequest, createChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 
 /** GET /api/tasks/[id]/checklist — list checklist items for a task. */
@@ -13,11 +16,7 @@ export const GET = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const pool = getPool();
-    const { rows } = await pool.query(
-      `SELECT * FROM task_checklist_item WHERE task_id = $1 ORDER BY position, created_at`,
-      [taskId]
-    );
+    const rows = await getChecklistItems(taskId);
     return NextResponse.json(rows);
   }
 );
@@ -32,22 +31,13 @@ export const POST = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const raw = await req.json();
-      const parsed = parseBody(createChecklistItemSchema, raw);
+      const parsed = await parseRequest(req, createChecklistItemSchema);
       if (!parsed.success) {
         return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
       const { title } = parsed.data;
 
-      const pool = getPool();
-      const {
-        rows: [item],
-      } = await pool.query(
-        `INSERT INTO task_checklist_item (task_id, title, position)
-         VALUES ($1, $2, COALESCE((SELECT MAX(position) + 1 FROM task_checklist_item WHERE task_id = $1), 0))
-         RETURNING *`,
-        [taskId, title]
-      );
+      const item = await createChecklistItem(taskId, title);
       return NextResponse.json(item, { status: 201 });
     } catch (err) {
       console.error("Checklist POST error:", err);

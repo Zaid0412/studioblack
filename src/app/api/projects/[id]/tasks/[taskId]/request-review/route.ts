@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { verifyTaskOwnership } from "@/lib/queries";
-import { getPool } from "@/lib/db";
+import {
+  verifyTaskOwnership,
+  markPhaseTaskForReview,
+  getProjectReviewInfo,
+} from "@/lib/queries";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationForClient } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
@@ -19,32 +22,15 @@ export const POST = withAuth(
       );
     }
 
-    const pool = getPool();
-
     // Update the task
-    const {
-      rows: [task],
-    } = await pool.query(
-      `UPDATE phase_task
-     SET requires_client_review = true,
-         review_status = 'pending_review',
-         updated_at = now()
-     WHERE id = $1
-     RETURNING *`,
-      [taskId]
-    );
+    const task = await markPhaseTaskForReview(taskId);
 
     if (!task) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
     // Get the project to find the client email
-    const {
-      rows: [project],
-    } = await pool.query(
-      `SELECT client_email, client_name, name FROM project WHERE id = $1`,
-      [id]
-    );
+    const project = await getProjectReviewInfo(id);
 
     // Send notification to client if email exists
     if (project?.client_email) {

@@ -3,34 +3,24 @@ import {
   getAttachmentById,
   createAttachmentReview,
   getAttachmentReviews,
+  submitAttachmentReview,
 } from "@/lib/queries";
-import { getPool } from "@/lib/db";
-import { createNotificationsForTeam } from "@/lib/notifications";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import {
+  createNotificationsForTeam,
+  notifyTeamByEmail,
+} from "@/lib/notifications";
+import { escapeHtml } from "@/lib/email";
 import { withAuth } from "@/lib/withAuth";
-import { rateLimit } from "@/lib/rateLimit";
 import { env } from "@/env";
-import { parseBody, submitReviewSchema } from "@/lib/validations";
+import { parseRequest, submitReviewSchema } from "@/lib/validations";
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/review — submit a review. */
 export const PATCH = withAuth(
-  { projectAccess: true },
+  { projectAccess: true, rateLimit: { limit: 10, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { allowed } = rateLimit(`review:${user.id}`, {
-      limit: 10,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
     const { id, attachmentId } = params;
 
-    const raw = await req.json();
-    const parsed = parseBody(submitReviewSchema, raw);
+    const parsed = await parseRequest(req, submitReviewSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -51,53 +41,14 @@ export const PATCH = withAuth(
       );
     }
 
-    // Update status + freeze on approval atomically
-    const pool = getPool();
-    const client = await pool.connect();
-    let updated;
-    try {
-      await client.query("BEGIN");
-      const { rows } = await client.query(
-        `UPDATE attachment
-         SET review_status = $1, reviewed_by = $2
-         WHERE id = $3
-         RETURNING *`,
-        [status, user.id, attachmentId]
-      );
-      updated = rows[0];
-      if (status === "approved") {
-        await client.query(
-          `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
-          [attachmentId]
-        );
-      }
-
-      // Auto-create a review task for the architect when rejected
-      if (status === "rejected") {
-        const {
-          rows: [project],
-        } = await client.query(`SELECT org_id FROM project WHERE id = $1`, [
-          id,
-        ]);
-        if (project) {
-          const taskTitle = comment
-            ? comment.slice(0, 100)
-            : `Changes requested on "${attachment.file_name}"`;
-          await client.query(
-            `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, status, priority, category)
-             VALUES ($1, $2, $3, $4, $5, 'todo', 'medium', 'review')`,
-            [project.org_id, id, taskTitle, user.id, attachment.uploaded_by]
-          );
-        }
-      }
-
-      await client.query("COMMIT");
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
+    // Update status + freeze on approval + auto-create rejection task atomically
+    const { attachment: updated } = await submitAttachmentReview(
+      attachmentId,
+      id,
+      user.id,
+      status as "approved" | "rejected",
+      comment
+    );
 
     // Create a review record (for history)
     await createAttachmentReview({
@@ -109,7 +60,7 @@ export const PATCH = withAuth(
       annotationCount: annotationCount || 0,
     });
 
-    // Notify team members (PM, architects)
+    // Notify team members (PM, architects) — in-app
     const reviewerName = user.name || "Client";
     const notifTitle =
       status === "approved"
@@ -126,42 +77,25 @@ export const PATCH = withAuth(
     );
 
     // Send email notifications to org team members (fire-and-forget)
-    const pool2 = getPool();
-    pool2
-      .query(
-        `SELECT DISTINCT u.email, u.name
-         FROM project p
-         JOIN member m ON m."organizationId" = p.org_id
-         JOIN "user" u ON u.id = m."userId"
-         WHERE p.id = $1 AND m."userId" != $2`,
-        [id, user.id]
-      )
-      .then(({ rows: teamMembers }) => {
-        const safeFileName = escapeHtml(attachment.file_name);
-        const safeReviewer = escapeHtml(reviewerName);
-        const safeComment = comment
-          ? `<p style="color:#555;margin-top:12px;">"${escapeHtml(comment)}"</p>`
-          : "";
-        const projectUrl = escapeHtml(
-          `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
-        );
+    const safeFileName = escapeHtml(attachment.file_name);
+    const safeReviewer = escapeHtml(reviewerName);
+    const safeComment = comment
+      ? `<p style="color:#555;margin-top:12px;">"${escapeHtml(comment)}"</p>`
+      : "";
+    const projectUrl = escapeHtml(
+      `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+    );
 
-        for (const member of teamMembers) {
-          const subject =
-            status === "approved"
-              ? `Design Approved: ${attachment.file_name}`
-              : `Changes Requested: ${attachment.file_name}`;
-          const body =
-            status === "approved"
-              ? `<p><strong>${safeReviewer}</strong> approved <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;">The file has been frozen and is ready for the next phase.</p><p style="margin-top:8px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`
-              : `<p><strong>${safeReviewer}</strong> requested changes on <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`;
-
-          sendNotificationEmail(member.email, subject, body).catch(
-            console.error
-          );
-        }
-      })
-      .catch(console.error);
+    notifyTeamByEmail(id, [user.id], (member) => ({
+      subject:
+        status === "approved"
+          ? `Design Approved: ${attachment.file_name}`
+          : `Changes Requested: ${attachment.file_name}`,
+      html:
+        status === "approved"
+          ? `<p><strong>${safeReviewer}</strong> approved <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;">The file has been frozen and is ready for the next phase.</p><p style="margin-top:8px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`
+          : `<p><strong>${safeReviewer}</strong> requested changes on <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`,
+    }));
 
     return NextResponse.json(updated);
   }

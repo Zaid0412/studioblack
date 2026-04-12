@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
-import { getTaskById } from "@/lib/queries";
-import { getPool } from "@/lib/db";
+import {
+  getTaskById,
+  validateOrgMembership,
+  validateProjectInOrg,
+  updateTask,
+  getMemberRole,
+  deleteTask,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { createNotification } from "@/lib/notifications";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import {
+  createNotification,
+  notifyUserByEmailWithContext,
+} from "@/lib/notifications";
+import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
-import { parseBody, updateTaskSchema } from "@/lib/validations";
+import { parseRequest, updateTaskSchema } from "@/lib/validations";
 
 /** GET /api/tasks/[id] — get a single task. */
 export const GET = withAuth(
@@ -32,21 +41,15 @@ export const PATCH = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const raw = await req.json();
-      const parsed = parseBody(updateTaskSchema, raw);
+      const parsed = await parseRequest(req, updateTaskSchema);
       if (!parsed.success) {
         return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
       const body = parsed.data;
-      const pool = getPool();
 
       // Validate assignedTo belongs to the same org
       if (body.assignedTo && orgId) {
-        const { rows } = await pool.query(
-          'SELECT 1 FROM member WHERE "organizationId" = $1 AND "userId" = $2',
-          [orgId, body.assignedTo]
-        );
-        if (rows.length === 0) {
+        if (!(await validateOrgMembership(orgId, body.assignedTo))) {
           return NextResponse.json(
             { error: "Assignee not in organization" },
             { status: 400 }
@@ -56,20 +59,13 @@ export const PATCH = withAuth(
 
       // Validate projectId belongs to the same org
       if (body.projectId && orgId) {
-        const { rows } = await pool.query(
-          "SELECT 1 FROM project WHERE id = $1 AND org_id = $2",
-          [body.projectId, orgId]
-        );
-        if (rows.length === 0) {
+        if (!(await validateProjectInOrg(body.projectId, orgId))) {
           return NextResponse.json(
             { error: "Project not in organization" },
             { status: 400 }
           );
         }
       }
-      const updates: string[] = [];
-      const values: unknown[] = [];
-      let idx = 1;
 
       const fields: Record<string, unknown> = {
         title: body.title,
@@ -84,41 +80,28 @@ export const PATCH = withAuth(
         reminder_at: body.reminderAt,
       };
 
-      for (const [col, value] of Object.entries(fields)) {
-        if (value !== undefined) {
-          updates.push(`${col} = $${idx}`);
-          values.push(value === "" ? null : value);
-          idx++;
-        }
-      }
-
-      // Handle completed_at automatically
+      // Determine completed_at transition
+      let completedAtTransition: "set" | "clear" | undefined;
       if (body.status === "completed" && task.status !== "completed") {
-        updates.push(`completed_at = now()`);
+        completedAtTransition = "set";
       } else if (
         body.status &&
         body.status !== "completed" &&
         task.status === "completed"
       ) {
-        updates.push(`completed_at = NULL`);
+        completedAtTransition = "clear";
       }
 
-      if (updates.length === 0) {
+      const updated = await updateTask(params.id, fields, {
+        completedAtTransition,
+      });
+
+      if (!updated) {
         return NextResponse.json(
           { error: "No fields to update" },
           { status: 400 }
         );
       }
-
-      updates.push(`updated_at = now()`);
-      values.push(params.id);
-
-      const {
-        rows: [updated],
-      } = await pool.query(
-        `UPDATE task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
-        values
-      );
 
       // Notify new assignee if changed
       if (
@@ -135,27 +118,23 @@ export const PATCH = withAuth(
         }).catch((err) => console.error("Notification error:", err));
 
         // Email the new assignee
-        pool
-          .query(`SELECT u.email, u.name FROM "user" u WHERE u.id = $1`, [
-            body.assignedTo,
-          ])
-          .then(({ rows }) => {
-            const r = rows[0];
-            if (!r?.email) return;
-            const subject = "Task Assigned to You";
+        notifyUserByEmailWithContext(
+          body.assignedTo,
+          updated?.project_id || null,
+          () => {
             const projectUrl = updated?.project_id
               ? escapeHtml(
                   `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(updated.project_id)}`
                 )
               : null;
-            const emailBody = `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a task.</p>
+            return {
+              subject: "Task Assigned to You",
+              html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a task.</p>
               <p style="color: #666;">${escapeHtml(updated?.title || "")}</p>
-              ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`;
-            sendNotificationEmail(r.email, subject, emailBody).catch(
-              console.error
-            );
-          })
-          .catch(console.error);
+              ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`,
+            };
+          }
+        );
       }
 
       return NextResponse.json(updated);
@@ -178,15 +157,9 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const pool = getPool();
-
     // Only creator or org owner/admin can delete
     if (task.created_by !== user.id) {
-      const { rows } = await pool.query(
-        `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
-        [task.org_id, user.id]
-      );
-      const role = rows[0]?.role;
+      const role = await getMemberRole(task.org_id, user.id);
       if (role !== "owner" && role !== "admin") {
         return NextResponse.json(
           { error: "Only task creator or PMs can delete tasks" },
@@ -195,7 +168,7 @@ export const DELETE = withAuth(
       }
     }
 
-    await pool.query(`DELETE FROM task WHERE id = $1`, [params.id]);
+    await deleteTask(params.id);
     return NextResponse.json({ success: true });
   }
 );

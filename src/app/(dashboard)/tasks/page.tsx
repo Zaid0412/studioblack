@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { authClient } from "@/lib/authClient";
 import { projects as projectsApi } from "@/lib/api";
+import { useOrgMembers } from "@/hooks/useOrgMembers";
 import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
@@ -31,12 +32,6 @@ import { SkeletonRow } from "@/components/ui/Skeleton";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface OrgMember {
-  userId: string;
-  user: { name: string; email: string; image?: string | null };
-  role: string;
-}
 
 interface ProjectOption {
   id: string;
@@ -86,6 +81,7 @@ export default function TasksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = authClient.useSession();
+  const { members } = useOrgMembers({ assignableOnly: false });
 
   // -- Filter state (from URL) --
   const activeBucket = (searchParams.get("bucket") as Bucket) || "all";
@@ -140,7 +136,6 @@ export default function TasksPage() {
   >(mutate, "counts");
 
   // -- Side data --
-  const [members, setMembers] = useState<OrgMember[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [phases, setPhases] = useState<PhaseOption[]>([]);
   const [loadingPhases, setLoadingPhases] = useState(false);
@@ -188,21 +183,9 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
-  // -- Initial load: members + projects --
+  // -- Initial load: projects --
   useEffect(() => {
-    async function loadSideData() {
-      // Org members
-      try {
-        const { data: org } =
-          await authClient.organization.getFullOrganization();
-        if (org?.members) {
-          setMembers(org.members as unknown as OrgMember[]);
-        }
-      } catch {
-        /* ignore */
-      }
-
-      // Projects
+    async function loadProjects() {
       try {
         const data = await projectsApi.list<{ id: string; name: string }>();
         setProjects(
@@ -211,12 +194,12 @@ export default function TasksPage() {
             name: p.name,
           }))
         );
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.error("Failed to load projects:", err);
       }
     }
 
-    loadSideData();
+    loadProjects();
   }, []);
 
   // -- Task CRUD (dialog, delete, toggle, submit) --

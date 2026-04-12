@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
-import { verifyTaskOwnership } from "@/lib/queries";
-import { getPool } from "@/lib/db";
+import {
+  verifyTaskOwnership,
+  getPhaseTaskPendingReview,
+  updatePhaseTaskReviewStatus,
+  createComment,
+} from "@/lib/queries";
 import {
   createNotification,
   createNotificationsForTeam,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
-import { parseBody, submitTaskReviewSchema } from "@/lib/validations";
+import { parseRequest, submitTaskReviewSchema } from "@/lib/validations";
 
 /** POST /api/projects/[id]/tasks/[taskId]/review — client approves or requests changes. */
 export const POST = withAuth(
@@ -22,22 +26,14 @@ export const POST = withAuth(
       );
     }
 
-    const raw = await req.json();
-    const parsed = parseBody(submitTaskReviewSchema, raw);
+    const parsed = await parseRequest(req, submitTaskReviewSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     const { action, comment } = parsed.data;
 
-    const pool = getPool();
-
     // Verify the task exists and is pending review
-    const {
-      rows: [existing],
-    } = await pool.query(
-      `SELECT * FROM phase_task WHERE id = $1 AND review_status = 'pending_review'`,
-      [taskId]
-    );
+    const existing = await getPhaseTaskPendingReview(taskId);
 
     if (!existing) {
       return NextResponse.json(
@@ -47,25 +43,17 @@ export const POST = withAuth(
     }
 
     // Update review status
-    const {
-      rows: [task],
-    } = await pool.query(
-      `UPDATE phase_task
-     SET review_status = $1,
-         status = CASE WHEN $1 = 'approved' THEN 'approved' ELSE 'changes_requested' END,
-         updated_at = now()
-     WHERE id = $2
-     RETURNING *`,
-      [action, taskId]
-    );
+    const task = await updatePhaseTaskReviewStatus(taskId, action);
 
     // If client left a comment, insert it
     if (comment?.trim()) {
-      await pool.query(
-        `INSERT INTO comment (project_id, phase_id, task_id, user_id, content)
-       VALUES ($1, $2, $3, $4, $5)`,
-        [id, existing.phase_id, taskId, user.id, comment.trim()]
-      );
+      await createComment({
+        projectId: id,
+        phaseId: existing.phase_id,
+        taskId,
+        userId: user.id,
+        content: comment.trim(),
+      });
     }
 
     // Notify team about the review decision

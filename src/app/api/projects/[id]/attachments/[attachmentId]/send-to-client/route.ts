@@ -1,27 +1,18 @@
 import { NextResponse } from "next/server";
-import { getAttachmentById } from "@/lib/queries";
-import { getPool } from "@/lib/db";
+import {
+  getAttachmentById,
+  markAttachmentSentToClient,
+  getProjectClientInfo,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { rateLimit } from "@/lib/rateLimit";
 import { createNotificationForClient } from "@/lib/notifications";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { env } from "@/env";
 
 /** POST /api/projects/[id]/attachments/[attachmentId]/send-to-client — make file visible to client. */
 export const POST = withAuth(
-  { projectAccess: true, blockedRoles: ["client"] },
+  { projectAccess: true, blockedRoles: ["client"], rateLimit: { limit: 30, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { allowed } = rateLimit(`send-client:${user.id}`, {
-      limit: 30,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
     const { id, attachmentId } = params;
 
     const attachment = await getAttachmentById(attachmentId, id);
@@ -36,22 +27,10 @@ export const POST = withAuth(
       );
     }
 
-    const pool = getPool();
-
-    // Update attachment + fetch project info in parallel (single round-trip each)
-    const [{ rows }, { rows: projRows }] = await Promise.all([
-      pool.query(
-        `UPDATE attachment
-         SET sent_to_client_at = NOW(), sent_to_client_by = $1
-         WHERE id = $2
-         RETURNING *`,
-        [user.id, attachmentId]
-      ),
-      pool.query(
-        `SELECT p.name AS project_name, p.client_email
-         FROM project p WHERE p.id = $1`,
-        [id]
-      ),
+    // Update attachment + fetch project info in parallel
+    const [updated, proj] = await Promise.all([
+      markAttachmentSentToClient(attachmentId, user.id),
+      getProjectClientInfo(id),
     ]);
 
     // In-app notification to client
@@ -63,7 +42,6 @@ export const POST = withAuth(
     ).catch(console.error);
 
     // Email notification to client (fire-and-forget)
-    const proj = projRows[0];
     if (proj?.client_email) {
       const senderName = escapeHtml(user.name || user.email);
       const projectUrl = escapeHtml(
@@ -78,6 +56,6 @@ export const POST = withAuth(
       );
     }
 
-    return NextResponse.json(rows[0]);
+    return NextResponse.json(updated);
   }
 );

@@ -1032,8 +1032,1105 @@ export async function updatePinCommentPosition(
   return getPinCommentById(pinId);
 }
 
+// ---------------------------------------------------------------------------
+// Attachment review transaction
+// ---------------------------------------------------------------------------
+
+/**
+ * Submit a review for an attachment (approve/reject) in a single transaction.
+ * On approval: freezes the attachment.
+ * On rejection: auto-creates a review task for the uploader.
+ */
+export async function submitAttachmentReview(
+  attachmentId: string,
+  projectId: string,
+  userId: string,
+  status: "approved" | "rejected",
+  comment?: string
+): Promise<{ attachment: Record<string, unknown>; task?: Record<string, unknown> }> {
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      `UPDATE attachment
+       SET review_status = $1, reviewed_by = $2
+       WHERE id = $3
+       RETURNING *`,
+      [status, userId, attachmentId]
+    );
+    const attachment = rows[0];
+
+    if (status === "approved") {
+      await client.query(
+        `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
+        [attachmentId]
+      );
+    }
+
+    let task: Record<string, unknown> | undefined;
+    if (status === "rejected") {
+      const {
+        rows: [project],
+      } = await client.query(`SELECT org_id FROM project WHERE id = $1`, [
+        projectId,
+      ]);
+      if (project) {
+        const taskTitle = comment
+          ? comment.slice(0, 100)
+          : `Changes requested on "${attachment.file_name}"`;
+        const { rows: taskRows } = await client.query(
+          `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, status, priority, category)
+           VALUES ($1, $2, $3, $4, $5, 'todo', 'medium', 'review')
+           RETURNING *`,
+          [project.org_id, projectId, taskTitle, userId, attachment.uploaded_by]
+        );
+        task = taskRows[0];
+      }
+    }
+
+    await client.query("COMMIT");
+    return { attachment, task };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Pin comment with task (transactional)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a pin comment and an associated task in a single transaction.
+ * Optionally rejects the attachment if request_changes is true.
+ * Returns { pinId, taskId }.
+ */
+export async function createPinWithTask(params: {
+  attachmentId: string;
+  projectId: string;
+  userId: string;
+  xPercent: number | null;
+  yPercent: number | null;
+  page: number | null;
+  content: string;
+  requestChanges: boolean;
+  assignedTo: string;
+  dueDate: string | null;
+}): Promise<{ pinId: string; taskId: string }> {
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const { rows: projRows } = await client.query(
+      `SELECT org_id FROM project WHERE id = $1`,
+      [params.projectId]
+    );
+    if (!projRows[0]) {
+      await client.query("ROLLBACK");
+      throw new Error("Project not found");
+    }
+    const orgId = projRows[0].org_id;
+
+    const taskTitle =
+      params.content.length > 100
+        ? params.content.slice(0, 97) + "..."
+        : params.content;
+
+    const { rows: taskRows } = await client.query(
+      `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, due_date, status, priority, category)
+       VALUES ($1, $2, $3, $4, $5, $6, 'todo', 'medium', 'review')
+       RETURNING id`,
+      [orgId, params.projectId, taskTitle, params.userId, params.assignedTo, params.dueDate]
+    );
+    const taskId = taskRows[0].id;
+
+    const { rows: pinRows } = await client.query(
+      `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        params.attachmentId,
+        params.userId,
+        params.xPercent,
+        params.yPercent,
+        params.page,
+        params.content,
+        false,
+        params.requestChanges,
+        taskId,
+      ]
+    );
+
+    if (params.requestChanges) {
+      await client.query(
+        `UPDATE attachment SET review_status = 'rejected', reviewed_by = $1 WHERE id = $2`,
+        [params.userId, params.attachmentId]
+      );
+    }
+
+    await client.query("COMMIT");
+    return { pinId: pinRows[0].id, taskId };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 /** Delete a pin comment by ID (cascades to replies). */
 export async function deletePinComment(pinId: string) {
   const pool = getPool();
   await pool.query(`DELETE FROM pin_comment WHERE id = $1`, [pinId]);
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+/** Get unread notification count for a user. */
+export async function getUnreadNotificationCount(userId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM notification WHERE user_id = $1 AND read = false`,
+    [userId]
+  );
+  return rows[0].count as number;
+}
+
+/** Get notifications for a user (most recent 50), with project name. */
+export async function getNotifications(userId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT n.*, p.name AS project_name
+     FROM notification n
+     LEFT JOIN project p ON p.id = n.project_id
+     WHERE n.user_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT 50`,
+    [userId]
+  );
+  return rows;
+}
+
+/** Get recent notifications for a user (dashboard activity feed). */
+export async function getRecentActivity(userId: string, limit = 10) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT n.id, n.type, n.title, n.description, n.created_at, p.name AS project_name
+     FROM notification n
+     LEFT JOIN project p ON p.id = n.project_id
+     WHERE n.user_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT $2`,
+    [userId, limit]
+  );
+  return rows;
+}
+
+/** Mark all unread notifications as read for a user. */
+export async function markAllNotificationsRead(userId: string) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE notification SET read = true WHERE user_id = $1 AND read = false`,
+    [userId]
+  );
+}
+
+/** Mark specific notifications as read by IDs. */
+export async function markNotificationsReadByIds(
+  userId: string,
+  ids: string[]
+) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE notification SET read = true WHERE user_id = $1 AND id = ANY($2::uuid[])`,
+    [userId, ids]
+  );
+}
+
+/** Delete a single notification by ID. */
+export async function deleteNotification(userId: string, id: string) {
+  const pool = getPool();
+  await pool.query(
+    `DELETE FROM notification WHERE user_id = $1 AND id = $2`,
+    [userId, id]
+  );
+}
+
+/** Delete all notifications for a user. */
+export async function deleteAllNotifications(userId: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM notification WHERE user_id = $1`, [userId]);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard
+// ---------------------------------------------------------------------------
+
+/** Get dashboard stats (active projects, reviews, team members, upcoming deadlines). */
+export async function getDashboardStats(orgId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `WITH project_stats AS (
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'active')::int AS active,
+        COUNT(*) FILTER (WHERE status = 'completed')::int AS completed
+      FROM project WHERE org_id = $1
+    ),
+    review_stats AS (
+      SELECT
+        COUNT(*) FILTER (WHERE a.review_status = 'pending')::int AS pending,
+        COUNT(*) FILTER (WHERE a.review_status = 'approved')::int AS approved
+      FROM attachment a
+      JOIN project p ON p.id = a.project_id
+      WHERE p.org_id = $1
+    ),
+    member_count AS (
+      SELECT COUNT(*)::int AS count FROM member WHERE "organizationId" = $1
+    ),
+    upcoming AS (
+      SELECT json_agg(row_to_json(d)) AS rows FROM (
+        SELECT id, name, client_name, deadline, status
+        FROM project
+        WHERE org_id = $1 AND status = 'active' AND deadline IS NOT NULL
+        ORDER BY deadline ASC
+        LIMIT 5
+      ) d
+    )
+    SELECT
+      ps.active, ps.completed,
+      rs.pending, rs.approved,
+      mc.count AS team_members,
+      u.rows AS deadlines
+    FROM project_stats ps, review_stats rs, member_count mc, upcoming u`,
+    [orgId]
+  );
+  return rows[0];
+}
+
+// ---------------------------------------------------------------------------
+// Task Attachments (standalone tasks)
+// ---------------------------------------------------------------------------
+
+/** Get attachments for a standalone task. */
+export async function getTaskAttachments(taskId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT * FROM attachment WHERE standalone_task_id = $1 ORDER BY created_at DESC`,
+    [taskId]
+  );
+  return rows;
+}
+
+/** Get a task's project_id. */
+export async function getTaskProjectId(
+  taskId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(`SELECT project_id FROM task WHERE id = $1`, [taskId]);
+  return row?.project_id ?? null;
+}
+
+/** Get a task's org_id. */
+export async function getTaskOrgId(taskId: string): Promise<string | null> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(`SELECT org_id FROM task WHERE id = $1`, [taskId]);
+  return row?.org_id ?? null;
+}
+
+/** Create an attachment for a standalone task. */
+export async function createTaskAttachment(params: {
+  taskId: string;
+  projectId: string | null;
+  uploadedBy: string;
+  fileUrl: string;
+  fileName: string;
+  fileSize?: number | null;
+}) {
+  const pool = getPool();
+  const {
+    rows: [attachment],
+  } = await pool.query(
+    `INSERT INTO attachment (standalone_task_id, project_id, uploaded_by, file_url, file_name, file_size)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [
+      params.taskId,
+      params.projectId,
+      params.uploadedBy,
+      params.fileUrl,
+      params.fileName,
+      params.fileSize ?? null,
+    ]
+  );
+  return attachment;
+}
+
+/** Get a standalone task attachment by ID and task ID. */
+export async function getStandaloneTaskAttachment(
+  attachmentId: string,
+  taskId: string
+) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, uploaded_by FROM attachment WHERE id = $1 AND standalone_task_id = $2`,
+    [attachmentId, taskId]
+  );
+  return rows[0] || null;
+}
+
+/** Delete an attachment by ID. */
+export async function deleteAttachmentById(attachmentId: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM attachment WHERE id = $1`, [attachmentId]);
+}
+
+// ---------------------------------------------------------------------------
+// Task Star (toggle)
+// ---------------------------------------------------------------------------
+
+/** Toggle star on a task for a user. Returns { starred: boolean }. */
+export async function toggleTaskStar(
+  userId: string,
+  taskId: string
+): Promise<{ starred: boolean }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rowCount } = await client.query(
+      "DELETE FROM task_star WHERE user_id = $1 AND task_id = $2",
+      [userId, taskId]
+    );
+    if (rowCount === 0) {
+      await client.query(
+        "INSERT INTO task_star (user_id, task_id) VALUES ($1, $2)",
+        [userId, taskId]
+      );
+      await client.query("COMMIT");
+      return { starred: true };
+    }
+    await client.query("COMMIT");
+    return { starred: false };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Checklist Items
+// ---------------------------------------------------------------------------
+
+/** Get checklist items for a task. */
+export async function getChecklistItems(taskId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT * FROM task_checklist_item WHERE task_id = $1 ORDER BY position, created_at`,
+    [taskId]
+  );
+  return rows;
+}
+
+/** Create a checklist item for a task. */
+export async function createChecklistItem(taskId: string, title: string) {
+  const pool = getPool();
+  const {
+    rows: [item],
+  } = await pool.query(
+    `INSERT INTO task_checklist_item (task_id, title, position)
+     VALUES ($1, $2, COALESCE((SELECT MAX(position) + 1 FROM task_checklist_item WHERE task_id = $1), 0))
+     RETURNING *`,
+    [taskId, title]
+  );
+  return item;
+}
+
+/** Update a checklist item. Returns the updated item or null if not found. */
+export async function updateChecklistItem(
+  itemId: string,
+  taskId: string,
+  fields: { title?: string; is_done?: boolean; position?: number }
+) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  if (fields.title !== undefined) {
+    updates.push(`title = $${idx}`);
+    values.push(fields.title);
+    idx++;
+  }
+  if (fields.is_done !== undefined) {
+    updates.push(`is_done = $${idx}`);
+    values.push(fields.is_done);
+    idx++;
+  }
+  if (fields.position !== undefined) {
+    updates.push(`position = $${idx}`);
+    values.push(fields.position);
+    idx++;
+  }
+
+  if (updates.length === 0) return null;
+
+  const pool = getPool();
+  values.push(itemId, taskId);
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE task_checklist_item SET ${updates.join(", ")} WHERE id = $${idx} AND task_id = $${idx + 1} RETURNING *`,
+    values
+  );
+  return updated || null;
+}
+
+/** Delete a checklist item. Returns true if deleted. */
+export async function deleteChecklistItem(
+  itemId: string,
+  taskId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `DELETE FROM task_checklist_item WHERE id = $1 AND task_id = $2`,
+    [itemId, taskId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** Reorder checklist items by their IDs. */
+export async function reorderChecklistItems(
+  taskId: string,
+  orderedIds: string[]
+) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE task_checklist_item
+     SET position = data.pos
+     FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
+     WHERE task_checklist_item.id = data.id AND task_checklist_item.task_id = $3`,
+    [orderedIds, orderedIds.length - 1, taskId]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Validation helpers
+// ---------------------------------------------------------------------------
+
+/** Validate that a user belongs to an organization. */
+export async function validateOrgMembership(
+  orgId: string,
+  userId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    'SELECT 1 FROM member WHERE "organizationId" = $1 AND "userId" = $2',
+    [orgId, userId]
+  );
+  return rows.length > 0;
+}
+
+/** Validate that a project belongs to an organization. */
+export async function validateProjectInOrg(
+  projectId: string,
+  orgId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    "SELECT 1 FROM project WHERE id = $1 AND org_id = $2",
+    [projectId, orgId]
+  );
+  return rows.length > 0;
+}
+
+/** Get a user's email and name by ID. */
+export async function getUserEmailAndName(userId: string) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT u.email, u.name FROM "user" u WHERE u.id = $1`,
+    [userId]
+  );
+  return row || null;
+}
+
+/** Get users by IDs (id, email, name). */
+export async function getUsersByIds(userIds: string[]) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, email, name FROM "user" WHERE id = ANY($1::uuid[])`,
+    [userIds]
+  );
+  return rows;
+}
+
+/** Check if a user exists by email. Returns { id } or null. */
+export async function checkUserExistsByEmail(
+  email: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
+    [email]
+  );
+  return rows.length > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Task CRUD (standalone tasks)
+// ---------------------------------------------------------------------------
+
+/** Create a standalone task. */
+export async function createTask(params: {
+  orgId: string;
+  projectId: string | null;
+  phaseId: string | null;
+  title: string;
+  description: string;
+  priority: string;
+  category: string;
+  createdBy: string;
+  assignedTo: string;
+  dueDate: string | null;
+}) {
+  const pool = getPool();
+  const {
+    rows: [task],
+  } = await pool.query(
+    `INSERT INTO task (org_id, project_id, phase_id, title, description, priority, category, created_by, assigned_to, due_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     RETURNING *`,
+    [
+      params.orgId,
+      params.projectId,
+      params.phaseId,
+      params.title,
+      params.description,
+      params.priority,
+      params.category,
+      params.createdBy,
+      params.assignedTo,
+      params.dueDate,
+    ]
+  );
+  return task;
+}
+
+/** Update a standalone task with dynamic fields. */
+export async function updateTask(
+  taskId: string,
+  fields: Record<string, unknown>,
+  opts?: { completedAtTransition?: "set" | "clear" }
+) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  for (const [col, value] of Object.entries(fields)) {
+    if (value !== undefined) {
+      updates.push(`${col} = $${idx}`);
+      values.push(value === "" ? null : value);
+      idx++;
+    }
+  }
+
+  if (opts?.completedAtTransition === "set") {
+    updates.push(`completed_at = now()`);
+  } else if (opts?.completedAtTransition === "clear") {
+    updates.push(`completed_at = NULL`);
+  }
+
+  if (updates.length === 0) return null;
+
+  updates.push(`updated_at = now()`);
+  values.push(taskId);
+
+  const pool = getPool();
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+    values
+  );
+  return updated;
+}
+
+/** Delete a standalone task by ID. */
+export async function deleteTask(taskId: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM task WHERE id = $1`, [taskId]);
+}
+
+// ---------------------------------------------------------------------------
+// Project mutations
+// ---------------------------------------------------------------------------
+
+/** Update a project with dynamic fields + optional architect sync (transactional). */
+export async function updateProject(
+  projectId: string,
+  fields: Record<string, unknown>,
+  architectIds?: string[]
+) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  for (const [col, value] of Object.entries(fields)) {
+    updates.push(`${col} = $${idx}`);
+    values.push(value);
+    idx++;
+  }
+
+  if (updates.length === 0 && !architectIds) return null;
+
+  updates.push(`updated_at = now()`);
+  values.push(projectId);
+
+  const pool = getPool();
+
+  if (architectIds !== undefined) {
+    // Transaction: update project + sync architects
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      let updated;
+      if (updates.length > 1) {
+        // > 1 because updated_at is always there
+        const {
+          rows: [row],
+        } = await client.query(
+          `UPDATE project SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+          values
+        );
+        updated = row;
+      } else {
+        const {
+          rows: [row],
+        } = await client.query(
+          `SELECT * FROM project WHERE id = $1`,
+          [projectId]
+        );
+        updated = row;
+      }
+
+      await client.query(
+        `DELETE FROM project_member WHERE project_id = $1 AND role = 'architect'`,
+        [projectId]
+      );
+      if (architectIds.length > 0) {
+        await client.query(
+          `INSERT INTO project_member (project_id, user_id, role)
+           SELECT $1, unnest($2::uuid[]), 'architect'
+           ON CONFLICT (project_id, user_id) DO NOTHING`,
+          [projectId, architectIds]
+        );
+      }
+
+      await client.query("COMMIT");
+      return updated;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Simple update (no architect sync)
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE project SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+    values
+  );
+  return updated;
+}
+
+/** Delete a project by ID. Returns true if deleted. */
+export async function deleteProject(projectId: string): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `DELETE FROM project WHERE id = $1`,
+    [projectId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Comments (project-level)
+// ---------------------------------------------------------------------------
+
+/** Create a comment on a project/phase/task. */
+export async function createComment(params: {
+  projectId: string;
+  phaseId: string | null;
+  taskId: string | null;
+  userId: string;
+  content: string;
+}) {
+  const pool = getPool();
+  const {
+    rows: [comment],
+  } = await pool.query(
+    `INSERT INTO comment (project_id, phase_id, task_id, user_id, content)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      params.projectId,
+      params.phaseId,
+      params.taskId,
+      params.userId,
+      params.content,
+    ]
+  );
+  return comment;
+}
+
+/** Get project name by ID. */
+export async function getProjectName(
+  projectId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(`SELECT name FROM project WHERE id = $1`, [projectId]);
+  return row?.name ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Attachment mutations
+// ---------------------------------------------------------------------------
+
+/** Create a project attachment. */
+export async function createProjectAttachment(params: {
+  projectId: string;
+  phaseId: string | null;
+  taskId: string | null;
+  uploadedBy: string;
+  fileUrl: string;
+  fileName: string;
+  description: string;
+}) {
+  const pool = getPool();
+  const {
+    rows: [attachment],
+  } = await pool.query(
+    `INSERT INTO attachment (project_id, phase_id, task_id, uploaded_by, file_url, file_name, description)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING *`,
+    [
+      params.projectId,
+      params.phaseId,
+      params.taskId,
+      params.uploadedBy,
+      params.fileUrl,
+      params.fileName,
+      params.description,
+    ]
+  );
+  return attachment;
+}
+
+/** Update attachment review_status. */
+export async function updateAttachmentStatus(
+  attachmentId: string,
+  projectId: string,
+  reviewStatus: string
+) {
+  const pool = getPool();
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE attachment SET review_status = $1 WHERE id = $2 AND project_id = $3 RETURNING *`,
+    [reviewStatus, attachmentId, projectId]
+  );
+  return updated;
+}
+
+/** Mark an attachment as sent to client. Returns the updated attachment. */
+export async function markAttachmentSentToClient(
+  attachmentId: string,
+  sentBy: string
+) {
+  const pool = getPool();
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE attachment
+     SET sent_to_client_at = NOW(), sent_to_client_by = $1
+     WHERE id = $2
+     RETURNING *`,
+    [sentBy, attachmentId]
+  );
+  return updated;
+}
+
+/** Get project name and client email. */
+export async function getProjectClientInfo(projectId: string) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT p.name AS project_name, p.client_email
+     FROM project p WHERE p.id = $1`,
+    [projectId]
+  );
+  return row || null;
+}
+
+// ---------------------------------------------------------------------------
+// Send to Client
+// ---------------------------------------------------------------------------
+
+/** Get project client email and name for send-to-client flow. */
+export async function getProjectForSendToClient(projectId: string) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT name, client_name, client_email FROM project WHERE id = $1`,
+    [projectId]
+  );
+  return row || null;
+}
+
+/** Check if a user exists by email. */
+export async function getUserByEmail(
+  email: string
+): Promise<{ id: string } | null> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(`SELECT id FROM "user" WHERE email = $1`, [email]);
+  return row || null;
+}
+
+/** Pre-create a client user (for send-to-client flow). */
+export async function createClientUser(name: string, email: string) {
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO "user" (id, name, email, role, email_verified, created_at, updated_at)
+     VALUES (gen_random_uuid(), $1, $2, 'client', false, now(), now())`,
+    [name, email]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Approvals
+// ---------------------------------------------------------------------------
+
+/** Get approvals for a project. */
+export async function getApprovals(projectId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT a.*, u.name AS user_name
+     FROM approval a JOIN "user" u ON u.id = a.user_id
+     WHERE a.project_id = $1
+     ORDER BY a.created_at DESC`,
+    [projectId]
+  );
+  return rows;
+}
+
+/** Create an approval record. */
+export async function createApproval(params: {
+  projectId: string;
+  phaseId: string | null;
+  userId: string;
+  decision: string;
+  comment: string;
+}) {
+  const pool = getPool();
+  const {
+    rows: [approval],
+  } = await pool.query(
+    `INSERT INTO approval (project_id, phase_id, user_id, decision, comment)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      params.projectId,
+      params.phaseId,
+      params.userId,
+      params.decision,
+      params.comment,
+    ]
+  );
+  return approval;
+}
+
+/** Check if all phases of a project are completed. */
+export async function checkAllPhasesComplete(
+  projectId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE pp.status = 'completed') AS done
+     FROM project_phase pp WHERE pp.project_id = $1`,
+    [projectId]
+  );
+  return Number(row.total) > 0 && Number(row.done) === Number(row.total);
+}
+
+/** Mark a project as completed. */
+export async function markProjectCompleted(projectId: string) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE project SET status = 'completed', updated_at = now() WHERE id = $1`,
+    [projectId]
+  );
+}
+
+/** Get team member emails for a project (all org members). */
+export async function getProjectTeamEmails(projectId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.email, u.name FROM project p
+     JOIN member m ON m."organizationId" = p.org_id
+     JOIN "user" u ON u.id = m."userId"
+     WHERE p.id = $1`,
+    [projectId]
+  );
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Phase Tasks (project sub-tasks)
+// ---------------------------------------------------------------------------
+
+/** Create a phase task. */
+export async function createPhaseTask(params: {
+  phaseId: string;
+  title: string;
+  description: string;
+  assignedTo: string | null;
+  dueDate: string | null;
+}) {
+  const pool = getPool();
+  const {
+    rows: [task],
+  } = await pool.query(
+    `INSERT INTO phase_task (phase_id, title, description, assigned_to, due_date)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      params.phaseId,
+      params.title,
+      params.description,
+      params.assignedTo,
+      params.dueDate,
+    ]
+  );
+  return task;
+}
+
+/** Update a phase task with dynamic fields. */
+export async function updatePhaseTask(
+  taskId: string,
+  fields: Record<string, unknown>
+) {
+  const updates: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+
+  for (const [col, val] of Object.entries(fields)) {
+    if (val !== undefined) {
+      updates.push(`${col} = $${idx}`);
+      values.push(val);
+      idx++;
+    }
+  }
+
+  if (updates.length === 0) return null;
+
+  updates.push(`updated_at = now()`);
+  values.push(taskId);
+
+  const pool = getPool();
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE phase_task SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+    values
+  );
+  return updated;
+}
+
+/** Mark a phase task for client review. */
+export async function markPhaseTaskForReview(taskId: string) {
+  const pool = getPool();
+  const {
+    rows: [task],
+  } = await pool.query(
+    `UPDATE phase_task
+     SET requires_client_review = true,
+         review_status = 'pending_review',
+         updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [taskId]
+  );
+  return task || null;
+}
+
+/** Get project info for task review notification (client_email, client_name, name). */
+export async function getProjectReviewInfo(projectId: string) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT client_email, client_name, name FROM project WHERE id = $1`,
+    [projectId]
+  );
+  return row || null;
+}
+
+/** Get a phase task that is pending review. */
+export async function getPhaseTaskPendingReview(taskId: string) {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT * FROM phase_task WHERE id = $1 AND review_status = 'pending_review'`,
+    [taskId]
+  );
+  return row || null;
+}
+
+/** Update a phase task's review status and status. */
+export async function updatePhaseTaskReviewStatus(
+  taskId: string,
+  action: string
+) {
+  const pool = getPool();
+  const {
+    rows: [task],
+  } = await pool.query(
+    `UPDATE phase_task
+     SET review_status = $1,
+         status = CASE WHEN $1 = 'approved' THEN 'approved' ELSE 'changes_requested' END,
+         updated_at = now()
+     WHERE id = $2
+     RETURNING *`,
+    [action, taskId]
+  );
+  return task;
 }

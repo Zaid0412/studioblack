@@ -7,27 +7,15 @@ import {
   deletePinComment,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { rateLimit } from "@/lib/rateLimit";
-import { parseBody, updatePinSchema } from "@/lib/validations";
+import { parseRequest, updatePinSchema } from "@/lib/validations";
 
 /**
  * PATCH /api/projects/[id]/attachments/[attachmentId]/pins/[pinId]
  * Supports: { resolved }, { content }, or { x_percent, y_percent, page }
  */
 export const PATCH = withAuth(
-  { projectAccess: true },
+  { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { allowed } = rateLimit(`pin:${user.id}`, {
-      limit: 30,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
     const { attachmentId, pinId } = params;
 
     const pin = await getPinCommentById(pinId);
@@ -38,8 +26,7 @@ export const PATCH = withAuth(
     const isPm = user.role === "owner" || user.role === "admin";
     const isStaff = isPm || user.role === "member";
 
-    const raw = await req.json();
-    const parsed = parseBody(updatePinSchema, raw);
+    const parsed = await parseRequest(req, updatePinSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
@@ -98,19 +85,8 @@ export const PATCH = withAuth(
 
 /** DELETE /api/projects/[id]/attachments/[attachmentId]/pins/[pinId] — delete a pin. */
 export const DELETE = withAuth(
-  { projectAccess: true },
+  { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { allowed } = rateLimit(`pin:${user.id}`, {
-      limit: 30,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
     const { attachmentId, pinId } = params;
 
     const pin = await getPinCommentById(pinId);
