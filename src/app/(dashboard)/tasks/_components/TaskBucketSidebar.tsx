@@ -9,8 +9,8 @@ import {
   Star,
   Clock,
   CheckCircle2,
-  Loader2,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,12 +99,22 @@ export function TaskBucketSidebar({
     return (
       <>
         {/* Mobile placeholder */}
-        <div className="flex items-center justify-center h-10 lg:hidden">
-          <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+        <div className="flex items-center gap-2 overflow-hidden lg:hidden -mx-1 px-1">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-24 rounded-lg shrink-0" />
+          ))}
         </div>
         {/* Desktop placeholder */}
-        <aside className="hidden lg:flex items-center justify-center w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default self-start min-h-[200px]">
-          <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+        <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default self-start overflow-hidden">
+          <div className="flex flex-col py-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                <Skeleton className="w-4 h-4 rounded shrink-0" />
+                <Skeleton className="h-3.5 flex-1" />
+                <Skeleton className="h-3 w-6" />
+              </div>
+            ))}
+          </div>
         </aside>
       </>
     );

@@ -1,6 +1,7 @@
 "use client";
 
-import { FileText, Image, FileIcon, Loader2 } from "lucide-react";
+import { FileText, Image, FileIcon } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { isPdf, isImage } from "@/lib/fileUtils";
 import {
   Tooltip,
@@ -57,8 +58,17 @@ export function ThumbnailPanel({
       {/* File list */}
       <div className="flex-1 overflow-y-auto py-1">
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-4 h-4 animate-spin text-text-muted" />
+          <div className="flex flex-col py-1">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2.5 px-3 py-2 border-l-2 border-transparent">
+                <Skeleton className="w-4 h-4 rounded shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-2.5 w-8 mt-1" />
+                </div>
+                <Skeleton className="w-2 h-2 rounded-full shrink-0" />
+              </div>
+            ))}
           </div>
         ) : phaseFiles.length === 0 ? (
           <p className="text-[11px] text-text-muted px-3 py-4">

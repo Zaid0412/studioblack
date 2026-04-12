@@ -2,7 +2,8 @@
 
 import { useState, useEffect, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import "@fortune-sheet/react/dist/index.css";
 
 const Workbook = dynamic(
@@ -242,8 +243,23 @@ export function SpreadsheetViewer({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
+      <div className="flex flex-col h-full">
+        {/* Header row */}
+        <div className="flex items-center gap-px border-b border-border-default">
+          <Skeleton className="w-10 h-8 rounded-none" />
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="flex-1 h-8 rounded-none" />
+          ))}
+        </div>
+        {/* Data rows */}
+        {Array.from({ length: 12 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-px border-b border-border-default/50">
+            <Skeleton className="w-10 h-7 rounded-none" />
+            {Array.from({ length: 8 }).map((_, j) => (
+              <Skeleton key={j} className="flex-1 h-7 rounded-none" />
+            ))}
+          </div>
+        ))}
       </div>
     );
   }

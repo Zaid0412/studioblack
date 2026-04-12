@@ -14,9 +14,9 @@ import {
   ListChecks,
   CheckCheck,
   Trash2,
-  Loader2,
   X,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   Popover,
   PopoverTrigger,
@@ -138,8 +138,23 @@ export function NotificationPanel() {
         {/* Body */}
         <div className="max-h-[440px] overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+            <div className="flex flex-col">
+              {/* Group label skeleton */}
+              <div className="flex items-center h-9 px-4 lg:px-5">
+                <Skeleton className="h-2.5 w-16" />
+              </div>
+              {/* Notification row skeletons */}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-start gap-3 px-4 lg:px-5 py-3">
+                  <Skeleton className="w-2 h-2 rounded-full shrink-0 mt-1.5" />
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <Skeleton className="h-3.5 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
+                    <Skeleton className="h-2.5 w-16 mt-0.5" />
+                  </div>
+                  <Skeleton className="w-4 h-4 rounded shrink-0 mt-0.5" />
+                </div>
+              ))}
             </div>
           ) : groups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">

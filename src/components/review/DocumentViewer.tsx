@@ -7,7 +7,8 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { Download, FileText, Loader2, MapPin } from "lucide-react";
+import { Download, FileText, MapPin } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { isImage, isPdf, isSpreadsheet } from "@/lib/fileUtils";
 import { SpreadsheetViewer } from "./SpreadsheetViewer";
 
@@ -238,8 +239,9 @@ export function DocumentViewer({
               </button>
             </div>
           ) : pdfLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="w-8 h-8 animate-spin text-[#F5C518]" />
+            <div className="flex flex-col items-center gap-4 p-8">
+              <Skeleton className="w-full max-w-[600px] aspect-[8.5/11] rounded-lg" />
+              <Skeleton className="w-full max-w-[600px] aspect-[8.5/11] rounded-lg" />
             </div>
           ) : null}
           {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNum) => (
