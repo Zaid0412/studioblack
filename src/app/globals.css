@@ -229,6 +229,27 @@ h6 {
   animation: task-highlight-glow 2s ease-out forwards;
 }
 
+/* Skeleton shimmer */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    var(--border-light) 50%,
+    var(--bg-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 2.4s ease-in-out infinite;
+  opacity: 0.5;
+}
+
 /* Splash screen animations */
 @keyframes splash-dot {
   0%,

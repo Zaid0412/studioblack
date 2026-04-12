@@ -6,10 +6,10 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   FileText,
-  Loader2,
   ClipboardCheck,
   MessageCircle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -335,11 +335,31 @@ export default function DesignReviewPage({
 
   if (review.loading) {
     return (
-      <div
-        className="flex items-center justify-center -m-4 lg:-m-8"
-        style={{ height: "calc(100vh)" }}
-      >
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="flex -m-4 lg:-m-8" style={{ height: "calc(100vh)" }}>
+        {/* Thumbnail panel skeleton */}
+        <div className="hidden lg:flex flex-col w-[180px] border-r border-border-default bg-bg-secondary p-3 gap-3">
+          <Skeleton className="h-4 w-24" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="w-full aspect-[3/4] rounded-lg" />
+          ))}
+        </div>
+        {/* Main viewer skeleton */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Toolbar skeleton */}
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-default">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-40" />
+            <div className="ml-auto flex items-center gap-2">
+              <Skeleton className="h-7 w-7 rounded" />
+              <Skeleton className="h-7 w-7 rounded" />
+              <Skeleton className="h-7 w-7 rounded" />
+            </div>
+          </div>
+          {/* Document area skeleton */}
+          <div className="flex-1 flex items-center justify-center bg-bg-secondary">
+            <Skeleton className="w-[60%] max-w-[600px] aspect-[3/4] rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }
