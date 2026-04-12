@@ -114,7 +114,10 @@ export default function ProjectsPage() {
   const isStaff = userRole === "pm" || userRole === "architect";
   const isPm = userRole === "pm";
 
-  const renderProjectCard = (project: DbProjectRow, variant: "grid" | "mobile") => (
+  const renderProjectCard = (
+    project: DbProjectRow,
+    variant: "grid" | "mobile"
+  ) => (
     <ProjectCard
       key={project.id}
       project={project}
@@ -364,13 +367,17 @@ export default function ProjectsPage() {
               className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}
             >
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-                {paginatedRows.map((project) => renderProjectCard(project, "grid"))}
+                {paginatedRows.map((project) =>
+                  renderProjectCard(project, "grid")
+                )}
               </div>
             </div>
 
             {/* ── Mobile card list (hidden on desktop) ── */}
             <div className="flex flex-col gap-0 lg:hidden flex-1">
-              {paginatedRows.map((project) => renderProjectCard(project, "mobile"))}
+              {paginatedRows.map((project) =>
+                renderProjectCard(project, "mobile")
+              )}
             </div>
           </>
         )}
