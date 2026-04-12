@@ -22,6 +22,7 @@ import type { UserRole } from "@/types";
 export function NewPinForm({
   pendingPin,
   members,
+  defaultAssignee,
   role,
   requestChangesMode,
   onSubmit,
@@ -31,6 +32,8 @@ export function NewPinForm({
 }: {
   pendingPin: { xPercent: number; yPercent: number; page: number } | null;
   members: { user_id: string; name: string }[];
+  /** Default assignee (pre-selected in the dropdown). */
+  defaultAssignee?: string;
   /** Current user role — used to gate comment form options. */
   role?: UserRole | null;
   /** When true, pre-check and lock "Request changes". */
@@ -52,7 +55,7 @@ export function NewPinForm({
   const [content, setContent] = useState("");
   const [pinAttached, setPinAttached] = useState(!!pendingPin);
   const [assignAsTask, setAssignAsTask] = useState(false);
-  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedTo, setAssignedTo] = useState(defaultAssignee ?? "");
   const [dueDate, setDueDate] = useState("");
   const [requestChanges, setRequestChanges] = useState(!!requestChangesMode);
   const [submitting, setSubmitting] = useState(false);

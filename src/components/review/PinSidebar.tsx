@@ -46,6 +46,8 @@ interface PinSidebarProps {
   requestChangesMode?: boolean;
   /** Member data for assignee dropdown */
   members: { user_id: string; name: string }[];
+  /** Default assignee (first architect on the project). */
+  defaultAssignee?: string;
   /** Replies keyed by parent pin ID. */
   repliesMap?: Map<string, DbPinComment[]>;
   onFetchReplies?: (parentId: string) => void;
@@ -72,6 +74,7 @@ export function PinSidebar({
   onRequestPin,
   requestChangesMode,
   members,
+  defaultAssignee,
   repliesMap,
   onFetchReplies,
   onAddReply,
@@ -145,6 +148,7 @@ export function PinSidebar({
         <NewPinForm
           pendingPin={pendingPin ?? null}
           members={members}
+          defaultAssignee={defaultAssignee}
           role={role}
           requestChangesMode={requestChangesMode}
           onSubmit={(data) => {

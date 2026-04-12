@@ -94,17 +94,23 @@ export default function DesignReviewPage({
   } = pinState;
 
   // Fetch project members for assignee dropdown
-  const [members, setMembers] = useState<{ user_id: string; name: string }[]>(
-    []
-  );
+  const [members, setMembers] = useState<
+    { user_id: string; name: string; role?: string }[]
+  >([]);
+  const [defaultAssignee, setDefaultAssignee] = useState("");
   useEffect(() => {
     let ignore = false;
     projectsApi
       .get<{
-        members: { user_id: string; name: string; email: string }[];
+        members: { user_id: string; name: string; email: string; role?: string }[];
       }>(id)
       .then((p) => {
-        if (!ignore) setMembers(p.members ?? []);
+        if (!ignore) {
+          const m = p.members ?? [];
+          setMembers(m);
+          const arch = m.find((x) => x.role === "architect");
+          if (arch) setDefaultAssignee(arch.user_id);
+        }
       })
       .catch(() => {});
     return () => {
@@ -576,6 +582,7 @@ export default function DesignReviewPage({
           onRequestPin={handleRequestPin}
           requestChangesMode={requestChangesMode}
           members={members}
+          defaultAssignee={defaultAssignee}
           repliesMap={pinState.repliesMap}
           onFetchReplies={fetchReplies}
           onAddReply={addReply}
