@@ -231,8 +231,8 @@ export function NewPinForm({
           </div>
         )}
 
-        {/* Assign as task — hidden when requestChanges is checked (task is auto-created) */}
-        {!requestChanges && (
+        {/* Assign as task — hidden when requestChanges is checked (task is auto-created) or for clients */}
+        {!requestChanges && role !== "client" && (
           <div
             className={`px-3 py-2.5 border-t border-[#ffffff0a] ${role === "pm" || role === "client" ? "" : "mt-3"}`}
           >
@@ -245,7 +245,7 @@ export function NewPinForm({
         )}
 
         {/* Animated expand for task fields */}
-        {!requestChanges && (
+        {!requestChanges && role !== "client" && (
           <div
             ref={expandRef}
             className="overflow-hidden transition-[height] duration-200 ease-out"
