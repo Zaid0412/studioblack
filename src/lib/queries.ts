@@ -123,7 +123,7 @@ export async function getProjectsByOrgId(orgId: string) {
             array_agg(DISTINCT pm.user_id) FILTER (WHERE pm.user_id IS NOT NULL) AS architect_ids
      FROM project p
      LEFT JOIN project_member pm ON pm.project_id = p.id
-     WHERE p.org_id = $1
+     WHERE p.org_id = $1 AND p.status != 'archived'
      GROUP BY p.id
      ORDER BY p.created_at DESC`,
     [orgId]
@@ -138,7 +138,7 @@ export async function getProjectsByArchitectId(userId: string, orgId: string) {
     `SELECT p.*
      FROM project p
      JOIN project_member pm ON pm.project_id = p.id AND pm.user_id = $1
-     WHERE p.org_id = $2
+     WHERE p.org_id = $2 AND p.status != 'archived'
      ORDER BY p.created_at DESC`,
     [userId, orgId]
   );
@@ -149,7 +149,7 @@ export async function getProjectsByArchitectId(userId: string, orgId: string) {
 export async function getProjectsByClientEmail(email: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT * FROM project WHERE client_email = $1 ORDER BY created_at DESC`,
+    `SELECT * FROM project WHERE client_email = $1 AND status != 'archived' ORDER BY created_at DESC`,
     [email]
   );
   return rows;
