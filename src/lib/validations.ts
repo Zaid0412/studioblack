@@ -100,17 +100,17 @@ export const createProjectSchema = z.object({
 
 export const updateProjectSchema = z.object({
   name: z.string().trim().min(1).optional(),
-  clientName: z.string().optional(),
+  clientName: z.string().optional().nullable(),
   clientEmail: z.string().email().optional().nullable(),
   category: z.enum(PROJECT_CATEGORIES).optional(),
   status: z.enum(PROJECT_STATUSES).optional(),
   deadline: z.string().optional().nullable(),
-  scope: z.string().optional(),
+  scope: z.string().optional().nullable(),
   areaSqft: z.number().optional().nullable(),
   estimationInr: z.number().optional().nullable(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
+  address: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  state: z.string().optional().nullable(),
   architectIds: z.array(uuid).optional(),
 });
 
