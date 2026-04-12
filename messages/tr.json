@@ -216,6 +216,7 @@
     "bulkMarkReviewedError": "İncelendi olarak işaretlenemedi.",
     "bulkFilesRemoved": "Dosyalar kaldırıldı",
     "bulkFilesRemovedDesc": "{count} dosya kaldırıldı.",
+    "bulkRemoveConfirm": "{count} dosyayı kaldırmak istediğinize emin misiniz? Bu işlem geri alınamaz.",
     "bulkRemoveError": "Dosyalar kaldırılamadı.",
     "bulkSentToClient": "Müşteriye gönderildi",
     "bulkSentToClientDesc": "{count} dosya müşteriye gönderildi.",

@@ -9,10 +9,14 @@ import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
+import { POLLING_INTERVAL_MS } from "@/lib/constants";
 import type { Notification, DbNotificationRow } from "@/types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TranslationFn = (key: string, values?: any) => string;
+// next-intl's Translator uses Record<string, any> — narrowing further breaks compatibility
+type TranslationFn = (
+  key: string,
+  values?: Record<string, string | number | Date>
+) => string;
 
 /* Date helpers for useSyncExternalStore — avoids impure Date.now() in render */
 function subscribeDateChange(cb: () => void) {
@@ -62,7 +66,7 @@ export function useNotifications({
     isLoading: dbLoading,
     mutate: mutateDbNotifs,
   } = useSWR<DbNotificationRow[]>("/api/notifications", {
-    refreshInterval: 30000,
+    refreshInterval: POLLING_INTERVAL_MS,
   });
 
   // -- Invitation notifications (SWR with custom fetcher) --
@@ -113,7 +117,7 @@ export function useNotifications({
     isLoading: invLoading,
     mutate: mutateInvitations,
   } = useSWR<InvitationData>("invitations", invitationFetcher, {
-    refreshInterval: 30000,
+    refreshInterval: POLLING_INTERVAL_MS,
   });
 
   const invitationNotifs = useMemo(

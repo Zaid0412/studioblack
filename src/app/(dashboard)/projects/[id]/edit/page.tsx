@@ -3,8 +3,10 @@
 import { use, useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -157,8 +159,24 @@ export default function EditProjectPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
+      <div className="flex flex-col gap-6 max-w-[800px]">
+        <Skeleton className="h-4 w-36" />
+        <PageHeader title={t("title")} />
+        <Card>
+          <div className="flex flex-col gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-lg" />
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-5 w-32" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-lg" />
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }

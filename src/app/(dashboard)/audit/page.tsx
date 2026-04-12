@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { FolderOpen, Search, Loader2, AlertCircle } from "lucide-react";
+import { FolderOpen, Search, AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -70,9 +71,67 @@ export default function AuditPage() {
             </Button>
           </div>
         ) : loading ? (
-          <div className="py-12 text-center">
-            <Loader2 className="w-5 h-5 animate-spin text-text-muted mx-auto" />
-          </div>
+          <>
+            {/* Desktop skeleton */}
+            <table className="w-full hidden lg:table">
+              <thead>
+                <tr className="border-b border-border-default">
+                  {[t("action"), t("project"), t("details"), t("date")].map(
+                    (label) => (
+                      <th
+                        key={label}
+                        className="text-left text-xs font-medium text-text-muted px-5 py-3"
+                      >
+                        {label}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <tr
+                    key={i}
+                    className="border-b border-border-default last:border-b-0"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="w-4 h-4 rounded" />
+                        <Skeleton className="h-3.5 w-40" />
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Skeleton className="h-3.5 w-24" />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Skeleton className="h-3.5 w-48" />
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Skeleton className="h-3 w-20" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {/* Mobile skeleton */}
+            <div className="flex flex-col lg:hidden">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col gap-1.5 px-4 py-3 border-b border-border-default last:border-b-0"
+                >
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="w-4 h-4 rounded shrink-0" />
+                    <Skeleton className="h-3.5 w-48" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-3 w-24 ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Search}

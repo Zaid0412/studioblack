@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
-import { verifyTaskAccess } from "@/lib/queries";
+import {
+  verifyTaskAccess,
+  getChecklistItems,
+  createChecklistItem,
+} from "@/lib/queries";
+import { parseRequest, createChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
+import { logger } from "@/lib/logger";
 
 /** GET /api/tasks/[id]/checklist — list checklist items for a task. */
 export const GET = withAuth(
@@ -12,11 +17,7 @@ export const GET = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const pool = getPool();
-    const { rows } = await pool.query(
-      `SELECT * FROM task_checklist_item WHERE task_id = $1 ORDER BY position, created_at`,
-      [taskId]
-    );
+    const rows = await getChecklistItems(taskId);
     return NextResponse.json(rows);
   }
 );
@@ -31,27 +32,16 @@ export const POST = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const body = await req.json();
-      const title = body.title?.trim();
-      if (!title) {
-        return NextResponse.json(
-          { error: "Title is required" },
-          { status: 400 }
-        );
+      const parsed = await parseRequest(req, createChecklistItemSchema);
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
+      const { title } = parsed.data;
 
-      const pool = getPool();
-      const {
-        rows: [item],
-      } = await pool.query(
-        `INSERT INTO task_checklist_item (task_id, title, position)
-         VALUES ($1, $2, COALESCE((SELECT MAX(position) + 1 FROM task_checklist_item WHERE task_id = $1), 0))
-         RETURNING *`,
-        [taskId, title]
-      );
+      const item = await createChecklistItem(taskId, title);
       return NextResponse.json(item, { status: 201 });
     } catch (err) {
-      console.error("Checklist POST error:", err);
+      logger.error("Checklist POST error", { taskId: params.id, error: err });
       return NextResponse.json(
         { error: "Failed to create item" },
         { status: 500 }

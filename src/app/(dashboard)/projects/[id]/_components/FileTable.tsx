@@ -6,27 +6,20 @@ import { useTranslations } from "next-intl";
 import {
   Upload,
   FileText,
-  Lock,
   Check,
-  Download,
-  X,
-  Trash2,
-  Send,
-  ClipboardCheck,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FileContextMenu } from "@/components/ui/FileContextMenu";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { VersionHistoryDialog } from "./VersionHistoryDialog";
-import { deriveInitials } from "@/lib/utils";
-import { fileType, statusBadge, versionColor } from "@/lib/fileUtils";
+import { BulkActions } from "./BulkActions";
+import { FileRow } from "./FileRow";
+import { FileCard } from "./FileCard";
+import { fileType, statusBadge } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
-import { avatarColor } from "@/lib/avatarUtils";
-import { formatDate, formatShortDate } from "@/lib/formatDate";
 import type { DbAttachment } from "@/types";
 
 type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
@@ -354,27 +347,34 @@ export function FileTable({
   // Shared bulk action helper — runs action, toasts, clears selection, refreshes
   const bulkAction = useCallback(
     async (
-      action: () => Promise<unknown>,
+      action: () => Promise<PromiseSettledResult<unknown>[]>,
       successTitle: string,
       successDesc: string,
       errorDesc: string
     ) => {
-      try {
-        await action();
+      const results = await action();
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length === 0) {
         toast({
           title: successTitle,
           description: successDesc,
           variant: "success",
         });
-        clearSelection();
-        onRefresh();
-      } catch {
+      } else if (failures.length < results.length) {
+        toast({
+          title: t("bulkError"),
+          description: `${failures.length} of ${results.length} failed`,
+          variant: "error",
+        });
+      } else {
         toast({
           title: t("bulkError"),
           description: errorDesc,
           variant: "error",
         });
       }
+      clearSelection();
+      onRefresh();
     },
     [clearSelection, onRefresh, t]
   );
@@ -383,7 +383,7 @@ export function FileTable({
     (status: "approved" | "rejected") =>
       bulkAction(
         () =>
-          Promise.all(
+          Promise.allSettled(
             selectedFiles.map((att) =>
               attachmentsApi.submitReview(projectId, att.id, { status })
             )
@@ -403,7 +403,7 @@ export function FileTable({
     () =>
       bulkAction(
         () =>
-          Promise.all(
+          Promise.allSettled(
             selectedFiles.map((att) =>
               attachmentsApi.markReviewed(projectId, att.id)
             )
@@ -415,26 +415,28 @@ export function FileTable({
     [selectedFiles, projectId, bulkAction, t]
   );
 
-  const handleBulkRemove = useCallback(
-    () =>
-      bulkAction(
-        () =>
-          Promise.all(
-            selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
-          ),
-        t("bulkFilesRemoved"),
-        t("bulkFilesRemovedDesc", { count: selectedFiles.length }),
-        t("bulkRemoveError")
-      ),
-    [selectedFiles, projectId, bulkAction, t]
-  );
+  const handleBulkRemove = useCallback(() => {
+    const confirmed = window.confirm(
+      t("bulkRemoveConfirm", { count: selectedFiles.length })
+    );
+    if (!confirmed) return;
+    return bulkAction(
+      () =>
+        Promise.allSettled(
+          selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
+        ),
+      t("bulkFilesRemoved"),
+      t("bulkFilesRemovedDesc", { count: selectedFiles.length }),
+      t("bulkRemoveError")
+    );
+  }, [selectedFiles, projectId, bulkAction, t]);
 
   const handleBulkSendToClient = useCallback(() => {
     const unsent = selectedFiles.filter((att) => !att.sent_to_client_at);
     if (unsent.length === 0) return Promise.resolve();
     return bulkAction(
       () =>
-        Promise.all(
+        Promise.allSettled(
           unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
         ),
       t("bulkSentToClient"),
@@ -447,7 +449,7 @@ export function FileTable({
     () =>
       bulkAction(
         () =>
-          Promise.all(
+          Promise.allSettled(
             selectedFiles
               .filter((att) => !att.frozen_at)
               .map((att) => attachmentsApi.freeze(projectId, att.id))
@@ -572,65 +574,18 @@ export function FileTable({
                 Clear
               </button>
               <div className="flex-1" />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleBulkDownload}
-                  className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Download
-                </button>
-                {isClient && (
-                  <>
-                    <button
-                      onClick={() => handleBulkReview("approved")}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-emerald-400 bg-emerald-400/[0.08] border border-emerald-400/20 hover:bg-emerald-400/[0.15] transition-colors cursor-pointer"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleBulkReview("rejected")}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-red-400 bg-red-400/[0.08] border border-red-400/20 hover:bg-red-400/[0.15] transition-colors cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      Reject
-                    </button>
-                  </>
-                )}
-                {isStaff && (
-                  <>
-                    <button
-                      onClick={handleBulkSendToClient}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      Send to Client
-                    </button>
-                    <button
-                      onClick={handleBulkMarkReviewed}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-text-secondary bg-bg-elevated/30 border border-border-default hover:bg-bg-elevated/50 transition-colors cursor-pointer"
-                    >
-                      <ClipboardCheck className="w-3.5 h-3.5" />
-                      Mark Reviewed
-                    </button>
-                    <button
-                      onClick={handleBulkFreeze}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-accent bg-accent/[0.08] border border-accent/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      Freeze Design
-                    </button>
-                    <button
-                      onClick={handleBulkRemove}
-                      className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md text-xs font-medium text-red-400 bg-red-400/[0.08] border border-red-400/20 hover:bg-red-400/[0.15] transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Remove
-                    </button>
-                  </>
-                )}
-              </div>
+              <BulkActions
+                variant="desktop"
+                isClient={isClient}
+                isStaff={isStaff}
+                onDownload={handleBulkDownload}
+                onApprove={() => handleBulkReview("approved")}
+                onReject={() => handleBulkReview("rejected")}
+                onSendToClient={handleBulkSendToClient}
+                onMarkReviewed={handleBulkMarkReviewed}
+                onFreeze={handleBulkFreeze}
+                onRemove={handleBulkRemove}
+              />
             </>
           ) : (
             <>
@@ -716,8 +671,6 @@ export function FileTable({
                     label: "New",
                   }
                 : statusBadge(att.review_status);
-              const color = avatarColor(att.uploaded_by || "");
-              const vc = versionColor(att.version || 1);
 
               // Remove: PM always, architect only if they uploaded it
               const canRemove =
@@ -727,213 +680,70 @@ export function FileTable({
                   (userRole === "architect" &&
                     att.uploaded_by === currentUserId));
 
-              const fileActions = (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <FileContextMenu
-                    onDownload={() => onDownload(att)}
-                    onEdit={
-                      isStaff && !att.frozen_at
-                        ? () => router.push(reviewPath(att.id))
-                        : undefined
-                    }
-                    onUploadNewVersion={
-                      isStaff && !att.frozen_at
-                        ? () => openUpload(att.version_group)
-                        : undefined
-                    }
-                    onVersionHistory={
-                      att.version_group
-                        ? () => setVersionHistoryGroup(att.version_group!)
-                        : undefined
-                    }
-                    onViewReview={
-                      att.review_status && att.review_status !== "pending"
-                        ? () =>
-                            router.push(`${reviewPath(att.id)}?reviews=open`)
-                        : undefined
-                    }
-                    onApprove={
-                      isClient && att.review_status !== "approved"
-                        ? () => handleReviewAction(att, "approved")
-                        : undefined
-                    }
-                    onReject={
-                      isClient && att.review_status !== "rejected"
-                        ? () => handleReviewAction(att, "rejected")
-                        : undefined
-                    }
-                    onMarkReviewed={
-                      isStaff &&
-                      att.review_status !== "approved" &&
-                      att.review_status !== "rejected"
-                        ? () => handleMarkReviewed(att)
-                        : undefined
-                    }
-                    onSendToClient={
-                      isStaff && !att.sent_to_client_at
-                        ? () => handleSendToClient(att)
-                        : undefined
-                    }
-                    frozen={!!att.frozen_at}
-                    onToggleFreeze={
-                      isStaff ? () => handleToggleFreeze(att) : undefined
-                    }
-                    onRemove={canRemove ? () => handleRemove(att) : undefined}
-                  />
-                </div>
-              );
-
               const isSelected = selectedIds.has(att.id);
+
+              const sharedProps = {
+                att,
+                isSelected,
+                hasSelection,
+                isStaff,
+                isNewForClient,
+                badge,
+                onToggleSelect: (e: React.MouseEvent) =>
+                  toggleSelect(att.id, e),
+                onDownload: () => onDownload(att),
+                onEdit:
+                  isStaff && !att.frozen_at
+                    ? () => router.push(reviewPath(att.id))
+                    : undefined,
+                onUploadNewVersion:
+                  isStaff && !att.frozen_at
+                    ? () => openUpload(att.version_group)
+                    : undefined,
+                onVersionHistory: att.version_group
+                  ? () => setVersionHistoryGroup(att.version_group!)
+                  : undefined,
+                onViewReview:
+                  att.review_status && att.review_status !== "pending"
+                    ? () => router.push(`${reviewPath(att.id)}?reviews=open`)
+                    : undefined,
+                onApprove:
+                  isClient && att.review_status !== "approved"
+                    ? () => handleReviewAction(att, "approved")
+                    : undefined,
+                onReject:
+                  isClient && att.review_status !== "rejected"
+                    ? () => handleReviewAction(att, "rejected")
+                    : undefined,
+                onMarkReviewed:
+                  isStaff &&
+                  att.review_status !== "approved" &&
+                  att.review_status !== "rejected"
+                    ? () => handleMarkReviewed(att)
+                    : undefined,
+                onSendToClient:
+                  isStaff && !att.sent_to_client_at
+                    ? () => handleSendToClient(att)
+                    : undefined,
+                frozen: !!att.frozen_at,
+                onToggleFreeze: isStaff
+                  ? () => handleToggleFreeze(att)
+                  : undefined,
+                onRemove: canRemove ? () => handleRemove(att) : undefined,
+              };
 
               return (
                 <div key={att.id}>
-                  {/* Desktop row */}
-                  <div
-                    className={`group hidden lg:flex items-center h-[52px] px-5 border-b border-border-default last:border-b-0 transition-colors cursor-pointer border-l-2 ${
-                      isSelected
-                        ? "bg-accent/[0.06] border-l-transparent"
-                        : isNewForClient
-                          ? "bg-blue-500/[0.04] hover:bg-blue-500/[0.08] border-l-blue-500"
-                          : "hover:bg-bg-elevated/50 border-l-transparent"
-                    }`}
-                    onClick={(e) =>
+                  <FileRow
+                    {...sharedProps}
+                    onRowClick={(e) =>
                       hasSelection
                         ? toggleSelect(att.id, e)
                         : router.push(reviewPath(att.id))
                     }
-                  >
-                    <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                      <div
-                        className="relative shrink-0 w-4 h-4 cursor-pointer"
-                        onClick={(e) => {
-                          if (!hasSelection) toggleSelect(att.id, e);
-                        }}
-                      >
-                        {/* File icon — hidden on hover (when no selection) or when selected */}
-                        <FileText
-                          className={`w-4 h-4 text-text-secondary absolute inset-0 transition-opacity ${
-                            hasSelection
-                              ? "opacity-0"
-                              : "opacity-100 group-hover:opacity-0"
-                          }`}
-                        />
-                        {/* Checkbox — shown on hover or when in selection mode */}
-                        {isSelected ? (
-                          <div
-                            role="checkbox"
-                            aria-checked={true}
-                            aria-label={`Deselect ${att.file_name}`}
-                            tabIndex={0}
-                            className="absolute inset-0 flex items-center justify-center w-4 h-4 rounded-[3px] bg-accent"
-                            onClick={(e) => toggleSelect(att.id, e)}
-                            onKeyDown={(e) => {
-                              if (e.key === " " || e.key === "Enter") {
-                                e.preventDefault();
-                                toggleSelect(
-                                  att.id,
-                                  e as unknown as React.MouseEvent
-                                );
-                              }
-                            }}
-                          >
-                            <Check
-                              className="w-3 h-3 text-black"
-                              strokeWidth={3}
-                            />
-                          </div>
-                        ) : (
-                          <div
-                            role="checkbox"
-                            aria-checked={false}
-                            aria-label={`Select ${att.file_name}`}
-                            tabIndex={0}
-                            className={`absolute inset-0 w-4 h-4 rounded-[3px] border border-text-muted transition-opacity ${
-                              hasSelection
-                                ? "opacity-100"
-                                : "opacity-0 group-hover:opacity-100"
-                            }`}
-                            onClick={(e) => toggleSelect(att.id, e)}
-                            onKeyDown={(e) => {
-                              if (e.key === " " || e.key === "Enter") {
-                                e.preventDefault();
-                                toggleSelect(
-                                  att.id,
-                                  e as unknown as React.MouseEvent
-                                );
-                              }
-                            }}
-                          />
-                        )}
-                        {/* Version badge — hidden when checkbox is showing */}
-                        <span
-                          className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} ${vc.border} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none transition-opacity ${
-                            hasSelection
-                              ? "opacity-0"
-                              : "opacity-100 group-hover:opacity-0"
-                          }`}
-                        >
-                          V{att.version || 1}
-                        </span>
-                      </div>
-                      {att.frozen_at && (
-                        <Lock className="w-3 h-3 text-accent shrink-0" />
-                      )}
-                      {isNewForClient && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                      )}
-                      {isStaff && att.sent_to_client_at && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
-                          Sent
-                        </span>
-                      )}
-                      <span
-                        className={`text-[13px] font-medium truncate ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
-                      >
-                        {att.file_name}
-                      </span>
-                    </div>
-                    <div className="w-[120px]">
-                      <span className="text-[13px] text-text-secondary">
-                        {fileType(att.file_name)}
-                      </span>
-                    </div>
-                    <div className="w-[140px] flex items-center gap-2">
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-medium text-white shrink-0"
-                        style={{ backgroundColor: color }}
-                      >
-                        {deriveInitials(att.uploaded_by_name || "")}
-                      </div>
-                      <span className="text-[13px] text-text-secondary truncate">
-                        {att.uploaded_by_name || "\u2014"}
-                      </span>
-                    </div>
-                    <div className="w-[110px]">
-                      <span className="text-[12px] text-text-muted">
-                        {formatDate(att.created_at)}
-                      </span>
-                    </div>
-                    <div className="w-[140px]">
-                      <span
-                        className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-[11px] font-medium ${badge.bg} ${badge.text}`}
-                      >
-                        {badge.label}
-                      </span>
-                    </div>
-                    <div className="w-[50px] flex items-center justify-center">
-                      {fileActions}
-                    </div>
-                  </div>
-
-                  {/* Mobile card */}
-                  <div
-                    className={`flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer lg:hidden border-l-2 ${
-                      isSelected
-                        ? "bg-accent/[0.06] border-l-transparent"
-                        : isNewForClient
-                          ? "bg-blue-500/[0.04] border-l-blue-500"
-                          : "border-l-transparent"
-                    }`}
+                  />
+                  <FileCard
+                    {...sharedProps}
                     onTouchStart={() => handleTouchStart(att.id)}
                     onTouchEnd={handleTouchEnd}
                     onTouchMove={handleTouchMove}
@@ -942,75 +752,13 @@ export function FileTable({
                         longPressTriggered.current = false;
                         return;
                       }
-                      hasSelection
-                        ? toggleSelect(att.id, e)
-                        : router.push(reviewPath(att.id));
+                      if (hasSelection) {
+                        toggleSelect(att.id, e);
+                      } else {
+                        router.push(reviewPath(att.id));
+                      }
                     }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="relative shrink-0 w-4 h-4"
-                        onClick={(e) => {
-                          if (hasSelection) {
-                            toggleSelect(att.id, e);
-                          }
-                        }}
-                      >
-                        {hasSelection ? (
-                          isSelected ? (
-                            <div className="w-4 h-4 rounded-[3px] bg-accent flex items-center justify-center">
-                              <Check
-                                className="w-3 h-3 text-black"
-                                strokeWidth={3}
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-4 h-4 rounded-[3px] border border-text-muted" />
-                          )
-                        ) : (
-                          <FileText className="w-4 h-4 text-text-secondary" />
-                        )}
-                        {!hasSelection && (
-                          <span
-                            className={`absolute -top-1.5 -left-1.5 inline-flex items-center justify-center rounded-full ${vc.bg} ${vc.border} min-w-[18px] h-[14px] px-1 text-[8px] font-bold ${vc.text} leading-none`}
-                          >
-                            V{att.version || 1}
-                          </span>
-                        )}
-                      </div>
-                      {att.frozen_at && (
-                        <Lock className="w-3 h-3 text-accent shrink-0" />
-                      )}
-                      {isNewForClient && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                      )}
-                      {isStaff && att.sent_to_client_at && (
-                        <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
-                          Sent
-                        </span>
-                      )}
-                      <span
-                        className={`text-[13px] font-medium truncate flex-1 ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
-                      >
-                        {att.file_name}
-                      </span>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.bg} ${badge.text} shrink-0`}
-                      >
-                        {badge.label}
-                      </span>
-                      {fileActions}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-text-muted">
-                      <span>{fileType(att.file_name)}</span>
-                      <span>{formatShortDate(att.created_at)}</span>
-                      {att.uploaded_by_name && (
-                        <span className="ml-auto text-text-secondary truncate">
-                          {att.uploaded_by_name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  />
                 </div>
               );
             })
@@ -1032,58 +780,18 @@ export function FileTable({
               Clear
             </button>
             <div className="flex-1" />
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleBulkDownload}
-                className="p-2 rounded-md text-text-secondary bg-bg-elevated border border-border-default hover:bg-bg-elevated/80 transition-colors cursor-pointer"
-                aria-label="Download selected"
-              >
-                <Download className="w-4 h-4" />
-              </button>
-              {isClient && (
-                <>
-                  <button
-                    onClick={() => handleBulkReview("approved")}
-                    className="p-2 rounded-md text-emerald-400 bg-emerald-400/[0.08] border border-emerald-400/20 hover:bg-emerald-400/[0.15] transition-colors cursor-pointer"
-                    aria-label="Approve selected"
-                  >
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleBulkReview("rejected")}
-                    className="p-2 rounded-md text-red-400 bg-red-400/[0.08] border border-red-400/20 hover:bg-red-400/[0.15] transition-colors cursor-pointer"
-                    aria-label="Reject selected"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-              {isStaff && (
-                <>
-                  <button
-                    onClick={handleBulkSendToClient}
-                    className="p-2 rounded-md text-text-secondary bg-bg-elevated border border-border-default hover:bg-bg-elevated/80 transition-colors cursor-pointer"
-                    aria-label="Send to client"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleBulkFreeze}
-                    className="p-2 rounded-md text-accent bg-accent/[0.08] border border-accent/20 hover:bg-accent/[0.15] transition-colors cursor-pointer"
-                    aria-label="Freeze design"
-                  >
-                    <Lock className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={handleBulkRemove}
-                    className="p-2 rounded-md text-red-400 bg-red-400/[0.08] border border-red-400/20 hover:bg-red-400/[0.15] transition-colors cursor-pointer"
-                    aria-label="Remove selected"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </>
-              )}
-            </div>
+            <BulkActions
+              variant="mobile"
+              isClient={isClient}
+              isStaff={isStaff}
+              onDownload={handleBulkDownload}
+              onApprove={() => handleBulkReview("approved")}
+              onReject={() => handleBulkReview("rejected")}
+              onSendToClient={handleBulkSendToClient}
+              onMarkReviewed={handleBulkMarkReviewed}
+              onFreeze={handleBulkFreeze}
+              onRemove={handleBulkRemove}
+            />
           </div>
         </div>
       )}

@@ -1,26 +1,41 @@
 /**
  * Simple in-memory sliding-window rate limiter.
- * Not suitable for multi-instance deployments — use Redis-backed
- * rate limiting if you scale horizontally.
+ *
+ * ⚠️  LIMITATION: On Vercel serverless, each invocation may get a fresh
+ * memory space, making this rate limiter ineffective. For production,
+ * replace with `@upstash/ratelimit` + Upstash Redis for a persistent,
+ * distributed rate limiter that works across serverless instances.
+ *
+ * TODO: Migrate to `@upstash/ratelimit` when Upstash Redis is provisioned.
  */
 
 interface RateLimitEntry {
   timestamps: number[];
 }
 
-const store = new Map<string, RateLimitEntry>();
+const globalForRateLimit = globalThis as unknown as {
+  rateLimitStore?: Map<string, RateLimitEntry>;
+  rateLimitPruneTimer?: ReturnType<typeof setInterval>;
+};
+
+const store = (globalForRateLimit.rateLimitStore ??= new Map<
+  string,
+  RateLimitEntry
+>());
 const config = { maxWindowMs: 120_000 };
 
-// Clean up stale entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of store) {
-    entry.timestamps = entry.timestamps.filter(
-      (t) => now - t < config.maxWindowMs
-    );
-    if (entry.timestamps.length === 0) store.delete(key);
-  }
-}, 300_000);
+// Clean up stale entries every 5 minutes (guarded against HMR re-registration)
+if (!globalForRateLimit.rateLimitPruneTimer) {
+  globalForRateLimit.rateLimitPruneTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of store) {
+      entry.timestamps = entry.timestamps.filter(
+        (t) => now - t < config.maxWindowMs
+      );
+      if (entry.timestamps.length === 0) store.delete(key);
+    }
+  }, 300_000);
+}
 
 interface RateLimitOptions {
   /** Maximum requests allowed within the window. */

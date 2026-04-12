@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { Plus, Loader2, CheckSquare, ArrowRight } from "lucide-react";
+import { Plus, CheckSquare, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -143,8 +144,27 @@ export function TaskSection({
         className={`rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
       >
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+          <div className="flex flex-col">
+            {/* Header row skeleton */}
+            <div className="flex items-center gap-4 px-5 py-3 border-b border-border-default">
+              <Skeleton className="h-3 flex-1" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            {/* Task row skeletons */}
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-4 px-5 py-3 border-b border-border-default last:border-b-0"
+              >
+                <Skeleton className="w-4 h-4 rounded shrink-0" />
+                <Skeleton className="h-3.5 flex-1" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            ))}
           </div>
         ) : allTasks.length === 0 ? (
           <EmptyState

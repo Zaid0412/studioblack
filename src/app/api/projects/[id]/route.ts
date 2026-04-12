@@ -1,18 +1,7 @@
 import { NextResponse } from "next/server";
-import { getProjectById } from "@/lib/queries";
-import { getPool } from "@/lib/db";
+import { getProjectById, updateProject, deleteProject } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-
-const VALID_PROJECT_STATUSES = ["draft", "active", "completed", "archived"];
-const VALID_CATEGORIES = [
-  "residential",
-  "commercial",
-  "healthcare",
-  "hospitality",
-  "institutional",
-  "retail",
-  "workspace",
-];
+import { parseRequest, updateProjectSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id] — get project details. */
 export const GET = withAuth(
@@ -35,47 +24,16 @@ export const PATCH = withAuth(
   async (req, { orgRole }, params) => {
     const { id } = params;
 
-    const body = await req.json();
-
-    if (
-      body.status !== undefined &&
-      !VALID_PROJECT_STATUSES.includes(body.status)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid project status" },
-        { status: 400 }
-      );
+    const parsed = await parseRequest(req, updateProjectSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    if (
-      body.category !== undefined &&
-      !VALID_CATEGORIES.includes(body.category)
-    ) {
-      return NextResponse.json(
-        { error: "Invalid project category" },
-        { status: 400 }
-      );
-    }
-
-    const pool = getPool();
+    const body = parsed.data;
 
     // Only owners/admins (PMs) can change project status
     const isPM = orgRole === "owner" || orgRole === "admin";
 
-    // Validate architectIds if provided
-    const UUID_RE =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (isPM && Array.isArray(body.architectIds)) {
-      for (const aid of body.architectIds) {
-        if (typeof aid !== "string" || !UUID_RE.test(aid)) {
-          return NextResponse.json(
-            { error: "Invalid architect ID format" },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // Build dynamic update
+    // Build dynamic update fields
     const allowedFields = isPM
       ? [
           "name",
@@ -92,66 +50,29 @@ export const PATCH = withAuth(
           "state",
         ]
       : ["name"];
-    const updates: string[] = [];
-    const values: unknown[] = [];
-    let idx = 1;
 
+    const fields: Record<string, unknown> = {};
+    const bodyRecord = body as Record<string, unknown>;
     for (const field of allowedFields) {
       const camelField = field.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-      if (body[camelField] !== undefined) {
-        updates.push(`${field} = $${idx}`);
-        values.push(body[camelField]);
-        idx++;
+      if (bodyRecord[camelField] !== undefined) {
+        fields[field] = bodyRecord[camelField];
       }
     }
 
-    if (updates.length === 0) {
+    const hasArchitectUpdate = isPM && Array.isArray(body.architectIds);
+    if (Object.keys(fields).length === 0 && !hasArchitectUpdate) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
       );
     }
 
-    updates.push(`updated_at = now()`);
-    values.push(id);
-
-    // Run project update + architect sync in a single transaction
-    const client = await pool.connect();
-    let updated;
-    try {
-      await client.query("BEGIN");
-
-      const {
-        rows: [row],
-      } = await client.query(
-        `UPDATE project SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
-        values
-      );
-      updated = row;
-
-      // Sync architect assignments if provided (PM only)
-      if (isPM && Array.isArray(body.architectIds)) {
-        await client.query(
-          `DELETE FROM project_member WHERE project_id = $1 AND role = 'architect'`,
-          [id]
-        );
-        if (body.architectIds.length > 0) {
-          await client.query(
-            `INSERT INTO project_member (project_id, user_id, role)
-             SELECT $1, unnest($2::uuid[]), 'architect'
-             ON CONFLICT (project_id, user_id) DO NOTHING`,
-            [id, body.architectIds]
-          );
-        }
-      }
-
-      await client.query("COMMIT");
-    } catch (err) {
-      await client.query("ROLLBACK");
-      throw err;
-    } finally {
-      client.release();
-    }
+    const updated = await updateProject(
+      id,
+      fields,
+      hasArchitectUpdate ? body.architectIds : undefined
+    );
 
     return NextResponse.json(updated);
   }
@@ -159,7 +80,7 @@ export const PATCH = withAuth(
 
 /** DELETE /api/projects/[id] — delete project (PM only). */
 export const DELETE = withAuth(
-  { fetchOrgRole: true },
+  { projectAccess: true, fetchOrgRole: true },
   async (req, { orgRole }, params) => {
     const { id } = params;
 
@@ -171,12 +92,9 @@ export const DELETE = withAuth(
       );
     }
 
-    const pool = getPool();
-    const { rowCount } = await pool.query(`DELETE FROM project WHERE id = $1`, [
-      id,
-    ]);
+    const deleted = await deleteProject(id);
 
-    if (!rowCount) {
+    if (!deleted) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 

@@ -7,8 +7,11 @@
 
 import { formatShortDate } from "./formatDate";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TFunc = (key: string, values?: Record<string, any>) => string;
+// next-intl's Translator uses Record<string, any> — narrowing further breaks compatibility
+type TFunc = (
+  key: string,
+  values?: Record<string, string | number | Date>
+) => string;
 
 /**
  * Converts an ISO timestamp into a human-readable relative time string
@@ -35,6 +38,25 @@ export function formatTimeShort(timestamp: string, locale?: string): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+/**
+ * Simple, non-i18n relative time for compact UI (e.g. pin comments).
+ * Returns strings like "just now", "5m ago", "3h ago", "2d ago", "1mo ago".
+ */
+export function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
 }
 
 /** Compact relative time using Intl.RelativeTimeFormat (locale-aware). */

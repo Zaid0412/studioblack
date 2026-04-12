@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
-import { verifyTaskAccess } from "@/lib/queries";
+import { verifyTaskAccess, reorderChecklistItems } from "@/lib/queries";
+import { parseRequest, reorderChecklistSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
+import { logger } from "@/lib/logger";
 
 /** PATCH /api/tasks/[id]/checklist/reorder — bulk-update checklist item positions. */
 export const PATCH = withAuth(
@@ -13,28 +14,20 @@ export const PATCH = withAuth(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
 
-      const body = await req.json();
-      const orderedIds: string[] = body.orderedIds;
-      if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-        return NextResponse.json(
-          { error: "orderedIds array is required" },
-          { status: 400 }
-        );
+      const parsed = await parseRequest(req, reorderChecklistSchema);
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error }, { status: 400 });
       }
+      const { orderedIds } = parsed.data;
 
-      const pool = getPool();
-      // Update positions in a single query using unnest
-      await pool.query(
-        `UPDATE task_checklist_item
-         SET position = data.pos
-         FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
-         WHERE task_checklist_item.id = data.id AND task_checklist_item.task_id = $3`,
-        [orderedIds, orderedIds.length - 1, taskId]
-      );
+      await reorderChecklistItems(taskId, orderedIds);
 
       return NextResponse.json({ ok: true });
     } catch (err) {
-      console.error("Checklist reorder error:", err);
+      logger.error("Checklist reorder error", {
+        taskId: params.id,
+        error: err,
+      });
       return NextResponse.json({ error: "Failed to reorder" }, { status: 500 });
     }
   }

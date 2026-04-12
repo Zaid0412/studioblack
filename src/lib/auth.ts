@@ -9,6 +9,7 @@ import {
 } from "@/lib/email";
 import { getPool } from "@/lib/db";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 
 /**
  * Resolve the base URL for better-auth.
@@ -79,13 +80,18 @@ export const auth = betterAuth({
           await pool.query(`DELETE FROM "invitation" WHERE "inviterId" = $1`, [
             user.id,
           ]);
-          console.log(`[auth] Cleaned up org membership for ${user.email}`);
+          logger.info("Cleaned up org membership before user deletion", {
+            email: user.email,
+          });
         } catch (err) {
           // Re-throw sole-owner guard — let everything else fail gracefully
           if (err instanceof Error && err.message.includes("sole owner")) {
             throw err;
           }
-          console.error("[auth] beforeDelete cleanup failed:", err);
+          logger.error("beforeDelete cleanup failed", {
+            email: user.email,
+            error: err,
+          });
         }
       },
     },

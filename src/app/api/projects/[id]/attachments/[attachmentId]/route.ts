@@ -3,9 +3,10 @@ import {
   getAttachmentById,
   getAttachmentVersionHistory,
   deleteAttachment,
+  updateAttachmentStatus,
 } from "@/lib/queries";
-import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
+import { parseRequest, updateAttachmentStatusSchema } from "@/lib/validations";
 
 /** GET /api/projects/[id]/attachments/[attachmentId] — get single attachment with version history. */
 export const GET = withAuth(
@@ -65,30 +66,31 @@ export const DELETE = withAuth(
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId] — update attachment status (e.g. mark reviewed). */
 export const PATCH = withAuth(
-  { projectAccess: true },
+  { projectAccess: true, blockedRoles: ["client"] },
   async (req, ctx, params) => {
     const { id, attachmentId } = params;
-    const body = await req.json();
-    const { reviewStatus } = body;
-
-    if (!reviewStatus) {
-      return NextResponse.json(
-        { error: "reviewStatus is required" },
-        { status: 400 }
-      );
+    const parsed = await parseRequest(req, updateAttachmentStatusSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { reviewStatus } = parsed.data;
 
     const attachment = await getAttachmentById(attachmentId, id);
     if (!attachment) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const pool = getPool();
-    const {
-      rows: [updated],
-    } = await pool.query(
-      `UPDATE attachment SET review_status = $1 WHERE id = $2 AND project_id = $3 RETURNING *`,
-      [reviewStatus, attachmentId, id]
+    if (attachment.frozen_at) {
+      return NextResponse.json(
+        { error: "Cannot update status of a frozen attachment" },
+        { status: 409 }
+      );
+    }
+
+    const updated = await updateAttachmentStatus(
+      attachmentId,
+      id,
+      reviewStatus
     );
 
     return NextResponse.json(updated);

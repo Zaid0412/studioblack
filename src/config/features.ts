@@ -12,6 +12,3 @@ export const features = {
   notifications: true,
   designUpload: true,
 } as const;
-
-/** TypeScript helper — inferred shape of the feature flags. */
-export type Features = typeof features;

@@ -1,36 +1,4 @@
-import { NextResponse } from "next/server";
-import { setAttachmentFreezeStatus } from "@/lib/queries";
-import { withAuth } from "@/lib/withAuth";
-import { rateLimit } from "@/lib/rateLimit";
+import { createFreezeHandler } from "../_shared/freezeHandler";
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId]/unfreeze — PM can unfreeze. */
-export const PATCH = withAuth(
-  { allowedRoles: ["pm"], projectAccess: true },
-  async (req, { user }, params) => {
-    const { allowed } = rateLimit(`unfreeze:${user.id}`, {
-      limit: 10,
-      windowMs: 60_000,
-    });
-    if (!allowed) {
-      return NextResponse.json(
-        { error: "Too many requests. Please wait a moment." },
-        { status: 429 }
-      );
-    }
-
-    const { error, data } = await setAttachmentFreezeStatus(
-      params.attachmentId,
-      params.id,
-      false
-    );
-
-    if (error === "not_found") {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    if (error === "already_unfrozen") {
-      return NextResponse.json({ error: "Already unfrozen" }, { status: 400 });
-    }
-
-    return NextResponse.json(data);
-  }
-);
+export const PATCH = createFreezeHandler(false);

@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 
 /**
  * Shared PostgreSQL connection pool.
@@ -22,6 +23,13 @@ export function getPool(): Pool {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });
+    globalForPg.pgPool.on("error", (err) => {
+      logger.error("Unexpected PostgreSQL pool error", { error: err });
+    });
+    // Drain connections on graceful shutdown (relevant for long-lived processes)
+    const shutdown = () => globalForPg.pgPool?.end();
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
   }
   return globalForPg.pgPool;
 }

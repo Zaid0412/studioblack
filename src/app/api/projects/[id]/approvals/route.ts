@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
+import {
+  getApprovals,
+  createApproval,
+  markProjectCompletedIfAllPhasesComplete,
+  getProjectName,
+  getProjectTeamEmails,
+} from "@/lib/queries";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { parseRequest, createApprovalSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/projects/[id]/approvals — list approval records. */
 export const GET = withAuth(
@@ -10,15 +18,7 @@ export const GET = withAuth(
   async (req, ctx, params) => {
     const { id } = params;
 
-    const pool = getPool();
-    const { rows } = await pool.query(
-      `SELECT a.*, u.name AS user_name
-     FROM approval a JOIN "user" u ON u.id = a.user_id
-     WHERE a.project_id = $1
-     ORDER BY a.created_at DESC`,
-      [id]
-    );
-
+    const rows = await getApprovals(id);
     return NextResponse.json(rows);
   }
 );
@@ -29,62 +29,32 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id } = params;
 
-    const { decision, comment, phaseId } = await req.json();
-    if (!decision || !["approved", "changes_requested"].includes(decision)) {
-      return NextResponse.json(
-        { error: "decision must be 'approved' or 'changes_requested'" },
-        { status: 400 }
-      );
+    const parsed = await parseRequest(req, createApprovalSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    const { decision, comment, phaseId } = parsed.data;
 
-    const pool = getPool();
-    const {
-      rows: [approval],
-    } = await pool.query(
-      `INSERT INTO approval (project_id, phase_id, user_id, decision, comment)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING *`,
-      [id, phaseId || null, user.id, decision, comment || ""]
-    );
+    const approval = await createApproval({
+      projectId: id,
+      phaseId: phaseId || null,
+      userId: user.id,
+      decision,
+      comment: comment || "",
+    });
 
-    // Only mark project as completed when all phases have been approved
+    // Atomically mark project as completed only when all phases are done
     if (decision === "approved") {
-      const {
-        rows: [phaseCheck],
-      } = await pool.query(
-        `SELECT COUNT(*) AS total,
-              COUNT(*) FILTER (WHERE pp.status = 'completed') AS done
-       FROM project_phase pp WHERE pp.project_id = $1`,
-        [id]
-      );
-      const allPhasesComplete =
-        Number(phaseCheck.total) > 0 &&
-        Number(phaseCheck.done) === Number(phaseCheck.total);
-      if (allPhasesComplete || !phaseId) {
-        await pool.query(
-          `UPDATE project SET status = 'completed', updated_at = now() WHERE id = $1`,
-          [id]
-        );
-      }
+      await markProjectCompletedIfAllPhasesComplete(id);
     }
 
     // Send email notifications to PM and architects on the project
     try {
-      const { rows: project } = await pool.query(
-        `SELECT name FROM project WHERE id = $1`,
-        [id]
-      );
-      const projectName = project[0]?.name || "a project";
+      const projectName = (await getProjectName(id)) || "a project";
       const clientName = user.name || user.email;
 
       // Get all org members (PM + architects) associated with this project
-      const { rows: teamEmails } = await pool.query(
-        `SELECT DISTINCT u.email, u.name FROM project p
-       JOIN member m ON m."organizationId" = p.org_id
-       JOIN "user" u ON u.id = m."userId"
-       WHERE p.id = $1`,
-        [id]
-      );
+      const teamEmails = await getProjectTeamEmails(id);
 
       const subject =
         decision === "approved"
@@ -99,8 +69,12 @@ export const POST = withAuth(
          ${comment ? `<p style="color: #666;">Comment: "${escapeHtml(comment)}"</p>` : ""}`;
 
       for (const recipient of teamEmails) {
-        sendNotificationEmail(recipient.email, subject, body).catch(
-          console.error
+        sendNotificationEmail(recipient.email, subject, body).catch((err) =>
+          logger.error("Approval notification email failed", {
+            projectId: id,
+            email: recipient.email,
+            error: err,
+          })
         );
       }
       // In-app notifications
@@ -116,7 +90,10 @@ export const POST = withAuth(
         comment || ""
       );
     } catch (err) {
-      console.error("[approval] Failed to send notification emails:", err);
+      logger.error("Failed to send approval notifications", {
+        projectId: id,
+        error: err,
+      });
     }
 
     return NextResponse.json(approval, { status: 201 });

@@ -16,7 +16,6 @@ import {
   Download,
   Upload,
   Eye,
-  GripVertical,
 } from "lucide-react";
 import {
   DndContext,
@@ -28,9 +27,7 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  useSortable,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -56,9 +53,17 @@ import {
   formatFullDate,
   isOverdue,
 } from "@/lib/taskUtils";
-import { getFileExtension, fileTypeBadge } from "@/lib/fileUtils";
+import {
+  getFileExtension,
+  fileTypeBadge,
+  isPreviewable,
+  isOpenable,
+  formatFileSize,
+} from "@/lib/fileUtils";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { Task } from "@/types";
-import { useTaskDetail, type ChecklistItem } from "../_hooks/useTaskDetail";
+import { useTaskDetail } from "../_hooks/useTaskDetail";
+import { SortableChecklistItem } from "./SortableChecklistItem";
 
 // ---------------------------------------------------------------------------
 // i18n key maps
@@ -77,24 +82,6 @@ const PRIORITY_TKEY: Record<string, string> = {
   high: "priorityHigh",
   urgent: "priorityUrgent",
 };
-const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "webp", "svg", "gif"]);
-const PDF_EXTS = new Set(["pdf"]);
-
-function isPreviewable(ext: string): boolean {
-  return IMAGE_EXTS.has(ext);
-}
-
-function isOpenable(ext: string): boolean {
-  return PDF_EXTS.has(ext) || IMAGE_EXTS.has(ext);
-}
-
-function formatFileSize(bytes: number | null): string {
-  if (bytes == null) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 interface TaskDetailModalProps {
   task: Task | null;
   open: boolean;
@@ -127,88 +114,6 @@ function DetailRow({
 
 function DetailSep() {
   return <div className="h-px bg-bg-secondary" />;
-}
-
-// ---------------------------------------------------------------------------
-// Sortable checklist item
-// ---------------------------------------------------------------------------
-
-function SortableChecklistItem({
-  item,
-  onToggle,
-  onDelete,
-}: {
-  item: ChecklistItem;
-  onToggle: (item: ChecklistItem) => void;
-  onDelete: (item: ChecklistItem) => void;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : undefined,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 group py-1.5 px-1 rounded hover:bg-bg-elevated/50"
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="p-0 shrink-0 text-text-muted hover:text-text-secondary cursor-grab active:cursor-grabbing transition-colors touch-none"
-      >
-        <GripVertical className="w-3.5 h-3.5" />
-      </button>
-      <button
-        onClick={() => onToggle(item)}
-        className={`w-4 h-4 rounded-[3px] border shrink-0 flex items-center justify-center cursor-pointer transition-colors ${
-          item.is_done
-            ? "bg-accent border-accent"
-            : "border-text-muted hover:border-text-secondary"
-        }`}
-      >
-        {item.is_done && (
-          <svg
-            className="w-3 h-3 text-black"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={3}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        )}
-      </button>
-      <span
-        className={`text-[13px] flex-1 ${
-          item.is_done ? "text-text-muted line-through" : "text-text-secondary"
-        }`}
-      >
-        {item.title}
-      </span>
-      <button
-        onClick={() => onDelete(item)}
-        className="lg:opacity-0 lg:group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -461,8 +366,13 @@ export function TaskDetailModal({
                 )}
               </div>
               {loadingChecklist ? (
-                <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
+                <div className="flex flex-col gap-1.5">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-2.5 py-1.5">
+                      <Skeleton className="w-4 h-4 rounded" />
+                      <Skeleton className="h-3 flex-1" />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <>
@@ -541,8 +451,19 @@ export function TaskDetailModal({
               </div>
 
               {loadingAttachments ? (
-                <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
+                <div className="flex flex-col gap-1.5">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2.5 py-1.5 px-2"
+                    >
+                      <Skeleton className="w-8 h-4 rounded" />
+                      <div className="flex flex-col gap-1 flex-1">
+                        <Skeleton className="h-3 w-32" />
+                        <Skeleton className="h-2.5 w-20" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : attachments.length > 0 ? (
                 <div className="flex flex-col gap-1">

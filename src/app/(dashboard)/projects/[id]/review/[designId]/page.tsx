@@ -6,10 +6,10 @@ import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   FileText,
-  Loader2,
   ClipboardCheck,
   MessageCircle,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -59,7 +59,7 @@ export default function DesignReviewPage({
   // Auto-collapse main sidebar when entering the file viewer
   useEffect(() => {
     collapse();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [collapse]);
 
   const review = useDesignReview({
     projectId: id,
@@ -94,16 +94,33 @@ export default function DesignReviewPage({
   } = pinState;
 
   // Fetch project members for assignee dropdown
-  const [members, setMembers] = useState<{ user_id: string; name: string }[]>(
-    []
-  );
+  const [members, setMembers] = useState<
+    { user_id: string; name: string; role?: string }[]
+  >([]);
+  const [defaultAssignee, setDefaultAssignee] = useState("");
   useEffect(() => {
+    let ignore = false;
     projectsApi
       .get<{
-        members: { user_id: string; name: string; email: string }[];
+        members: {
+          user_id: string;
+          name: string;
+          email: string;
+          role?: string;
+        }[];
       }>(id)
-      .then((p) => setMembers(p.members ?? []))
+      .then((p) => {
+        if (!ignore) {
+          const m = p.members ?? [];
+          setMembers(m);
+          const arch = m.find((x) => x.role === "architect");
+          if (arch) setDefaultAssignee(arch.user_id);
+        }
+      })
       .catch(() => {});
+    return () => {
+      ignore = true;
+    };
   }, [id]);
 
   // Pending pin: stores the click coordinates while the form is open
@@ -142,7 +159,13 @@ export default function DesignReviewPage({
         { scroll: false }
       );
     }
-  }, [initialPinId, pinState.pins.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    initialPinId,
+    pinState.pins.length,
+    setSelectedPinId,
+    router,
+    searchParams,
+  ]);
 
   const handleTogglePinMode = useCallback(() => {
     setPinMode((prev) => !prev);
@@ -242,8 +265,12 @@ export default function DesignReviewPage({
       a.download = attachment.file_name;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      console.error("[handleDownload]", err);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "Could not download the file. Please try again.",
+        variant: "error",
+      });
     }
   }, [attachment]);
 
@@ -329,11 +356,31 @@ export default function DesignReviewPage({
 
   if (review.loading) {
     return (
-      <div
-        className="flex items-center justify-center -m-4 lg:-m-8"
-        style={{ height: "calc(100vh)" }}
-      >
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      <div className="flex -m-4 lg:-m-8" style={{ height: "calc(100vh)" }}>
+        {/* Thumbnail panel skeleton */}
+        <div className="hidden lg:flex flex-col w-[180px] border-r border-border-default bg-bg-secondary p-3 gap-3">
+          <Skeleton className="h-4 w-24" />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="w-full aspect-[3/4] rounded-lg" />
+          ))}
+        </div>
+        {/* Main viewer skeleton */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Toolbar skeleton */}
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-default">
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-4 w-40" />
+            <div className="ml-auto flex items-center gap-2">
+              <Skeleton className="h-7 w-7 rounded" />
+              <Skeleton className="h-7 w-7 rounded" />
+              <Skeleton className="h-7 w-7 rounded" />
+            </div>
+          </div>
+          {/* Document area skeleton */}
+          <div className="flex-1 flex items-center justify-center bg-bg-secondary">
+            <Skeleton className="w-[60%] max-w-[600px] aspect-[3/4] rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -550,6 +597,7 @@ export default function DesignReviewPage({
           onRequestPin={handleRequestPin}
           requestChangesMode={requestChangesMode}
           members={members}
+          defaultAssignee={defaultAssignee}
           repliesMap={pinState.repliesMap}
           onFetchReplies={fetchReplies}
           onAddReply={addReply}

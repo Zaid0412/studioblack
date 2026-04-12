@@ -1,45 +1,38 @@
 import { NextResponse } from "next/server";
-import { getPool } from "@/lib/db";
+import {
+  verifyTaskAccess,
+  getTaskOrgId,
+  getStandaloneTaskAttachment,
+  getMemberRole,
+  deleteAttachmentById,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 
 /** DELETE /api/tasks/[id]/attachments/[attachmentId] — delete an attachment. */
 export const DELETE = withAuth(
   { blockedRoles: ["client"] },
   async (_req, { user, orgId }, params) => {
-    const pool = getPool();
     const { id: taskId, attachmentId } = params;
 
-    // Verify task exists and belongs to org
-    const { rows: taskRows } = await pool.query(
-      `SELECT id, org_id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
-      [taskId, orgId]
-    );
-    if (taskRows.length === 0) {
+    if (!(await verifyTaskAccess(taskId, orgId))) {
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
+    // Get task's org_id for role check
+    const taskOrgId = await getTaskOrgId(taskId);
+
     // Verify attachment exists and belongs to this task
-    const { rows: attRows } = await pool.query(
-      `SELECT id, uploaded_by FROM attachment WHERE id = $1 AND standalone_task_id = $2`,
-      [attachmentId, taskId]
-    );
-    if (attRows.length === 0) {
+    const attachment = await getStandaloneTaskAttachment(attachmentId, taskId);
+    if (!attachment) {
       return NextResponse.json(
         { error: "Attachment not found" },
         { status: 404 }
       );
     }
 
-    const attachment = attRows[0];
-    const task = taskRows[0];
-
     // Only uploader or org admin/owner can delete
     if (attachment.uploaded_by !== user.id) {
-      const { rows } = await pool.query(
-        `SELECT role FROM member WHERE "organizationId" = $1 AND "userId" = $2`,
-        [task.org_id, user.id]
-      );
-      const role = rows[0]?.role;
+      const role = taskOrgId ? await getMemberRole(taskOrgId, user.id) : null;
       if (role !== "owner" && role !== "admin") {
         return NextResponse.json(
           { error: "Only the uploader or org admins can delete attachments" },
@@ -48,7 +41,7 @@ export const DELETE = withAuth(
       }
     }
 
-    await pool.query(`DELETE FROM attachment WHERE id = $1`, [attachmentId]);
+    await deleteAttachmentById(attachmentId);
     return NextResponse.json({ success: true });
   }
 );

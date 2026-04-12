@@ -5,8 +5,7 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { NotificationPanel } from "@/components/layout/NotificationPanel";
-import { Avatar } from "@/components/ui/avatar";
-import { avatarColor } from "@/lib/avatarUtils";
+import { AvatarMenu } from "@/components/layout/AvatarMenu";
 import { useTheme } from "@/components/ThemeProvider";
 import type { User } from "@/types";
 
@@ -40,7 +39,7 @@ export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
         </Link>
       </div>
 
-      {/* Right: theme toggle + notifications + avatar */}
+      {/* Right: theme toggle + notifications + avatar menu */}
       <div className="flex items-center gap-2">
         <button
           onClick={toggleTheme}
@@ -56,14 +55,7 @@ export function MobileTopBar({ user, onMenuOpen }: MobileTopBarProps) {
           )}
         </button>
         <NotificationPanel />
-        <Link href="/settings" className="shrink-0">
-          <Avatar
-            initials={user.initials}
-            size="sm"
-            src={user.avatar}
-            color={avatarColor(user.id)}
-          />
-        </Link>
+        <AvatarMenu user={user} />
       </div>
     </header>
   );

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -22,7 +23,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { hostname: "studio-black.co.in" },
-      { hostname: "*.supabase.co" },
+      { hostname: "*.supabase.co", protocol: "https" as const },
     ],
   },
   async headers() {
@@ -34,10 +35,40 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-XSS-Protection", value: "0" },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+              "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
+              "img-src 'self' data: blob: https://*.supabase.co",
+              "font-src 'self' https://cdn.fontshare.com",
+              "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io https://vitals.vercel-insights.com",
+              "worker-src 'self' blob:",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join("; "),
+          },
         ],
       },
     ];
   },
 };
 
-export default withNextIntl(nextConfig);
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Route client reports through the app to avoid ad-blockers
+  tunnelRoute: "/monitoring",
+
+  // Only print logs for uploading source maps in CI
+  silent: !process.env.CI,
+
+  // Disable source map upload when no auth token is set
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+});
