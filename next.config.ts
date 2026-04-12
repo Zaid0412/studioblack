@@ -40,10 +40,10 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-              "style-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
               "img-src 'self' data: blob: https://*.supabase.co",
-              "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io",
+              "font-src 'self' https://cdn.fontshare.com",
+              "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io https://vitals.vercel-insights.com",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",

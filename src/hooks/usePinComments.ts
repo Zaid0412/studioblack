@@ -141,21 +141,28 @@ export function usePinComments({
 
   // ── Edit content ──────────────────────────────────────────────────────
 
+  const refetchPins = useCallback(async () => {
+    try {
+      const data = await pinComments.list(projectId, attachmentId);
+      setPins(data);
+    } catch {
+      /* refetch is best-effort */
+    }
+  }, [projectId, attachmentId]);
+
   const editPin = useCallback(
     async (pinId: string, content: string) => {
-      let snapshot: DbPinComment[] = [];
-      setPins((ps) => {
-        snapshot = ps;
-        return ps.map((p) =>
+      setPins((ps) =>
+        ps.map((p) =>
           p.id === pinId
             ? { ...p, content, updated_at: new Date().toISOString() }
             : p
-        );
-      });
+        )
+      );
       try {
         await pinComments.editContent(projectId, attachmentId, pinId, content);
       } catch {
-        setPins(snapshot);
+        await refetchPins();
         toast({
           title: "Error",
           description: "Failed to edit comment",
@@ -163,23 +170,19 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId]
+    [projectId, attachmentId, refetchPins]
   );
 
   // ── Delete ────────────────────────────────────────────────────────────
 
   const deletePin = useCallback(
     async (pinId: string) => {
-      let snapshot: DbPinComment[] = [];
-      setPins((ps) => {
-        snapshot = ps;
-        return ps.filter((pin) => pin.id !== pinId);
-      });
+      setPins((ps) => ps.filter((pin) => pin.id !== pinId));
       setSelectedPinId((prev) => (prev === pinId ? null : prev));
       try {
         await pinComments.remove(projectId, attachmentId, pinId);
       } catch {
-        setPins(snapshot);
+        await refetchPins();
         toast({
           title: "Error",
           description: "Failed to delete comment",
@@ -187,22 +190,20 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId]
+    [projectId, attachmentId, refetchPins]
   );
 
   // ── Reposition ────────────────────────────────────────────────────────
 
   const repositionPin = useCallback(
     async (pinId: string, xPercent: number, yPercent: number, page: number) => {
-      let snapshot: DbPinComment[] = [];
-      setPins((ps) => {
-        snapshot = ps;
-        return ps.map((p) =>
+      setPins((ps) =>
+        ps.map((p) =>
           p.id === pinId
             ? { ...p, x_percent: xPercent, y_percent: yPercent, page }
             : p
-        );
-      });
+        )
+      );
       try {
         await pinComments.reposition(projectId, attachmentId, pinId, {
           x_percent: xPercent,
@@ -210,7 +211,7 @@ export function usePinComments({
           page,
         });
       } catch {
-        setPins(snapshot);
+        await refetchPins();
         toast({
           title: "Error",
           description: "Failed to reposition pin",
@@ -218,7 +219,7 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId]
+    [projectId, attachmentId, refetchPins]
   );
 
   // ── Replies ───────────────────────────────────────────────────────────

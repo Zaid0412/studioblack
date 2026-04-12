@@ -9,6 +9,7 @@ import {
 import { withAuth } from "@/lib/withAuth";
 import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 import {
   createNotification,
   createNotificationsForTeam,
@@ -149,7 +150,12 @@ export const POST = withAuth(
           description: notifDesc,
           projectId: id,
           taskId: result.taskId,
-        });
+        }).catch((err) =>
+          logger.error("Pin task notification failed", {
+            projectId: id,
+            error: err,
+          })
+        );
 
         // Email the assignee
         notifyUserByEmailWithContext(assignedTo, id, (ctx) => {
@@ -178,6 +184,11 @@ export const POST = withAuth(
           "review_changes_requested",
           `${user.name || "Client"} requested changes on "${attachment.file_name}"`,
           taskTitle
+        ).catch((err) =>
+          logger.error("Pin team notification failed", {
+            projectId: id,
+            error: err,
+          })
         );
 
         const safeReviewer = escapeHtml(user.name || user.email);

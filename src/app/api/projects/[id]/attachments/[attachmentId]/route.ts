@@ -66,7 +66,7 @@ export const DELETE = withAuth(
 
 /** PATCH /api/projects/[id]/attachments/[attachmentId] — update attachment status (e.g. mark reviewed). */
 export const PATCH = withAuth(
-  { projectAccess: true },
+  { projectAccess: true, blockedRoles: ["client"] },
   async (req, ctx, params) => {
     const { id, attachmentId } = params;
     const parsed = await parseRequest(req, updateAttachmentStatusSchema);
@@ -80,7 +80,11 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const updated = await updateAttachmentStatus(attachmentId, id, reviewStatus);
+    const updated = await updateAttachmentStatus(
+      attachmentId,
+      id,
+      reviewStatus
+    );
 
     return NextResponse.json(updated);
   }

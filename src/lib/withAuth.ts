@@ -63,24 +63,26 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       if (!origin) {
         logger.warn("CSRF origin missing", { requestId, route, method });
         return withRequestId(
-          NextResponse.json(
-            { error: "CSRF origin missing" },
-            { status: 403 }
-          ),
+          NextResponse.json({ error: "CSRF origin missing" }, { status: 403 }),
           requestId
         );
       }
       if (!host) {
         logger.warn("CSRF host missing", { requestId, route, method });
         return withRequestId(
-          NextResponse.json(
-            { error: "CSRF host missing" },
-            { status: 403 }
-          ),
+          NextResponse.json({ error: "CSRF host missing" }, { status: 403 }),
           requestId
         );
       }
-      const originHost = new URL(origin).host;
+      let originHost: string;
+      try {
+        originHost = new URL(origin).host;
+      } catch {
+        return withRequestId(
+          NextResponse.json({ error: "Invalid origin" }, { status: 403 }),
+          requestId
+        );
+      }
       if (originHost !== host) {
         logger.warn("CSRF origin mismatch", {
           requestId,
@@ -90,10 +92,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
           host,
         });
         return withRequestId(
-          NextResponse.json(
-            { error: "CSRF origin mismatch" },
-            { status: 403 }
-          ),
+          NextResponse.json({ error: "CSRF origin mismatch" }, { status: 403 }),
           requestId
         );
       }
@@ -144,10 +143,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       const projectId = resolvedParams.id;
       if (!projectId) {
         return withRequestId(
-          NextResponse.json(
-            { error: "Missing project ID" },
-            { status: 400 }
-          ),
+          NextResponse.json({ error: "Missing project ID" }, { status: 400 }),
           requestId
         );
       }

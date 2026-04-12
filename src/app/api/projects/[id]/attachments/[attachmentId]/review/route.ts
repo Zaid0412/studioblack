@@ -33,6 +33,14 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    // Guard: don't allow reviewing a frozen attachment
+    if (attachment.frozen_at) {
+      return NextResponse.json(
+        { error: "Cannot review a frozen attachment" },
+        { status: 409 }
+      );
+    }
+
     // Guard: don't allow re-approving/re-rejecting if already in that state
     if (attachment.review_status === status) {
       return NextResponse.json(
@@ -42,13 +50,21 @@ export const PATCH = withAuth(
     }
 
     // Update status + freeze on approval + auto-create rejection task atomically
-    const { attachment: updated } = await submitAttachmentReview(
+    const result = await submitAttachmentReview(
       attachmentId,
       id,
       user.id,
       status as "approved" | "rejected",
       comment
     );
+
+    if (result.conflict) {
+      return NextResponse.json(
+        { error: `Attachment is already ${status}` },
+        { status: 409 }
+      );
+    }
+    const updated = result.attachment;
 
     // Create a review record (for history)
     await createAttachmentReview({

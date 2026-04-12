@@ -46,8 +46,17 @@ export const POST = withAuth(
       parsed.data;
 
     // Business logic: fileUrl must point to Supabase storage
+    let fileHostname: string;
+    try {
+      fileHostname = new URL(fileUrl).hostname;
+    } catch {
+      return NextResponse.json(
+        { error: "fileUrl is not a valid URL" },
+        { status: 400 }
+      );
+    }
     const supabaseHostname = new URL(env().NEXT_PUBLIC_SUPABASE_URL).hostname;
-    if (new URL(fileUrl).hostname !== supabaseHostname) {
+    if (fileHostname !== supabaseHostname) {
       return NextResponse.json(
         { error: "fileUrl must point to the Supabase storage domain" },
         { status: 400 }
@@ -88,7 +97,10 @@ export const POST = withAuth(
           notifDesc
         );
       } catch (err) {
-        logger.error("Attachment upload notification failed", { projectId: id, error: err });
+        logger.error("Attachment upload notification failed", {
+          projectId: id,
+          error: err,
+        });
       }
     };
 
