@@ -103,6 +103,11 @@ export function NewPinForm({
     setSubmitting(true);
     try {
       await onSubmit(data);
+      setContent("");
+      setAssignAsTask(false);
+      setAssignedTo(defaultAssignee ?? "");
+      setDueDate("");
+      setRequestChanges(!!requestChangesMode);
     } finally {
       setSubmitting(false);
     }

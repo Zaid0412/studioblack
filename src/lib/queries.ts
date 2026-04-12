@@ -313,7 +313,7 @@ export async function getAttachments(filters: {
       ${whereClauses}
       ORDER BY a.version_group, a.version DESC
     )
-    SELECT * FROM latest ORDER BY created_at`;
+    SELECT * FROM latest ORDER BY created_at DESC, id`;
 
   const { rows } = await pool.query(query, params);
   return rows;
@@ -446,21 +446,6 @@ export async function getAttachmentVersionHistory(
 }
 
 /** Update the review status of an attachment. */
-export async function updateAttachmentReviewStatus(
-  attachmentId: string,
-  status: string,
-  reviewedBy: string
-) {
-  const pool = getPool();
-  const {
-    rows: [row],
-  } = await pool.query(
-    `UPDATE attachment SET review_status = $1, reviewed_by = $2 WHERE id = $3 RETURNING *`,
-    [status, reviewedBy, attachmentId]
-  );
-  return row;
-}
-
 /** Set or clear the frozen_at timestamp on an attachment. */
 export async function setAttachmentFreezeStatus(
   attachmentId: string,
@@ -1667,6 +1652,19 @@ export async function createTask(params: {
 }
 
 /** Update a standalone task with dynamic fields. */
+const TASK_COLS = new Set([
+  "title",
+  "description",
+  "status",
+  "priority",
+  "category",
+  "assigned_to",
+  "project_id",
+  "phase_id",
+  "due_date",
+  "reminder_at",
+]);
+
 export async function updateTask(
   taskId: string,
   fields: Record<string, unknown>,
@@ -1677,8 +1675,8 @@ export async function updateTask(
   let idx = 1;
 
   for (const [col, value] of Object.entries(fields)) {
-    if (value !== undefined) {
-      updates.push(`${col} = $${idx}`);
+    if (value !== undefined && TASK_COLS.has(col)) {
+      updates.push(`"${col}" = $${idx}`);
       values.push(value === "" ? null : value);
       idx++;
     }
@@ -1715,6 +1713,21 @@ export async function deleteTask(taskId: string) {
 // Project mutations
 // ---------------------------------------------------------------------------
 
+const PROJECT_COLS = new Set([
+  "name",
+  "client_name",
+  "client_email",
+  "category",
+  "status",
+  "deadline",
+  "scope",
+  "area_sqft",
+  "estimation_inr",
+  "address",
+  "city",
+  "state",
+]);
+
 /** Update a project with dynamic fields + optional architect sync (transactional). */
 export async function updateProject(
   projectId: string,
@@ -1726,7 +1739,8 @@ export async function updateProject(
   let idx = 1;
 
   for (const [col, value] of Object.entries(fields)) {
-    updates.push(`${col} = $${idx}`);
+    if (!PROJECT_COLS.has(col)) continue;
+    updates.push(`"${col}" = $${idx}`);
     values.push(value);
     idx++;
   }
@@ -1796,12 +1810,13 @@ export async function updateProject(
   return updated;
 }
 
-/** Delete a project by ID. Returns true if deleted. */
+/** Delete a project by ID (archives it). Returns true if successful. */
 export async function deleteProject(projectId: string): Promise<boolean> {
   const pool = getPool();
-  const { rowCount } = await pool.query(`DELETE FROM project WHERE id = $1`, [
-    projectId,
-  ]);
+  const { rowCount } = await pool.query(
+    `UPDATE project SET status = 'archived', updated_at = now() WHERE id = $1 AND status != 'archived'`,
+    [projectId]
+  );
   return (rowCount ?? 0) > 0;
 }
 
@@ -2071,6 +2086,15 @@ export async function createPhaseTask(params: {
   return task;
 }
 
+const PHASE_TASK_COLS = new Set([
+  "title",
+  "description",
+  "status",
+  "assigned_to",
+  "due_date",
+  "requires_client_review",
+]);
+
 /** Update a phase task with dynamic fields. */
 export async function updatePhaseTask(
   taskId: string,
@@ -2081,8 +2105,8 @@ export async function updatePhaseTask(
   let idx = 1;
 
   for (const [col, val] of Object.entries(fields)) {
-    if (val !== undefined) {
-      updates.push(`${col} = $${idx}`);
+    if (val !== undefined && PHASE_TASK_COLS.has(col)) {
+      updates.push(`"${col}" = $${idx}`);
       values.push(val);
       idx++;
     }

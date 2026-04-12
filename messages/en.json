@@ -216,6 +216,7 @@
     "bulkMarkReviewedError": "Failed to mark as reviewed.",
     "bulkFilesRemoved": "Files removed",
     "bulkFilesRemovedDesc": "{count} file(s) removed.",
+    "bulkRemoveConfirm": "Are you sure you want to remove {count} file(s)? This cannot be undone.",
     "bulkRemoveError": "Failed to remove files.",
     "bulkSentToClient": "Sent to client",
     "bulkSentToClientDesc": "{count} file(s) sent to client.",

@@ -59,7 +59,7 @@ export default function DesignReviewPage({
   // Auto-collapse main sidebar when entering the file viewer
   useEffect(() => {
     collapse();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [collapse]);
 
   const review = useDesignReview({
     projectId: id,
@@ -159,7 +159,13 @@ export default function DesignReviewPage({
         { scroll: false }
       );
     }
-  }, [initialPinId, pinState.pins.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    initialPinId,
+    pinState.pins.length,
+    setSelectedPinId,
+    router,
+    searchParams,
+  ]);
 
   const handleTogglePinMode = useCallback(() => {
     setPinMode((prev) => !prev);
@@ -259,8 +265,12 @@ export default function DesignReviewPage({
       a.download = attachment.file_name;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      console.error("[handleDownload]", err);
+    } catch {
+      toast({
+        title: "Download failed",
+        description: "Could not download the file. Please try again.",
+        variant: "error",
+      });
     }
   }, [attachment]);
 

@@ -23,8 +23,8 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const isPm = user.role === "owner" || user.role === "admin";
-    const isStaff = isPm || user.role === "member";
+    const isPm = user.role === "pm";
+    const isStaff = isPm; // all non-client authenticated users are staff
 
     const parsed = await parseRequest(req, updatePinSchema);
     if (!parsed.success) {
@@ -94,8 +94,8 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Only the pin author or a PM (org owner/admin) can delete
-    const isPm = user.role === "owner" || user.role === "admin";
+    // Only the pin author or a PM can delete
+    const isPm = user.role === "pm";
     if (pin.user_id !== user.id && !isPm) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

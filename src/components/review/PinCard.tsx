@@ -225,6 +225,7 @@ export function PinCard({
           {(pin.reply_count > 0 || onAddReply) && !isTemp && (
             <button
               onClick={handleToggleReplies}
+              aria-label={repliesOpen ? "Hide replies" : "Show replies"}
               className={`flex items-center gap-1 text-[10px] cursor-pointer transition-colors ${
                 repliesOpen
                   ? "text-[#F5C518]"
@@ -240,6 +241,7 @@ export function PinCard({
           {canEdit && !isTemp && (
             <button
               onClick={() => setEditing(true)}
+              aria-label="Edit comment"
               className="text-text-secondary hover:text-text-muted transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
             >
               <Pencil className="w-3 h-3" />
@@ -248,6 +250,7 @@ export function PinCard({
           {canDelete && !isTemp && (
             <button
               onClick={onDelete}
+              aria-label="Delete comment"
               className="text-text-secondary hover:text-red-400 transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
             >
               <Trash2 className="w-3 h-3" />

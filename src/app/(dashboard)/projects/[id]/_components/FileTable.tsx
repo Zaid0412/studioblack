@@ -347,27 +347,34 @@ export function FileTable({
   // Shared bulk action helper — runs action, toasts, clears selection, refreshes
   const bulkAction = useCallback(
     async (
-      action: () => Promise<unknown>,
+      action: () => Promise<PromiseSettledResult<unknown>[]>,
       successTitle: string,
       successDesc: string,
       errorDesc: string
     ) => {
-      try {
-        await action();
+      const results = await action();
+      const failures = results.filter((r) => r.status === "rejected");
+      if (failures.length === 0) {
         toast({
           title: successTitle,
           description: successDesc,
           variant: "success",
         });
-        clearSelection();
-        onRefresh();
-      } catch {
+      } else if (failures.length < results.length) {
+        toast({
+          title: t("bulkError"),
+          description: `${failures.length} of ${results.length} failed`,
+          variant: "error",
+        });
+      } else {
         toast({
           title: t("bulkError"),
           description: errorDesc,
           variant: "error",
         });
       }
+      clearSelection();
+      onRefresh();
     },
     [clearSelection, onRefresh, t]
   );
@@ -376,7 +383,7 @@ export function FileTable({
     (status: "approved" | "rejected") =>
       bulkAction(
         () =>
-          Promise.all(
+          Promise.allSettled(
             selectedFiles.map((att) =>
               attachmentsApi.submitReview(projectId, att.id, { status })
             )
@@ -396,7 +403,7 @@ export function FileTable({
     () =>
       bulkAction(
         () =>
-          Promise.all(
+          Promise.allSettled(
             selectedFiles.map((att) =>
               attachmentsApi.markReviewed(projectId, att.id)
             )
@@ -408,26 +415,28 @@ export function FileTable({
     [selectedFiles, projectId, bulkAction, t]
   );
 
-  const handleBulkRemove = useCallback(
-    () =>
-      bulkAction(
-        () =>
-          Promise.all(
-            selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
-          ),
-        t("bulkFilesRemoved"),
-        t("bulkFilesRemovedDesc", { count: selectedFiles.length }),
-        t("bulkRemoveError")
-      ),
-    [selectedFiles, projectId, bulkAction, t]
-  );
+  const handleBulkRemove = useCallback(() => {
+    const confirmed = window.confirm(
+      t("bulkRemoveConfirm", { count: selectedFiles.length })
+    );
+    if (!confirmed) return;
+    return bulkAction(
+      () =>
+        Promise.allSettled(
+          selectedFiles.map((att) => attachmentsApi.remove(projectId, att.id))
+        ),
+      t("bulkFilesRemoved"),
+      t("bulkFilesRemovedDesc", { count: selectedFiles.length }),
+      t("bulkRemoveError")
+    );
+  }, [selectedFiles, projectId, bulkAction, t]);
 
   const handleBulkSendToClient = useCallback(() => {
     const unsent = selectedFiles.filter((att) => !att.sent_to_client_at);
     if (unsent.length === 0) return Promise.resolve();
     return bulkAction(
       () =>
-        Promise.all(
+        Promise.allSettled(
           unsent.map((att) => attachmentsApi.sendToClient(projectId, att.id))
         ),
       t("bulkSentToClient"),
@@ -440,7 +449,7 @@ export function FileTable({
     () =>
       bulkAction(
         () =>
-          Promise.all(
+          Promise.allSettled(
             selectedFiles
               .filter((att) => !att.frozen_at)
               .map((att) => attachmentsApi.freeze(projectId, att.id))
