@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { branding } from "@/config/branding";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SplashScreen } from "@/components/SplashScreen";
 import "./globals.css";
@@ -44,6 +45,7 @@ export default async function RootLayout({
           <ThemeProvider>
             <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
             <Toaster />
+            <Analytics />
             <SpeedInsights />
           </ThemeProvider>
         </NextIntlClientProvider>
