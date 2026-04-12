@@ -102,7 +102,7 @@ export const PATCH = withAuth(
       `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
     );
 
-    notifyTeamByEmail(id, [user.id], (member) => ({
+    notifyTeamByEmail(id, [user.id], () => ({
       subject:
         status === "approved"
           ? `Design Approved: ${attachment.file_name}`

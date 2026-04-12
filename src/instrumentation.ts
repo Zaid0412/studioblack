@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 
+/** Register Sentry instrumentation for server and edge runtimes. */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");

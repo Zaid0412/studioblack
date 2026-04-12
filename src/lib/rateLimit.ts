@@ -3,10 +3,10 @@
  *
  * ⚠️  LIMITATION: On Vercel serverless, each invocation may get a fresh
  * memory space, making this rate limiter ineffective. For production,
- * replace with @upstash/ratelimit + Upstash Redis for a persistent,
+ * replace with `@upstash/ratelimit` + Upstash Redis for a persistent,
  * distributed rate limiter that works across serverless instances.
  *
- * TODO: Migrate to @upstash/ratelimit when Upstash Redis is provisioned.
+ * TODO: Migrate to `@upstash/ratelimit` when Upstash Redis is provisioned.
  */
 
 interface RateLimitEntry {

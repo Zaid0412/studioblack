@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import type { DbPinComment } from "@/types";
@@ -25,12 +25,21 @@ export function usePinComments({
     new Map()
   );
 
-  useEffect(() => {
-    let ignore = false;
+  // Track param changes to reset state synchronously before the fetch effect
+  const prevParamsRef = useRef({ projectId, attachmentId });
+  if (
+    prevParamsRef.current.projectId !== projectId ||
+    prevParamsRef.current.attachmentId !== attachmentId
+  ) {
+    prevParamsRef.current = { projectId, attachmentId };
     setLoading(true);
     setSelectedPinId(null);
     setPinMode(false);
     setRepliesMap(new Map());
+  }
+
+  useEffect(() => {
+    let ignore = false;
 
     pinComments
       .list(projectId, attachmentId)

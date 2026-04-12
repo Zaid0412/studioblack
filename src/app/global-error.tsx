@@ -3,6 +3,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
+/** Global error boundary — captures unhandled errors and reports to Sentry. */
 export default function GlobalError({
   error,
   reset,
