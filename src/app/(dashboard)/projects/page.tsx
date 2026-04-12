@@ -4,17 +4,7 @@ import { useState, useCallback } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import {
-  MoreVertical,
-  Eye,
-  Edit,
-  Upload,
-  Trash2,
-  FolderOpen,
-  LayoutList,
-  LayoutGrid,
-  Calendar,
-} from "lucide-react";
+import { FolderOpen, LayoutList, LayoutGrid, Trash2 } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
@@ -38,13 +28,6 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/DropdownMenu";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -54,196 +37,13 @@ import { toast } from "@/components/ui/useToast";
 import { projects as projectsApi } from "@/lib/api";
 import type { DbProjectRow } from "@/types";
 import { relativeTime } from "@/lib/formatTime";
-import { formatShortDate } from "@/lib/formatDate";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
+import { ProjectDropdown } from "./_components/ProjectDropdown";
+import { ProjectCard } from "./_components/ProjectCard";
 
 const VIEW_MODE_KEY = "projects-view-mode";
-
-/** Reusable dropdown menu for project actions. */
-function ProjectDropdown({
-  project,
-  isStaff,
-  isPm,
-  onDelete,
-}: {
-  project: DbProjectRow;
-  isStaff: boolean;
-  isPm: boolean;
-  onDelete: (project: DbProjectRow) => void;
-}) {
-  const t = useTranslations("projects");
-  const router = useRouter();
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          onClick={(e) => e.stopPropagation()}
-          className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer shrink-0"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/projects/${project.id}`);
-          }}
-        >
-          <Eye className="w-4 h-4" />
-          {t("viewProject")}
-        </DropdownMenuItem>
-        {isStaff && (
-          <>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/projects/${project.id}/edit`);
-              }}
-            >
-              <Edit className="w-4 h-4" />
-              {t("editProject")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/projects/${project.id}/upload`);
-              }}
-            >
-              <Upload className="w-4 h-4" />
-              {t("uploadDesign")}
-            </DropdownMenuItem>
-          </>
-        )}
-        {isPm && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              destructive
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(project);
-              }}
-            >
-              <Trash2 className="w-4 h-4" />
-              {t("deleteProject")}
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/** Shared card used by grid (desktop) and mobile list views. */
-function ProjectCard({
-  project,
-  variant,
-  isStaff,
-  isPm,
-  onDelete,
-  onClick,
-}: {
-  project: DbProjectRow;
-  variant: "grid" | "mobile";
-  isStaff: boolean;
-  isPm: boolean;
-  onDelete: (project: DbProjectRow) => void;
-  onClick: () => void;
-}) {
-  const clientDisplay = project.client_name || project.client_email;
-
-  if (variant === "mobile") {
-    return (
-      <div
-        className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer"
-        onClick={onClick}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-text-primary truncate">
-            {project.name}
-          </span>
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge variant={statusToBadgeVariant(project.status)}>
-              <span className="capitalize">{project.status}</span>
-            </Badge>
-            <ProjectDropdown
-              project={project}
-              isStaff={isStaff}
-              isPm={isPm}
-              onDelete={onDelete}
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-text-secondary">
-          {isStaff && clientDisplay && (
-            <span className="truncate">{clientDisplay}</span>
-          )}
-          {project.category && (
-            <span className="capitalize">{project.category}</span>
-          )}
-          <span className="text-text-muted ml-auto shrink-0">
-            {relativeTime(project.updated_at || project.created_at)}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  // Grid card
-  return (
-    <div
-      className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 transition-colors cursor-pointer"
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-semibold text-text-primary line-clamp-2">
-          {project.name}
-        </span>
-        <ProjectDropdown
-          project={project}
-          isStaff={isStaff}
-          isPm={isPm}
-          onDelete={onDelete}
-        />
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge variant={statusToBadgeVariant(project.status)}>
-          <span className="capitalize">{project.status}</span>
-        </Badge>
-        {project.category && (
-          <span className="text-xs text-text-muted capitalize">
-            {project.category}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-col gap-1.5 text-xs text-text-secondary">
-        {isStaff && clientDisplay && (
-          <span className="truncate">{clientDisplay}</span>
-        )}
-        {isStaff && project.estimation_inr != null && (
-          <span className="text-text-muted">
-            ₹{Number(project.estimation_inr).toLocaleString("en-IN")}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center justify-between text-xs text-text-muted pt-2 border-t border-border-default mt-auto">
-        {project.deadline ? (
-          <span className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {formatShortDate(project.deadline)}
-          </span>
-        ) : (
-          <span />
-        )}
-        <span>{relativeTime(project.updated_at || project.created_at)}</span>
-      </div>
-    </div>
-  );
-}
 
 /** Projects list with status filter tabs, search, and pagination. */
 export default function ProjectsPage() {

@@ -8,7 +8,7 @@ import "@fortune-sheet/react/dist/index.css";
 const Workbook = dynamic(
   () => import("@fortune-sheet/react").then((mod) => mod.Workbook),
   { ssr: false }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Fortune Sheet types don't align with local interfaces
 ) as React.ComponentType<any>;
 
 interface FortuneSheetCell {

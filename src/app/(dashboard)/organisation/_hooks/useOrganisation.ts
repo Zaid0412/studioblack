@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
+import { POLLING_INTERVAL_MS } from "@/lib/constants";
 import type { OrgMember, OrgInvitation } from "@/types";
 
 interface OrgData {
@@ -71,7 +72,7 @@ export function useOrganisation() {
     isLoading: loading,
     mutate,
   } = useSWR<OrgData | null>("org-full", orgFetcher, {
-    refreshInterval: 30000,
+    refreshInterval: POLLING_INTERVAL_MS,
   });
 
   const activeOrg = orgData?.org ?? null;

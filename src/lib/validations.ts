@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_CONTENT_LENGTH } from "@/lib/constants";
 
 // ─── Shared constants ───────────────────────────────────────────────────────
 
@@ -159,7 +160,7 @@ export const submitReviewSchema = z.object({
 // ─── Pin Comments (/api/projects/[id]/attachments/[attachmentId]/pins) ──────
 
 export const createPinSchema = z.object({
-  content: z.string().trim().min(1).max(5000),
+  content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
   x_percent: z.number().min(0).max(100).optional().nullable(),
   y_percent: z.number().min(0).max(100).optional().nullable(),
   page: z.number().int().min(1).optional().nullable(),
@@ -175,7 +176,7 @@ export const createPinSchema = z.object({
 
 export const updatePinSchema = z.object({
   resolved: z.boolean().optional(),
-  content: z.string().trim().min(1).max(5000).optional(),
+  content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH).optional(),
   x_percent: z.number().min(0).max(100).optional(),
   y_percent: z.number().min(0).max(100).optional(),
   page: z.number().int().min(1).optional(),
@@ -192,7 +193,7 @@ export const createApprovalSchema = z.object({
 // ─── Comments (/api/projects/[id]/comments) ─────────────────────────────────
 
 export const createCommentSchema = z.object({
-  content: z.string().trim().min(1).max(5000),
+  content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
   phaseId: optionalUuid,
   taskId: optionalUuid,
 });
@@ -257,13 +258,17 @@ export function parseBody<T extends z.ZodType>(
   return { success: true, data: result.data };
 }
 
-/** Safely parse JSON from a request body and validate against a Zod schema.
- *  Returns `{ success: true, data }` or `{ success: false, error }`.
- *  Catches malformed JSON (returns "Invalid JSON body") before running Zod validation. */
+/**
+ * Safely parse JSON from a request body and validate against a Zod schema.
+ * Returns `{ success: true, data }` or `{ success: false, error }`.
+ * Catches malformed JSON (returns "Invalid JSON body") before running Zod validation.
+ */
 export async function parseRequest<T extends z.ZodType>(
   req: Request,
   schema: T
-): Promise<{ success: true; data: z.infer<T> } | { success: false; error: string }> {
+): Promise<
+  { success: true; data: z.infer<T> } | { success: false; error: string }
+> {
   let raw: unknown;
   try {
     raw = await req.json();

@@ -18,3 +18,12 @@ export const PROJECT_STEPS = [
   "Snag",
   "Finance",
 ] as const;
+
+/** SWR polling interval for background data refresh (notifications, invitations, etc.). */
+export const POLLING_INTERVAL_MS = 30_000;
+
+/** Maximum character length for user-submitted content (pin comments, reviews, etc.). */
+export const MAX_CONTENT_LENGTH = 5_000;
+
+/** Default pagination limit when no explicit limit is provided. */
+export const DEFAULT_PAGE_LIMIT = 200;

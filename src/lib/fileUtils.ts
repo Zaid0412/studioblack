@@ -5,13 +5,16 @@ export const UPLOAD_ACCEPTED_TYPES =
   ".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch,.xls,.xlsx,.csv";
 
 /** Format a byte count as a human-readable string (B / KB / MB). */
-export function formatFileSize(bytes: number): string {
+export function formatFileSize(bytes: number | null): string {
+  if (bytes == null) return "";
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "svg", "webp", "gif"];
+const IMAGE_EXTS_SET = new Set(IMAGE_EXTENSIONS);
+const PDF_EXTS_SET = new Set(["pdf"]);
 const SPREADSHEET_EXTENSIONS = ["xls", "xlsx", "csv"];
 
 /** Extracts the lowercase file extension from a filename. */
@@ -32,6 +35,16 @@ export function isPdf(fileName: string): boolean {
 /** Returns true if the filename has a spreadsheet extension (.xls, .xlsx, .csv). */
 export function isSpreadsheet(fileName: string): boolean {
   return SPREADSHEET_EXTENSIONS.includes(getFileExtension(fileName));
+}
+
+/** Returns true if the extension is previewable inline (image formats). */
+export function isPreviewable(ext: string): boolean {
+  return IMAGE_EXTS_SET.has(ext);
+}
+
+/** Returns true if the extension can be opened in a new tab (images + PDFs). */
+export function isOpenable(ext: string): boolean {
+  return PDF_EXTS_SET.has(ext) || IMAGE_EXTS_SET.has(ext);
 }
 
 /** File extension → display type label. */

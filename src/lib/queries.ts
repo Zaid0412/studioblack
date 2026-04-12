@@ -1,5 +1,9 @@
 import { getPool } from "@/lib/db";
-import { PROJECT_PHASES, PROJECT_STEPS } from "@/lib/constants";
+import {
+  PROJECT_PHASES,
+  PROJECT_STEPS,
+  DEFAULT_PAGE_LIMIT,
+} from "@/lib/constants";
 
 /** Escape SQL LIKE/ILIKE wildcards so user input is treated as literal text. */
 function escapeSqlLike(str: string): string {
@@ -71,39 +75,34 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
       ]
     );
 
-    // Insert 7 workflow steps
-    const stepIds: string[] = [];
-    for (let i = 0; i < PROJECT_STEPS.length; i++) {
-      const {
-        rows: [step],
-      } = await client.query(
-        `INSERT INTO project_step (project_id, name, step_order) VALUES ($1, $2, $3) RETURNING id`,
-        [project.id, PROJECT_STEPS[i], i + 1]
-      );
-      stepIds.push(step.id);
-    }
+    // Insert 7 workflow steps (single multi-row INSERT)
+    const { rows: stepRows } = await client.query(
+      `INSERT INTO project_step (project_id, name, step_order)
+       SELECT $1, unnest($2::text[]), generate_series(1, $3)
+       RETURNING id`,
+      [project.id, PROJECT_STEPS, PROJECT_STEPS.length]
+    );
+    const stepIds = stepRows.map((r: { id: string }) => r.id);
 
-    // Insert phases (custom if provided, otherwise default 6)
+    // Insert phases (single multi-row INSERT)
     const designStepId = stepIds[1]; // "Design" is step index 1
     const phaseNames = input.phases?.length
       ? input.phases
       : [...PROJECT_PHASES];
-    for (let i = 0; i < phaseNames.length; i++) {
-      await client.query(
-        `INSERT INTO project_phase (project_id, name, phase_order, step_id) VALUES ($1, $2, $3, $4)`,
-        [project.id, phaseNames[i], i + 1, designStepId]
-      );
-    }
+    await client.query(
+      `INSERT INTO project_phase (project_id, name, phase_order, step_id)
+       SELECT $1, unnest($2::text[]), generate_series(1, $3), $4`,
+      [project.id, phaseNames, phaseNames.length, designStepId]
+    );
 
-    // Assign architects
+    // Assign architects (single multi-row INSERT)
     if (input.architectIds?.length) {
-      for (const userId of input.architectIds) {
-        await client.query(
-          `INSERT INTO project_member (project_id, user_id, role) VALUES ($1, $2, 'architect')
-           ON CONFLICT (project_id, user_id) DO NOTHING`,
-          [project.id, userId]
-        );
-      }
+      await client.query(
+        `INSERT INTO project_member (project_id, user_id, role)
+         SELECT $1, unnest($2::text[]), 'architect'
+         ON CONFLICT (project_id, user_id) DO NOTHING`,
+        [project.id, input.architectIds]
+      );
     }
 
     await client.query("COMMIT");
@@ -264,36 +263,38 @@ export async function getAttachments(filters: {
   clientOnly?: boolean;
 }) {
   const pool = getPool();
-  let query = `SELECT a.*, u.name AS uploaded_by_name
-               FROM attachment a
-               JOIN "user" u ON u.id = a.uploaded_by
-               WHERE a.project_id = $1
-                 AND a.id = (
-                   SELECT a2.id FROM attachment a2
-                   WHERE a2.version_group = a.version_group
-                   ORDER BY a2.version DESC
-                   LIMIT 1
-                 )`;
+  // Use a CTE with DISTINCT ON to get the latest version per version_group,
+  // then apply filters on top — avoids the correlated subquery.
+  let whereClauses = `WHERE a.project_id = $1`;
   const params: string[] = [filters.projectId];
 
   // Clients can only see files explicitly sent to them
   if (filters.clientOnly) {
-    query += ` AND a.sent_to_client_at IS NOT NULL`;
+    whereClauses += ` AND a.sent_to_client_at IS NOT NULL`;
   }
 
   if (!filters.all) {
     if (filters.taskId) {
-      query += ` AND a.task_id = $${params.length + 1}`;
+      whereClauses += ` AND a.task_id = $${params.length + 1}`;
       params.push(filters.taskId);
     } else if (filters.phaseId) {
-      query += ` AND a.phase_id = $${params.length + 1} AND a.task_id IS NULL`;
+      whereClauses += ` AND a.phase_id = $${params.length + 1} AND a.task_id IS NULL`;
       params.push(filters.phaseId);
     } else {
-      query += ` AND a.phase_id IS NULL AND a.task_id IS NULL`;
+      whereClauses += ` AND a.phase_id IS NULL AND a.task_id IS NULL`;
     }
   }
 
-  query += ` ORDER BY a.created_at`;
+  const query = `
+    WITH latest AS (
+      SELECT DISTINCT ON (a.version_group) a.*, u.name AS uploaded_by_name
+      FROM attachment a
+      JOIN "user" u ON u.id = a.uploaded_by
+      ${whereClauses}
+      ORDER BY a.version_group, a.version DESC
+    )
+    SELECT * FROM latest ORDER BY created_at`;
+
   const { rows } = await pool.query(query, params);
   return rows;
 }
@@ -783,7 +784,7 @@ export async function getTasks(filters: TaskFilters) {
 
   // Pagination params
   const page = filters.page ?? 1;
-  const limit = filters.limit ?? 200;
+  const limit = filters.limit ?? DEFAULT_PAGE_LIMIT;
   const offset = (page - 1) * limit;
 
   values.push(limit);
@@ -1047,7 +1048,10 @@ export async function submitAttachmentReview(
   userId: string,
   status: "approved" | "rejected",
   comment?: string
-): Promise<{ attachment: Record<string, unknown>; task?: Record<string, unknown> }> {
+): Promise<{
+  attachment: Record<string, unknown>;
+  task?: Record<string, unknown>;
+}> {
   const pool = getPool();
   const client = await pool.connect();
 
@@ -1147,7 +1151,14 @@ export async function createPinWithTask(params: {
       `INSERT INTO task (org_id, project_id, title, created_by, assigned_to, due_date, status, priority, category)
        VALUES ($1, $2, $3, $4, $5, $6, 'todo', 'medium', 'review')
        RETURNING id`,
-      [orgId, params.projectId, taskTitle, params.userId, params.assignedTo, params.dueDate]
+      [
+        orgId,
+        params.projectId,
+        taskTitle,
+        params.userId,
+        params.assignedTo,
+        params.dueDate,
+      ]
     );
     const taskId = taskRows[0].id;
 
@@ -1259,10 +1270,10 @@ export async function markNotificationsReadByIds(
 /** Delete a single notification by ID. */
 export async function deleteNotification(userId: string, id: string) {
   const pool = getPool();
-  await pool.query(
-    `DELETE FROM notification WHERE user_id = $1 AND id = $2`,
-    [userId, id]
-  );
+  await pool.query(`DELETE FROM notification WHERE user_id = $1 AND id = $2`, [
+    userId,
+    id,
+  ]);
 }
 
 /** Delete all notifications for a user. */
@@ -1331,9 +1342,7 @@ export async function getTaskAttachments(taskId: string) {
 }
 
 /** Get a task's project_id. */
-export async function getTaskProjectId(
-  taskId: string
-): Promise<string | null> {
+export async function getTaskProjectId(taskId: string): Promise<string | null> {
   const pool = getPool();
   const {
     rows: [row],
@@ -1562,10 +1571,9 @@ export async function getUserEmailAndName(userId: string) {
   const pool = getPool();
   const {
     rows: [row],
-  } = await pool.query(
-    `SELECT u.email, u.name FROM "user" u WHERE u.id = $1`,
-    [userId]
-  );
+  } = await pool.query(`SELECT u.email, u.name FROM "user" u WHERE u.id = $1`, [
+    userId,
+  ]);
   return row || null;
 }
 
@@ -1580,9 +1588,7 @@ export async function getUsersByIds(userIds: string[]) {
 }
 
 /** Check if a user exists by email. Returns { id } or null. */
-export async function checkUserExistsByEmail(
-  email: string
-): Promise<boolean> {
+export async function checkUserExistsByEmail(email: string): Promise<boolean> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
@@ -1722,10 +1728,9 @@ export async function updateProject(
       } else {
         const {
           rows: [row],
-        } = await client.query(
-          `SELECT * FROM project WHERE id = $1`,
-          [projectId]
-        );
+        } = await client.query(`SELECT * FROM project WHERE id = $1`, [
+          projectId,
+        ]);
         updated = row;
       }
 
@@ -1765,10 +1770,9 @@ export async function updateProject(
 /** Delete a project by ID. Returns true if deleted. */
 export async function deleteProject(projectId: string): Promise<boolean> {
   const pool = getPool();
-  const { rowCount } = await pool.query(
-    `DELETE FROM project WHERE id = $1`,
-    [projectId]
-  );
+  const { rowCount } = await pool.query(`DELETE FROM project WHERE id = $1`, [
+    projectId,
+  ]);
   return (rowCount ?? 0) > 0;
 }
 
