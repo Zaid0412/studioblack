@@ -98,12 +98,18 @@ export default function DesignReviewPage({
     []
   );
   useEffect(() => {
+    let ignore = false;
     projectsApi
       .get<{
         members: { user_id: string; name: string; email: string }[];
       }>(id)
-      .then((p) => setMembers(p.members ?? []))
+      .then((p) => {
+        if (!ignore) setMembers(p.members ?? []);
+      })
       .catch(() => {});
+    return () => {
+      ignore = true;
+    };
   }, [id]);
 
   // Pending pin: stores the click coordinates while the form is open

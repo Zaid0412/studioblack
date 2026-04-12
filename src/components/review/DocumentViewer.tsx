@@ -95,6 +95,7 @@ export function DocumentViewer({
 
     setPdfError(null);
     let cancelled = false;
+    let pollTimerId = 0;
     const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(fileUrl)}`;
 
     async function loadPdf() {
@@ -112,7 +113,7 @@ export function DocumentViewer({
             } else if (++attempts > 100) {
               reject(new Error("PDF library load timeout"));
             } else {
-              setTimeout(check, 100);
+              pollTimerId = window.setTimeout(check, 100);
             }
           };
           check();
@@ -141,6 +142,7 @@ export function DocumentViewer({
     loadPdf();
     return () => {
       cancelled = true;
+      clearTimeout(pollTimerId);
       pdfDocRef.current = null;
       setNumPages(0);
     };

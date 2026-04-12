@@ -26,6 +26,10 @@ export function getPool(): Pool {
     globalForPg.pgPool.on("error", (err) => {
       logger.error("Unexpected PostgreSQL pool error", { error: err });
     });
+    // Drain connections on graceful shutdown (relevant for long-lived processes)
+    const shutdown = () => globalForPg.pgPool?.end();
+    process.once("SIGTERM", shutdown);
+    process.once("SIGINT", shutdown);
   }
   return globalForPg.pgPool;
 }
