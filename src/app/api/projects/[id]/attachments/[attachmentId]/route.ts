@@ -80,6 +80,13 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    if (attachment.frozen_at) {
+      return NextResponse.json(
+        { error: "Cannot update status of a frozen attachment" },
+        { status: 409 }
+      );
+    }
+
     const updated = await updateAttachmentStatus(
       attachmentId,
       id,

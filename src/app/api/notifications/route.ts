@@ -10,7 +10,6 @@ import {
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
-  parseBody,
   patchNotificationsSchema,
   deleteNotificationsSchema,
 } from "@/lib/validations";
@@ -47,8 +46,7 @@ export const PATCH = withAuth({}, async (req, { user }) => {
 
 /** DELETE /api/notifications — delete notifications. Pass { id } for single, omit for all. */
 export const DELETE = withAuth({}, async (req, { user }) => {
-  const raw = await req.json().catch(() => ({}));
-  const parsed = parseBody(deleteNotificationsSchema, raw);
+  const parsed = await parseRequest(req, deleteNotificationsSchema);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error }, { status: 400 });
   }

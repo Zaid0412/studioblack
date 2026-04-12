@@ -1094,10 +1094,13 @@ export async function submitAttachmentReview(
     const attachment = rows[0];
 
     if (status === "approved") {
-      await client.query(
-        `UPDATE attachment SET frozen_at = NOW() WHERE id = $1`,
+      const { rows: frozenRows } = await client.query(
+        `UPDATE attachment SET frozen_at = NOW() WHERE id = $1 RETURNING frozen_at`,
         [attachmentId]
       );
+      if (frozenRows[0]) {
+        attachment.frozen_at = frozenRows[0].frozen_at;
+      }
     }
 
     let task: Record<string, unknown> | undefined;
