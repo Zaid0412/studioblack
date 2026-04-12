@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import type { DbPinComment } from "@/types";
@@ -16,6 +16,9 @@ export function usePinComments({
   attachmentId,
   userName = "",
 }: UsePinCommentsParams) {
+  // Reset key forces state to reinitialize when params change
+  const fetchKey = `${projectId}:${attachmentId}`;
+  const [prevKey, setPrevKey] = useState(fetchKey);
   const [pins, setPins] = useState<DbPinComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
@@ -25,13 +28,10 @@ export function usePinComments({
     new Map()
   );
 
-  // Track param changes to reset state synchronously before the fetch effect
-  const prevParamsRef = useRef({ projectId, attachmentId });
-  if (
-    prevParamsRef.current.projectId !== projectId ||
-    prevParamsRef.current.attachmentId !== attachmentId
-  ) {
-    prevParamsRef.current = { projectId, attachmentId };
+  // Reset state when params change (React 19 idiomatic pattern)
+  if (prevKey !== fetchKey) {
+    setPrevKey(fetchKey);
+    setPins([]);
     setLoading(true);
     setSelectedPinId(null);
     setPinMode(false);
