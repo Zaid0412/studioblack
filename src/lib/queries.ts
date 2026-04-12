@@ -1770,7 +1770,7 @@ export async function updateProject(
       if (architectIds.length > 0) {
         await client.query(
           `INSERT INTO project_member (project_id, user_id, role)
-           SELECT $1, unnest($2::uuid[]), 'architect'
+           SELECT $1, unnest($2::text[]), 'architect'
            ON CONFLICT (project_id, user_id) DO NOTHING`,
           [projectId, architectIds]
         );

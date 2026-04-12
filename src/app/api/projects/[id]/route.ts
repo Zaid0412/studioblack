@@ -60,7 +60,8 @@ export const PATCH = withAuth(
       }
     }
 
-    if (Object.keys(fields).length === 0) {
+    const hasArchitectUpdate = isPM && Array.isArray(body.architectIds);
+    if (Object.keys(fields).length === 0 && !hasArchitectUpdate) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
@@ -70,7 +71,7 @@ export const PATCH = withAuth(
     const updated = await updateProject(
       id,
       fields,
-      isPM && Array.isArray(body.architectIds) ? body.architectIds : undefined
+      hasArchitectUpdate ? body.architectIds : undefined
     );
 
     return NextResponse.json(updated);

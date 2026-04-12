@@ -95,7 +95,7 @@ export const createProjectSchema = z.object({
   city: optionalString,
   state: optionalString,
   phases: z.array(z.string()).optional(),
-  architectIds: z.array(uuid).optional(),
+  architectIds: z.array(z.string().min(1)).optional(),
 });
 
 export const updateProjectSchema = z.object({
@@ -111,7 +111,7 @@ export const updateProjectSchema = z.object({
   address: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
-  architectIds: z.array(uuid).optional(),
+  architectIds: z.array(z.string().min(1)).optional(),
 });
 
 // ─── Notifications (/api/notifications) ─────────────────────────────────────
