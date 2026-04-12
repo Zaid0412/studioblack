@@ -16,7 +16,11 @@ import { logger } from "@/lib/logger";
  * email so the client can access their project dashboard.
  */
 export const POST = withAuth(
-  { allowedRoles: ["pm"], projectAccess: true, rateLimit: { limit: 5, windowMs: 60_000 } },
+  {
+    allowedRoles: ["pm"],
+    projectAccess: true,
+    rateLimit: { limit: 5, windowMs: 60_000 },
+  },
   async (req, ctx, params) => {
     const { id } = params;
 
@@ -54,7 +58,11 @@ export const POST = withAuth(
         },
       });
     } catch (err) {
-      logger.error("Magic link send failed", { projectId: id, clientEmail: project.client_email, error: err });
+      logger.error("Magic link send failed", {
+        projectId: id,
+        clientEmail: project.client_email,
+        error: err,
+      });
       return NextResponse.json(
         { error: "Failed to send magic link email" },
         { status: 500 }

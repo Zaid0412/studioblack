@@ -24,7 +24,10 @@ export const PATCH = withAuth(
 
       return NextResponse.json({ ok: true });
     } catch (err) {
-      logger.error("Checklist reorder error", { taskId: params.id, error: err });
+      logger.error("Checklist reorder error", {
+        taskId: params.id,
+        error: err,
+      });
       return NextResponse.json({ error: "Failed to reorder" }, { status: 500 });
     }
   }

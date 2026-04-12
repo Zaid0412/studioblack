@@ -12,7 +12,11 @@ import { logger } from "@/lib/logger";
 
 /** POST /api/projects/[id]/attachments/[attachmentId]/send-to-client — make file visible to client. */
 export const POST = withAuth(
-  { projectAccess: true, blockedRoles: ["client"], rateLimit: { limit: 30, windowMs: 60_000 } },
+  {
+    projectAccess: true,
+    blockedRoles: ["client"],
+    rateLimit: { limit: 30, windowMs: 60_000 },
+  },
   async (req, { user }, params) => {
     const { id, attachmentId } = params;
 
@@ -34,13 +38,26 @@ export const POST = withAuth(
       getProjectClientInfo(id),
     ]);
 
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Already sent to client" },
+        { status: 409 }
+      );
+    }
+
     // In-app notification to client
     createNotificationForClient(
       id,
       "design_sent_for_review",
       "New design ready for review",
       `"${attachment.file_name}" has been sent for your review`
-    ).catch((err) => logger.error("Client notification for design review failed", { projectId: id, attachmentId, error: err }));
+    ).catch((err) =>
+      logger.error("Client notification for design review failed", {
+        projectId: id,
+        attachmentId,
+        error: err,
+      })
+    );
 
     // Email notification to client (fire-and-forget)
     if (proj?.client_email) {
@@ -53,7 +70,11 @@ export const POST = withAuth(
         <p style="color: #666;">File: ${escapeHtml(attachment.file_name)}</p>
         <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Design →</a></p>`;
       sendNotificationEmail(proj.client_email, subject, body).catch((err) =>
-        logger.error("Client design review email failed", { projectId: id, clientEmail: proj.client_email, error: err })
+        logger.error("Client design review email failed", {
+          projectId: id,
+          clientEmail: proj.client_email,
+          error: err,
+        })
       );
     }
 

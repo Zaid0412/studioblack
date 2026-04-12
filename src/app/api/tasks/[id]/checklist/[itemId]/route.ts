@@ -22,7 +22,11 @@ export const PATCH = withAuth(
     }
     const { title, is_done, position } = parsed.data;
 
-    if (title === undefined && is_done === undefined && position === undefined) {
+    if (
+      title === undefined &&
+      is_done === undefined &&
+      position === undefined
+    ) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }

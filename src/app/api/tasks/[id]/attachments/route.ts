@@ -64,7 +64,10 @@ export const POST = withAuth(
 
       return NextResponse.json(attachment, { status: 201 });
     } catch (err) {
-      logger.error("Task attachment POST error", { taskId: params.id, error: err });
+      logger.error("Task attachment POST error", {
+        taskId: params.id,
+        error: err,
+      });
       return NextResponse.json(
         { error: "Failed to create attachment" },
         { status: 500 }

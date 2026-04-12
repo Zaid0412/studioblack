@@ -32,9 +32,7 @@ export const DELETE = withAuth(
 
     // Only uploader or org admin/owner can delete
     if (attachment.uploaded_by !== user.id) {
-      const role = taskOrgId
-        ? await getMemberRole(taskOrgId, user.id)
-        : null;
+      const role = taskOrgId ? await getMemberRole(taskOrgId, user.id) : null;
       if (role !== "owner" && role !== "admin") {
         return NextResponse.json(
           { error: "Only the uploader or org admins can delete attachments" },

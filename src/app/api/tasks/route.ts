@@ -164,7 +164,9 @@ export const POST = withAuth(
         title: "New task assigned to you",
         description: `"${title.trim()}" was assigned to you by ${user.name}`,
         projectId: projectId || undefined,
-      }).catch((err) => logger.error("Task assignment notification failed", { error: err }));
+      }).catch((err) =>
+        logger.error("Task assignment notification failed", { error: err })
+      );
 
       // Email the assignee
       notifyUserByEmailWithContext(assignedTo, projectId || null, () => {

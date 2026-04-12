@@ -66,10 +66,15 @@ export function notifyUserByEmail(
         return;
       }
       sendNotificationEmail(email, subject, html).catch((err) =>
-        logger.error("notifyUserByEmail: failed to send email", { userId, error: err })
+        logger.error("notifyUserByEmail: failed to send email", {
+          userId,
+          error: err,
+        })
       );
     })
-    .catch((err) => logger.error("notifyUserByEmail: query failed", { userId, error: err }));
+    .catch((err) =>
+      logger.error("notifyUserByEmail: query failed", { userId, error: err })
+    );
 }
 
 /**
@@ -100,7 +105,10 @@ export function notifyUserByEmailWithContext(
     .then(({ rows }) => {
       const r = rows[0];
       if (!r?.email) {
-        logger.warn("notifyUserByEmailWithContext: no email found", { userId, projectId });
+        logger.warn("notifyUserByEmailWithContext: no email found", {
+          userId,
+          projectId,
+        });
         return;
       }
       const { subject, html } = builder({
@@ -109,10 +117,18 @@ export function notifyUserByEmailWithContext(
         projectName: r.project_name ?? null,
       });
       sendNotificationEmail(r.email, subject, html).catch((err) =>
-        logger.error("notifyUserByEmailWithContext: failed to send email", { userId, error: err })
+        logger.error("notifyUserByEmailWithContext: failed to send email", {
+          userId,
+          error: err,
+        })
       );
     })
-    .catch((err) => logger.error("notifyUserByEmailWithContext: query failed", { userId, error: err }));
+    .catch((err) =>
+      logger.error("notifyUserByEmailWithContext: query failed", {
+        userId,
+        error: err,
+      })
+    );
 }
 
 /**
@@ -128,9 +144,7 @@ export function notifyTeamByEmail(
   }
 ) {
   const pool = getPool();
-  const placeholders = excludeUserIds
-    .map((_, i) => `$${i + 2}`)
-    .join(", ");
+  const placeholders = excludeUserIds.map((_, i) => `$${i + 2}`).join(", ");
   const excludeClause = excludeUserIds.length
     ? `AND m."userId" NOT IN (${placeholders})`
     : "";
@@ -152,11 +166,17 @@ export function notifyTeamByEmail(
           projectName: member.project_name,
         });
         sendNotificationEmail(member.email, subject, html).catch((err) =>
-          logger.error("notifyTeamByEmail: failed to send email", { projectId, email: member.email, error: err })
+          logger.error("notifyTeamByEmail: failed to send email", {
+            projectId,
+            email: member.email,
+            error: err,
+          })
         );
       }
     })
-    .catch((err) => logger.error("notifyTeamByEmail: query failed", { projectId, error: err }));
+    .catch((err) =>
+      logger.error("notifyTeamByEmail: query failed", { projectId, error: err })
+    );
 }
 
 /** Create a notification for the project client. */

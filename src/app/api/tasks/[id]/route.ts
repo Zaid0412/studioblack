@@ -116,7 +116,12 @@ export const PATCH = withAuth(
           title: "Task assigned to you",
           description: `"${updated?.title}" was assigned to you by ${user.name}`,
           projectId: updated?.project_id || undefined,
-        }).catch((err) => logger.error("Task assignment notification failed", { taskId: params.id, error: err }));
+        }).catch((err) =>
+          logger.error("Task assignment notification failed", {
+            taskId: params.id,
+            error: err,
+          })
+        );
 
         // Email the new assignee
         notifyUserByEmailWithContext(
