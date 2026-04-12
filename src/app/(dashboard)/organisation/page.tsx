@@ -1,10 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { UserPlus, LogOut, Loader2 } from "lucide-react";
+import { UserPlus, LogOut } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Card } from "@/components/ui/card";
 import { useOrganisation } from "./_hooks/useOrganisation";
 import { CreateOrgForm } from "./_components/CreateOrgForm";
 import { OrgDetailsCard } from "./_components/OrgDetailsCard";
@@ -22,9 +24,36 @@ export default function OrganisationPage() {
     return (
       <div className="flex flex-col gap-6 max-w-[800px]">
         <PageHeader title={t("title")} />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-text-muted" />
-        </div>
+        {/* Org details card skeleton */}
+        <Card>
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-12 h-12 rounded-xl" />
+            <div className="flex flex-col gap-1.5">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3.5 w-24" />
+            </div>
+            <Skeleton className="h-6 w-20 rounded-full ml-auto" />
+          </div>
+        </Card>
+        {/* Members list skeleton */}
+        <Card>
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-5 w-24" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 py-3 border-b border-border-default last:border-0"
+              >
+                <Skeleton className="w-8 h-8 rounded-full" />
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Skeleton className="h-3.5 w-32" />
+                  <Skeleton className="h-3 w-44" />
+                </div>
+                <Skeleton className="h-3.5 w-16" />
+              </div>
+            ))}
+          </div>
+        </Card>
       </div>
     );
   }

@@ -39,6 +39,7 @@ export function useSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
   }, [session?.user?.name, session?.user?.role, session?.user?.image]);
 
+  const loading = !session?.user;
   const initials = deriveInitials(name);
   const email = session?.user?.email ?? "";
   const userId = session?.user?.id ?? "";
@@ -170,6 +171,7 @@ export function useSettings() {
   };
 
   return {
+    loading,
     // Profile
     name,
     setName,
