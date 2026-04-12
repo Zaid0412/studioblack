@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import {
   getApprovals,
   createApproval,
-  checkAllPhasesComplete,
-  markProjectCompleted,
+  markProjectCompletedIfAllPhasesComplete,
   getProjectName,
   getProjectTeamEmails,
 } from "@/lib/queries";
@@ -44,12 +43,9 @@ export const POST = withAuth(
       comment: comment || "",
     });
 
-    // Only mark project as completed when all phases have been approved
+    // Atomically mark project as completed only when all phases are done
     if (decision === "approved") {
-      const allPhasesComplete = await checkAllPhasesComplete(id);
-      if (allPhasesComplete || !phaseId) {
-        await markProjectCompleted(id);
-      }
+      await markProjectCompletedIfAllPhasesComplete(id);
     }
 
     // Send email notifications to PM and architects on the project
@@ -74,7 +70,11 @@ export const POST = withAuth(
 
       for (const recipient of teamEmails) {
         sendNotificationEmail(recipient.email, subject, body).catch((err) =>
-          logger.error("Approval notification email failed", { projectId: id, email: recipient.email, error: err })
+          logger.error("Approval notification email failed", {
+            projectId: id,
+            email: recipient.email,
+            error: err,
+          })
         );
       }
       // In-app notifications
@@ -90,7 +90,10 @@ export const POST = withAuth(
         comment || ""
       );
     } catch (err) {
-      logger.error("Failed to send approval notifications", { projectId: id, error: err });
+      logger.error("Failed to send approval notifications", {
+        projectId: id,
+        error: err,
+      });
     }
 
     return NextResponse.json(approval, { status: 201 });

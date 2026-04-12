@@ -393,13 +393,14 @@ export async function getAttachmentById(
 }
 
 /** Delete a single attachment by ID (must belong to project). */
+/** Delete an attachment. Only succeeds if the attachment is not frozen (TOCTOU-safe). */
 export async function deleteAttachment(
   attachmentId: string,
   projectId: string
 ) {
   const pool = getPool();
   const { rowCount } = await pool.query(
-    `DELETE FROM attachment WHERE id = $1 AND project_id = $2`,
+    `DELETE FROM attachment WHERE id = $1 AND project_id = $2 AND frozen_at IS NULL`,
     [attachmentId, projectId]
   );
   return (rowCount ?? 0) > 0;
@@ -1049,8 +1050,9 @@ export async function submitAttachmentReview(
   status: "approved" | "rejected",
   comment?: string
 ): Promise<{
-  attachment: Record<string, unknown>;
+  attachment: Record<string, unknown> | null;
   task?: Record<string, unknown>;
+  conflict?: boolean;
 }> {
   const pool = getPool();
   const client = await pool.connect();
@@ -1061,10 +1063,14 @@ export async function submitAttachmentReview(
     const { rows } = await client.query(
       `UPDATE attachment
        SET review_status = $1, reviewed_by = $2
-       WHERE id = $3
+       WHERE id = $3 AND review_status != $1
        RETURNING *`,
       [status, userId, attachmentId]
     );
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { attachment: null, conflict: true };
+    }
     const attachment = rows[0];
 
     if (status === "approved") {
@@ -1867,7 +1873,7 @@ export async function updateAttachmentStatus(
   return updated;
 }
 
-/** Mark an attachment as sent to client. Returns the updated attachment. */
+/** Mark an attachment as sent to client. Returns null if already sent (TOCTOU-safe). */
 export async function markAttachmentSentToClient(
   attachmentId: string,
   sentBy: string
@@ -1878,11 +1884,11 @@ export async function markAttachmentSentToClient(
   } = await pool.query(
     `UPDATE attachment
      SET sent_to_client_at = NOW(), sent_to_client_by = $1
-     WHERE id = $2
+     WHERE id = $2 AND sent_to_client_at IS NULL
      RETURNING *`,
     [sentBy, attachmentId]
   );
-  return updated;
+  return updated ?? null;
 }
 
 /** Get project name and client email. */
@@ -1926,11 +1932,13 @@ export async function getUserByEmail(
 }
 
 /** Pre-create a client user (for send-to-client flow). */
+/** Create a client user. Uses ON CONFLICT to handle concurrent creation races. */
 export async function createClientUser(name: string, email: string) {
   const pool = getPool();
   await pool.query(
     `INSERT INTO "user" (id, name, email, role, email_verified, created_at, updated_at)
-     VALUES (gen_random_uuid(), $1, $2, 'client', false, now(), now())`,
+     VALUES (gen_random_uuid(), $1, $2, 'client', false, now(), now())
+     ON CONFLICT (email) DO NOTHING`,
     [name, email]
   );
 }
@@ -1978,29 +1986,23 @@ export async function createApproval(params: {
   return approval;
 }
 
-/** Check if all phases of a project are completed. */
-export async function checkAllPhasesComplete(
+/** Atomically mark a project as completed only if all its phases are completed. Returns true if the project was updated. */
+export async function markProjectCompletedIfAllPhasesComplete(
   projectId: string
 ): Promise<boolean> {
   const pool = getPool();
-  const {
-    rows: [row],
-  } = await pool.query(
-    `SELECT COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE pp.status = 'completed') AS done
-     FROM project_phase pp WHERE pp.project_id = $1`,
+  const { rowCount } = await pool.query(
+    `UPDATE project
+     SET status = 'completed', updated_at = now()
+     WHERE id = $1
+       AND status != 'completed'
+       AND NOT EXISTS (
+         SELECT 1 FROM project_phase pp
+         WHERE pp.project_id = $1 AND pp.status != 'completed'
+       )`,
     [projectId]
   );
-  return Number(row.total) > 0 && Number(row.done) === Number(row.total);
-}
-
-/** Mark a project as completed. */
-export async function markProjectCompleted(projectId: string) {
-  const pool = getPool();
-  await pool.query(
-    `UPDATE project SET status = 'completed', updated_at = now() WHERE id = $1`,
-    [projectId]
-  );
+  return (rowCount ?? 0) > 0;
 }
 
 /** Get team member emails for a project (all org members). */

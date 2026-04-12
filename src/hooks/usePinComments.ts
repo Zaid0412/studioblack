@@ -25,28 +25,34 @@ export function usePinComments({
     new Map()
   );
 
-  const fetchPins = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await pinComments.list(projectId, attachmentId);
-      setPins(data);
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to load comments",
-        variant: "error",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, attachmentId]);
-
   useEffect(() => {
-    fetchPins();
+    let ignore = false;
+    setLoading(true);
     setSelectedPinId(null);
     setPinMode(false);
     setRepliesMap(new Map());
-  }, [fetchPins]);
+
+    pinComments
+      .list(projectId, attachmentId)
+      .then((data) => {
+        if (!ignore) setPins(data);
+      })
+      .catch(() => {
+        if (!ignore)
+          toast({
+            title: "Error",
+            description: "Failed to load comments",
+            variant: "error",
+          });
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId, attachmentId]);
 
   // ── Add pin (optimistic) ──────────────────────────────────────────────
 

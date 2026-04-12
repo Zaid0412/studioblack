@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 
 /**
  * Shared PostgreSQL connection pool.
@@ -21,6 +22,9 @@ export function getPool(): Pool {
       max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
+    });
+    globalForPg.pgPool.on("error", (err) => {
+      logger.error("Unexpected PostgreSQL pool error", { error: err });
     });
   }
   return globalForPg.pgPool;
