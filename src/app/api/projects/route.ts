@@ -12,6 +12,7 @@ import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
 import { parseRequest, createProjectSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/projects — list projects for the current user's org. */
 export const GET = withAuth({}, async (req, { session, user }) => {
@@ -120,10 +121,10 @@ export const POST = withAuth(
                 "New Project Assignment",
                 `<p>You've been assigned to project <strong>${safeName}</strong>.</p>
              <p><a href="${projectUrl}">View the project</a> to see details and start working.</p>`
-              ).catch(console.error);
+              ).catch((err) => logger.error("Failed to send architect notification email", { error: err }));
             }
           })
-          .catch(console.error);
+          .catch((err) => logger.error("Failed to fetch architects for notification", { error: err }));
       }
 
       // Notify client (fire-and-forget)
@@ -142,14 +143,14 @@ export const POST = withAuth(
               "You've Been Added to a Project",
               `<p>You've been added to project <strong>${escapeHtml(name)}</strong> as a client.</p>
            <p><a href="${link}">${linkLabel}</a> to view the project details and track progress.</p>`
-            ).catch(console.error);
+            ).catch((err) => logger.error("Failed to send client notification email", { clientEmail, error: err }));
           })
-          .catch(console.error);
+          .catch((err) => logger.error("Failed to check client existence for notification", { clientEmail, error: err }));
       }
 
       return NextResponse.json(project, { status: 201 });
     } catch (err) {
-      console.error("Failed to create project:", err);
+      logger.error("Failed to create project", { error: err });
       return NextResponse.json(
         { error: "Failed to create project" },
         { status: 500 }

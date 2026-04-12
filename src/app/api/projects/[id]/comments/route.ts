@@ -12,6 +12,7 @@ import {
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, createCommentSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/projects/[id]/comments — list comments. */
 export const GET = withAuth(
@@ -80,7 +81,7 @@ export const POST = withAuth(
         await createNotificationForClient(id, "comment", title, desc);
       }
     } catch (err) {
-      console.error("[comment] notification error:", err);
+      logger.error("Comment notification error", { projectId: id, error: err });
     }
 
     return NextResponse.json(comment, { status: 201 });

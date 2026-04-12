@@ -11,6 +11,7 @@ import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
 import { parseRequest, createProjectAttachmentSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
@@ -87,7 +88,7 @@ export const POST = withAuth(
           notifDesc
         );
       } catch (err) {
-        console.error("[attachment] Failed to send notification:", err);
+        logger.error("Attachment upload notification failed", { projectId: id, error: err });
       }
     };
 

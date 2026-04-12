@@ -11,6 +11,7 @@ import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationsForTeam } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, createApprovalSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/projects/[id]/approvals — list approval records. */
 export const GET = withAuth(
@@ -72,8 +73,8 @@ export const POST = withAuth(
          ${comment ? `<p style="color: #666;">Comment: "${escapeHtml(comment)}"</p>` : ""}`;
 
       for (const recipient of teamEmails) {
-        sendNotificationEmail(recipient.email, subject, body).catch(
-          console.error
+        sendNotificationEmail(recipient.email, subject, body).catch((err) =>
+          logger.error("Approval notification email failed", { projectId: id, email: recipient.email, error: err })
         );
       }
       // In-app notifications
@@ -89,7 +90,7 @@ export const POST = withAuth(
         comment || ""
       );
     } catch (err) {
-      console.error("[approval] Failed to send notification emails:", err);
+      logger.error("Failed to send approval notifications", { projectId: id, error: err });
     }
 
     return NextResponse.json(approval, { status: 201 });

@@ -6,6 +6,7 @@ import {
 } from "@/lib/queries";
 import { parseRequest, createChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
+import { logger } from "@/lib/logger";
 
 /** GET /api/tasks/[id]/checklist — list checklist items for a task. */
 export const GET = withAuth(
@@ -40,7 +41,7 @@ export const POST = withAuth(
       const item = await createChecklistItem(taskId, title);
       return NextResponse.json(item, { status: 201 });
     } catch (err) {
-      console.error("Checklist POST error:", err);
+      logger.error("Checklist POST error", { taskId: params.id, error: err });
       return NextResponse.json(
         { error: "Failed to create item" },
         { status: 500 }

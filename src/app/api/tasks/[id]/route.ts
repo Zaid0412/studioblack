@@ -15,6 +15,7 @@ import {
 import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
 import { parseRequest, updateTaskSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/tasks/[id] — get a single task. */
 export const GET = withAuth(
@@ -115,7 +116,7 @@ export const PATCH = withAuth(
           title: "Task assigned to you",
           description: `"${updated?.title}" was assigned to you by ${user.name}`,
           projectId: updated?.project_id || undefined,
-        }).catch((err) => console.error("Notification error:", err));
+        }).catch((err) => logger.error("Task assignment notification failed", { taskId: params.id, error: err }));
 
         // Email the new assignee
         notifyUserByEmailWithContext(
@@ -139,7 +140,7 @@ export const PATCH = withAuth(
 
       return NextResponse.json(updated);
     } catch (err) {
-      console.error("Task PATCH error:", err);
+      logger.error("Task PATCH error", { taskId: params.id, error: err });
       return NextResponse.json(
         { error: "Failed to update task" },
         { status: 500 }

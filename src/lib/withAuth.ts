@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { hasProjectAccess, getOrgRole } from "@/lib/queries";
 import { rateLimit } from "@/lib/rateLimit";
+import { logger } from "@/lib/logger";
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 type User = NonNullable<Session>["user"];
@@ -12,6 +13,7 @@ export interface AuthContext {
   user: User;
   orgId: string | null;
   orgRole?: string | null;
+  requestId: string;
 }
 
 interface WithAuthOptions {
@@ -35,41 +37,75 @@ type AuthHandler = (
   params: Record<string, string>
 ) => Promise<NextResponse>;
 
+/** Add the X-Request-Id header to a NextResponse. */
+function withRequestId(
+  response: NextResponse,
+  requestId: string
+): NextResponse {
+  response.headers.set("X-Request-Id", requestId);
+  return response;
+}
+
 /** Wrap a route handler with session, role, and project-access checks. */
 export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
   return async (
     req: NextRequest,
     routeParams?: RouteParams
   ): Promise<NextResponse<unknown>> => {
+    const requestId = crypto.randomUUID();
+    const route = req.nextUrl.pathname;
+
     // CSRF origin check for mutating methods (fail-closed)
     const method = req.method.toUpperCase();
     if (["POST", "PATCH", "PUT", "DELETE"].includes(method)) {
       const origin = req.headers.get("origin");
       const host = req.headers.get("host");
       if (!origin) {
-        return NextResponse.json(
-          { error: "CSRF origin missing" },
-          { status: 403 }
+        logger.warn("CSRF origin missing", { requestId, route, method });
+        return withRequestId(
+          NextResponse.json(
+            { error: "CSRF origin missing" },
+            { status: 403 }
+          ),
+          requestId
         );
       }
       if (!host) {
-        return NextResponse.json(
-          { error: "CSRF host missing" },
-          { status: 403 }
+        logger.warn("CSRF host missing", { requestId, route, method });
+        return withRequestId(
+          NextResponse.json(
+            { error: "CSRF host missing" },
+            { status: 403 }
+          ),
+          requestId
         );
       }
       const originHost = new URL(origin).host;
       if (originHost !== host) {
-        return NextResponse.json(
-          { error: "CSRF origin mismatch" },
-          { status: 403 }
+        logger.warn("CSRF origin mismatch", {
+          requestId,
+          route,
+          method,
+          origin: originHost,
+          host,
+        });
+        return withRequestId(
+          NextResponse.json(
+            { error: "CSRF origin mismatch" },
+            { status: 403 }
+          ),
+          requestId
         );
       }
     }
 
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      logger.warn("Unauthorized request — no session", { requestId, route });
+      return withRequestId(
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+        requestId
+      );
     }
 
     const user = session.user;
@@ -78,19 +114,41 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     // Role checks
     const role = user.role ?? "";
     if (options.allowedRoles && !options.allowedRoles.includes(role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      logger.warn("Forbidden — role not allowed", {
+        requestId,
+        route,
+        userId: user.id,
+        role,
+        allowedRoles: options.allowedRoles,
+      });
+      return withRequestId(
+        NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+        requestId
+      );
     }
     if (options.blockedRoles && options.blockedRoles.includes(role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      logger.warn("Forbidden — role blocked", {
+        requestId,
+        route,
+        userId: user.id,
+        role,
+      });
+      return withRequestId(
+        NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+        requestId
+      );
     }
 
     // Project access check
     if (options.projectAccess) {
       const projectId = resolvedParams.id;
       if (!projectId) {
-        return NextResponse.json(
-          { error: "Missing project ID" },
-          { status: 400 }
+        return withRequestId(
+          NextResponse.json(
+            { error: "Missing project ID" },
+            { status: 400 }
+          ),
+          requestId
         );
       }
       const allowed = await hasProjectAccess(
@@ -100,7 +158,16 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
         user.role
       );
       if (!allowed) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        logger.warn("Forbidden — no project access", {
+          requestId,
+          route,
+          userId: user.id,
+          projectId,
+        });
+        return withRequestId(
+          NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+          requestId
+        );
       }
     }
 
@@ -109,9 +176,13 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       const key = `${req.method}:${req.nextUrl.pathname}:${user.id}`;
       const { allowed } = rateLimit(key, options.rateLimit);
       if (!allowed) {
-        return NextResponse.json(
-          { error: "Too many requests. Please wait a moment." },
-          { status: 429 }
+        logger.warn("Rate limited", { requestId, route, userId: user.id });
+        return withRequestId(
+          NextResponse.json(
+            { error: "Too many requests. Please wait a moment." },
+            { status: 429 }
+          ),
+          requestId
         );
       }
     }
@@ -134,6 +205,11 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
-    return handler(req, { session, user, orgId, orgRole }, resolvedParams);
+    const response = await handler(
+      req,
+      { session, user, orgId, orgRole, requestId },
+      resolvedParams
+    );
+    return withRequestId(response, requestId);
   };
 }

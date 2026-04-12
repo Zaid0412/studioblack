@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyTaskAccess, reorderChecklistItems } from "@/lib/queries";
 import { parseRequest, reorderChecklistSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
+import { logger } from "@/lib/logger";
 
 /** PATCH /api/tasks/[id]/checklist/reorder — bulk-update checklist item positions. */
 export const PATCH = withAuth(
@@ -23,7 +24,7 @@ export const PATCH = withAuth(
 
       return NextResponse.json({ ok: true });
     } catch (err) {
-      console.error("Checklist reorder error:", err);
+      logger.error("Checklist reorder error", { taskId: params.id, error: err });
       return NextResponse.json({ error: "Failed to reorder" }, { status: 500 });
     }
   }

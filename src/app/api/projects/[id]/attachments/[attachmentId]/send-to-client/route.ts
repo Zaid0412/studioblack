@@ -8,6 +8,7 @@ import { withAuth } from "@/lib/withAuth";
 import { createNotificationForClient } from "@/lib/notifications";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 
 /** POST /api/projects/[id]/attachments/[attachmentId]/send-to-client — make file visible to client. */
 export const POST = withAuth(
@@ -39,7 +40,7 @@ export const POST = withAuth(
       "design_sent_for_review",
       "New design ready for review",
       `"${attachment.file_name}" has been sent for your review`
-    ).catch(console.error);
+    ).catch((err) => logger.error("Client notification for design review failed", { projectId: id, attachmentId, error: err }));
 
     // Email notification to client (fire-and-forget)
     if (proj?.client_email) {
@@ -51,8 +52,8 @@ export const POST = withAuth(
       const body = `<p><strong>${senderName}</strong> has sent a design for your review in <strong>${escapeHtml(proj.project_name)}</strong>.</p>
         <p style="color: #666;">File: ${escapeHtml(attachment.file_name)}</p>
         <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Design →</a></p>`;
-      sendNotificationEmail(proj.client_email, subject, body).catch(
-        console.error
+      sendNotificationEmail(proj.client_email, subject, body).catch((err) =>
+        logger.error("Client design review email failed", { projectId: id, clientEmail: proj.client_email, error: err })
       );
     }
 

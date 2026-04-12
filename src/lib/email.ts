@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { branding } from "@/config/branding";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 
 /** Escape HTML special characters to prevent injection. */
 export function escapeHtml(str: string): string {
@@ -43,7 +44,7 @@ async function sendEmail(to: string, subject: string, html: string) {
   try {
     await getTransport().sendMail({ from: getFromEmail(), to, subject, html });
   } catch (err) {
-    console.error("[email] Failed to send:", err);
+    logger.error("Failed to send email", { to, subject, error: err });
   }
 }
 

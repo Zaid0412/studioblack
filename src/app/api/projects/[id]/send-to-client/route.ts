@@ -7,6 +7,7 @@ import {
 import { withAuth } from "@/lib/withAuth";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/projects/[id]/send-to-client
@@ -53,7 +54,7 @@ export const POST = withAuth(
         },
       });
     } catch (err) {
-      console.error("[send-to-client] Magic link error:", err);
+      logger.error("Magic link send failed", { projectId: id, clientEmail: project.client_email, error: err });
       return NextResponse.json(
         { error: "Failed to send magic link email" },
         { status: 500 }

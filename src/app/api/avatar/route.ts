@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withAuth } from "@/lib/withAuth";
+import { logger } from "@/lib/logger";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 1 * 1024 * 1024; // 1 MB
@@ -35,7 +36,7 @@ export const POST = withAuth({}, async (req, { user }) => {
     });
 
   if (error) {
-    console.error("Avatar upload failed:", error);
+    logger.error("Avatar upload failed", { error, userId: user.id });
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 

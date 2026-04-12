@@ -8,6 +8,7 @@ import {
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
 import { parseRequest, createTaskAttachmentSchema } from "@/lib/validations";
+import { logger } from "@/lib/logger";
 
 /** GET /api/tasks/[id]/attachments — list attachments for a standalone task. */
 export const GET = withAuth(
@@ -63,7 +64,7 @@ export const POST = withAuth(
 
       return NextResponse.json(attachment, { status: 201 });
     } catch (err) {
-      console.error("Attachment POST error:", err);
+      logger.error("Task attachment POST error", { taskId: params.id, error: err });
       return NextResponse.json(
         { error: "Failed to create attachment" },
         { status: 500 }

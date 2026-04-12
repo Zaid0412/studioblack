@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withAuth } from "@/lib/withAuth";
+import { logger } from "@/lib/logger";
 
 /**
  * POST /api/upload — Upload a file to Supabase Storage.
@@ -89,7 +90,7 @@ export const POST = withAuth(
     });
 
   if (error) {
-    console.error("[upload] Supabase error:", error);
+    logger.error("Supabase upload failed", { error, userId: user.id });
     return NextResponse.json(
       { error: "Upload failed. Please try again." },
       { status: 500 }

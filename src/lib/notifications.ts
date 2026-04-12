@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { sendNotificationEmail } from "@/lib/email";
+import { logger } from "@/lib/logger";
 
 interface CreateNotificationInput {
   userId: string;
@@ -61,12 +62,14 @@ export function notifyUserByEmail(
     .then(({ rows }) => {
       const email = rows[0]?.email;
       if (!email) {
-        console.warn(`[notifyUserByEmail] No email found for user ${userId}`);
+        logger.warn("notifyUserByEmail: no email found", { userId });
         return;
       }
-      sendNotificationEmail(email, subject, html).catch(console.error);
+      sendNotificationEmail(email, subject, html).catch((err) =>
+        logger.error("notifyUserByEmail: failed to send email", { userId, error: err })
+      );
     })
-    .catch(console.error);
+    .catch((err) => logger.error("notifyUserByEmail: query failed", { userId, error: err }));
 }
 
 /**
@@ -97,9 +100,7 @@ export function notifyUserByEmailWithContext(
     .then(({ rows }) => {
       const r = rows[0];
       if (!r?.email) {
-        console.warn(
-          `[notifyUserByEmailWithContext] No email found for user ${userId}`
-        );
+        logger.warn("notifyUserByEmailWithContext: no email found", { userId, projectId });
         return;
       }
       const { subject, html } = builder({
@@ -107,9 +108,11 @@ export function notifyUserByEmailWithContext(
         name: r.name,
         projectName: r.project_name ?? null,
       });
-      sendNotificationEmail(r.email, subject, html).catch(console.error);
+      sendNotificationEmail(r.email, subject, html).catch((err) =>
+        logger.error("notifyUserByEmailWithContext: failed to send email", { userId, error: err })
+      );
     })
-    .catch(console.error);
+    .catch((err) => logger.error("notifyUserByEmailWithContext: query failed", { userId, error: err }));
 }
 
 /**
@@ -148,12 +151,12 @@ export function notifyTeamByEmail(
           name: member.name,
           projectName: member.project_name,
         });
-        sendNotificationEmail(member.email, subject, html).catch(
-          console.error
+        sendNotificationEmail(member.email, subject, html).catch((err) =>
+          logger.error("notifyTeamByEmail: failed to send email", { projectId, email: member.email, error: err })
         );
       }
     })
-    .catch(console.error);
+    .catch((err) => logger.error("notifyTeamByEmail: query failed", { projectId, error: err }));
 }
 
 /** Create a notification for the project client. */
