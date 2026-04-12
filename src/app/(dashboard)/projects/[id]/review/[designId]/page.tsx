@@ -102,7 +102,12 @@ export default function DesignReviewPage({
     let ignore = false;
     projectsApi
       .get<{
-        members: { user_id: string; name: string; email: string; role?: string }[];
+        members: {
+          user_id: string;
+          name: string;
+          email: string;
+          role?: string;
+        }[];
       }>(id)
       .then((p) => {
         if (!ignore) {
