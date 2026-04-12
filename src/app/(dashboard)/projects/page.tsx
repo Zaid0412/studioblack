@@ -114,6 +114,18 @@ export default function ProjectsPage() {
   const isStaff = userRole === "pm" || userRole === "architect";
   const isPm = userRole === "pm";
 
+  const renderProjectCard = (project: DbProjectRow, variant: "grid" | "mobile") => (
+    <ProjectCard
+      key={project.id}
+      project={project}
+      variant={variant}
+      isStaff={isStaff}
+      isPm={isPm}
+      onDelete={setDeleteTarget}
+      onClick={() => router.push(`/projects/${project.id}`)}
+    />
+  );
+
   const filters: { key: FilterTab; label: string }[] = [
     { key: "all", label: t("filterAll") },
     { key: "active", label: t("filterInProgress") },
@@ -352,33 +364,13 @@ export default function ProjectsPage() {
               className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}
             >
               <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-                {paginatedRows.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    variant="grid"
-                    isStaff={isStaff}
-                    isPm={isPm}
-                    onDelete={setDeleteTarget}
-                    onClick={() => router.push(`/projects/${project.id}`)}
-                  />
-                ))}
+                {paginatedRows.map((project) => renderProjectCard(project, "grid"))}
               </div>
             </div>
 
             {/* ── Mobile card list (hidden on desktop) ── */}
             <div className="flex flex-col gap-0 lg:hidden flex-1">
-              {paginatedRows.map((project) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  variant="mobile"
-                  isStaff={isStaff}
-                  isPm={isPm}
-                  onDelete={setDeleteTarget}
-                  onClick={() => router.push(`/projects/${project.id}`)}
-                />
-              ))}
+              {paginatedRows.map((project) => renderProjectCard(project, "mobile"))}
             </div>
           </>
         )}

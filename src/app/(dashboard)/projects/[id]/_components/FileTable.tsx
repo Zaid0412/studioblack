@@ -673,7 +673,15 @@ export function FileTable({
 
               const isSelected = selectedIds.has(att.id);
 
-              const contextMenuProps = {
+              const sharedProps = {
+                att,
+                isSelected,
+                hasSelection,
+                isStaff,
+                isNewForClient,
+                badge,
+                onToggleSelect: (e: React.MouseEvent) =>
+                  toggleSelect(att.id, e),
                 onDownload: () => onDownload(att),
                 onEdit:
                   isStaff && !att.frozen_at
@@ -718,27 +726,15 @@ export function FileTable({
               return (
                 <div key={att.id}>
                   <FileRow
-                    att={att}
-                    isSelected={isSelected}
-                    hasSelection={hasSelection}
-                    isStaff={isStaff}
-                    isNewForClient={isNewForClient}
-                    badge={badge}
+                    {...sharedProps}
                     onRowClick={(e) =>
                       hasSelection
                         ? toggleSelect(att.id, e)
                         : router.push(reviewPath(att.id))
                     }
-                    onToggleSelect={(e) => toggleSelect(att.id, e)}
-                    {...contextMenuProps}
                   />
                   <FileCard
-                    att={att}
-                    isSelected={isSelected}
-                    hasSelection={hasSelection}
-                    isStaff={isStaff}
-                    isNewForClient={isNewForClient}
-                    badge={badge}
+                    {...sharedProps}
                     onTouchStart={() => handleTouchStart(att.id)}
                     onTouchEnd={handleTouchEnd}
                     onTouchMove={handleTouchMove}
@@ -753,8 +749,6 @@ export function FileTable({
                         router.push(reviewPath(att.id));
                       }
                     }}
-                    onToggleSelect={(e) => toggleSelect(att.id, e)}
-                    {...contextMenuProps}
                   />
                 </div>
               );

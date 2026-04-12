@@ -227,6 +227,26 @@ export async function verifyTaskOwnership(
   return rows.length > 0;
 }
 
+/**
+ * Verify that optional phaseId/taskId belong to the given project.
+ * Returns an error string if verification fails, or undefined if OK.
+ */
+export async function verifyResourceOwnership(
+  projectId: string,
+  phaseId?: string | null,
+  taskId?: string | null
+): Promise<string | undefined> {
+  if (phaseId) {
+    const owned = await verifyPhaseOwnership(phaseId, projectId);
+    if (!owned) return "Phase not found in this project";
+  }
+  if (taskId) {
+    const owned = await verifyTaskOwnership(taskId, projectId);
+    if (!owned) return "Task not found in this project";
+  }
+  return undefined;
+}
+
 /** Get comments for a project/phase/task. */
 export async function getComments(filters: {
   projectId: string;

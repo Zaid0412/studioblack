@@ -1,34 +1,15 @@
 "use client";
 
-import { FileText, Lock, Check } from "lucide-react";
+import { FileText, Check } from "lucide-react";
 import { FileContextMenu } from "@/components/ui/FileContextMenu";
 import { deriveInitials } from "@/lib/utils";
 import { fileType, versionColor } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatDate } from "@/lib/formatDate";
-import type { DbAttachment } from "@/types";
+import { FileItemBaseProps, FileStatusIndicators } from "./fileItemShared";
 
-interface FileRowProps {
-  att: DbAttachment;
-  isSelected: boolean;
-  hasSelection: boolean;
-  isStaff: boolean;
-  isNewForClient: boolean;
-  badge: { bg: string; text: string; label: string };
+interface FileRowProps extends FileItemBaseProps {
   onRowClick: (e: React.MouseEvent) => void;
-  onToggleSelect: (e: React.MouseEvent) => void;
-  onDownload: () => void;
-  onEdit?: () => void;
-  onUploadNewVersion?: () => void;
-  onVersionHistory?: () => void;
-  onViewReview?: () => void;
-  onApprove?: () => void;
-  onReject?: () => void;
-  onMarkReviewed?: () => void;
-  onSendToClient?: () => void;
-  frozen: boolean;
-  onToggleFreeze?: () => void;
-  onRemove?: () => void;
 }
 
 /** Desktop table row for a single file attachment. */
@@ -128,15 +109,11 @@ export function FileRow({
             V{att.version || 1}
           </span>
         </div>
-        {att.frozen_at && <Lock className="w-3 h-3 text-accent shrink-0" />}
-        {isNewForClient && (
-          <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-        )}
-        {isStaff && att.sent_to_client_at && (
-          <span className="inline-flex items-center rounded-full bg-emerald-500/15 text-emerald-500 text-[9px] font-medium px-1.5 py-0.5 shrink-0">
-            Sent
-          </span>
-        )}
+        <FileStatusIndicators
+          att={att}
+          isStaff={isStaff}
+          isNewForClient={isNewForClient}
+        />
         <span
           className={`text-[13px] font-medium truncate ${isNewForClient ? "text-text-primary font-semibold" : "text-text-primary"}`}
         >

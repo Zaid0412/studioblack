@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 
-interface FileContextMenuProps {
+export interface FileContextMenuProps {
   onEdit?: () => void;
   onRemove?: () => void;
   onDownload?: () => void;

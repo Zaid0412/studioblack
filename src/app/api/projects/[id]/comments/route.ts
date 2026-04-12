@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   getComments,
-  verifyPhaseOwnership,
-  verifyTaskOwnership,
+  verifyResourceOwnership,
   createComment,
   getProjectName,
 } from "@/lib/queries";
@@ -43,23 +42,9 @@ export const POST = withAuth(
     }
     const { content, phaseId, taskId } = parsed.data;
 
-    if (phaseId) {
-      const phaseOwned = await verifyPhaseOwnership(phaseId, id);
-      if (!phaseOwned) {
-        return NextResponse.json(
-          { error: "Phase not found in this project" },
-          { status: 404 }
-        );
-      }
-    }
-    if (taskId) {
-      const taskOwned = await verifyTaskOwnership(taskId, id);
-      if (!taskOwned) {
-        return NextResponse.json(
-          { error: "Task not found in this project" },
-          { status: 404 }
-        );
-      }
+    const ownershipError = await verifyResourceOwnership(id, phaseId, taskId);
+    if (ownershipError) {
+      return NextResponse.json({ error: ownershipError }, { status: 404 });
     }
 
     const comment = await createComment({
