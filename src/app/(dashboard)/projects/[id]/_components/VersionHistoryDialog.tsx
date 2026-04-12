@@ -2,7 +2,8 @@
 
 import { useEffect, useReducer } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Lock, Download, Loader2 } from "lucide-react";
+import { FileText, Lock, Download } from "lucide-react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   Dialog,
   DialogContent,
@@ -76,8 +77,20 @@ export function VersionHistoryDialog({
 
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-5 h-5 animate-spin text-[#F5C518]" />
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-lg border border-border-default px-4 py-3"
+                >
+                  <Skeleton className="w-5 h-5 rounded shrink-0" />
+                  <div className="flex flex-col gap-1.5 flex-1">
+                    <Skeleton className="h-3.5 w-44" />
+                    <Skeleton className="h-3 w-28" />
+                  </div>
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </div>
+              ))}
             </div>
           ) : versions.length === 0 ? (
             <p className="text-sm text-text-muted text-center py-8">

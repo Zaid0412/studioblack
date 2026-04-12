@@ -60,6 +60,7 @@ import {
   isOpenable,
   formatFileSize,
 } from "@/lib/fileUtils";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { Task } from "@/types";
 import { useTaskDetail } from "../_hooks/useTaskDetail";
 import { SortableChecklistItem } from "./SortableChecklistItem";
@@ -365,8 +366,13 @@ export function TaskDetailModal({
                 )}
               </div>
               {loadingChecklist ? (
-                <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
+                <div className="flex flex-col gap-1.5">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-2.5 py-1.5">
+                      <Skeleton className="w-4 h-4 rounded" />
+                      <Skeleton className="h-3 flex-1" />
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <>
@@ -445,8 +451,19 @@ export function TaskDetailModal({
               </div>
 
               {loadingAttachments ? (
-                <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 text-text-muted animate-spin" />
+                <div className="flex flex-col gap-1.5">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2.5 py-1.5 px-2"
+                    >
+                      <Skeleton className="w-8 h-4 rounded" />
+                      <div className="flex flex-col gap-1 flex-1">
+                        <Skeleton className="h-3 w-32" />
+                        <Skeleton className="h-2.5 w-20" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : attachments.length > 0 ? (
                 <div className="flex flex-col gap-1">
