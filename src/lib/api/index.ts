@@ -6,6 +6,4 @@ export * as comments from "./comments";
 export * as tasks from "./tasks";
 export * as notifications from "./notifications";
 export * as upload from "./upload";
-export * as dashboard from "./dashboard";
 export * as approvals from "./approvals";
-export * as clientPortal from "./clientPortal";
