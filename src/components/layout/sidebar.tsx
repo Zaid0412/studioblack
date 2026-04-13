@@ -241,9 +241,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
               <>
                 <Link
                   href="/organisation"
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors text-xs"
+                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-text-primary hover:bg-bg-elevated transition-colors text-[13px] font-medium"
                 >
-                  <Building2 className="h-3.5 w-3.5 shrink-0" />
+                  <Building2 className="h-4 w-4 shrink-0" />
                   <span className="truncate">{orgName}</span>
                 </Link>
                 <div className="border-t border-border-default my-1" />
@@ -251,13 +251,13 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
             )}
             <button
               onClick={toggleTheme}
-              className="flex items-center justify-between px-2.5 py-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors text-xs w-full cursor-pointer"
+              className="flex items-center justify-between px-2.5 py-2 rounded-md text-text-primary hover:bg-bg-elevated transition-colors text-[13px] font-medium w-full cursor-pointer"
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2.5">
                 {mode === "dark" ? (
-                  <Moon className="h-3.5 w-3.5 shrink-0" />
+                  <Moon className="h-4 w-4 shrink-0" />
                 ) : (
-                  <Sun className="h-3.5 w-3.5 shrink-0" />
+                  <Sun className="h-4 w-4 shrink-0" />
                 )}
                 {mode === "dark" ? "Dark Mode" : "Light Mode"}
               </span>
@@ -268,9 +268,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
             <div className="border-t border-border-default my-1" />
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-md text-red-400 hover:bg-red-400/10 transition-colors text-xs w-full cursor-pointer"
+              className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-red-400 font-medium hover:bg-red-400/10 transition-colors text-[13px] w-full cursor-pointer"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-4 w-4" />
               {t("logout")}
             </button>
           </PopoverContent>
