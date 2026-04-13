@@ -3,13 +3,17 @@ import { verifyTaskAccess, verifyTaskOwnership } from "@/lib/queries";
 
 /**
  * Verify the task belongs to the user's org.
- * Returns `true` on success, or a 404 NextResponse on failure.
+ * Returns the `taskId` on success, or a 404 NextResponse on failure.
  */
-export async function guardTaskAccess(taskId: string, orgId: string | null) {
+export async function guardTaskAccess(
+  params: Record<string, string>,
+  orgId: string | null
+) {
+  const taskId = params.id;
   if (!orgId || !(await verifyTaskAccess(taskId, orgId))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return true;
+  return taskId;
 }
 
 /**

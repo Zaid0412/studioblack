@@ -14,10 +14,8 @@ import { guardTaskAccess } from "../../helpers";
 export const GET = withAuth(
   { blockedRoles: ["client"] },
   async (_req, { orgId }, params) => {
-    const taskId = params.id;
-
-    const guard = await guardTaskAccess(taskId, orgId);
-    if (guard instanceof NextResponse) return guard;
+    const taskId = await guardTaskAccess(params, orgId);
+    if (taskId instanceof NextResponse) return taskId;
 
     const rows = await getTaskAttachments(taskId);
     return NextResponse.json(rows);
@@ -29,10 +27,8 @@ export const POST = withAuth(
   { blockedRoles: ["client"] },
   async (req, { user, orgId }, params) => {
     try {
-      const taskId = params.id;
-
-      const guard = await guardTaskAccess(taskId, orgId);
-      if (guard instanceof NextResponse) return guard;
+      const taskId = await guardTaskAccess(params, orgId);
+      if (taskId instanceof NextResponse) return taskId;
 
       // Get task's project_id for the attachment record
       const projectId = await getTaskProjectId(taskId);
