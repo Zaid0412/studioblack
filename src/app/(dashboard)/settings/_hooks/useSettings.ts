@@ -16,7 +16,6 @@ export function useSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
-  const [role, setRole] = useState("pm");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
@@ -25,6 +24,10 @@ export function useSettings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [emailChangeRequested, setEmailChangeRequested] = useState(false);
+  const [emailChangeError, setEmailChangeError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -33,11 +36,10 @@ export function useSettings() {
   useEffect(() => {
     if (session?.user) {
       setName(session.user.name ?? "");
-      setRole((session.user.role as string) ?? "pm");
       setAvatarUrl(session.user.image ?? undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
-  }, [session?.user?.name, session?.user?.role, session?.user?.image]);
+  }, [session?.user?.name, session?.user?.image]);
 
   const loading = !session?.user;
   const initials = deriveInitials(name);
@@ -136,6 +138,34 @@ export function useSettings() {
     }
   };
 
+  const handleChangeEmail = async () => {
+    if (!newEmail || newEmail === email) return;
+    setIsChangingEmail(true);
+    setEmailChangeError("");
+    try {
+      const res = await fetch("/api/settings/change-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newEmail }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setEmailChangeError(data.error || t("changeEmailError"));
+        return;
+      }
+      setEmailChangeRequested(true);
+      toast({
+        title: t("changeEmailSent"),
+        description: t("changeEmailSentDesc"),
+        variant: "success",
+      });
+    } catch {
+      setEmailChangeError(t("changeEmailError"));
+    } finally {
+      setIsChangingEmail(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -175,8 +205,6 @@ export function useSettings() {
     // Profile
     name,
     setName,
-    role,
-    setRole,
     email,
     userId,
     initials,
@@ -187,6 +215,13 @@ export function useSettings() {
     handleAvatarChange,
     handleSave,
     openFilePicker,
+    // Email change
+    newEmail,
+    setNewEmail,
+    isChangingEmail,
+    emailChangeRequested,
+    emailChangeError,
+    handleChangeEmail,
     // Password
     currentPassword,
     setCurrentPassword,

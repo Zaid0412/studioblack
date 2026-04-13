@@ -166,3 +166,30 @@ export async function sendInvitationEmail(
     `)
   );
 }
+
+/**
+ * Send a verification email for an email address change.
+ */
+export async function sendChangeEmailVerification(
+  newEmail: string,
+  name: string,
+  url: string
+) {
+  const safeUrl = escapeHtml(url);
+  const safeName = escapeHtml(name);
+  await sendEmail(
+    newEmail,
+    `${getEnvTag()}${branding.appName} — Confirm Your New Email`,
+    emailLayout(`
+      <p>Hi ${safeName},</p>
+      <p>You requested to change your email address to this one. Click the button below to confirm:</p>
+      ${ctaButton(safeUrl, "Confirm New Email")}
+      <p style="color: #666; font-size: 13px; margin-top: 24px;">
+        You'll need to enter your account password to complete the change. This link expires in 24 hours.
+      </p>
+      <p style="color: #666; font-size: 13px;">
+        If you didn't request this, you can safely ignore this email.
+      </p>
+    `)
+  );
+}

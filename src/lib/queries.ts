@@ -2197,3 +2197,67 @@ export async function updatePhaseTaskReviewStatus(
   );
   return task;
 }
+
+// ---------------------------------------------------------------------------
+// Pending email change
+// ---------------------------------------------------------------------------
+
+export async function createPendingEmailChange(
+  userId: string,
+  newEmail: string
+): Promise<{ token: string }> {
+  const pool = getPool();
+  // Delete any existing pending changes for this user
+  await pool.query(`DELETE FROM pending_email_change WHERE user_id = $1`, [
+    userId,
+  ]);
+  const { rows } = await pool.query(
+    `INSERT INTO pending_email_change (user_id, new_email) VALUES ($1, $2) RETURNING token`,
+    [userId, newEmail]
+  );
+  return { token: rows[0].token };
+}
+
+export async function getPendingEmailChange(token: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT user_id, new_email, expires_at FROM pending_email_change WHERE token = $1`,
+    [token]
+  );
+  return rows[0] || null;
+}
+
+export async function deletePendingEmailChange(token: string) {
+  const pool = getPool();
+  await pool.query(`DELETE FROM pending_email_change WHERE token = $1`, [
+    token,
+  ]);
+}
+
+export async function isEmailTaken(email: string): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT 1 FROM "user" WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+    [email]
+  );
+  return rows.length > 0;
+}
+
+export async function updateUserEmail(userId: string, newEmail: string) {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE "user" SET email = $1, "emailVerified" = true, "updatedAt" = NOW() WHERE id = $2`,
+    [newEmail, userId]
+  );
+}
+
+export async function getAccountPasswordHash(
+  userId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT password FROM account WHERE "userId" = $1 AND "providerId" = 'credential' LIMIT 1`,
+    [userId]
+  );
+  return rows[0]?.password || null;
+}

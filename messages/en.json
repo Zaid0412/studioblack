@@ -94,7 +94,15 @@
     "verifyEmailRequired": "Please verify your email before signing in.",
     "verifyEmailResending": "Sending...",
     "verifyEmailResendError": "Failed to send verification email. Please try again.",
-    "verifyEmailCooldown": "Resend in {seconds}s"
+    "verifyEmailCooldown": "Resend in {seconds}s",
+    "changeEmailTitle": "Confirm your new email",
+    "changeEmailDesc": "Enter your account password to complete the email change.",
+    "changeEmailConfirm": "Confirm Change",
+    "changeEmailSuccess": "Email changed successfully!",
+    "changeEmailSuccessDesc": "Redirecting to settings...",
+    "changeEmailVerifyError": "Something went wrong. Please try again.",
+    "changeEmailExpired": "This link has expired or is invalid.",
+    "backToSettings": "Back to settings"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -462,7 +470,15 @@
     "error": "Error",
     "uploading": "Uploading...",
     "saveProfileError": "Could not save profile. Please try again.",
-    "uploadFailed": "Upload failed"
+    "uploadFailed": "Upload failed",
+    "newEmail": "New email",
+    "newEmailPlaceholder": "Enter new email address",
+    "changeEmail": "Change Email",
+    "changeEmailSent": "Verification email sent",
+    "changeEmailSentDesc": "Check your new email for a verification link.",
+    "changeEmailSentTo": "Verification email sent to {email}. Check your inbox.",
+    "changeEmailError": "Failed to send verification email. Please try again.",
+    "sending": "Sending..."
   },
   "audit": {
     "title": "Audit History",

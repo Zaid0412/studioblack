@@ -80,8 +80,6 @@ export default function SettingsPage() {
       <ProfileSection
         name={settings.name}
         setName={settings.setName}
-        role={settings.role}
-        setRole={settings.setRole}
         email={settings.email}
         userId={settings.userId}
         initials={settings.initials}
@@ -92,6 +90,12 @@ export default function SettingsPage() {
         handleAvatarChange={settings.handleAvatarChange}
         handleSave={settings.handleSave}
         openFilePicker={settings.openFilePicker}
+        newEmail={settings.newEmail}
+        setNewEmail={settings.setNewEmail}
+        isChangingEmail={settings.isChangingEmail}
+        emailChangeRequested={settings.emailChangeRequested}
+        emailChangeError={settings.emailChangeError}
+        handleChangeEmail={settings.handleChangeEmail}
       />
 
       {!isClient && (
