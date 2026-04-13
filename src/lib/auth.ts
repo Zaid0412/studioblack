@@ -96,10 +96,9 @@ export const auth = betterAuth({
                WHERE uploaded_by = $1 OR reviewed_by = $1 OR sent_to_client_by = $1`,
               [user.id]
             ),
-            pool.query(
-              `UPDATE comment SET user_id = NULL WHERE user_id = $1`,
-              [user.id]
-            ),
+            pool.query(`UPDATE comment SET user_id = NULL WHERE user_id = $1`, [
+              user.id,
+            ]),
             pool.query(
               `UPDATE project SET created_by = NULL WHERE created_by = $1`,
               [user.id]

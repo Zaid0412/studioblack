@@ -43,7 +43,10 @@ export const PATCH = withAuth(
       if (pin.user_id !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      const updated = await updatePinCommentContent(pin.id, parsed.data.content);
+      const updated = await updatePinCommentContent(
+        pin.id,
+        parsed.data.content
+      );
       return NextResponse.json(updated);
     }
 
