@@ -19,8 +19,8 @@ const statements = {
 export const ac = createAccessControl(statements);
 
 /**
- * owner — PM who created the org. Full access (implicit in better-auth,
- *          but we define it explicitly for consistency).
+ * PM — project manager who created the org. Full access (implicit in better-auth,
+ *      but we define it explicitly for consistency).
  */
 export const owner = ac.newRole({
   project: ["create", "update", "delete", "share"],
