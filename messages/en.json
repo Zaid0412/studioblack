@@ -636,6 +636,9 @@
     "rolePM": "Project Manager",
     "roleArchitect": "Architect",
     "roleClient": "Client",
+    "clients": "Clients ({count})",
+    "warning": "Warning",
+    "clearClientProjectsWarning": "Client removed but project assignments may not have been cleared.",
     "leaveOrganisation": "Leave Organisation"
   }
 }

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { verifyTaskAccess, reorderChecklistItems } from "@/lib/queries";
+import { reorderChecklistItems } from "@/lib/queries";
 import { parseRequest, reorderChecklistSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 import { logger } from "@/lib/logger";
+import { guardTaskAccess } from "../../../helpers";
 
 /** PATCH /api/tasks/[id]/checklist/reorder — bulk-update checklist item positions. */
 export const PATCH = withAuth(
@@ -10,9 +11,8 @@ export const PATCH = withAuth(
   async (req, { orgId }, params) => {
     try {
       const taskId = params.id;
-      if (!(await verifyTaskAccess(taskId, orgId))) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 });
-      }
+      const guard = await guardTaskAccess(taskId, orgId);
+      if (guard instanceof NextResponse) return guard;
 
       const parsed = await parseRequest(req, reorderChecklistSchema);
       if (!parsed.success) {

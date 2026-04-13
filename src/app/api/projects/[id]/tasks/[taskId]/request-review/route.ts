@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  verifyTaskOwnership,
-  markPhaseTaskForReview,
-  getProjectReviewInfo,
-} from "@/lib/queries";
+import { markPhaseTaskForReview, getProjectReviewInfo } from "@/lib/queries";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationForClient } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
+import { guardTaskOwnership } from "@/app/api/tasks/helpers";
 
 /** POST /api/projects/[id]/tasks/[taskId]/request-review — mark task for client review. */
 export const POST = withAuth(
@@ -14,13 +11,8 @@ export const POST = withAuth(
   async (req, _ctx, params) => {
     const { id, taskId } = params;
 
-    const taskOwned = await verifyTaskOwnership(taskId, id);
-    if (!taskOwned) {
-      return NextResponse.json(
-        { error: "Task not found in this project" },
-        { status: 404 }
-      );
-    }
+    const result = await guardTaskOwnership(taskId, id);
+    if (result instanceof NextResponse) return result;
 
     // Update the task
     const task = await markPhaseTaskForReview(taskId);

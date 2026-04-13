@@ -636,6 +636,9 @@
     "rolePM": "Proje Yöneticisi",
     "roleArchitect": "Mimar",
     "roleClient": "Müşteri",
+    "clients": "Müşteriler ({count})",
+    "warning": "Uyarı",
+    "clearClientProjectsWarning": "Müşteri kaldırıldı ancak proje atamaları temizlenememiş olabilir.",
     "leaveOrganisation": "Organizasyondan Ayrıl"
   }
 }

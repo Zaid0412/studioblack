@@ -13,9 +13,9 @@ import {
   comments as commentsApi,
   approvals as approvalsApi,
   tasks as tasksApi,
-  upload,
 } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
+import { downloadFile } from "@/lib/download";
 
 interface UseProjectDetailOptions {
   /** When true, also fetches approvals and pending tasks (client-specific). */
@@ -120,13 +120,7 @@ export function useProjectDetail(
   // --- Download ---
   const handleDownload = useCallback(async (att: DbAttachment) => {
     try {
-      const blob = await upload.downloadFile(att.file_url);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = att.file_name;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadFile(att.file_url, att.file_name);
     } catch (err) {
       console.error("[handleDownload]", err);
     }

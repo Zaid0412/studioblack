@@ -133,6 +133,53 @@ export function ProjectForm({
     }));
   };
 
+  function renderClientSelect({ hint }: { hint?: boolean } = {}) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[13px] font-medium text-text-secondary">
+          {t("client")}
+        </label>
+        {clients.length === 0 ? (
+          <p className="text-xs text-text-muted">{t("noClients")}</p>
+        ) : (
+          <Select
+            value={
+              clients.find((c) => c.user.email === form.clientEmail)?.user.id ??
+              "__none__"
+            }
+            onValueChange={(v) => {
+              if (v === "__none__") {
+                updateField("clientEmail", "");
+                updateField("clientName", "");
+                return;
+              }
+              const selected = clients.find((c) => c.user.id === v);
+              if (selected) {
+                updateField("clientEmail", selected.user.email);
+                updateField("clientName", selected.user.name);
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("selectClient")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">{t("noClientSelected")}</SelectItem>
+              {clients.map((c) => (
+                <SelectItem key={c.user.id} value={c.user.id}>
+                  {c.user.name} ({c.user.email})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        {hint && clients.length > 0 && (
+          <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
+        )}
+      </div>
+    );
+  }
+
   function handleFormSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitted(true);
@@ -209,46 +256,7 @@ export function ProjectForm({
           </div>
         )}
 
-        {mode === "edit" && (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("client")}
-            </label>
-            {clients.length === 0 ? (
-              <p className="text-xs text-text-muted">{t("noClients")}</p>
-            ) : (
-              <Select
-                value={form.clientEmail || "__none__"}
-                onValueChange={(v) => {
-                  if (v === "__none__") {
-                    updateField("clientEmail", "");
-                    updateField("clientName", "");
-                    return;
-                  }
-                  const selected = clients.find((c) => c.user.email === v);
-                  if (selected) {
-                    updateField("clientEmail", selected.user.email);
-                    updateField("clientName", selected.user.name);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("selectClient")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">
-                    {t("noClientSelected")}
-                  </SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.user.id} value={c.user.email}>
-                      {c.user.name} ({c.user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        )}
+        {mode === "edit" && renderClientSelect()}
 
         {/* Assign Team */}
         <div className="flex flex-col gap-1.5">
@@ -394,49 +402,7 @@ export function ProjectForm({
         </div>
 
         {/* Client — create mode places it after scope */}
-        {mode === "create" && (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("client")}
-            </label>
-            {clients.length === 0 ? (
-              <p className="text-xs text-text-muted">{t("noClients")}</p>
-            ) : (
-              <Select
-                value={form.clientEmail || "__none__"}
-                onValueChange={(v) => {
-                  if (v === "__none__") {
-                    updateField("clientEmail", "");
-                    updateField("clientName", "");
-                    return;
-                  }
-                  const selected = clients.find((c) => c.user.email === v);
-                  if (selected) {
-                    updateField("clientEmail", selected.user.email);
-                    updateField("clientName", selected.user.name);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("selectClient")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">
-                    {t("noClientSelected")}
-                  </SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.user.id} value={c.user.email}>
-                      {c.user.name} ({c.user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {clients.length > 0 && (
-              <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
-            )}
-          </div>
-        )}
+        {mode === "create" && renderClientSelect({ hint: true })}
 
         {children}
 

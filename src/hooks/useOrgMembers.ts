@@ -9,11 +9,12 @@ async function fetchOrgMembers(): Promise<OrgMember[]> {
   return data.members as OrgMember[];
 }
 
+type OrgMembersOptions =
+  | { assignableOnly?: boolean; roleFilter?: never }
+  | { roleFilter: string; assignableOnly?: never };
+
 /** Fetch org members with optional filtering. Defaults to assignable only (admins + members). */
-export function useOrgMembers(options?: {
-  assignableOnly?: boolean;
-  roleFilter?: string;
-}) {
+export function useOrgMembers(options?: OrgMembersOptions) {
   const { assignableOnly = true, roleFilter } = options ?? {};
   const { data: allMembers = [], isLoading } = useSWR<OrgMember[]>(
     "org-members",

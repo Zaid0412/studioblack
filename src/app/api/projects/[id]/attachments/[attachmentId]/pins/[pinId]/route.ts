@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  getPinCommentById,
   updatePinComment,
   updatePinCommentContent,
   updatePinCommentPosition,
@@ -8,6 +7,7 @@ import {
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updatePinSchema } from "@/lib/validations";
+import { findPinOrFail } from "../helpers";
 
 /**
  * PATCH /api/projects/[id]/attachments/[attachmentId]/pins/[pinId]
@@ -18,10 +18,9 @@ export const PATCH = withAuth(
   async (req, { user }, params) => {
     const { attachmentId, pinId } = params;
 
-    const pin = await getPinCommentById(pinId);
-    if (!pin || pin.attachment_id !== attachmentId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const pinOrError = await findPinOrFail(pinId, attachmentId);
+    if (pinOrError instanceof NextResponse) return pinOrError;
+    const pin = pinOrError;
 
     const isPm = user.role === "pm";
     const isStaff = isPm; // all non-client authenticated users are staff
@@ -89,10 +88,9 @@ export const DELETE = withAuth(
   async (req, { user }, params) => {
     const { attachmentId, pinId } = params;
 
-    const pin = await getPinCommentById(pinId);
-    if (!pin || pin.attachment_id !== attachmentId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const pinOrError = await findPinOrFail(pinId, attachmentId);
+    if (pinOrError instanceof NextResponse) return pinOrError;
+    const pin = pinOrError;
 
     // Only the pin author or a PM can delete
     const isPm = user.role === "pm";

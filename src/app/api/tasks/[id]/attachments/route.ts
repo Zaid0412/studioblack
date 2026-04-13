@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  verifyTaskAccess,
   getTaskAttachments,
   getTaskProjectId,
   createTaskAttachment,
@@ -9,6 +8,7 @@ import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
 import { parseRequest, createTaskAttachmentSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
+import { guardTaskAccess } from "../../helpers";
 
 /** GET /api/tasks/[id]/attachments — list attachments for a standalone task. */
 export const GET = withAuth(
@@ -16,25 +16,23 @@ export const GET = withAuth(
   async (_req, { orgId }, params) => {
     const taskId = params.id;
 
-    if (!(await verifyTaskAccess(taskId, orgId))) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const guard = await guardTaskAccess(taskId, orgId);
+    if (guard instanceof NextResponse) return guard;
 
     const rows = await getTaskAttachments(taskId);
     return NextResponse.json(rows);
   }
 );
 
-/** POST /api/tasks/[id]/attachments �� create an attachment record after upload. */
+/** POST /api/tasks/[id]/attachments — create an attachment record after upload. */
 export const POST = withAuth(
   { blockedRoles: ["client"] },
   async (req, { user, orgId }, params) => {
     try {
       const taskId = params.id;
 
-      if (!(await verifyTaskAccess(taskId, orgId))) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 });
-      }
+      const guard = await guardTaskAccess(taskId, orgId);
+      if (guard instanceof NextResponse) return guard;
 
       // Get task's project_id for the attachment record
       const projectId = await getTaskProjectId(taskId);

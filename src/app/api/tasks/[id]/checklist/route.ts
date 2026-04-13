@@ -1,21 +1,17 @@
 import { NextResponse } from "next/server";
-import {
-  verifyTaskAccess,
-  getChecklistItems,
-  createChecklistItem,
-} from "@/lib/queries";
+import { getChecklistItems, createChecklistItem } from "@/lib/queries";
 import { parseRequest, createChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
 import { logger } from "@/lib/logger";
+import { guardTaskAccess } from "../../helpers";
 
 /** GET /api/tasks/[id]/checklist — list checklist items for a task. */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
   async (_req, { orgId }, params) => {
     const taskId = params.id;
-    if (!(await verifyTaskAccess(taskId, orgId))) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const guard = await guardTaskAccess(taskId, orgId);
+    if (guard instanceof NextResponse) return guard;
 
     const rows = await getChecklistItems(taskId);
     return NextResponse.json(rows);
@@ -28,9 +24,8 @@ export const POST = withAuth(
   async (req, { orgId }, params) => {
     try {
       const taskId = params.id;
-      if (!(await verifyTaskAccess(taskId, orgId))) {
-        return NextResponse.json({ error: "Not found" }, { status: 404 });
-      }
+      const guard = await guardTaskAccess(taskId, orgId);
+      if (guard instanceof NextResponse) return guard;
 
       const parsed = await parseRequest(req, createChecklistItemSchema);
       if (!parsed.success) {

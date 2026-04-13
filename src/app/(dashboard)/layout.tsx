@@ -25,6 +25,8 @@ async function getEffectiveRole(
   orgId: string | null | undefined,
   fallbackRole: string | null | undefined
 ): Promise<"pm" | "architect" | "client"> {
+  // user.role is authoritative for clients — changing a client's org role
+  // alone won't promote them; their user.role must also be updated in the DB.
   if (fallbackRole === "client") return "client";
   if (!orgId) return (fallbackRole as "pm" | "architect") ?? "pm";
 

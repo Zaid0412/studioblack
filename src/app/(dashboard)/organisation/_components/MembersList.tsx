@@ -153,7 +153,7 @@ export function MembersList({
         <Card>
           <div className="flex flex-col gap-4">
             <h3 className="text-base font-semibold text-text-primary">
-              {t("roleClient", { count: clientMembers.length })}
+              {t("clients", { count: clientMembers.length })}
             </h3>
             <div className="flex flex-col">
               {clientMembers.map((member) => (

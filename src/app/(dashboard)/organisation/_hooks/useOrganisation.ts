@@ -206,13 +206,24 @@ export function useOrganisation() {
     // If the removed member was a client, clear their client_email from projects
     if (member?.role === "client" && member.user.email) {
       try {
-        await fetch("/api/org/clear-client", {
+        const res = await fetch("/api/org/clear-client", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: member.user.email }),
         });
+        if (!res.ok) {
+          toast({
+            title: t("warning"),
+            description: t("clearClientProjectsWarning"),
+            variant: "error",
+          });
+        }
       } catch {
-        // Non-critical — log but don't fail the removal
+        toast({
+          title: t("warning"),
+          description: t("clearClientProjectsWarning"),
+          variant: "error",
+        });
       }
     }
 

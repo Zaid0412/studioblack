@@ -159,7 +159,7 @@ export async function getProjectsByClientEmail(email: string) {
 export async function clearClientEmailByEmail(email: string) {
   const pool = getPool();
   const { rowCount } = await pool.query(
-    `UPDATE project SET client_email = NULL, client_name = NULL WHERE client_email = $1`,
+    `UPDATE project SET client_email = NULL, client_name = NULL WHERE client_email = $1 AND status != 'archived'`,
     [email]
   );
   return rowCount ?? 0;

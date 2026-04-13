@@ -32,6 +32,8 @@ export default function OrganisationPage() {
     }
   }, [role, router]);
 
+  if (role === "client") return null;
+
   if (org.loading) {
     return (
       <div className="flex flex-col gap-6 max-w-[800px]">
