@@ -6,7 +6,9 @@ import {
   sendMagicLinkEmail,
   sendInvitationEmail,
   sendPasswordResetEmail,
+  sendVerificationEmail,
 } from "@/lib/email";
+import { features } from "@/config/features";
 import { getPool } from "@/lib/db";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
@@ -46,8 +48,18 @@ export const auth = betterAuth({
   database: getPool(),
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: features.emailVerification,
     sendResetPassword: async ({ user, url }) => {
       await sendPasswordResetEmail(user.email, url);
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 86400, // 24 hours
+    sendVerificationEmail: async ({ user, url }) => {
+      void sendVerificationEmail(user.email, user.name, url);
     },
   },
   user: {
@@ -72,6 +84,33 @@ export const auth = betterAuth({
               "Cannot delete account: you are the sole owner of an organization. Transfer ownership first."
             );
           }
+
+          // Nullify FK references before user row deletion so
+          // ON DELETE SET NULL triggers don't hit NOT NULL constraints.
+          await pool.query(
+            `UPDATE attachment SET uploaded_by = NULL WHERE uploaded_by = $1`,
+            [user.id]
+          );
+          await pool.query(
+            `UPDATE attachment SET reviewed_by = NULL WHERE reviewed_by = $1`,
+            [user.id]
+          );
+          await pool.query(
+            `UPDATE attachment SET sent_to_client_by = NULL WHERE sent_to_client_by = $1`,
+            [user.id]
+          );
+          await pool.query(
+            `UPDATE comment SET user_id = NULL WHERE user_id = $1`,
+            [user.id]
+          );
+          await pool.query(
+            `UPDATE project SET created_by = NULL WHERE created_by = $1`,
+            [user.id]
+          );
+          await pool.query(
+            `UPDATE phase_task SET assigned_to = NULL WHERE assigned_to = $1`,
+            [user.id]
+          );
 
           // Clean up better-auth org plugin tables BEFORE user row is deleted,
           // otherwise FK constraints on member/invitation block the deletion.

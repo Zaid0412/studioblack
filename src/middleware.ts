@@ -13,7 +13,12 @@ import { getSessionCookie } from "better-auth/cookies";
  * 1. Middleware → fast cookie-presence gate (prevents unnecessary rendering)
  * 2. Layouts → full session validation with role-based guards
  */
-const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
+const AUTH_PAGES = new Set([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/verify-email",
+]);
 
 /** Route-protection middleware: redirects unauthenticated users to login and authenticated users away from auth pages. */
 export async function middleware(request: NextRequest) {
@@ -52,6 +57,6 @@ export const config = {
      * - /_next/static and /_next/image (Next.js internals)
      * - Static file extensions (images, fonts, favicon, etc.)
      */
-    "/((?!login|register|forgot-password|reset-password|api/auth|api/health|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
+    "/((?!login|register|forgot-password|reset-password|verify-email|api/auth|api/health|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
   ],
 };

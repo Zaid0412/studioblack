@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/authClient";
+import { features } from "@/config/features";
 import { getSafeReturnTo } from "@/lib/utils";
 import { AuthPageLayout } from "../_components/AuthPageLayout";
 
@@ -70,7 +71,21 @@ export default function RegisterPage() {
       }
     }
 
-    router.push(getSafeReturnTo(returnTo));
+    // Redirect to email verification page or dashboard
+    if (features.emailVerification) {
+      // Explicitly trigger verification email (sendOnSignUp may not fire in dev)
+      try {
+        await authClient.sendVerificationEmail({
+          email,
+          callbackURL: "/dashboard",
+        });
+      } catch {
+        // Non-blocking — user can resend from the verify page
+      }
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+    } else {
+      router.push(getSafeReturnTo(returnTo));
+    }
   };
 
   return (

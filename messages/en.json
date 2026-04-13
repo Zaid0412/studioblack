@@ -83,7 +83,16 @@
     "resetError": "Could not reset password. The link may have expired.",
     "resetTokenInvalidTitle": "Link expired",
     "resetTokenInvalid": "This reset link is invalid or has expired.",
-    "requestNewLink": "Request a new link"
+    "requestNewLink": "Request a new link",
+    "verifyEmailTitle": "Check your email",
+    "verifyEmailDesc": "We sent a verification link to",
+    "verifyEmailExpiry": "The link expires in 24 hours.",
+    "verifyEmailResend": "Resend verification email",
+    "verifyEmailResent": "Verification email sent!",
+    "verifyEmailDifferent": "Use a different email",
+    "verifyEmailSpamHint": "Didn't receive the email? Check your spam folder.",
+    "verifyEmailRequired": "Please verify your email before signing in.",
+    "verifyEmailResending": "Sending..."
   },
   "nav": {
     "dashboard": "Dashboard",

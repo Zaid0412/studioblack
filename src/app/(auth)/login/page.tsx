@@ -41,6 +41,11 @@ export default function LoginPage() {
     });
 
     if (error) {
+      // 403 = email not verified (requireEmailVerification is enabled)
+      if (error.status === 403) {
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        return;
+      }
       setErrorMsg(t("invalidCredentials"));
       setIsLoading(false);
       return;

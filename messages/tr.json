@@ -83,7 +83,16 @@
     "resetError": "Şifre sıfırlanamadı. Bağlantının süresi dolmuş olabilir.",
     "resetTokenInvalidTitle": "Bağlantı süresi doldu",
     "resetTokenInvalid": "Bu sıfırlama bağlantısı geçersiz veya süresi dolmuş.",
-    "requestNewLink": "Yeni bağlantı iste"
+    "requestNewLink": "Yeni bağlantı iste",
+    "verifyEmailTitle": "E-postanızı kontrol edin",
+    "verifyEmailDesc": "Doğrulama bağlantısını gönderdik:",
+    "verifyEmailExpiry": "Bağlantı 24 saat içinde geçerliliğini yitirir.",
+    "verifyEmailResend": "Doğrulama e-postasını tekrar gönder",
+    "verifyEmailResent": "Doğrulama e-postası gönderildi!",
+    "verifyEmailDifferent": "Farklı bir e-posta kullan",
+    "verifyEmailSpamHint": "E-postayı almadınız mı? Spam klasörünüzü kontrol edin.",
+    "verifyEmailRequired": "Lütfen giriş yapmadan önce e-postanızı doğrulayın.",
+    "verifyEmailResending": "Gönderiliyor..."
   },
   "nav": {
     "dashboard": "Kontrol Paneli",

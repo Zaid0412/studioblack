@@ -118,6 +118,35 @@ export async function sendPasswordResetEmail(email: string, url: string) {
 }
 
 /**
+ * Send a verification email after registration.
+ */
+export async function sendVerificationEmail(
+  email: string,
+  name: string,
+  url: string
+) {
+  const safeUrl = escapeHtml(url);
+  const safeName = escapeHtml(name);
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} — Verify Your Email`,
+    `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
+        <p>Hi ${safeName},</p>
+        <p>Thanks for signing up! Please verify your email address by clicking the button below:</p>
+        <a href="${safeUrl}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">
+          Verify Email
+        </a>
+        <p style="color: #666; font-size: 13px; margin-top: 24px;">
+          This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+        </p>
+      </div>
+    `
+  );
+}
+
+/**
  * Send an org invitation email.
  */
 export async function sendInvitationEmail(
