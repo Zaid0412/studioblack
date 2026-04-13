@@ -1,4 +1,4 @@
-import { Crown, Shield, User as UserIcon } from "lucide-react";
+import { Crown, Shield, User as UserIcon, UserCheck } from "lucide-react";
 
 /** Returns the lucide icon element for a given organisation role. */
 export function roleIcon(role: string) {
@@ -6,6 +6,7 @@ export function roleIcon(role: string) {
     return <Crown className="w-3.5 h-3.5" />;
   if (role === "admin" || role === "architect")
     return <Shield className="w-3.5 h-3.5" />;
+  if (role === "client") return <UserCheck className="w-3.5 h-3.5" />;
   return <UserIcon className="w-3.5 h-3.5" />;
 }
 
@@ -14,5 +15,6 @@ export function roleLabel(role: string, t: (key: string) => string) {
   if (role === "owner") return t("roleOwner");
   if (role === "admin") return t("rolePM");
   if (role === "member") return t("roleArchitect");
+  if (role === "client") return t("roleClient");
   return role;
 }

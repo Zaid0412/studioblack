@@ -45,6 +45,8 @@ export function useUserRole() {
           );
           if (me?.role === "owner" || me?.role === "admin") {
             setRole("pm");
+          } else if (me?.role === "client") {
+            setRole("client");
           } else if (me?.role === "member") {
             setRole("architect");
           } else {

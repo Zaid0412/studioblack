@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "@/components/ui/useToast";
 import { tasks as tasksApi, upload } from "@/lib/api";
+import { downloadFile } from "@/lib/download";
 import type { Task, TaskAttachment } from "@/types";
 export type { ChecklistItem, TaskAttachment } from "@/types";
 import type { ChecklistItem } from "@/types";
@@ -194,13 +195,7 @@ export function useTaskDetail(
 
   const handleDownload = useCallback(async (att: Attachment) => {
     try {
-      const blob = await upload.downloadFile(att.file_url);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = att.file_name;
-      a.click();
-      URL.revokeObjectURL(url);
+      await downloadFile(att.file_url, att.file_name);
     } catch {
       toast({
         title: "Error",

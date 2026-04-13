@@ -22,6 +22,7 @@ export default function CreateProjectPage() {
   const t = useTranslations("createProject");
   const tc = useTranslations("common");
   const { members: architects } = useOrgMembers();
+  const { members: clients } = useOrgMembers({ roleFilter: "client" });
   const [phases, setPhases] = useState<string[]>([...PROJECT_PHASES]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,6 +47,7 @@ export default function CreateProjectPage() {
     try {
       await projects.create({
         name: data.name.trim(),
+        clientName: data.clientName?.trim() || undefined,
         clientEmail: data.clientEmail.trim() || undefined,
         category: data.category,
         deadline: data.deadline?.toISOString().split("T")[0],
@@ -97,6 +99,7 @@ export default function CreateProjectPage() {
       <ProjectForm
         mode="create"
         architects={architects}
+        clients={clients}
         onSubmit={handleSubmit}
         onCancel={() => router.push("/projects")}
         submitting={isSubmitting}

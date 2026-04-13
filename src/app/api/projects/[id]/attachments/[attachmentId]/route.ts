@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  getAttachmentById,
   getAttachmentVersionHistory,
   deleteAttachment,
   updateAttachmentStatus,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateAttachmentStatusSchema } from "@/lib/validations";
+import { findAttachmentOrFail } from "../helpers";
 
 /** GET /api/projects/[id]/attachments/[attachmentId] — get single attachment with version history. */
 export const GET = withAuth(
@@ -14,10 +14,9 @@ export const GET = withAuth(
   async (req, ctx, params) => {
     const { id, attachmentId } = params;
 
-    const attachment = await getAttachmentById(attachmentId, id);
-    if (!attachment) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const attachmentOrError = await findAttachmentOrFail(attachmentId, id);
+    if (attachmentOrError instanceof NextResponse) return attachmentOrError;
+    const attachment = attachmentOrError;
 
     // Include version history if this file has versions
     let versions: unknown[] = [];
@@ -39,10 +38,9 @@ export const DELETE = withAuth(
     const { id, attachmentId } = params;
 
     // Architects can only delete their own uploads
-    const attachment = await getAttachmentById(attachmentId, id);
-    if (!attachment) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const attachmentOrErr = await findAttachmentOrFail(attachmentId, id);
+    if (attachmentOrErr instanceof NextResponse) return attachmentOrErr;
+    const attachment = attachmentOrErr;
 
     const effectiveRole = user.role === "pm" ? "pm" : "architect";
     if (effectiveRole === "architect" && attachment.uploaded_by !== user.id) {
@@ -75,12 +73,10 @@ export const PATCH = withAuth(
     }
     const { reviewStatus } = parsed.data;
 
-    const attachment = await getAttachmentById(attachmentId, id);
-    if (!attachment) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const patchAttOrErr = await findAttachmentOrFail(attachmentId, id);
+    if (patchAttOrErr instanceof NextResponse) return patchAttOrErr;
 
-    if (attachment.frozen_at) {
+    if (patchAttOrErr.frozen_at) {
       return NextResponse.json(
         { error: "Cannot update status of a frozen attachment" },
         { status: 409 }

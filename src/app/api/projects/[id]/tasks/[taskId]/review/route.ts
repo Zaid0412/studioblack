@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  verifyTaskOwnership,
   getPhaseTaskPendingReview,
   updatePhaseTaskReviewStatus,
   createComment,
@@ -11,6 +10,7 @@ import {
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, submitTaskReviewSchema } from "@/lib/validations";
+import { guardTaskOwnership } from "@/app/api/tasks/helpers";
 
 /** POST /api/projects/[id]/tasks/[taskId]/review — client approves or requests changes. */
 export const POST = withAuth(
@@ -18,13 +18,8 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id, taskId } = params;
 
-    const taskOwned = await verifyTaskOwnership(taskId, id);
-    if (!taskOwned) {
-      return NextResponse.json(
-        { error: "Task not found in this project" },
-        { status: 404 }
-      );
-    }
+    const result = await guardTaskOwnership(taskId, id);
+    if (result instanceof NextResponse) return result;
 
     const parsed = await parseRequest(req, submitTaskReviewSchema);
     if (!parsed.success) {

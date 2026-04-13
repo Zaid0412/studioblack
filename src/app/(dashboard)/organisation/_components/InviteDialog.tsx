@@ -80,6 +80,7 @@ export function InviteDialog({
               <SelectContent>
                 <SelectItem value="admin">{t("rolePM")}</SelectItem>
                 <SelectItem value="member">{t("roleArchitect")}</SelectItem>
+                <SelectItem value="client">{t("roleClient")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

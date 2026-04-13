@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  getAttachmentById,
   markAttachmentSentToClient,
   getProjectClientInfo,
 } from "@/lib/queries";
@@ -9,6 +8,7 @@ import { createNotificationForClient } from "@/lib/notifications";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
+import { findAttachmentOrFail } from "../../helpers";
 
 /** POST /api/projects/[id]/attachments/[attachmentId]/send-to-client — make file visible to client. */
 export const POST = withAuth(
@@ -20,10 +20,9 @@ export const POST = withAuth(
   async (req, { user }, params) => {
     const { id, attachmentId } = params;
 
-    const attachment = await getAttachmentById(attachmentId, id);
-    if (!attachment) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const attachmentOrError = await findAttachmentOrFail(attachmentId, id);
+    if (attachmentOrError instanceof NextResponse) return attachmentOrError;
+    const attachment = attachmentOrError;
 
     if (attachment.sent_to_client_at) {
       return NextResponse.json(

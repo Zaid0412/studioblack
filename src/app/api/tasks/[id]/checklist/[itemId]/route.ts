@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import {
-  verifyTaskAccess,
-  updateChecklistItem,
-  deleteChecklistItem,
-} from "@/lib/queries";
+import { updateChecklistItem, deleteChecklistItem } from "@/lib/queries";
 import { parseRequest, updateChecklistItemSchema } from "@/lib/validations";
 import { withAuth } from "@/lib/withAuth";
+import { guardTaskAccess } from "../../../helpers";
 
 /** PATCH /api/tasks/[id]/checklist/[itemId] — update a checklist item. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"] },
   async (req, { orgId }, params) => {
     const { id: taskId, itemId } = params;
-    if (!(await verifyTaskAccess(taskId, orgId))) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const guard = await guardTaskAccess(taskId, orgId);
+    if (guard instanceof NextResponse) return guard;
 
     const parsed = await parseRequest(req, updateChecklistItemSchema);
     if (!parsed.success) {
@@ -51,9 +47,8 @@ export const DELETE = withAuth(
   { blockedRoles: ["client"] },
   async (_req, { orgId }, params) => {
     const { id: taskId, itemId } = params;
-    if (!(await verifyTaskAccess(taskId, orgId))) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const guard = await guardTaskAccess(taskId, orgId);
+    if (guard instanceof NextResponse) return guard;
 
     const deleted = await deleteChecklistItem(itemId, taskId);
     if (!deleted) {

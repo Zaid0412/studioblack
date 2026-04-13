@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getPinCommentById, getPinCommentReplies } from "@/lib/queries";
+import { getPinCommentReplies } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
+import { findPinOrFail } from "../../helpers";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins/[pinId]/replies */
 export const GET = withAuth(
@@ -8,10 +9,8 @@ export const GET = withAuth(
   async (req, ctx, params) => {
     const { attachmentId, pinId } = params;
 
-    const pin = await getPinCommentById(pinId);
-    if (!pin || pin.attachment_id !== attachmentId) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const pinOrError = await findPinOrFail(pinId, attachmentId);
+    if (pinOrError instanceof NextResponse) return pinOrError;
 
     const replies = await getPinCommentReplies(pinId);
     return NextResponse.json(replies);

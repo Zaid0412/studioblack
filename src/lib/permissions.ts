@@ -44,3 +44,15 @@ export const member = ac.newRole({
   project: ["update"],
   ...memberAc.statements,
 });
+
+/**
+ * client — External clients invited to the org. No project or org
+ *          management permissions. Access is controlled via client_email
+ *          on individual projects.
+ */
+export const client = ac.newRole({
+  project: [],
+  organization: [],
+  member: [],
+  invitation: [],
+});
