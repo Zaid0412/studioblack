@@ -14,11 +14,9 @@ import { PhaseTabs } from "./_components/PhaseTabs";
 import { FileTable } from "./_components/FileTable";
 import { TaskSection } from "./_components/TaskSection";
 import { CommentsSection } from "./_components/CommentsSection";
-import { ApprovalButtons } from "./_components/ApprovalButtons";
 import { PendingTasksBanner } from "./_components/PendingTasksBanner";
 import { CompletedBanner } from "./_components/CompletedBanner";
 import { ApprovalHistory } from "./_components/ApprovalHistory";
-import { RequestChangesDialog } from "./_components/RequestChangesDialog";
 
 /** Unified project detail page — adapts to PM, architect, or client role. */
 export default function ProjectDetailPage({
@@ -50,12 +48,6 @@ export default function ProjectDetailPage({
     handleDownload,
     refreshAttachments,
     refreshAll,
-    submittingDecision,
-    handleDecision,
-    changesDialogOpen,
-    setChangesDialogOpen,
-    changesComment,
-    setChangesComment,
     reviewingTaskId,
     handleTaskReview,
   } = useProjectDetail(id, { includeApprovals: isClient });
@@ -137,27 +129,12 @@ export default function ProjectDetailPage({
     );
   }
 
-  const showApprovalButtons =
-    isClient &&
-    project.status !== "completed" &&
-    pendingTasks.length === 0 &&
-    attachments.length > 0;
-
   return (
     <div className="flex flex-col h-full">
       <ProjectHeader
         projectName={project.name}
         description={undefined}
         onRefresh={refreshAll}
-        actions={
-          showApprovalButtons ? (
-            <ApprovalButtons
-              submittingDecision={submittingDecision}
-              onApprove={() => handleDecision("approved")}
-              onRequestChanges={() => setChangesDialogOpen(true)}
-            />
-          ) : undefined
-        }
       />
 
       <MetaBar
@@ -249,21 +226,6 @@ export default function ProjectDetailPage({
         sendingComment={sendingComment}
         onSendComment={handleSendComment}
       />
-
-      {isClient && (
-        <RequestChangesDialog
-          open={changesDialogOpen}
-          onOpenChange={setChangesDialogOpen}
-          comment={changesComment}
-          onCommentChange={setChangesComment}
-          submitting={submittingDecision}
-          onSubmit={async () => {
-            await handleDecision("changes_requested", changesComment);
-            setChangesDialogOpen(false);
-            setChangesComment("");
-          }}
-        />
-      )}
     </div>
   );
 }
