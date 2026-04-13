@@ -73,15 +73,10 @@ export default function RegisterPage() {
 
     // Redirect to email verification page or dashboard
     if (features.emailVerification) {
-      // Explicitly trigger verification email (sendOnSignUp may not fire in dev)
-      try {
-        await authClient.sendVerificationEmail({
-          email,
-          callbackURL: "/dashboard",
-        });
-      } catch {
-        // Non-blocking — user can resend from the verify page
-      }
+      // Fire-and-forget: sendOnSignUp handles prod, this is a dev fallback
+      authClient
+        .sendVerificationEmail({ email, callbackURL: "/dashboard" })
+        .catch(() => console.warn("Could not send verification email"));
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } else {
       router.push(getSafeReturnTo(returnTo));

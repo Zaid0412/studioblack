@@ -26,6 +26,7 @@ export default function VerifyEmailPage() {
   }, []);
 
   const startCooldown = useCallback(() => {
+    clearInterval(cooldownRef.current);
     setCooldown(60);
     cooldownRef.current = setInterval(() => {
       setCooldown((prev) => {

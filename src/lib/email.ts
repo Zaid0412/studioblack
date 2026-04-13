@@ -40,6 +40,23 @@ function getEnvTag(): string {
   return env().NODE_ENV === "production" ? "" : "[STAGING] ";
 }
 
+const safeBrandName = escapeHtml(branding.appName);
+
+/** Wrap email body in the standard branded layout. */
+function emailLayout(body: string): string {
+  return `
+    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+      <h2 style="color: #111;">${safeBrandName}</h2>
+      ${body}
+    </div>
+  `;
+}
+
+/** Branded CTA button for email templates. */
+function ctaButton(href: string, label: string): string {
+  return `<a href="${href}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">${label}</a>`;
+}
+
 async function sendEmail(to: string, subject: string, html: string) {
   try {
     await getTransport().sendMail({ from: getFromEmail(), to, subject, html });
@@ -56,18 +73,13 @@ export async function sendMagicLinkEmail(email: string, url: string) {
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Access Your Project`,
-    `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
-        <p>You've been invited to review a project. Click the link below to access your project dashboard:</p>
-        <a href="${safeUrl}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">
-          View Project
-        </a>
-        <p style="color: #666; font-size: 13px; margin-top: 24px;">
-          This link expires in 15 minutes. If you didn't expect this email, you can safely ignore it.
-        </p>
-      </div>
-    `
+    emailLayout(`
+      <p>You've been invited to review a project. Click the link below to access your project dashboard:</p>
+      ${ctaButton(safeUrl, "View Project")}
+      <p style="color: #666; font-size: 13px; margin-top: 24px;">
+        This link expires in 15 minutes. If you didn't expect this email, you can safely ignore it.
+      </p>
+    `)
   );
 }
 
@@ -83,14 +95,11 @@ export async function sendNotificationEmail(
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — ${escapeHtml(subject)}`,
-    `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
-        ${body}
-        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-        <p style="color: #999; font-size: 12px;">${escapeHtml(branding.tagline)}</p>
-      </div>
-    `
+    emailLayout(`
+      ${body}
+      <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+      <p style="color: #999; font-size: 12px;">${escapeHtml(branding.tagline)}</p>
+    `)
   );
 }
 
@@ -102,18 +111,13 @@ export async function sendPasswordResetEmail(email: string, url: string) {
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Reset Your Password`,
-    `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
-        <p>We received a request to reset your password. Click the button below to choose a new one:</p>
-        <a href="${safeUrl}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">
-          Reset Password
-        </a>
-        <p style="color: #666; font-size: 13px; margin-top: 24px;">
-          This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.
-        </p>
-      </div>
-    `
+    emailLayout(`
+      <p>We received a request to reset your password. Click the button below to choose a new one:</p>
+      ${ctaButton(safeUrl, "Reset Password")}
+      <p style="color: #666; font-size: 13px; margin-top: 24px;">
+        This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+      </p>
+    `)
   );
 }
 
@@ -130,19 +134,14 @@ export async function sendVerificationEmail(
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Verify Your Email`,
-    `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
-        <p>Hi ${safeName},</p>
-        <p>Thanks for signing up! Please verify your email address by clicking the button below:</p>
-        <a href="${safeUrl}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">
-          Verify Email
-        </a>
-        <p style="color: #666; font-size: 13px; margin-top: 24px;">
-          This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
-        </p>
-      </div>
-    `
+    emailLayout(`
+      <p>Hi ${safeName},</p>
+      <p>Thanks for signing up! Please verify your email address by clicking the button below:</p>
+      ${ctaButton(safeUrl, "Verify Email")}
+      <p style="color: #666; font-size: 13px; margin-top: 24px;">
+        This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+      </p>
+    `)
   );
 }
 
@@ -158,17 +157,12 @@ export async function sendInvitationEmail(
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
-    `
-      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-        <h2 style="color: #111;">${escapeHtml(branding.appName)}</h2>
-        <p><strong>${escapeHtml(inviterName)}</strong> has invited you to join <strong>${escapeHtml(orgName)}</strong>.</p>
-        <a href="${escapeHtml(inviteLink)}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">
-          Accept Invitation
-        </a>
-        <p style="color: #666; font-size: 13px; margin-top: 24px;">
-          If you don't have an account yet, you'll be prompted to create one.
-        </p>
-      </div>
-    `
+    emailLayout(`
+      <p><strong>${escapeHtml(inviterName)}</strong> has invited you to join <strong>${escapeHtml(orgName)}</strong>.</p>
+      ${ctaButton(escapeHtml(inviteLink), "Accept Invitation")}
+      <p style="color: #666; font-size: 13px; margin-top: 24px;">
+        If you don't have an account yet, you'll be prompted to create one.
+      </p>
+    `)
   );
 }
