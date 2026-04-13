@@ -3,9 +3,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { Building2, Check, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 
@@ -13,6 +12,36 @@ interface PendingInvitation {
   id: string;
   organizationName: string;
   role: string;
+}
+
+/**
+ * Derives pending received invitations from the shared "invitations" SWR cache
+ * managed by useNotifications. No separate API call — zero duplication.
+ */
+function extractPendingInvitations(
+  invData:
+    | { pendingIds?: Map<string, string>; notifications?: unknown[] }
+    | undefined
+): PendingInvitation[] {
+  if (!invData?.pendingIds) return [];
+  const pending: PendingInvitation[] = [];
+  for (const [notifId, realId] of invData.pendingIds) {
+    // Find matching notification to get org name and role
+    const notif = (
+      invData.notifications as
+        | { id: string; description?: string }[]
+        | undefined
+    )?.find((n) => n.id === notifId);
+    if (!notif?.description) continue;
+    // Description format: "OrgName — RoleLabel"
+    const [orgName, roleLabel] = notif.description.split(" — ");
+    pending.push({
+      id: realId,
+      organizationName: orgName ?? "Organisation",
+      role: roleLabel ?? "member",
+    });
+  }
+  return pending;
 }
 
 /** Prominent banner shown at the top of the dashboard when the user has pending org invitations. */
@@ -30,37 +59,14 @@ export function InvitationBanner() {
   });
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const { data: invitations = [], mutate } = useSWR<PendingInvitation[]>(
-    "invitation-banner",
-    async () => {
-      const { data } = await authClient.organization.listUserInvitations();
-      if (!data) return [];
-      return data
-        .filter((inv: { status: string }) => inv.status === "pending")
-        .map(
-          (inv: {
-            id: string;
-            organizationName?: string;
-            organizationId: string;
-            role?: string;
-          }) => ({
-            id: inv.id,
-            organizationName: inv.organizationName ?? inv.organizationId,
-            role: inv.role ?? "member",
-          })
-        );
-    },
-    { refreshInterval: 30_000 }
-  );
-
-  const roleLabel = useCallback(
-    (role: string) => {
-      if (role === "owner") return t("roleOwner");
-      if (role === "admin") return t("rolePM");
-      if (role === "member") return t("roleArchitect");
-      return role;
-    },
-    [t]
+  // Read from the same SWR key as useNotifications — no extra API call
+  const { data: invData } = useSWR("invitations");
+  const invitations = useMemo(
+    () =>
+      extractPendingInvitations(
+        invData as Parameters<typeof extractPendingInvitations>[0]
+      ),
+    [invData]
   );
 
   const visible = useMemo(
@@ -100,13 +106,12 @@ export function InvitationBanner() {
         description: t("invitationAcceptedDesc"),
         variant: "success",
       });
-      mutate((prev) => prev?.filter((i) => i.id !== inv.id), {
-        revalidate: false,
-      });
+      // Invalidate shared cache so both banner and notification panel update
+      globalMutate("invitations");
       window.dispatchEvent(new Event("notifications-changed"));
       router.push("/organisation");
     },
-    [t, mutate, router]
+    [t, router]
   );
 
   const handleReject = useCallback(
@@ -124,12 +129,10 @@ export function InvitationBanner() {
         title: t("invitationRejected"),
         description: t("invitationRejectedDesc"),
       });
-      mutate((prev) => prev?.filter((i) => i.id !== inv.id), {
-        revalidate: false,
-      });
+      globalMutate("invitations");
       window.dispatchEvent(new Event("notifications-changed"));
     },
-    [t, mutate]
+    [t]
   );
 
   if (visible.length === 0) return null;
@@ -150,7 +153,7 @@ export function InvitationBanner() {
               {t("bannerTitle", { orgName: inv.organizationName })}
             </p>
             <p className="text-xs text-black/60 dark:text-text-secondary">
-              {t("bannerRole", { role: roleLabel(inv.role) })}
+              {t("bannerRole", { role: inv.role })}
             </p>
           </div>
 
