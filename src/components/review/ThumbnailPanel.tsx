@@ -49,7 +49,7 @@ export function ThumbnailPanel({
           {phaseName || "Files"}
         </p>
         {!loading && (
-          <p className="text-[11px] text-text-secondary mt-0.5">
+          <p className="text-[12px] text-text-primary mt-0.5">
             {phaseFiles.length} file{phaseFiles.length !== 1 ? "s" : ""}
           </p>
         )}
