@@ -6,7 +6,9 @@ import {
   sendMagicLinkEmail,
   sendInvitationEmail,
   sendPasswordResetEmail,
+  sendVerificationEmail,
 } from "@/lib/email";
+import { features } from "@/config/features";
 import { getPool } from "@/lib/db";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
@@ -46,8 +48,18 @@ export const auth = betterAuth({
   database: getPool(),
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: features.emailVerification,
     sendResetPassword: async ({ user, url }) => {
       await sendPasswordResetEmail(user.email, url);
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 86400, // 24 hours
+    sendVerificationEmail: async ({ user, url }) => {
+      void sendVerificationEmail(user.email, user.name, url);
     },
   },
   user: {
@@ -72,6 +84,30 @@ export const auth = betterAuth({
               "Cannot delete account: you are the sole owner of an organization. Transfer ownership first."
             );
           }
+
+          // Nullify FK references before user row deletion so
+          // ON DELETE SET NULL triggers don't hit NOT NULL constraints.
+          await Promise.all([
+            pool.query(
+              `UPDATE attachment SET
+                 uploaded_by = CASE WHEN uploaded_by = $1 THEN NULL ELSE uploaded_by END,
+                 reviewed_by = CASE WHEN reviewed_by = $1 THEN NULL ELSE reviewed_by END,
+                 sent_to_client_by = CASE WHEN sent_to_client_by = $1 THEN NULL ELSE sent_to_client_by END
+               WHERE uploaded_by = $1 OR reviewed_by = $1 OR sent_to_client_by = $1`,
+              [user.id]
+            ),
+            pool.query(`UPDATE comment SET user_id = NULL WHERE user_id = $1`, [
+              user.id,
+            ]),
+            pool.query(
+              `UPDATE project SET created_by = NULL WHERE created_by = $1`,
+              [user.id]
+            ),
+            pool.query(
+              `UPDATE phase_task SET assigned_to = NULL WHERE assigned_to = $1`,
+              [user.id]
+            ),
+          ]);
 
           // Clean up better-auth org plugin tables BEFORE user row is deleted,
           // otherwise FK constraints on member/invitation block the deletion.
@@ -169,3 +205,22 @@ export const auth = betterAuth({
     }),
   ],
 });
+
+// Startup safety check: warn if email verification is enabled but
+// existing users haven't been migrated (would lock them out on login).
+if (features.emailVerification) {
+  getPool()
+    .query(
+      `SELECT COUNT(*)::int AS cnt FROM "user" WHERE "emailVerified" = false OR "emailVerified" IS NULL`
+    )
+    .then(({ rows }) => {
+      if (rows[0].cnt > 0) {
+        logger.warn(
+          `${rows[0].cnt} user(s) have unverified emails — they will be blocked from signing in. Run scripts/migrate-verify-existing-users.sql to grandfather them.`
+        );
+      }
+    })
+    .catch(() => {
+      // Non-blocking — pool may not be ready at import time in some envs
+    });
+}

@@ -16,9 +16,7 @@ import { findPinOrFail } from "../helpers";
 export const PATCH = withAuth(
   { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { attachmentId, pinId } = params;
-
-    const pinOrError = await findPinOrFail(pinId, attachmentId);
+    const pinOrError = await findPinOrFail(params);
     if (pinOrError instanceof NextResponse) return pinOrError;
     const pin = pinOrError;
 
@@ -35,7 +33,7 @@ export const PATCH = withAuth(
       if (pin.user_id !== user.id && !isStaff) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      const updated = await updatePinComment(pinId, parsed.data.resolved);
+      const updated = await updatePinComment(pin.id, parsed.data.resolved);
       return NextResponse.json(updated);
     }
 
@@ -45,7 +43,10 @@ export const PATCH = withAuth(
       if (pin.user_id !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
-      const updated = await updatePinCommentContent(pinId, parsed.data.content);
+      const updated = await updatePinCommentContent(
+        pin.id,
+        parsed.data.content
+      );
       return NextResponse.json(updated);
     }
 
@@ -67,7 +68,7 @@ export const PATCH = withAuth(
         );
       }
       const updated = await updatePinCommentPosition(
-        pinId,
+        pin.id,
         x_percent,
         y_percent,
         page
@@ -86,9 +87,7 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
   async (req, { user }, params) => {
-    const { attachmentId, pinId } = params;
-
-    const pinOrError = await findPinOrFail(pinId, attachmentId);
+    const pinOrError = await findPinOrFail(params);
     if (pinOrError instanceof NextResponse) return pinOrError;
     const pin = pinOrError;
 
@@ -98,7 +97,7 @@ export const DELETE = withAuth(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await deletePinComment(pinId);
+    await deletePinComment(pin.id);
     return NextResponse.json({ ok: true });
   }
 );

@@ -11,4 +11,5 @@ export const features = {
   clientPortal: true,
   notifications: true,
   designUpload: true,
+  emailVerification: true,
 } as const;

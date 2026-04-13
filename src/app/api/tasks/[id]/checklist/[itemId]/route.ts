@@ -8,9 +8,9 @@ import { guardTaskAccess } from "../../../helpers";
 export const PATCH = withAuth(
   { blockedRoles: ["client"] },
   async (req, { orgId }, params) => {
-    const { id: taskId, itemId } = params;
-    const guard = await guardTaskAccess(taskId, orgId);
-    if (guard instanceof NextResponse) return guard;
+    const taskId = await guardTaskAccess(params, orgId);
+    if (taskId instanceof NextResponse) return taskId;
+    const { itemId } = params;
 
     const parsed = await parseRequest(req, updateChecklistItemSchema);
     if (!parsed.success) {
@@ -46,9 +46,9 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   { blockedRoles: ["client"] },
   async (_req, { orgId }, params) => {
-    const { id: taskId, itemId } = params;
-    const guard = await guardTaskAccess(taskId, orgId);
-    if (guard instanceof NextResponse) return guard;
+    const taskId = await guardTaskAccess(params, orgId);
+    if (taskId instanceof NextResponse) return taskId;
+    const { itemId } = params;
 
     const deleted = await deleteChecklistItem(itemId, taskId);
     if (!deleted) {

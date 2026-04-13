@@ -8,6 +8,7 @@ import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { deriveInitials } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
 import type { User } from "@/types";
 
@@ -115,6 +116,7 @@ export default async function DashboardLayout({
                 <div className="fixed top-4 right-4 lg:right-8 z-50 hidden lg:block">
                   <NotificationPanel />
                 </div>
+                <InvitationBanner />
                 <ErrorBoundary>{children}</ErrorBoundary>
               </main>
             </div>

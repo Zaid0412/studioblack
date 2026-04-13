@@ -7,12 +7,10 @@ import { findPinOrFail } from "../../helpers";
 export const GET = withAuth(
   { projectAccess: true },
   async (req, ctx, params) => {
-    const { attachmentId, pinId } = params;
-
-    const pinOrError = await findPinOrFail(pinId, attachmentId);
+    const pinOrError = await findPinOrFail(params);
     if (pinOrError instanceof NextResponse) return pinOrError;
 
-    const replies = await getPinCommentReplies(pinId);
+    const replies = await getPinCommentReplies(params.pinId);
     return NextResponse.json(replies);
   }
 );

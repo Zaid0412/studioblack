@@ -25,8 +25,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // /reset-password is always public (token-based, may be used while logged out)
-  if (pathname === "/reset-password") {
+  // /reset-password and /verify-email are always public
+  // (token-based, may be used while logged in or logged out)
+  if (pathname === "/reset-password" || pathname === "/verify-email") {
     return NextResponse.next();
   }
 
@@ -52,6 +53,6 @@ export const config = {
      * - /_next/static and /_next/image (Next.js internals)
      * - Static file extensions (images, fonts, favicon, etc.)
      */
-    "/((?!login|register|forgot-password|reset-password|api/auth|api/health|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
+    "/((?!login|register|forgot-password|reset-password|verify-email|api/auth|api/health|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
   ],
 };

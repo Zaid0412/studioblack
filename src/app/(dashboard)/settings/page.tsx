@@ -115,16 +115,14 @@ export default function SettingsPage() {
         setPushNotif={settings.setPushNotif}
       />
 
-      {!isClient && (
-        <DangerZoneSection
-          deleteOpen={settings.deleteOpen}
-          setDeleteOpen={settings.setDeleteOpen}
-          deletePassword={settings.deletePassword}
-          setDeletePassword={settings.setDeletePassword}
-          isDeleting={settings.isDeleting}
-          handleDeleteAccount={settings.handleDeleteAccount}
-        />
-      )}
+      <DangerZoneSection
+        deleteOpen={settings.deleteOpen}
+        setDeleteOpen={settings.setDeleteOpen}
+        deletePassword={settings.deletePassword}
+        setDeletePassword={settings.setDeletePassword}
+        isDeleting={settings.isDeleting}
+        handleDeleteAccount={settings.handleDeleteAccount}
+      />
     </div>
   );
 }

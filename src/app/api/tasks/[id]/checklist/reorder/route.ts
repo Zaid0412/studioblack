@@ -10,9 +10,8 @@ export const PATCH = withAuth(
   { blockedRoles: ["client"] },
   async (req, { orgId }, params) => {
     try {
-      const taskId = params.id;
-      const guard = await guardTaskAccess(taskId, orgId);
-      if (guard instanceof NextResponse) return guard;
+      const taskId = await guardTaskAccess(params, orgId);
+      if (taskId instanceof NextResponse) return taskId;
 
       const parsed = await parseRequest(req, reorderChecklistSchema);
       if (!parsed.success) {
