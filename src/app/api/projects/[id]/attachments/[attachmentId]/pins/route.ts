@@ -17,6 +17,7 @@ import {
   notifyTeamByEmail,
 } from "@/lib/notifications";
 import { parseRequest, createPinSchema } from "@/lib/validations";
+import { extractMentionedUserIds } from "@/lib/mentions";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins — list pin comments. */
 export const GET = withAuth(
@@ -34,6 +35,46 @@ export const POST = withAuth(
   { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
   async (req, { user }, params) => {
     const { id, attachmentId } = params;
+
+    function sendMentionNotifications(
+      contentText: string,
+      excludeIds: string[]
+    ) {
+      const mentionedIds = extractMentionedUserIds(contentText);
+      const excludeSet = new Set(excludeIds);
+      const toNotify = mentionedIds.filter((uid) => !excludeSet.has(uid));
+      const truncated =
+        contentText.length > 100
+          ? contentText.slice(0, 97) + "..."
+          : contentText;
+
+      for (const uid of toNotify) {
+        createNotification({
+          userId: uid,
+          type: "mention",
+          title: `${user.name || "Someone"} mentioned you in a comment`,
+          description: truncated,
+          projectId: id,
+        }).catch((err) =>
+          logger.error("Mention notification failed", {
+            projectId: id,
+            error: err,
+          })
+        );
+
+        notifyUserByEmailWithContext(uid, id, (ctx) => {
+          const projectUrl = escapeHtml(
+            `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+          );
+          return {
+            subject: `You were mentioned in ${ctx.projectName || "a project"}`,
+            html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> mentioned you in a comment in <strong>${escapeHtml(ctx.projectName || "")}</strong>.</p>
+               <p style="color: #666;">${escapeHtml(truncated)}</p>
+               <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`,
+          };
+        });
+      }
+    }
 
     // Verify attachment belongs to this project
     const attachment = await getAttachmentById(attachmentId, id);
@@ -73,6 +114,9 @@ export const POST = withAuth(
         content: content.trim(),
         parentId: parent_id,
       });
+
+      sendMentionNotifications(content.trim(), [user.id]);
+
       return NextResponse.json(reply, { status: 201 });
     }
 
@@ -201,6 +245,8 @@ export const POST = withAuth(
         }));
       }
 
+      sendMentionNotifications(content.trim(), [user.id, assignedTo]);
+
       const pin = await getPinCommentById(result.pinId);
       return NextResponse.json(pin, { status: 201 });
     }
@@ -215,6 +261,8 @@ export const POST = withAuth(
       content: content.trim(),
       requestChanges: reqChanges,
     });
+
+    sendMentionNotifications(content.trim(), [user.id]);
 
     return NextResponse.json(pin, { status: 201 });
   }

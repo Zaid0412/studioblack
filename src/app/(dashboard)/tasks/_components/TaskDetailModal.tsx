@@ -61,6 +61,7 @@ import {
   formatFileSize,
 } from "@/lib/fileUtils";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { MentionRenderer } from "@/components/ui/MentionRenderer";
 import type { Task } from "@/types";
 import { useTaskDetail } from "../_hooks/useTaskDetail";
 import { SortableChecklistItem } from "./SortableChecklistItem";
@@ -228,7 +229,7 @@ export function TaskDetailModal({
             {/* Description */}
             {task.description ? (
               <p className="text-[13px] text-text-secondary whitespace-pre-wrap leading-relaxed">
-                {task.description}
+                <MentionRenderer content={task.description} />
               </p>
             ) : (
               <p className="text-[13px] text-text-muted italic">

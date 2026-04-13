@@ -2197,3 +2197,30 @@ export async function updatePhaseTaskReviewStatus(
   );
   return task;
 }
+
+// ---------------------------------------------------------------------------
+// Project Members (for @mention autocomplete)
+// ---------------------------------------------------------------------------
+
+/** Return distinct project members (org team + client if they have an account). */
+export async function getProjectMembers(
+  projectId: string
+): Promise<{ user_id: string; name: string }[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT DISTINCT u.id AS user_id, u.name
+     FROM project p
+     JOIN member m ON m."organizationId" = p.org_id
+     JOIN "user" u ON u.id = m."userId"
+     WHERE p.id = $1
+
+     UNION
+
+     SELECT DISTINCT u.id AS user_id, u.name
+     FROM project p
+     JOIN "user" u ON LOWER(u.email) = LOWER(p.client_email)
+     WHERE p.id = $1 AND p.client_email IS NOT NULL`,
+    [projectId]
+  );
+  return rows;
+}

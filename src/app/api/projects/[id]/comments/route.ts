@@ -8,10 +8,15 @@ import {
 import {
   createNotificationsForTeam,
   createNotificationForClient,
+  createNotification,
+  notifyUserByEmailWithContext,
 } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, createCommentSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
+import { extractMentionedUserIds } from "@/lib/mentions";
+import { escapeHtml } from "@/lib/email";
+import { env } from "@/env";
 
 /** GET /api/projects/[id]/comments — list comments. */
 export const GET = withAuth(
@@ -67,6 +72,39 @@ export const POST = withAuth(
       }
     } catch (err) {
       logger.error("Comment notification error", { projectId: id, error: err });
+    }
+
+    // Mention-specific notifications (in addition to team broadcast)
+    const mentionedIds = extractMentionedUserIds(content.trim());
+    const mentionsToNotify = mentionedIds.filter((uid) => uid !== user.id);
+    const truncated =
+      content.trim().length > 100
+        ? content.trim().slice(0, 97) + "..."
+        : content.trim();
+    for (const uid of mentionsToNotify) {
+      createNotification({
+        userId: uid,
+        type: "mention",
+        title: `${user.name || "Someone"} mentioned you in a comment`,
+        description: truncated,
+        projectId: id,
+      }).catch((err) =>
+        logger.error("Mention notification failed", {
+          projectId: id,
+          error: err,
+        })
+      );
+      notifyUserByEmailWithContext(uid, id, (ctx) => {
+        const projectUrl = escapeHtml(
+          `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+        );
+        return {
+          subject: `You were mentioned in ${ctx.projectName || "a project"}`,
+          html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> mentioned you in a comment in <strong>${escapeHtml(ctx.projectName || "")}</strong>.</p>
+                 <p style="color: #666;">${escapeHtml(truncated)}</p>
+                 <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`,
+        };
+      });
     }
 
     return NextResponse.json(comment, { status: 201 });

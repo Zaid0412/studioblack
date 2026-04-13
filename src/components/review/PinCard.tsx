@@ -13,9 +13,11 @@ import {
   Send,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MentionRenderer } from "@/components/ui/MentionRenderer";
+import { MentionTextarea } from "@/components/ui/MentionTextarea";
 import { isPinned } from "@/lib/pinUtils";
 import { timeAgo } from "@/lib/formatTime";
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, MentionMember } from "@/types";
 
 /** Individual comment card with edit, reply, and resolve functionality. */
 export function PinCard({
@@ -32,6 +34,7 @@ export function PinCard({
   replies,
   onExpandReplies,
   onAddReply,
+  members,
 }: {
   pin: DbPinComment;
   pinIndex?: number;
@@ -46,6 +49,7 @@ export function PinCard({
   replies?: DbPinComment[];
   onExpandReplies?: () => void;
   onAddReply?: (content: string) => void | Promise<void>;
+  members?: MentionMember[];
 }) {
   const pinHasCoords = isPinned(pin);
   const canDelete = pin.user_id === currentUserId || isPm;
@@ -59,7 +63,7 @@ export function PinCard({
   const [repliesOpen, setRepliesOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySubmitting, setReplySubmitting] = useState(false);
-  const replyRef = useRef<HTMLInputElement>(null);
+  const replyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (editing) editRef.current?.focus();
@@ -162,10 +166,11 @@ export function PinCard({
       {/* Content — inline edit or display */}
       {editing ? (
         <div className="px-3 pb-2 ml-7" onClick={(e) => e.stopPropagation()}>
-          <textarea
+          <MentionTextarea
             ref={editRef}
             value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
+            onChange={setEditContent}
+            members={members ?? []}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -176,7 +181,7 @@ export function PinCard({
               }
             }}
             rows={3}
-            className="w-full resize-none bg-bg-secondary border border-border-default rounded px-2 py-1.5 text-[12px] text-text-primary outline-none focus:border-[#F5C518]/30"
+            className="relative w-full bg-bg-secondary border border-border-default rounded text-xs focus-within:border-[#F5C518]/30"
           />
           <div className="flex items-center gap-2 mt-1">
             <button
@@ -204,7 +209,7 @@ export function PinCard({
               : "text-text-muted"
           }`}
         >
-          {pin.content}
+          <MentionRenderer content={pin.content} />
         </p>
       )}
 
@@ -285,7 +290,7 @@ export function PinCard({
                         </span>
                       </div>
                       <p className="text-[11px] text-text-muted leading-relaxed">
-                        {reply.content}
+                        <MentionRenderer content={reply.content} />
                       </p>
                     </div>
                   </div>
@@ -305,10 +310,11 @@ export function PinCard({
           {/* Reply input */}
           {onAddReply && (
             <div className="flex items-center gap-1.5">
-              <input
+              <MentionTextarea
                 ref={replyRef}
                 value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
+                onChange={setReplyText}
+                members={members ?? []}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -316,7 +322,8 @@ export function PinCard({
                   }
                 }}
                 placeholder="Reply…"
-                className="flex-1 bg-bg-secondary border border-[#ffffff0a] rounded px-2 py-1 text-[11px] text-text-primary placeholder:text-text-secondary outline-none focus:border-[#F5C518]/30"
+                rows={1}
+                className="relative flex-1 bg-bg-secondary border border-[#ffffff0a] rounded text-[11px] focus-within:border-[#F5C518]/30"
               />
               <button
                 onClick={handleSubmitReply}

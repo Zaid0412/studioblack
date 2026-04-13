@@ -225,6 +225,7 @@ export default function ProjectDetailPage({
         onNewCommentChange={setNewComment}
         sendingComment={sendingComment}
         onSendComment={handleSendComment}
+        members={project?.members}
       />
     </div>
   );

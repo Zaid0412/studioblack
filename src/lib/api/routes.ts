@@ -4,6 +4,7 @@
  * STRUCTURE
  * ─────────────────────────────────────────────────
  * projects         /api/projects
+ *   ├─ members       /api/projects/:id/members
  *   ├─ attachments   /api/projects/:id/attachments
  *   ├─ versions      /api/projects/:id/versions
  *   ├─ comments      /api/projects/:id/comments
@@ -24,6 +25,9 @@ export const API = {
   // ── Projects ────────────────────────────────────
   projects:              ()                            => "/api/projects",
   project:               (id: string)                  => `/api/projects/${id}`,
+
+  // ── Project → Members ─────────────────────────
+  projectMembers:        (pid: string)                 => `/api/projects/${pid}/members`,
 
   // ── Project → Attachments ──────────────────────
   attachments:           (pid: string)                 => `/api/projects/${pid}/attachments`,
