@@ -1,17 +1,34 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import { clearClientEmailByEmail } from "@/lib/queries";
+import { getPool } from "@/lib/db";
 
 /**
  * POST /api/org/clear-client
  *
  * When a client member is removed from the org, clear their client_email
  * from all assigned projects. PM-only.
+ *
+ * Uses direct org role query instead of fetchOrgRole (which requires a project ID).
  */
 export const POST = withAuth(
-  { blockedRoles: ["client"], fetchOrgRole: true },
-  async (req, { orgRole }) => {
-    if (!orgRole || (orgRole !== "owner" && orgRole !== "admin")) {
+  { blockedRoles: ["client"] },
+  async (req, { user, orgId }) => {
+    // Check org role directly — fetchOrgRole requires a project ID param
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "No active organisation" },
+        { status: 400 }
+      );
+    }
+
+    const pool = getPool();
+    const { rows } = await pool.query(
+      `SELECT role FROM "member" WHERE "organizationId" = $1 AND "userId" = $2`,
+      [orgId, user.id]
+    );
+    const role = rows[0]?.role;
+    if (role !== "owner" && role !== "admin") {
       return NextResponse.json(
         { error: "Only PMs can perform this action" },
         { status: 403 }
