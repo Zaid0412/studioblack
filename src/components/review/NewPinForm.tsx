@@ -139,12 +139,12 @@ export function NewPinForm({
 
   return (
     <div className="border-b border-border-default p-3">
-      {/* Outer card wrapping the entire form */}
-      <div className="rounded-lg border border-[#ffffff0a] overflow-hidden flex flex-col">
+      {/* Outer card */}
+      <div className="rounded-[10px] border border-border-default overflow-hidden flex flex-col bg-bg-secondary">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 pt-3 pb-2">
+        <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
           <span className="text-[13px] font-semibold text-text-primary">
-            Add New Comment
+            New Comment
           </span>
           <button
             onClick={onCancel}
@@ -155,11 +155,11 @@ export function NewPinForm({
         </div>
 
         {/* Textarea area */}
-        <div className="mx-3 rounded-lg border border-border-default bg-bg-secondary transition-colors duration-200 focus-within:border-[#F5C518]/30">
+        <div className="mx-3.5 rounded-lg border border-border-default bg-bg-elevated transition-colors duration-200 focus-within:border-accent/30">
           {/* Pin badge row */}
           {pinAttached && pendingPin && (
-            <div className="px-3 pt-2.5 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-[#F5C518]" />
+            <div className="px-2.5 pt-2 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-accent" />
               <button
                 onClick={() => {
                   setPinAttached(false);
@@ -179,11 +179,11 @@ export function NewPinForm({
             onKeyDown={handleKeyDown}
             placeholder="Write your comment..."
             rows={4}
-            className="w-full resize-none bg-transparent px-3 py-2.5 text-[13px] text-text-primary placeholder:text-text-secondary outline-none! focus-visible:outline-none! border-none"
+            className="w-full resize-none bg-transparent px-2.5 py-2 text-[13px] leading-[1.5] text-text-primary placeholder:text-text-muted outline-none! focus-visible:outline-none! border-none"
           />
 
           {/* Bottom toolbar */}
-          <div className="flex items-center justify-end gap-0.5 px-2 py-1.5 border-t border-border-default/60">
+          <div className="flex items-center justify-end px-2.5 py-1.5 border-t border-border-default/60">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -196,9 +196,9 @@ export function NewPinForm({
                       onRequestPin?.();
                     }
                   }}
-                  className={`p-1.5 rounded transition-colors cursor-pointer ${
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                     pinAttached && pendingPin
-                      ? "text-[#F5C518] bg-[#F5C518]/10"
+                      ? "text-accent bg-accent/10"
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
@@ -216,7 +216,7 @@ export function NewPinForm({
 
         {/* Request changes — only for PM and Client */}
         {(role === "pm" || role === "client") && (
-          <div className="px-3 py-2.5 border-t border-[#ffffff0a] mt-3">
+          <div className="px-3.5 py-2.5 border-t border-border-default/10">
             <Checkbox
               checked={requestChanges}
               onCheckedChange={(checked: boolean) => {
@@ -229,10 +229,10 @@ export function NewPinForm({
               }}
               disabled={requestChangesMode}
               label="Request changes"
-              className="[&_span]:text-text-secondary"
+              className="[&_span]:text-[12px] [&_span]:text-text-primary"
             />
             {requestChanges && !pendingPin && (
-              <p className="text-[11px] text-amber-500 mt-1.5 ml-6">
+              <p className="text-[12px] text-amber-400 font-medium mt-2 ml-6">
                 Click on the document to place a pin
               </p>
             )}
@@ -241,13 +241,12 @@ export function NewPinForm({
 
         {/* Assign as task — hidden when requestChanges is checked (task is auto-created) or for clients */}
         {!requestChanges && role !== "client" && (
-          <div
-            className={`px-3 py-2.5 border-t border-[#ffffff0a] ${role === "pm" ? "" : "mt-3"}`}
-          >
+          <div className="px-3.5 py-2.5 border-t border-border-default/10">
             <Checkbox
               checked={assignAsTask}
               onCheckedChange={setAssignAsTask}
               label="Assign as task"
+              className="[&_span]:text-[12px] [&_span]:text-text-primary"
             />
           </div>
         )}
@@ -259,25 +258,31 @@ export function NewPinForm({
             className="overflow-hidden transition-[height] duration-200 ease-out"
             style={{ height: expandHeight ?? "auto" }}
           >
-            <div className="px-3 pb-3 flex flex-col gap-3 border-t border-[#ffffff0a] pt-2.5">
-              <div className="flex items-center gap-3">
+            <div className="px-3.5 pb-3 flex flex-col gap-2.5 pt-2.5">
+              <div className="flex items-center gap-2.5">
                 <label className="text-[11px] text-text-secondary w-[60px] shrink-0">
                   Assignee
                 </label>
                 <Select value={assignedTo} onValueChange={setAssignedTo}>
-                  <SelectTrigger className="flex-1 h-8 text-[12px] rounded-md border-[#ffffff0a] bg-bg-secondary">
+                  <SelectTrigger className="flex-1 h-8 text-[12px] rounded-md border-border-default bg-bg-elevated">
                     <SelectValue placeholder="Select User" />
                   </SelectTrigger>
                   <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.user_id} value={m.user_id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
+                    {members.length === 0 ? (
+                      <div className="px-3 py-2 text-[12px] text-text-muted">
+                        No members found
+                      </div>
+                    ) : (
+                      members.map((m) => (
+                        <SelectItem key={m.user_id} value={m.user_id}>
+                          {m.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
                 <label className="text-[11px] text-text-secondary w-[60px] shrink-0">
                   Due Date
                 </label>
@@ -291,7 +296,7 @@ export function NewPinForm({
                     )
                   }
                   placeholder="Select Date"
-                  className="flex-1 [&_button]:h-8 [&_button]:text-[12px] [&_button]:rounded-md [&_button]:border-[#ffffff0a] [&_button]:bg-bg-secondary [&_button]:px-2.5 [&_button]:py-1.5"
+                  className="flex-1 [&_button]:h-8 [&_button]:text-[12px] [&_button]:rounded-md [&_button]:border-border-default [&_button]:bg-bg-elevated [&_button]:px-2.5 [&_button]:py-1.5"
                 />
               </div>
             </div>
@@ -299,7 +304,7 @@ export function NewPinForm({
         )}
 
         {/* Submit */}
-        <div className="px-3 pb-3 pt-1">
+        <div className="px-3.5 pb-3.5 pt-2">
           <button
             onClick={handleSubmit}
             disabled={!content.trim() || submitting}
