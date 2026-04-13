@@ -237,7 +237,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
             )}
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-56 p-1.5">
-            {orgName && (
+            {orgName && variant !== "client" && (
               <>
                 <Link
                   href="/organisation"

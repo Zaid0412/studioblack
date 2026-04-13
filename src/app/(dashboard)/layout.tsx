@@ -38,6 +38,7 @@ async function getEffectiveRole(
   );
 
   if (me?.role === "owner" || me?.role === "admin") return "pm";
+  if (me?.role === "client") return "client";
   if (me?.role === "member") return "architect";
   return (fallbackRole as "pm" | "architect") ?? "pm";
 }
@@ -64,9 +65,9 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  // Auto-set active org if not set (clients may not have an org)
+  // Auto-set active org if not set
   let orgId = session.session.activeOrganizationId;
-  if (!orgId && session.user.role !== "client") {
+  if (!orgId) {
     const orgs = await auth.api.listOrganizations({
       headers: await headers(),
     });

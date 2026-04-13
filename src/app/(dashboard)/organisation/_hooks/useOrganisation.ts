@@ -140,7 +140,7 @@ export function useOrganisation() {
 
     const { error } = await authClient.organization.inviteMember({
       email: inviteEmail.trim(),
-      role: inviteRole as "admin" | "member",
+      role: inviteRole as "admin" | "member" | "client",
       organizationId: activeOrg.id,
     });
     if (error) {
@@ -188,6 +188,9 @@ export function useOrganisation() {
   };
 
   const handleRemoveMember = async (memberId: string) => {
+    // Find the member to check if they're a client (for cascade)
+    const member = members.find((m) => m.id === memberId);
+
     const { error } = await authClient.organization.removeMember({
       memberIdOrEmail: memberId,
     });
@@ -199,6 +202,20 @@ export function useOrganisation() {
       });
       return;
     }
+
+    // If the removed member was a client, clear their client_email from projects
+    if (member?.role === "client" && member.user.email) {
+      try {
+        await fetch("/api/org/clear-client", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: member.user.email }),
+        });
+      } catch {
+        // Non-critical — log but don't fail the removal
+      }
+    }
+
     toast({
       title: t("memberRemoved"),
       description: t("memberRemovedDescription"),

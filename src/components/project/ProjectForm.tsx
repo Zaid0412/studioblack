@@ -58,6 +58,8 @@ interface ProjectFormProps {
   mode: "create" | "edit";
   initialData?: Partial<ProjectFormData>;
   architects: OrgMember[];
+  /** Client org members for the client selector dropdown */
+  clients?: OrgMember[];
   onSubmit: (data: ProjectFormData) => void | Promise<void>;
   onCancel: () => void;
   submitting: boolean;
@@ -77,6 +79,7 @@ export function ProjectForm({
   mode,
   initialData,
   architects,
+  clients = [],
   onSubmit,
   onCancel,
   submitting,
@@ -207,20 +210,44 @@ export function ProjectForm({
         )}
 
         {mode === "edit" && (
-          <>
-            <Input
-              label={t("client")}
-              value={form.clientName ?? ""}
-              onChange={(e) => updateField("clientName", e.target.value)}
-            />
-            <Input
-              label={t("clientEmail")}
-              type="email"
-              value={form.clientEmail}
-              onChange={(e) => updateField("clientEmail", e.target.value)}
-              autoComplete="email"
-            />
-          </>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("client")}
+            </label>
+            {clients.length === 0 ? (
+              <p className="text-xs text-text-muted">{t("noClients")}</p>
+            ) : (
+              <Select
+                value={form.clientEmail || "__none__"}
+                onValueChange={(v) => {
+                  if (v === "__none__") {
+                    updateField("clientEmail", "");
+                    updateField("clientName", "");
+                    return;
+                  }
+                  const selected = clients.find((c) => c.user.email === v);
+                  if (selected) {
+                    updateField("clientEmail", selected.user.email);
+                    updateField("clientName", selected.user.name);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("selectClient")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    {t("noClientSelected")}
+                  </SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.user.id} value={c.user.email}>
+                      {c.user.name} ({c.user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         )}
 
         {/* Assign Team */}
@@ -366,17 +393,45 @@ export function ProjectForm({
           </div>
         </div>
 
-        {/* Client Email — create mode places it after scope */}
+        {/* Client — create mode places it after scope */}
         {mode === "create" && (
           <div className="flex flex-col gap-1.5">
-            <Input
-              label={t("clientEmail")}
-              type="email"
-              placeholder={t("clientEmailPlaceholder")}
-              value={form.clientEmail}
-              onChange={(e) => updateField("clientEmail", e.target.value)}
-              autoComplete="email"
-            />
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("client")}
+            </label>
+            {clients.length === 0 ? (
+              <p className="text-xs text-text-muted">{t("noClients")}</p>
+            ) : (
+              <Select
+                value={form.clientEmail || "__none__"}
+                onValueChange={(v) => {
+                  if (v === "__none__") {
+                    updateField("clientEmail", "");
+                    updateField("clientName", "");
+                    return;
+                  }
+                  const selected = clients.find((c) => c.user.email === v);
+                  if (selected) {
+                    updateField("clientEmail", selected.user.email);
+                    updateField("clientName", selected.user.name);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("selectClient")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    {t("noClientSelected")}
+                  </SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.user.id} value={c.user.email}>
+                      {c.user.name} ({c.user.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
           </div>
         )}

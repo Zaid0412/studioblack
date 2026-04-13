@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { UserPlus, LogOut } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
@@ -7,6 +9,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/card";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useOrganisation } from "./_hooks/useOrganisation";
 import { CreateOrgForm } from "./_components/CreateOrgForm";
 import { OrgDetailsCard } from "./_components/OrgDetailsCard";
@@ -18,7 +21,16 @@ import { LeaveDialog } from "./_components/LeaveDialog";
 /** Organisation management page — create org, invite & manage members. */
 export default function OrganisationPage() {
   const t = useTranslations("organisation");
+  const { role } = useUserRole();
+  const router = useRouter();
   const org = useOrganisation();
+
+  // Block clients from accessing this page
+  useEffect(() => {
+    if (role === "client") {
+      router.replace("/dashboard");
+    }
+  }, [role, router]);
 
   if (org.loading) {
     return (

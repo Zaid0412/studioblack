@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
 
-import { ac, owner, admin, member } from "@/lib/permissions";
+import { ac, owner, admin, member, client } from "@/lib/permissions";
 import {
   sendMagicLinkEmail,
   sendInvitationEmail,
@@ -37,7 +37,8 @@ function getBaseURL(): string {
  *   admin  → other PMs invited later
  *   member → Architects (update projects, upload docs)
  *
- * Clients are NOT org members — they access projects via magic link.
+ * Clients are org members with a "client" role — minimal permissions.
+ * They access projects via client_email match.
  */
 export const auth = betterAuth({
   baseURL: getBaseURL(),
@@ -114,8 +115,22 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          // If the new user's email matches a project's client_email, set role to "client"
           const pool = getPool();
+
+          // Check if there's a pending org invitation with role "client"
+          const { rows: invRows } = await pool.query(
+            `SELECT 1 FROM "invitation" WHERE email = $1 AND role = 'client' AND status = 'pending' LIMIT 1`,
+            [user.email]
+          );
+          if (invRows.length > 0) {
+            await pool.query(
+              `UPDATE "user" SET role = 'client' WHERE id = $1`,
+              [user.id]
+            );
+            return;
+          }
+
+          // Backward compat: if the email matches a project's client_email, set role to "client"
           const { rows } = await pool.query(
             `SELECT 1 FROM project WHERE client_email = $1 LIMIT 1`,
             [user.email]
@@ -133,7 +148,7 @@ export const auth = betterAuth({
   plugins: [
     organization({
       ac,
-      roles: { owner, admin, member },
+      roles: { owner, admin, member, client },
       async sendInvitationEmail({ id, email, organization: org, inviter }) {
         const baseUrl = getBaseURL();
         const inviteLink = `${baseUrl}/register?invitationId=${id}&email=${encodeURIComponent(email)}`;

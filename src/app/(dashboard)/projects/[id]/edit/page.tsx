@@ -61,6 +61,7 @@ export default function EditProjectPage({
   const t = useTranslations("editProject");
   const tc = useTranslations("common");
   const { members: architects } = useOrgMembers();
+  const { members: clients } = useOrgMembers({ roleFilter: "client" });
 
   const [project, setProject] = useState<ProjectData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -205,6 +206,7 @@ export default function EditProjectPage({
         mode="edit"
         initialData={initialData}
         architects={architects}
+        clients={clients}
         onSubmit={handleSave}
         onCancel={() => router.push(`/projects/${id}`)}
         submitting={saving}

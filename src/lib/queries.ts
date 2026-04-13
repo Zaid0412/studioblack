@@ -155,6 +155,16 @@ export async function getProjectsByClientEmail(email: string) {
   return rows;
 }
 
+/** Clear client_email/client_name on all projects assigned to a given email. */
+export async function clearClientEmailByEmail(email: string) {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE project SET client_email = NULL, client_name = NULL WHERE client_email = $1`,
+    [email]
+  );
+  return rowCount ?? 0;
+}
+
 /** Get a single project by ID with phases, members, and steps. */
 export async function getProjectById(projectId: string) {
   const pool = getPool();
