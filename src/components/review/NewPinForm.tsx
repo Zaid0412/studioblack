@@ -261,7 +261,7 @@ export function NewPinForm({
           >
             <div className="px-3 pb-3 flex flex-col gap-3 border-t border-[#ffffff0a] pt-2.5">
               <div className="flex items-center gap-3">
-                <label className="text-[11px] text-text-muted w-[60px] shrink-0">
+                <label className="text-[11px] text-text-secondary w-[60px] shrink-0">
                   Assignee
                 </label>
                 <Select value={assignedTo} onValueChange={setAssignedTo}>
@@ -278,7 +278,7 @@ export function NewPinForm({
                 </Select>
               </div>
               <div className="flex items-center gap-3">
-                <label className="text-[11px] text-text-muted w-[60px] shrink-0">
+                <label className="text-[11px] text-text-secondary w-[60px] shrink-0">
                   Due Date
                 </label>
                 <DatePicker

@@ -31,7 +31,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
             Reviews
           </span>
           {reviews.length > 0 && (
-            <span className="text-[11px] text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded-full">
+            <span className="text-[11px] text-text-secondary bg-bg-secondary px-1.5 py-0.5 rounded-full">
               {reviews.length}
             </span>
           )}
@@ -105,7 +105,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
 
                   {/* Comment */}
                   {rev.comment && (
-                    <p className="text-[11px] text-text-muted ml-5.5 mb-1.5 leading-relaxed">
+                    <p className="text-[11px] text-text-secondary ml-5.5 mb-1.5 leading-relaxed">
                       {rev.comment}
                     </p>
                   )}

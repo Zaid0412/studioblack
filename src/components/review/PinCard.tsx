@@ -201,7 +201,7 @@ export function PinCard({
           className={`text-[12px] px-3 pb-2 ml-7 leading-relaxed ${
             pin.resolved
               ? "text-text-secondary line-through"
-              : "text-text-muted"
+              : "text-text-secondary"
           }`}
         >
           {pin.content}
@@ -277,14 +277,14 @@ export function PinCard({
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-medium text-text-muted">
+                        <span className="text-[11px] font-medium text-text-secondary">
                           {reply.user_name}
                         </span>
-                        <span className="text-[9px] text-text-secondary">
+                        <span className="text-[9px] text-text-muted">
                           {timeAgo(reply.created_at)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-text-muted leading-relaxed">
+                      <p className="text-[11px] text-text-secondary leading-relaxed">
                         {reply.content}
                       </p>
                     </div>
