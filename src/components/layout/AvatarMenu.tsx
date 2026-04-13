@@ -68,17 +68,17 @@ export function AvatarMenu({ user }: AvatarMenuProps) {
         <div className="py-1.5">
           <button
             onClick={() => router.push("/settings")}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-[15px] font-semibold text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
           >
-            <Settings className="w-4 h-4 text-text-muted" />
+            <Settings className="w-5 h-5 text-text-primary" />
             {t("settings")}
           </button>
           {isStaff && (
             <button
               onClick={() => router.push("/organisation")}
-              className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
+              className="flex items-center gap-3 w-full px-4 py-2.5 text-[15px] font-semibold text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
             >
-              <Building2 className="w-4 h-4 text-text-muted" />
+              <Building2 className="w-5 h-5 text-text-primary" />
               {t("organisation")}
             </button>
           )}
@@ -90,9 +90,9 @@ export function AvatarMenu({ user }: AvatarMenuProps) {
         <div className="py-1.5">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-error hover:bg-danger-muted transition-colors cursor-pointer"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-[15px] font-semibold text-error hover:bg-danger-muted transition-colors cursor-pointer"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-5 h-5" />
             {t("logout")}
           </button>
         </div>

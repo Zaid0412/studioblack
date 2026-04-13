@@ -178,7 +178,7 @@ export default function ProjectDetailPage({
         activePhaseId={activePhaseId}
         phaseCounts={phaseCounts}
         onPhaseChange={setActivePhaseId}
-        showPhaseStatus={isClient}
+        showPhaseStatus
       />
 
       <FileTable

@@ -98,11 +98,13 @@ export function PinCard({
     }
   }
 
+  const userInitial = pin.user_name?.charAt(0)?.toUpperCase() ?? "?";
+
   return (
     <div
       ref={selectedRef}
       onClick={onSelect}
-      className={`group w-full text-left rounded-lg border transition-colors cursor-pointer ${
+      className={`group w-full text-left rounded-[10px] border transition-colors cursor-pointer ${
         pin.request_changes
           ? isSelected
             ? "bg-amber-500/10 border-amber-500/30"
@@ -114,16 +116,46 @@ export function PinCard({
       role="button"
       tabIndex={0}
     >
-      {/* Header: pin badge + author + time */}
-      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
+      {/* Header: avatar + name/time + pin badge */}
+      <div className="flex items-center gap-2.5 px-3.5 pt-3 pb-1.5">
+        {/* Avatar */}
+        <span className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[11px] font-bold text-text-on-accent shrink-0">
+          {userInitial}
+        </span>
+
+        {/* Name + time stacked */}
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          <span
+            className={`text-[12px] font-semibold truncate ${
+              pin.resolved ? "text-text-secondary" : "text-text-primary"
+            }`}
+          >
+            {pin.user_name}
+          </span>
+          <span className="text-[10px] text-text-muted flex items-center gap-1">
+            {pin.updated_at && <span>(edited)</span>}
+            {timeAgo(pin.created_at)}
+          </span>
+        </div>
+
+        {/* Badges: task, changes requested, pin number */}
+        {pin.task_id !== null && (
+          <CheckSquare className="w-3 h-3 text-text-secondary shrink-0" />
+        )}
+        {pin.request_changes && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
+            <AlertTriangle className="w-2.5 h-2.5" />
+            Changes
+          </span>
+        )}
         {pinHasCoords ? (
           <span
             className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
               isSelected
-                ? "bg-[#F5C518] text-text-on-accent"
+                ? "bg-accent text-text-on-accent"
                 : pin.resolved
-                  ? "bg-bg-secondary text-text-secondary"
-                  : "bg-bg-secondary text-text-primary"
+                  ? "bg-bg-elevated text-text-secondary"
+                  : "bg-bg-elevated text-text-primary"
             }`}
           >
             {pin.resolved ? <Check className="w-3 h-3" /> : pinIndex}
@@ -131,37 +163,17 @@ export function PinCard({
         ) : (
           <span
             className={`w-5 h-5 flex items-center justify-center shrink-0 ${
-              isSelected ? "text-[#F5C518]" : "text-text-secondary"
+              isSelected ? "text-accent" : "text-text-secondary"
             }`}
           >
             <MessageCircle className="w-3.5 h-3.5" />
           </span>
         )}
-        <span
-          className={`text-[12px] font-medium truncate ${
-            pin.resolved ? "text-text-secondary" : "text-text-primary"
-          }`}
-        >
-          {pin.user_name}
-        </span>
-        {pin.task_id !== null && (
-          <CheckSquare className="w-3 h-3 text-text-secondary shrink-0" />
-        )}
-        {pin.request_changes && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
-            <AlertTriangle className="w-2.5 h-2.5" />
-            Changes Requested
-          </span>
-        )}
-        <span className="text-[10px] text-text-secondary ml-auto shrink-0 flex items-center gap-1">
-          {pin.updated_at && <span>(edited)</span>}
-          {timeAgo(pin.created_at)}
-        </span>
       </div>
 
       {/* Content — inline edit or display */}
       {editing ? (
-        <div className="px-3 pb-2 ml-7" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3.5 pb-2.5" onClick={(e) => e.stopPropagation()}>
           <textarea
             ref={editRef}
             value={editContent}
@@ -176,12 +188,12 @@ export function PinCard({
               }
             }}
             rows={3}
-            className="w-full resize-none bg-bg-secondary border border-border-default rounded px-2 py-1.5 text-[12px] text-text-primary outline-none focus:border-[#F5C518]/30"
+            className="w-full resize-none bg-bg-elevated border border-border-default rounded-md px-2.5 py-2 text-[13px] text-text-primary outline-none focus:border-accent/30"
           />
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-2 mt-1.5">
             <button
               onClick={handleEditSave}
-              className="text-[10px] text-[#F5C518] hover:underline cursor-pointer"
+              className="text-[11px] text-accent hover:underline cursor-pointer"
             >
               Save
             </button>
@@ -190,7 +202,7 @@ export function PinCard({
                 setEditing(false);
                 setEditContent(pin.content);
               }}
-              className="text-[10px] text-text-secondary hover:text-text-muted cursor-pointer"
+              className="text-[11px] text-text-secondary hover:text-text-muted cursor-pointer"
             >
               Cancel
             </button>
@@ -198,10 +210,10 @@ export function PinCard({
         </div>
       ) : (
         <p
-          className={`text-[12px] px-3 pb-2 ml-7 leading-relaxed ${
+          className={`text-[13px] px-3.5 pb-2.5 leading-[1.55] ${
             pin.resolved
               ? "text-text-secondary line-through"
-              : "text-text-muted"
+              : "text-text-primary"
           }`}
         >
           {pin.content}
@@ -210,15 +222,15 @@ export function PinCard({
 
       {/* Actions bar */}
       <div
-        className="flex items-center justify-between px-3 py-1.5 border-t border-[#ffffff06]"
+        className="flex items-center justify-between px-3.5 py-2 border-t border-border-default/10"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3.5">
           <Checkbox
             checked={pin.resolved}
             onCheckedChange={() => onResolve(!pin.resolved)}
             label={pin.resolved ? "Resolved" : "Resolve"}
-            className="[&_span]:text-[10px] [&_span]:text-text-secondary"
+            className="[&_span]:text-[11px] [&_span]:text-text-secondary"
             disabled={isTemp}
           />
           {/* Reply count / toggle */}
@@ -226,13 +238,13 @@ export function PinCard({
             <button
               onClick={handleToggleReplies}
               aria-label={repliesOpen ? "Hide replies" : "Show replies"}
-              className={`flex items-center gap-1 text-[10px] cursor-pointer transition-colors ${
+              className={`flex items-center gap-1.5 text-[11px] cursor-pointer transition-colors ${
                 repliesOpen
-                  ? "text-[#F5C518]"
-                  : "text-text-secondary hover:text-text-muted"
+                  ? "text-accent"
+                  : "text-text-secondary hover:text-text-primary"
               }`}
             >
-              <MessageSquare className="w-3 h-3" />
+              <MessageSquare className="w-3.5 h-3.5" />
               {pin.reply_count > 0 && <span>{pin.reply_count}</span>}
             </button>
           )}
@@ -242,9 +254,9 @@ export function PinCard({
             <button
               onClick={() => setEditing(true)}
               aria-label="Edit comment"
-              className="text-text-secondary hover:text-text-muted transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
+              className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
             >
-              <Pencil className="w-3 h-3" />
+              <Pencil className="w-3.5 h-3.5" />
             </button>
           )}
           {canDelete && !isTemp && (
@@ -253,7 +265,7 @@ export function PinCard({
               aria-label="Delete comment"
               className="text-text-secondary hover:text-red-400 transition-colors cursor-pointer p-1 opacity-0 group-hover:opacity-100"
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -262,29 +274,29 @@ export function PinCard({
       {/* Reply thread */}
       {repliesOpen && (
         <div
-          className="border-t border-[#ffffff06] px-3 py-2"
+          className="border-t border-border-default/10 px-3.5 py-2.5"
           onClick={(e) => e.stopPropagation()}
         >
           {replies ? (
             replies.length > 0 ? (
-              <div className="flex flex-col gap-2 mb-2">
+              <div className="flex flex-col gap-2.5 mb-2.5">
                 {replies.map((reply) => (
-                  <div key={reply.id} className="flex gap-2">
-                    <div className="w-4 h-4 rounded-full bg-bg-secondary flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[8px] text-text-secondary font-bold">
+                  <div key={reply.id} className="flex gap-2.5">
+                    <div className="w-5 h-5 rounded-full bg-accent/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[9px] text-accent font-bold">
                         {reply.user_name?.charAt(0)?.toUpperCase()}
                       </span>
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-medium text-text-muted">
+                        <span className="text-[12px] font-medium text-text-primary">
                           {reply.user_name}
                         </span>
-                        <span className="text-[9px] text-text-secondary">
+                        <span className="text-[10px] text-text-muted">
                           {timeAgo(reply.created_at)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-text-muted leading-relaxed">
+                      <p className="text-[12px] text-text-secondary leading-[1.55]">
                         {reply.content}
                       </p>
                     </div>
@@ -292,19 +304,19 @@ export function PinCard({
                 ))}
               </div>
             ) : (
-              <p className="text-[10px] text-text-secondary mb-2">
+              <p className="text-[11px] text-text-secondary mb-2">
                 No replies yet
               </p>
             )
           ) : (
             <div className="flex justify-center py-2">
-              <Loader2 className="w-3 h-3 animate-spin text-text-secondary" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-text-secondary" />
             </div>
           )}
 
           {/* Reply input */}
           {onAddReply && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <input
                 ref={replyRef}
                 value={replyText}
@@ -316,17 +328,17 @@ export function PinCard({
                   }
                 }}
                 placeholder="Reply…"
-                className="flex-1 bg-bg-secondary border border-[#ffffff0a] rounded px-2 py-1 text-[11px] text-text-primary placeholder:text-text-secondary outline-none focus:border-[#F5C518]/30"
+                className="flex-1 bg-bg-elevated border border-border-default/20 rounded-md px-2.5 py-1.5 text-[12px] text-text-primary placeholder:text-text-secondary outline-none focus:border-accent/30"
               />
               <button
                 onClick={handleSubmitReply}
                 disabled={!replyText.trim() || replySubmitting}
-                className="text-text-secondary hover:text-[#F5C518] disabled:opacity-30 transition-colors cursor-pointer p-1"
+                className="text-text-secondary hover:text-accent disabled:opacity-30 transition-colors cursor-pointer p-1"
               >
                 {replySubmitting ? (
-                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <Send className="w-3 h-3" />
+                  <Send className="w-3.5 h-3.5" />
                 )}
               </button>
             </div>

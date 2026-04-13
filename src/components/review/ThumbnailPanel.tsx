@@ -45,11 +45,11 @@ export function ThumbnailPanel({
     <div className="hidden lg:flex w-40 shrink-0 bg-bg-primary border-r border-border-default flex-col overflow-hidden">
       {/* Header */}
       <div className="px-3 py-3 border-b border-border-default">
-        <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
+        <p className="text-[12px] font-medium text-text-primary uppercase tracking-wider">
           {phaseName || "Files"}
         </p>
         {!loading && (
-          <p className="text-[11px] text-text-muted mt-0.5">
+          <p className="text-[12px] text-text-primary mt-0.5">
             {phaseFiles.length} file{phaseFiles.length !== 1 ? "s" : ""}
           </p>
         )}
@@ -74,7 +74,7 @@ export function ThumbnailPanel({
             ))}
           </div>
         ) : phaseFiles.length === 0 ? (
-          <p className="text-[11px] text-text-muted px-3 py-4">
+          <p className="text-[11px] text-text-secondary px-3 py-4">
             No files found
           </p>
         ) : (
@@ -90,7 +90,9 @@ export function ThumbnailPanel({
                     : "border-l-2 border-transparent hover:bg-bg-secondary"
                 }`}
               >
-                <div className={isActive ? "text-accent" : "text-text-muted"}>
+                <div
+                  className={isActive ? "text-accent" : "text-text-secondary"}
+                >
                   <FileTypeIcon name={file.file_name} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -98,7 +100,7 @@ export function ThumbnailPanel({
                     className={`text-[12px] truncate ${
                       isActive
                         ? "text-text-primary font-medium"
-                        : "text-text-secondary"
+                        : "text-text-primary"
                     }`}
                   >
                     {file.file_name}

@@ -1,6 +1,5 @@
 "use client";
 
-import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import type { DbPhase } from "@/types";
 
 interface PhaseTabsProps {
@@ -8,11 +7,17 @@ interface PhaseTabsProps {
   activePhaseId: string | null;
   phaseCounts: Map<string, number>;
   onPhaseChange: (phaseId: string) => void;
-  /** When true, shows status icons next to phase names (used in client view). */
+  /** When true, shows status dots next to phase names (used in client view). */
   showPhaseStatus?: boolean;
 }
 
-/** Horizontal tabs for switching between project phases with file counts. */
+function statusDotColor(status: string | undefined, fileCount: number) {
+  if (status === "completed") return "bg-emerald-500";
+  if (fileCount > 0) return "bg-accent";
+  return "bg-text-muted";
+}
+
+/** Flat underline tabs for switching between project phases with status dots and file counts. */
 export function PhaseTabs({
   phases,
   activePhaseId,
@@ -21,49 +26,56 @@ export function PhaseTabs({
   showPhaseStatus = false,
 }: PhaseTabsProps) {
   return (
-    <div className="relative border-b border-border-default shrink-0">
-      {/* Right fade hint */}
+    <div className="relative shrink-0 px-4 lg:px-10">
+      {/* Right fade hint for mobile scroll */}
       <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--bg-primary)] to-transparent z-10 lg:hidden" />
-      <div className="flex items-center px-4 lg:px-10 overflow-x-auto scrollbar-none">
-        {phases.map((phase) => {
+      <div className="flex rounded-xl border border-border-default overflow-x-auto overflow-hidden scrollbar-none">
+        {phases.map((phase, idx) => {
           const isActive = phase.id === activePhaseId;
           const count = phaseCounts.get(phase.id) || 0;
+          const isFirst = idx === 0;
+          const isLast = idx === phases.length - 1;
           return (
             <button
               key={phase.id}
               onClick={() => onPhaseChange(phase.id)}
-              className={`relative flex items-center gap-1.5 px-4 h-11 text-[13px] whitespace-nowrap transition-colors cursor-pointer ${
+              className={`relative flex-1 flex items-center gap-2.5 px-4 pt-3 pb-2.5 text-left transition-all duration-200 ease-out cursor-pointer shrink-0 min-w-0 ${
                 isActive
-                  ? showPhaseStatus
-                    ? "text-accent font-medium"
-                    : "text-text-primary font-medium"
-                  : "text-text-secondary font-normal hover:text-text-primary"
+                  ? "bg-accent/10"
+                  : "bg-transparent hover:bg-bg-elevated"
               }`}
             >
               {showPhaseStatus && (
-                <>
-                  {phase.status === "completed" ? (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : phase.status === "in_progress" ? (
-                    <Clock className="w-3.5 h-3.5 text-accent" />
-                  ) : (
-                    <AlertCircle className="w-3.5 h-3.5 text-text-muted" />
-                  )}
-                </>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-200 ${statusDotColor(phase.status, count)}`}
+                />
               )}
-              {phase.name}
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span
+                  className={`text-[13px] whitespace-nowrap transition-colors duration-200 ${
+                    isActive
+                      ? "text-text-primary font-semibold"
+                      : "text-text-secondary font-medium"
+                  }`}
+                >
+                  {phase.name}
+                </span>
+                <span
+                  className={`text-[10px] transition-colors duration-200 ${
+                    isActive ? "text-text-secondary" : "text-text-muted"
+                  }`}
+                >
+                  {count} file{count !== 1 ? "s" : ""}
+                </span>
+              </div>
+              {/* Accent underline — always rendered, fades in/out */}
               <span
-                className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] ${
-                  isActive
-                    ? "bg-border-default text-text-primary font-medium"
-                    : "bg-bg-elevated text-text-muted font-normal"
+                className={`absolute bottom-0 left-0 right-0 h-[3px] bg-accent transition-opacity duration-200 ease-out ${
+                  isFirst ? "rounded-bl-xl" : ""
+                } ${isLast ? "rounded-br-xl" : ""} ${
+                  isActive ? "opacity-100" : "opacity-0"
                 }`}
-              >
-                {count}
-              </span>
-              {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent" />
-              )}
+              />
             </button>
           );
         })}

@@ -23,8 +23,9 @@ export function RefreshButton({
 
   const handleClick = useCallback(async () => {
     setSpinning(true);
+    const minSpin = new Promise((r) => setTimeout(r, 500));
     try {
-      await onRefresh();
+      await Promise.all([onRefresh(), minSpin]);
     } finally {
       setSpinning(false);
     }

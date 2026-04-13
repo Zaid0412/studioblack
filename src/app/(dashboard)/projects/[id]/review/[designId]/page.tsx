@@ -19,6 +19,7 @@ import {
 import { useDesignReview } from "@/hooks/useDesignReview";
 import { usePinComments } from "@/hooks/usePinComments";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
 import { ReviewToolbar } from "@/components/review/ReviewToolbar";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
@@ -28,12 +29,7 @@ import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
-import {
-  attachments as attachmentsApi,
-  projects as projectsApi,
-  upload,
-  ApiError,
-} from "@/lib/api";
+import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { isPdf } from "@/lib/fileUtils";
 import { useSidebar } from "@/components/layout/SidebarContext";
@@ -93,35 +89,14 @@ export default function DesignReviewPage({
     addReply,
   } = pinState;
 
-  // Fetch project members for assignee dropdown
-  const [members, setMembers] = useState<
-    { user_id: string; name: string; role?: string }[]
-  >([]);
-  const [defaultAssignee, setDefaultAssignee] = useState("");
-  useEffect(() => {
-    let ignore = false;
-    projectsApi
-      .get<{
-        members: {
-          user_id: string;
-          name: string;
-          email: string;
-          role?: string;
-        }[];
-      }>(id)
-      .then((p) => {
-        if (!ignore) {
-          const m = p.members ?? [];
-          setMembers(m);
-          const arch = m.find((x) => x.role === "architect");
-          if (arch) setDefaultAssignee(arch.user_id);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      ignore = true;
-    };
-  }, [id]);
+  // Org members for assignee dropdown (same source as tasks page)
+  const { members: orgMembers } = useOrgMembers({ assignableOnly: true });
+  const members = orgMembers.map((m) => ({
+    user_id: m.userId,
+    name: m.user.name,
+  }));
+  const defaultAssignee =
+    orgMembers.find((m) => m.role === "member")?.userId ?? "";
 
   // Pending pin: stores the click coordinates while the form is open
   const [pendingPin, setPendingPin] = useState<{

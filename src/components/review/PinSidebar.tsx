@@ -117,7 +117,7 @@ export function PinSidebar({
             Comments
           </span>
           {pins.length > 0 && (
-            <span className="text-[11px] text-text-muted bg-bg-secondary px-1.5 py-0.5 rounded-full">
+            <span className="text-[11px] text-text-secondary bg-bg-secondary px-1.5 py-0.5 rounded-full">
               {pins.length}
             </span>
           )}
