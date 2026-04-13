@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Mail, RefreshCw, Loader2, ArrowLeft, Sun, Moon } from "lucide-react";
@@ -20,6 +20,10 @@ export default function VerifyEmailPage() {
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  useEffect(() => {
+    return () => clearInterval(cooldownRef.current);
+  }, []);
 
   const startCooldown = useCallback(() => {
     setCooldown(60);

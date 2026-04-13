@@ -206,3 +206,22 @@ export const auth = betterAuth({
     }),
   ],
 });
+
+// Startup safety check: warn if email verification is enabled but
+// existing users haven't been migrated (would lock them out on login).
+if (features.emailVerification) {
+  getPool()
+    .query(
+      `SELECT COUNT(*)::int AS cnt FROM "user" WHERE "emailVerified" = false OR "emailVerified" IS NULL`
+    )
+    .then(({ rows }) => {
+      if (rows[0].cnt > 0) {
+        logger.warn(
+          `${rows[0].cnt} user(s) have unverified emails — they will be blocked from signing in. Run scripts/migrate-verify-existing-users.sql to grandfather them.`
+        );
+      }
+    })
+    .catch(() => {
+      // Non-blocking — pool may not be ready at import time in some envs
+    });
+}
