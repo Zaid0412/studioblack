@@ -432,7 +432,9 @@ export function ProjectForm({
                 </SelectContent>
               </Select>
             )}
-            <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
+            {clients.length > 0 && (
+              <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
+            )}
           </div>
         )}
 
