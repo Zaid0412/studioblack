@@ -8,9 +8,12 @@ import {
   type ReactNode,
 } from "react";
 import { Download, FileText, MapPin } from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { isImage, isPdf, isSpreadsheet } from "@/lib/fileUtils";
 import { SpreadsheetViewer } from "./SpreadsheetViewer";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 // Pin cursor as a data URI — encoded at module load time
 const PIN_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="22" viewBox="0 0 24 32" fill="none"><path d="M12 0C5.372 0 0 5.372 0 12c0 7 12 20 12 20s12-13 12-20c0-6.628-5.372-12-12-12z" fill="#F5C518"/><circle cx="12" cy="12" r="4" fill="#0D0D0D"/></svg>`;
@@ -48,90 +51,24 @@ export function DocumentViewer({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
-  const pdfjsRef = useRef<PdfjsLib | null>(null);
-  const pdfDocRef = useRef<PdfDocument | null>(null);
+  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
 
-  // Load pdfjs-dist from CDN once
-  useEffect(() => {
-    if (pdfjsRef.current) return;
-
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.min.mjs";
-    script.type = "module";
-
-    // For module scripts we need a different loading strategy
-    const moduleScript = document.createElement("script");
-    moduleScript.type = "module";
-    moduleScript.textContent = `
-      try {
-        const pdfjsLib = await import("https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.min.mjs");
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://unpkg.com/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs";
-        window.__pdfjsLib = pdfjsLib;
-        window.dispatchEvent(new Event("pdfjsReady"));
-      } catch (e) {
-        window.dispatchEvent(new CustomEvent("pdfjsError", { detail: e?.message || "Failed to load PDF library" }));
-      }
-    `;
-    document.head.appendChild(moduleScript);
-
-    const onReady = () => {
-      pdfjsRef.current = (window as WindowWithPdfjs).__pdfjsLib ?? null;
-    };
-    const onError = (e: Event) => {
-      setPdfError((e as CustomEvent).detail || "Failed to load PDF viewer");
-    };
-    window.addEventListener("pdfjsReady", onReady);
-    window.addEventListener("pdfjsError", onError);
-
-    return () => {
-      window.removeEventListener("pdfjsReady", onReady);
-      window.removeEventListener("pdfjsError", onError);
-      moduleScript.remove();
-    };
-  }, []);
-
-  // Render PDF pages when file changes
+  // Load PDF document when file changes
   useEffect(() => {
     if (!isPdf(fileName)) return;
 
     setPdfError(null);
     let cancelled = false;
-    let pollTimerId = 0;
     const proxyUrl = `/api/proxy-file?url=${encodeURIComponent(fileUrl)}`;
 
     async function loadPdf() {
-      // Wait for pdfjs to be available
-      let lib = pdfjsRef.current;
-      if (!lib) {
-        await new Promise<void>((resolve, reject) => {
-          let attempts = 0;
-          const check = () => {
-            if (cancelled) return reject(new Error("cancelled"));
-            lib = (window as WindowWithPdfjs).__pdfjsLib ?? null;
-            if (lib) {
-              pdfjsRef.current = lib;
-              resolve();
-            } else if (++attempts > 100) {
-              reject(new Error("PDF library load timeout"));
-            } else {
-              pollTimerId = window.setTimeout(check, 100);
-            }
-          };
-          check();
-        });
-        lib = pdfjsRef.current;
-      }
-      if (!lib || cancelled) return;
-
       setPdfLoading(true);
       try {
-        const doc = await lib.getDocument(proxyUrl).promise;
+        const doc = await pdfjsLib.getDocument(proxyUrl).promise;
         if (cancelled) return;
 
         pdfDocRef.current = doc;
         setNumPages(doc.numPages);
-
-        // Render will happen after state update via the render effect
       } catch (err) {
         console.error("[DocumentViewer] PDF load error:", err);
         if (!cancelled) setPdfError("Failed to load PDF. Please try again.");
@@ -143,7 +80,6 @@ export function DocumentViewer({
     loadPdf();
     return () => {
       cancelled = true;
-      clearTimeout(pollTimerId);
       pdfDocRef.current = null;
       setNumPages(0);
     };
@@ -325,27 +261,4 @@ export function DocumentViewer({
       </div>
     </div>
   );
-}
-
-// Types for the CDN-loaded pdfjs-dist
-interface PdfjsLib {
-  GlobalWorkerOptions: { workerSrc: string };
-  getDocument: (src: string) => { promise: Promise<PdfDocument> };
-}
-
-interface PdfDocument {
-  numPages: number;
-  getPage: (num: number) => Promise<PdfPage>;
-}
-
-interface PdfPage {
-  getViewport: (params: { scale: number }) => { width: number; height: number };
-  render: (params: {
-    canvasContext: CanvasRenderingContext2D;
-    viewport: { width: number; height: number };
-  }) => { promise: Promise<void> };
-}
-
-interface WindowWithPdfjs extends Window {
-  __pdfjsLib?: PdfjsLib;
 }
