@@ -42,7 +42,7 @@ export async function createNotificationsForTeam(
      SELECT DISTINCT m."userId", $3, $4, $5, $1::uuid
      FROM project p
      JOIN member m ON m."organizationId" = p.org_id
-     WHERE p.id = $1::uuid AND m."userId" != $2`,
+     WHERE p.id = $1::uuid AND m."userId" != $2 AND m.role != 'client'`,
     [projectId, excludeUserId, type, title, description || ""]
   );
 }
@@ -155,7 +155,7 @@ export function notifyTeamByEmail(
        FROM project p
        JOIN member m ON m."organizationId" = p.org_id
        JOIN "user" u ON u.id = m."userId"
-       WHERE p.id = $1 ${excludeClause}`,
+       WHERE p.id = $1 AND m.role != 'client' ${excludeClause}`,
       [projectId, ...excludeUserIds]
     )
     .then(({ rows: members }) => {
