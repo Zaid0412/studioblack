@@ -92,7 +92,9 @@
     "verifyEmailDifferent": "Use a different email",
     "verifyEmailSpamHint": "Didn't receive the email? Check your spam folder.",
     "verifyEmailRequired": "Please verify your email before signing in.",
-    "verifyEmailResending": "Sending..."
+    "verifyEmailResending": "Sending...",
+    "verifyEmailResendError": "Failed to send verification email. Please try again.",
+    "verifyEmailCooldown": "Resend in {seconds}s"
   },
   "nav": {
     "dashboard": "Dashboard",

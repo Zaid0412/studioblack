@@ -92,7 +92,9 @@
     "verifyEmailDifferent": "Farklı bir e-posta kullan",
     "verifyEmailSpamHint": "E-postayı almadınız mı? Spam klasörünüzü kontrol edin.",
     "verifyEmailRequired": "Lütfen giriş yapmadan önce e-postanızı doğrulayın.",
-    "verifyEmailResending": "Gönderiliyor..."
+    "verifyEmailResending": "Gönderiliyor...",
+    "verifyEmailResendError": "Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.",
+    "verifyEmailCooldown": "{seconds}s sonra tekrar gönder"
   },
   "nav": {
     "dashboard": "Kontrol Paneli",

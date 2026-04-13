@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Mail, RefreshCw, Loader2, ArrowLeft, Sun, Moon } from "lucide-react";
@@ -18,9 +18,24 @@ export default function VerifyEmailPage() {
   const email = searchParams.get("email") ?? "";
   const { mode, toggleTheme } = useTheme();
   const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
+
+  const startCooldown = useCallback(() => {
+    setCooldown(60);
+    cooldownRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
   const handleResend = useCallback(async () => {
-    if (!email || resending) return;
+    if (!email) return;
     setResending(true);
     try {
       await authClient.sendVerificationEmail({
@@ -28,12 +43,13 @@ export default function VerifyEmailPage() {
         callbackURL: "/dashboard",
       });
       toast({ title: t("verifyEmailResent"), variant: "success" });
+      startCooldown();
     } catch {
-      toast({ title: t("verifyEmailResend"), variant: "destructive" });
+      toast({ title: t("verifyEmailResendError"), variant: "error" });
     } finally {
       setResending(false);
     }
-  }, [email, resending, t]);
+  }, [email, t, startCooldown]);
 
   const handleDifferentEmail = useCallback(async () => {
     try {
@@ -98,7 +114,7 @@ export default function VerifyEmailPage() {
           <div className="flex flex-col gap-3.5 w-full max-w-[360px] mt-9">
             <Button
               onClick={handleResend}
-              disabled={resending || !email}
+              disabled={resending || !email || cooldown > 0}
               className="w-full h-[46px]"
             >
               {resending ? (
@@ -106,6 +122,8 @@ export default function VerifyEmailPage() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                   {t("verifyEmailResending")}
                 </>
+              ) : cooldown > 0 ? (
+                t("verifyEmailCooldown", { seconds: cooldown })
               ) : (
                 <>
                   <RefreshCw className="w-4 h-4" />

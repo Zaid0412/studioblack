@@ -87,30 +87,28 @@ export const auth = betterAuth({
 
           // Nullify FK references before user row deletion so
           // ON DELETE SET NULL triggers don't hit NOT NULL constraints.
-          await pool.query(
-            `UPDATE attachment SET uploaded_by = NULL WHERE uploaded_by = $1`,
-            [user.id]
-          );
-          await pool.query(
-            `UPDATE attachment SET reviewed_by = NULL WHERE reviewed_by = $1`,
-            [user.id]
-          );
-          await pool.query(
-            `UPDATE attachment SET sent_to_client_by = NULL WHERE sent_to_client_by = $1`,
-            [user.id]
-          );
-          await pool.query(
-            `UPDATE comment SET user_id = NULL WHERE user_id = $1`,
-            [user.id]
-          );
-          await pool.query(
-            `UPDATE project SET created_by = NULL WHERE created_by = $1`,
-            [user.id]
-          );
-          await pool.query(
-            `UPDATE phase_task SET assigned_to = NULL WHERE assigned_to = $1`,
-            [user.id]
-          );
+          await Promise.all([
+            pool.query(
+              `UPDATE attachment SET
+                 uploaded_by = CASE WHEN uploaded_by = $1 THEN NULL ELSE uploaded_by END,
+                 reviewed_by = CASE WHEN reviewed_by = $1 THEN NULL ELSE reviewed_by END,
+                 sent_to_client_by = CASE WHEN sent_to_client_by = $1 THEN NULL ELSE sent_to_client_by END
+               WHERE uploaded_by = $1 OR reviewed_by = $1 OR sent_to_client_by = $1`,
+              [user.id]
+            ),
+            pool.query(
+              `UPDATE comment SET user_id = NULL WHERE user_id = $1`,
+              [user.id]
+            ),
+            pool.query(
+              `UPDATE project SET created_by = NULL WHERE created_by = $1`,
+              [user.id]
+            ),
+            pool.query(
+              `UPDATE phase_task SET assigned_to = NULL WHERE assigned_to = $1`,
+              [user.id]
+            ),
+          ]);
 
           // Clean up better-auth org plugin tables BEFORE user row is deleted,
           // otherwise FK constraints on member/invitation block the deletion.

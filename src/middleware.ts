@@ -13,12 +13,7 @@ import { getSessionCookie } from "better-auth/cookies";
  * 1. Middleware → fast cookie-presence gate (prevents unnecessary rendering)
  * 2. Layouts → full session validation with role-based guards
  */
-const AUTH_PAGES = new Set([
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/verify-email",
-]);
+const AUTH_PAGES = new Set(["/login", "/register", "/forgot-password"]);
 
 /** Route-protection middleware: redirects unauthenticated users to login and authenticated users away from auth pages. */
 export async function middleware(request: NextRequest) {
@@ -30,8 +25,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // /reset-password is always public (token-based, may be used while logged out)
-  if (pathname === "/reset-password") {
+  // /reset-password and /verify-email are always public
+  // (token-based, may be used while logged in or logged out)
+  if (pathname === "/reset-password" || pathname === "/verify-email") {
     return NextResponse.next();
   }
 
