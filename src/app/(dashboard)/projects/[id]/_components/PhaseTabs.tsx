@@ -40,7 +40,9 @@ export function PhaseTabs({
               key={phase.id}
               onClick={() => onPhaseChange(phase.id)}
               className={`relative flex-1 flex items-center gap-2.5 px-4 pt-3 pb-2.5 text-left transition-all duration-200 ease-out cursor-pointer shrink-0 min-w-0 ${
-                isActive ? "bg-accent/10" : "bg-transparent hover:bg-bg-elevated"
+                isActive
+                  ? "bg-accent/10"
+                  : "bg-transparent hover:bg-bg-elevated"
               }`}
             >
               {showPhaseStatus && (

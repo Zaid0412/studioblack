@@ -29,11 +29,7 @@ import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
 import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
-import {
-  attachments as attachmentsApi,
-  upload,
-  ApiError,
-} from "@/lib/api";
+import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { isPdf } from "@/lib/fileUtils";
 import { useSidebar } from "@/components/layout/SidebarContext";

@@ -90,7 +90,9 @@ export function ThumbnailPanel({
                     : "border-l-2 border-transparent hover:bg-bg-secondary"
                 }`}
               >
-                <div className={isActive ? "text-accent" : "text-text-secondary"}>
+                <div
+                  className={isActive ? "text-accent" : "text-text-secondary"}
+                >
                   <FileTypeIcon name={file.file_name} />
                 </div>
                 <div className="flex-1 min-w-0">
