@@ -37,6 +37,9 @@
 
   --logo-bg: #1a1a1a;
 
+  --mention-text: #9a7d0a;
+  --mention-bg: rgba(201, 163, 12, 0.18);
+
   --sidebar-width: 200px;
   --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
   --font-heading:
@@ -82,6 +85,9 @@
   --danger-border: rgba(239, 68, 68, 0.4);
 
   --logo-bg: transparent;
+
+  --mention-text: #f5c518;
+  --mention-bg: rgba(245, 197, 24, 0.22);
 }
 
 /* ─── Splash screen logo: swap light/dark via data-theme ─── */
@@ -139,6 +145,10 @@
   --color-danger-muted: var(--danger-muted);
   --color-danger-border: var(--danger-border);
 
+  /* Mentions */
+  --color-mention-text: var(--mention-text);
+  --color-mention-bg: var(--mention-bg);
+
   /* Misc */
   --color-logo-bg: var(--logo-bg);
 
@@ -153,6 +163,14 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+
+  /* shadcn compat aliases — used by react-mentions-ts Tailwind classes */
+  --color-border: var(--border);
+  --color-card: var(--bg-input);
+  --color-foreground: var(--text-primary);
+  --color-muted-foreground: var(--text-secondary);
+  --color-popover: var(--bg-secondary);
+  --color-primary: var(--accent);
 }
 
 /* ─── Base styles ─── */
@@ -248,6 +266,34 @@ h6 {
   background-size: 200% 100%;
   animation: skeleton-shimmer 2.4s ease-in-out infinite;
   opacity: 0.5;
+}
+
+/* ── react-mentions ─────────────────────────────── */
+/* Kill browser default textarea border inside the mentions control */
+[data-slot="input"] {
+  border: none !important;
+  outline: none !important;
+}
+
+/* Override library's forced text-transparent on mention highlights */
+.mention-hl {
+  color: var(--mention-text) !important;
+  font-weight: 600 !important;
+  background: var(--mention-bg) !important;
+  padding: 1px 4px !important;
+  margin: 0 -1px !important;
+  border-radius: 4px !important;
+}
+
+@keyframes mention-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Splash screen animations */

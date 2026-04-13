@@ -195,6 +195,7 @@ export function PinSidebar({
                 replies={repliesMap?.get(pin.id)}
                 onExpandReplies={() => onFetchReplies?.(pin.id)}
                 onAddReply={(content) => onAddReply?.(pin.id, content)}
+                members={members}
               />
             ))}
           </div>

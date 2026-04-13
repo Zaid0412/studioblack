@@ -7,7 +7,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatDate } from "@/lib/formatDate";
-import type { DbComment } from "@/types";
+import { MentionRenderer } from "@/components/ui/MentionRenderer";
+import { MentionTextarea } from "@/components/ui/MentionTextarea";
+import type { DbComment, MentionMember } from "@/types";
 
 interface CommentsSectionProps {
   comments: DbComment[];
@@ -15,6 +17,7 @@ interface CommentsSectionProps {
   onNewCommentChange: (value: string) => void;
   sendingComment: boolean;
   onSendComment: () => void;
+  members?: MentionMember[];
 }
 
 /** Displays project comments thread with input for new comments. */
@@ -24,6 +27,7 @@ export function CommentsSection({
   onNewCommentChange,
   sendingComment,
   onSendComment,
+  members,
 }: CommentsSectionProps) {
   const t = useTranslations("projectDetail");
   return (
@@ -35,9 +39,10 @@ export function CommentsSection({
         </h3>
 
         <div className="flex gap-3">
-          <textarea
+          <MentionTextarea
             value={newComment}
-            onChange={(e) => onNewCommentChange(e.target.value)}
+            onChange={onNewCommentChange}
+            members={members ?? []}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
@@ -45,7 +50,7 @@ export function CommentsSection({
               }
             }}
             placeholder={t("commentPlaceholder")}
-            className="flex-1 rounded-lg border border-border-default bg-bg-secondary px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            className="relative flex-1 rounded-lg border border-border-default bg-bg-secondary text-sm focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/30"
             rows={2}
           />
           <Button
@@ -89,7 +94,7 @@ export function CommentsSection({
                   </div>
                 </div>
                 <p className="text-[13px] text-text-secondary leading-relaxed">
-                  {comment.content}
+                  <MentionRenderer content={comment.content} />
                 </p>
               </div>
             ))}

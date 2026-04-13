@@ -7,3 +7,4 @@ export * as tasks from "./tasks";
 export * as notifications from "./notifications";
 export * as upload from "./upload";
 export * as approvals from "./approvals";
+export * as members from "./members";

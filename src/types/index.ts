@@ -62,7 +62,8 @@ export interface Notification {
     | "invitation"
     | "task_assigned"
     | "review_requested"
-    | "review_submitted";
+    | "review_submitted"
+    | "mention";
   /** Whether the user has already seen this notification. */
   read: boolean;
   /** ISO-8601 creation timestamp. */
@@ -119,6 +120,12 @@ export interface DbStep {
   name: string;
   step_order: number;
   status: string;
+}
+
+/** Lightweight member type used for @mention autocomplete. */
+export interface MentionMember {
+  user_id: string;
+  name: string;
 }
 
 /** Project team member record. */

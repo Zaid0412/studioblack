@@ -35,6 +35,7 @@ import {
   MAX_UPLOAD_SIZE,
 } from "@/lib/fileUtils";
 import { toast } from "@/components/ui/useToast";
+import { MentionTextarea } from "@/components/ui/MentionTextarea";
 import type { Task, TaskFormData } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -86,6 +87,7 @@ export function TaskFormDialog({
   const t = useTranslations("tasks");
   const showProjectSelector = !!projects;
   const isCreate = !editingTask;
+  const mentionMembers = members.map((m) => ({ user_id: m.id, name: m.name }));
 
   // -- Checklist local state --
   const [newChecklistItem, setNewChecklistItem] = useState("");
@@ -185,14 +187,13 @@ export function TaskFormDialog({
             <label className="text-[13px] font-medium text-text-secondary">
               {t("description")}
             </label>
-            <textarea
+            <MentionTextarea
               placeholder={t("descriptionPlaceholder")}
               value={formData.description}
-              onChange={(e) =>
-                setFormData((f) => ({ ...f, description: e.target.value }))
-              }
+              onChange={(v) => setFormData((f) => ({ ...f, description: v }))}
+              members={mentionMembers}
               rows={3}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-none"
+              className="relative w-full rounded-lg border border-border-default bg-bg-input text-sm transition-colors focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/30"
             />
           </div>
 

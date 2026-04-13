@@ -11,6 +11,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { MentionTextarea } from "@/components/ui/MentionTextarea";
 import {
   Tooltip,
   TooltipTrigger,
@@ -172,14 +173,15 @@ export function NewPinForm({
             </div>
           )}
 
-          <textarea
+          <MentionTextarea
             ref={textareaRef}
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={setContent}
             onKeyDown={handleKeyDown}
+            members={members}
             placeholder="Write your comment..."
             rows={4}
-            className="w-full resize-none bg-transparent px-3 py-2.5 text-[13px] text-text-primary placeholder:text-text-secondary outline-none! focus-visible:outline-none! border-none"
+            className="relative w-full bg-transparent border-none"
           />
 
           {/* Bottom toolbar */}

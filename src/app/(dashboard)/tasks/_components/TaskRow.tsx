@@ -33,6 +33,7 @@ import {
   formatDate,
   capitalize,
 } from "@/lib/taskUtils";
+import { MentionRenderer } from "@/components/ui/MentionRenderer";
 import type { Task } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -222,7 +223,7 @@ export function TaskRow({
           </div>
           {task.description && (
             <span className="text-xs text-text-muted block truncate">
-              {task.description.split("\n")[0]}
+              <MentionRenderer content={task.description.split("\n")[0]} />
             </span>
           )}
         </div>
