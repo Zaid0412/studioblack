@@ -31,6 +31,10 @@ const serverSchema = z.object({
     .enum(["development", "production", "test"])
     .default("development"),
 
+  // Google OAuth (optional — feature-flagged)
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
   // SMTP (all optional — email features degrade gracefully)
   SMTP_HOST: z.string().default("smtp-relay.brevo.com"),
   SMTP_PORT: z.string().default("587"),
