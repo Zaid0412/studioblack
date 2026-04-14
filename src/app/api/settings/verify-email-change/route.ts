@@ -40,7 +40,14 @@ export async function GET(req: NextRequest) {
   }
 
   const pending = await getPendingEmailChange(token);
-  if (!pending || new Date(pending.expires_at) < new Date()) {
+  if (!pending) {
+    return NextResponse.json(
+      { error: "Invalid or expired link" },
+      { status: 400 }
+    );
+  }
+  if (new Date(pending.expires_at) < new Date()) {
+    await deletePendingEmailChange(token);
     return NextResponse.json(
       { error: "Invalid or expired link" },
       { status: 400 }
@@ -105,7 +112,10 @@ export async function POST(req: NextRequest) {
   // Verify password
   const hash = await getAccountPasswordHash(pending.user_id);
   if (!hash) {
-    return NextResponse.json({ error: "Account not found" }, { status: 400 });
+    return NextResponse.json(
+      { error: "This account uses social login and has no password. Email change is not supported." },
+      { status: 400 }
+    );
   }
 
   const passwordValid = await verifyPassword({ password, hash });

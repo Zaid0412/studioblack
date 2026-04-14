@@ -148,7 +148,7 @@ export default function VerifyEmailChangePage() {
           {t("changeEmailExpired")}
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
           <Input
             label={t("password")}
             type="password"

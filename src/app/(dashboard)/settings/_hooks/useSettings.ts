@@ -24,7 +24,10 @@ export function useSettings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
+  const [newEmail, setNewEmail] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem("emailChangePendingEmail") ?? "";
+  });
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailChangeRequested, setEmailChangeRequested] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -49,6 +52,7 @@ export function useSettings() {
     if (session?.user && emailChangeRequested && !newEmail) {
       setEmailChangeRequested(false);
       sessionStorage.removeItem("emailChangeRequested");
+      sessionStorage.removeItem("emailChangePendingEmail");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount with session
   }, [session?.user]);
@@ -158,6 +162,7 @@ export function useSettings() {
       await apiPost(API.changeEmail(), { newEmail });
       setEmailChangeRequested(true);
       sessionStorage.setItem("emailChangeRequested", "true");
+      sessionStorage.setItem("emailChangePendingEmail", newEmail);
       toast({
         title: t("changeEmailSent"),
         description: t("changeEmailSentDesc"),

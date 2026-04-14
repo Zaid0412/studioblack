@@ -2207,18 +2207,39 @@ export async function createPendingEmailChange(
   newEmail: string
 ): Promise<{ token: string }> {
   const pool = getPool();
-  // Delete any existing pending changes for this user
-  await pool.query(`DELETE FROM pending_email_change WHERE user_id = $1`, [
-    userId,
-  ]);
-  const { rows } = await pool.query(
-    `INSERT INTO pending_email_change (user_id, new_email) VALUES ($1, $2) RETURNING token`,
-    [userId, newEmail]
-  );
-  return { token: rows[0].token };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Delete any existing pending changes for this user + expired rows for any user
+    await client.query(
+      `DELETE FROM pending_email_change WHERE user_id = $1 OR expires_at < NOW()`,
+      [userId]
+    );
+    const { rows } = await client.query(
+      `INSERT INTO pending_email_change (user_id, new_email) VALUES ($1, $2) RETURNING token`,
+      [userId, newEmail]
+    );
+    await client.query("COMMIT");
+    return { token: rows[0].token };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-export async function getPendingEmailChange(token: string) {
+interface PendingEmailChange {
+  user_id: string;
+  new_email: string;
+  old_email: string;
+  expires_at: string;
+  failed_attempts: number;
+}
+
+export async function getPendingEmailChange(
+  token: string
+): Promise<PendingEmailChange | null> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT p.user_id, p.new_email, p.expires_at, p.failed_attempts, u.email AS old_email
