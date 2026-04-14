@@ -102,6 +102,7 @@
     "changeEmailSuccessDesc": "Ayarlara yönlendiriliyorsunuz...",
     "changeEmailVerifyError": "Bir hata oluştu. Lütfen tekrar deneyin.",
     "changeEmailExpired": "Bu bağlantı geçersiz veya süresi dolmuş.",
+    "changeEmailHint": "Bu değişiklik onaylanana kadar eski e-postanız aktif kalır.",
     "backToSettings": "Ayarlara dön"
   },
   "nav": {

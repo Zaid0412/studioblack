@@ -102,6 +102,7 @@
     "changeEmailSuccessDesc": "Redirecting to settings...",
     "changeEmailVerifyError": "Something went wrong. Please try again.",
     "changeEmailExpired": "This link has expired or is invalid.",
+    "changeEmailHint": "Your old email stays active until this change is confirmed.",
     "backToSettings": "Back to settings"
   },
   "nav": {
