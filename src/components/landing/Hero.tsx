@@ -30,14 +30,14 @@ export function Hero() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/register"
-            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold bg-accent hover:bg-accent-hover text-text-primary rounded-lg transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold bg-accent hover:bg-accent-hover text-text-primary rounded-lg transition-colors"
           >
             Get Started
             <ArrowRight className="w-4 h-4" />
           </Link>
           <a
             href="#features"
-            className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium border border-border-default text-text-secondary hover:text-text-primary hover:border-text-muted rounded-lg transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium border border-border-default text-text-secondary hover:text-text-primary hover:border-text-muted rounded-lg transition-colors"
           >
             Learn More
           </a>
