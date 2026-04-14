@@ -415,7 +415,14 @@
     "rolePM": "Proje Yöneticisi",
     "roleArchitect": "Mimar",
     "clearAll": "Tümünü temizle",
-    "clearAllConfirm": "Tüm bildirimleri silmek istediğinizden emin misiniz?"
+    "clearAllConfirm": "Tüm bildirimleri silmek istediğinizden emin misiniz?",
+    "all": "Tümü",
+    "unread": "Okunmamış",
+    "invitations": "Davetler",
+    "noUnread": "Hepsi okundu",
+    "noInvitations": "Bekleyen davet yok",
+    "accept": "Kabul Et",
+    "decline": "Reddet"
   },
   "settings": {
     "title": "Kullanıcı Ayarları",

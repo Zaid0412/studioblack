@@ -1,10 +1,4 @@
-import {
-  useMemo,
-  useState,
-  useEffect,
-  useCallback,
-  useSyncExternalStore,
-} from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
@@ -17,19 +11,6 @@ type TranslationFn = (
   key: string,
   values?: Record<string, string | number | Date>
 ) => string;
-
-/* Date helpers for useSyncExternalStore — avoids impure Date.now() in render */
-function subscribeDateChange(cb: () => void) {
-  // Re-check every 60s in case midnight crosses during the session
-  const id = setInterval(cb, 60_000);
-  return () => clearInterval(id);
-}
-function getToday() {
-  return new Date().toDateString();
-}
-function getYesterday() {
-  return new Date(Date.now() - 86_400_000).toDateString();
-}
 
 interface InvitationData {
   notifications: Notification[];
@@ -170,41 +151,6 @@ export function useNotifications({
     [notifications]
   );
 
-  const todayStr = useSyncExternalStore(
-    subscribeDateChange,
-    getToday,
-    getToday
-  );
-  const yesterdayStr = useSyncExternalStore(
-    subscribeDateChange,
-    getYesterday,
-    getYesterday
-  );
-
-  const groups = useMemo(() => {
-    return [
-      {
-        label: t("today"),
-        items: notifications.filter(
-          (n) => new Date(n.createdAt).toDateString() === todayStr
-        ),
-      },
-      {
-        label: t("yesterday"),
-        items: notifications.filter(
-          (n) => new Date(n.createdAt).toDateString() === yesterdayStr
-        ),
-      },
-      {
-        label: t("earlier"),
-        items: notifications.filter((n) => {
-          const date = new Date(n.createdAt).toDateString();
-          return date !== todayStr && date !== yesterdayStr;
-        }),
-      },
-    ].filter((g) => g.items.length > 0);
-  }, [notifications, t, todayStr, yesterdayStr]);
-
   const handleNotificationClick = async (notification: Notification) => {
     if (
       !notification.read &&
@@ -231,19 +177,8 @@ export function useNotifications({
     mutateDbNotifs((prev) => prev?.map((r) => ({ ...r, read: true })), {
       revalidate: false,
     });
-    mutateInvitations(
-      (prev) =>
-        prev
-          ? {
-              ...prev,
-              notifications: prev.notifications.map((n) => ({
-                ...n,
-                read: true,
-              })),
-            }
-          : prev,
-      { revalidate: false }
-    );
+    // Skip invitations — they're always read:false from the auth API and
+    // would revert on the next SWR poll, causing a visual flicker.
     window.dispatchEvent(new Event("notifications-changed"));
     await notificationsApi.markAllRead().catch(() => {});
     toast({
@@ -361,7 +296,6 @@ export function useNotifications({
     loading,
     notifications,
     unreadCount,
-    groups,
     loadingIds,
     pendingInviteIds,
     refresh,
