@@ -304,7 +304,9 @@ export async function sendPasswordResetEmail(email: string, url: string) {
       <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; line-height: 1.5; margin: 16px 0 0;">
         If you didn&#039;t request a password reset, you can safely ignore this email. Your password will remain unchanged.
       </p>`,
-      "This is an automated email from " + safeBrandName + ". Please do not reply directly."
+      "This is an automated email from " +
+        safeBrandName +
+        ". Please do not reply directly."
     )
   );
 }
