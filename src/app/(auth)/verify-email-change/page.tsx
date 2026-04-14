@@ -153,6 +153,13 @@ export default function VerifyEmailChangePage() {
           noValidate
           className="flex flex-col gap-4"
         >
+          <input
+            type="email"
+            value={newEmail}
+            autoComplete="username"
+            readOnly
+            hidden
+          />
           <Input
             label={t("password")}
             type="password"
