@@ -101,10 +101,7 @@ export function NotificationPanel() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("all");
-  const navigate = useCallback(
-    (path: string) => router.push(path),
-    [router]
-  );
+  const navigate = useCallback((path: string) => router.push(path), [router]);
 
   const {
     loading,
