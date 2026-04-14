@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyPassword } from "better-auth/crypto";
 import { rateLimit } from "@/lib/rateLimit";
+import { parseRequest } from "@/lib/validations";
 import {
   getPendingEmailChange,
   deletePendingEmailChange,
@@ -55,16 +56,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const parsed = verifySchema.safeParse(body);
+  const parsed = await parseRequest(req, verifySchema);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   const { token, password } = parsed.data;

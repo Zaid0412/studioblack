@@ -8,6 +8,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { avatarColor } from "@/lib/avatarUtils";
 import { Separator } from "@/components/ui/separator";
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface ProfileSectionProps {
   name: string;
   setName: (value: string) => void;
@@ -145,7 +148,7 @@ export function ProfileSection({
                     isChangingEmail ||
                     !newEmail ||
                     newEmail === email ||
-                    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)
+                    !EMAIL_REGEX.test(newEmail)
                   }
                 >
                   {isChangingEmail ? t("sending") : t("changeEmail")}
@@ -159,7 +162,6 @@ export function ProfileSection({
               )}
             </div>
           )}
-
         </div>
 
         <Separator />

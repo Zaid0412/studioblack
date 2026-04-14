@@ -3,9 +3,9 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Mail, RefreshCw, Loader2, Sun, Moon } from "lucide-react";
+import { Mail, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTheme } from "@/components/ThemeProvider";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 
@@ -15,7 +15,6 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") ?? "";
-  const { mode, toggleTheme } = useTheme();
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const cooldownRef = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -66,17 +65,7 @@ export default function VerifyEmailPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
-      <button
-        onClick={toggleTheme}
-        className="absolute top-4 right-4 p-2 rounded-lg hover:bg-bg-secondary transition-colors cursor-pointer"
-        aria-label="Toggle theme"
-      >
-        {mode === "dark" ? (
-          <Sun className="w-[18px] h-[18px] text-text-muted" />
-        ) : (
-          <Moon className="w-[18px] h-[18px] text-text-muted" />
-        )}
-      </button>
+      <ThemeToggle />
 
       <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg overflow-hidden">
         {/* Top section — icon, title, email */}

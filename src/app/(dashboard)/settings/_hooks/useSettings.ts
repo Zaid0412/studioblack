@@ -46,6 +46,15 @@ export function useSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
   }, [session?.user?.name, session?.user?.image]);
 
+  // Clear stale emailChangeRequested flag when session reloads (user completed the change and re-logged in)
+  useEffect(() => {
+    if (session?.user && emailChangeRequested && !newEmail) {
+      setEmailChangeRequested(false);
+      sessionStorage.removeItem("emailChangeRequested");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount with session
+  }, [session?.user]);
+
   const loading = !session?.user;
   const initials = deriveInitials(name);
   const email = session?.user?.email ?? "";

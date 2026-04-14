@@ -2207,11 +2207,10 @@ export async function createPendingEmailChange(
   newEmail: string
 ): Promise<{ token: string }> {
   const pool = getPool();
-  // Delete any existing pending changes for this user + expired tokens for anyone
-  await pool.query(
-    `DELETE FROM pending_email_change WHERE user_id = $1 OR expires_at < NOW()`,
-    [userId]
-  );
+  // Delete any existing pending changes for this user
+  await pool.query(`DELETE FROM pending_email_change WHERE user_id = $1`, [
+    userId,
+  ]);
   const { rows } = await pool.query(
     `INSERT INTO pending_email_change (user_id, new_email) VALUES ($1, $2) RETURNING token`,
     [userId, newEmail]
@@ -2258,12 +2257,14 @@ export async function isEmailTaken(email: string): Promise<boolean> {
 
 export async function updateUserEmail(userId: string, newEmail: string) {
   const pool = getPool();
-  await pool.query(
-    `UPDATE "user" SET email = $1, "emailVerified" = true, "updatedAt" = NOW() WHERE id = $2`,
-    [newEmail, userId]
-  );
-  // Invalidate all sessions so the user re-authenticates with the new email
-  await pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]);
+  await Promise.all([
+    pool.query(
+      `UPDATE "user" SET email = $1, "emailVerified" = true, "updatedAt" = NOW() WHERE id = $2`,
+      [newEmail, userId]
+    ),
+    // Invalidate all sessions so the user re-authenticates with the new email
+    pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]),
+  ]);
 }
 
 export async function getAccountPasswordHash(

@@ -10,15 +10,12 @@ import {
   Mail,
   Loader2,
   CheckCircle2,
-  Sun,
-  Moon,
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useTheme } from "@/components/ThemeProvider";
-import { apiGet, apiPost } from "@/lib/api/client";
-import { ApiError } from "@/lib/api/client";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { apiGet, apiPost, ApiError } from "@/lib/api/client";
 
 /** Full-page email change verification — user confirms with password after clicking the email link. */
 export default function VerifyEmailChangePage() {
@@ -26,7 +23,6 @@ export default function VerifyEmailChangePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
-  const { mode, toggleTheme } = useTheme();
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -82,17 +78,7 @@ export default function VerifyEmailChangePage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
-      <button
-        onClick={toggleTheme}
-        className="absolute top-4 right-4 p-2 rounded-lg hover:bg-bg-secondary transition-colors cursor-pointer"
-        aria-label="Toggle theme"
-      >
-        {mode === "dark" ? (
-          <Sun className="w-[18px] h-[18px] text-text-muted" />
-        ) : (
-          <Moon className="w-[18px] h-[18px] text-text-muted" />
-        )}
-      </button>
+      <ThemeToggle />
 
       {success ? (
         <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg p-12 flex flex-col items-center gap-5">
@@ -193,16 +179,11 @@ export default function VerifyEmailChangePage() {
                   className="w-full h-[48px]"
                 >
                   {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {t("changeEmailConfirm")}
-                    </>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <>
-                      <Lock className="w-4 h-4" />
-                      {t("changeEmailConfirm")}
-                    </>
+                    <Lock className="w-4 h-4" />
                   )}
+                  {t("changeEmailConfirm")}
                 </Button>
 
                 <p className="text-xs text-text-muted text-center">
