@@ -3,8 +3,10 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
 import { getSafeReturnTo } from "@/lib/utils";
@@ -16,9 +18,9 @@ interface AuthPageLayoutProps {
 }
 
 /**
- * Shared layout for auth pages (login, register).
- * Renders the two-column layout with hero panel, mobile logo,
- * and "already signed in" redirect state.
+ * Shared layout for auth pages (login, register, forgot/reset password).
+ * Two-column split: hero panel left, form right.
+ * Styled to match the landing page visual language.
  */
 export function AuthPageLayout({
   children,
@@ -44,62 +46,83 @@ export function AuthPageLayout({
   }, [session?.user, router, redirectDelay, returnTo]);
 
   return (
-    <div className="flex min-h-screen lg:h-screen">
+    <div className="flex min-h-screen">
       {/* Hero Panel — Left */}
-      <div className="hidden lg:flex lg:flex-[1.8] relative bg-bg-secondary overflow-hidden">
-        {/* Subtle gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-bg-secondary via-bg-secondary to-accent/5" />
+      <div className="hidden lg:flex lg:w-[55%] relative bg-bg-secondary overflow-hidden">
+        {/* Radial glow — matching landing hero */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-accent/5 blur-[120px]" />
+        </div>
 
-        {/* Branding content at bottom */}
-        <div className="relative z-10 flex flex-col justify-end p-16 pb-20">
-          {/* Logo */}
-          <div className="flex items-center gap-3 -ml-5">
+        {/* Content */}
+        <div className="relative z-10 flex flex-col justify-between p-6 pt-3 w-full">
+          {/* Top — logo */}
+          <Link href="/" className="flex items-center -ml-3">
             <BrandLogo size="lg" />
-            {branding.showLogoText && (
-              <span className="text-lg font-semibold text-text-primary">
-                {branding.appName}
-              </span>
-            )}
+          </Link>
+
+          {/* Center — hero text */}
+          <div className="max-w-md">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border-default bg-bg-primary/50 text-xs font-medium text-text-muted mb-6">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              Built for architecture firms
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-text-primary leading-tight mb-4">
+              {t("heroTagline")}
+            </h1>
+            <p className="text-sm text-text-muted leading-relaxed max-w-sm">
+              {t("heroSubtitle")}
+            </p>
           </div>
 
-          {/* Hero text */}
-          <h1 className="text-[40px] font-bold text-text-primary leading-tight mb-4">
-            {t("heroTagline")}
-          </h1>
-          <p className="text-base text-text-muted max-w-md">
-            {t("heroSubtitle")}
-          </p>
+          {/* Bottom — back to home */}
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-secondary transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-medium">Back to home</span>
+          </Link>
         </div>
       </div>
 
       {/* Form Panel — Right */}
-      <div className="flex-1 flex items-center justify-center bg-bg-primary px-8">
-        <div className="w-full max-w-sm">
-          {/* Mobile logo (hidden on desktop) */}
-          <div
-            className={`flex items-center gap-2.5 lg:hidden ${session?.user ? "justify-center" : "-ml-3"}`}
-          >
+      <div className="flex-1 relative flex flex-col bg-bg-primary">
+        {/* Top bar — mobile logo + theme toggle */}
+        <div className="flex items-center justify-between px-6 py-4 lg:justify-end">
+          <Link href="/" className="flex items-center lg:hidden">
             <BrandLogo size="lg" />
-            {branding.showLogoText && (
-              <span className="text-base font-semibold text-text-primary">
-                {branding.appName}
-              </span>
+          </Link>
+          <ThemeToggle className="relative" />
+        </div>
+
+        {/* Form — vertically centered */}
+        <div className="flex-1 flex items-center justify-center px-8">
+          <div className="w-full max-w-sm">
+            {session?.user ? (
+              <div className="flex flex-col items-center text-center gap-4 py-8">
+                <h2 className="text-2xl font-bold text-text-primary">
+                  {t("alreadySignedIn")}
+                </h2>
+                <p className="text-sm text-text-muted flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {t("redirecting")}
+                </p>
+              </div>
+            ) : (
+              children
             )}
           </div>
+        </div>
 
-          {session?.user ? (
-            <div className="flex flex-col items-center text-center gap-4 py-8">
-              <h2 className="text-2xl font-bold text-text-primary">
-                {t("alreadySignedIn")}
-              </h2>
-              <p className="text-sm text-text-muted flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {t("redirecting")}
-              </p>
-            </div>
-          ) : (
-            children
-          )}
+        {/* Mobile back to home */}
+        <div className="lg:hidden text-center pb-6">
+          <Link
+            href="/"
+            className="text-xs text-text-muted hover:text-text-secondary transition-colors"
+          >
+            &larr; Back to home
+          </Link>
         </div>
       </div>
     </div>
