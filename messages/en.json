@@ -415,7 +415,12 @@
     "rolePM": "Project Manager",
     "roleArchitect": "Architect",
     "clearAll": "Clear all",
-    "clearAllConfirm": "Are you sure you want to delete all notifications?"
+    "clearAllConfirm": "Are you sure you want to delete all notifications?",
+    "all": "All",
+    "unread": "Unread",
+    "invitations": "Invitations",
+    "noUnread": "You're all caught up",
+    "noInvitations": "No pending invitations"
   },
   "settings": {
     "title": "User Settings",
