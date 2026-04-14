@@ -113,7 +113,10 @@ export async function POST(req: NextRequest) {
   const hash = await getAccountPasswordHash(pending.user_id);
   if (!hash) {
     return NextResponse.json(
-      { error: "This account uses social login and has no password. Email change is not supported." },
+      {
+        error:
+          "This account uses social login and has no password. Email change is not supported.",
+      },
       { status: 400 }
     );
   }
