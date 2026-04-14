@@ -20,8 +20,6 @@ export function useSettings() {
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
-  const [emailNotif, setEmailNotif] = useState(true);
-  const [pushNotif, setPushNotif] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -241,11 +239,6 @@ export function useSettings() {
     setConfirmNewPassword,
     isChangingPassword,
     handleChangePassword,
-    // Notifications
-    emailNotif,
-    setEmailNotif,
-    pushNotif,
-    setPushNotif,
     // Delete
     deleteOpen,
     setDeleteOpen,

@@ -7,8 +7,8 @@ import {
   getPendingEmailChange,
   deletePendingEmailChange,
   incrementFailedAttempts,
-  isEmailTaken,
   updateUserEmail,
+  EmailTakenError,
   getAccountPasswordHash,
 } from "@/lib/queries";
 
@@ -21,6 +21,19 @@ const verifySchema = z.object({
 
 /** GET /api/settings/verify-email-change?token=... — fetch pending change info for display. */
 export async function GET(req: NextRequest) {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const rl = rateLimit(`verify-email-change-get:${ip}`, {
+    limit: 20,
+    windowMs: 600_000,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many attempts. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   const token = req.nextUrl.searchParams.get("token");
   if (!token || !z.string().uuid().safeParse(token).success) {
     return NextResponse.json({ error: "Invalid token" }, { status: 400 });
@@ -108,18 +121,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Incorrect password" }, { status: 401 });
   }
 
-  // Check email isn't taken (race condition guard)
-  const taken = await isEmailTaken(pending.new_email);
-  if (taken) {
-    await deletePendingEmailChange(token);
-    return NextResponse.json(
-      { error: "This email is already in use" },
-      { status: 409 }
-    );
+  // Update email + invalidate sessions (unique constraint guards race conditions)
+  try {
+    await updateUserEmail(pending.user_id, pending.new_email);
+  } catch (err) {
+    if (err instanceof EmailTakenError) {
+      await deletePendingEmailChange(token);
+      return NextResponse.json(
+        { error: "This email is already in use" },
+        { status: 409 }
+      );
+    }
+    throw err;
   }
-
-  // Update email + invalidate sessions
-  await updateUserEmail(pending.user_id, pending.new_email);
   await deletePendingEmailChange(token);
 
   return NextResponse.json({

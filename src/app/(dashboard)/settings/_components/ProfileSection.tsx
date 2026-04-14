@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-interface ProfileSectionProps {
+export interface ProfileSectionProps {
   name: string;
   setName: (value: string) => void;
   email: string;
@@ -33,26 +33,27 @@ interface ProfileSectionProps {
 }
 
 /** Profile editing section with avatar, name, and email fields. */
-export function ProfileSection({
-  name,
-  setName,
-  email,
-  userId,
-  initials,
-  avatarUrl,
-  isSaving,
-  isUploading,
-  fileInputRef,
-  handleAvatarChange,
-  handleSave,
-  openFilePicker,
-  newEmail,
-  setNewEmail,
-  isChangingEmail,
-  emailChangeRequested,
-  emailChangeError,
-  handleChangeEmail,
-}: ProfileSectionProps) {
+export function ProfileSection(props: ProfileSectionProps) {
+  const {
+    name,
+    setName,
+    email,
+    userId,
+    initials,
+    avatarUrl,
+    isSaving,
+    isUploading,
+    fileInputRef,
+    handleAvatarChange,
+    handleSave,
+    openFilePicker,
+    newEmail,
+    setNewEmail,
+    isChangingEmail,
+    emailChangeRequested,
+    emailChangeError,
+    handleChangeEmail,
+  } = props;
   const t = useTranslations("settings");
 
   return (

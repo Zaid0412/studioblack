@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Mail, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AuthCard } from "@/components/ui/AuthCard";
 import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 
@@ -64,25 +64,12 @@ export default function VerifyEmailPage() {
   }, [router]);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
-      <ThemeToggle />
-
-      <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg overflow-hidden">
-        {/* Top section — icon, title, email */}
-        <div className="flex flex-col items-center gap-5 px-8 pt-10 pb-7 bg-gradient-to-b from-accent/40 dark:from-accent/5 to-transparent">
-          <div className="w-12 h-12 rounded-[14px] bg-accent/10 flex items-center justify-center">
-            <Mail className="w-6 h-6 text-accent" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-[22px] font-bold text-text-primary">
-              {t("verifyEmailTitle")}
-            </h1>
-            <p className="text-sm text-text-muted mt-1.5">
-              {t("verifyEmailDesc")}
-            </p>
-          </div>
-
-          {/* Email pill */}
+    <AuthCard
+      icon={Mail}
+      title={t("verifyEmailTitle")}
+      description={t("verifyEmailDesc")}
+      headerExtra={
+        <>
           {email && (
             <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
               <Mail className="w-3.5 h-3.5 text-accent" />
@@ -91,48 +78,43 @@ export default function VerifyEmailPage() {
               </span>
             </div>
           )}
-
           <p className="text-xs text-text-muted">{t("verifyEmailExpiry")}</p>
-        </div>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        <Button
+          onClick={handleResend}
+          disabled={resending || !email || cooldown > 0}
+          className="w-full h-[48px]"
+        >
+          {resending ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {t("verifyEmailResending")}
+            </>
+          ) : cooldown > 0 ? (
+            t("verifyEmailCooldown", { seconds: cooldown })
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4" />
+              {t("verifyEmailResend")}
+            </>
+          )}
+        </Button>
 
-        {/* Divider */}
-        <div className="h-px bg-border-default" />
+        <Button
+          variant="secondary"
+          onClick={handleDifferentEmail}
+          className="w-full h-[48px]"
+        >
+          {t("verifyEmailDifferent")}
+        </Button>
 
-        {/* Bottom section — actions */}
-        <div className="flex flex-col gap-3.5 px-8 pt-6 pb-8">
-          <Button
-            onClick={handleResend}
-            disabled={resending || !email || cooldown > 0}
-            className="w-full h-[48px]"
-          >
-            {resending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {t("verifyEmailResending")}
-              </>
-            ) : cooldown > 0 ? (
-              t("verifyEmailCooldown", { seconds: cooldown })
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4" />
-                {t("verifyEmailResend")}
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={handleDifferentEmail}
-            className="w-full h-[48px]"
-          >
-            {t("verifyEmailDifferent")}
-          </Button>
-
-          <p className="text-xs text-text-muted text-center mt-2">
-            {t("verifyEmailSpamHint")}
-          </p>
-        </div>
+        <p className="text-xs text-text-muted text-center mt-2">
+          {t("verifyEmailSpamHint")}
+        </p>
       </div>
-    </div>
+    </AuthCard>
   );
 }

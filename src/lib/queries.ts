@@ -2255,16 +2255,38 @@ export async function isEmailTaken(email: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Update user email and invalidate sessions. Throws `EmailTakenError` if
+ * the unique index on LOWER(email) is violated (race-condition safe).
+ */
+export class EmailTakenError extends Error {
+  constructor() {
+    super("This email is already in use");
+    this.name = "EmailTakenError";
+  }
+}
+
 export async function updateUserEmail(userId: string, newEmail: string) {
   const pool = getPool();
-  await Promise.all([
-    pool.query(
+  try {
+    await pool.query(
       `UPDATE "user" SET email = $1, "emailVerified" = true, "updatedAt" = NOW() WHERE id = $2`,
       [newEmail, userId]
-    ),
-    // Invalidate all sessions so the user re-authenticates with the new email
-    pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]),
-  ]);
+    );
+  } catch (err: unknown) {
+    // Unique constraint violation on email (23505 = unique_violation)
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: string }).code === "23505"
+    ) {
+      throw new EmailTakenError();
+    }
+    throw err;
+  }
+  // Invalidate all sessions so the user re-authenticates with the new email
+  await pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]);
 }
 
 export async function getAccountPasswordHash(

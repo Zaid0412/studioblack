@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Card } from "@/components/ui/card";
@@ -14,23 +15,15 @@ import {
 import { useTheme } from "@/components/ThemeProvider";
 import { setLocale } from "@/lib/locale";
 
-interface PreferencesSectionProps {
-  emailNotif: boolean;
-  setEmailNotif: (value: boolean) => void;
-  pushNotif: boolean;
-  setPushNotif: (value: boolean) => void;
-}
-
-/** User preferences section with email and push notification toggles. */
-export function PreferencesSection({
-  emailNotif,
-  setEmailNotif,
-  pushNotif,
-  setPushNotif,
-}: PreferencesSectionProps) {
+/** User preferences section — theme, language, and notification placeholders. */
+export function PreferencesSection() {
   const t = useTranslations("settings");
   const { mode, toggleTheme } = useTheme();
   const currentLocale = useLocale();
+
+  // Placeholder notification state — not persisted yet
+  const [emailNotif, setEmailNotif] = useState(true);
+  const [pushNotif, setPushNotif] = useState(false);
 
   return (
     <Card>

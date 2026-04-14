@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { AuthCard } from "@/components/ui/AuthCard";
 import { apiGet, apiPost, ApiError } from "@/lib/api/client";
 
 /** Full-page email change verification — user confirms with password after clicking the email link. */
@@ -76,11 +77,11 @@ export default function VerifyEmailChangePage() {
     }
   };
 
-  return (
-    <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
-      <ThemeToggle />
-
-      {success ? (
+  // Success state has a different layout — can't use AuthCard
+  if (success) {
+    return (
+      <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
+        <ThemeToggle />
         <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg p-12 flex flex-col items-center gap-5">
           <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
             <CheckCircle2 className="w-8 h-8 text-accent" />
@@ -107,93 +108,76 @@ export default function VerifyEmailChangePage() {
             {t("continueToLogin")}
           </Button>
         </div>
-      ) : (
-        <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg overflow-hidden">
-          {/* Top section — icon, title, email pills */}
-          <div className="flex flex-col items-center gap-5 px-8 pt-10 pb-7 bg-gradient-to-b from-accent/40 dark:from-accent/5 to-transparent">
-            <div className="w-12 h-12 rounded-[14px] bg-accent/10 flex items-center justify-center">
-              <ShieldCheck className="w-6 h-6 text-accent" />
-            </div>
-            <div className="text-center">
-              <h1 className="text-[22px] font-bold text-text-primary">
-                {t("changeEmailTitle")}
-              </h1>
-              <p className="text-sm text-text-muted mt-1.5">
-                {t("changeEmailDesc")}
-              </p>
-            </div>
+      </div>
+    );
+  }
 
-            {/* Email transition pills */}
-            {(oldEmail || newEmail) && (
-              <div className="flex flex-col items-center gap-0">
-                {oldEmail && (
-                  <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-bg-primary/50 border border-border-default">
-                    <Mail className="w-3.5 h-3.5 text-text-muted" />
-                    <span className="text-[13px] text-text-muted">
-                      {oldEmail}
-                    </span>
-                  </div>
-                )}
-                {oldEmail && newEmail && (
-                  <div className="w-8 h-8 flex items-center justify-center">
-                    <ArrowDown className="w-4 h-4 text-accent" />
-                  </div>
-                )}
-                {newEmail && (
-                  <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
-                    <Mail className="w-3.5 h-3.5 text-accent" />
-                    <span className="text-[13px] font-semibold text-accent">
-                      {newEmail}
-                    </span>
-                  </div>
-                )}
+  return (
+    <AuthCard
+      icon={ShieldCheck}
+      title={t("changeEmailTitle")}
+      description={t("changeEmailDesc")}
+      headerExtra={
+        oldEmail || newEmail ? (
+          <div className="flex flex-col items-center gap-0">
+            {oldEmail && (
+              <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-bg-primary/50 border border-border-default">
+                <Mail className="w-3.5 h-3.5 text-text-muted" />
+                <span className="text-[13px] text-text-muted">{oldEmail}</span>
+              </div>
+            )}
+            {oldEmail && newEmail && (
+              <div className="w-8 h-8 flex items-center justify-center">
+                <ArrowDown className="w-4 h-4 text-accent" />
+              </div>
+            )}
+            {newEmail && (
+              <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent/10 border border-accent/20">
+                <Mail className="w-3.5 h-3.5 text-accent" />
+                <span className="text-[13px] font-semibold text-accent">
+                  {newEmail}
+                </span>
               </div>
             )}
           </div>
+        ) : undefined
+      }
+    >
+      {!token ? (
+        <p className="text-sm text-error text-center">
+          {t("changeEmailExpired")}
+        </p>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input
+            label={t("password")}
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t("passwordPlaceholder")}
+            autoComplete="current-password"
+          />
 
-          {/* Divider */}
-          <div className="h-px bg-border-default" />
+          {errorMsg && <p className="text-sm text-error">{errorMsg}</p>}
 
-          {/* Bottom section — password form */}
-          <div className="px-8 pt-6 pb-8">
-            {!token ? (
-              <p className="text-sm text-error text-center">
-                {t("changeEmailExpired")}
-              </p>
+          <Button
+            type="submit"
+            disabled={isLoading || !password}
+            className="w-full h-[48px]"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <Input
-                  label={t("password")}
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t("passwordPlaceholder")}
-                  autoComplete="current-password"
-                />
-
-                {errorMsg && <p className="text-sm text-error">{errorMsg}</p>}
-
-                <Button
-                  type="submit"
-                  disabled={isLoading || !password}
-                  className="w-full h-[48px]"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Lock className="w-4 h-4" />
-                  )}
-                  {t("changeEmailConfirm")}
-                </Button>
-
-                <p className="text-xs text-text-muted text-center">
-                  {t("changeEmailHint")}
-                </p>
-              </form>
+              <Lock className="w-4 h-4" />
             )}
-          </div>
-        </div>
+            {t("changeEmailConfirm")}
+          </Button>
+
+          <p className="text-xs text-text-muted text-center">
+            {t("changeEmailHint")}
+          </p>
+        </form>
       )}
-    </div>
+    </AuthCard>
   );
 }

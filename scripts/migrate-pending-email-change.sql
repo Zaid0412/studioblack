@@ -10,3 +10,6 @@ CREATE TABLE pending_email_change (
 );
 CREATE INDEX idx_pec_token ON pending_email_change(token);
 CREATE INDEX idx_pec_user ON pending_email_change(user_id);
+
+-- Enforce email uniqueness at DB level (case-insensitive)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email_unique ON "user" (LOWER(email));

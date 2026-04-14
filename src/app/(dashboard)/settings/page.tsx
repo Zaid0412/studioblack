@@ -112,12 +112,7 @@ export default function SettingsPage() {
         />
       )}
 
-      <PreferencesSection
-        emailNotif={settings.emailNotif}
-        setEmailNotif={settings.setEmailNotif}
-        pushNotif={settings.pushNotif}
-        setPushNotif={settings.setPushNotif}
-      />
+      <PreferencesSection />
 
       <DangerZoneSection
         deleteOpen={settings.deleteOpen}
