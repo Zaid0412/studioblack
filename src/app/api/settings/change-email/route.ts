@@ -40,7 +40,7 @@ export const POST = withAuth(
     const { token } = await createPendingEmailChange(user.id, normalizedNew);
 
     const baseUrl = env().BETTER_AUTH_URL || env().NEXT_PUBLIC_APP_URL;
-    const verifyUrl = `${baseUrl}/verify-email-change?token=${token}&oldEmail=${encodeURIComponent(normalizedCurrent)}&newEmail=${encodeURIComponent(normalizedNew)}`;
+    const verifyUrl = `${baseUrl}/verify-email-change?token=${token}`;
 
     await sendChangeEmailVerification(
       normalizedNew,

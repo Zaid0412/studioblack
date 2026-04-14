@@ -72,6 +72,10 @@ export const API = {
   // ── Dashboard ──────────────────────────────────
   dashboard:             ()                            => "/api/dashboard",
 
+  // ── Settings ───────────────────────────────────
+  changeEmail:           ()                            => "/api/settings/change-email",
+  verifyEmailChange:     ()                            => "/api/settings/verify-email-change",
+
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",
 } as const;

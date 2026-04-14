@@ -2207,10 +2207,11 @@ export async function createPendingEmailChange(
   newEmail: string
 ): Promise<{ token: string }> {
   const pool = getPool();
-  // Delete any existing pending changes for this user
-  await pool.query(`DELETE FROM pending_email_change WHERE user_id = $1`, [
-    userId,
-  ]);
+  // Delete any existing pending changes for this user + expired tokens for anyone
+  await pool.query(
+    `DELETE FROM pending_email_change WHERE user_id = $1 OR expires_at < NOW()`,
+    [userId]
+  );
   const { rows } = await pool.query(
     `INSERT INTO pending_email_change (user_id, new_email) VALUES ($1, $2) RETURNING token`,
     [userId, newEmail]
@@ -2221,10 +2222,22 @@ export async function createPendingEmailChange(
 export async function getPendingEmailChange(token: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT user_id, new_email, expires_at FROM pending_email_change WHERE token = $1`,
+    `SELECT p.user_id, p.new_email, p.expires_at, p.failed_attempts, u.email AS old_email
+     FROM pending_email_change p
+     JOIN "user" u ON u.id = p.user_id
+     WHERE p.token = $1`,
     [token]
   );
   return rows[0] || null;
+}
+
+export async function incrementFailedAttempts(token: string): Promise<number> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `UPDATE pending_email_change SET failed_attempts = failed_attempts + 1 WHERE token = $1 RETURNING failed_attempts`,
+    [token]
+  );
+  return rows[0]?.failed_attempts ?? 0;
 }
 
 export async function deletePendingEmailChange(token: string) {
@@ -2249,6 +2262,8 @@ export async function updateUserEmail(userId: string, newEmail: string) {
     `UPDATE "user" SET email = $1, "emailVerified" = true, "updatedAt" = NOW() WHERE id = $2`,
     [newEmail, userId]
   );
+  // Invalidate all sessions so the user re-authenticates with the new email
+  await pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]);
 }
 
 export async function getAccountPasswordHash(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -12,10 +12,13 @@ import {
   CheckCircle2,
   Sun,
   Moon,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTheme } from "@/components/ThemeProvider";
+import { apiGet, apiPost } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
 
 /** Full-page email change verification — user confirms with password after clicking the email link. */
 export default function VerifyEmailChangePage() {
@@ -23,13 +26,34 @@ export default function VerifyEmailChangePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
-  const oldEmail = searchParams.get("oldEmail") ?? "";
-  const newEmail = searchParams.get("newEmail") ?? "";
   const { mode, toggleTheme } = useTheme();
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [success, setSuccess] = useState(false);
+  const [oldEmail, setOldEmail] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const redirectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Fetch pending change info from API (no emails in URL)
+  useEffect(() => {
+    if (!token) return;
+    apiGet<{ oldEmail: string; newEmail: string }>(
+      `/api/settings/verify-email-change?token=${token}`
+    )
+      .then((data) => {
+        setOldEmail(data.oldEmail);
+        setNewEmail(data.newEmail);
+      })
+      .catch(() => {
+        // Token invalid/expired — will be caught by the form submission too
+      });
+  }, [token]);
+
+  // Cleanup redirect timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(redirectTimer.current);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,20 +62,19 @@ export default function VerifyEmailChangePage() {
     setErrorMsg("");
 
     try {
-      const res = await fetch("/api/settings/verify-email-change", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setErrorMsg(data.error || t("changeEmailVerifyError"));
-        return;
-      }
+      const data = await apiPost<{ status: boolean; newEmail: string }>(
+        "/api/settings/verify-email-change",
+        { token, password }
+      );
+      setNewEmail(data.newEmail);
       setSuccess(true);
-      setTimeout(() => router.push("/settings"), 3000);
-    } catch {
-      setErrorMsg(t("changeEmailVerifyError"));
+      redirectTimer.current = setTimeout(() => router.push("/login"), 3000);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg(t("changeEmailVerifyError"));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -90,6 +113,13 @@ export default function VerifyEmailChangePage() {
           <p className="text-sm text-text-muted">
             {t("changeEmailSuccessDesc")}
           </p>
+          <Button
+            onClick={() => router.push("/login")}
+            className="w-full h-[48px] mt-2"
+          >
+            <ArrowRight className="w-4 h-4" />
+            {t("continueToLogin")}
+          </Button>
         </div>
       ) : (
         <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg overflow-hidden">

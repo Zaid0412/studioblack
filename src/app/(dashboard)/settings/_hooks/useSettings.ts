@@ -7,6 +7,8 @@ import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
 import { useAvatarUpload } from "@/hooks/useFileUpload";
+import { apiPost, ApiError } from "@/lib/api/client";
+import { API } from "@/lib/api/routes";
 
 /** Hook managing settings page state: profile, password, preferences, and account deletion. */
 export function useSettings() {
@@ -26,7 +28,10 @@ export function useSettings() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [isChangingEmail, setIsChangingEmail] = useState(false);
-  const [emailChangeRequested, setEmailChangeRequested] = useState(false);
+  const [emailChangeRequested, setEmailChangeRequested] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("emailChangeRequested") === "true";
+  });
   const [emailChangeError, setEmailChangeError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
@@ -143,24 +148,20 @@ export function useSettings() {
     setIsChangingEmail(true);
     setEmailChangeError("");
     try {
-      const res = await fetch("/api/settings/change-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newEmail }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        setEmailChangeError(data.error || t("changeEmailError"));
-        return;
-      }
+      await apiPost(API.changeEmail(), { newEmail });
       setEmailChangeRequested(true);
+      sessionStorage.setItem("emailChangeRequested", "true");
       toast({
         title: t("changeEmailSent"),
         description: t("changeEmailSentDesc"),
         variant: "success",
       });
-    } catch {
-      setEmailChangeError(t("changeEmailError"));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setEmailChangeError(err.message);
+      } else {
+        setEmailChangeError(t("changeEmailError"));
+      }
     } finally {
       setIsChangingEmail(false);
     }
