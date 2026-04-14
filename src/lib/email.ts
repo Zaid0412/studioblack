@@ -1,3 +1,4 @@
+import path from "path";
 import nodemailer from "nodemailer";
 import { branding } from "@/config/branding";
 import { env } from "@/env";
@@ -40,30 +41,198 @@ function getEnvTag(): string {
   return env().NODE_ENV === "production" ? "" : "[STAGING] ";
 }
 
+// ---------------------------------------------------------------------------
+// Design tokens (matching Pencil designs)
+// ---------------------------------------------------------------------------
+const font =
+  "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+const colors = {
+  pageBg: "#f4f4f5",
+  cardBg: "#0d0d0d",
+  accent: "#F5C518",
+  accentDark: "#D4A017",
+  white: "#ffffff",
+  textPrimary: "#ffffff",
+  textMuted: "#a1a1aa",
+  textHint: "#71717a",
+  textDark: "#0d0d0d",
+  divider: "#27272a",
+  footerText: "#52525b",
+  warnBg: "#1a1910",
+  warnBorder: "#2a2518",
+} as const;
+
 const safeBrandName = escapeHtml(branding.appName);
+const safeTagline = escapeHtml(branding.tagline);
 
-/** Wrap email body in the standard branded layout. */
-function emailLayout(body: string): string {
-  return `
-    <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-      <h2 style="color: #111;">${safeBrandName}</h2>
-      ${body}
-    </div>
-  `;
-}
+// ---------------------------------------------------------------------------
+// Shared building blocks
+// ---------------------------------------------------------------------------
 
-/** Branded CTA button for email templates. */
+/** Gold CTA button — full-width, table-based for email client compatibility. */
 function ctaButton(href: string, label: string): string {
-  return `<a href="${href}" style="display: inline-block; padding: 12px 24px; background: #F5C518; color: #0D0D0D; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 16px 0;">${label}</a>`;
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 8px 0;">
+      <tr>
+        <td align="center">
+          <a href="${href}" target="_blank" style="display: block; width: 100%; padding: 16px 24px; background-color: ${colors.accent}; color: ${colors.textDark}; text-decoration: none; border-radius: 12px; font-family: ${font}; font-size: 15px; font-weight: 600; text-align: center; box-sizing: border-box;">
+            ${label}
+          </a>
+        </td>
+      </tr>
+    </table>`;
 }
+
+/** Amber warning / info box (e.g. "This link expires in 1 hour"). */
+function warningBox(text: string): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 4px 0;">
+      <tr>
+        <td style="background-color: ${colors.warnBg}; border: 1px solid ${colors.warnBorder}; border-radius: 10px; padding: 14px 16px; font-family: ${font}; font-size: 13px; font-weight: 500; color: ${colors.accent};">
+          ${text}
+        </td>
+      </tr>
+    </table>`;
+}
+
+/** Dark pill showing an org name. */
+function orgPill(orgName: string): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+      <tr>
+        <td style="background-color: #18181b; border: 1px solid ${colors.divider}; border-radius: 12px; padding: 12px 24px; font-family: ${font}; font-size: 14px; font-weight: 600; color: ${colors.white};">
+          ${orgName}
+        </td>
+      </tr>
+    </table>`;
+}
+
+/** Horizontal divider line inside the card. */
+function divider(): string {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr><td style="height: 1px; background-color: ${colors.divider}; font-size: 0; line-height: 0;">&nbsp;</td></tr>
+    </table>`;
+}
+
+/**
+ * Full email document wrapper.
+ * @param title   - Bold heading text
+ * @param body    - Main HTML content (description, buttons, etc.)
+ * @param footer  - Contextual disclaimer shown below the card
+ */
+function emailLayout(title: string, body: string, footer: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>${title}</title>
+  <!--[if mso]>
+  <style>table,td{font-family:Arial,sans-serif;}</style>
+  <![endif]-->
+</head>
+<body style="margin: 0; padding: 0; background-color: ${colors.pageBg}; -webkit-text-size-adjust: 100%;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: ${colors.pageBg};">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px;">
+
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom: 20px;">
+              <img src="cid:logo" alt="" width="180" style="display: block; width: 180px; height: auto;" />
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: ${colors.cardBg}; border-radius: 16px; overflow: hidden;">
+                <!-- Gold accent bar -->
+                <tr>
+                  <td style="height: 4px; background-color: ${colors.accent}; font-size: 0; line-height: 0;">&nbsp;</td>
+                </tr>
+                <!-- Card body -->
+                <tr>
+                  <td style="padding: 36px 40px 40px 40px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                      <!-- Title -->
+                      <tr>
+                        <td align="center" style="padding-bottom: 16px; font-family: ${font}; font-size: 24px; font-weight: 700; color: ${colors.textPrimary};">
+                          ${title}
+                        </td>
+                      </tr>
+                      <!-- Body content -->
+                      <tr>
+                        <td style="font-family: ${font};">
+                          ${body}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding-top: 24px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="font-family: ${font}; font-size: 12px; color: ${colors.textMuted}; padding-bottom: 8px;">
+                    ${safeTagline}
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-family: ${font}; font-size: 11px; color: ${colors.textHint}; line-height: 1.5; padding-bottom: 8px;">
+                    ${footer}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Send helper
+// ---------------------------------------------------------------------------
+
+const logoPath = path.join(process.cwd(), "public", "logo-dark.png");
 
 async function sendEmail(to: string, subject: string, html: string) {
   try {
-    await getTransport().sendMail({ from: getFromEmail(), to, subject, html });
+    await getTransport().sendMail({
+      from: getFromEmail(),
+      to,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: "logo.png",
+          path: logoPath,
+          cid: "logo",
+        },
+      ],
+    });
   } catch (err) {
     logger.error("Failed to send email", { to, subject, error: err });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Public email functions
+// ---------------------------------------------------------------------------
 
 /**
  * Send a magic link email to a client for project access.
@@ -73,13 +242,20 @@ export async function sendMagicLinkEmail(email: string, url: string) {
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Access Your Project`,
-    emailLayout(`
-      <p>You've been invited to review a project. Click the link below to access your project dashboard:</p>
-      ${ctaButton(safeUrl, "View Project")}
-      <p style="color: #666; font-size: 13px; margin-top: 24px;">
-        This link expires in 15 minutes. If you didn't expect this email, you can safely ignore it.
+    emailLayout(
+      "Access Your Project",
+      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
+        You&#039;ve been invited to review a project on ${safeBrandName}. Click the button below to access your project dashboard.
       </p>
-    `)
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(safeUrl, "View Project")}
+      </div>
+      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
+        This link expires in 15 minutes.
+      </p>`,
+      "If you didn&#039;t expect this email, you can safely ignore it."
+    )
   );
 }
 
@@ -95,11 +271,13 @@ export async function sendNotificationEmail(
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — ${escapeHtml(subject)}`,
-    emailLayout(`
-      ${body}
-      <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-      <p style="color: #999; font-size: 12px;">${escapeHtml(branding.tagline)}</p>
-    `)
+    emailLayout(
+      escapeHtml(subject),
+      `<div style="font-size: 14px; color: ${colors.textMuted}; line-height: 1.6;">
+        ${body}
+      </div>`,
+      "This is an automated notification from " + safeBrandName + "."
+    )
   );
 }
 
@@ -111,13 +289,23 @@ export async function sendPasswordResetEmail(email: string, url: string) {
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Reset Your Password`,
-    emailLayout(`
-      <p>We received a request to reset your password. Click the button below to choose a new one:</p>
-      ${ctaButton(safeUrl, "Reset Password")}
-      <p style="color: #666; font-size: 13px; margin-top: 24px;">
-        This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+    emailLayout(
+      "Reset Your Password",
+      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
+        We received a request to reset the password for your account. Click the button below to choose a new one.
       </p>
-    `)
+      ${warningBox("This link expires in 1 hour")}
+      <div style="padding-top: 16px;">
+        ${divider()}
+      </div>
+      <div style="padding-top: 24px;">
+        ${ctaButton(safeUrl, "Reset Password")}
+      </div>
+      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; line-height: 1.5; margin: 16px 0 0;">
+        If you didn&#039;t request a password reset, you can safely ignore this email. Your password will remain unchanged.
+      </p>`,
+      "This is an automated email from " + safeBrandName + ". Please do not reply directly."
+    )
   );
 }
 
@@ -134,14 +322,20 @@ export async function sendVerificationEmail(
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Verify Your Email`,
-    emailLayout(`
-      <p>Hi ${safeName},</p>
-      <p>Thanks for signing up! Please verify your email address by clicking the button below:</p>
-      ${ctaButton(safeUrl, "Verify Email")}
-      <p style="color: #666; font-size: 13px; margin-top: 24px;">
-        This link expires in 24 hours. If you didn't create an account, you can safely ignore this email.
+    emailLayout(
+      "Verify Your Email",
+      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
+        Hi ${safeName}, thanks for signing up! Please verify your email address to get started with ${safeBrandName}.
       </p>
-    `)
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(safeUrl, "Verify Email Address")}
+      </div>
+      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
+        This link expires in 24 hours.
+      </p>`,
+      "If you didn&#039;t create an account, you can safely ignore this email."
+    )
   );
 }
 
@@ -157,13 +351,23 @@ export async function sendInvitationEmail(
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
-    emailLayout(`
-      <p><strong>${escapeHtml(inviterName)}</strong> has invited you to join <strong>${escapeHtml(orgName)}</strong>.</p>
-      ${ctaButton(escapeHtml(inviteLink), "Accept Invitation")}
-      <p style="color: #666; font-size: 13px; margin-top: 24px;">
-        If you don't have an account yet, you'll be prompted to create one.
+    emailLayout(
+      "You&#039;re Invited",
+      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 16px;">
+        <strong style="color: ${colors.white};">${escapeHtml(inviterName)}</strong> has invited you to join
       </p>
-    `)
+      <div style="text-align: center; margin: 0 0 24px;">
+        ${orgPill(escapeHtml(orgName))}
+      </div>
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(escapeHtml(inviteLink), "Accept Invitation")}
+      </div>
+      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
+        If you don&#039;t have an account yet, you&#039;ll be prompted to create one.
+      </p>`,
+      "If you weren&#039;t expecting this invitation, you can safely ignore this email."
+    )
   );
 }
 
@@ -180,16 +384,22 @@ export async function sendChangeEmailVerification(
   await sendEmail(
     newEmail,
     `${getEnvTag()}${branding.appName} — Confirm Your New Email`,
-    emailLayout(`
-      <p>Hi ${safeName},</p>
-      <p>You requested to change your email address to this one. Click the button below to confirm:</p>
-      ${ctaButton(safeUrl, "Confirm New Email")}
-      <p style="color: #666; font-size: 13px; margin-top: 24px;">
-        You'll need to enter your account password to complete the change. This link expires in 24 hours.
+    emailLayout(
+      "Confirm Your New Email",
+      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
+        Hi ${safeName}, you requested to change your email address to this one. Click the button below to confirm.
       </p>
-      <p style="color: #666; font-size: 13px;">
-        If you didn't request this, you can safely ignore this email.
-      </p>
-    `)
+      ${warningBox("You&#039;ll need to enter your account password to complete the change")}
+      <div style="padding-top: 16px;">
+        ${divider()}
+      </div>
+      <div style="padding-top: 24px;">
+        ${ctaButton(safeUrl, "Confirm New Email")}
+      </div>
+      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
+        This link expires in 24 hours.
+      </p>`,
+      "If you didn&#039;t request this, you can safely ignore this email."
+    )
   );
 }
