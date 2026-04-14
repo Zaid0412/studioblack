@@ -12,4 +12,6 @@ export const features = {
   notifications: true,
   designUpload: true,
   emailVerification: true,
+  landingPricing: true,
+  landingTestimonials: true,
 } as const;

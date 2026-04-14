@@ -20,6 +20,11 @@ export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
   const { pathname, search } = request.nextUrl;
 
+  // Landing page is public — skip auth checks
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
   // Authenticated user on auth pages → redirect to dashboard
   if (sessionCookie && AUTH_PAGES.has(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
