@@ -36,7 +36,7 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-border-default bg-bg-primary/80 backdrop-blur-lg">
+    <nav className="sticky top-0 z-40 border-b border-border-default bg-bg-primary/60 backdrop-blur-lg">
       <div className="relative flex h-16 items-center px-6">
         {/* Logo — left edge */}
         <Link href="/" className="flex items-center">
