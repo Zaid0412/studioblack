@@ -1,26 +1,19 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Camera } from "lucide-react";
+import { AlertCircle, Camera, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { avatarColor } from "@/lib/avatarUtils";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 
-interface ProfileSectionProps {
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export interface ProfileSectionProps {
   name: string;
   setName: (value: string) => void;
-  role: string;
-  setRole: (value: string) => void;
   email: string;
   userId: string;
   initials: string;
@@ -31,25 +24,36 @@ interface ProfileSectionProps {
   handleAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleSave: () => void;
   openFilePicker: () => void;
+  newEmail: string;
+  setNewEmail: (value: string) => void;
+  isChangingEmail: boolean;
+  emailChangeRequested: boolean;
+  emailChangeError: string;
+  handleChangeEmail: () => void;
 }
 
-/** Profile editing section with avatar, name, role, and email fields. */
-export function ProfileSection({
-  name,
-  setName,
-  role,
-  setRole,
-  email,
-  userId,
-  initials,
-  avatarUrl,
-  isSaving,
-  isUploading,
-  fileInputRef,
-  handleAvatarChange,
-  handleSave,
-  openFilePicker,
-}: ProfileSectionProps) {
+/** Profile editing section with avatar, name, and email fields. */
+export function ProfileSection(props: ProfileSectionProps) {
+  const {
+    name,
+    setName,
+    email,
+    userId,
+    initials,
+    avatarUrl,
+    isSaving,
+    isUploading,
+    fileInputRef,
+    handleAvatarChange,
+    handleSave,
+    openFilePicker,
+    newEmail,
+    setNewEmail,
+    isChangingEmail,
+    emailChangeRequested,
+    emailChangeError,
+    handleChangeEmail,
+  } = props;
   const t = useTranslations("settings");
 
   return (
@@ -108,31 +112,57 @@ export function ProfileSection({
             onChange={(e) => setName(e.target.value)}
             autoComplete="name"
           />
-          <Input
-            label={t("email")}
-            type="email"
-            value={email}
-            autoComplete="email"
-            disabled
-            className="cursor-not-allowed"
-          />
-
-          {/* Role dropdown */}
+          {/* Current email display */}
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-text-primary">
-              {t("role")}
+              {t("email")}
             </label>
-            <Select value={role} onValueChange={setRole} disabled>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pm">Project Manager</SelectItem>
-                <SelectItem value="architect">Architect</SelectItem>
-                <SelectItem value="client">Client</SelectItem>
-              </SelectContent>
-            </Select>
+            <p className="text-sm text-text-secondary">{email}</p>
           </div>
+
+          {/* Change email input */}
+          {emailChangeRequested ? (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
+              <Mail className="w-4 h-4 text-accent shrink-0" />
+              <p className="text-sm text-text-secondary">
+                {t("changeEmailSentTo", { email: newEmail })}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex gap-2">
+                <div className="flex-1 min-w-0">
+                  <Input
+                    label={t("newEmail")}
+                    type="email"
+                    placeholder={t("newEmailPlaceholder")}
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                </div>
+                <Button
+                  variant="secondary"
+                  className="self-end shrink-0"
+                  onClick={handleChangeEmail}
+                  disabled={
+                    isChangingEmail ||
+                    !newEmail ||
+                    newEmail === email ||
+                    !EMAIL_REGEX.test(newEmail)
+                  }
+                >
+                  {isChangingEmail ? t("sending") : t("changeEmail")}
+                </Button>
+              </div>
+              {emailChangeError && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-error/10 border border-error/20">
+                  <AlertCircle className="w-4 h-4 text-error shrink-0" />
+                  <p className="text-sm text-error">{emailChangeError}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <Separator />

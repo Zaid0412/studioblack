@@ -7,6 +7,8 @@ import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
 import { useAvatarUpload } from "@/hooks/useFileUpload";
+import { apiPost, ApiError } from "@/lib/api/client";
+import { API } from "@/lib/api/routes";
 
 /** Hook managing settings page state: profile, password, preferences, and account deletion. */
 export function useSettings() {
@@ -16,15 +18,22 @@ export function useSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
-  const [role, setRole] = useState("pm");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
-  const [emailNotif, setEmailNotif] = useState(true);
-  const [pushNotif, setPushNotif] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newEmail, setNewEmail] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return sessionStorage.getItem("emailChangePendingEmail") ?? "";
+  });
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+  const [emailChangeRequested, setEmailChangeRequested] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("emailChangeRequested") === "true";
+  });
+  const [emailChangeError, setEmailChangeError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -33,11 +42,26 @@ export function useSettings() {
   useEffect(() => {
     if (session?.user) {
       setName(session.user.name ?? "");
-      setRole((session.user.role as string) ?? "pm");
       setAvatarUrl(session.user.image ?? undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
-  }, [session?.user?.name, session?.user?.role, session?.user?.image]);
+  }, [session?.user?.name, session?.user?.image]);
+
+  // Clear stale emailChangeRequested flag when session reloads.
+  // If the user completed the change and re-logged in, session email now matches the pending email.
+  useEffect(() => {
+    if (!session?.user || !emailChangeRequested) return;
+    const pendingEmail = sessionStorage.getItem("emailChangePendingEmail");
+    const currentEmail = session.user.email?.toLowerCase();
+    // Change completed (session email matches pending) or no pending email stored
+    if (!pendingEmail || currentEmail === pendingEmail.toLowerCase()) {
+      setEmailChangeRequested(false);
+      setNewEmail("");
+      sessionStorage.removeItem("emailChangeRequested");
+      sessionStorage.removeItem("emailChangePendingEmail");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount with session
+  }, [session?.user]);
 
   const loading = !session?.user;
   const initials = deriveInitials(name);
@@ -136,6 +160,31 @@ export function useSettings() {
     }
   };
 
+  const handleChangeEmail = async () => {
+    if (!newEmail || newEmail === email) return;
+    setIsChangingEmail(true);
+    setEmailChangeError("");
+    try {
+      await apiPost(API.changeEmail(), { newEmail });
+      setEmailChangeRequested(true);
+      sessionStorage.setItem("emailChangeRequested", "true");
+      sessionStorage.setItem("emailChangePendingEmail", newEmail);
+      toast({
+        title: t("changeEmailSent"),
+        description: t("changeEmailSentDesc"),
+        variant: "success",
+      });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setEmailChangeError(err.message);
+      } else {
+        setEmailChangeError(t("changeEmailError"));
+      }
+    } finally {
+      setIsChangingEmail(false);
+    }
+  };
+
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
     try {
@@ -175,8 +224,6 @@ export function useSettings() {
     // Profile
     name,
     setName,
-    role,
-    setRole,
     email,
     userId,
     initials,
@@ -187,6 +234,13 @@ export function useSettings() {
     handleAvatarChange,
     handleSave,
     openFilePicker,
+    // Email change
+    newEmail,
+    setNewEmail,
+    isChangingEmail,
+    emailChangeRequested,
+    emailChangeError,
+    handleChangeEmail,
     // Password
     currentPassword,
     setCurrentPassword,
@@ -196,11 +250,6 @@ export function useSettings() {
     setConfirmNewPassword,
     isChangingPassword,
     handleChangePassword,
-    // Notifications
-    emailNotif,
-    setEmailNotif,
-    pushNotif,
-    setPushNotif,
     // Delete
     deleteOpen,
     setDeleteOpen,

@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-interface DangerZoneSectionProps {
+export interface DangerZoneSectionProps {
   deleteOpen: boolean;
   setDeleteOpen: (value: boolean) => void;
   deletePassword: string;
@@ -24,14 +24,15 @@ interface DangerZoneSectionProps {
 }
 
 /** Account deletion section with confirmation dialog. */
-export function DangerZoneSection({
-  deleteOpen,
-  setDeleteOpen,
-  deletePassword,
-  setDeletePassword,
-  isDeleting,
-  handleDeleteAccount,
-}: DangerZoneSectionProps) {
+export function DangerZoneSection(props: DangerZoneSectionProps) {
+  const {
+    deleteOpen,
+    setDeleteOpen,
+    deletePassword,
+    setDeletePassword,
+    isDeleting,
+    handleDeleteAccount,
+  } = props;
   const t = useTranslations("settings");
 
   return (

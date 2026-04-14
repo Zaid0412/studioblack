@@ -94,7 +94,16 @@
     "verifyEmailRequired": "Lütfen giriş yapmadan önce e-postanızı doğrulayın.",
     "verifyEmailResending": "Gönderiliyor...",
     "verifyEmailResendError": "Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.",
-    "verifyEmailCooldown": "{seconds}s sonra tekrar gönder"
+    "verifyEmailCooldown": "{seconds}s sonra tekrar gönder",
+    "changeEmailTitle": "Yeni e-postanızı onaylayın",
+    "changeEmailDesc": "E-posta değişikliğini tamamlamak için hesap şifrenizi girin.",
+    "changeEmailConfirm": "Değişikliği Onayla",
+    "changeEmailSuccess": "E-posta başarıyla değiştirildi!",
+    "changeEmailSuccessDesc": "Yeni e-postanızla tekrar giriş yapmanız gerekecek.",
+    "continueToLogin": "Girişe devam et",
+    "changeEmailVerifyError": "Bir hata oluştu. Lütfen tekrar deneyin.",
+    "changeEmailExpired": "Bu bağlantı geçersiz veya süresi dolmuş.",
+    "changeEmailHint": "Bu değişiklik onaylanana kadar eski e-postanız aktif kalır."
   },
   "nav": {
     "dashboard": "Kontrol Paneli",
@@ -462,7 +471,16 @@
     "error": "Hata",
     "uploading": "Yükleniyor...",
     "saveProfileError": "Profil kaydedilemedi. Lütfen tekrar deneyin.",
-    "uploadFailed": "Yükleme başarısız"
+    "uploadFailed": "Yükleme başarısız",
+    "newEmail": "Yeni e-posta",
+    "newEmailPlaceholder": "Yeni e-posta adresini girin",
+    "changeEmail": "E-postayı Değiştir",
+    "changeEmailSent": "Doğrulama e-postası gönderildi",
+    "changeEmailSentDesc": "Yeni e-postanızda doğrulama bağlantısını kontrol edin.",
+    "changeEmailSentTo": "{email} adresine doğrulama e-postası gönderildi. Gelen kutunuzu kontrol edin.",
+    "changeEmailError": "Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.",
+    "sending": "Gönderiliyor...",
+    "comingSoon": "Yakında"
   },
   "audit": {
     "title": "Denetim Geçmişi",

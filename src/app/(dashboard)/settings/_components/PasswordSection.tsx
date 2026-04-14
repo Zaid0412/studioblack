@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-interface PasswordSectionProps {
+export interface PasswordSectionProps {
   email: string;
   currentPassword: string;
   setCurrentPassword: (value: string) => void;
@@ -20,17 +20,18 @@ interface PasswordSectionProps {
 }
 
 /** Password change form with current, new, and confirm fields. */
-export function PasswordSection({
-  email,
-  currentPassword,
-  setCurrentPassword,
-  newPassword,
-  setNewPassword,
-  confirmNewPassword,
-  setConfirmNewPassword,
-  isChangingPassword,
-  handleChangePassword,
-}: PasswordSectionProps) {
+export function PasswordSection(props: PasswordSectionProps) {
+  const {
+    email,
+    currentPassword,
+    setCurrentPassword,
+    newPassword,
+    setNewPassword,
+    confirmNewPassword,
+    setConfirmNewPassword,
+    isChangingPassword,
+    handleChangePassword,
+  } = props;
   const t = useTranslations("settings");
 
   return (
