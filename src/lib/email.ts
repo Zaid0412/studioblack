@@ -50,7 +50,6 @@ const colors = {
   pageBg: "#f4f4f5",
   cardBg: "#0d0d0d",
   accent: "#F5C518",
-  accentDark: "#D4A017",
   white: "#ffffff",
   textPrimary: "#ffffff",
   textMuted: "#a1a1aa",
@@ -67,6 +66,11 @@ const safeTagline = escapeHtml(branding.tagline);
 
 // ---------------------------------------------------------------------------
 // Shared building blocks
+// ---------------------------------------------------------------------------
+// Escaping contract:
+// - emailLayout, ctaButton, warningBox, orgPill → self-escape all parameters
+// - bodyText, hintText → accept pre-built HTML (caller is responsible)
+// - divider → no parameters
 // ---------------------------------------------------------------------------
 
 /** Centered body paragraph. */
@@ -95,25 +99,27 @@ function ctaButton(href: string, label: string): string {
     </table>`;
 }
 
-/** Amber warning / info box (e.g. "This link expires in 1 hour"). */
+/** Amber warning / info box (e.g. "This link expires in 1 hour"). Self-escapes text. */
 function warningBox(text: string): string {
+  const safeText = escapeHtml(text);
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 4px 0;">
       <tr>
         <td style="background-color: ${colors.warnBg}; border: 1px solid ${colors.warnBorder}; border-radius: 10px; padding: 14px 16px; font-family: ${font}; font-size: 13px; font-weight: 500; color: ${colors.accent};">
-          ${text}
+          ${safeText}
         </td>
       </tr>
     </table>`;
 }
 
-/** Dark pill showing an org name. */
+/** Dark pill showing an org name. Self-escapes orgName. */
 function orgPill(orgName: string): string {
+  const safeName = escapeHtml(orgName);
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
       <tr>
         <td style="background-color: #18181b; border: 1px solid ${colors.divider}; border-radius: 12px; padding: 12px 24px; font-family: ${font}; font-size: 14px; font-weight: 600; color: ${colors.white};">
-          ${orgName}
+          ${safeName}
         </td>
       </tr>
     </table>`;
@@ -280,7 +286,7 @@ export async function sendNotificationEmail(
 ) {
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} — ${escapeHtml(subject)}`,
+    `${getEnvTag()}${branding.appName} — ${subject}`,
     emailLayout(
       subject,
       `<div style="font-size: 14px; color: ${colors.textMuted}; line-height: 1.6;">
@@ -355,11 +361,9 @@ export async function sendInvitationEmail(
     `${getEnvTag()}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
     emailLayout(
       "You're Invited",
-      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 16px;">
-        <strong style="color: ${colors.white};">${escapeHtml(inviterName)}</strong> has invited you to join
-      </p>
+      `${bodyText(`<strong style="color: ${colors.white};">${escapeHtml(inviterName)}</strong> has invited you to join`)}
       <div style="text-align: center; margin: 0 0 24px;">
-        ${orgPill(escapeHtml(orgName))}
+        ${orgPill(orgName)}
       </div>
       ${divider()}
       <div style="padding-top: 24px;">

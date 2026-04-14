@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -101,6 +101,10 @@ export function NotificationPanel() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("all");
+  const navigate = useCallback(
+    (path: string) => router.push(path),
+    [router]
+  );
 
   const {
     loading,
@@ -117,7 +121,7 @@ export function NotificationPanel() {
     handleRejectInvite,
   } = useNotifications({
     t,
-    onNavigate: (path) => router.push(path),
+    onNavigate: navigate,
     onClose: () => setOpen(false),
   });
 
@@ -186,17 +190,20 @@ export function NotificationPanel() {
         {/* Tabs */}
         <div className="flex px-4 lg:px-5 gap-0" role="tablist">
           <TabButton
+            id="notif-tab-all"
             active={activeTab === "all"}
             onClick={() => setActiveTab("all")}
             label={t("all") || "All"}
           />
           <TabButton
+            id="notif-tab-unread"
             active={activeTab === "unread"}
             onClick={() => setActiveTab("unread")}
             label={t("unread") || "Unread"}
             count={unreadCount}
           />
           <TabButton
+            id="notif-tab-invitations"
             active={activeTab === "invitations"}
             onClick={() => setActiveTab("invitations")}
             label={t("invitations") || "Invitations"}
@@ -207,7 +214,11 @@ export function NotificationPanel() {
         <div className="h-px bg-border-default" />
 
         {/* Body */}
-        <div className="max-h-[440px] overflow-y-auto" role="tabpanel">
+        <div
+          className="max-h-[440px] overflow-y-auto"
+          role="tabpanel"
+          aria-labelledby={`notif-tab-${activeTab}`}
+        >
           {loading ? (
             <div className="flex flex-col gap-2 p-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -280,11 +291,13 @@ export function NotificationPanel() {
 // ---------------------------------------------------------------------------
 
 function TabButton({
+  id,
   active,
   onClick,
   label,
   count,
 }: {
+  id: string;
   active: boolean;
   onClick: () => void;
   label: string;
@@ -292,6 +305,7 @@ function TabButton({
 }) {
   return (
     <button
+      id={id}
       role="tab"
       aria-selected={active}
       onClick={onClick}
