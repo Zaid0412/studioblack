@@ -69,14 +69,26 @@ const safeTagline = escapeHtml(branding.tagline);
 // Shared building blocks
 // ---------------------------------------------------------------------------
 
-/** Gold CTA button — full-width, table-based for email client compatibility. */
+/** Centered body paragraph. */
+function bodyText(content: string): string {
+  return `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">${content}</p>`;
+}
+
+/** Small hint text below the CTA. */
+function hintText(content: string): string {
+  return `<p style="font-size: 12px; color: ${colors.textHint}; text-align: center; line-height: 1.5; margin: 16px 0 0;">${content}</p>`;
+}
+
+/** Gold CTA button — full-width, table-based for email client compatibility. Self-escapes href and label. */
 function ctaButton(href: string, label: string): string {
+  const safeHref = escapeHtml(href);
+  const safeLabel = escapeHtml(label);
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 8px 0;">
       <tr>
         <td align="center">
-          <a href="${href}" target="_blank" style="display: block; width: 100%; padding: 16px 24px; background-color: ${colors.accent}; color: ${colors.textDark}; text-decoration: none; border-radius: 12px; font-family: ${font}; font-size: 15px; font-weight: 600; text-align: center; box-sizing: border-box;">
-            ${label}
+          <a href="${safeHref}" target="_blank" style="display: block; width: 100%; padding: 16px 24px; background-color: ${colors.accent}; color: ${colors.textDark}; text-decoration: none; border-radius: 12px; font-family: ${font}; font-size: 15px; font-weight: 600; text-align: center; box-sizing: border-box;">
+            ${safeLabel}
           </a>
         </td>
       </tr>
@@ -116,12 +128,15 @@ function divider(): string {
 }
 
 /**
- * Full email document wrapper.
- * @param title   - Bold heading text
- * @param body    - Main HTML content (description, buttons, etc.)
- * @param footer  - Contextual disclaimer shown below the card
+ * Full email document wrapper. Escapes title and footer internally —
+ * callers should pass raw (unescaped) strings.
+ * @param title   - Bold heading text (will be escaped)
+ * @param body    - Main HTML content (pre-built, NOT escaped here)
+ * @param footer  - Contextual disclaimer shown below the card (will be escaped)
  */
 function emailLayout(title: string, body: string, footer: string): string {
+  const safeTitle = escapeHtml(title);
+  const safeFooter = escapeHtml(footer);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -129,7 +144,7 @@ function emailLayout(title: string, body: string, footer: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="light" />
   <meta name="supported-color-schemes" content="light" />
-  <title>${title}</title>
+  <title>${safeTitle}</title>
   <!--[if mso]>
   <style>table,td{font-family:Arial,sans-serif;}</style>
   <![endif]-->
@@ -162,7 +177,7 @@ function emailLayout(title: string, body: string, footer: string): string {
                       <!-- Title -->
                       <tr>
                         <td align="center" style="padding-bottom: 16px; font-family: ${font}; font-size: 24px; font-weight: 700; color: ${colors.textPrimary};">
-                          ${title}
+                          ${safeTitle}
                         </td>
                       </tr>
                       <!-- Body content -->
@@ -189,7 +204,7 @@ function emailLayout(title: string, body: string, footer: string): string {
                 </tr>
                 <tr>
                   <td align="center" style="font-family: ${font}; font-size: 11px; color: ${colors.textHint}; line-height: 1.5; padding-bottom: 8px;">
-                    ${footer}
+                    ${safeFooter}
                   </td>
                 </tr>
               </table>
@@ -238,23 +253,18 @@ async function sendEmail(to: string, subject: string, html: string) {
  * Send a magic link email to a client for project access.
  */
 export async function sendMagicLinkEmail(email: string, url: string) {
-  const safeUrl = escapeHtml(url);
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Access Your Project`,
     emailLayout(
       "Access Your Project",
-      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
-        You&#039;ve been invited to review a project on ${safeBrandName}. Click the button below to access your project dashboard.
-      </p>
+      `${bodyText(`You've been invited to review a project on ${safeBrandName}. Click the button below to access your project dashboard.`)}
       ${divider()}
       <div style="padding-top: 24px;">
-        ${ctaButton(safeUrl, "View Project")}
+        ${ctaButton(url, "View Project")}
       </div>
-      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
-        This link expires in 15 minutes.
-      </p>`,
-      "If you didn&#039;t expect this email, you can safely ignore it."
+      ${hintText("This link expires in 15 minutes.")}`,
+      "If you didn't expect this email, you can safely ignore it."
     )
   );
 }
@@ -272,7 +282,7 @@ export async function sendNotificationEmail(
     email,
     `${getEnvTag()}${branding.appName} — ${escapeHtml(subject)}`,
     emailLayout(
-      escapeHtml(subject),
+      subject,
       `<div style="font-size: 14px; color: ${colors.textMuted}; line-height: 1.6;">
         ${body}
       </div>`,
@@ -285,25 +295,20 @@ export async function sendNotificationEmail(
  * Send a password reset email.
  */
 export async function sendPasswordResetEmail(email: string, url: string) {
-  const safeUrl = escapeHtml(url);
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Reset Your Password`,
     emailLayout(
       "Reset Your Password",
-      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
-        We received a request to reset the password for your account. Click the button below to choose a new one.
-      </p>
+      `${bodyText("We received a request to reset the password for your account. Click the button below to choose a new one.")}
       ${warningBox("This link expires in 1 hour")}
       <div style="padding-top: 16px;">
         ${divider()}
       </div>
       <div style="padding-top: 24px;">
-        ${ctaButton(safeUrl, "Reset Password")}
+        ${ctaButton(url, "Reset Password")}
       </div>
-      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; line-height: 1.5; margin: 16px 0 0;">
-        If you didn&#039;t request a password reset, you can safely ignore this email. Your password will remain unchanged.
-      </p>`,
+      ${hintText("If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.")}`,
       "This is an automated email from " +
         safeBrandName +
         ". Please do not reply directly."
@@ -319,24 +324,19 @@ export async function sendVerificationEmail(
   name: string,
   url: string
 ) {
-  const safeUrl = escapeHtml(url);
   const safeName = escapeHtml(name);
   await sendEmail(
     email,
     `${getEnvTag()}${branding.appName} — Verify Your Email`,
     emailLayout(
       "Verify Your Email",
-      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
-        Hi ${safeName}, thanks for signing up! Please verify your email address to get started with ${safeBrandName}.
-      </p>
+      `${bodyText(`Hi ${safeName}, thanks for signing up! Please verify your email address to get started with ${safeBrandName}.`)}
       ${divider()}
       <div style="padding-top: 24px;">
-        ${ctaButton(safeUrl, "Verify Email Address")}
+        ${ctaButton(url, "Verify Email Address")}
       </div>
-      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
-        This link expires in 24 hours.
-      </p>`,
-      "If you didn&#039;t create an account, you can safely ignore this email."
+      ${hintText("This link expires in 24 hours.")}`,
+      "If you didn't create an account, you can safely ignore this email."
     )
   );
 }
@@ -354,7 +354,7 @@ export async function sendInvitationEmail(
     email,
     `${getEnvTag()}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
     emailLayout(
-      "You&#039;re Invited",
+      "You're Invited",
       `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 16px;">
         <strong style="color: ${colors.white};">${escapeHtml(inviterName)}</strong> has invited you to join
       </p>
@@ -363,12 +363,10 @@ export async function sendInvitationEmail(
       </div>
       ${divider()}
       <div style="padding-top: 24px;">
-        ${ctaButton(escapeHtml(inviteLink), "Accept Invitation")}
+        ${ctaButton(inviteLink, "Accept Invitation")}
       </div>
-      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
-        If you don&#039;t have an account yet, you&#039;ll be prompted to create one.
-      </p>`,
-      "If you weren&#039;t expecting this invitation, you can safely ignore this email."
+      ${hintText("If you don't have an account yet, you'll be prompted to create one.")}`,
+      "If you weren't expecting this invitation, you can safely ignore this email."
     )
   );
 }
@@ -381,27 +379,22 @@ export async function sendChangeEmailVerification(
   name: string,
   url: string
 ) {
-  const safeUrl = escapeHtml(url);
   const safeName = escapeHtml(name);
   await sendEmail(
     newEmail,
     `${getEnvTag()}${branding.appName} — Confirm Your New Email`,
     emailLayout(
       "Confirm Your New Email",
-      `<p style="font-size: 14px; color: ${colors.textMuted}; text-align: center; line-height: 1.6; margin: 0 0 24px;">
-        Hi ${safeName}, you requested to change your email address to this one. Click the button below to confirm.
-      </p>
-      ${warningBox("You&#039;ll need to enter your account password to complete the change")}
+      `${bodyText(`Hi ${safeName}, you requested to change your email address to this one. Click the button below to confirm.`)}
+      ${warningBox("You'll need to enter your account password to complete the change")}
       <div style="padding-top: 16px;">
         ${divider()}
       </div>
       <div style="padding-top: 24px;">
-        ${ctaButton(safeUrl, "Confirm New Email")}
+        ${ctaButton(url, "Confirm New Email")}
       </div>
-      <p style="font-size: 12px; color: ${colors.textHint}; text-align: center; margin: 16px 0 0;">
-        This link expires in 24 hours.
-      </p>`,
-      "If you didn&#039;t request this, you can safely ignore this email."
+      ${hintText("This link expires in 24 hours.")}`,
+      "If you didn't request this, you can safely ignore this email."
     )
   );
 }

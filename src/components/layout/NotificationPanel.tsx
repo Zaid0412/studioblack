@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   ListChecks,
   CheckCheck,
+  X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -83,9 +84,9 @@ const typeAccent: Record<string, { border: string; bg: string; fill: string }> =
   };
 
 const defaultAccent = {
-  border: "border-l-text-muted",
-  bg: "bg-bg-elevated",
-  fill: "text-text-muted",
+  border: "border-l-zinc-500",
+  bg: "bg-zinc-500/10",
+  fill: "text-zinc-500",
 };
 
 type Tab = "all" | "unread" | "invitations";
@@ -206,7 +207,7 @@ export function NotificationPanel() {
         <div className="h-px bg-border-default" />
 
         {/* Body */}
-        <div className="max-h-[440px] overflow-y-auto">
+        <div className="max-h-[440px] overflow-y-auto" role="tabpanel">
           {loading ? (
             <div className="flex flex-col gap-2 p-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -253,6 +254,7 @@ export function NotificationPanel() {
                   }
                   onAccept={() => handleAcceptInvite(notification.id)}
                   onReject={() => handleRejectInvite(notification.id)}
+                  t={t}
                 />
               ))}
 
@@ -329,14 +331,16 @@ function NotificationCard({
   onDelete,
   onAccept,
   onReject,
+  t,
 }: {
   notification: Notification;
   isInvite: boolean;
   isLoading: boolean;
   onClick: () => void;
   onDelete?: () => void;
-  onAccept: () => void;
-  onReject: () => void;
+  onAccept?: () => void;
+  onReject?: () => void;
+  t: (key: string) => string;
 }) {
   const isUnread = !notification.read;
   const accent = typeAccent[notification.type] ?? defaultAccent;
@@ -400,28 +404,17 @@ function NotificationCard({
             </span>
           </div>
 
-          {/* Delete (visible on hover) */}
+          {/* Delete (visible on hover, always visible on touch) */}
           {onDelete && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer shrink-0"
+              className="max-lg:opacity-100 opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer shrink-0"
               aria-label="Delete notification"
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -435,10 +428,10 @@ function NotificationCard({
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
-                onAccept();
+                onAccept?.();
               }}
             >
-              {isLoading ? "..." : "Accept"}
+              {isLoading ? "..." : t("accept")}
             </Button>
             <Button
               variant="secondary"
@@ -447,10 +440,10 @@ function NotificationCard({
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
-                onReject();
+                onReject?.();
               }}
             >
-              Decline
+              {t("decline")}
             </Button>
           </div>
         )}

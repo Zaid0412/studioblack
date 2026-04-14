@@ -420,7 +420,9 @@
     "unread": "Unread",
     "invitations": "Invitations",
     "noUnread": "You're all caught up",
-    "noInvitations": "No pending invitations"
+    "noInvitations": "No pending invitations",
+    "accept": "Accept",
+    "decline": "Decline"
   },
   "settings": {
     "title": "User Settings",
