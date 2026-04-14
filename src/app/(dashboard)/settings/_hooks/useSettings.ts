@@ -47,10 +47,16 @@ export function useSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sync only when specific fields change
   }, [session?.user?.name, session?.user?.image]);
 
-  // Clear stale emailChangeRequested flag when session reloads (user completed the change and re-logged in)
+  // Clear stale emailChangeRequested flag when session reloads.
+  // If the user completed the change and re-logged in, session email now matches the pending email.
   useEffect(() => {
-    if (session?.user && emailChangeRequested && !newEmail) {
+    if (!session?.user || !emailChangeRequested) return;
+    const pendingEmail = sessionStorage.getItem("emailChangePendingEmail");
+    const currentEmail = session.user.email?.toLowerCase();
+    // Change completed (session email matches pending) or no pending email stored
+    if (!pendingEmail || currentEmail === pendingEmail.toLowerCase()) {
       setEmailChangeRequested(false);
+      setNewEmail("");
       sessionStorage.removeItem("emailChangeRequested");
       sessionStorage.removeItem("emailChangePendingEmail");
     }
