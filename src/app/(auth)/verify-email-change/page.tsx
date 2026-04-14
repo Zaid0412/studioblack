@@ -59,7 +59,7 @@ export default function VerifyEmailChangePage() {
     setErrorMsg("");
 
     try {
-      const data = await apiPost<{ status: boolean; newEmail: string }>(
+      const data = await apiPost<{ newEmail: string }>(
         "/api/settings/verify-email-change",
         { token, password }
       );

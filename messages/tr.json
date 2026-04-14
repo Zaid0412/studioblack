@@ -103,8 +103,7 @@
     "continueToLogin": "Girişe devam et",
     "changeEmailVerifyError": "Bir hata oluştu. Lütfen tekrar deneyin.",
     "changeEmailExpired": "Bu bağlantı geçersiz veya süresi dolmuş.",
-    "changeEmailHint": "Bu değişiklik onaylanana kadar eski e-postanız aktif kalır.",
-    "backToSettings": "Ayarlara dön"
+    "changeEmailHint": "Bu değişiklik onaylanana kadar eski e-postanız aktif kalır."
   },
   "nav": {
     "dashboard": "Kontrol Paneli",
@@ -480,7 +479,8 @@
     "changeEmailSentDesc": "Yeni e-postanızda doğrulama bağlantısını kontrol edin.",
     "changeEmailSentTo": "{email} adresine doğrulama e-postası gönderildi. Gelen kutunuzu kontrol edin.",
     "changeEmailError": "Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.",
-    "sending": "Gönderiliyor..."
+    "sending": "Gönderiliyor...",
+    "comingSoon": "Yakında"
   },
   "audit": {
     "title": "Denetim Geçmişi",

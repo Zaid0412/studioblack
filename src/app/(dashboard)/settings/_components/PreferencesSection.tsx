@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { Card } from "@/components/ui/card";
@@ -15,15 +14,11 @@ import {
 import { useTheme } from "@/components/ThemeProvider";
 import { setLocale } from "@/lib/locale";
 
-/** User preferences section — theme, language, and notification placeholders. */
+/** User preferences section — theme, language, and notifications. */
 export function PreferencesSection() {
   const t = useTranslations("settings");
   const { mode, toggleTheme } = useTheme();
   const currentLocale = useLocale();
-
-  // Placeholder notification state — not persisted yet
-  const [emailNotif, setEmailNotif] = useState(true);
-  const [pushNotif, setPushNotif] = useState(false);
 
   return (
     <Card>
@@ -32,18 +27,21 @@ export function PreferencesSection() {
           {t("preferences")}
         </h3>
 
-        <ToggleSwitch
-          label={t("emailNotifications")}
-          description={t("emailNotificationsDesc")}
-          checked={emailNotif}
-          onChange={setEmailNotif}
-        />
-        <ToggleSwitch
-          label={t("pushNotifications")}
-          description={t("pushNotificationsDesc")}
-          checked={pushNotif}
-          onChange={setPushNotif}
-        />
+        <div className="opacity-50 pointer-events-none flex flex-col gap-5">
+          <ToggleSwitch
+            label={t("emailNotifications")}
+            description={t("emailNotificationsDesc")}
+            checked={true}
+            onChange={() => {}}
+          />
+          <ToggleSwitch
+            label={t("pushNotifications")}
+            description={t("pushNotificationsDesc")}
+            checked={false}
+            onChange={() => {}}
+          />
+          <p className="text-xs text-text-muted -mt-2">{t("comingSoon")}</p>
+        </div>
         <ToggleSwitch
           label={t("darkMode")}
           description={t("darkModeDesc")}

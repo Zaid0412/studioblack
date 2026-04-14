@@ -103,8 +103,7 @@
     "continueToLogin": "Continue to login",
     "changeEmailVerifyError": "Something went wrong. Please try again.",
     "changeEmailExpired": "This link has expired or is invalid.",
-    "changeEmailHint": "Your old email stays active until this change is confirmed.",
-    "backToSettings": "Back to settings"
+    "changeEmailHint": "Your old email stays active until this change is confirmed."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -480,7 +479,8 @@
     "changeEmailSentDesc": "Check your new email for a verification link.",
     "changeEmailSentTo": "Verification email sent to {email}. Check your inbox.",
     "changeEmailError": "Failed to send verification email. Please try again.",
-    "sending": "Sending..."
+    "sending": "Sending...",
+    "comingSoon": "Coming soon"
   },
   "audit": {
     "title": "Audit History",

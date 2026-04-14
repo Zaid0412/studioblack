@@ -49,6 +49,6 @@ export const POST = withAuth(
       verifyUrl
     );
 
-    return NextResponse.json({ status: true });
+    return NextResponse.json({ sent: true });
   }
 );
