@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleIcon } from "@/components/ui/GoogleIcon";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { getSafeReturnTo } from "@/lib/utils";
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
   const forgotPasswordHref = useMemo(() => {
@@ -98,6 +100,34 @@ export default function LoginPage() {
           {isLoading ? t("signingIn") : t("signIn")}
         </Button>
       </form>
+
+      {features.googleAuth && (
+        <>
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-border-default" />
+            <span className="text-xs text-text-muted">
+              {t("orContinueWith")}
+            </span>
+            <div className="flex-1 h-px bg-border-default" />
+          </div>
+
+          <button
+            type="button"
+            onClick={async () => {
+              setIsGoogleLoading(true);
+              await authClient.signIn.social({
+                provider: "google",
+                callbackURL: getSafeReturnTo(returnTo),
+              });
+            }}
+            disabled={isGoogleLoading || isLoading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-medium border border-border-default rounded-lg hover:bg-bg-secondary transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            <GoogleIcon className="w-5 h-5" />
+            <span className="text-text-primary">Continue with Google</span>
+          </button>
+        </>
+      )}
 
       {features.magicLink && (
         <>
