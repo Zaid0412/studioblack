@@ -24,20 +24,15 @@ interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
  * Text input pre-styled with a search (magnifying-glass) icon on the left.
  *
  * Forwards a ref to the underlying `<input>` element.
+ *
+ * When `debounceMs` is set, the component manages its own display value
+ * internally and fires `onDebouncedChange` after the user stops typing.
+ * The parent's `value` prop is used as the initial value only.
  */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ className, containerClassName, debounceMs, onDebouncedChange, onChange, value, ...props }, ref) => {
-    const [localValue, setLocalValue] = useState<string | number | readonly string[]>(value ?? "");
+    const [localValue, setLocalValue] = useState(value ?? "");
     const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-    const prevValueRef = useRef(value);
-
-    // Sync external value changes into local state (no useEffect — runs during render)
-    if (value !== prevValueRef.current) {
-      prevValueRef.current = value;
-      if (value !== undefined && value !== localValue) {
-        setLocalValue(value);
-      }
-    }
 
     // Cleanup timer on unmount
     useEffect(() => () => { clearTimeout(timerRef.current); }, []);
