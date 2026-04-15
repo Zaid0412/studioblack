@@ -407,7 +407,7 @@ export default function ProjectsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {t("deleteTitle", { name: deleteTarget?.name })}
+                {t("deleteTitle", { name: deleteTarget?.name ?? "" })}
               </DialogTitle>
               <DialogDescription>
                 {t("deleteDescription")}

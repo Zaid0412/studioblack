@@ -25,8 +25,8 @@ interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
  */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ className, containerClassName, debounceMs, onChange, value, ...props }, ref) => {
-    const [localValue, setLocalValue] = useState(value ?? "");
-    const timerRef = useRef<ReturnType<typeof setTimeout>>();
+    const [localValue, setLocalValue] = useState<string | number | readonly string[]>(value ?? "");
+    const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     // Sync external value changes into local state
     useEffect(() => {
