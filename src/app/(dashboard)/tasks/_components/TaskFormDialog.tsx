@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useFileDropzone } from "@/hooks/useFileDropzone";
 import {
   Loader2,
   ListChecks,
@@ -112,8 +113,6 @@ export function TaskFormDialog({
 
   // -- File attachment local state --
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
-
   const addFiles = useCallback(
     (files: FileList | File[]) => {
       const incoming = Array.from(files);
@@ -138,6 +137,9 @@ export function TaskFormDialog({
     [setFormData]
   );
 
+  const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
+    useFileDropzone(addFiles);
+
   const removeFile = useCallback(
     (index: number) => {
       setFormData((f) => ({
@@ -148,15 +150,32 @@ export function TaskFormDialog({
     [setFormData]
   );
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      if (e.dataTransfer.files.length > 0) {
-        addFiles(e.dataTransfer.files);
+  const renderPhaseSelect = (opts?: {
+    disabled?: boolean;
+    placeholder?: string;
+  }) => (
+    <Select
+      value={formData.phaseId || "none"}
+      onValueChange={(v) =>
+        setFormData((f) => ({
+          ...f,
+          phaseId: v === "none" ? "" : v,
+        }))
       }
-    },
-    [addFiles]
+      disabled={opts?.disabled}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder={opts?.placeholder ?? t("noPhase")} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">{t("noPhase")}</SelectItem>
+        {phases.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 
   return (
@@ -228,30 +247,10 @@ export function TaskFormDialog({
                 <label className="text-[13px] font-medium text-text-secondary">
                   {t("phase")}
                 </label>
-                <Select
-                  value={formData.phaseId || "none"}
-                  onValueChange={(v) =>
-                    setFormData((f) => ({
-                      ...f,
-                      phaseId: v === "none" ? "" : v,
-                    }))
-                  }
-                  disabled={!formData.projectId || loadingPhases}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={loadingPhases ? t("loading") : t("noPhase")}
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t("noPhase")}</SelectItem>
-                    {phases.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {renderPhaseSelect({
+                  disabled: !formData.projectId || loadingPhases,
+                  placeholder: loadingPhases ? t("loading") : t("noPhase"),
+                })}
               </div>
             </div>
           ) : (
@@ -259,27 +258,7 @@ export function TaskFormDialog({
               <label className="text-[13px] font-medium text-text-secondary">
                 {t("phase")}
               </label>
-              <Select
-                value={formData.phaseId || "none"}
-                onValueChange={(v) =>
-                  setFormData((f) => ({
-                    ...f,
-                    phaseId: v === "none" ? "" : v,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("noPhase")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("noPhase")}</SelectItem>
-                  {phases.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {renderPhaseSelect()}
             </div>
           )}
 
@@ -454,11 +433,8 @@ export function TaskFormDialog({
 
                 {/* Drop zone */}
                 <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOver(true);
-                  }}
-                  onDragLeave={() => setDragOver(false)}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                   className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-lg border border-dashed cursor-pointer transition-colors ${

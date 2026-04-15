@@ -8,16 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { DeleteProjectDialog } from "../../_components/DeleteProjectDialog";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
@@ -214,39 +205,26 @@ export default function EditProjectPage({
         tc={tc}
         submitLabel={t("saveChanges")}
         footerExtra={
-          <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <DialogTrigger asChild>
-              <Button
-                type="button"
-                variant="danger"
-                className="w-full lg:w-auto lg:ml-auto"
-              >
-                <Trash2 className="w-4 h-4" />
-                {t("deleteProject")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {t("deleteTitle", { name: project.name })}
-                </DialogTitle>
-                <DialogDescription>{t("deleteDescription")}</DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="secondary">{tc("cancel")}</Button>
-                </DialogClose>
-                <Button
-                  variant="danger"
-                  disabled={deleting}
-                  onClick={handleDelete}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {deleting ? tc("loading") : t("deleteConfirm")}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <>
+            <Button
+              type="button"
+              variant="danger"
+              className="w-full lg:w-auto lg:ml-auto"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="w-4 h-4" />
+              {t("deleteProject")}
+            </Button>
+            <DeleteProjectDialog
+              open={deleteOpen}
+              onOpenChange={setDeleteOpen}
+              title={t("deleteTitle", { name: project.name })}
+              description={t("deleteDescription")}
+              confirmLabel={t("deleteConfirm")}
+              confirming={deleting}
+              onConfirm={handleDelete}
+            />
+          </>
         }
       />
     </div>

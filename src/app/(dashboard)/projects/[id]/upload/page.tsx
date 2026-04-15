@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useCallback, useRef } from "react";
+import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -35,7 +36,6 @@ export default function DesignUploadPage({
   const [files, setFiles] = useState<File[]>([]);
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,20 +45,12 @@ export default function DesignUploadPage({
     setError("");
   }, []);
 
+  const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
+    useFileDropzone(addFiles);
+
   const removeFile = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      if (e.dataTransfer.files.length > 0) {
-        addFiles(e.dataTransfer.files);
-      }
-    },
-    [addFiles]
-  );
 
   const handleUpload = async () => {
     if (files.length === 0) {
@@ -129,11 +121,8 @@ export default function DesignUploadPage({
         <>
           {/* Dropzone */}
           <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             className={`flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-12 transition-colors cursor-pointer ${

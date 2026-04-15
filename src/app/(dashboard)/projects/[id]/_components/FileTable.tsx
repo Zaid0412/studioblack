@@ -461,6 +461,30 @@ export function FileTable({
     [selectedFiles, projectId, bulkAction, t]
   );
 
+  const bulkActionProps = useMemo(
+    () => ({
+      isClient,
+      isStaff,
+      onDownload: handleBulkDownload,
+      onApprove: () => handleBulkReview("approved"),
+      onReject: () => handleBulkReview("rejected"),
+      onSendToClient: handleBulkSendToClient,
+      onMarkReviewed: handleBulkMarkReviewed,
+      onFreeze: handleBulkFreeze,
+      onRemove: handleBulkRemove,
+    }),
+    [
+      isClient,
+      isStaff,
+      handleBulkDownload,
+      handleBulkReview,
+      handleBulkSendToClient,
+      handleBulkMarkReviewed,
+      handleBulkFreeze,
+      handleBulkRemove,
+    ]
+  );
+
   // Long-press on mobile to enter selection mode
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -574,18 +598,7 @@ export function FileTable({
                 Clear
               </button>
               <div className="flex-1" />
-              <BulkActions
-                variant="desktop"
-                isClient={isClient}
-                isStaff={isStaff}
-                onDownload={handleBulkDownload}
-                onApprove={() => handleBulkReview("approved")}
-                onReject={() => handleBulkReview("rejected")}
-                onSendToClient={handleBulkSendToClient}
-                onMarkReviewed={handleBulkMarkReviewed}
-                onFreeze={handleBulkFreeze}
-                onRemove={handleBulkRemove}
-              />
+              <BulkActions variant="desktop" {...bulkActionProps} />
             </>
           ) : (
             <>
@@ -682,15 +695,7 @@ export function FileTable({
 
               const isSelected = selectedIds.has(att.id);
 
-              const sharedProps = {
-                att,
-                isSelected,
-                hasSelection,
-                isStaff,
-                isNewForClient,
-                badge,
-                onToggleSelect: (e: React.MouseEvent) =>
-                  toggleSelect(att.id, e),
+              const contextMenuProps = {
                 onDownload: () => onDownload(att),
                 onEdit:
                   isStaff && !att.frozen_at
@@ -730,6 +735,18 @@ export function FileTable({
                   ? () => handleToggleFreeze(att)
                   : undefined,
                 onRemove: canRemove ? () => handleRemove(att) : undefined,
+              };
+
+              const sharedProps = {
+                att,
+                isSelected,
+                hasSelection,
+                isStaff,
+                isNewForClient,
+                badge,
+                onToggleSelect: (e: React.MouseEvent) =>
+                  toggleSelect(att.id, e),
+                contextMenuProps,
               };
 
               return (
@@ -780,18 +797,7 @@ export function FileTable({
               Clear
             </button>
             <div className="flex-1" />
-            <BulkActions
-              variant="mobile"
-              isClient={isClient}
-              isStaff={isStaff}
-              onDownload={handleBulkDownload}
-              onApprove={() => handleBulkReview("approved")}
-              onReject={() => handleBulkReview("rejected")}
-              onSendToClient={handleBulkSendToClient}
-              onMarkReviewed={handleBulkMarkReviewed}
-              onFreeze={handleBulkFreeze}
-              onRemove={handleBulkRemove}
-            />
+            <BulkActions variant="mobile" {...bulkActionProps} />
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@ import type { FileContextMenuProps } from "@/components/ui/FileContextMenu";
 import type { DbAttachment } from "@/types";
 
 /** Shared props for both FileRow (desktop) and FileCard (mobile). */
-export interface FileItemBaseProps extends FileContextMenuProps {
+export interface FileItemBaseProps {
   att: DbAttachment;
   isSelected: boolean;
   hasSelection: boolean;
@@ -11,9 +11,7 @@ export interface FileItemBaseProps extends FileContextMenuProps {
   isNewForClient: boolean;
   badge: { bg: string; text: string; label: string };
   onToggleSelect: (e: React.MouseEvent) => void;
-  /** Override to required. */
-  onDownload: () => void;
-  frozen: boolean;
+  contextMenuProps: FileContextMenuProps & { onDownload: () => void; frozen: boolean };
 }
 
 /** Shared frozen / sent-to-client / new-for-client indicator badges. */

@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { FolderOpen, LayoutList, LayoutGrid, Trash2 } from "lucide-react";
+import { FolderOpen, LayoutList, LayoutGrid } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button } from "@/components/ui/button";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
@@ -18,15 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { DeleteProjectDialog } from "./_components/DeleteProjectDialog";
 import {
   Tooltip,
   TooltipContent,
@@ -400,61 +392,42 @@ export default function ProjectsPage() {
 
       {/* Delete confirmation dialog (PM only) */}
       {isStaff && (
-        <Dialog
+        <DeleteProjectDialog
           open={!!deleteTarget}
           onOpenChange={(open) => !open && setDeleteTarget(null)}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                {t("deleteTitle", { name: deleteTarget?.name ?? "" })}
-              </DialogTitle>
-              <DialogDescription>
-                {t("deleteDescription")}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="secondary">{tc("cancel")}</Button>
-              </DialogClose>
-              <Button
-                variant="danger"
-                disabled={deleting}
-                onClick={async () => {
-                  if (!deleteTarget) return;
-                  setDeleting(true);
-                  try {
-                    await projectsApi.remove(deleteTarget.id);
-                    mutate(
-                      (prev) => prev?.filter((p) => p.id !== deleteTarget.id),
-                      { revalidate: false }
-                    );
-                    toast({
-                      title: t("deletedToast"),
-                      description: t("deletedToastDesc", { name: deleteTarget.name }),
-                      variant: "success",
-                    });
-                  } catch (err) {
-                    toast({
-                      title: tc("error"),
-                      description:
-                        err instanceof Error
-                          ? err.message
-                          : t("deleteError"),
-                      variant: "error",
-                    });
-                  } finally {
-                    setDeleting(false);
-                    setDeleteTarget(null);
-                  }
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                {deleting ? tc("loading") : tc("delete")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          title={t("deleteTitle", { name: deleteTarget?.name ?? "" })}
+          description={t("deleteDescription")}
+          confirmLabel={tc("delete")}
+          confirming={deleting}
+          onConfirm={async () => {
+            if (!deleteTarget) return;
+            setDeleting(true);
+            try {
+              await projectsApi.remove(deleteTarget.id);
+              mutate(
+                (prev) => prev?.filter((p) => p.id !== deleteTarget.id),
+                { revalidate: false }
+              );
+              toast({
+                title: t("deletedToast"),
+                description: t("deletedToastDesc", { name: deleteTarget.name }),
+                variant: "success",
+              });
+            } catch (err) {
+              toast({
+                title: tc("error"),
+                description:
+                  err instanceof Error
+                    ? err.message
+                    : t("deleteError"),
+                variant: "error",
+              });
+            } finally {
+              setDeleting(false);
+              setDeleteTarget(null);
+            }
+          }}
+        />
       )}
     </div>
   );
