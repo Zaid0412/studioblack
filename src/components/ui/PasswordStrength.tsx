@@ -2,60 +2,74 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/utils";
 
 interface PasswordStrengthProps {
   password: string;
 }
 
+/** Count how many of the 4 requirements the password meets. */
 function getStrength(pw: string): number {
   if (!pw) return 0;
   let score = 0;
   if (pw.length >= 8) score++;
-  if (pw.length >= 12) score++;
   if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
   if (/\d/.test(pw)) score++;
   if (/[^a-zA-Z0-9]/.test(pw)) score++;
-  return Math.min(score, 4);
+  return score;
 }
 
-const COLORS = [
-  "bg-error",
-  "bg-error",
-  "bg-warning",
-  "bg-success",
-  "bg-success",
-];
+/** Segmented bar color per strength level (0–4 met). */
+function barColor(strength: number): string {
+  if (strength <= 1) return "bg-error";
+  if (strength <= 2) return "bg-warning";
+  return "bg-success";
+}
 
-/** Visual password strength meter with colored bars and label. */
+/** Label text color per strength level. */
+function labelColor(strength: number): string {
+  if (strength <= 1) return "text-error";
+  if (strength <= 2) return "text-warning";
+  return "text-success";
+}
+
+/** Segmented password strength indicator — always visible, zero layout shift. */
 export function PasswordStrength({ password }: PasswordStrengthProps) {
   const t = useTranslations("auth");
   const strength = useMemo(() => getStrength(password), [password]);
 
-  if (!password) return null;
+  const labels: Record<number, string> = {
+    0: t("strengthWeak"),
+    1: t("strengthWeak"),
+    2: t("strengthFair"),
+    3: t("strengthGood"),
+    4: t("strengthStrong"),
+  };
 
-  const labels = [
-    t("strengthWeak"),
-    t("strengthWeak"),
-    t("strengthFair"),
-    t("strengthGood"),
-    t("strengthStrong"),
-  ];
+  const isEmpty = !password;
+  const tooShort = !!password && password.length < 8;
+  const label = tooShort ? t("passwordTooShort") : labels[strength];
+  const lColor = tooShort ? "text-error" : labelColor(strength);
 
   return (
-    <div className="flex flex-col gap-1.5 mt-1.5">
+    <div
+      className={`flex flex-col gap-1 mt-1.5 transition-opacity duration-200 ${
+        isEmpty ? "opacity-0" : "opacity-100"
+      }`}
+      aria-hidden={isEmpty}
+    >
       <div className="flex gap-1">
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className={cn(
-              "h-1 flex-1 rounded-full transition-colors duration-200",
-              i < strength ? COLORS[strength] : "bg-border-default"
-            )}
+            className={`h-1 flex-1 rounded-full transition-colors duration-200 ${
+              i < strength ? barColor(strength) : "bg-border-default"
+            }`}
           />
         ))}
       </div>
-      <span className="text-[11px] text-text-muted">{labels[strength]}</span>
+      <span className={`text-[11px] transition-colors duration-200 ${lColor}`}>
+        {label}
+      </span>
     </div>
   );
 }

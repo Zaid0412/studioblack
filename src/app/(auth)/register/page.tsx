@@ -114,7 +114,7 @@ export default function RegisterPage() {
           className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
           required
         />
-        <div>
+        <div className="-mb-2.5">
           <Input
             label={t("password")}
             type="password"
