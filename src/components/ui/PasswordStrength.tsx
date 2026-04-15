@@ -37,17 +37,21 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
   const t = useTranslations("auth");
   const strength = useMemo(() => getStrength(password), [password]);
 
-  const labels: Record<number, string> = {
-    0: t("strengthWeak"),
-    1: t("strengthWeak"),
-    2: t("strengthFair"),
-    3: t("strengthGood"),
-    4: t("strengthStrong"),
-  };
+  const strings = useMemo(
+    () => ({
+      weak: t("strengthWeak"),
+      fair: t("strengthFair"),
+      good: t("strengthGood"),
+      strong: t("strengthStrong"),
+      tooShort: t("passwordTooShort"),
+    }),
+    [t]
+  );
 
   const isEmpty = !password;
   const tooShort = !!password && password.length < 8;
-  const label = tooShort ? t("passwordTooShort") : labels[strength];
+  const strengthLabels = [strings.weak, strings.weak, strings.fair, strings.good, strings.strong];
+  const label = tooShort ? strings.tooShort : strengthLabels[strength];
   const lColor = tooShort ? "text-error" : labelColor(strength);
 
   return (

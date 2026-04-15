@@ -114,6 +114,7 @@ export default function RegisterPage() {
           className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
           required
         />
+        {/* Negative margin compensates for the strength indicator's reserved height */}
         <div className="-mb-2.5">
           <Input
             label={t("password")}
