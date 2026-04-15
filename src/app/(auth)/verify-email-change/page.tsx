@@ -16,11 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AuthCard } from "@/components/ui/AuthCard";
-import { apiGet, apiPost, ApiError } from "@/lib/api/client";
+import { apiGet, apiPost, apiPut, ApiError } from "@/lib/api/client";
 
-/** Full-page email change verification — user confirms with password after clicking the email link. */
+/** Full-page email change verification — user confirms with password or OTP after clicking the email link. */
 export default function VerifyEmailChangePage() {
   const t = useTranslations("auth");
+  const tSettings = useTranslations("settings");
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -30,17 +31,32 @@ export default function VerifyEmailChangePage() {
   const [success, setSuccess] = useState(false);
   const [oldEmail, setOldEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // OTP state for Google-only users
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+
+  // OTP cooldown timer
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const timer = setTimeout(() => setOtpCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [otpCooldown]);
 
   // Fetch pending change info from API (no emails in URL)
   useEffect(() => {
     if (!token) return;
-    apiGet<{ oldEmail: string; newEmail: string }>(
+    apiGet<{ oldEmail: string; newEmail: string; hasPassword: boolean }>(
       `/api/settings/verify-email-change?token=${token}`
     )
       .then((data) => {
         setOldEmail(data.oldEmail);
         setNewEmail(data.newEmail);
+        setHasPassword(data.hasPassword);
       })
       .catch(() => {
         // Token invalid/expired — will be caught by the form submission too
@@ -52,16 +68,33 @@ export default function VerifyEmailChangePage() {
     return () => clearTimeout(redirectTimer.current);
   }, []);
 
+  const sendOtp = async () => {
+    setIsSendingOtp(true);
+    try {
+      await apiPut("/api/settings/verify-email-change", { token });
+      setOtpSent(true);
+      setOtpCooldown(60);
+    } catch {
+      setErrorMsg(tSettings("otpSendError"));
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !password) return;
+    const usingOtp = hasPassword === false;
+    if (!token || (usingOtp ? otpCode.length !== 6 : !password)) return;
     setIsLoading(true);
     setErrorMsg("");
 
     try {
+      const body = usingOtp
+        ? { token, otp: otpCode }
+        : { token, password };
       const data = await apiPost<{ newEmail: string }>(
         "/api/settings/verify-email-change",
-        { token, password }
+        body
       );
       setNewEmail(data.newEmail);
       setSuccess(true);
@@ -97,8 +130,10 @@ export default function VerifyEmailChangePage() {
               </span>
             </div>
           )}
-          <p className="text-sm text-text-muted">
-            {t("changeEmailSuccessDesc")}
+          <p className="text-sm text-text-muted text-center">
+            {hasPassword === false
+              ? t("changeEmailSuccessDescGoogle")
+              : t("changeEmailSuccessDesc")}
           </p>
           <Button
             onClick={() => router.push("/login")}
@@ -116,7 +151,7 @@ export default function VerifyEmailChangePage() {
     <AuthCard
       icon={ShieldCheck}
       title={t("changeEmailTitle")}
-      description={t("changeEmailDesc")}
+      description={hasPassword === false ? t("changeEmailDescOtp") : t("changeEmailDesc")}
       headerExtra={
         oldEmail || newEmail ? (
           <div className="flex flex-col items-center gap-0">
@@ -160,20 +195,77 @@ export default function VerifyEmailChangePage() {
             readOnly
             hidden
           />
-          <Input
-            label={t("password")}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t("passwordPlaceholder")}
-            autoComplete="current-password"
-          />
+
+          {hasPassword === null ? (
+            /* Still loading — don't show either form yet */
+            <div className="flex justify-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
+            </div>
+          ) : hasPassword === false ? (
+            /* Google-only user: OTP verification */
+            <div className="flex flex-col gap-3">
+              {!otpSent ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full h-[48px]"
+                  onClick={sendOtp}
+                  disabled={isSendingOtp}
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  {isSendingOtp
+                    ? tSettings("sending")
+                    : tSettings("sendVerificationCode")}
+                </Button>
+              ) : (
+                <>
+                  <Input
+                    label={tSettings("verificationCode")}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={otpCode}
+                    onChange={(e) =>
+                      setOtpCode(e.target.value.replace(/\D/g, ""))
+                    }
+                    autoComplete="one-time-code"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendOtp}
+                    disabled={otpCooldown > 0 || isSendingOtp}
+                    className="text-xs text-text-muted hover:text-accent transition-colors self-start cursor-pointer disabled:opacity-50"
+                  >
+                    {otpCooldown > 0
+                      ? tSettings("resendIn", { seconds: otpCooldown })
+                      : tSettings("resendCode")}
+                  </button>
+                </>
+              )}
+            </div>
+          ) : (
+            /* Password user: password verification */
+            <Input
+              label={t("password")}
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={t("passwordPlaceholder")}
+              autoComplete="current-password"
+            />
+          )}
 
           {errorMsg && <p className="text-sm text-error">{errorMsg}</p>}
 
           <Button
             type="submit"
-            disabled={isLoading || !password}
+            disabled={
+              isLoading ||
+              (hasPassword === false
+                ? !otpSent || otpCode.length !== 6
+                : !password)
+            }
             className="w-full h-[48px]"
           >
             {isLoading ? (
