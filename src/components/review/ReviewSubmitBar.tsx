@@ -88,6 +88,7 @@ export function ReviewSubmitBar({
               <button
                 onClick={handleCancel}
                 className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>

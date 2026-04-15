@@ -55,6 +55,10 @@
     "signingUp": "Hesap oluşturuluyor...",
     "passwordMismatch": "Şifreler eşleşmiyor.",
     "passwordTooShort": "Şifre en az 8 karakter olmalıdır.",
+    "strengthWeak": "Zayıf şifre",
+    "strengthFair": "Orta şifre",
+    "strengthGood": "İyi şifre",
+    "strengthStrong": "Güçlü şifre",
     "registrationError": "Hesap oluşturulamadı. Lütfen tekrar deneyin.",
     "emailInUse": "Bu e-posta adresiyle zaten bir hesap mevcut.",
     "haveAccount": "Zaten hesabınız var mı?",
@@ -173,7 +177,19 @@
     "allStatus": "Tüm Durumlar",
     "sortBy": "Sırala",
     "listView": "Liste görünümü",
-    "gridView": "Kart görünümü"
+    "gridView": "Kart görünümü",
+    "sortNewest": "En Yeni",
+    "sortOldest": "En Eski",
+    "sortName": "Ad (A-Z)",
+    "sortUpdated": "Son Güncellenen",
+    "statusActive": "Aktif",
+    "statusDraft": "Taslak",
+    "statusCompleted": "Tamamlanan",
+    "deleteTitle": "\"{name}\" silinsin mi?",
+    "deleteDescription": "Bu proje ve tüm dosyaları, aşamaları ve incelemeleri kalıcı olarak silinecektir. Bu işlem geri alınamaz.",
+    "deletedToast": "Proje silindi",
+    "deletedToastDesc": "\"{name}\" silindi.",
+    "deleteError": "Proje silinemedi"
   },
   "projectDetail": {
     "title": "Proje Detayı",
@@ -497,7 +513,9 @@
     "user": "Kullanıcı",
     "project": "Proje",
     "date": "Tarih",
-    "details": "Detaylar"
+    "details": "Detaylar",
+    "loadError": "Denetim geçmişi yüklenirken bir hata oluştu.",
+    "retry": "Tekrar Dene"
   },
   "clientDashboard": {
     "title": "Müşteri Paneli",
@@ -678,6 +696,9 @@
     "clients": "Müşteriler ({count})",
     "warning": "Uyarı",
     "clearClientProjectsWarning": "Müşteri kaldırıldı ancak proje atamaları temizlenememiş olabilir.",
-    "leaveOrganisation": "Organizasyondan Ayrıl"
+    "leaveOrganisation": "Organizasyondan Ayrıl",
+    "leaveTitle": "Organizasyondan Ayrıl",
+    "leaveDescription": "{orgName} organizasyonundan ayrılmak istediğinize emin misiniz? Tüm projelere ve verilere erişiminizi kaybedeceksiniz.",
+    "leaving": "Ayrılınıyor..."
   }
 }

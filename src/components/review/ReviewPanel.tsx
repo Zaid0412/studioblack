@@ -39,6 +39,7 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
         <button
           onClick={onClose}
           className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+          aria-label="Close review history"
         >
           <X className="w-4 h-4" />
         </button>

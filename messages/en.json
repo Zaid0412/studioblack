@@ -55,6 +55,10 @@
     "signingUp": "Creating account...",
     "passwordMismatch": "Passwords do not match.",
     "passwordTooShort": "Password must be at least 8 characters.",
+    "strengthWeak": "Weak password",
+    "strengthFair": "Fair password",
+    "strengthGood": "Good password",
+    "strengthStrong": "Strong password",
     "registrationError": "Could not create account. Please try again.",
     "emailInUse": "An account with this email already exists.",
     "haveAccount": "Already have an account?",
@@ -173,7 +177,19 @@
     "allStatus": "All Status",
     "sortBy": "Sort by",
     "listView": "List view",
-    "gridView": "Grid view"
+    "gridView": "Grid view",
+    "sortNewest": "Newest First",
+    "sortOldest": "Oldest First",
+    "sortName": "Name (A-Z)",
+    "sortUpdated": "Recently Updated",
+    "statusActive": "Active",
+    "statusDraft": "Draft",
+    "statusCompleted": "Completed",
+    "deleteTitle": "Delete \"{name}\"?",
+    "deleteDescription": "This will permanently delete the project and all its files, phases, and reviews. This action cannot be undone.",
+    "deletedToast": "Project deleted",
+    "deletedToastDesc": "\"{name}\" has been deleted.",
+    "deleteError": "Failed to delete project"
   },
   "projectDetail": {
     "title": "Project Detail",
@@ -497,7 +513,9 @@
     "user": "User",
     "project": "Project",
     "date": "Date",
-    "details": "Details"
+    "details": "Details",
+    "loadError": "Something went wrong loading audit history.",
+    "retry": "Retry"
   },
   "clientDashboard": {
     "title": "Client Dashboard",
@@ -678,6 +696,9 @@
     "clients": "Clients ({count})",
     "warning": "Warning",
     "clearClientProjectsWarning": "Client removed but project assignments may not have been cleared.",
-    "leaveOrganisation": "Leave Organisation"
+    "leaveOrganisation": "Leave Organisation",
+    "leaveTitle": "Leave Organisation",
+    "leaveDescription": "Are you sure you want to leave {orgName}? You will lose access to all projects and data in this organisation.",
+    "leaving": "Leaving..."
   }
 }

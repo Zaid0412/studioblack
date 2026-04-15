@@ -2,19 +2,73 @@
 
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { forwardRef, type InputHTMLAttributes } from "react";
+import {
+  forwardRef,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type InputHTMLAttributes,
+  type ChangeEvent,
+} from "react";
 
 interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
   containerClassName?: string;
+  /** When set, onDebouncedChange fires after the user stops typing for this many ms. */
+  debounceMs?: number;
+  /** Called with the debounced string value. Use instead of onChange when debounceMs is set. */
+  onDebouncedChange?: (value: string) => void;
 }
 
 /**
  * Text input pre-styled with a search (magnifying-glass) icon on the left.
  *
  * Forwards a ref to the underlying `<input>` element.
+ *
+ * When `debounceMs` is set, the component manages its own display value
+ * internally and fires `onDebouncedChange` after the user stops typing.
+ * The parent's `value` prop is used as the initial value only.
  */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className, containerClassName, ...props }, ref) => {
+  (
+    {
+      className,
+      containerClassName,
+      debounceMs,
+      onDebouncedChange,
+      onChange,
+      value,
+      ...props
+    },
+    ref
+  ) => {
+    const [localValue, setLocalValue] = useState(value ?? "");
+    const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+    // Cleanup timer on unmount
+    useEffect(
+      () => () => {
+        clearTimeout(timerRef.current);
+      },
+      []
+    );
+
+    const handleChange = useCallback(
+      (e: ChangeEvent<HTMLInputElement>) => {
+        if (!debounceMs) {
+          onChange?.(e);
+          return;
+        }
+        const val = e.target.value;
+        setLocalValue(val);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          onDebouncedChange?.(val);
+        }, debounceMs);
+      },
+      [debounceMs, onChange, onDebouncedChange]
+    );
+
     return (
       <div className={cn("relative", containerClassName)}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
@@ -25,6 +79,8 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
             className
           )}
+          value={debounceMs ? localValue : value}
+          onChange={handleChange}
           {...props}
         />
       </div>

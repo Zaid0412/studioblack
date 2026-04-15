@@ -47,7 +47,8 @@ export function TaskFilterBar({
       <SearchInput
         placeholder={t("searchPlaceholder")}
         value={searchValue}
-        onChange={(e) => onFilterChange("search", e.target.value)}
+        onDebouncedChange={(val) => onFilterChange("search", val)}
+        debounceMs={300}
         containerClassName="flex-1"
       />
       <div className="grid grid-cols-3 lg:flex lg:items-center gap-3">

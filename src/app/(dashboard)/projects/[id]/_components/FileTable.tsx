@@ -20,6 +20,7 @@ import { FileCard } from "./FileCard";
 import { fileType, statusBadge } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
+import { useFileDropzone } from "@/hooks/useFileDropzone";
 import type { DbAttachment } from "@/types";
 
 type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
@@ -69,7 +70,7 @@ interface FileTableProps {
   /** Base path for review navigation. Defaults to "/projects". */
   basePath?: string;
   /** Current user's role — controls which context menu actions appear. */
-  userRole?: "pm" | "architect" | "client" | null;
+  userRole: "pm" | "architect" | "client" | null;
   /** Current user's ID — used to check file ownership for remove action. */
   currentUserId?: string;
 }
@@ -159,7 +160,6 @@ export function FileTable({
     null
   );
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
-  const [dragOver, setDragOver] = useState(false);
   const [versionHistoryGroup, setVersionHistoryGroup] = useState<string | null>(
     null
   );
@@ -183,25 +183,16 @@ export function FileTable({
     };
   }, [uploadTriggerRef, openUpload]);
 
-  const handleTableDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  }, []);
-
-  const handleTableDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-  }, []);
-
-  const handleTableDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      if (e.dataTransfer.files.length > 0) {
-        openUpload(null, Array.from(e.dataTransfer.files));
-      }
-    },
-    [openUpload]
+  const {
+    dragOver,
+    handleDrop: handleTableDrop,
+    handleDragOver: handleTableDragOver,
+    handleDragLeave: handleTableDragLeave,
+  } = useFileDropzone(
+    useCallback(
+      (files: FileList) => openUpload(null, Array.from(files)),
+      [openUpload]
+    )
   );
 
   const handleToggleFreeze = useCallback(
@@ -317,10 +308,6 @@ export function FileTable({
     },
     [projectId, onRefresh]
   );
-
-  const handleUploadSuccess = useCallback(() => {
-    onRefresh();
-  }, [onRefresh]);
 
   const toggleSelect = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -461,6 +448,30 @@ export function FileTable({
     [selectedFiles, projectId, bulkAction, t]
   );
 
+  const bulkActionProps = useMemo(
+    () => ({
+      isClient,
+      isStaff,
+      onDownload: handleBulkDownload,
+      onApprove: () => handleBulkReview("approved"),
+      onReject: () => handleBulkReview("rejected"),
+      onSendToClient: handleBulkSendToClient,
+      onMarkReviewed: handleBulkMarkReviewed,
+      onFreeze: handleBulkFreeze,
+      onRemove: handleBulkRemove,
+    }),
+    [
+      isClient,
+      isStaff,
+      handleBulkDownload,
+      handleBulkReview,
+      handleBulkSendToClient,
+      handleBulkMarkReviewed,
+      handleBulkFreeze,
+      handleBulkRemove,
+    ]
+  );
+
   // Long-press on mobile to enter selection mode
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
@@ -574,18 +585,7 @@ export function FileTable({
                 Clear
               </button>
               <div className="flex-1" />
-              <BulkActions
-                variant="desktop"
-                isClient={isClient}
-                isStaff={isStaff}
-                onDownload={handleBulkDownload}
-                onApprove={() => handleBulkReview("approved")}
-                onReject={() => handleBulkReview("rejected")}
-                onSendToClient={handleBulkSendToClient}
-                onMarkReviewed={handleBulkMarkReviewed}
-                onFreeze={handleBulkFreeze}
-                onRemove={handleBulkRemove}
-              />
+              <BulkActions variant="desktop" {...bulkActionProps} />
             </>
           ) : (
             <>
@@ -682,15 +682,7 @@ export function FileTable({
 
               const isSelected = selectedIds.has(att.id);
 
-              const sharedProps = {
-                att,
-                isSelected,
-                hasSelection,
-                isStaff,
-                isNewForClient,
-                badge,
-                onToggleSelect: (e: React.MouseEvent) =>
-                  toggleSelect(att.id, e),
+              const contextMenuProps = {
                 onDownload: () => onDownload(att),
                 onEdit:
                   isStaff && !att.frozen_at
@@ -700,9 +692,10 @@ export function FileTable({
                   isStaff && !att.frozen_at
                     ? () => openUpload(att.version_group)
                     : undefined,
-                onVersionHistory: att.version_group
-                  ? () => setVersionHistoryGroup(att.version_group!)
-                  : undefined,
+                onVersionHistory: (() => {
+                  const vg = att.version_group;
+                  return vg ? () => setVersionHistoryGroup(vg) : undefined;
+                })(),
                 onViewReview:
                   att.review_status && att.review_status !== "pending"
                     ? () => router.push(`${reviewPath(att.id)}?reviews=open`)
@@ -730,6 +723,18 @@ export function FileTable({
                   ? () => handleToggleFreeze(att)
                   : undefined,
                 onRemove: canRemove ? () => handleRemove(att) : undefined,
+              };
+
+              const sharedProps = {
+                att,
+                isSelected,
+                hasSelection,
+                isStaff,
+                isNewForClient,
+                badge,
+                onToggleSelect: (e: React.MouseEvent) =>
+                  toggleSelect(att.id, e),
+                contextMenuProps,
               };
 
               return (
@@ -780,18 +785,7 @@ export function FileTable({
               Clear
             </button>
             <div className="flex-1" />
-            <BulkActions
-              variant="mobile"
-              isClient={isClient}
-              isStaff={isStaff}
-              onDownload={handleBulkDownload}
-              onApprove={() => handleBulkReview("approved")}
-              onReject={() => handleBulkReview("rejected")}
-              onSendToClient={handleBulkSendToClient}
-              onMarkReviewed={handleBulkMarkReviewed}
-              onFreeze={handleBulkFreeze}
-              onRemove={handleBulkRemove}
-            />
+            <BulkActions variant="mobile" {...bulkActionProps} />
           </div>
         </div>
       )}
@@ -804,7 +798,7 @@ export function FileTable({
           phaseId={activePhaseId}
           versionGroup={uploadVersionGroup}
           initialFiles={droppedFiles}
-          onSuccess={handleUploadSuccess}
+          onSuccess={onRefresh}
         />
       )}
 

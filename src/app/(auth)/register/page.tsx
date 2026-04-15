@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordStrength } from "@/components/ui/PasswordStrength";
 import { authClient } from "@/lib/authClient";
 import { features } from "@/config/features";
 import { getSafeReturnTo } from "@/lib/utils";
@@ -113,15 +114,19 @@ export default function RegisterPage() {
           className={inviteEmail ? "opacity-60 cursor-not-allowed" : ""}
           required
         />
-        <Input
-          label={t("password")}
-          type="password"
-          placeholder={t("passwordPlaceholder")}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="new-password"
-          required
-        />
+        {/* Negative margin compensates for the strength indicator's reserved height */}
+        <div className="-mb-2.5">
+          <Input
+            label={t("password")}
+            type="password"
+            placeholder={t("passwordPlaceholder")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            required
+          />
+          <PasswordStrength password={password} />
+        </div>
         <Input
           label={t("confirmPassword")}
           type="password"
@@ -132,7 +137,11 @@ export default function RegisterPage() {
           required
         />
 
-        {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
+        {errorMsg && (
+          <p className="text-sm text-error" role="alert">
+            {errorMsg}
+          </p>
+        )}
 
         <Button type="submit" className="w-full mt-2" disabled={isLoading}>
           {isLoading ? t("signingUp") : t("signUp")}

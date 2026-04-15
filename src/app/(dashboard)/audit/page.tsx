@@ -55,7 +55,8 @@ export default function AuditPage() {
       <SearchInput
         placeholder={t("searchPlaceholder")}
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onDebouncedChange={setSearch}
+        debounceMs={300}
         containerClassName="max-w-md"
       />
 
@@ -63,11 +64,9 @@ export default function AuditPage() {
         {error ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <AlertCircle className="w-6 h-6 text-red-400" />
-            <p className="text-sm text-text-muted">
-              Something went wrong loading audit history.
-            </p>
+            <p className="text-sm text-text-muted">{t("loadError")}</p>
             <Button variant="secondary" size="sm" onClick={() => mutate()}>
-              Retry
+              {t("retry")}
             </Button>
           </div>
         ) : loading ? (

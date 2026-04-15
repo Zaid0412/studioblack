@@ -26,18 +26,7 @@ export function FileCard({
   onTouchMove,
   onClick,
   onToggleSelect,
-  onDownload,
-  onEdit,
-  onUploadNewVersion,
-  onVersionHistory,
-  onViewReview,
-  onApprove,
-  onReject,
-  onMarkReviewed,
-  onSendToClient,
-  frozen,
-  onToggleFreeze,
-  onRemove,
+  contextMenuProps,
 }: FileCardProps) {
   const vc = versionColor(att.version || 1);
 
@@ -99,20 +88,7 @@ export function FileCard({
           {badge.label}
         </span>
         <div onClick={(e) => e.stopPropagation()}>
-          <FileContextMenu
-            onDownload={onDownload}
-            onEdit={onEdit}
-            onUploadNewVersion={onUploadNewVersion}
-            onVersionHistory={onVersionHistory}
-            onViewReview={onViewReview}
-            onApprove={onApprove}
-            onReject={onReject}
-            onMarkReviewed={onMarkReviewed}
-            onSendToClient={onSendToClient}
-            frozen={frozen}
-            onToggleFreeze={onToggleFreeze}
-            onRemove={onRemove}
-          />
+          <FileContextMenu {...contextMenuProps} />
         </div>
       </div>
       <div className="flex items-center gap-3 text-xs text-text-muted">

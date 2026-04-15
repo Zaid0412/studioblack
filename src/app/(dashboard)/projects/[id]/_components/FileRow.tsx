@@ -22,18 +22,7 @@ export function FileRow({
   badge,
   onRowClick,
   onToggleSelect,
-  onDownload,
-  onEdit,
-  onUploadNewVersion,
-  onVersionHistory,
-  onViewReview,
-  onApprove,
-  onReject,
-  onMarkReviewed,
-  onSendToClient,
-  frozen,
-  onToggleFreeze,
-  onRemove,
+  contextMenuProps,
 }: FileRowProps) {
   const color = avatarColor(att.uploaded_by || "");
   const vc = versionColor(att.version || 1);
@@ -150,20 +139,7 @@ export function FileRow({
       </div>
       <div className="w-[50px] flex items-center justify-center">
         <div onClick={(e) => e.stopPropagation()}>
-          <FileContextMenu
-            onDownload={onDownload}
-            onEdit={onEdit}
-            onUploadNewVersion={onUploadNewVersion}
-            onVersionHistory={onVersionHistory}
-            onViewReview={onViewReview}
-            onApprove={onApprove}
-            onReject={onReject}
-            onMarkReviewed={onMarkReviewed}
-            onSendToClient={onSendToClient}
-            frozen={frozen}
-            onToggleFreeze={onToggleFreeze}
-            onRemove={onRemove}
-          />
+          <FileContextMenu {...contextMenuProps} />
         </div>
       </div>
     </div>

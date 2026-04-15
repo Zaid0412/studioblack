@@ -135,6 +135,7 @@ export function TaskRow({
         <button
           onClick={(e) => e.stopPropagation()}
           className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+          aria-label="Task actions"
         >
           <MoreVertical className="w-4 h-4" />
         </button>
