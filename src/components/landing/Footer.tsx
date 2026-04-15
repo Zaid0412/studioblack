@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
