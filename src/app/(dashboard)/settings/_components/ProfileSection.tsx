@@ -29,6 +29,7 @@ export interface ProfileSectionProps {
   isChangingEmail: boolean;
   emailChangeRequested: boolean;
   emailChangeError: string;
+  emailResendCooldown: number;
   handleChangeEmail: () => void;
 }
 
@@ -52,6 +53,7 @@ export function ProfileSection(props: ProfileSectionProps) {
     isChangingEmail,
     emailChangeRequested,
     emailChangeError,
+    emailResendCooldown,
     handleChangeEmail,
   } = props;
   const t = useTranslations("settings");
@@ -122,11 +124,25 @@ export function ProfileSection(props: ProfileSectionProps) {
 
           {/* Change email input */}
           {emailChangeRequested ? (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
-              <Mail className="w-4 h-4 text-accent shrink-0" />
-              <p className="text-sm text-text-secondary">
-                {t("changeEmailSentTo", { email: newEmail })}
-              </p>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-accent/10 border border-accent/20">
+                <Mail className="w-4 h-4 text-accent shrink-0" />
+                <p className="text-sm text-text-secondary">
+                  {t("changeEmailSentTo", { email: newEmail })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleChangeEmail}
+                disabled={isChangingEmail || emailResendCooldown > 0}
+                className="text-xs text-text-muted hover:text-accent transition-colors self-start cursor-pointer disabled:opacity-50"
+              >
+                {isChangingEmail
+                  ? t("sending")
+                  : emailResendCooldown > 0
+                    ? t("resendIn", { seconds: emailResendCooldown })
+                    : t("resendEmail")}
+              </button>
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">

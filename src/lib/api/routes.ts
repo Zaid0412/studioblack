@@ -75,6 +75,9 @@ export const API = {
   // ── Settings ───────────────────────────────────
   changeEmail:           ()                            => "/api/settings/change-email",
   verifyEmailChange:     ()                            => "/api/settings/verify-email-change",
+  hasPassword:           ()                            => "/api/settings/has-password",
+  sendOtp:               ()                            => "/api/settings/send-otp",
+  setPassword:           ()                            => "/api/settings/set-password",
 
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",

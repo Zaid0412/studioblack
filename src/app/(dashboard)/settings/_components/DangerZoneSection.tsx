@@ -17,23 +17,31 @@ import {
 export interface DangerZoneSectionProps {
   deleteOpen: boolean;
   setDeleteOpen: (value: boolean) => void;
+  deleteConfirmText: string;
+  setDeleteConfirmText: (value: string) => void;
+  /** Password field — shown only for users with a credential account. */
+  hasPassword: boolean;
   deletePassword: string;
   setDeletePassword: (value: string) => void;
   isDeleting: boolean;
   handleDeleteAccount: () => void;
 }
 
-/** Account deletion section with confirmation dialog. */
+/** Account deletion section with "type DELETE" confirmation dialog. */
 export function DangerZoneSection(props: DangerZoneSectionProps) {
   const {
     deleteOpen,
     setDeleteOpen,
+    deleteConfirmText,
+    setDeleteConfirmText,
+    hasPassword,
     deletePassword,
     setDeletePassword,
     isDeleting,
     handleDeleteAccount,
   } = props;
   const t = useTranslations("settings");
+  const confirmWord = t("deleteConfirmWord");
 
   return (
     <>
@@ -64,6 +72,7 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
         onOpenChange={(open) => {
           setDeleteOpen(open);
           if (!open) {
+            setDeleteConfirmText("");
             setDeletePassword("");
           }
         }}
@@ -76,15 +85,29 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
             <DialogDescription>{t("deleteConfirmDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
+            {hasPassword && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-text-primary">
+                  {t("currentPassword")}
+                </label>
+                <Input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-text-primary">
-                {t("currentPassword")}
+                {t("typeDelete")}
               </label>
               <Input
-                type="password"
-                value={deletePassword}
-                onChange={(e) => setDeletePassword(e.target.value)}
-                autoComplete="current-password"
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={confirmWord}
+                autoComplete="off"
               />
             </div>
           </div>
@@ -93,6 +116,7 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
               variant="ghost"
               onClick={() => {
                 setDeleteOpen(false);
+                setDeleteConfirmText("");
                 setDeletePassword("");
               }}
               disabled={isDeleting}
@@ -102,7 +126,11 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
             <Button
               className="bg-danger hover:bg-danger-hover text-white"
               onClick={handleDeleteAccount}
-              disabled={!deletePassword || isDeleting}
+              disabled={
+                deleteConfirmText !== confirmWord ||
+                (hasPassword && !deletePassword) ||
+                isDeleting
+              }
             >
               {isDeleting ? t("deleting") : t("deleteForever")}
             </Button>

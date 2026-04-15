@@ -11,12 +11,15 @@ import {
   EmailTakenError,
   getAccountPasswordHash,
 } from "@/lib/queries";
+import { verifyOtp, generateAndSendOtp } from "@/lib/otp";
 
 const MAX_FAILED_ATTEMPTS = 5;
 
 const verifySchema = z.object({
   token: z.string().uuid(),
-  password: z.string().min(1),
+  // Password OR OTP — one must be provided
+  password: z.string().min(1).optional(),
+  otp: z.string().length(6).optional(),
 });
 
 /** GET /api/settings/verify-email-change?token=... — fetch pending change info for display. */
@@ -55,9 +58,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Tell the frontend which verification method to show (without revealing auth details)
+    const hash = await getAccountPasswordHash(pending.user_id);
+
     return NextResponse.json({
       oldEmail: pending.old_email,
       newEmail: pending.new_email,
+      verificationType: hash ? "password" : "otp",
     });
   } catch {
     return NextResponse.json(
@@ -67,7 +74,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** POST /api/settings/verify-email-change — confirm email change with password. */
+/** POST /api/settings/verify-email-change — confirm email change with password or OTP. */
 export async function POST(req: NextRequest) {
   try {
     // IP-based rate limiting — 10 attempts per 10 minutes
@@ -89,7 +96,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const { token, password } = parsed.data;
+    const { token, password, otp } = parsed.data;
+
+    if (!password && !otp) {
+      return NextResponse.json(
+        { error: "Password or verification code is required." },
+        { status: 400 }
+      );
+    }
 
     const pending = await getPendingEmailChange(token);
     if (!pending) {
@@ -117,31 +131,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify password
     const hash = await getAccountPasswordHash(pending.user_id);
-    if (!hash) {
-      return NextResponse.json(
-        {
-          error:
-            "This account uses social login and has no password. Email change is not supported.",
-        },
-        { status: 400 }
-      );
-    }
 
-    const passwordValid = await verifyPassword({ password, hash });
-    if (!passwordValid) {
-      const attempts = await incrementFailedAttempts(token);
-      if (attempts >= MAX_FAILED_ATTEMPTS) {
-        await deletePendingEmailChange(token);
+    if (hash && password) {
+      // Password-based verification
+      const passwordValid = await verifyPassword({ password, hash });
+      if (!passwordValid) {
+        const attempts = await incrementFailedAttempts(token);
+        if (attempts >= MAX_FAILED_ATTEMPTS) {
+          await deletePendingEmailChange(token);
+          return NextResponse.json(
+            { error: "Too many failed attempts. Please request a new link." },
+            { status: 403 }
+          );
+        }
         return NextResponse.json(
-          { error: "Too many failed attempts. Please request a new link." },
-          { status: 403 }
+          { error: "Incorrect password" },
+          { status: 401 }
         );
       }
+    } else if (!hash && otp) {
+      // OTP-based verification for Google-only users
+      const otpResult = await verifyOtp(pending.user_id, "email_change", otp);
+      if (!otpResult.ok) {
+        return NextResponse.json(
+          { error: otpResult.error },
+          { status: otpResult.status }
+        );
+      }
+    } else {
       return NextResponse.json(
-        { error: "Incorrect password" },
-        { status: 401 }
+        {
+          error: hash
+            ? "Password is required."
+            : "Verification code is required.",
+        },
+        { status: 400 }
       );
     }
 
@@ -161,6 +186,76 @@ export async function POST(req: NextRequest) {
     await deletePendingEmailChange(token);
 
     return NextResponse.json({ newEmail: pending.new_email });
+  } catch {
+    return NextResponse.json(
+      { error: "Something went wrong. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+
+const sendOtpSchema = z.object({
+  token: z.string().uuid(),
+});
+
+/**
+ * PUT /api/settings/verify-email-change — send OTP for Google-only users.
+ * No session/withAuth needed: the email-change token in the request body acts as authorization.
+ * CSRF is not a risk here because this endpoint doesn't use cookies for auth.
+ */
+export async function PUT(req: NextRequest) {
+  try {
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const rl = rateLimit(`verify-email-send-otp:${ip}`, {
+      limit: 5,
+      windowMs: 300_000,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          error: "Too many requests. Please wait before requesting a new code.",
+        },
+        { status: 429 }
+      );
+    }
+
+    const parsed = await parseRequest(req, sendOtpSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const pending = await getPendingEmailChange(parsed.data.token);
+    if (!pending || new Date(pending.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: "Invalid or expired link" },
+        { status: 400 }
+      );
+    }
+
+    // Only allow OTP flow for users without a password
+    const hash = await getAccountPasswordHash(pending.user_id);
+    if (hash) {
+      return NextResponse.json(
+        { error: "Use your password to verify this change." },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await generateAndSendOtp(
+        pending.user_id,
+        pending.old_email,
+        "email_change"
+      );
+    } catch {
+      return NextResponse.json(
+        { error: "Could not send verification code. Please try again." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ sent: true });
   } catch {
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },

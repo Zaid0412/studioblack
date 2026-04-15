@@ -2318,5 +2318,109 @@ export async function getAccountPasswordHash(
     `SELECT password FROM account WHERE "userId" = $1 AND "providerId" = 'credential' LIMIT 1`,
     [userId]
   );
-  return rows[0]?.password || null;
+  return rows[0]?.password ?? null;
+}
+
+/** Check whether a user has a credential (email/password) account. */
+export async function hasCredentialAccount(userId: string): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT EXISTS(SELECT 1 FROM account WHERE "userId" = $1 AND "providerId" = 'credential') AS exists`,
+    [userId]
+  );
+  return rows[0]?.exists ?? false;
+}
+
+/** Create a credential account for a user who only has social login (Google). */
+export async function createCredentialAccount(
+  userId: string,
+  passwordHash: string
+): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO account (id, "userId", "providerId", "accountId", password, "createdAt", "updatedAt")
+     VALUES (gen_random_uuid(), $1, 'credential', $1, $2, NOW(), NOW())
+     ON CONFLICT ("userId", "providerId") DO NOTHING`,
+    [userId, passwordHash]
+  );
+}
+
+// ── Email OTP ───────────────────────────────────────────────────────────────
+
+export type OtpPurpose = "set_password" | "email_change";
+
+interface EmailOtp {
+  id: string;
+  user_id: string;
+  code_hash: string;
+  purpose: OtpPurpose;
+  expires_at: Date;
+  attempts: number;
+}
+
+/** Delete any existing OTPs for a user+purpose, then insert a new one (atomic). */
+export async function createEmailOtp(
+  userId: string,
+  codeHash: string,
+  purpose: OtpPurpose,
+  expiresInMs: number = 10 * 60 * 1000 // 10 minutes
+): Promise<void> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `DELETE FROM email_otp WHERE user_id = $1 AND purpose = $2`,
+      [userId, purpose]
+    );
+    await client.query(
+      `INSERT INTO email_otp (user_id, code_hash, purpose, expires_at)
+       VALUES ($1, $2, $3, NOW() + ($4 || ' milliseconds')::interval)`,
+      [userId, codeHash, purpose, expiresInMs.toString()]
+    );
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Fetch the active OTP for a user+purpose. Returns null if none or expired. */
+export async function getActiveEmailOtp(
+  userId: string,
+  purpose: OtpPurpose
+): Promise<EmailOtp | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, user_id, code_hash, purpose, expires_at, attempts
+     FROM email_otp
+     WHERE user_id = $1 AND purpose = $2 AND expires_at > NOW()
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId, purpose]
+  );
+  return rows[0] ?? null;
+}
+
+/** Increment failed attempt count. Returns new count. */
+export async function incrementOtpAttempts(otpId: string): Promise<number> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `UPDATE email_otp SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
+    [otpId]
+  );
+  return rows[0]?.attempts ?? 0;
+}
+
+/** Delete an OTP by id (after successful verification). */
+export async function deleteEmailOtp(otpId: string): Promise<void> {
+  const pool = getPool();
+  await pool.query(`DELETE FROM email_otp WHERE id = $1`, [otpId]);
+}
+
+/** Cleanup expired OTPs (called opportunistically). */
+export async function cleanupExpiredOtps(): Promise<void> {
+  const pool = getPool();
+  await pool.query(`DELETE FROM email_otp WHERE expires_at < NOW()`);
 }

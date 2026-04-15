@@ -95,12 +95,14 @@ export default function SettingsPage() {
         isChangingEmail={settings.isChangingEmail}
         emailChangeRequested={settings.emailChangeRequested}
         emailChangeError={settings.emailChangeError}
+        emailResendCooldown={settings.emailResendCooldown}
         handleChangeEmail={settings.handleChangeEmail}
       />
 
       {!isClient && (
         <PasswordSection
           email={settings.email}
+          hasPassword={settings.hasPassword}
           currentPassword={settings.currentPassword}
           setCurrentPassword={settings.setCurrentPassword}
           newPassword={settings.newPassword}
@@ -109,6 +111,12 @@ export default function SettingsPage() {
           setConfirmNewPassword={settings.setConfirmNewPassword}
           isChangingPassword={settings.isChangingPassword}
           handleChangePassword={settings.handleChangePassword}
+          otpSent={settings.otpSent}
+          otpCode={settings.otpCode}
+          setOtpCode={settings.setOtpCode}
+          isSendingOtp={settings.isSendingOtp}
+          otpCooldown={settings.otpCooldown}
+          sendOtp={settings.sendOtp}
         />
       )}
 
@@ -117,6 +125,9 @@ export default function SettingsPage() {
       <DangerZoneSection
         deleteOpen={settings.deleteOpen}
         setDeleteOpen={settings.setDeleteOpen}
+        deleteConfirmText={settings.deleteConfirmText}
+        setDeleteConfirmText={settings.setDeleteConfirmText}
+        hasPassword={settings.hasPassword}
         deletePassword={settings.deletePassword}
         setDeletePassword={settings.setDeletePassword}
         isDeleting={settings.isDeleting}

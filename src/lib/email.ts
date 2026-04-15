@@ -402,3 +402,32 @@ export async function sendChangeEmailVerification(
     )
   );
 }
+
+/** Send a 6-digit OTP code for identity verification (passwordless users). */
+export async function sendOtpEmail(
+  email: string,
+  code: string,
+  purpose: "set_password" | "email_change"
+) {
+  const safeCode = escapeHtml(code);
+  const purposeLabel =
+    purpose === "set_password"
+      ? "set a password on your account"
+      : "confirm your email change";
+
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} — Your Verification Code`,
+    emailLayout(
+      "Verification Code",
+      `${bodyText(`Use the code below to ${purposeLabel}.`)}
+      <div style="text-align: center; padding: 24px 0;">
+        <div style="display: inline-block; letter-spacing: 8px; font-size: 32px; font-weight: 700; color: #F5C518; font-family: monospace;">
+          ${safeCode}
+        </div>
+      </div>
+      ${hintText("This code expires in 10 minutes. Do not share it with anyone.")}`,
+      "If you didn't request this code, you can safely ignore this email."
+    )
+  );
+}

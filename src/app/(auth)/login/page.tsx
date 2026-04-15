@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Divider } from "@/components/ui/Divider";
+import { GoogleSignInButton } from "@/components/ui/GoogleSignInButton";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
 import { getSafeReturnTo } from "@/lib/utils";
@@ -99,16 +101,23 @@ export default function LoginPage() {
         </Button>
       </form>
 
+      {features.googleAuth && (
+        <>
+          <div className="my-6">
+            <Divider label={t("orContinueWith")} />
+          </div>
+          <GoogleSignInButton
+            callbackURL={getSafeReturnTo(returnTo)}
+            disabled={isLoading}
+          />
+        </>
+      )}
+
       {features.magicLink && (
         <>
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-border-default" />
-            <span className="text-xs text-text-muted">
-              {t("orContinueWith")}
-            </span>
-            <div className="flex-1 h-px bg-border-default" />
+          <div className="my-6">
+            <Divider label={t("orContinueWith")} />
           </div>
-
           <Button variant="secondary" className="w-full" disabled={isLoading}>
             {t("magicLink")}
           </Button>

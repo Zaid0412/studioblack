@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useCooldown } from "@/hooks/useCooldown";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import { authClient } from "@/lib/authClient";
 import { toast } from "@/components/ui/useToast";
 import { deriveInitials } from "@/lib/utils";
 import { useAvatarUpload } from "@/hooks/useFileUpload";
-import { apiPost, ApiError } from "@/lib/api/client";
+import { apiPost, apiGet, ApiError } from "@/lib/api/client";
 import { API } from "@/lib/api/routes";
 
 /** Hook managing settings page state: profile, password, preferences, and account deletion. */
@@ -16,6 +18,12 @@ export function useSettings() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch whether user has a credential (password) account
+  const { data: passwordData, mutate: mutateHasPassword } = useSWR<{
+    hasPassword: boolean;
+  }>(API.hasPassword());
+  const hasPassword = passwordData?.hasPassword ?? true; // default to true until loaded
 
   const [name, setName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
@@ -35,8 +43,15 @@ export function useSettings() {
   });
   const [emailChangeError, setEmailChangeError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // OTP state for passwordless users
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpCooldown, startOtpCooldown] = useCooldown(60);
 
   // Sync form state when session loads
   useEffect(() => {
@@ -48,17 +63,24 @@ export function useSettings() {
   }, [session?.user?.name, session?.user?.image]);
 
   // Clear stale emailChangeRequested flag when session reloads.
-  // If the user completed the change and re-logged in, session email now matches the pending email.
+  // If the user changed accounts (different user ID) or completed the change, clear the flag.
   useEffect(() => {
     if (!session?.user || !emailChangeRequested) return;
+    const storedUserId = sessionStorage.getItem("emailChangeUserId");
     const pendingEmail = sessionStorage.getItem("emailChangePendingEmail");
     const currentEmail = session.user.email?.toLowerCase();
-    // Change completed (session email matches pending) or no pending email stored
-    if (!pendingEmail || currentEmail === pendingEmail.toLowerCase()) {
+    // No user ID stored (legacy), different user, change completed, or no pending email
+    if (
+      !storedUserId ||
+      storedUserId !== session.user.id ||
+      !pendingEmail ||
+      currentEmail === pendingEmail.toLowerCase()
+    ) {
       setEmailChangeRequested(false);
       setNewEmail("");
       sessionStorage.removeItem("emailChangeRequested");
       sessionStorage.removeItem("emailChangePendingEmail");
+      sessionStorage.removeItem("emailChangeUserId");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount with session
   }, [session?.user]);
@@ -107,6 +129,29 @@ export function useSettings() {
 
   const openFilePicker = () => fileInputRef.current?.click();
 
+  /** Send an OTP to the user's email for identity verification. */
+  const sendOtp = async (purpose: "set_password" | "email_change") => {
+    setIsSendingOtp(true);
+    try {
+      await apiPost(API.sendOtp(), { purpose });
+      setOtpSent(true);
+      startOtpCooldown();
+      toast({
+        title: t("otpSent"),
+        description: t("otpSentDesc"),
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: t("error"),
+        description: t("otpSendError"),
+        variant: "error",
+      });
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     if (newPassword !== confirmNewPassword) {
       toast({
@@ -128,25 +173,48 @@ export function useSettings() {
 
     setIsChangingPassword(true);
     try {
-      const { error } = await authClient.changePassword({
-        currentPassword,
-        newPassword,
-        revokeOtherSessions: false,
-      });
-      if (error) {
-        toast({
-          title: t("error"),
-          description: t("passwordChangeError"),
-          variant: "error",
+      if (hasPassword) {
+        // User has a password — use changePassword with current password
+        const { error } = await authClient.changePassword({
+          currentPassword,
+          newPassword,
+          revokeOtherSessions: false,
         });
-        return;
+        if (error) {
+          toast({
+            title: t("error"),
+            description: t("passwordChangeError"),
+            variant: "error",
+          });
+          return;
+        }
+      } else {
+        // Google-only user — verify OTP first, then set password
+        if (!otpCode || otpCode.length !== 6) {
+          toast({
+            title: t("error"),
+            description: t("otpRequired"),
+            variant: "error",
+          });
+          return;
+        }
+
+        // Verify OTP + set password atomically in one request
+        await apiPost(API.setPassword(), { otp: otpCode, newPassword });
+        // Update hasPassword state
+        mutateHasPassword({ hasPassword: true }, false);
       }
+
       setCurrentPassword("");
       setNewPassword("");
       setConfirmNewPassword("");
+      setOtpCode("");
+      setOtpSent(false);
       toast({
-        title: t("passwordChanged"),
-        description: t("passwordChangedDesc"),
+        title: hasPassword ? t("passwordChanged") : t("passwordSet"),
+        description: hasPassword
+          ? t("passwordChangedDesc")
+          : t("passwordSetDesc"),
         variant: "success",
       });
     } catch {
@@ -160,6 +228,8 @@ export function useSettings() {
     }
   };
 
+  const [emailResendCooldown, startEmailResendCooldown] = useCooldown(60);
+
   const handleChangeEmail = async () => {
     if (!newEmail || newEmail === email) return;
     setIsChangingEmail(true);
@@ -167,8 +237,12 @@ export function useSettings() {
     try {
       await apiPost(API.changeEmail(), { newEmail });
       setEmailChangeRequested(true);
+      startEmailResendCooldown();
       sessionStorage.setItem("emailChangeRequested", "true");
       sessionStorage.setItem("emailChangePendingEmail", newEmail);
+      if (session?.user?.id) {
+        sessionStorage.setItem("emailChangeUserId", session.user.id);
+      }
       toast({
         title: t("changeEmailSent"),
         description: t("changeEmailSentDesc"),
@@ -189,7 +263,7 @@ export function useSettings() {
     setIsDeleting(true);
     try {
       const { error } = await authClient.deleteUser({
-        password: deletePassword,
+        ...(hasPassword && deletePassword ? { password: deletePassword } : {}),
         callbackURL: "/login",
       });
       if (error) {
@@ -221,6 +295,7 @@ export function useSettings() {
 
   return {
     loading,
+    hasPassword,
     // Profile
     name,
     setName,
@@ -240,6 +315,7 @@ export function useSettings() {
     isChangingEmail,
     emailChangeRequested,
     emailChangeError,
+    emailResendCooldown,
     handleChangeEmail,
     // Password
     currentPassword,
@@ -250,9 +326,18 @@ export function useSettings() {
     setConfirmNewPassword,
     isChangingPassword,
     handleChangePassword,
+    // OTP
+    otpSent,
+    otpCode,
+    setOtpCode,
+    isSendingOtp,
+    otpCooldown,
+    sendOtp,
     // Delete
     deleteOpen,
     setDeleteOpen,
+    deleteConfirmText,
+    setDeleteConfirmText,
     deletePassword,
     setDeletePassword,
     isDeleting,
