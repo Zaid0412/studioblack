@@ -159,6 +159,7 @@ export default function ProjectsPage() {
           placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          debounceMs={300}
           containerClassName="flex-1"
         />
         <div className="flex items-center gap-3">

@@ -56,6 +56,7 @@ export default function AuditPage() {
         placeholder={t("searchPlaceholder")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        debounceMs={300}
         containerClassName="max-w-md"
       />
 
