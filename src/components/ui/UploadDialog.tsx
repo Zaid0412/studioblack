@@ -254,7 +254,7 @@ export function UploadDialog({
                 {files.map((file, i) => (
                   <div
                     key={`${file.name}-${i}`}
-                    className="flex items-center gap-3 rounded-md border border-border-default bg-bg-secondary px-3 py-2"
+                    className="flex items-center gap-3 rounded-md border border-border-default bg-bg-secondary px-3 py-2 overflow-hidden"
                   >
                     <FileText className="h-4 w-4 shrink-0 text-text-secondary" />
                     <div className="min-w-0 flex-1">
