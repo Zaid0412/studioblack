@@ -90,7 +90,7 @@ export default function OnboardingPage() {
                 required
               />
 
-              {errorMsg && <p className="text-sm text-error">{errorMsg}</p>}
+              {errorMsg && <p className="text-sm text-error" role="alert">{errorMsg}</p>}
 
               <Button
                 type="submit"

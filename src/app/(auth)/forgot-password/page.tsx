@@ -103,7 +103,7 @@ export default function ForgotPasswordPage() {
               required
             />
 
-            {errorMsg && <p className="text-sm text-error">{errorMsg}</p>}
+            {errorMsg && <p className="text-sm text-error" role="alert">{errorMsg}</p>}
 
             <Button type="submit" className="w-full mt-2" disabled={isLoading}>
               {isLoading ? t("sendingResetLink") : t("sendResetLink")}
