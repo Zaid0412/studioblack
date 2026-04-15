@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   FolderOpen,
   CheckSquare,
-  Settings,
+  History,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ export function MobileBottomNav() {
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
-    { href: "/settings", label: t("settings"), icon: Settings },
+    { href: "/audit", label: t("audit"), icon: History },
   ];
 
   return (

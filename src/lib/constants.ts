@@ -1,10 +1,10 @@
 /** The 6 default project phases (file categories) — auto-created for every new project. */
 export const PROJECT_PHASES = [
-  "2D Layout / Adaptation",
-  "3D Layout / Adaptation",
+  "2D Layout",
+  "3D Layout",
   "Production Plan",
   "Section View",
-  "Plumbing Section View",
+  "Plumbing",
   "Floor Plans",
 ] as const;
 
