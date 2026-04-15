@@ -44,6 +44,7 @@ export function useSettings() {
   const [emailChangeError, setEmailChangeError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
   // OTP state for passwordless users
@@ -262,6 +263,7 @@ export function useSettings() {
     setIsDeleting(true);
     try {
       const { error } = await authClient.deleteUser({
+        ...(hasPassword && deletePassword ? { password: deletePassword } : {}),
         callbackURL: "/login",
       });
       if (error) {
@@ -336,6 +338,8 @@ export function useSettings() {
     setDeleteOpen,
     deleteConfirmText,
     setDeleteConfirmText,
+    deletePassword,
+    setDeletePassword,
     isDeleting,
     handleDeleteAccount,
   };

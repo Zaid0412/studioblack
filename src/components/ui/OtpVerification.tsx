@@ -14,6 +14,8 @@ interface OtpVerificationProps {
   onSendOtp: () => void;
   /** Button variant — "inline" for settings forms, "full" for standalone pages. */
   variant?: "inline" | "full";
+  /** Translation namespace containing OTP keys (sending, sendVerificationCode, etc.). Defaults to "settings". */
+  tNamespace?: string;
 }
 
 /** OTP send + input + resend UI — used for identity verification flows. */
@@ -25,8 +27,9 @@ export function OtpVerification({
   otpCooldown,
   onSendOtp,
   variant = "inline",
+  tNamespace = "settings",
 }: OtpVerificationProps) {
-  const t = useTranslations("settings");
+  const t = useTranslations(tNamespace);
   const fullWidth = variant === "full";
 
   if (!otpSent) {

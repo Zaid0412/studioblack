@@ -87,7 +87,7 @@ export function Navbar() {
       {/* Mobile menu — overlays page content */}
       <div
         className={cn(
-          "md:hidden absolute left-0 right-0 top-full z-50 border-t border-border-default border-b border-b-border-default bg-bg-secondary shadow-lg px-6 overflow-hidden transition-all duration-300 ease-in-out",
+          "md:hidden absolute left-0 right-0 top-full z-50 border-y border-border-default bg-bg-secondary shadow-lg px-6 overflow-hidden transition-all duration-300 ease-in-out",
           mobileOpen
             ? "max-h-[300px] py-4 opacity-100"
             : "max-h-0 py-0 opacity-0"

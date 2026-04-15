@@ -2,10 +2,6 @@
 @plugin "tailwindcss-animate";
 
 /* ─── Default (light) theme variables — keep in sync with src/config/themes/light.ts ─── */
-html {
-  scroll-behavior: smooth;
-}
-
 :root {
   --bg-primary: #ffffff;
   --bg-secondary: #f5f5f5;

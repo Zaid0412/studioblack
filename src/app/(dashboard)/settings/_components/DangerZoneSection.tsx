@@ -19,6 +19,10 @@ export interface DangerZoneSectionProps {
   setDeleteOpen: (value: boolean) => void;
   deleteConfirmText: string;
   setDeleteConfirmText: (value: string) => void;
+  /** Password field — shown only for users with a credential account. */
+  hasPassword: boolean;
+  deletePassword: string;
+  setDeletePassword: (value: string) => void;
   isDeleting: boolean;
   handleDeleteAccount: () => void;
 }
@@ -30,6 +34,9 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
     setDeleteOpen,
     deleteConfirmText,
     setDeleteConfirmText,
+    hasPassword,
+    deletePassword,
+    setDeletePassword,
     isDeleting,
     handleDeleteAccount,
   } = props;
@@ -66,6 +73,7 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
           setDeleteOpen(open);
           if (!open) {
             setDeleteConfirmText("");
+            setDeletePassword("");
           }
         }}
       >
@@ -77,6 +85,19 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
             <DialogDescription>{t("deleteConfirmDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
+            {hasPassword && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-text-primary">
+                  {t("currentPassword")}
+                </label>
+                <Input
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-text-primary">
                 {t("typeDelete")}
@@ -96,6 +117,7 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
               onClick={() => {
                 setDeleteOpen(false);
                 setDeleteConfirmText("");
+                setDeletePassword("");
               }}
               disabled={isDeleting}
             >
@@ -104,7 +126,11 @@ export function DangerZoneSection(props: DangerZoneSectionProps) {
             <Button
               className="bg-danger hover:bg-danger-hover text-white"
               onClick={handleDeleteAccount}
-              disabled={deleteConfirmText !== confirmWord || isDeleting}
+              disabled={
+                deleteConfirmText !== confirmWord ||
+                (hasPassword && !deletePassword) ||
+                isDeleting
+              }
             >
               {isDeleting ? t("deleting") : t("deleteForever")}
             </Button>

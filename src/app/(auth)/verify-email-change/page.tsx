@@ -34,7 +34,9 @@ export default function VerifyEmailChangePage() {
   const [success, setSuccess] = useState(false);
   const [oldEmail, setOldEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  const [verificationType, setVerificationType] = useState<
+    "password" | "otp" | null
+  >(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // OTP state for Google-only users
@@ -47,14 +49,16 @@ export default function VerifyEmailChangePage() {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    apiGet<{ oldEmail: string; newEmail: string; hasPassword: boolean }>(
-      `${API.verifyEmailChange()}?token=${token}`
-    )
+    apiGet<{
+      oldEmail: string;
+      newEmail: string;
+      verificationType: "password" | "otp";
+    }>(`${API.verifyEmailChange()}?token=${token}`)
       .then((data) => {
         if (cancelled) return;
         setOldEmail(data.oldEmail);
         setNewEmail(data.newEmail);
-        setHasPassword(data.hasPassword);
+        setVerificationType(data.verificationType);
       })
       .catch(() => {
         // Token invalid/expired — will be caught by the form submission too
@@ -84,7 +88,7 @@ export default function VerifyEmailChangePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const usingOtp = hasPassword === false;
+    const usingOtp = verificationType === "otp";
     if (!token || (usingOtp ? otpCode.length !== 6 : !password)) return;
     setIsLoading(true);
     setErrorMsg("");
@@ -130,7 +134,7 @@ export default function VerifyEmailChangePage() {
             </div>
           )}
           <p className="text-sm text-text-muted text-center">
-            {hasPassword === false
+            {verificationType === "otp"
               ? t("changeEmailSuccessDescGoogle")
               : t("changeEmailSuccessDesc")}
           </p>
@@ -151,7 +155,9 @@ export default function VerifyEmailChangePage() {
       icon={ShieldCheck}
       title={t("changeEmailTitle")}
       description={
-        hasPassword === false ? t("changeEmailDescOtp") : t("changeEmailDesc")
+        verificationType === "otp"
+          ? t("changeEmailDescOtp")
+          : t("changeEmailDesc")
       }
       headerExtra={
         oldEmail || newEmail ? (
@@ -197,12 +203,12 @@ export default function VerifyEmailChangePage() {
             hidden
           />
 
-          {hasPassword === null ? (
+          {verificationType === null ? (
             /* Still loading — don't show either form yet */
             <div className="flex justify-center py-4">
               <Loader2 className="w-5 h-5 animate-spin text-text-muted" />
             </div>
-          ) : hasPassword === false ? (
+          ) : verificationType === "otp" ? (
             /* Google-only user: OTP verification */
             <div className="flex flex-col gap-3">
               <OtpVerification
@@ -233,7 +239,7 @@ export default function VerifyEmailChangePage() {
             type="submit"
             disabled={
               isLoading ||
-              (hasPassword === false
+              (verificationType === "otp"
                 ? !otpSent || otpCode.length !== 6
                 : !password)
             }

@@ -58,13 +58,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Check if user has a password — tells the frontend which verification to show
+    // Tell the frontend which verification method to show (without revealing auth details)
     const hash = await getAccountPasswordHash(pending.user_id);
 
     return NextResponse.json({
       oldEmail: pending.old_email,
       newEmail: pending.new_email,
-      hasPassword: hash !== null,
+      verificationType: hash ? "password" : "otp",
     });
   } catch {
     return NextResponse.json(
@@ -198,7 +198,11 @@ const sendOtpSchema = z.object({
   token: z.string().uuid(),
 });
 
-/** PUT /api/settings/verify-email-change — send OTP for Google-only users (no session required). */
+/**
+ * PUT /api/settings/verify-email-change — send OTP for Google-only users.
+ * No session/withAuth needed: the email-change token in the request body acts as authorization.
+ * CSRF is not a risk here because this endpoint doesn't use cookies for auth.
+ */
 export async function PUT(req: NextRequest) {
   try {
     const ip =

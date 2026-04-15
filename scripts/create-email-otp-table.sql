@@ -14,3 +14,7 @@ CREATE TABLE IF NOT EXISTS email_otp (
 CREATE INDEX IF NOT EXISTS idx_email_otp_user_purpose ON email_otp (user_id, purpose);
 
 -- Cleanup: delete expired OTPs periodically (or rely on app-level cleanup)
+
+-- Unique constraint on account(userId, providerId) — needed for ON CONFLICT in createCredentialAccount.
+-- better-auth does not create this constraint by default.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_account_user_provider ON account ("userId", "providerId");

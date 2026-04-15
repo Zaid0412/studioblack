@@ -2358,8 +2358,6 @@ interface EmailOtp {
   attempts: number;
 }
 
-const OTP_MAX_ATTEMPTS = 5;
-
 /** Delete any existing OTPs for a user+purpose, then insert a new one (atomic). */
 export async function createEmailOtp(
   userId: string,
@@ -2405,18 +2403,14 @@ export async function getActiveEmailOtp(
   return rows[0] ?? null;
 }
 
-/** Increment failed attempt count. Returns new count. Deletes if over max. */
+/** Increment failed attempt count. Returns new count. */
 export async function incrementOtpAttempts(otpId: string): Promise<number> {
   const pool = getPool();
   const { rows } = await pool.query(
     `UPDATE email_otp SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
     [otpId]
   );
-  const attempts = rows[0]?.attempts ?? 0;
-  if (attempts >= OTP_MAX_ATTEMPTS) {
-    await pool.query(`DELETE FROM email_otp WHERE id = $1`, [otpId]);
-  }
-  return attempts;
+  return rows[0]?.attempts ?? 0;
 }
 
 /** Delete an OTP by id (after successful verification). */

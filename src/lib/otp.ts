@@ -44,6 +44,7 @@ export async function verifyOtp(
   if (!valid) {
     const attempts = await incrementOtpAttempts(activeOtp.id);
     if (attempts >= OTP_MAX_ATTEMPTS) {
+      await deleteEmailOtp(activeOtp.id);
       return {
         ok: false,
         error: "Too many failed attempts. Please request a new code.",

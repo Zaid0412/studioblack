@@ -11,9 +11,10 @@ const sendOtpSchema = z.object({
 
 /** POST /api/settings/send-otp — send a 6-digit OTP to the user's email. */
 export const POST = withAuth(
+  // Broad per-IP rate limit (10 req / 10 min) — catches distributed abuse
   { rateLimit: { limit: 10, windowMs: 600_000 } },
   async (req: NextRequest, ctx) => {
-    // Rate limit: 3 OTP sends per 5 minutes per user
+    // Strict per-user rate limit (3 req / 5 min) — prevents a single user from spamming OTP emails
     const rl = rateLimit(`send-otp:${ctx.user.id}`, {
       limit: 3,
       windowMs: 300_000,
