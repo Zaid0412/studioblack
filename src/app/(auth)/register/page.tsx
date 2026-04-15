@@ -137,7 +137,11 @@ export default function RegisterPage() {
           required
         />
 
-        {errorMsg && <p className="text-sm text-error" role="alert">{errorMsg}</p>}
+        {errorMsg && (
+          <p className="text-sm text-error" role="alert">
+            {errorMsg}
+          </p>
+        )}
 
         <Button type="submit" className="w-full mt-2" disabled={isLoading}>
           {isLoading ? t("signingUp") : t("signUp")}

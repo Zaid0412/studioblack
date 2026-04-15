@@ -30,12 +30,28 @@ interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
  * The parent's `value` prop is used as the initial value only.
  */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className, containerClassName, debounceMs, onDebouncedChange, onChange, value, ...props }, ref) => {
+  (
+    {
+      className,
+      containerClassName,
+      debounceMs,
+      onDebouncedChange,
+      onChange,
+      value,
+      ...props
+    },
+    ref
+  ) => {
     const [localValue, setLocalValue] = useState(value ?? "");
     const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     // Cleanup timer on unmount
-    useEffect(() => () => { clearTimeout(timerRef.current); }, []);
+    useEffect(
+      () => () => {
+        clearTimeout(timerRef.current);
+      },
+      []
+    );
 
     const handleChange = useCallback(
       (e: ChangeEvent<HTMLInputElement>) => {

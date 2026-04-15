@@ -404,10 +404,9 @@ export default function ProjectsPage() {
             setDeleting(true);
             try {
               await projectsApi.remove(deleteTarget.id);
-              mutate(
-                (prev) => prev?.filter((p) => p.id !== deleteTarget.id),
-                { revalidate: false }
-              );
+              mutate((prev) => prev?.filter((p) => p.id !== deleteTarget.id), {
+                revalidate: false,
+              });
               toast({
                 title: t("deletedToast"),
                 description: t("deletedToastDesc", { name: deleteTarget.name }),
@@ -417,9 +416,7 @@ export default function ProjectsPage() {
               toast({
                 title: tc("error"),
                 description:
-                  err instanceof Error
-                    ? err.message
-                    : t("deleteError"),
+                  err instanceof Error ? err.message : t("deleteError"),
                 variant: "error",
               });
             } finally {

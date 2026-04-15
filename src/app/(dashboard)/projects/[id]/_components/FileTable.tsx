@@ -189,7 +189,10 @@ export function FileTable({
     handleDragOver: handleTableDragOver,
     handleDragLeave: handleTableDragLeave,
   } = useFileDropzone(
-    useCallback((files: FileList) => openUpload(null, Array.from(files)), [openUpload])
+    useCallback(
+      (files: FileList) => openUpload(null, Array.from(files)),
+      [openUpload]
+    )
   );
 
   const handleToggleFreeze = useCallback(
@@ -305,7 +308,6 @@ export function FileTable({
     },
     [projectId, onRefresh]
   );
-
 
   const toggleSelect = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();

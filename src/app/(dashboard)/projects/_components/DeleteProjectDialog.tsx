@@ -45,11 +45,7 @@ export function DeleteProjectDialog({
           <DialogClose asChild>
             <Button variant="secondary">{tc("cancel")}</Button>
           </DialogClose>
-          <Button
-            variant="danger"
-            disabled={confirming}
-            onClick={onConfirm}
-          >
+          <Button variant="danger" disabled={confirming} onClick={onConfirm}>
             <Trash2 className="w-4 h-4" />
             {confirming ? tc("loading") : confirmLabel}
           </Button>

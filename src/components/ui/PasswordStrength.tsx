@@ -39,7 +39,13 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
 
   const strings = useMemo(
     () => ({
-      labels: [t("strengthWeak"), t("strengthWeak"), t("strengthFair"), t("strengthGood"), t("strengthStrong")],
+      labels: [
+        t("strengthWeak"),
+        t("strengthWeak"),
+        t("strengthFair"),
+        t("strengthGood"),
+        t("strengthStrong"),
+      ],
       tooShort: t("passwordTooShort"),
     }),
     [t]

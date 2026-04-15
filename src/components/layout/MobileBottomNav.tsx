@@ -32,10 +32,17 @@ export function MobileBottomNav() {
     const allTabs: Tab[] = [
       { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
       { href: "/projects", label: t("projects"), icon: FolderOpen },
-      { href: "/tasks", label: t("tasks"), icon: CheckSquare, roles: ["pm", "architect"] },
+      {
+        href: "/tasks",
+        label: t("tasks"),
+        icon: CheckSquare,
+        roles: ["pm", "architect"],
+      },
       { href: "/audit", label: t("audit"), icon: History },
     ];
-    return allTabs.filter((tab) => !tab.roles || (role && tab.roles.includes(role)));
+    return allTabs.filter(
+      (tab) => !tab.roles || (role && tab.roles.includes(role))
+    );
   }, [role, t]);
 
   return (

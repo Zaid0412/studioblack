@@ -64,9 +64,7 @@ export default function AuditPage() {
         {error ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <AlertCircle className="w-6 h-6 text-red-400" />
-            <p className="text-sm text-text-muted">
-              {t("loadError")}
-            </p>
+            <p className="text-sm text-text-muted">{t("loadError")}</p>
             <Button variant="secondary" size="sm" onClick={() => mutate()}>
               {t("retry")}
             </Button>

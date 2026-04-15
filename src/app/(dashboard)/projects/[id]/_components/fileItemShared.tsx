@@ -11,7 +11,10 @@ export interface FileItemBaseProps {
   isNewForClient: boolean;
   badge: { bg: string; text: string; label: string };
   onToggleSelect: (e: React.MouseEvent) => void;
-  contextMenuProps: FileContextMenuProps & { onDownload: () => void; frozen: boolean };
+  contextMenuProps: FileContextMenuProps & {
+    onDownload: () => void;
+    frozen: boolean;
+  };
 }
 
 /** Shared frozen / sent-to-client / new-for-client indicator badges. */

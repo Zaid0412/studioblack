@@ -169,7 +169,11 @@ export default function VerifyEmailChangePage() {
             autoComplete="current-password"
           />
 
-          {errorMsg && <p className="text-sm text-error" role="alert">{errorMsg}</p>}
+          {errorMsg && (
+            <p className="text-sm text-error" role="alert">
+              {errorMsg}
+            </p>
+          )}
 
           <Button
             type="submit"
