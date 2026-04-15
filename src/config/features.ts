@@ -13,6 +13,6 @@ export const features = {
   designUpload: true,
   emailVerification: true,
   googleAuth: true,
-  landingPricing: false,
+  landingPricing: true,
   landingTestimonials: true,
 } as const;
