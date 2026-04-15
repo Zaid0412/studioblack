@@ -29,11 +29,15 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
   ({ className, containerClassName, debounceMs, onDebouncedChange, onChange, value, ...props }, ref) => {
     const [localValue, setLocalValue] = useState<string | number | readonly string[]>(value ?? "");
     const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const prevValueRef = useRef(value);
 
-    // Sync external value changes into local state
-    useEffect(() => {
-      if (value !== undefined) setLocalValue(value);
-    }, [value]);
+    // Sync external value changes into local state (no useEffect — runs during render)
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value;
+      if (value !== undefined && value !== localValue) {
+        setLocalValue(value);
+      }
+    }
 
     // Cleanup timer on unmount
     useEffect(() => () => { clearTimeout(timerRef.current); }, []);
