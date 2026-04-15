@@ -12,7 +12,9 @@ import { features } from "@/config/features";
 /** Landing page — public marketing page at /. */
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="relative min-h-screen bg-bg-primary">
+      {/* Top gradient wash — bleeds through transparent navbar */}
+      <div className="absolute inset-x-0 top-0 h-[500px] bg-gradient-to-b from-accent/10 via-accent/5 to-transparent pointer-events-none" />
       <Navbar />
       <Hero />
       <Features />
