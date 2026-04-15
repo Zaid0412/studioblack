@@ -39,16 +39,27 @@ export function ProjectHeader({
           {" / "}
           <span className="truncate">{projectName}</span>
         </span>
-        <h1 className="text-xl lg:text-[26px] font-bold text-text-primary font-[family-name:var(--font-cabinet)] mt-1 truncate">
-          {projectName}
-        </h1>
+        <div className="flex items-center justify-between gap-3 mt-1">
+          <h1 className="text-xl lg:text-[26px] font-bold text-text-primary font-[family-name:var(--font-cabinet)] truncate">
+            {projectName}
+          </h1>
+          {onRefresh && (
+            <div className="shrink-0 lg:hidden">
+              <RefreshButton onRefresh={onRefresh} />
+            </div>
+          )}
+        </div>
         {description && (
           <p className="text-[13px] text-text-secondary mt-1">{description}</p>
         )}
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {actions}
-        {onRefresh && <RefreshButton onRefresh={onRefresh} />}
+        {onRefresh && (
+          <div className="hidden lg:block">
+            <RefreshButton onRefresh={onRefresh} />
+          </div>
+        )}
       </div>
     </div>
   );
