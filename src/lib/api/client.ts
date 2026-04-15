@@ -43,6 +43,15 @@ export function apiPost<T>(url: string, body?: unknown): Promise<T> {
   });
 }
 
+/** Send a PUT request with an optional JSON body. */
+export function apiPut<T>(url: string, body?: unknown): Promise<T> {
+  return request<T>(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 /** Send a PATCH request with an optional JSON body. */
 export function apiPatch<T>(url: string, body?: unknown): Promise<T> {
   return request<T>(url, {
