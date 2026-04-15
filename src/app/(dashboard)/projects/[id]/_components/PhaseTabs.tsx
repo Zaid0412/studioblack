@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useEffect } from "react";
 import type { DbPhase } from "@/types";
 
 interface PhaseTabsProps {
@@ -25,11 +26,30 @@ export function PhaseTabs({
   onPhaseChange,
   showPhaseStatus = false,
 }: PhaseTabsProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef<HTMLButtonElement>(null);
+  const isFirstRender = useRef(true);
+
+  useEffect(() => {
+    if (activeRef.current && scrollRef.current) {
+      activeRef.current.scrollIntoView({
+        behavior: isFirstRender.current ? "instant" : "smooth",
+        block: "nearest",
+        inline: "nearest",
+      });
+      isFirstRender.current = false;
+    }
+  }, [activePhaseId]);
+
   return (
     <div className="relative shrink-0 px-4 lg:px-10">
-      {/* Right fade hint for mobile scroll */}
-      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--bg-primary)] to-transparent z-10 lg:hidden" />
-      <div className="flex rounded-xl border border-border-default overflow-x-auto overflow-hidden scrollbar-none">
+      {/* Fade hints for mobile scroll — left and right */}
+      <div className="pointer-events-none absolute left-4 top-0 bottom-0 w-6 bg-gradient-to-r from-[var(--bg-primary)] to-transparent z-10 lg:hidden" />
+      <div className="pointer-events-none absolute right-4 top-0 bottom-0 w-6 bg-gradient-to-l from-[var(--bg-primary)] to-transparent z-10 lg:hidden" />
+      <div
+        ref={scrollRef}
+        className="flex rounded-xl border border-border-default overflow-x-auto scrollbar-none"
+      >
         {phases.map((phase, idx) => {
           const isActive = phase.id === activePhaseId;
           const count = phaseCounts.get(phase.id) || 0;
@@ -38,12 +58,15 @@ export function PhaseTabs({
           return (
             <button
               key={phase.id}
+              ref={isActive ? activeRef : undefined}
               onClick={() => onPhaseChange(phase.id)}
-              className={`relative flex-1 flex items-center gap-2.5 px-4 pt-3 pb-2.5 text-left transition-all duration-200 ease-out cursor-pointer shrink-0 min-w-0 ${
-                isActive
-                  ? "bg-accent/10"
-                  : "bg-transparent hover:bg-bg-elevated"
-              }`}
+              className={`relative flex items-center gap-2.5 px-4 pt-3 pb-2.5 text-left transition-all duration-200 ease-out cursor-pointer
+                min-w-[140px] flex-1 lg:min-w-0
+                ${
+                  isActive
+                    ? "bg-accent/10"
+                    : "bg-transparent hover:bg-bg-elevated"
+                }`}
             >
               {showPhaseStatus && (
                 <span
@@ -52,7 +75,7 @@ export function PhaseTabs({
               )}
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span
-                  className={`text-[13px] whitespace-nowrap transition-colors duration-200 ${
+                  className={`text-[13px] truncate transition-colors duration-200 ${
                     isActive
                       ? "text-text-primary font-semibold"
                       : "text-text-secondary font-medium"
