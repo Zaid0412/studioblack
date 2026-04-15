@@ -169,9 +169,9 @@ export default function ProjectsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("allStatus")}</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="active">{t("statusActive")}</SelectItem>
+              <SelectItem value="draft">{t("statusDraft")}</SelectItem>
+              <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
@@ -179,10 +179,10 @@ export default function ProjectsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="name">Name (A-Z)</SelectItem>
-              <SelectItem value="updated">Recently Updated</SelectItem>
+              <SelectItem value="newest">{t("sortNewest")}</SelectItem>
+              <SelectItem value="oldest">{t("sortOldest")}</SelectItem>
+              <SelectItem value="name">{t("sortName")}</SelectItem>
+              <SelectItem value="updated">{t("sortUpdated")}</SelectItem>
             </SelectContent>
           </Select>
           <TooltipProvider delayDuration={300}>
@@ -407,11 +407,10 @@ export default function ProjectsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                Delete &ldquo;{deleteTarget?.name}&rdquo;?
+                {t("deleteTitle", { name: deleteTarget?.name })}
               </DialogTitle>
               <DialogDescription>
-                This will permanently delete the project and all its files,
-                phases, and reviews. This action cannot be undone.
+                {t("deleteDescription")}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -431,8 +430,8 @@ export default function ProjectsPage() {
                       { revalidate: false }
                     );
                     toast({
-                      title: "Project deleted",
-                      description: `"${deleteTarget.name}" has been deleted.`,
+                      title: t("deletedToast"),
+                      description: t("deletedToastDesc", { name: deleteTarget.name }),
                       variant: "success",
                     });
                   } catch (err) {
@@ -441,7 +440,7 @@ export default function ProjectsPage() {
                       description:
                         err instanceof Error
                           ? err.message
-                          : "Failed to delete project",
+                          : t("deleteError"),
                       variant: "error",
                     });
                   } finally {

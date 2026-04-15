@@ -28,15 +28,15 @@ export function LeaveDialog({
   onLeave,
 }: LeaveDialogProps) {
   const tc = useTranslations("common");
+  const t = useTranslations("organisation");
 
   return (
     <Dialog open={open} onOpenChange={(o) => onOpenChange(o)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Leave Organisation</DialogTitle>
+          <DialogTitle>{t("leaveTitle")}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to leave {orgName}? You will lose access to
-            all projects and data in this organisation.
+            {t("leaveDescription", { orgName })}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -53,7 +53,7 @@ export function LeaveDialog({
             disabled={isLeaving}
             className="bg-red-600 hover:bg-red-700"
           >
-            {isLeaving ? "Leaving..." : "Leave Organisation"}
+            {isLeaving ? t("leaving") : t("leaveTitle")}
           </Button>
         </DialogFooter>
       </DialogContent>

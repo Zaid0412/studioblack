@@ -65,10 +65,10 @@ export default function AuditPage() {
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <AlertCircle className="w-6 h-6 text-red-400" />
             <p className="text-sm text-text-muted">
-              Something went wrong loading audit history.
+              {t("loadError")}
             </p>
             <Button variant="secondary" size="sm" onClick={() => mutate()}>
-              Retry
+              {t("retry")}
             </Button>
           </div>
         ) : loading ? (
