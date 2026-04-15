@@ -8,6 +8,9 @@ export default defineConfig({
     environment: "node",
     globals: true,
     restoreMocks: true,
+    env: {
+      NODE_ENV: "test",
+    },
   },
   resolve: {
     alias: {

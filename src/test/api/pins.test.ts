@@ -9,7 +9,10 @@ import {
   deletePinComment,
   getPinCommentReplies,
 } from "@/lib/queries";
-import { GET, POST } from "@/app/api/projects/[id]/attachments/[attachmentId]/pins/route";
+import {
+  GET,
+  POST,
+} from "@/app/api/projects/[id]/attachments/[attachmentId]/pins/route";
 import {
   PATCH,
   DELETE,
@@ -200,7 +203,10 @@ describe("PATCH .../pins/[pinId]", () => {
 
     expect(status).toBe(200);
     expect(body).toEqual(updated);
-    expect(updatePinCommentContent).toHaveBeenCalledWith(PIN_ID, "Updated text");
+    expect(updatePinCommentContent).toHaveBeenCalledWith(
+      PIN_ID,
+      "Updated text"
+    );
   });
 });
 

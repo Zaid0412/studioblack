@@ -89,7 +89,9 @@ describe("POST /api/projects/[id]/send-to-client", () => {
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(body).toMatchObject({ error: "No client email set on this project" });
+    expect(body).toMatchObject({
+      error: "No client email set on this project",
+    });
   });
 
   it("creates client user and sends magic link for new client", async () => {

@@ -30,7 +30,8 @@ import { mocks } from "../setup";
 
 const PROJECT_ID = "proj-1";
 const ATTACHMENT_ID = "att-1";
-const SUPABASE_FILE_URL = "https://test.supabase.co/storage/v1/object/public/files/test.pdf";
+const SUPABASE_FILE_URL =
+  "https://test.supabase.co/storage/v1/object/public/files/test.pdf";
 
 const sampleAttachment = {
   id: ATTACHMENT_ID,
@@ -115,7 +116,9 @@ describe("POST /api/projects/[id]/attachments", () => {
   it("creates attachment with valid body, returns 201", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);
-    vi.mocked(createProjectAttachment).mockResolvedValue(sampleAttachment as never);
+    vi.mocked(createProjectAttachment).mockResolvedValue(
+      sampleAttachment as never
+    );
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/attachments`, {
       method: "POST",
@@ -202,9 +205,7 @@ describe("GET /api/projects/[id]/attachments/[attachmentId]", () => {
     setupAuth(mocks.auth, session);
     vi.mocked(getAttachmentById).mockResolvedValue(null as never);
 
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/attachments/att-999`
-    );
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/attachments/att-999`);
     const res = await GET_BY_ID(
       req,
       buildParams({ id: PROJECT_ID, attachmentId: "att-999" })

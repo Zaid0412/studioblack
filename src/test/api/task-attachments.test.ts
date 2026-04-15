@@ -84,7 +84,8 @@ describe("GET /api/tasks/[id]/attachments", () => {
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/attachments`);
     const res = await GET(req, buildParams({ id: TASK_ID }));
-    const { status, body } = await parseResponse<typeof fakeAttachment[]>(res);
+    const { status, body } =
+      await parseResponse<(typeof fakeAttachment)[]>(res);
 
     expect(status).toBe(200);
     expect(body).toHaveLength(1);
@@ -111,7 +112,8 @@ describe("POST /api/tasks/[id]/attachments", () => {
     const req = buildRequest(`/api/tasks/${TASK_ID}/attachments`, {
       method: "POST",
       body: {
-        fileUrl: "https://test.supabase.co/storage/v1/object/public/test/new.png",
+        fileUrl:
+          "https://test.supabase.co/storage/v1/object/public/test/new.png",
         fileName: "new.png",
         fileSize: 2048,
       },
@@ -130,7 +132,8 @@ describe("POST /api/tasks/[id]/attachments", () => {
     const req = buildRequest(`/api/tasks/${TASK_ID}/attachments`, {
       method: "POST",
       body: {
-        fileUrl: "https://test.supabase.co/storage/v1/object/public/test/new.png",
+        fileUrl:
+          "https://test.supabase.co/storage/v1/object/public/test/new.png",
         fileName: "new.png",
       },
     });

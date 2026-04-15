@@ -69,7 +69,10 @@ describe("POST /api/upload", () => {
     setupAuth(mocks.auth, mockSession());
 
     const formData = new FormData();
-    formData.append("file", createTestFile("malware.exe", "application/x-msdownload"));
+    formData.append(
+      "file",
+      createTestFile("malware.exe", "application/x-msdownload")
+    );
 
     const req = buildFormDataRequest("/api/upload", formData);
     const res = await uploadPOST(req);

@@ -114,9 +114,9 @@ export function buildRequest(
 }
 
 /** Build route params matching Next.js App Router pattern. */
-export function buildParams(
-  params: Record<string, string>
-): { params: Promise<Record<string, string>> } {
+export function buildParams(params: Record<string, string>): {
+  params: Promise<Record<string, string>>;
+} {
   return { params: Promise.resolve(params) };
 }
 

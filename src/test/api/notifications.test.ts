@@ -47,7 +47,12 @@ describe("GET /api/notifications", () => {
     setupAuth(authMocks, session);
 
     const fakeNotifications = [
-      { id: "n1", user_id: session.user.id, type: "task_assigned", read: false },
+      {
+        id: "n1",
+        user_id: session.user.id,
+        type: "task_assigned",
+        read: false,
+      },
       { id: "n2", user_id: session.user.id, type: "comment_added", read: true },
     ];
     vi.mocked(getNotifications).mockResolvedValue(fakeNotifications);
@@ -102,10 +107,7 @@ describe("PATCH /api/notifications", () => {
     const session = mockSession();
     setupAuth(authMocks, session);
 
-    const ids = [
-      UUID_1,
-      UUID_2,
-    ];
+    const ids = [UUID_1, UUID_2];
     const req = buildRequest("/api/notifications", {
       method: "PATCH",
       body: { ids },
@@ -152,10 +154,7 @@ describe("DELETE /api/notifications", () => {
 
     expect(status).toBe(200);
     expect(body).toEqual({ success: true });
-    expect(deleteNotification).toHaveBeenCalledWith(
-      session.user.id,
-      UUID_1
-    );
+    expect(deleteNotification).toHaveBeenCalledWith(session.user.id, UUID_1);
   });
 
   it("deletes all notifications", async () => {

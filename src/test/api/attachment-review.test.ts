@@ -27,7 +27,10 @@ import { mocks } from "../setup";
 const PROJECT_ID = "proj-1";
 const ATTACHMENT_ID = "att-1";
 
-const routeParams = buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID });
+const routeParams = buildParams({
+  id: PROJECT_ID,
+  attachmentId: ATTACHMENT_ID,
+});
 
 const sampleAttachment = {
   id: ATTACHMENT_ID,
@@ -50,7 +53,10 @@ describe("PATCH .../review", () => {
     setupAuth(mocks.auth, session);
 
     vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-    const updatedAttachment = { ...sampleAttachment, review_status: "approved" };
+    const updatedAttachment = {
+      ...sampleAttachment,
+      review_status: "approved",
+    };
     vi.mocked(submitAttachmentReview).mockResolvedValue({
       attachment: updatedAttachment,
       conflict: false,
@@ -80,7 +86,10 @@ describe("PATCH .../review", () => {
     setupAuth(mocks.auth, session);
 
     vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-    const updatedAttachment = { ...sampleAttachment, review_status: "rejected" };
+    const updatedAttachment = {
+      ...sampleAttachment,
+      review_status: "rejected",
+    };
     vi.mocked(submitAttachmentReview).mockResolvedValue({
       attachment: updatedAttachment,
       conflict: false,
@@ -89,7 +98,10 @@ describe("PATCH .../review", () => {
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/review`,
-      { method: "PATCH", body: { status: "rejected", comment: "Needs more detail" } }
+      {
+        method: "PATCH",
+        body: { status: "rejected", comment: "Needs more detail" },
+      }
     );
     const res = await REVIEW(req, routeParams);
     const { status, body } = await parseResponse(res);
@@ -133,7 +145,10 @@ describe("PATCH .../freeze", () => {
     setupAuth(mocks.auth, session);
     vi.mocked(getOrgRole).mockResolvedValue("owner" as never);
 
-    const frozenAttachment = { ...sampleAttachment, frozen_at: new Date().toISOString() };
+    const frozenAttachment = {
+      ...sampleAttachment,
+      frozen_at: new Date().toISOString(),
+    };
     vi.mocked(setAttachmentFreezeStatus).mockResolvedValue({
       error: null,
       data: frozenAttachment,
@@ -238,7 +253,9 @@ describe("POST .../send-to-client", () => {
       ...sampleAttachment,
       sent_to_client_at: new Date().toISOString(),
     };
-    vi.mocked(markAttachmentSentToClient).mockResolvedValue(sentAttachment as never);
+    vi.mocked(markAttachmentSentToClient).mockResolvedValue(
+      sentAttachment as never
+    );
     vi.mocked(getProjectClientInfo).mockResolvedValue({
       client_email: "client@test.com",
       project_name: "Test Project",

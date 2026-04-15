@@ -359,9 +359,18 @@ describe("POST /api/projects/[id]/tasks/[taskId]/review", () => {
   it("client submits approval review", async () => {
     setupClientAuth();
     vi.mocked(verifyTaskOwnership).mockResolvedValue(true as never);
-    const pending = { ...sampleTask, status: "pending_review", phase_id: PHASE_ID, assigned_to: "user-arch-1" };
+    const pending = {
+      ...sampleTask,
+      status: "pending_review",
+      phase_id: PHASE_ID,
+      assigned_to: "user-arch-1",
+    };
     vi.mocked(getPhaseTaskPendingReview).mockResolvedValue(pending as never);
-    const approved = { ...sampleTask, status: "approved", title: "Design review" };
+    const approved = {
+      ...sampleTask,
+      status: "approved",
+      title: "Design review",
+    };
     vi.mocked(updatePhaseTaskReviewStatus).mockResolvedValue(approved as never);
 
     const req = buildRequest(

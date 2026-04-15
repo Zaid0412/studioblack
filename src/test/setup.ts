@@ -12,7 +12,8 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
 process.env.BETTER_AUTH_SECRET = "test-secret-at-least-32-chars-long!!";
 process.env.BETTER_AUTH_URL = "http://localhost:3000";
 process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
-process.env.NODE_ENV = "test";
+// NODE_ENV is set to "test" via vitest.config.ts — don't assign here
+// because Next.js marks it read-only during builds.
 process.env.LOG_LEVEL = "error"; // suppress noise during tests
 
 // ── Mock: next/headers ──────────────────────────────────────────────────────
@@ -89,7 +90,10 @@ vi.mock("@/lib/notifications", () => ({
 const mockUpload = vi.fn().mockResolvedValue({ error: null });
 const mockRemove = vi.fn().mockResolvedValue({ error: null });
 const mockGetPublicUrl = vi.fn().mockReturnValue({
-  data: { publicUrl: "https://test.supabase.co/storage/v1/object/public/test/file.png" },
+  data: {
+    publicUrl:
+      "https://test.supabase.co/storage/v1/object/public/test/file.png",
+  },
 });
 
 const mockStorageFrom = vi.fn(() => ({
@@ -211,10 +215,14 @@ vi.mock("@/lib/queries", () => ({
   updatePinCommentPosition: vi.fn(),
   deletePinComment: vi.fn(),
   getPinCommentReplies: vi.fn().mockResolvedValue([]),
-  submitAttachmentReview: vi.fn().mockResolvedValue({ attachment: null, conflict: false }),
+  submitAttachmentReview: vi
+    .fn()
+    .mockResolvedValue({ attachment: null, conflict: false }),
   createAttachmentReview: vi.fn(),
   getAttachmentReviews: vi.fn().mockResolvedValue([]),
-  setAttachmentFreezeStatus: vi.fn().mockResolvedValue({ error: null, data: null }),
+  setAttachmentFreezeStatus: vi
+    .fn()
+    .mockResolvedValue({ error: null, data: null }),
   markAttachmentSentToClient: vi.fn().mockResolvedValue(null),
   getProjectClientInfo: vi.fn().mockResolvedValue(null),
   getComments: vi.fn().mockResolvedValue([]),

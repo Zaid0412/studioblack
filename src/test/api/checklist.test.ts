@@ -79,7 +79,7 @@ describe("GET /api/tasks/[id]/checklist", () => {
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist`);
     const res = await GET(req, buildParams({ id: TASK_ID }));
-    const { status, body } = await parseResponse<typeof fakeItem[]>(res);
+    const { status, body } = await parseResponse<(typeof fakeItem)[]>(res);
 
     expect(status).toBe(200);
     expect(body).toHaveLength(1);
@@ -147,10 +147,10 @@ describe("PATCH /api/tasks/[id]/checklist/[itemId]", () => {
     const updated = { ...fakeItem, is_done: true };
     vi.mocked(updateChecklistItem).mockResolvedValue(updated);
 
-    const req = buildRequest(
-      `/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`,
-      { method: "PATCH", body: { is_done: true } }
-    );
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`, {
+      method: "PATCH",
+      body: { is_done: true },
+    });
     const res = await PATCH_ITEM(
       req,
       buildParams({ id: TASK_ID, itemId: ITEM_ID })
@@ -169,10 +169,10 @@ describe("PATCH /api/tasks/[id]/checklist/[itemId]", () => {
   it("returns 403 for client role", async () => {
     authAsClient();
 
-    const req = buildRequest(
-      `/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`,
-      { method: "PATCH", body: { is_done: true } }
-    );
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`, {
+      method: "PATCH",
+      body: { is_done: true },
+    });
     const res = await PATCH_ITEM(
       req,
       buildParams({ id: TASK_ID, itemId: ITEM_ID })
@@ -189,10 +189,9 @@ describe("DELETE /api/tasks/[id]/checklist/[itemId]", () => {
   it("deletes a checklist item", async () => {
     vi.mocked(deleteChecklistItem).mockResolvedValue(true);
 
-    const req = buildRequest(
-      `/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`,
-      { method: "DELETE" }
-    );
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`, {
+      method: "DELETE",
+    });
     const res = await DELETE_ITEM(
       req,
       buildParams({ id: TASK_ID, itemId: ITEM_ID })
@@ -207,10 +206,9 @@ describe("DELETE /api/tasks/[id]/checklist/[itemId]", () => {
   it("returns 403 for client role", async () => {
     authAsClient();
 
-    const req = buildRequest(
-      `/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`,
-      { method: "DELETE" }
-    );
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`, {
+      method: "DELETE",
+    });
     const res = await DELETE_ITEM(
       req,
       buildParams({ id: TASK_ID, itemId: ITEM_ID })
@@ -231,10 +229,10 @@ describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
       "f47ac10b-58cc-4372-a567-0e02b2c3d479",
       "7c9e6679-7425-40de-944b-e07fc1f90ae7",
     ];
-    const req = buildRequest(
-      `/api/tasks/${TASK_ID}/checklist/reorder`,
-      { method: "PATCH", body: { orderedIds } }
-    );
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds },
+    });
     const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
     const { status, body } = await parseResponse<{ ok: boolean }>(res);
 
@@ -246,10 +244,10 @@ describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
   it("returns 403 for client role", async () => {
     authAsClient();
 
-    const req = buildRequest(
-      `/api/tasks/${TASK_ID}/checklist/reorder`,
-      { method: "PATCH", body: { orderedIds: ["f47ac10b-58cc-4372-a567-0e02b2c3d479"] } }
-    );
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds: ["f47ac10b-58cc-4372-a567-0e02b2c3d479"] },
+    });
     const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
     const { status } = await parseResponse(res);
 

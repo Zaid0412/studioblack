@@ -9,11 +9,7 @@ import {
   deleteProject,
 } from "@/lib/queries";
 import { GET, POST } from "@/app/api/projects/route";
-import {
-  GET as GET_BY_ID,
-  PATCH,
-  DELETE,
-} from "@/app/api/projects/[id]/route";
+import { GET as GET_BY_ID, PATCH, DELETE } from "@/app/api/projects/[id]/route";
 import {
   buildRequest,
   buildParams,
@@ -143,7 +139,9 @@ describe("POST /api/projects", () => {
   it("creates project with valid body, returns 201", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);
-    vi.mocked(createProjectWithPhases).mockResolvedValue(sampleProject as never);
+    vi.mocked(createProjectWithPhases).mockResolvedValue(
+      sampleProject as never
+    );
 
     const req = buildRequest("/api/projects", {
       method: "POST",

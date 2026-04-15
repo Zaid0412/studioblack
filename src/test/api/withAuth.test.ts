@@ -15,9 +15,11 @@ import { mocks } from "../setup";
 
 // ── Shared handler spy ──────────────────────────────────────────────────────
 
-const handler = vi.fn().mockImplementation(async (_req, ctx) =>
-  NextResponse.json({ userId: ctx.user.id })
-);
+const handler = vi
+  .fn()
+  .mockImplementation(async (_req, ctx) =>
+    NextResponse.json({ userId: ctx.user.id })
+  );
 
 // ── Reset mocks between tests ───────────────────────────────────────────────
 
