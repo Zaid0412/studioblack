@@ -28,14 +28,16 @@ export function PhaseTabs({
 }: PhaseTabsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLButtonElement>(null);
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     if (activeRef.current && scrollRef.current) {
       activeRef.current.scrollIntoView({
-        behavior: "smooth",
+        behavior: isFirstRender.current ? "instant" : "smooth",
         block: "nearest",
         inline: "nearest",
       });
+      isFirstRender.current = false;
     }
   }, [activePhaseId]);
 
