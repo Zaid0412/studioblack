@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useCooldown } from "@/hooks/useCooldown";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
@@ -50,14 +51,7 @@ export function useSettings() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [otpCooldown, setOtpCooldown] = useState(0);
-
-  // OTP cooldown timer
-  useEffect(() => {
-    if (otpCooldown <= 0) return;
-    const timer = setTimeout(() => setOtpCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [otpCooldown]);
+  const [otpCooldown, startOtpCooldown] = useCooldown(60);
 
   // Sync form state when session loads
   useEffect(() => {
@@ -141,7 +135,7 @@ export function useSettings() {
     try {
       await apiPost(API.sendOtp(), { purpose });
       setOtpSent(true);
-      setOtpCooldown(60);
+      startOtpCooldown();
       toast({
         title: t("otpSent"),
         description: t("otpSentDesc"),
@@ -205,22 +199,8 @@ export function useSettings() {
           return;
         }
 
-        // Verify OTP first, then set password
-        const otpResult = await apiPost<{ valid: boolean }>(
-          "/api/settings/verify-otp",
-          { otp: otpCode, purpose: "set_password" }
-        );
-        if (!otpResult.valid) {
-          toast({
-            title: t("error"),
-            description: t("otpInvalid"),
-            variant: "error",
-          });
-          return;
-        }
-
-        // Now set the password via custom API
-        await apiPost("/api/settings/set-password", { newPassword });
+        // Verify OTP + set password atomically in one request
+        await apiPost(API.setPassword(), { otp: otpCode, newPassword });
         // Update hasPassword state
         mutateHasPassword({ hasPassword: true }, false);
       }
@@ -248,17 +228,7 @@ export function useSettings() {
     }
   };
 
-  const [emailResendCooldown, setEmailResendCooldown] = useState(0);
-
-  // Email resend cooldown timer
-  useEffect(() => {
-    if (emailResendCooldown <= 0) return;
-    const timer = setTimeout(
-      () => setEmailResendCooldown((c) => c - 1),
-      1000
-    );
-    return () => clearTimeout(timer);
-  }, [emailResendCooldown]);
+  const [emailResendCooldown, startEmailResendCooldown] = useCooldown(60);
 
   const handleChangeEmail = async () => {
     if (!newEmail || newEmail === email) return;
@@ -267,7 +237,7 @@ export function useSettings() {
     try {
       await apiPost(API.changeEmail(), { newEmail });
       setEmailChangeRequested(true);
-      setEmailResendCooldown(60);
+      startEmailResendCooldown();
       sessionStorage.setItem("emailChangeRequested", "true");
       sessionStorage.setItem("emailChangePendingEmail", newEmail);
       if (session?.user?.id) {

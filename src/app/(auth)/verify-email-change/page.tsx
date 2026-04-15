@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useCooldown } from "@/hooks/useCooldown";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AuthCard } from "@/components/ui/AuthCard";
 import { apiGet, apiPost, apiPut, ApiError } from "@/lib/api/client";
+import { API } from "@/lib/api/routes";
 
 /** Full-page email change verification — user confirms with password or OTP after clicking the email link. */
 export default function VerifyEmailChangePage() {
@@ -38,22 +40,17 @@ export default function VerifyEmailChangePage() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [otpCooldown, setOtpCooldown] = useState(0);
-
-  // OTP cooldown timer
-  useEffect(() => {
-    if (otpCooldown <= 0) return;
-    const timer = setTimeout(() => setOtpCooldown((c) => c - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [otpCooldown]);
+  const [otpCooldown, startOtpCooldown] = useCooldown(60);
 
   // Fetch pending change info from API (no emails in URL)
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;
     apiGet<{ oldEmail: string; newEmail: string; hasPassword: boolean }>(
-      `/api/settings/verify-email-change?token=${token}`
+      `${API.verifyEmailChange()}?token=${token}`
     )
       .then((data) => {
+        if (cancelled) return;
         setOldEmail(data.oldEmail);
         setNewEmail(data.newEmail);
         setHasPassword(data.hasPassword);
@@ -61,6 +58,7 @@ export default function VerifyEmailChangePage() {
       .catch(() => {
         // Token invalid/expired — will be caught by the form submission too
       });
+    return () => { cancelled = true; };
   }, [token]);
 
   // Cleanup redirect timer on unmount
@@ -71,9 +69,9 @@ export default function VerifyEmailChangePage() {
   const sendOtp = async () => {
     setIsSendingOtp(true);
     try {
-      await apiPut("/api/settings/verify-email-change", { token });
+      await apiPut(API.verifyEmailChange(), { token });
       setOtpSent(true);
-      setOtpCooldown(60);
+      startOtpCooldown();
     } catch {
       setErrorMsg(tSettings("otpSendError"));
     } finally {
@@ -93,7 +91,7 @@ export default function VerifyEmailChangePage() {
         ? { token, otp: otpCode }
         : { token, password };
       const data = await apiPost<{ newEmail: string }>(
-        "/api/settings/verify-email-change",
+        API.verifyEmailChange(),
         body
       );
       setNewEmail(data.newEmail);

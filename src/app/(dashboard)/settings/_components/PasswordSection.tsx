@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 export interface PasswordSectionProps {
+  /** Used for hidden autoComplete="username" input (password manager UX). */
   email: string;
   hasPassword: boolean;
   currentPassword: string;

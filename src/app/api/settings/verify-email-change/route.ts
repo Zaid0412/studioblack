@@ -258,6 +258,15 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // Only allow OTP flow for users without a password
+    const hash = await getAccountPasswordHash(pending.user_id);
+    if (hash) {
+      return NextResponse.json(
+        { error: "Use your password to verify this change." },
+        { status: 400 }
+      );
+    }
+
     const code = crypto.randomInt(100000, 999999).toString();
     const codeHash = await hashPassword(code);
     await createEmailOtp(pending.user_id, codeHash, "email_change");

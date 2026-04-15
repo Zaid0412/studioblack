@@ -2318,7 +2318,7 @@ export async function getAccountPasswordHash(
     `SELECT password FROM account WHERE "userId" = $1 AND "providerId" = 'credential' LIMIT 1`,
     [userId]
   );
-  return rows[0]?.password || null;
+  return rows[0]?.password ?? null;
 }
 
 /** Check whether a user has a credential (email/password) account. */
@@ -2355,7 +2355,7 @@ interface EmailOtp {
 
 const OTP_MAX_ATTEMPTS = 5;
 
-/** Delete any existing OTPs for a user+purpose, then insert a new one. */
+/** Delete any existing OTPs for a user+purpose, then insert a new one (atomic). */
 export async function createEmailOtp(
   userId: string,
   codeHash: string,
@@ -2363,16 +2363,25 @@ export async function createEmailOtp(
   expiresInMs: number = 10 * 60 * 1000 // 10 minutes
 ): Promise<void> {
   const pool = getPool();
-  // Delete old OTPs for this user+purpose (only one active at a time)
-  await pool.query(
-    `DELETE FROM email_otp WHERE user_id = $1 AND purpose = $2`,
-    [userId, purpose]
-  );
-  await pool.query(
-    `INSERT INTO email_otp (user_id, code_hash, purpose, expires_at)
-     VALUES ($1, $2, $3, NOW() + ($4 || ' milliseconds')::interval)`,
-    [userId, codeHash, purpose, expiresInMs.toString()]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `DELETE FROM email_otp WHERE user_id = $1 AND purpose = $2`,
+      [userId, purpose]
+    );
+    await client.query(
+      `INSERT INTO email_otp (user_id, code_hash, purpose, expires_at)
+       VALUES ($1, $2, $3, NOW() + ($4 || ' milliseconds')::interval)`,
+      [userId, codeHash, purpose, expiresInMs.toString()]
+    );
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Fetch the active OTP for a user+purpose. Returns null if none or expired. */
