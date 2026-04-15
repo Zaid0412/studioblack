@@ -20,10 +20,9 @@ export function useSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch whether user has a credential (password) account
-  const {
-    data: passwordData,
-    mutate: mutateHasPassword,
-  } = useSWR<{ hasPassword: boolean }>(API.hasPassword());
+  const { data: passwordData, mutate: mutateHasPassword } = useSWR<{
+    hasPassword: boolean;
+  }>(API.hasPassword());
   const hasPassword = passwordData?.hasPassword ?? true; // default to true until loaded
 
   const [name, setName] = useState("");

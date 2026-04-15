@@ -23,10 +23,17 @@ function MenuIcon({ open }: { open: boolean }) {
         className={cn(bar, open ? "top-[9px] rotate-45" : "top-[3px] rotate-0")}
       />
       <span
-        className={cn(bar, "top-[9px]", open ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100")}
+        className={cn(
+          bar,
+          "top-[9px]",
+          open ? "opacity-0 scale-x-0" : "opacity-100 scale-x-100"
+        )}
       />
       <span
-        className={cn(bar, open ? "top-[9px] -rotate-45" : "top-[15px] rotate-0")}
+        className={cn(
+          bar,
+          open ? "top-[9px] -rotate-45" : "top-[15px] rotate-0"
+        )}
       />
     </div>
   );

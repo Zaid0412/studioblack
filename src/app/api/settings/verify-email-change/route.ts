@@ -240,7 +240,9 @@ export async function PUT(req: NextRequest) {
     });
     if (!rl.allowed) {
       return NextResponse.json(
-        { error: "Too many requests. Please wait before requesting a new code." },
+        {
+          error: "Too many requests. Please wait before requesting a new code.",
+        },
         { status: 429 }
       );
     }

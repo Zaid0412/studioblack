@@ -58,7 +58,9 @@ export default function VerifyEmailChangePage() {
       .catch(() => {
         // Token invalid/expired — will be caught by the form submission too
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   // Cleanup redirect timer on unmount
@@ -87,9 +89,7 @@ export default function VerifyEmailChangePage() {
     setErrorMsg("");
 
     try {
-      const body = usingOtp
-        ? { token, otp: otpCode }
-        : { token, password };
+      const body = usingOtp ? { token, otp: otpCode } : { token, password };
       const data = await apiPost<{ newEmail: string }>(
         API.verifyEmailChange(),
         body
@@ -149,7 +149,9 @@ export default function VerifyEmailChangePage() {
     <AuthCard
       icon={ShieldCheck}
       title={t("changeEmailTitle")}
-      description={hasPassword === false ? t("changeEmailDescOtp") : t("changeEmailDesc")}
+      description={
+        hasPassword === false ? t("changeEmailDescOtp") : t("changeEmailDesc")
+      }
       headerExtra={
         oldEmail || newEmail ? (
           <div className="flex flex-col items-center gap-0">

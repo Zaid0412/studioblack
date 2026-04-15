@@ -37,13 +37,7 @@ const faqs = [
   },
 ];
 
-function FAQItem({
-  question,
-  answer,
-}: {
-  question: string;
-  answer: string;
-}) {
+function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -93,7 +87,11 @@ export function FAQ() {
 
         <div className="border-t border-border-default">
           {faqs.map((faq) => (
-            <FAQItem key={faq.question} question={faq.question} answer={faq.answer} />
+            <FAQItem
+              key={faq.question}
+              question={faq.question}
+              answer={faq.answer}
+            />
           ))}
         </div>
       </div>
