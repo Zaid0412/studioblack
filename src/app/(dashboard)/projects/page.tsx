@@ -150,7 +150,7 @@ export default function ProjectsPage() {
         <SearchInput
           placeholder={t("searchPlaceholder")}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onDebouncedChange={setSearch}
           debounceMs={300}
           containerClassName="flex-1"
         />

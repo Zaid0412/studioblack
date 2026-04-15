@@ -20,6 +20,7 @@ import { FileCard } from "./FileCard";
 import { fileType, statusBadge } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
+import { useFileDropzone } from "@/hooks/useFileDropzone";
 import type { DbAttachment } from "@/types";
 
 type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
@@ -69,7 +70,7 @@ interface FileTableProps {
   /** Base path for review navigation. Defaults to "/projects". */
   basePath?: string;
   /** Current user's role — controls which context menu actions appear. */
-  userRole?: "pm" | "architect" | "client" | null;
+  userRole: "pm" | "architect" | "client" | null;
   /** Current user's ID — used to check file ownership for remove action. */
   currentUserId?: string;
 }
@@ -159,7 +160,6 @@ export function FileTable({
     null
   );
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
-  const [dragOver, setDragOver] = useState(false);
   const [versionHistoryGroup, setVersionHistoryGroup] = useState<string | null>(
     null
   );
@@ -183,25 +183,13 @@ export function FileTable({
     };
   }, [uploadTriggerRef, openUpload]);
 
-  const handleTableDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  }, []);
-
-  const handleTableDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-  }, []);
-
-  const handleTableDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOver(false);
-      if (e.dataTransfer.files.length > 0) {
-        openUpload(null, Array.from(e.dataTransfer.files));
-      }
-    },
-    [openUpload]
+  const {
+    dragOver,
+    handleDrop: handleTableDrop,
+    handleDragOver: handleTableDragOver,
+    handleDragLeave: handleTableDragLeave,
+  } = useFileDropzone(
+    useCallback((files: FileList) => openUpload(null, Array.from(files)), [openUpload])
   );
 
   const handleToggleFreeze = useCallback(
@@ -318,9 +306,6 @@ export function FileTable({
     [projectId, onRefresh]
   );
 
-  const handleUploadSuccess = useCallback(() => {
-    onRefresh();
-  }, [onRefresh]);
 
   const toggleSelect = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -705,9 +690,10 @@ export function FileTable({
                   isStaff && !att.frozen_at
                     ? () => openUpload(att.version_group)
                     : undefined,
-                onVersionHistory: att.version_group
-                  ? () => setVersionHistoryGroup(att.version_group!)
-                  : undefined,
+                onVersionHistory: (() => {
+                  const vg = att.version_group;
+                  return vg ? () => setVersionHistoryGroup(vg) : undefined;
+                })(),
                 onViewReview:
                   att.review_status && att.review_status !== "pending"
                     ? () => router.push(`${reviewPath(att.id)}?reviews=open`)
@@ -810,7 +796,7 @@ export function FileTable({
           phaseId={activePhaseId}
           versionGroup={uploadVersionGroup}
           initialFiles={droppedFiles}
-          onSuccess={handleUploadSuccess}
+          onSuccess={onRefresh}
         />
       )}
 

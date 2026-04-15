@@ -48,9 +48,9 @@ export default function DesignUploadPage({
   const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
     useFileDropzone(addFiles);
 
-  const removeFile = (index: number) => {
+  const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
   const handleUpload = async () => {
     if (files.length === 0) {

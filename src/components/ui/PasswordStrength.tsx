@@ -39,10 +39,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
 
   const strings = useMemo(
     () => ({
-      weak: t("strengthWeak"),
-      fair: t("strengthFair"),
-      good: t("strengthGood"),
-      strong: t("strengthStrong"),
+      labels: [t("strengthWeak"), t("strengthWeak"), t("strengthFair"), t("strengthGood"), t("strengthStrong")],
       tooShort: t("passwordTooShort"),
     }),
     [t]
@@ -50,8 +47,7 @@ export function PasswordStrength({ password }: PasswordStrengthProps) {
 
   const isEmpty = !password;
   const tooShort = !!password && password.length < 8;
-  const strengthLabels = [strings.weak, strings.weak, strings.fair, strings.good, strings.strong];
-  const label = tooShort ? strings.tooShort : strengthLabels[strength];
+  const label = tooShort ? strings.tooShort : strings.labels[strength];
   const lColor = tooShort ? "text-error" : labelColor(strength);
 
   return (

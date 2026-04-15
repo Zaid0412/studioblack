@@ -28,18 +28,15 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const { role } = useUserRole();
 
-  const allTabs: Tab[] = [
-    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
-    { href: "/projects", label: t("projects"), icon: FolderOpen },
-    { href: "/tasks", label: t("tasks"), icon: CheckSquare, roles: ["pm", "architect"] },
-    { href: "/audit", label: t("audit"), icon: History },
-  ];
-
-  const tabs = useMemo(
-    () => allTabs.filter((tab) => !tab.roles || (role && tab.roles.includes(role))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [role]
-  );
+  const tabs = useMemo(() => {
+    const allTabs: Tab[] = [
+      { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
+      { href: "/projects", label: t("projects"), icon: FolderOpen },
+      { href: "/tasks", label: t("tasks"), icon: CheckSquare, roles: ["pm", "architect"] },
+      { href: "/audit", label: t("audit"), icon: History },
+    ];
+    return allTabs.filter((tab) => !tab.roles || (role && tab.roles.includes(role)));
+  }, [role, t]);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 bg-bg-primary border-t border-border-default pb-[env(safe-area-inset-bottom)] lg:hidden">

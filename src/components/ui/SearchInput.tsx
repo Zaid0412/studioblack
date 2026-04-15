@@ -14,8 +14,10 @@ import {
 
 interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
   containerClassName?: string;
-  /** When set, onChange fires after the user stops typing for this many ms. */
+  /** When set, onDebouncedChange fires after the user stops typing for this many ms. */
   debounceMs?: number;
+  /** Called with the debounced string value. Use instead of onChange when debounceMs is set. */
+  onDebouncedChange?: (value: string) => void;
 }
 
 /**
@@ -24,7 +26,7 @@ interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
  * Forwards a ref to the underlying `<input>` element.
  */
 export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className, containerClassName, debounceMs, onChange, value, ...props }, ref) => {
+  ({ className, containerClassName, debounceMs, onDebouncedChange, onChange, value, ...props }, ref) => {
     const [localValue, setLocalValue] = useState<string | number | readonly string[]>(value ?? "");
     const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -46,12 +48,10 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         setLocalValue(val);
         clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
-          // Build a lightweight event-like object so e.target.value is reliable
-          // after the delay (the original DOM ref may have changed).
-          onChange?.({ target: { value: val } } as ChangeEvent<HTMLInputElement>);
+          onDebouncedChange?.(val);
         }, debounceMs);
       },
-      [debounceMs, onChange]
+      [debounceMs, onChange, onDebouncedChange]
     );
 
     return (
