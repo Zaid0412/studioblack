@@ -47,6 +47,7 @@ const mockGetSession = vi.fn();
 const mockListOrganizations = vi.fn().mockResolvedValue([]);
 const mockListMembers = vi.fn().mockResolvedValue({ members: [] });
 const mockSetActiveOrganization = vi.fn();
+const mockSignInMagicLink = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/lib/auth", () => ({
   auth: {
@@ -55,6 +56,7 @@ vi.mock("@/lib/auth", () => ({
       listOrganizations: mockListOrganizations,
       listMembers: mockListMembers,
       setActiveOrganization: mockSetActiveOrganization,
+      signInMagicLink: mockSignInMagicLink,
     },
   },
 }));
@@ -74,8 +76,8 @@ vi.mock("@/lib/email", () => ({
 // ── Mock: @/lib/notifications ───────────────────────────────────────────────
 
 vi.mock("@/lib/notifications", () => ({
-  createNotification: vi.fn(),
-  createNotificationsForTeam: vi.fn(),
+  createNotification: vi.fn().mockResolvedValue(undefined),
+  createNotificationsForTeam: vi.fn().mockResolvedValue(undefined),
   createNotificationForClient: vi.fn().mockResolvedValue(undefined),
   notifyUserByEmail: vi.fn(),
   notifyUserByEmailWithContext: vi.fn(),
@@ -175,6 +177,15 @@ vi.mock("@/lib/queries", () => ({
   verifyResourceOwnership: vi.fn().mockResolvedValue(null),
   uploadNewVersion: vi.fn(),
   getProjectName: vi.fn().mockResolvedValue("Test Project"),
+  getPhaseTasks: vi.fn().mockResolvedValue([]),
+  verifyPhaseOwnership: vi.fn().mockResolvedValue(true),
+  createPhaseTask: vi.fn(),
+  updatePhaseTask: vi.fn(),
+  getTasksPendingReview: vi.fn().mockResolvedValue([]),
+  markPhaseTaskForReview: vi.fn(),
+  getProjectReviewInfo: vi.fn().mockResolvedValue(null),
+  getPhaseTaskPendingReview: vi.fn().mockResolvedValue(null),
+  updatePhaseTaskReviewStatus: vi.fn(),
   getTaskById: vi.fn().mockResolvedValue(null),
   createTask: vi.fn(),
   updateTask: vi.fn(),
@@ -219,6 +230,22 @@ vi.mock("@/lib/queries", () => ({
   incrementFailedAttempts: vi.fn().mockResolvedValue(1),
   updateUserEmail: vi.fn(),
   getAccountPasswordHash: vi.fn().mockResolvedValue(null),
+  verifyTaskAccess: vi.fn().mockResolvedValue(true),
+  verifyTaskOwnership: vi.fn().mockResolvedValue(true),
+  getTaskAttachments: vi.fn().mockResolvedValue([]),
+  getTaskProjectId: vi.fn().mockResolvedValue("project-test-001"),
+  createTaskAttachment: vi.fn(),
+  getTaskOrgId: vi.fn().mockResolvedValue("org-test-001"),
+  getStandaloneTaskAttachment: vi.fn().mockResolvedValue(null),
+  deleteAttachmentById: vi.fn(),
+  getTasksByAssignee: vi.fn().mockResolvedValue([]),
+  getProjectForSendToClient: vi.fn().mockResolvedValue(null),
+  getUserByEmail: vi.fn().mockResolvedValue(null),
+  createClientUser: vi.fn(),
+  getDashboardStats: vi.fn().mockResolvedValue(null),
+  getRecentActivity: vi.fn().mockResolvedValue([]),
+  getProjectsByClientEmail: vi.fn().mockResolvedValue([]),
+  clearClientEmailByEmail: vi.fn().mockResolvedValue(0),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
       super("Email already taken");
@@ -236,6 +263,7 @@ export const mocks = {
     listOrganizations: mockListOrganizations,
     listMembers: mockListMembers,
     setActiveOrganization: mockSetActiveOrganization,
+    signInMagicLink: mockSignInMagicLink,
   },
   supabase: {
     storageFrom: mockStorageFrom,
