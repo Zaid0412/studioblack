@@ -52,7 +52,7 @@ export function PhaseTabs({
               )}
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span
-                  className={`text-[13px] whitespace-nowrap transition-colors duration-200 ${
+                  className={`text-[13px] truncate transition-colors duration-200 ${
                     isActive
                       ? "text-text-primary font-semibold"
                       : "text-text-secondary font-medium"
