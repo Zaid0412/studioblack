@@ -137,6 +137,7 @@ export function PinSidebar({
           <button
             onClick={onClose}
             className="text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+            aria-label="Close comments"
           >
             <X className="w-4 h-4" />
           </button>
