@@ -211,7 +211,7 @@ export function UploadDialog({
             <p className="text-sm text-text-primary">Uploaded successfully!</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 min-w-0">
             {/* Dropzone */}
             <div
               onDragOver={(e) => {
