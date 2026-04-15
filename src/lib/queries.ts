@@ -2323,8 +2323,12 @@ export async function getAccountPasswordHash(
 
 /** Check whether a user has a credential (email/password) account. */
 export async function hasCredentialAccount(userId: string): Promise<boolean> {
-  const hash = await getAccountPasswordHash(userId);
-  return hash !== null;
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT EXISTS(SELECT 1 FROM account WHERE "userId" = $1 AND "providerId" = 'credential') AS exists`,
+    [userId]
+  );
+  return rows[0]?.exists ?? false;
 }
 
 /** Create a credential account for a user who only has social login (Google). */
@@ -2335,7 +2339,8 @@ export async function createCredentialAccount(
   const pool = getPool();
   await pool.query(
     `INSERT INTO account (id, "userId", "providerId", "accountId", password, "createdAt", "updatedAt")
-     VALUES (gen_random_uuid(), $1, 'credential', $1, $2, NOW(), NOW())`,
+     VALUES (gen_random_uuid(), $1, 'credential', $1, $2, NOW(), NOW())
+     ON CONFLICT ("userId", "providerId") DO NOTHING`,
     [userId, passwordHash]
   );
 }

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import crypto from "crypto";
-import { verifyPassword, hashPassword } from "better-auth/crypto";
+import { verifyPassword } from "better-auth/crypto";
 import { rateLimit } from "@/lib/rateLimit";
 import { parseRequest } from "@/lib/validations";
 import {
@@ -11,13 +10,8 @@ import {
   updateUserEmail,
   EmailTakenError,
   getAccountPasswordHash,
-  getActiveEmailOtp,
-  incrementOtpAttempts,
-  deleteEmailOtp,
-  createEmailOtp,
-  cleanupExpiredOtps,
 } from "@/lib/queries";
-import { sendOtpEmail } from "@/lib/email";
+import { verifyOtp, generateAndSendOtp } from "@/lib/otp";
 
 const MAX_FAILED_ATTEMPTS = 5;
 
@@ -158,38 +152,13 @@ export async function POST(req: NextRequest) {
       }
     } else if (!hash && otp) {
       // OTP-based verification for Google-only users
-      const activeOtp = await getActiveEmailOtp(
-        pending.user_id,
-        "email_change"
-      );
-      if (!activeOtp) {
+      const otpResult = await verifyOtp(pending.user_id, "email_change", otp);
+      if (!otpResult.ok) {
         return NextResponse.json(
-          { error: "No verification code found. Please request a new one." },
-          { status: 400 }
+          { error: otpResult.error },
+          { status: otpResult.status }
         );
       }
-
-      const otpValid = await verifyPassword({
-        password: otp,
-        hash: activeOtp.code_hash,
-      });
-      if (!otpValid) {
-        const attempts = await incrementOtpAttempts(activeOtp.id);
-        if (attempts >= 5) {
-          return NextResponse.json(
-            {
-              error:
-                "Too many failed attempts. Please request a new verification code.",
-            },
-            { status: 403 }
-          );
-        }
-        return NextResponse.json(
-          { error: "Incorrect verification code" },
-          { status: 401 }
-        );
-      }
-      await deleteEmailOtp(activeOtp.id);
     } else {
       return NextResponse.json(
         {
@@ -269,12 +238,18 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    const code = crypto.randomInt(100000, 999999).toString();
-    const codeHash = await hashPassword(code);
-    await createEmailOtp(pending.user_id, codeHash, "email_change");
-
-    sendOtpEmail(pending.old_email, code, "email_change").catch(() => {});
-    cleanupExpiredOtps().catch(() => {});
+    try {
+      await generateAndSendOtp(
+        pending.user_id,
+        pending.old_email,
+        "email_change"
+      );
+    } catch {
+      return NextResponse.json(
+        { error: "Could not send verification code. Please try again." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ sent: true });
   } catch {

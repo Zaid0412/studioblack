@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { AuthCard } from "@/components/ui/AuthCard";
+import { OtpVerification } from "@/components/ui/OtpVerification";
 import { apiGet, apiPost, apiPut, ApiError } from "@/lib/api/client";
 import { API } from "@/lib/api/routes";
 
@@ -204,45 +205,15 @@ export default function VerifyEmailChangePage() {
           ) : hasPassword === false ? (
             /* Google-only user: OTP verification */
             <div className="flex flex-col gap-3">
-              {!otpSent ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full h-[48px]"
-                  onClick={sendOtp}
-                  disabled={isSendingOtp}
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  {isSendingOtp
-                    ? tSettings("sending")
-                    : tSettings("sendVerificationCode")}
-                </Button>
-              ) : (
-                <>
-                  <Input
-                    label={tSettings("verificationCode")}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={otpCode}
-                    onChange={(e) =>
-                      setOtpCode(e.target.value.replace(/\D/g, ""))
-                    }
-                    autoComplete="one-time-code"
-                  />
-                  <button
-                    type="button"
-                    onClick={sendOtp}
-                    disabled={otpCooldown > 0 || isSendingOtp}
-                    className="text-xs text-text-muted hover:text-accent transition-colors self-start cursor-pointer disabled:opacity-50"
-                  >
-                    {otpCooldown > 0
-                      ? tSettings("resendIn", { seconds: otpCooldown })
-                      : tSettings("resendCode")}
-                  </button>
-                </>
-              )}
+              <OtpVerification
+                otpSent={otpSent}
+                otpCode={otpCode}
+                setOtpCode={setOtpCode}
+                isSendingOtp={isSendingOtp}
+                otpCooldown={otpCooldown}
+                onSendOtp={sendOtp}
+                variant="full"
+              />
             </div>
           ) : (
             /* Password user: password verification */

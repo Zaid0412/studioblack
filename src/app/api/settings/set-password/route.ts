@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { hashPassword, verifyPassword } from "better-auth/crypto";
+import { hashPassword } from "better-auth/crypto";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest } from "@/lib/validations";
-import {
-  hasCredentialAccount,
-  createCredentialAccount,
-  getActiveEmailOtp,
-  incrementOtpAttempts,
-  deleteEmailOtp,
-} from "@/lib/queries";
+import { createCredentialAccount } from "@/lib/queries";
+import { verifyOtp } from "@/lib/otp";
 
 const setPasswordSchema = z.object({
   otp: z.string().length(6),
@@ -25,45 +20,16 @@ export const POST = withAuth({}, async (req: NextRequest, ctx) => {
 
   const { otp, newPassword } = parsed.data;
 
-  // Only allow if user doesn't already have a password
-  const hasPassword = await hasCredentialAccount(ctx.user.id);
-  if (hasPassword) {
+  // Verify OTP
+  const result = await verifyOtp(ctx.user.id, "set_password", otp);
+  if (!result.ok) {
     return NextResponse.json(
-      { error: "Account already has a password. Use change password instead." },
-      { status: 400 }
+      { error: result.error },
+      { status: result.status }
     );
   }
 
-  // Verify OTP server-side
-  const activeOtp = await getActiveEmailOtp(ctx.user.id, "set_password");
-  if (!activeOtp) {
-    return NextResponse.json(
-      { error: "No verification code found. Please request a new one." },
-      { status: 400 }
-    );
-  }
-
-  const otpValid = await verifyPassword({
-    password: otp,
-    hash: activeOtp.code_hash,
-  });
-
-  if (!otpValid) {
-    const attempts = await incrementOtpAttempts(activeOtp.id);
-    if (attempts >= 5) {
-      return NextResponse.json(
-        { error: "Too many failed attempts. Please request a new code." },
-        { status: 403 }
-      );
-    }
-    return NextResponse.json(
-      { error: "Incorrect verification code." },
-      { status: 401 }
-    );
-  }
-
-  // OTP valid — delete it and set the password
-  await deleteEmailOtp(activeOtp.id);
+  // OTP valid — set the password (ON CONFLICT guards concurrent requests)
   const passwordHash = await hashPassword(newPassword);
   await createCredentialAccount(ctx.user.id, passwordHash);
 

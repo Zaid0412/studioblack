@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import crypto from "crypto";
-import { hashPassword } from "better-auth/crypto";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest } from "@/lib/validations";
 import { rateLimit } from "@/lib/rateLimit";
-import { createEmailOtp, cleanupExpiredOtps } from "@/lib/queries";
-import { sendOtpEmail } from "@/lib/email";
+import { generateAndSendOtp } from "@/lib/otp";
 
 const sendOtpSchema = z.object({
   purpose: z.enum(["set_password", "email_change"]),
 });
-
-/** Generate a cryptographically random 6-digit code. */
-function generateOtpCode(): string {
-  return crypto.randomInt(100000, 999999).toString();
-}
 
 /** POST /api/settings/send-otp — send a 6-digit OTP to the user's email. */
 export const POST = withAuth(
@@ -40,19 +32,18 @@ export const POST = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const { purpose } = parsed.data;
-    const code = generateOtpCode();
-    const codeHash = await hashPassword(code);
-
-    await createEmailOtp(ctx.user.id, codeHash, purpose);
-
-    // Fire-and-forget: send email
-    sendOtpEmail(ctx.user.email, code, purpose).catch(() => {
-      // Email send failure is non-blocking — user can request again
-    });
-
-    // Opportunistic cleanup of expired OTPs
-    cleanupExpiredOtps().catch(() => {});
+    try {
+      await generateAndSendOtp(
+        ctx.user.id,
+        ctx.user.email,
+        parsed.data.purpose
+      );
+    } catch {
+      return NextResponse.json(
+        { error: "Could not send verification code. Please try again." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ sent: true });
   }

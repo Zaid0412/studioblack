@@ -1,11 +1,12 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Lock, Mail } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { OtpVerification } from "@/components/ui/OtpVerification";
 
 export interface PasswordSectionProps {
   /** Used for hidden autoComplete="username" input (password manager UX). */
@@ -82,7 +83,6 @@ export function PasswordSection(props: PasswordSectionProps) {
             />
 
             {hasPassword ? (
-              /* Password users: show current password field */
               <Input
                 label={t("currentPassword")}
                 type="password"
@@ -91,45 +91,15 @@ export function PasswordSection(props: PasswordSectionProps) {
                 autoComplete="current-password"
               />
             ) : (
-              /* Google-only users: OTP verification */
               <div className="flex flex-col gap-3">
-                {!otpSent ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="self-start"
-                    onClick={() => sendOtp("set_password")}
-                    disabled={isSendingOtp}
-                  >
-                    <Mail className="w-4 h-4 mr-2" />
-                    {isSendingOtp ? t("sending") : t("sendVerificationCode")}
-                  </Button>
-                ) : (
-                  <>
-                    <Input
-                      label={t("verificationCode")}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder="000000"
-                      value={otpCode}
-                      onChange={(e) =>
-                        setOtpCode(e.target.value.replace(/\D/g, ""))
-                      }
-                      autoComplete="one-time-code"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => sendOtp("set_password")}
-                      disabled={otpCooldown > 0 || isSendingOtp}
-                      className="text-xs text-text-muted hover:text-accent transition-colors self-start cursor-pointer disabled:opacity-50"
-                    >
-                      {otpCooldown > 0
-                        ? t("resendIn", { seconds: otpCooldown })
-                        : t("resendCode")}
-                    </button>
-                  </>
-                )}
+                <OtpVerification
+                  otpSent={otpSent}
+                  otpCode={otpCode}
+                  setOtpCode={setOtpCode}
+                  isSendingOtp={isSendingOtp}
+                  otpCooldown={otpCooldown}
+                  onSendOtp={() => sendOtp("set_password")}
+                />
               </div>
             )}
 
