@@ -14,7 +14,7 @@ import {
   statusBadge,
   versionColor,
 } from "@/lib/fileUtils";
-import { initials, capitalize, isOverdue } from "@/lib/taskUtils";
+import { initials, capitalize, isOverdue, NEXT_STATUS } from "@/lib/taskUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 
 // ── getSafeReturnTo ──────────────────────────────────────────────────────────
@@ -309,6 +309,22 @@ describe("isOverdue", () => {
 
   it("returns true for past date with non-completed status", () => {
     expect(isOverdue("2020-01-01", "in_progress")).toBe(true);
+  });
+});
+
+// ── NEXT_STATUS ─────────────────────────────────────────────────────────────
+
+describe("NEXT_STATUS", () => {
+  it("todo → in_progress", () => {
+    expect(NEXT_STATUS["todo"]).toBe("in_progress");
+  });
+
+  it("in_progress → completed", () => {
+    expect(NEXT_STATUS["in_progress"]).toBe("completed");
+  });
+
+  it("completed → todo (cycles back)", () => {
+    expect(NEXT_STATUS["completed"]).toBe("todo");
   });
 });
 
