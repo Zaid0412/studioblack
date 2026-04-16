@@ -447,3 +447,119 @@ describe("Request ID", () => {
     expect(res.headers.get("X-Request-Id")).toBeTruthy();
   });
 });
+
+// ── CSRF: invalid origin URL ────────────────────────────────────────────────
+
+describe("CSRF: invalid origin", () => {
+  it("rejects POST with malformed origin URL → 403", async () => {
+    setupAuth(mocks.auth, mockSession());
+
+    const wrapped = withAuth({}, handler);
+    const req = buildRequest("/api/test", {
+      method: "POST",
+      headers: { origin: "not-a-url", host: "localhost:3000" },
+    });
+
+    const { status, body } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(403);
+    expect(body).toMatchObject({ error: "Invalid origin" });
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+// ── CSRF: PUT and DELETE methods ────────────────────────────────────────────
+
+describe("CSRF: other mutating methods", () => {
+  const session = mockSession();
+
+  beforeEach(() => {
+    setupAuth(mocks.auth, session);
+  });
+
+  it("enforces CSRF on PUT requests", async () => {
+    const wrapped = withAuth({}, handler);
+    const req = buildRequest("/api/test", {
+      method: "PUT",
+      headers: { host: "localhost:3000" },
+    });
+    req.headers.delete("origin");
+
+    const { status } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(403);
+  });
+
+  it("enforces CSRF on DELETE requests", async () => {
+    const wrapped = withAuth({}, handler);
+    const req = buildRequest("/api/test", {
+      method: "DELETE",
+      headers: { host: "localhost:3000" },
+    });
+    req.headers.delete("origin");
+
+    const { status } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(403);
+  });
+});
+
+// ── Handler error propagation ───────────────────────────────────────────────
+
+describe("Handler error propagation", () => {
+  it("propagates unhandled errors from handler", async () => {
+    setupAuth(mocks.auth, mockSession());
+    handler.mockRejectedValue(new Error("DB crashed"));
+
+    const wrapped = withAuth({}, handler);
+    const req = buildRequest("/api/test");
+
+    await expect(wrapped(req)).rejects.toThrow("DB crashed");
+  });
+});
+
+// ── Combined options ────────────────────────────────────────────────────────
+
+describe("Combined options", () => {
+  it("applies projectAccess + fetchOrgRole + blockedRoles together", async () => {
+    const session = mockSession({ role: "architect" });
+    setupAuth(mocks.auth, session);
+    vi.mocked(hasProjectAccess).mockResolvedValue(true);
+    vi.mocked(getOrgRole).mockResolvedValue("member");
+
+    handler.mockImplementation(async (_req, ctx) =>
+      NextResponse.json({ orgRole: ctx.orgRole, userId: ctx.user.id })
+    );
+
+    const wrapped = withAuth(
+      { projectAccess: true, fetchOrgRole: true, blockedRoles: ["client"] },
+      handler
+    );
+    const req = buildRequest("/api/projects/proj-1");
+    const params = buildParams({ id: "proj-1" });
+
+    const { status, body } = await parseResponse(await wrapped(req, params));
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ orgRole: "member", userId: session.user.id });
+    expect(hasProjectAccess).toHaveBeenCalled();
+    expect(getOrgRole).toHaveBeenCalled();
+  });
+
+  it("blockedRole rejects before projectAccess is checked", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "client" }));
+
+    const wrapped = withAuth(
+      { projectAccess: true, blockedRoles: ["client"] },
+      handler
+    );
+    const req = buildRequest("/api/projects/proj-1");
+    const params = buildParams({ id: "proj-1" });
+
+    const { status } = await parseResponse(await wrapped(req, params));
+
+    expect(status).toBe(403);
+    expect(hasProjectAccess).not.toHaveBeenCalled();
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
