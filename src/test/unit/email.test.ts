@@ -23,6 +23,10 @@ import {
   sendChangeEmailVerification,
 } from "@/lib/email";
 
+// ── Setup ────────────────────────────────────────────────────────────────────
+
+beforeEach(() => vi.clearAllMocks());
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function lastSentEmail(): { to: string; subject: string; html: string } {
@@ -69,8 +73,6 @@ describe("escapeHtml", () => {
 // ── sendMagicLinkEmail ───────────────────────────────────────────────────────
 
 describe("sendMagicLinkEmail", () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it("sends to correct recipient with magic link URL", async () => {
     await sendMagicLinkEmail(
       "client@test.com",
@@ -95,8 +97,6 @@ describe("sendMagicLinkEmail", () => {
 // ── sendNotificationEmail ────────────────────────────────────────────────────
 
 describe("sendNotificationEmail", () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it("sends with custom subject and body", async () => {
     await sendNotificationEmail(
       "user@test.com",
@@ -121,8 +121,6 @@ describe("sendNotificationEmail", () => {
 // ── sendPasswordResetEmail ───────────────────────────────────────────────────
 
 describe("sendPasswordResetEmail", () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it("sends reset link to recipient", async () => {
     await sendPasswordResetEmail(
       "user@test.com",
@@ -154,8 +152,6 @@ describe("sendPasswordResetEmail", () => {
 // ── sendVerificationEmail ────────────────────────────────────────────────────
 
 describe("sendVerificationEmail", () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it("sends verification link with user name", async () => {
     await sendVerificationEmail(
       "new@test.com",
@@ -194,8 +190,6 @@ describe("sendVerificationEmail", () => {
 // ── sendInvitationEmail ──────────────────────────────────────────────────────
 
 describe("sendInvitationEmail", () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it("sends invitation with inviter name and org name", async () => {
     await sendInvitationEmail(
       "arch@test.com",
@@ -232,8 +226,6 @@ describe("sendInvitationEmail", () => {
 // ── sendChangeEmailVerification ──────────────────────────────────────────────
 
 describe("sendChangeEmailVerification", () => {
-  beforeEach(() => vi.clearAllMocks());
-
   it("sends confirmation link to new email", async () => {
     await sendChangeEmailVerification(
       "newemail@test.com",

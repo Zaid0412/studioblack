@@ -12,10 +12,8 @@ import { middleware } from "@/middleware";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const BASE = "http://localhost:3000";
-
 function buildRequest(path: string): NextRequest {
-  return new NextRequest(new URL(path, BASE));
+  return new NextRequest(new URL("http://localhost:3000" + path));
 }
 
 function getRedirectUrl(response: Response): string | null {
