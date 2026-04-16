@@ -6,7 +6,7 @@ import {
 } from "@/lib/constants";
 
 /** Escape SQL LIKE/ILIKE wildcards so user input is treated as literal text. */
-function escapeSqlLike(str: string): string {
+export function escapeSqlLike(str: string): string {
   return str.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
