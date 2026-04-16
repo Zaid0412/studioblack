@@ -51,6 +51,9 @@ export const APPROVAL_DECISIONS = ["approved", "changes_requested"] as const;
 
 const uuid = z.string().uuid();
 const optionalUuid = z.string().uuid().optional();
+/** better-auth generates non-UUID user IDs (nanoid), so validate as non-empty string. */
+const userId = z.string().min(1);
+const optionalUserId = z.string().min(1).optional();
 const trimmedString = z.string().trim().min(1);
 const optionalString = z.string().optional();
 
@@ -63,7 +66,7 @@ export const createTaskSchema = z.object({
   phaseId: optionalUuid,
   priority: z.enum(TASK_PRIORITIES).optional(),
   category: z.enum(TASK_CATEGORIES).optional(),
-  assignedTo: optionalUuid,
+  assignedTo: optionalUserId,
   dueDate: z.string().optional().nullable(),
 });
 
@@ -73,7 +76,7 @@ export const updateTaskSchema = z.object({
   status: z.enum(TASK_STATUSES).optional(),
   priority: z.enum(TASK_PRIORITIES).optional(),
   category: z.enum(TASK_CATEGORIES).optional(),
-  assignedTo: z.string().uuid().optional().nullable(),
+  assignedTo: z.string().min(1).optional().nullable(),
   projectId: z.string().uuid().optional().nullable(),
   phaseId: z.string().uuid().optional().nullable(),
   dueDate: z.string().optional().nullable(),
@@ -167,7 +170,7 @@ export const createPinSchema = z.object({
   request_changes: z.boolean().optional(),
   assign_as_task: z
     .object({
-      assigned_to: uuid,
+      assigned_to: userId,
       due_date: z.string().optional().nullable(),
     })
     .optional(),
@@ -204,7 +207,7 @@ export const createPhaseTaskSchema = z.object({
   phaseId: uuid,
   title: trimmedString,
   description: optionalString,
-  assignedTo: optionalUuid,
+  assignedTo: optionalUserId,
   dueDate: z.string().optional().nullable(),
 });
 
@@ -213,7 +216,7 @@ export const updatePhaseTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
   description: z.string().optional(),
   status: z.enum(PHASE_TASK_STATUSES).optional(),
-  assignedTo: z.string().uuid().optional().nullable(),
+  assignedTo: z.string().min(1).optional().nullable(),
   dueDate: z.string().optional().nullable(),
   requiresClientReview: z.boolean().optional(),
 });
