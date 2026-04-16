@@ -6,7 +6,6 @@ export default defineConfig({
     include: ["src/test/**/*.test.ts"],
     setupFiles: ["src/test/setup.ts"],
     environment: "node",
-    globals: true,
     // Restores mock implementations between tests; test files also call
     // vi.clearAllMocks() in beforeEach to reset call history/counters.
     restoreMocks: true,

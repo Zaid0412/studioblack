@@ -150,7 +150,8 @@ export function setupAuth(
 export async function parseResponse<T = unknown>(
   response: Response
 ): Promise<{ status: number; body: T }> {
-  const body = await response.json();
+  const text = await response.text();
+  const body = text ? JSON.parse(text) : null;
   return { status: response.status, body };
 }
 

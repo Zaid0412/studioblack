@@ -26,13 +26,14 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: rm package-lock.json && npm install
+        # npm install (not ci) because the lockfile is generated on Windows
+        # and may lack Linux-specific optional bindings (e.g. @swc/core-linux-x64-gnu)
+        run: npm install
 
       - name: Run tests
         id: tests
-        run: |
-          npx vitest run --reporter=json --outputFile=test-results.json 2>&1 || true
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+        run: npx vitest run --reporter=json --outputFile=test-results.json
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
@@ -119,7 +120,9 @@ jobs:
             } catch {}
 
             // ── Compose comment ──
+            const MARKER = '<!-- studioblack-test-results -->';
             const body = [
+              MARKER,
               `## ${icon} API Tests ${status}`,
               vercelSection,
               table,
@@ -128,7 +131,7 @@ jobs:
 
             // ── Upsert: update existing comment or create new one ──
             const existing = allComments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('API Tests')
+              c.user.type === 'Bot' && c.body.includes(MARKER)
             );
 
             if (existing) {
@@ -148,5 +151,5 @@ jobs:
             }
 
       - name: Fail if tests failed
-        if: steps.tests.outputs.exit_code != '0'
+        if: steps.tests.outcome == 'failure'
         run: exit 1
