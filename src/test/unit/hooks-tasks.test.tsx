@@ -600,8 +600,11 @@ describe("useTaskDetail", () => {
     const { result } = setup();
     await act(() => Promise.resolve());
 
-    const event = { active: { id: "ci1" }, over: { id: "ci2" } };
-    await act(() => result.current.handleDragEnd(event as any));
+    const event = {
+      active: { id: "ci1" },
+      over: { id: "ci2" },
+    } as unknown as Parameters<typeof result.current.handleDragEnd>[0];
+    await act(() => result.current.handleDragEnd(event));
 
     expect(result.current.checklistItems[0].id).toBe("ci2");
     expect(result.current.checklistItems[1].id).toBe("ci1");
@@ -615,8 +618,11 @@ describe("useTaskDetail", () => {
     const { result } = setup();
     await act(() => Promise.resolve());
 
-    const event = { active: { id: "ci1" }, over: { id: "ci1" } };
-    await act(() => result.current.handleDragEnd(event as any));
+    const event = {
+      active: { id: "ci1" },
+      over: { id: "ci1" },
+    } as unknown as Parameters<typeof result.current.handleDragEnd>[0];
+    await act(() => result.current.handleDragEnd(event));
 
     expect(mockReorderChecklist).not.toHaveBeenCalled();
   });
