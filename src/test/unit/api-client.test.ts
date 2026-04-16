@@ -83,9 +83,7 @@ describe("apiGet", () => {
   });
 
   it("throws ApiError with message field on failure", async () => {
-    mockFetch.mockResolvedValue(
-      errorJson(400, { message: "Invalid input" })
-    );
+    mockFetch.mockResolvedValue(errorJson(400, { message: "Invalid input" }));
 
     await expect(apiGet("/api/test")).rejects.toMatchObject({
       status: 400,
