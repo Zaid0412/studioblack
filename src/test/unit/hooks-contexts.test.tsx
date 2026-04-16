@@ -28,11 +28,10 @@ describe("SidebarContext", () => {
   );
 
   it("throws when useSidebar is called outside SidebarProvider", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useSidebar())).toThrow(
       "useSidebar must be used within a <SidebarProvider>"
     );
-    spy.mockRestore();
   });
 
   it("starts with isCollapsed = false", () => {
@@ -77,19 +76,16 @@ describe("ThemeProvider", () => {
 
   beforeEach(() => {
     localStorage.clear();
-    // Clean up CSS custom properties and data-theme from previous tests
-    const root = document.documentElement;
-    root.style.removeProperty("--bg-primary");
-    root.style.removeProperty("--font-sans");
-    root.removeAttribute("data-theme");
+    // Clean up all inline styles and data-theme from previous tests
+    document.documentElement.removeAttribute("style");
+    document.documentElement.removeAttribute("data-theme");
   });
 
   it("throws when useTheme is called outside ThemeProvider", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useTheme())).toThrow(
       "useTheme must be used within a <ThemeProvider>"
     );
-    spy.mockRestore();
   });
 
   it("defaults to mode = light", () => {

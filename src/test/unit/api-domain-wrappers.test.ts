@@ -169,7 +169,7 @@ describe("attachments.freeze", () => {
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(undefined),
+        body: undefined,
       }
     );
   });
@@ -188,7 +188,7 @@ describe("attachments.unfreeze", () => {
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(undefined),
+        body: undefined,
       }
     );
   });
@@ -226,7 +226,7 @@ describe("attachments.sendToClient", () => {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(undefined),
+        body: undefined,
       }
     );
   });
@@ -340,7 +340,7 @@ describe("tasks.toggleStar", () => {
     expect(mockFetch).toHaveBeenCalledWith("/api/tasks/task-1/star", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(undefined),
+      body: undefined,
     });
   });
 });
