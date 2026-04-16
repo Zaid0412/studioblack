@@ -49,47 +49,27 @@ describe("getStrength", () => {
 // ── barColor ────────────────────────────────────────────────────────────────
 
 describe("barColor", () => {
-  it("returns bg-error for strength 0", () => {
-    expect(barColor(0)).toBe("bg-error");
-  });
-
-  it("returns bg-error for strength 1", () => {
-    expect(barColor(1)).toBe("bg-error");
-  });
-
-  it("returns bg-warning for strength 2", () => {
-    expect(barColor(2)).toBe("bg-warning");
-  });
-
-  it("returns bg-success for strength 3", () => {
-    expect(barColor(3)).toBe("bg-success");
-  });
-
-  it("returns bg-success for strength 4", () => {
-    expect(barColor(4)).toBe("bg-success");
+  it.each([
+    [0, "bg-error"],
+    [1, "bg-error"],
+    [2, "bg-warning"],
+    [3, "bg-success"],
+    [4, "bg-success"],
+  ])("strength %i -> %s", (strength, expected) => {
+    expect(barColor(strength)).toBe(expected);
   });
 });
 
 // ── labelColor ──────────────────────────────────────────────────────────────
 
 describe("labelColor", () => {
-  it("returns text-error for strength 0", () => {
-    expect(labelColor(0)).toBe("text-error");
-  });
-
-  it("returns text-error for strength 1", () => {
-    expect(labelColor(1)).toBe("text-error");
-  });
-
-  it("returns text-warning for strength 2", () => {
-    expect(labelColor(2)).toBe("text-warning");
-  });
-
-  it("returns text-success for strength 3", () => {
-    expect(labelColor(3)).toBe("text-success");
-  });
-
-  it("returns text-success for strength 4", () => {
-    expect(labelColor(4)).toBe("text-success");
+  it.each([
+    [0, "text-error"],
+    [1, "text-error"],
+    [2, "text-warning"],
+    [3, "text-success"],
+    [4, "text-success"],
+  ])("strength %i -> %s", (strength, expected) => {
+    expect(labelColor(strength)).toBe(expected);
   });
 });

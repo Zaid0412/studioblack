@@ -90,18 +90,18 @@ describe("Pagination", () => {
     render(
       <Pagination currentPage={1} totalPages={5} onPageChange={onPageChange} />
     );
-    const buttons = screen.getAllByRole("button");
-    const prevButton = buttons[0];
-    expect(prevButton.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen.getByLabelText("Previous page").hasAttribute("disabled")
+    ).toBe(true);
   });
 
   it("disables Next button on last page", () => {
     render(
       <Pagination currentPage={5} totalPages={5} onPageChange={onPageChange} />
     );
-    const buttons = screen.getAllByRole("button");
-    const nextButton = buttons[buttons.length - 1];
-    expect(nextButton.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByLabelText("Next page").hasAttribute("disabled")).toBe(
+      true
+    );
   });
 
   it("calls onPageChange when a page number is clicked", () => {

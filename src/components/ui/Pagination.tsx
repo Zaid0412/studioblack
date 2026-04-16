@@ -45,6 +45,7 @@ export function Pagination({
       )}
       <div className="flex items-center gap-2 ml-auto">
         <button
+          aria-label="Previous page"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
           className="w-8 h-8 flex items-center justify-center rounded-md bg-bg-input text-text-muted disabled:opacity-40 hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed"
@@ -74,6 +75,7 @@ export function Pagination({
           )
         )}
         <button
+          aria-label="Next page"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
           className="w-8 h-8 flex items-center justify-center rounded-md bg-bg-input text-text-muted disabled:opacity-40 hover:text-text-primary transition-colors cursor-pointer disabled:cursor-not-allowed"
