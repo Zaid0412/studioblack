@@ -155,6 +155,35 @@ export async function parseResponse<T = unknown>(
   return { status: response.status, body };
 }
 
+// ── FormData helpers ─────────────────────────────────────────────────────────
+
+/** Build a NextRequest with FormData body + CSRF headers. */
+export function buildFormDataRequest(
+  path: string,
+  formData: FormData
+): NextRequest {
+  return new NextRequest(new URL(path, BASE_URL), {
+    method: "POST",
+    headers: { origin: BASE_URL, host: "localhost:3000" },
+    body: formData,
+  });
+}
+
+/** Create a File for FormData testing. */
+export function createTestFile(
+  name: string,
+  type: string,
+  sizeBytes: number = 100
+): File {
+  const buffer = new ArrayBuffer(sizeBytes);
+  return new File([buffer], name, { type });
+}
+
+// ── Async helpers ───────────────────────────────────────────────────────────
+
+/** Flush microtask queue so fire-and-forget promise chains resolve. */
+export const flushPromises = () => new Promise((r) => setImmediate(r));
+
 // ── Constants ────────────────────────────────────────────────────────────────
 
-export { TEST_ORG_ID, TEST_USER_ID };
+export { BASE_URL, TEST_ORG_ID, TEST_USER_ID };
