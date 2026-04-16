@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -37,13 +38,13 @@ import {
 
 const VALID_UUID = "550e8400-e29b-41d4-a716-446655440000";
 
-function expectPass(schema: Parameters<typeof parseBody>[0], data: unknown) {
+function expectPass<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
   const result = parseBody(schema, data);
   expect(result.success).toBe(true);
-  return (result as { success: true; data: unknown }).data;
+  return (result as { success: true; data: z.infer<T> }).data;
 }
 
-function expectFail(schema: Parameters<typeof parseBody>[0], data: unknown) {
+function expectFail(schema: z.ZodType, data: unknown): string {
   const result = parseBody(schema, data);
   expect(result.success).toBe(false);
   return (result as { success: false; error: string }).error;
@@ -784,6 +785,19 @@ describe("parseBody", () => {
   it("returns error without path for root-level issue", () => {
     const result = parseBody(createChecklistItemSchema, "not-an-object");
     expect(result.success).toBe(false);
+  });
+
+  it("strips unknown fields from output", () => {
+    const result = parseBody(createTaskSchema, {
+      title: "Test",
+      hackedField: "injection",
+      __proto__: "attack",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("hackedField");
+      expect(result.data).not.toHaveProperty("__proto__");
+    }
   });
 });
 
