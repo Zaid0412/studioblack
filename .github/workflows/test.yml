@@ -35,8 +35,13 @@ jobs:
         continue-on-error: true
         run: |
           npx vitest run --reporter=json --outputFile=test-results.json &
+          PID1=$!
           npx vitest run --config vitest.config.hooks.ts --reporter=json --outputFile=test-results-hooks.json &
-          wait
+          PID2=$!
+          FAIL=0
+          wait $PID1 || FAIL=1
+          wait $PID2 || FAIL=1
+          exit $FAIL
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
@@ -146,7 +151,7 @@ jobs:
             // ── Upsert: update existing comment or create new one ──
             const existing = allComments.find(c =>
               c.user.type === 'Bot' &&
-              (c.body.includes(MARKER) || c.body.includes('## ') && (c.body.includes('Tests') || c.body.includes('API Tests')))
+              (c.body.includes(MARKER) || c.body.includes('## ') && c.body.includes('Tests'))
             );
 
             if (existing) {

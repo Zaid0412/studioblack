@@ -112,7 +112,7 @@ describe("getFileExtension", () => {
     expect(getFileExtension("my.file.dwg")).toBe("dwg");
   });
 
-  it("returns empty for no extension", () => {
+  it("returns filename lowercased when no dot present", () => {
     expect(getFileExtension("Makefile")).toBe("makefile");
   });
 });
