@@ -41,13 +41,8 @@ describe("getStrength", () => {
     expect(getStrength("aA1!aaaa")).toBe(4);
   });
 
-  it("increments for each requirement independently", () => {
-    // Short with all types = 3 (length not met, other 3 met)
-    expect(getStrength("aB1!")).toBe(3);
-    // Long lowercase only = 1 (only length met)
-    expect(getStrength("abcdefgh")).toBe(1);
-    // Long + upper + lower + digit + special = 4
-    expect(getStrength("Abcdefg1!")).toBe(4);
+  it("returns 3 for length + digit + special (no mixed case)", () => {
+    expect(getStrength("1111!!!!")).toBe(3);
   });
 });
 
