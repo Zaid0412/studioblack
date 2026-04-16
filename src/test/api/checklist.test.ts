@@ -197,25 +197,6 @@ describe("DELETE /api/tasks/[id]/checklist/[itemId]", () => {
 // ── PATCH /api/tasks/[id]/checklist/reorder ─────────────────────────────────
 
 describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
-  it("reorders checklist items", async () => {
-    vi.mocked(reorderChecklistItems).mockResolvedValue(undefined);
-
-    const orderedIds = [
-      "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-      "7c9e6679-7425-40de-944b-e07fc1f90ae7",
-    ];
-    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
-      method: "PATCH",
-      body: { orderedIds },
-    });
-    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
-    const { status, body } = await parseResponse<{ ok: boolean }>(res);
-
-    expect(status).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(reorderChecklistItems).toHaveBeenCalledWith(TASK_ID, orderedIds);
-  });
-
   it("returns 401 without session", async () => {
     setupAuth(mocks.auth, null);
 
@@ -276,6 +257,25 @@ describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
+  });
+
+  it("reorders checklist items", async () => {
+    vi.mocked(reorderChecklistItems).mockResolvedValue(undefined);
+
+    const orderedIds = [
+      "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    ];
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds },
+    });
+    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
+    const { status, body } = await parseResponse<{ ok: boolean }>(res);
+
+    expect(status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(reorderChecklistItems).toHaveBeenCalledWith(TASK_ID, orderedIds);
   });
 
   it("returns 500 when reorder throws", async () => {
