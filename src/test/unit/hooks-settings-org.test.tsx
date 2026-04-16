@@ -124,24 +124,19 @@ vi.mock("@/contexts/UserRoleContext", () => ({
   useUserRoleContext: () => ({ role: "pm" as const, userId: "user-1" }),
 }));
 
-// Mock SWR to return empty data by default (avoid real fetching)
+// Mock SWR — configurable per test via mockSwrData
+let mockSwrData: unknown = undefined;
 vi.mock("swr", () => ({
-  default: () => ({ data: undefined, isLoading: false, mutate: vi.fn() }),
+  default: () => ({ data: mockSwrData, isLoading: false, mutate: vi.fn() }),
 }));
 
-vi.mock("@/lib/utils", () => ({
-  deriveInitials: (name: string) =>
-    name
-      .split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2),
+vi.mock("@/lib/utils", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/utils")>("@/lib/utils")),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSwrData = undefined;
   // Default returns for auth calls
   mockUpdateUser.mockResolvedValue({});
   mockChangePassword.mockResolvedValue({ error: null });
@@ -178,17 +173,6 @@ beforeEach(() => {
 import { useSettings } from "@/app/(dashboard)/settings/_hooks/useSettings";
 
 describe("useSettings", () => {
-  it("renders without crashing and returns expected shape", () => {
-    const { result } = renderHook(() => useSettings());
-
-    expect(result.current).toHaveProperty("handleSave");
-    expect(result.current).toHaveProperty("handleChangePassword");
-    expect(result.current).toHaveProperty("handleChangeEmail");
-    expect(result.current).toHaveProperty("handleDeleteAccount");
-    expect(result.current.isSaving).toBe(false);
-    expect(result.current.isChangingPassword).toBe(false);
-  });
-
   it("handleSave calls updateUser and shows success toast", async () => {
     const { result } = renderHook(() => useSettings());
 
@@ -196,7 +180,7 @@ describe("useSettings", () => {
       await result.current.handleSave();
     });
 
-    expect(mockUpdateUser).toHaveBeenCalledWith({ name: expect.any(String) });
+    expect(mockUpdateUser).toHaveBeenCalledWith({ name: "Test User" });
     expect(mockRefresh).toHaveBeenCalled();
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ variant: "success" })
@@ -516,18 +500,55 @@ describe("useNotifications", () => {
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 
 describe("useOrgMembers", () => {
-  it("renders without crashing and returns members array", () => {
+  const allMembers = [
+    {
+      id: "m1",
+      userId: "u1",
+      role: "owner",
+      createdAt: new Date(),
+      user: { id: "u1", name: "Owner", email: "o@t.com" },
+    },
+    {
+      id: "m2",
+      userId: "u2",
+      role: "admin",
+      createdAt: new Date(),
+      user: { id: "u2", name: "Admin", email: "a@t.com" },
+    },
+    {
+      id: "m3",
+      userId: "u3",
+      role: "member",
+      createdAt: new Date(),
+      user: { id: "u3", name: "Member", email: "m@t.com" },
+    },
+  ];
+
+  it("filters to assignable members (admin + member) by default", () => {
+    mockSwrData = allMembers;
     const { result } = renderHook(() => useOrgMembers());
 
-    expect(result.current).toHaveProperty("members");
-    expect(result.current).toHaveProperty("isLoading");
-    expect(Array.isArray(result.current.members)).toBe(true);
+    expect(result.current.members).toHaveLength(2);
+    expect(result.current.members.map((m: { role: string }) => m.role)).toEqual(
+      ["admin", "member"]
+    );
   });
 
-  it("renders with roleFilter option without crashing", () => {
+  it("returns all members when assignableOnly is false", () => {
+    mockSwrData = allMembers;
+    const { result } = renderHook(() =>
+      useOrgMembers({ assignableOnly: false })
+    );
+
+    expect(result.current.members).toHaveLength(3);
+  });
+
+  it("filters by roleFilter when provided", () => {
+    mockSwrData = allMembers;
     const { result } = renderHook(() => useOrgMembers({ roleFilter: "admin" }));
 
-    expect(Array.isArray(result.current.members)).toBe(true);
+    expect(result.current.members).toHaveLength(1);
+    expect(result.current.members[0].role).toBe("admin");
   });
 });
 
