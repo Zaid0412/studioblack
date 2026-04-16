@@ -207,47 +207,49 @@ describe("useAvatarUpload", () => {
 import { useToast, toast } from "@/components/ui/useToast";
 
 describe("useToast", () => {
+  // useToast has module-level singleton state (memoryState, listeners).
+  // Drain the queue in afterEach so no state leaks between tests.
+  let hookResult: ReturnType<typeof renderHook<ReturnType<typeof useToast>>>;
+
   beforeEach(() => {
     vi.useFakeTimers();
   });
   afterEach(() => {
+    // Dismiss all and flush remove timers to drain singleton
+    if (hookResult?.result?.current) {
+      act(() => hookResult.result.current.dismiss());
+      act(() => vi.advanceTimersByTime(6000));
+    }
     vi.useRealTimers();
   });
 
   it("toast() adds a toast to the list", () => {
-    const { result } = renderHook(() => useToast());
+    hookResult = renderHook(() => useToast());
 
     act(() => {
       toast({ title: "Hello" });
     });
 
-    expect(result.current.toasts).toHaveLength(1);
-    expect(result.current.toasts[0].title).toBe("Hello");
-    expect(result.current.toasts[0].open).toBe(true);
-
-    // cleanup
-    act(() => result.current.dismiss());
-    act(() => vi.advanceTimersByTime(6000));
+    expect(hookResult.result.current.toasts).toHaveLength(1);
+    expect(hookResult.result.current.toasts[0].title).toBe("Hello");
+    expect(hookResult.result.current.toasts[0].open).toBe(true);
   });
 
   it("dismiss() sets toast open to false", () => {
-    const { result } = renderHook(() => useToast());
+    hookResult = renderHook(() => useToast());
 
     let id: string;
     act(() => {
       id = toast({ title: "Bye" }).id;
     });
 
-    act(() => result.current.dismiss(id!));
+    act(() => hookResult.result.current.dismiss(id!));
 
-    expect(result.current.toasts[0].open).toBe(false);
-
-    // cleanup
-    act(() => vi.advanceTimersByTime(6000));
+    expect(hookResult.result.current.toasts[0].open).toBe(false);
   });
 
   it("respects TOAST_LIMIT of 3", () => {
-    const { result } = renderHook(() => useToast());
+    hookResult = renderHook(() => useToast());
 
     act(() => {
       toast({ title: "A" });
@@ -256,17 +258,13 @@ describe("useToast", () => {
       toast({ title: "D" });
     });
 
-    expect(result.current.toasts).toHaveLength(3);
+    expect(hookResult.result.current.toasts).toHaveLength(3);
     // Most recent first
-    expect(result.current.toasts[0].title).toBe("D");
-
-    // cleanup
-    act(() => result.current.dismiss());
-    act(() => vi.advanceTimersByTime(6000));
+    expect(hookResult.result.current.toasts[0].title).toBe("D");
   });
 
   it("update() modifies an existing toast", () => {
-    const { result } = renderHook(() => useToast());
+    hookResult = renderHook(() => useToast());
 
     let ref: ReturnType<typeof toast>;
     act(() => {
@@ -277,45 +275,40 @@ describe("useToast", () => {
       ref!.update({ id: ref!.id, title: "New" });
     });
 
-    expect(result.current.toasts[0].title).toBe("New");
-
-    // cleanup
-    act(() => result.current.dismiss());
-    act(() => vi.advanceTimersByTime(6000));
+    expect(hookResult.result.current.toasts[0].title).toBe("New");
   });
 
   it("REMOVE_TOAST removes toast after delay", () => {
-    const { result } = renderHook(() => useToast());
+    hookResult = renderHook(() => useToast());
 
     let id: string;
     act(() => {
       id = toast({ title: "Temp" }).id;
     });
-    expect(result.current.toasts).toHaveLength(1);
+    expect(hookResult.result.current.toasts).toHaveLength(1);
 
-    act(() => result.current.dismiss(id!));
+    act(() => hookResult.result.current.dismiss(id!));
     // Still in list (just closed)
-    expect(result.current.toasts).toHaveLength(1);
+    expect(hookResult.result.current.toasts).toHaveLength(1);
 
     // Advance past TOAST_REMOVE_DELAY (5000ms)
     act(() => vi.advanceTimersByTime(6000));
-    expect(result.current.toasts).toHaveLength(0);
+    expect(hookResult.result.current.toasts).toHaveLength(0);
   });
 
   it("dismiss without id dismisses all toasts", () => {
-    const { result } = renderHook(() => useToast());
+    hookResult = renderHook(() => useToast());
 
     act(() => {
       toast({ title: "A" });
       toast({ title: "B" });
     });
-    expect(result.current.toasts).toHaveLength(2);
+    expect(hookResult.result.current.toasts).toHaveLength(2);
 
-    act(() => result.current.dismiss());
-    expect(result.current.toasts.every((t) => t.open === false)).toBe(true);
-
-    // cleanup
-    act(() => vi.advanceTimersByTime(6000));
+    act(() => hookResult.result.current.dismiss());
+    expect(
+      hookResult.result.current.toasts.every((t) => t.open === false)
+    ).toBe(true);
   });
 });
 
