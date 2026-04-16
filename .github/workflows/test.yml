@@ -33,7 +33,9 @@ jobs:
       - name: Run tests
         id: tests
         continue-on-error: true
-        run: npx vitest run --reporter=json --outputFile=test-results.json
+        run: |
+          npx vitest run --reporter=json --outputFile=test-results.json
+          npx vitest run --config vitest.config.hooks.ts --reporter=json --outputFile=test-results-hooks.json
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
@@ -42,15 +44,26 @@ jobs:
           script: |
             const fs = require('fs');
 
-            // ── Parse test results ──
+            // ── Parse and merge test results ──
             let results = null;
             let passed = false;
-            if (fs.existsSync('test-results.json')) {
+            const files = ['test-results.json', 'test-results-hooks.json'];
+            for (const file of files) {
+              if (!fs.existsSync(file)) continue;
               try {
-                results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
-                passed = results.success;
+                const r = JSON.parse(fs.readFileSync(file, 'utf8'));
+                if (!results) {
+                  results = r;
+                } else {
+                  results.testResults = [...(results.testResults || []), ...(r.testResults || [])];
+                  results.numTotalTests = (results.numTotalTests || 0) + (r.numTotalTests || 0);
+                  results.numPassedTests = (results.numPassedTests || 0) + (r.numPassedTests || 0);
+                  results.numFailedTests = (results.numFailedTests || 0) + (r.numFailedTests || 0);
+                  results.success = results.success && r.success;
+                }
               } catch {}
             }
+            if (results) passed = results.success;
 
             const icon = passed ? '✅' : '❌';
             const status = passed ? 'passed' : 'failed';
@@ -123,7 +136,7 @@ jobs:
             const MARKER = '<!-- studioblack-test-results -->';
             const body = [
               MARKER,
-              `## ${icon} API Tests ${status}`,
+              `## ${icon} Tests ${status}`,
               vercelSection,
               table,
               '',
@@ -132,7 +145,7 @@ jobs:
             // ── Upsert: update existing comment or create new one ──
             const existing = allComments.find(c =>
               c.user.type === 'Bot' &&
-              (c.body.includes(MARKER) || c.body.includes('## ') && c.body.includes('API Tests'))
+              (c.body.includes(MARKER) || c.body.includes('## ') && (c.body.includes('Tests') || c.body.includes('API Tests')))
             );
 
             if (existing) {

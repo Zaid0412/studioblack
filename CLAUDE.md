@@ -98,7 +98,8 @@ No global store. React Context for sidebar/theme/user role. Custom hooks (`usePr
 - `src/contexts/UserRoleContext.tsx` — UserRole provider + context hook
 - `src/test/setup.ts` — global test mocks for all external boundaries
 - `src/test/helpers.ts` — test factories (mockSession, buildRequest, parseResponse)
-- `vitest.config.ts` — Vitest configuration with path aliases
+- `vitest.config.ts` — Vitest configuration (node env, API/unit tests)
+- `vitest.config.hooks.ts` — Vitest configuration (jsdom env, React hook tests)
 - `src/hooks/usePageVisibility.ts` — Page Visibility API hook for polling gates
 
 ## Project Domain
@@ -125,7 +126,9 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - `npm run dev` — dev server (webpack)
 - `npm run check` — lint + format check + tsc
 - `npm run seed` — seed test users
-- `npm test` — run all tests (Vitest)
+- `npm test` — run API/unit tests (Vitest, node environment)
+- `npm run test:hooks` — run React hook tests (Vitest, jsdom environment)
+- `npm run test:all` — run both test suites
 - `npm run test:watch` — run tests in watch mode
 - `npm run test:coverage` — run tests with coverage report
 

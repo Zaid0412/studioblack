@@ -17,6 +17,8 @@
     "check": "npm run lint && npm run format:check && tsc --noEmit --skipLibCheck",
     "seed": "npx tsx scripts/seed.ts",
     "test": "vitest run",
+    "test:hooks": "vitest run --config vitest.config.hooks.ts",
+    "test:all": "vitest run && vitest run --config vitest.config.hooks.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
@@ -61,6 +63,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.11",
     "@types/pg": "^8.18.0",
@@ -72,6 +76,7 @@
     "eslint-config-next": "16.1.6",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsdoc": "^62.7.1",
+    "jsdom": "^29.0.2",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "typescript": "^5",
