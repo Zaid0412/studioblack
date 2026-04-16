@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  deployments: read
 
 jobs:
   test:
@@ -31,8 +32,8 @@ jobs:
       - name: Run tests
         id: tests
         run: |
-          npm test 2>&1 | tee test-output.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          npx vitest run --reporter=json --outputFile=test-results.json 2>&1 || true
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
@@ -40,33 +41,79 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const output = fs.existsSync('test-output.txt')
-              ? fs.readFileSync('test-output.txt', 'utf8')
-              : 'No test output (tests did not run)';
-            const passed = '${{ steps.tests.outputs.exit_code }}' === '0';
 
-            // Extract summary line (e.g. "Tests  194 passed (194)")
-            const summaryMatch = output.match(/Tests\s+.*/);
-            const summary = summaryMatch ? summaryMatch[0].trim() : '';
+            // ── Parse test results ──
+            let results = null;
+            let passed = false;
+            if (fs.existsSync('test-results.json')) {
+              try {
+                results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+                passed = results.success;
+              } catch {}
+            }
 
             const icon = passed ? '✅' : '❌';
             const status = passed ? 'passed' : 'failed';
 
+            // ── Build per-file table ──
+            let table = '';
+            if (results?.testResults) {
+              const rows = results.testResults.map(f => {
+                const name = f.name.replace(/^.*src\/test\//, '');
+                const total = f.assertionResults?.length ?? 0;
+                const pass = f.assertionResults?.filter(t => t.status === 'passed').length ?? 0;
+                const fail = total - pass;
+                const duration = ((f.endTime - f.startTime) / 1000).toFixed(2);
+                const fileStatus = fail > 0 ? '❌' : '✅';
+                return `| ${fileStatus} | \`${name}\` | ${pass} | ${fail} | ${duration}s |`;
+              });
+
+              const totalTests = results.numTotalTests ?? 0;
+              const passedTests = results.numPassedTests ?? 0;
+              const failedTests = results.numFailedTests ?? 0;
+
+              table = [
+                '',
+                `**${passedTests}** passed, **${failedTests}** failed, **${totalTests}** total`,
+                '',
+                '| | File | Passed | Failed | Duration |',
+                '|---|------|--------|--------|----------|',
+                ...rows,
+              ].join('\n');
+            }
+
+            // ── Get Vercel preview URL ──
+            let previewSection = '';
+            try {
+              const { data: deployments } = await github.rest.repos.listDeployments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.payload.pull_request.head.sha,
+                per_page: 1,
+              });
+              if (deployments.length > 0) {
+                const { data: statuses } = await github.rest.repos.listDeploymentStatuses({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: deployments[0].id,
+                  per_page: 1,
+                });
+                const url = statuses[0]?.environment_url || statuses[0]?.target_url;
+                if (url) {
+                  previewSection = `\n🔗 **Preview:** ${url}\n`;
+                }
+              }
+            } catch {}
+
+            // ── Compose comment ──
             const body = [
               `## ${icon} API Tests ${status}`,
+              previewSection,
+              table,
               '',
-              summary ? `\`${summary}\`` : '',
-              '',
-              '<details>',
-              '<summary>Full output</summary>',
-              '',
-              '```',
-              output.slice(-3000),
-              '```',
-              '</details>',
             ].join('\n');
 
-            // Delete previous bot comments to avoid spam
+            // ── Delete previous bot comments ──
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
