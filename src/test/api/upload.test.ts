@@ -1,35 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { NextRequest } from "next/server";
 import { POST as uploadPOST } from "@/app/api/upload/route";
 import { POST as avatarPOST } from "@/app/api/avatar/route";
 import { mocks } from "../setup";
-import { mockSession, setupAuth, parseResponse } from "../helpers";
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-const BASE_URL = "http://localhost:3000";
-
-/** Build a NextRequest with FormData body + CSRF headers. */
-function buildFormDataRequest(path: string, formData: FormData): NextRequest {
-  return new NextRequest(new URL(path, BASE_URL), {
-    method: "POST",
-    headers: {
-      origin: BASE_URL,
-      host: "localhost:3000",
-    },
-    body: formData,
-  });
-}
-
-/** Create a File-like Blob for FormData. */
-function createTestFile(
-  name: string,
-  type: string,
-  sizeBytes: number = 100
-): File {
-  const buffer = new ArrayBuffer(sizeBytes);
-  return new File([buffer], name, { type });
-}
+import {
+  mockSession,
+  setupAuth,
+  parseResponse,
+  buildFormDataRequest,
+  createTestFile,
+} from "../helpers";
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 

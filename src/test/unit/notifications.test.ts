@@ -13,15 +13,11 @@ import {
   createNotificationForClient,
 } from "@/lib/notifications";
 import { mocks } from "../setup";
+import { flushPromises } from "../helpers";
 
 // Re-import mocked modules so we can inspect calls
 const { sendNotificationEmail } = await import("@/lib/email");
 const { logger } = await import("@/lib/logger");
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Flush microtask queue so fire-and-forget promise chains resolve. */
-const flushPromises = () => new Promise((r) => setImmediate(r));
 
 beforeEach(() => {
   vi.clearAllMocks();

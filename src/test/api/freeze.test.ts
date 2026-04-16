@@ -29,7 +29,9 @@ describe("PATCH /api/projects/[id]/attachments/[attachmentId]/freeze", () => {
       method: "PATCH",
     });
     const res = await freezePATCH(req, PARAMS);
-    expect(res.status).toBe(401);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
   });
 
   it("returns 403 for non-PM role (architect)", async () => {

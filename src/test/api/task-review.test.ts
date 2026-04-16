@@ -38,7 +38,9 @@ describe("POST /api/projects/[id]/tasks/[taskId]/request-review", () => {
       { method: "POST" }
     );
     const res = await requestReviewPOST(req, PARAMS);
-    expect(res.status).toBe(401);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
   });
 
   it("returns 404 when task not owned by project", async () => {
@@ -108,7 +110,9 @@ describe("POST /api/projects/[id]/tasks/[taskId]/review", () => {
       body: { action: "approved" },
     });
     const res = await reviewPOST(req, PARAMS);
-    expect(res.status).toBe(401);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
   });
 
   it("returns 400 for invalid body", async () => {

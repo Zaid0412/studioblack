@@ -26,7 +26,9 @@ describe("GET /api/projects/[id]", () => {
     setupAuth(mocks.auth, null);
     const req = buildRequest("/api/projects/proj-1");
     const res = await GET(req, PARAMS);
-    expect(res.status).toBe(401);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
   });
 
   it("returns 404 when project not found", async () => {
@@ -66,7 +68,9 @@ describe("PATCH /api/projects/[id]", () => {
       body: { name: "New Name" },
     });
     const res = await PATCH(req, PARAMS);
-    expect(res.status).toBe(401);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
   });
 
   it("returns 400 when no fields to update", async () => {
@@ -131,7 +135,9 @@ describe("DELETE /api/projects/[id]", () => {
     setupAuth(mocks.auth, null);
     const req = buildRequest("/api/projects/proj-1", { method: "DELETE" });
     const res = await DELETE(req, PARAMS);
-    expect(res.status).toBe(401);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
   });
 
   it("returns 403 for non-PM roles", async () => {
