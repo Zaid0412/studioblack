@@ -11,6 +11,7 @@ export default defineConfig({
       "src/test/unit/hooks-tasks.test.tsx",
       "src/test/unit/hooks-project-review.test.tsx",
       "src/test/unit/hooks-settings-org.test.tsx",
+      "src/test/unit/hooks-contexts.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

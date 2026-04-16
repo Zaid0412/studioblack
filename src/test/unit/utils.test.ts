@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getSafeReturnTo, deriveInitials } from "@/lib/utils";
+import { cn, getSafeReturnTo, deriveInitials } from "@/lib/utils";
 import {
   formatFileSize,
   getFileExtension,
@@ -16,6 +16,32 @@ import {
 } from "@/lib/fileUtils";
 import { initials, capitalize, isOverdue, NEXT_STATUS } from "@/lib/taskUtils";
 import { avatarColor } from "@/lib/avatarUtils";
+
+// ── cn ──────────────────────────────────────────────────────────────────────
+
+describe("cn", () => {
+  it("merges multiple class strings", () => {
+    expect(cn("px-2", "py-4")).toBe("px-2 py-4");
+  });
+
+  it("resolves conflicting Tailwind utilities (last wins)", () => {
+    expect(cn("px-2", "px-4")).toBe("px-4");
+  });
+
+  it("filters out falsy values via clsx", () => {
+    expect(cn("px-2", false && "hidden", null, undefined, "py-4")).toBe(
+      "px-2 py-4"
+    );
+  });
+
+  it("handles array inputs", () => {
+    expect(cn(["px-2", "py-4"])).toBe("px-2 py-4");
+  });
+
+  it("returns empty string for no inputs", () => {
+    expect(cn()).toBe("");
+  });
+});
 
 // ── getSafeReturnTo ──────────────────────────────────────────────────────────
 
