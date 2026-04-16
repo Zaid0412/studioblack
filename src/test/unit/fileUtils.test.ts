@@ -70,10 +70,14 @@ describe("getFileExtension", () => {
 // ── isImage / isPdf / isSpreadsheet ─────────────────────────────────────────
 
 describe("isImage", () => {
-  it.each(["photo.png", "pic.jpg", "pic.jpeg", "icon.svg", "img.webp", "anim.gif"])(
-    "returns true for %s",
-    (name) => expect(isImage(name)).toBe(true)
-  );
+  it.each([
+    "photo.png",
+    "pic.jpg",
+    "pic.jpeg",
+    "icon.svg",
+    "img.webp",
+    "anim.gif",
+  ])("returns true for %s", (name) => expect(isImage(name)).toBe(true));
 
   it.each(["doc.pdf", "sheet.xlsx", "plan.dwg"])(
     "returns false for %s",
