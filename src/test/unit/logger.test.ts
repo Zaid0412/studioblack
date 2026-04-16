@@ -3,27 +3,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Must unmock since setup.ts mocks it
 vi.unmock("@/lib/logger");
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-let logger: typeof import("@/lib/logger").logger;
-
-/** Re-import logger with a fresh module to pick up env changes. */
-async function loadLogger() {
-  vi.resetModules();
-  const mod = await import("@/lib/logger");
-  logger = mod.logger;
-}
+import { logger } from "@/lib/logger";
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 describe("logger", () => {
   const originalEnv = { ...process.env };
 
-  beforeEach(async () => {
-    vi.spyOn(console, "log").mockImplementation(() => {});
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "debug").mockImplementation(() => {});
+  beforeEach(() => {
+    (["log", "warn", "error", "debug"] as const).forEach((method) => {
+      vi.spyOn(console, method).mockImplementation(() => {});
+    });
   });
 
   afterEach(() => {
@@ -34,10 +24,9 @@ describe("logger", () => {
   // ── Level filtering ───────────────────────────────────────────────────
 
   describe("level filtering", () => {
-    it("logs all levels when LOG_LEVEL=debug", async () => {
+    it("logs all levels when LOG_LEVEL=debug", () => {
       process.env.LOG_LEVEL = "debug";
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.debug("d");
       logger.info("i");
@@ -50,10 +39,9 @@ describe("logger", () => {
       expect(console.error).toHaveBeenCalledTimes(1);
     });
 
-    it("filters debug when LOG_LEVEL=info", async () => {
+    it("filters debug when LOG_LEVEL=info", () => {
       process.env.LOG_LEVEL = "info";
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.debug("should not appear");
       logger.info("should appear");
@@ -62,10 +50,9 @@ describe("logger", () => {
       expect(console.log).toHaveBeenCalledTimes(1);
     });
 
-    it("filters debug and info when LOG_LEVEL=warn", async () => {
+    it("filters debug and info when LOG_LEVEL=warn", () => {
       process.env.LOG_LEVEL = "warn";
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.debug("no");
       logger.info("no");
@@ -78,10 +65,9 @@ describe("logger", () => {
       expect(console.error).toHaveBeenCalledTimes(1);
     });
 
-    it("only logs errors when LOG_LEVEL=error", async () => {
+    it("only logs errors when LOG_LEVEL=error", () => {
       process.env.LOG_LEVEL = "error";
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.debug("no");
       logger.info("no");
@@ -94,10 +80,9 @@ describe("logger", () => {
       expect(console.error).toHaveBeenCalledTimes(1);
     });
 
-    it("defaults to info in production", async () => {
+    it("defaults to info in production", () => {
       delete process.env.LOG_LEVEL;
       process.env.NODE_ENV = "production";
-      await loadLogger();
 
       logger.debug("no");
       logger.info("yes");
@@ -106,10 +91,9 @@ describe("logger", () => {
       expect(console.log).toHaveBeenCalledTimes(1);
     });
 
-    it("defaults to debug in development", async () => {
+    it("defaults to debug in development", () => {
       delete process.env.LOG_LEVEL;
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.debug("yes");
 
@@ -120,10 +104,9 @@ describe("logger", () => {
   // ── Output format ─────────────────────────────────────────────────────
 
   describe("output format", () => {
-    it("outputs JSON in production", async () => {
+    it("outputs JSON in production", () => {
       process.env.LOG_LEVEL = "info";
       process.env.NODE_ENV = "production";
-      await loadLogger();
 
       logger.info("hello");
 
@@ -134,20 +117,18 @@ describe("logger", () => {
       expect(parsed.timestamp).toBeDefined();
     });
 
-    it("outputs readable format in development", async () => {
+    it("outputs readable format in development", () => {
       process.env.LOG_LEVEL = "info";
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.info("hello");
 
       expect(console.log).toHaveBeenCalledWith("[INFO] hello");
     });
 
-    it("includes context in dev format", async () => {
+    it("includes context in dev format", () => {
       process.env.LOG_LEVEL = "info";
       process.env.NODE_ENV = "development";
-      await loadLogger();
 
       logger.info("hello", { userId: "u1" });
 
@@ -161,10 +142,9 @@ describe("logger", () => {
   // ── Error serialization ───────────────────────────────────────────────
 
   describe("error serialization", () => {
-    it("serializes Error instances in context", async () => {
+    it("serializes Error instances in context", () => {
       process.env.LOG_LEVEL = "error";
       process.env.NODE_ENV = "production";
-      await loadLogger();
 
       const err = new Error("boom");
       logger.error("failed", { error: err });
@@ -175,10 +155,9 @@ describe("logger", () => {
       expect(parsed.errorStack).toBeDefined();
     });
 
-    it("serializes Error with cause", async () => {
+    it("serializes Error with cause", () => {
       process.env.LOG_LEVEL = "error";
       process.env.NODE_ENV = "production";
-      await loadLogger();
 
       const err = new Error("outer", { cause: "inner reason" });
       logger.error("failed", { error: err });
@@ -189,10 +168,9 @@ describe("logger", () => {
       expect(parsed.errorCause).toBe("inner reason");
     });
 
-    it("handles non-Error values in context", async () => {
+    it("handles non-Error values in context", () => {
       process.env.LOG_LEVEL = "info";
       process.env.NODE_ENV = "production";
-      await loadLogger();
 
       logger.info("msg", { count: 42, flag: true });
 
