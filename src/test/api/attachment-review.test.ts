@@ -27,11 +27,6 @@ import { mocks } from "../setup";
 const PROJECT_ID = "proj-1";
 const ATTACHMENT_ID = "att-1";
 
-const routeParams = buildParams({
-  id: PROJECT_ID,
-  attachmentId: ATTACHMENT_ID,
-});
-
 const sampleAttachment = {
   id: ATTACHMENT_ID,
   project_id: PROJECT_ID,
@@ -67,7 +62,7 @@ describe("PATCH .../review", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/review`,
       { method: "PATCH", body: { status: "approved" } }
     );
-    const res = await REVIEW(req, routeParams);
+    const res = await REVIEW(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(200);
@@ -103,7 +98,7 @@ describe("PATCH .../review", () => {
         body: { status: "rejected", comment: "Needs more detail" },
       }
     );
-    const res = await REVIEW(req, routeParams);
+    const res = await REVIEW(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(200);
@@ -125,7 +120,7 @@ describe("PATCH .../review", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/review`,
       { method: "PATCH", body: { status: "invalid-status" } }
     );
-    const res = await REVIEW(req, routeParams);
+    const res = await REVIEW(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(400);
@@ -158,7 +153,7 @@ describe("PATCH .../freeze", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/freeze`,
       { method: "PATCH" }
     );
-    const res = await FREEZE(req, routeParams);
+    const res = await FREEZE(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(200);
@@ -179,7 +174,7 @@ describe("PATCH .../freeze", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/freeze`,
       { method: "PATCH" }
     );
-    const res = await FREEZE(req, routeParams);
+    const res = await FREEZE(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);
@@ -208,7 +203,7 @@ describe("PATCH .../unfreeze", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/unfreeze`,
       { method: "PATCH" }
     );
-    const res = await UNFREEZE(req, routeParams);
+    const res = await UNFREEZE(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(200);
@@ -229,7 +224,7 @@ describe("PATCH .../unfreeze", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/unfreeze`,
       { method: "PATCH" }
     );
-    const res = await UNFREEZE(req, routeParams);
+    const res = await UNFREEZE(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);
@@ -265,7 +260,7 @@ describe("POST .../send-to-client", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/send-to-client`,
       { method: "POST" }
     );
-    const res = await SEND_TO_CLIENT(req, routeParams);
+    const res = await SEND_TO_CLIENT(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(200);
@@ -286,7 +281,7 @@ describe("POST .../send-to-client", () => {
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/send-to-client`,
       { method: "POST" }
     );
-    const res = await SEND_TO_CLIENT(req, routeParams);
+    const res = await SEND_TO_CLIENT(req, buildParams({ id: PROJECT_ID, attachmentId: ATTACHMENT_ID }));
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);

@@ -7,7 +7,6 @@ import {
   reorderChecklistItems,
   verifyTaskAccess,
 } from "@/lib/queries";
-import { auth } from "@/lib/auth";
 import { GET, POST } from "@/app/api/tasks/[id]/checklist/route";
 import {
   PATCH as PATCH_ITEM,
@@ -22,7 +21,7 @@ import {
   parseResponse,
   TEST_ORG_ID,
 } from "../helpers";
-import "../setup";
+import { mocks } from "../setup";
 
 // ── Shared fixtures ─────────────────────────────────────────────────────────
 
@@ -41,33 +40,9 @@ const fakeItem = {
 const pmSession = mockSession();
 const clientSession = mockSession({ role: "client" });
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function authAsPm() {
-  setupAuth(
-    {
-      getSession: vi.mocked(auth.api.getSession),
-      listOrganizations: vi.mocked(auth.api.listOrganizations),
-      listMembers: vi.mocked(auth.api.listMembers),
-    },
-    pmSession
-  );
-}
-
-function authAsClient() {
-  setupAuth(
-    {
-      getSession: vi.mocked(auth.api.getSession),
-      listOrganizations: vi.mocked(auth.api.listOrganizations),
-      listMembers: vi.mocked(auth.api.listMembers),
-    },
-    clientSession
-  );
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  authAsPm();
+  setupAuth(mocks.auth, pmSession);
   vi.mocked(verifyTaskAccess).mockResolvedValue(true);
 });
 
@@ -86,7 +61,7 @@ describe("GET /api/tasks/[id]/checklist", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist`);
     const res = await GET(req, buildParams({ id: TASK_ID }));
@@ -116,7 +91,7 @@ describe("POST /api/tasks/[id]/checklist", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist`, {
       method: "POST",
@@ -167,7 +142,7 @@ describe("PATCH /api/tasks/[id]/checklist/[itemId]", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`, {
       method: "PATCH",
@@ -204,7 +179,7 @@ describe("DELETE /api/tasks/[id]/checklist/[itemId]", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/${ITEM_ID}`, {
       method: "DELETE",
@@ -242,7 +217,7 @@ describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
       method: "PATCH",

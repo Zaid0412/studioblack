@@ -9,7 +9,6 @@ import {
   getMemberRole,
   deleteAttachmentById,
 } from "@/lib/queries";
-import { auth } from "@/lib/auth";
 import { GET, POST } from "@/app/api/tasks/[id]/attachments/route";
 import { DELETE } from "@/app/api/tasks/[id]/attachments/[attachmentId]/route";
 import {
@@ -21,7 +20,7 @@ import {
   TEST_ORG_ID,
   TEST_USER_ID,
 } from "../helpers";
-import "../setup";
+import { mocks } from "../setup";
 
 // ── Shared fixtures ─────────────────────────────────────────────────────────
 
@@ -43,33 +42,9 @@ const fakeAttachment = {
 const pmSession = mockSession();
 const clientSession = mockSession({ role: "client" });
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function authAsPm() {
-  setupAuth(
-    {
-      getSession: vi.mocked(auth.api.getSession),
-      listOrganizations: vi.mocked(auth.api.listOrganizations),
-      listMembers: vi.mocked(auth.api.listMembers),
-    },
-    pmSession
-  );
-}
-
-function authAsClient() {
-  setupAuth(
-    {
-      getSession: vi.mocked(auth.api.getSession),
-      listOrganizations: vi.mocked(auth.api.listOrganizations),
-      listMembers: vi.mocked(auth.api.listMembers),
-    },
-    clientSession
-  );
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
-  authAsPm();
+  setupAuth(mocks.auth, pmSession);
   vi.mocked(verifyTaskAccess).mockResolvedValue(true);
   vi.mocked(getTaskProjectId).mockResolvedValue(PROJECT_ID);
   vi.mocked(getTaskOrgId).mockResolvedValue(TEST_ORG_ID);
@@ -92,7 +67,7 @@ describe("GET /api/tasks/[id]/attachments", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/attachments`);
     const res = await GET(req, buildParams({ id: TASK_ID }));
@@ -127,7 +102,7 @@ describe("POST /api/tasks/[id]/attachments", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/attachments`, {
       method: "POST",
@@ -178,7 +153,7 @@ describe("DELETE /api/tasks/[id]/attachments/[attachmentId]", () => {
   });
 
   it("returns 403 for client role", async () => {
-    authAsClient();
+    setupAuth(mocks.auth, clientSession);
 
     const req = buildRequest(
       `/api/tasks/${TASK_ID}/attachments/${ATTACHMENT_ID}`,
