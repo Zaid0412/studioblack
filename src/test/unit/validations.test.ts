@@ -167,7 +167,10 @@ describe("createProjectSchema", () => {
       name: "Villa Renovation",
       category: "residential",
     });
-    expect(data).toMatchObject({ name: "Villa Renovation", category: "residential" });
+    expect(data).toMatchObject({
+      name: "Villa Renovation",
+      category: "residential",
+    });
   });
 
   it("accepts all optional fields", () => {
@@ -699,7 +702,9 @@ describe("createChecklistItemSchema", () => {
   });
 
   it("trims whitespace", () => {
-    const data = expectPass(createChecklistItemSchema, { title: "  trimmed  " });
+    const data = expectPass(createChecklistItemSchema, {
+      title: "  trimmed  ",
+    });
     expect(data.title).toBe("trimmed");
   });
 
