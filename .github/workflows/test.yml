@@ -9,7 +9,6 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  deployments: read
 
 jobs:
   test:
@@ -82,25 +81,39 @@ jobs:
               ].join('\n');
             }
 
-            // ── Get Vercel preview URL ──
-            let previewSection = '';
+            // ── Get Vercel deployment info from bot comment ──
+            let vercelSection = '';
             try {
-              const { data: deployments } = await github.rest.repos.listDeployments({
+              const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                sha: context.payload.pull_request.head.sha,
-                per_page: 1,
+                issue_number: context.issue.number,
               });
-              if (deployments.length > 0) {
-                const { data: statuses } = await github.rest.repos.listDeploymentStatuses({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  deployment_id: deployments[0].id,
-                  per_page: 1,
-                });
-                const url = statuses[0]?.environment_url || statuses[0]?.target_url;
-                if (url) {
-                  previewSection = `\n🔗 **Preview:** ${url}\n`;
+              const vcComment = comments.find(c =>
+                c.user.login === 'vercel[bot]' && c.body.includes('[vc]')
+              );
+              if (vcComment) {
+                // Parse the base64-encoded JSON from [vc]: #hash:base64data
+                const b64Match = vcComment.body.match(/\[vc\]:\s*#[^:]+:(\S+)/);
+                if (b64Match) {
+                  const data = JSON.parse(Buffer.from(b64Match[1], 'base64').toString());
+                  const project = data.projects?.[0];
+                  if (project) {
+                    const previewUrl = `https://${project.previewUrl}`;
+                    const inspectorUrl = project.inspectorUrl;
+                    const deployStatus = project.nextCommitStatus === 'DEPLOYED' ? '✅ Ready' : '⏳ Building';
+                    vercelSection = [
+                      '',
+                      '### Deployment',
+                      '',
+                      '| | |',
+                      '|---|---|',
+                      `| **Status** | ${deployStatus} |`,
+                      `| **Preview** | [${project.previewUrl}](${previewUrl}) |`,
+                      `| **Deployment** | [View on Vercel](${inspectorUrl}) |`,
+                      '',
+                    ].join('\n');
+                  }
                 }
               }
             } catch {}
@@ -108,7 +121,7 @@ jobs:
             // ── Compose comment ──
             const body = [
               `## ${icon} API Tests ${status}`,
-              previewSection,
+              vercelSection,
               table,
               '',
             ].join('\n');
