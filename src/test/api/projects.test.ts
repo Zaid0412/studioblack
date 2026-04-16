@@ -162,6 +162,24 @@ describe("POST /api/projects", () => {
     );
   });
 
+  it("returns 500 when createProjectWithPhases throws", async () => {
+    const session = mockSession();
+    setupAuth(mocks.auth, session);
+    vi.mocked(createProjectWithPhases).mockRejectedValue(
+      new Error("DB connection lost")
+    );
+
+    const req = buildRequest("/api/projects", {
+      method: "POST",
+      body: validCreateBody,
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(500);
+    expect(body).toMatchObject({ error: "Failed to create project" });
+  });
+
   it("returns 400 on invalid body (missing name)", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);

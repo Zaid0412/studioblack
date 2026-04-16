@@ -256,7 +256,7 @@ vi.mock("@/lib/queries", () => ({
   clearClientEmailByEmail: vi.fn().mockResolvedValue(0),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
-      super("Email already taken");
+      super("This email is already in use");
       this.name = "EmailTakenError";
     }
   },
