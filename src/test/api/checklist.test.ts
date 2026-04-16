@@ -197,6 +197,68 @@ describe("DELETE /api/tasks/[id]/checklist/[itemId]", () => {
 // ── PATCH /api/tasks/[id]/checklist/reorder ─────────────────────────────────
 
 describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
+  it("returns 401 without session", async () => {
+    setupAuth(mocks.auth, null);
+
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds: ["f47ac10b-58cc-4372-a567-0e02b2c3d479"] },
+    });
+    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(401);
+  });
+
+  it("returns 403 for client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds: ["f47ac10b-58cc-4372-a567-0e02b2c3d479"] },
+    });
+    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(403);
+  });
+
+  it("returns 404 when task not accessible", async () => {
+    vi.mocked(verifyTaskAccess).mockResolvedValueOnce(false);
+
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds: ["f47ac10b-58cc-4372-a567-0e02b2c3d479"] },
+    });
+    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(404);
+    expect(body).toMatchObject({ error: "Not found" });
+  });
+
+  it("returns 400 for empty orderedIds", async () => {
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: { orderedIds: [] },
+    });
+    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+  });
+
+  it("returns 400 for missing orderedIds", async () => {
+    const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
+      method: "PATCH",
+      body: {},
+    });
+    const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+  });
+
   it("reorders checklist items", async () => {
     vi.mocked(reorderChecklistItems).mockResolvedValue(undefined);
 
@@ -216,16 +278,19 @@ describe("PATCH /api/tasks/[id]/checklist/reorder", () => {
     expect(reorderChecklistItems).toHaveBeenCalledWith(TASK_ID, orderedIds);
   });
 
-  it("returns 403 for client role", async () => {
-    setupAuth(mocks.auth, clientSession);
+  it("returns 500 when reorder throws", async () => {
+    vi.mocked(reorderChecklistItems).mockRejectedValueOnce(
+      new Error("DB error")
+    );
 
     const req = buildRequest(`/api/tasks/${TASK_ID}/checklist/reorder`, {
       method: "PATCH",
       body: { orderedIds: ["f47ac10b-58cc-4372-a567-0e02b2c3d479"] },
     });
     const res = await PATCH_REORDER(req, buildParams({ id: TASK_ID }));
-    const { status } = await parseResponse(res);
+    const { status, body } = await parseResponse(res);
 
-    expect(status).toBe(403);
+    expect(status).toBe(500);
+    expect(body).toMatchObject({ error: "Failed to reorder" });
   });
 });
