@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ── Must unmock since setup.ts mocks it ──────────────────────────────────────
 
@@ -10,6 +10,10 @@ import { rateLimit } from "@/lib/rateLimit";
 
 beforeEach(() => {
   vi.restoreAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 // ── Tests ────────────────────────────────────────────────────────────────────

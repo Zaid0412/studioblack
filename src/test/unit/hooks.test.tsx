@@ -2,44 +2,47 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import React from "react";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
+import {
+  UserRoleProvider,
+  useUserRoleContext,
+} from "@/contexts/UserRoleContext";
+import { useFileDropzone } from "@/hooks/useFileDropzone";
 
 // ── usePageVisibility ────────────────────────────────────────────────────────
 
 describe("usePageVisibility", () => {
-  it("returns true when document is visible", async () => {
+  it("returns true when document is visible", () => {
     Object.defineProperty(document, "hidden", {
       value: false,
       writable: true,
       configurable: true,
     });
 
-    const { usePageVisibility } = await import("@/hooks/usePageVisibility");
     const { result } = renderHook(() => usePageVisibility());
 
     expect(result.current).toBe(true);
   });
 
-  it("returns false when document is hidden", async () => {
+  it("returns false when document is hidden", () => {
     Object.defineProperty(document, "hidden", {
       value: true,
       writable: true,
       configurable: true,
     });
 
-    const { usePageVisibility } = await import("@/hooks/usePageVisibility");
     const { result } = renderHook(() => usePageVisibility());
 
     expect(result.current).toBe(false);
   });
 
-  it("updates when visibility changes", async () => {
+  it("updates when visibility changes", () => {
     Object.defineProperty(document, "hidden", {
       value: false,
       writable: true,
       configurable: true,
     });
 
-    const { usePageVisibility } = await import("@/hooks/usePageVisibility");
     const { result } = renderHook(() => usePageVisibility());
 
     expect(result.current).toBe(true);
@@ -60,10 +63,7 @@ describe("usePageVisibility", () => {
 // ── UserRoleProvider + useUserRoleContext ─────────────────────────────────────
 
 describe("UserRoleProvider + useUserRoleContext", () => {
-  it("provides role and userId to children", async () => {
-    const { UserRoleProvider, useUserRoleContext } =
-      await import("@/contexts/UserRoleContext");
-
+  it("provides role and userId to children", () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <UserRoleProvider role="pm" userId="user-1">
         {children}
@@ -75,18 +75,13 @@ describe("UserRoleProvider + useUserRoleContext", () => {
     expect(result.current).toEqual({ role: "pm", userId: "user-1" });
   });
 
-  it("returns null outside provider", async () => {
-    const { useUserRoleContext } = await import("@/contexts/UserRoleContext");
-
+  it("returns null outside provider", () => {
     const { result } = renderHook(() => useUserRoleContext());
 
     expect(result.current).toBeNull();
   });
 
-  it("provides architect role", async () => {
-    const { UserRoleProvider, useUserRoleContext } =
-      await import("@/contexts/UserRoleContext");
-
+  it("provides architect role", () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <UserRoleProvider role="architect" userId="user-2">
         {children}
@@ -98,10 +93,7 @@ describe("UserRoleProvider + useUserRoleContext", () => {
     expect(result.current).toEqual({ role: "architect", userId: "user-2" });
   });
 
-  it("provides client role", async () => {
-    const { UserRoleProvider, useUserRoleContext } =
-      await import("@/contexts/UserRoleContext");
-
+  it("provides client role", () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <UserRoleProvider role="client" userId="user-3">
         {children}
@@ -117,18 +109,14 @@ describe("UserRoleProvider + useUserRoleContext", () => {
 // ── useFileDropzone ──────────────────────────────────────────────────────────
 
 describe("useFileDropzone", () => {
-  it("starts with dragOver false", async () => {
-    const { useFileDropzone } = await import("@/hooks/useFileDropzone");
-
+  it("starts with dragOver false", () => {
     const addFiles = vi.fn();
     const { result } = renderHook(() => useFileDropzone(addFiles));
 
     expect(result.current.dragOver).toBe(false);
   });
 
-  it("sets dragOver true on dragOver event", async () => {
-    const { useFileDropzone } = await import("@/hooks/useFileDropzone");
-
+  it("sets dragOver true on dragOver event", () => {
     const addFiles = vi.fn();
     const { result } = renderHook(() => useFileDropzone(addFiles));
 
@@ -141,9 +129,7 @@ describe("useFileDropzone", () => {
     expect(result.current.dragOver).toBe(true);
   });
 
-  it("sets dragOver false on dragLeave", async () => {
-    const { useFileDropzone } = await import("@/hooks/useFileDropzone");
-
+  it("sets dragOver false on dragLeave", () => {
     const addFiles = vi.fn();
     const { result } = renderHook(() => useFileDropzone(addFiles));
 
@@ -160,9 +146,7 @@ describe("useFileDropzone", () => {
     expect(result.current.dragOver).toBe(false);
   });
 
-  it("calls addFiles and resets dragOver on drop", async () => {
-    const { useFileDropzone } = await import("@/hooks/useFileDropzone");
-
+  it("calls addFiles and resets dragOver on drop", () => {
     const addFiles = vi.fn();
     const { result } = renderHook(() => useFileDropzone(addFiles));
 
@@ -179,9 +163,7 @@ describe("useFileDropzone", () => {
     expect(result.current.dragOver).toBe(false);
   });
 
-  it("does not call addFiles when no files dropped", async () => {
-    const { useFileDropzone } = await import("@/hooks/useFileDropzone");
-
+  it("does not call addFiles when no files dropped", () => {
     const addFiles = vi.fn();
     const { result } = renderHook(() => useFileDropzone(addFiles));
 

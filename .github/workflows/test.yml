@@ -34,8 +34,9 @@ jobs:
         id: tests
         continue-on-error: true
         run: |
-          npx vitest run --reporter=json --outputFile=test-results.json
-          npx vitest run --config vitest.config.hooks.ts --reporter=json --outputFile=test-results-hooks.json
+          npx vitest run --reporter=json --outputFile=test-results.json &
+          npx vitest run --config vitest.config.hooks.ts --reporter=json --outputFile=test-results-hooks.json &
+          wait
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
