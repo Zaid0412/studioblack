@@ -96,6 +96,9 @@ No global store. React Context for sidebar/theme/user role. Custom hooks (`usePr
 - `src/app/globals.css` — CSS variables + Tailwind v4 theme
 - `src/lib/swr.ts` — SWR global config + fetcher
 - `src/contexts/UserRoleContext.tsx` — UserRole provider + context hook
+- `src/test/setup.ts` — global test mocks for all external boundaries
+- `src/test/helpers.ts` — test factories (mockSession, buildRequest, parseResponse)
+- `vitest.config.ts` — Vitest configuration with path aliases
 - `src/hooks/usePageVisibility.ts` — Page Visibility API hook for polling gates
 
 ## Project Domain
@@ -122,6 +125,9 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - `npm run dev` — dev server (webpack)
 - `npm run check` — lint + format check + tsc
 - `npm run seed` — seed test users
+- `npm test` — run all tests (Vitest)
+- `npm run test:watch` — run tests in watch mode
+- `npm run test:coverage` — run tests with coverage report
 
 ## Rules
 
@@ -129,7 +135,7 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - Do NOT append `Co-Authored-By` lines to commit messages.
 - All database queries use raw SQL with parameterized values — never use string interpolation.
 - better-auth tables use camelCase columns (`userId`, `organizationId`). App tables use snake_case.
-- No tests exist yet. No test framework is set up.
+- Tests use Vitest. API route tests are in `src/test/api/`, unit tests in `src/test/unit/`. Global mocks (db, auth, email, storage) are in `src/test/setup.ts`, helpers in `src/test/helpers.ts`. When adding a new API route, add a corresponding test file. When adding a new Zod schema, add validation tests.
 - Always use custom UI components from `src/components/ui/` instead of native HTML elements. Check what exists before writing raw `<select>`, `<input type="date">`, `<input type="checkbox">`, tooltips (`title=`), etc. Key components: `Select`, `DatePicker`, `Calendar`, `Checkbox`, `Tooltip`, `Input`, `Button`, `Popover`, `ToggleSwitch`.
 - Use `useSWR` for new GET-based data fetching — not manual `useState` + `useEffect` + `fetch`.
 - Use `useUserRole()` for role checks — never derive role client-side via `getFullOrganization()`.
