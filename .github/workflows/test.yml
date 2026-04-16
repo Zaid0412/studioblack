@@ -70,14 +70,15 @@ jobs:
               const totalTests = results.numTotalTests ?? 0;
               const passedTests = results.numPassedTests ?? 0;
               const failedTests = results.numFailedTests ?? 0;
+              const totalDuration = results.testResults
+                .reduce((sum, f) => sum + (f.endTime - f.startTime), 0) / 1000;
 
               table = [
-                '',
-                `**${passedTests}** passed, **${failedTests}** failed, **${totalTests}** total`,
                 '',
                 '| | File | Passed | Failed | Duration |',
                 '|---|------|--------|--------|----------|',
                 ...rows,
+                `| | **Total** | **${passedTests}** | **${failedTests}** | **${totalDuration.toFixed(2)}s** |`,
               ].join('\n');
             }
 
@@ -102,16 +103,14 @@ jobs:
                   if (project) {
                     const previewUrl = `https://${project.previewUrl}`;
                     const inspectorUrl = project.inspectorUrl;
-                    const deployStatus = project.nextCommitStatus === 'DEPLOYED' ? '✅ Ready' : '⏳ Building';
                     vercelSection = [
                       '',
                       '### Deployment',
                       '',
                       '| | |',
                       '|---|---|',
-                      `| **Status** | ${deployStatus} |`,
                       `| **Preview** | [${project.previewUrl}](${previewUrl}) |`,
-                      `| **Deployment** | [View on Vercel](${inspectorUrl}) |`,
+                      `| **Inspect** | [View on Vercel](${inspectorUrl}) |`,
                       '',
                     ].join('\n');
                   }
