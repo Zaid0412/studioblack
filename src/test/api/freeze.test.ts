@@ -32,6 +32,17 @@ describe("PATCH /api/projects/[id]/attachments/[attachmentId]/freeze", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 403 for non-PM role (architect)", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "architect" }));
+    const req = buildRequest("/api/projects/proj-1/attachments/att-1/freeze", {
+      method: "PATCH",
+    });
+    const res = await freezePATCH(req, PARAMS);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(403);
+  });
+
   it("returns 404 when attachment not found", async () => {
     vi.mocked(setAttachmentFreezeStatus).mockResolvedValueOnce({
       error: "not_found",

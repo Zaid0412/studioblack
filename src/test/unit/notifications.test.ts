@@ -20,6 +20,9 @@ const { logger } = await import("@/lib/logger");
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Flush microtask queue so fire-and-forget promise chains resolve. */
+const flushPromises = () => new Promise((r) => setImmediate(r));
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -94,41 +97,37 @@ describe("notifyUserByEmail", () => {
     });
 
     notifyUserByEmail("u1", "Subject", "<p>Body</p>");
+    await flushPromises();
 
-    // Wait for the fire-and-forget promise chain
-    await vi.waitFor(() => {
-      expect(sendNotificationEmail).toHaveBeenCalledWith(
-        "user@test.com",
-        "Subject",
-        "<p>Body</p>"
-      );
-    });
+    expect(sendNotificationEmail).toHaveBeenCalledWith(
+      "user@test.com",
+      "Subject",
+      "<p>Body</p>"
+    );
   });
 
   it("logs warning when no email found", async () => {
     mocks.db.query.mockResolvedValueOnce({ rows: [] });
 
     notifyUserByEmail("u-missing", "Subject", "<p>Body</p>");
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(logger.warn).toHaveBeenCalledWith(
-        "notifyUserByEmail: no email found",
-        { userId: "u-missing" }
-      );
-    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      "notifyUserByEmail: no email found",
+      { userId: "u-missing" }
+    );
   });
 
   it("logs error when query fails", async () => {
     mocks.db.query.mockRejectedValueOnce(new Error("DB down"));
 
     notifyUserByEmail("u1", "Subject", "<p>Body</p>");
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(logger.error).toHaveBeenCalledWith(
-        "notifyUserByEmail: query failed",
-        expect.objectContaining({ userId: "u1" })
-      );
-    });
+    expect(logger.error).toHaveBeenCalledWith(
+      "notifyUserByEmail: query failed",
+      expect.objectContaining({ userId: "u1" })
+    );
   });
 });
 
@@ -148,19 +147,18 @@ describe("notifyUserByEmailWithContext", () => {
     });
 
     notifyUserByEmailWithContext("u1", "p1", builder);
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(builder).toHaveBeenCalledWith({
-        email: "user@test.com",
-        name: "Alice",
-        projectName: "My Project",
-      });
-      expect(sendNotificationEmail).toHaveBeenCalledWith(
-        "user@test.com",
-        "Update",
-        "<p>Update</p>"
-      );
+    expect(builder).toHaveBeenCalledWith({
+      email: "user@test.com",
+      name: "Alice",
+      projectName: "My Project",
     });
+    expect(sendNotificationEmail).toHaveBeenCalledWith(
+      "user@test.com",
+      "Update",
+      "<p>Update</p>"
+    );
   });
 
   it("passes null projectName when projectId is null", async () => {
@@ -174,13 +172,12 @@ describe("notifyUserByEmailWithContext", () => {
     });
 
     notifyUserByEmailWithContext("u1", null, builder);
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(builder).toHaveBeenCalledWith({
-        email: "user@test.com",
-        name: "Alice",
-        projectName: null,
-      });
+    expect(builder).toHaveBeenCalledWith({
+      email: "user@test.com",
+      name: "Alice",
+      projectName: null,
     });
   });
 
@@ -189,13 +186,12 @@ describe("notifyUserByEmailWithContext", () => {
     const builder = vi.fn();
 
     notifyUserByEmailWithContext("u-missing", "p1", builder);
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(logger.warn).toHaveBeenCalledWith(
-        "notifyUserByEmailWithContext: no email found",
-        { userId: "u-missing", projectId: "p1" }
-      );
-    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      "notifyUserByEmailWithContext: no email found",
+      { userId: "u-missing", projectId: "p1" }
+    );
   });
 });
 
@@ -216,11 +212,10 @@ describe("notifyTeamByEmail", () => {
     }));
 
     notifyTeamByEmail("p1", ["u-exclude"], builder);
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(builder).toHaveBeenCalledTimes(2);
-      expect(sendNotificationEmail).toHaveBeenCalledTimes(2);
-    });
+    expect(builder).toHaveBeenCalledTimes(2);
+    expect(sendNotificationEmail).toHaveBeenCalledTimes(2);
   });
 
   it("builds correct exclude clause with multiple IDs", async () => {
@@ -229,13 +224,12 @@ describe("notifyTeamByEmail", () => {
     const builder = vi.fn().mockReturnValue({ subject: "", html: "" });
 
     notifyTeamByEmail("p1", ["u1", "u2"], builder);
+    await flushPromises();
 
-    await vi.waitFor(() => {
-      expect(mocks.db.query).toHaveBeenCalledWith(
-        expect.stringContaining("NOT IN ($2, $3)"),
-        ["p1", "u1", "u2"]
-      );
-    });
+    expect(mocks.db.query).toHaveBeenCalledWith(
+      expect.stringContaining("NOT IN ($2, $3)"),
+      ["p1", "u1", "u2"]
+    );
   });
 });
 
