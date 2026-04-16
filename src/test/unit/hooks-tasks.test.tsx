@@ -56,14 +56,6 @@ vi.mock("@/lib/download", () => ({
   downloadFile: (...a: unknown[]) => mockDownloadFile(...a),
 }));
 
-vi.mock("@/lib/taskUtils", () => ({
-  NEXT_STATUS: {
-    todo: "in_progress",
-    in_progress: "completed",
-    completed: "todo",
-  },
-}));
-
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
@@ -219,9 +211,13 @@ describe("useTaskCrud", () => {
     expect(setTasks).toHaveBeenCalledTimes(2);
     expect(setCounts).toHaveBeenCalledTimes(2);
 
-    // Rollback count updater should revert
+    // Optimistic: un-starring decrements
+    const optimisticUpdater = setCounts.mock.calls[0][0];
+    expect(optimisticUpdater({ starred: 5 })).toEqual({ starred: 4 });
+
+    // Rollback: re-increments back
     const rollbackUpdater = setCounts.mock.calls[1][0];
-    expect(rollbackUpdater({ starred: 5 })).toEqual({ starred: 6 });
+    expect(rollbackUpdater({ starred: 4 })).toEqual({ starred: 5 });
   });
 
   // ── handleSubmit ──────────────────────────────────────────────────────
@@ -445,15 +441,25 @@ describe("useTaskDetail", () => {
     return renderHook(() => useTaskDetail(taskArg, open, onChecklistChange));
   }
 
+  /** Setup with initial data and wait for effects to flush. */
+  async function setupWith(
+    checklist: ChecklistItem[] = [],
+    attachments: TaskAttachment[] = []
+  ) {
+    mockGetChecklist.mockResolvedValue(checklist);
+    mockGetAttachments.mockResolvedValue(attachments);
+    const rendered = setup();
+    await act(() => Promise.resolve());
+    return rendered;
+  }
+
   // ── Initial fetch ─────────────────────────────────────────────────────
 
   it("fetches checklist and attachments when opened", async () => {
-    mockGetChecklist.mockResolvedValue([makeChecklistItem()]);
-    mockGetAttachments.mockResolvedValue([makeAttachment()]);
-
-    const { result } = setup();
-    // Wait for effects
-    await act(() => Promise.resolve());
+    const { result } = await setupWith(
+      [makeChecklistItem()],
+      [makeAttachment()]
+    );
 
     expect(mockGetChecklist).toHaveBeenCalledWith("t1");
     expect(mockGetAttachments).toHaveBeenCalledWith("t1");
@@ -480,13 +486,10 @@ describe("useTaskDetail", () => {
   // ── addItem ───────────────────────────────────────────────────────────
 
   it("addItem creates item and appends to list", async () => {
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([]);
     const newItem = makeChecklistItem({ id: "ci2", title: "New" });
     mockAddChecklistItem.mockResolvedValue(newItem);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith();
 
     act(() => result.current.setNewItemTitle("New"));
 
@@ -500,11 +503,7 @@ describe("useTaskDetail", () => {
   });
 
   it("addItem skips when title is empty", async () => {
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([]);
-
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith();
 
     await act(() => result.current.addItem());
 
@@ -515,12 +514,9 @@ describe("useTaskDetail", () => {
 
   it("toggleItem optimistically updates and calls API", async () => {
     const item = makeChecklistItem({ is_done: false });
-    mockGetChecklist.mockResolvedValue([item]);
-    mockGetAttachments.mockResolvedValue([]);
     mockToggleChecklistItem.mockResolvedValue(undefined);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith([item]);
 
     await act(() => result.current.toggleItem(item));
 
@@ -531,12 +527,9 @@ describe("useTaskDetail", () => {
 
   it("toggleItem rolls back on failure", async () => {
     const item = makeChecklistItem({ is_done: false });
-    mockGetChecklist.mockResolvedValue([item]);
-    mockGetAttachments.mockResolvedValue([]);
     mockToggleChecklistItem.mockRejectedValue(new Error("fail"));
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith([item]);
 
     await act(() => result.current.toggleItem(item));
 
@@ -551,12 +544,9 @@ describe("useTaskDetail", () => {
 
   it("deleteItem removes item optimistically", async () => {
     const item = makeChecklistItem();
-    mockGetChecklist.mockResolvedValue([item]);
-    mockGetAttachments.mockResolvedValue([]);
     mockRemoveChecklistItem.mockResolvedValue(undefined);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith([item]);
     expect(result.current.checklistItems).toHaveLength(1);
 
     await act(() => result.current.deleteItem(item));
@@ -569,10 +559,10 @@ describe("useTaskDetail", () => {
   it("deleteItem refetches on failure", async () => {
     const item = makeChecklistItem();
     mockGetChecklist.mockResolvedValueOnce([item]);
-    mockGetAttachments.mockResolvedValue([]);
     mockRemoveChecklistItem.mockRejectedValue(new Error("fail"));
     // Refetch returns the item back
     mockGetChecklist.mockResolvedValueOnce([item]);
+    mockGetAttachments.mockResolvedValue([]);
 
     const { result } = setup();
     await act(() => Promise.resolve());
@@ -593,12 +583,9 @@ describe("useTaskDetail", () => {
       makeChecklistItem({ id: "ci1", position: 0 }),
       makeChecklistItem({ id: "ci2", position: 1, title: "Item 2" }),
     ];
-    mockGetChecklist.mockResolvedValue(items);
-    mockGetAttachments.mockResolvedValue([]);
     mockReorderChecklist.mockResolvedValue(undefined);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith(items);
 
     const event = {
       active: { id: "ci1" },
@@ -612,11 +599,7 @@ describe("useTaskDetail", () => {
   });
 
   it("handleDragEnd does nothing when dropped on same position", async () => {
-    mockGetChecklist.mockResolvedValue([makeChecklistItem()]);
-    mockGetAttachments.mockResolvedValue([]);
-
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith([makeChecklistItem()]);
 
     const event = {
       active: { id: "ci1" },
@@ -630,8 +613,6 @@ describe("useTaskDetail", () => {
   // ── handleUpload ──────────────────────────────────────────────────────
 
   it("handleUpload uploads file and prepends attachment", async () => {
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([]);
     mockUploadFile.mockResolvedValue({
       url: "https://cdn/new.pdf",
       fileName: "new.pdf",
@@ -639,8 +620,7 @@ describe("useTaskDetail", () => {
     const newAtt = makeAttachment({ id: "a2", file_name: "new.pdf" });
     mockAddAttachment.mockResolvedValue(newAtt);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith();
 
     const file = new File(["data"], "new.pdf");
     await act(() => result.current.handleUpload(file));
@@ -656,12 +636,9 @@ describe("useTaskDetail", () => {
   });
 
   it("handleUpload shows error toast on failure", async () => {
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([]);
     mockUploadFile.mockRejectedValue(new Error("fail"));
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith();
 
     await act(() => result.current.handleUpload(new File([""], "f.pdf")));
 
@@ -674,12 +651,9 @@ describe("useTaskDetail", () => {
   // ── handleDownload ────────────────────────────────────────────────────
 
   it("handleDownload calls downloadFile with correct args", async () => {
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([]);
     mockDownloadFile.mockResolvedValue(undefined);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith();
 
     const att = makeAttachment();
     await act(() => result.current.handleDownload(att));
@@ -691,12 +665,9 @@ describe("useTaskDetail", () => {
   });
 
   it("handleDownload shows error toast on failure", async () => {
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([]);
     mockDownloadFile.mockRejectedValue(new Error("fail"));
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith();
 
     await act(() => result.current.handleDownload(makeAttachment()));
 
@@ -709,12 +680,9 @@ describe("useTaskDetail", () => {
 
   it("deleteAttachment removes optimistically and calls API", async () => {
     const att = makeAttachment();
-    mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValue([att]);
     mockRemoveAttachment.mockResolvedValue(undefined);
 
-    const { result } = setup();
-    await act(() => Promise.resolve());
+    const { result } = await setupWith([], [att]);
     expect(result.current.attachments).toHaveLength(1);
 
     await act(() => result.current.deleteAttachment(att));
@@ -732,6 +700,7 @@ describe("useTaskDetail", () => {
 
     const { result } = setup();
     await act(() => Promise.resolve());
+    // Note: can't use setupWith here due to specific mockResolvedValueOnce ordering
 
     await act(() => result.current.deleteAttachment(att));
 

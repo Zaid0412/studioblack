@@ -140,10 +140,6 @@ vi.mock("@/lib/utils", () => ({
       .slice(0, 2),
 }));
 
-vi.mock("@/lib/constants", () => ({
-  POLLING_INTERVAL_MS: 30000,
-}));
-
 beforeEach(() => {
   vi.clearAllMocks();
   // Default returns for auth calls

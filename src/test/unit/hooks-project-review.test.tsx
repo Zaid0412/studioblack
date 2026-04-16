@@ -63,7 +63,7 @@ beforeEach(() => vi.clearAllMocks());
 // ── usePinComments ───────────────────────────────────────────────────────────
 
 import { usePinComments } from "@/hooks/usePinComments";
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, DbAttachment } from "@/types";
 
 function makePin(overrides: Partial<DbPinComment> = {}): DbPinComment {
   return {
@@ -248,6 +248,8 @@ describe("usePinComments", () => {
         description: "Failed to delete comment",
       })
     );
+    // Pin should be restored after rollback
+    expect(result.current.pins).toHaveLength(1);
   });
 
   it("repositionPin: updates coordinates optimistically", async () => {
@@ -415,9 +417,12 @@ describe("useProjectDetail", () => {
 
     const { result } = renderHook(() => useProjectDetail("proj-1"));
 
-    const att = { file_url: "https://cdn/file.pdf", file_name: "file.pdf" };
+    const att = {
+      file_url: "https://cdn/file.pdf",
+      file_name: "file.pdf",
+    } as DbAttachment;
     await act(async () => {
-      await result.current.handleDownload(att as never);
+      await result.current.handleDownload(att);
     });
 
     expect(mockDownloadFile).toHaveBeenCalledWith(
