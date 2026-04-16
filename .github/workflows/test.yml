@@ -25,4 +25,64 @@ jobs:
         run: rm package-lock.json && npm install
 
       - name: Run tests
-        run: npm test
+        id: tests
+        run: |
+          npm test 2>&1 | tee test-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('test-output.txt', 'utf8');
+            const passed = '${{ steps.tests.outputs.exit_code }}' === '0';
+
+            // Extract summary line (e.g. "Tests  194 passed (194)")
+            const summaryMatch = output.match(/Tests\s+.*/);
+            const summary = summaryMatch ? summaryMatch[0].trim() : '';
+
+            const icon = passed ? '✅' : '❌';
+            const status = passed ? 'passed' : 'failed';
+
+            const body = [
+              `## ${icon} API Tests ${status}`,
+              '',
+              summary ? `\`${summary}\`` : '',
+              '',
+              '<details>',
+              '<summary>Full output</summary>',
+              '',
+              '```',
+              output.slice(-3000),
+              '```',
+              '</details>',
+            ].join('\n');
+
+            // Delete previous bot comments to avoid spam
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            for (const comment of comments) {
+              if (comment.user.type === 'Bot' && comment.body.includes('API Tests')) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: comment.id,
+                });
+              }
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      - name: Fail if tests failed
+        if: steps.tests.outputs.exit_code != '0'
+        run: exit 1
