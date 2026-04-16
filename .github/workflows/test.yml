@@ -26,9 +26,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # npm install (not ci) because the lockfile is generated on Windows
-        # and may lack Linux-specific optional bindings (e.g. @swc/core-linux-x64-gnu)
-        run: npm install
+        # Lockfile is generated on Windows and lacks Linux native bindings
+        # (e.g. @rolldown/binding-linux-x64-gnu). Delete it so npm resolves fresh.
+        run: rm package-lock.json && npm install
 
       - name: Run tests
         id: tests
@@ -131,7 +131,8 @@ jobs:
 
             // ── Upsert: update existing comment or create new one ──
             const existing = allComments.find(c =>
-              c.user.type === 'Bot' && c.body.includes(MARKER)
+              c.user.type === 'Bot' &&
+              (c.body.includes(MARKER) || c.body.includes('## ') && c.body.includes('API Tests'))
             );
 
             if (existing) {
