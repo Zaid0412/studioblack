@@ -16,7 +16,11 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@/components/layout/SidebarContext";
-import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
+import {
+  ThemeProvider,
+  useTheme,
+  STORAGE_KEY,
+} from "@/components/ThemeProvider";
 
 /* ────────────────────────────────────────────────────────────
  * SidebarContext
@@ -104,14 +108,14 @@ describe("ThemeProvider", () => {
     const { result } = renderHook(() => useTheme(), { wrapper });
 
     act(() => result.current.toggleTheme());
-    expect(localStorage.getItem("studioblack-theme-v2")).toBe("dark");
+    expect(localStorage.getItem(STORAGE_KEY)).toBe("dark");
 
     act(() => result.current.toggleTheme());
-    expect(localStorage.getItem("studioblack-theme-v2")).toBe("light");
+    expect(localStorage.getItem(STORAGE_KEY)).toBe("light");
   });
 
   it("reads persisted dark mode from localStorage on mount", () => {
-    localStorage.setItem("studioblack-theme-v2", "dark");
+    localStorage.setItem(STORAGE_KEY, "dark");
 
     const { result } = renderHook(() => useTheme(), { wrapper });
     expect(result.current.mode).toBe("dark");
