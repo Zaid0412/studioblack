@@ -4,7 +4,10 @@ import path from "path";
 export default defineConfig({
   test: {
     include: ["src/test/**/*.test.{ts,tsx}"],
-    exclude: ["src/test/unit/hooks.test.tsx"],
+    exclude: [
+      "src/test/unit/hooks.test.tsx",
+      "src/test/unit/hooks-complex.test.tsx",
+    ],
     setupFiles: ["src/test/setup.ts"],
     environment: "node",
     // Restores mock implementations between tests; test files also call

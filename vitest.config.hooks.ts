@@ -4,7 +4,10 @@ import path from "path";
 /** Separate config for React hook tests (jsdom environment, no global setup). */
 export default defineConfig({
   test: {
-    include: ["src/test/unit/hooks.test.tsx"],
+    include: [
+      "src/test/unit/hooks.test.tsx",
+      "src/test/unit/hooks-complex.test.tsx",
+    ],
     environment: "jsdom",
     restoreMocks: true,
     env: {
