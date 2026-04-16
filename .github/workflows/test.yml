@@ -1,0 +1,156 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    name: API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        # Lockfile is generated on Windows and lacks Linux native bindings
+        # (e.g. @rolldown/binding-linux-x64-gnu). Delete it so npm resolves fresh.
+        run: rm package-lock.json && npm install
+
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: npx vitest run --reporter=json --outputFile=test-results.json
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // ── Parse test results ──
+            let results = null;
+            let passed = false;
+            if (fs.existsSync('test-results.json')) {
+              try {
+                results = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+                passed = results.success;
+              } catch {}
+            }
+
+            const icon = passed ? '✅' : '❌';
+            const status = passed ? 'passed' : 'failed';
+
+            // ── Build per-file table ──
+            let table = '';
+            if (results?.testResults) {
+              const rows = results.testResults.map(f => {
+                const name = f.name.replace(/^.*src\/test\//, '');
+                const total = f.assertionResults?.length ?? 0;
+                const pass = f.assertionResults?.filter(t => t.status === 'passed').length ?? 0;
+                const fail = total - pass;
+                const duration = ((f.endTime - f.startTime) / 1000).toFixed(2);
+                const fileStatus = fail > 0 ? '❌' : '✅';
+                return `| ${fileStatus} | \`${name}\` | ${pass} | ${fail} | ${duration}s |`;
+              });
+
+              const totalTests = results.numTotalTests ?? 0;
+              const passedTests = results.numPassedTests ?? 0;
+              const failedTests = results.numFailedTests ?? 0;
+              const totalDuration = results.testResults
+                .reduce((sum, f) => sum + (f.endTime - f.startTime), 0) / 1000;
+
+              table = [
+                '',
+                '| | File | Passed | Failed | Duration |',
+                '|---|------|--------|--------|----------|',
+                ...rows,
+                `| | **Total** | **${passedTests}** | **${failedTests}** | **${totalDuration.toFixed(2)}s** |`,
+              ].join('\n');
+            }
+
+            // ── Fetch all PR comments once ──
+            const { data: allComments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            // ── Get Vercel deployment info from bot comment ──
+            let vercelSection = '';
+            try {
+              const vcComment = allComments.find(c =>
+                c.user.login === 'vercel[bot]' && c.body.includes('[vc]')
+              );
+              if (vcComment) {
+                const b64Match = vcComment.body.match(/\[vc\]:\s*#[^:]+:(\S+)/);
+                if (b64Match) {
+                  const data = JSON.parse(Buffer.from(b64Match[1], 'base64').toString());
+                  const project = data.projects?.[0];
+                  if (project) {
+                    const previewUrl = `https://${project.previewUrl}`;
+                    const inspectorUrl = project.inspectorUrl;
+                    vercelSection = [
+                      '',
+                      '### Deployment',
+                      '',
+                      '| | |',
+                      '|---|---|',
+                      `| **Preview** | [${project.previewUrl}](${previewUrl}) |`,
+                      `| **Inspect** | [View on Vercel](${inspectorUrl}) |`,
+                      '',
+                    ].join('\n');
+                  }
+                }
+              }
+            } catch {}
+
+            // ── Compose comment ──
+            const MARKER = '<!-- studioblack-test-results -->';
+            const body = [
+              MARKER,
+              `## ${icon} API Tests ${status}`,
+              vercelSection,
+              table,
+              '',
+            ].join('\n');
+
+            // ── Upsert: update existing comment or create new one ──
+            const existing = allComments.find(c =>
+              c.user.type === 'Bot' &&
+              (c.body.includes(MARKER) || c.body.includes('## ') && c.body.includes('API Tests'))
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if tests failed
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
