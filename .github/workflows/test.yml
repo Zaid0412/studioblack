@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 permissions:
+  contents: read
   pull-requests: write
 
 jobs:
@@ -39,7 +40,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const output = fs.readFileSync('test-output.txt', 'utf8');
+            const output = fs.existsSync('test-output.txt')
+              ? fs.readFileSync('test-output.txt', 'utf8')
+              : 'No test output (tests did not run)';
             const passed = '${{ steps.tests.outputs.exit_code }}' === '0';
 
             // Extract summary line (e.g. "Tests  194 passed (194)")
