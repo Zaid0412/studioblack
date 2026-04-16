@@ -21,6 +21,12 @@ const { sendNotificationEmail } = await import("@/lib/email");
 
 const PARAMS = buildParams({ id: "proj-1", attachmentId: "att-1" });
 
+const unsentAttachment = {
+  id: "att-1",
+  file_name: "plan.pdf",
+  sent_to_client_at: null,
+};
+
 describe("POST /api/projects/[id]/attachments/[attachmentId]/send-to-client", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -56,8 +62,7 @@ describe("POST /api/projects/[id]/attachments/[attachmentId]/send-to-client", ()
 
   it("returns 409 when already sent to client", async () => {
     vi.mocked(getAttachmentById).mockResolvedValueOnce({
-      id: "att-1",
-      file_name: "plan.pdf",
+      ...unsentAttachment,
       sent_to_client_at: new Date().toISOString(),
     });
 
@@ -73,11 +78,7 @@ describe("POST /api/projects/[id]/attachments/[attachmentId]/send-to-client", ()
   });
 
   it("returns 409 when markAttachmentSentToClient returns null", async () => {
-    vi.mocked(getAttachmentById).mockResolvedValueOnce({
-      id: "att-1",
-      file_name: "plan.pdf",
-      sent_to_client_at: null,
-    });
+    vi.mocked(getAttachmentById).mockResolvedValueOnce(unsentAttachment);
     vi.mocked(markAttachmentSentToClient).mockResolvedValueOnce(null);
     vi.mocked(getProjectClientInfo).mockResolvedValueOnce(null);
 
@@ -92,17 +93,12 @@ describe("POST /api/projects/[id]/attachments/[attachmentId]/send-to-client", ()
   });
 
   it("sends to client successfully", async () => {
-    const attachment = {
-      id: "att-1",
-      file_name: "plan.pdf",
-      sent_to_client_at: null,
-    };
     const updated = {
-      ...attachment,
+      ...unsentAttachment,
       sent_to_client_at: new Date().toISOString(),
     };
 
-    vi.mocked(getAttachmentById).mockResolvedValueOnce(attachment);
+    vi.mocked(getAttachmentById).mockResolvedValueOnce(unsentAttachment);
     vi.mocked(markAttachmentSentToClient).mockResolvedValueOnce(updated);
     vi.mocked(getProjectClientInfo).mockResolvedValueOnce({
       client_email: "client@test.com",
@@ -131,14 +127,9 @@ describe("POST /api/projects/[id]/attachments/[attachmentId]/send-to-client", ()
   });
 
   it("skips email when no client email", async () => {
-    const attachment = {
-      id: "att-1",
-      file_name: "plan.pdf",
-      sent_to_client_at: null,
-    };
-    vi.mocked(getAttachmentById).mockResolvedValueOnce(attachment);
+    vi.mocked(getAttachmentById).mockResolvedValueOnce(unsentAttachment);
     vi.mocked(markAttachmentSentToClient).mockResolvedValueOnce({
-      ...attachment,
+      ...unsentAttachment,
       sent_to_client_at: new Date().toISOString(),
     });
     vi.mocked(getProjectClientInfo).mockResolvedValueOnce(null);
