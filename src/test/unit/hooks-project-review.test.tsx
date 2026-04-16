@@ -1,0 +1,556 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, act, waitFor } from "@testing-library/react";
+
+// ── Mocks ────────────────────────────────────────────────────────────────────
+
+const mockPinList = vi.fn();
+const mockPinCreate = vi.fn();
+const mockPinResolve = vi.fn();
+const mockPinEditContent = vi.fn();
+const mockPinRemove = vi.fn();
+const mockPinReposition = vi.fn();
+const mockPinListReplies = vi.fn();
+
+const mockCommentsCreate = vi.fn();
+const mockApprovalsSubmit = vi.fn();
+const mockTasksSubmitReview = vi.fn();
+
+const mockToast = vi.fn();
+const mockDownloadFile = vi.fn();
+
+vi.mock("@/lib/api", () => ({
+  pinComments: {
+    list: (...args: unknown[]) => mockPinList(...args),
+    create: (...args: unknown[]) => mockPinCreate(...args),
+    resolve: (...args: unknown[]) => mockPinResolve(...args),
+    editContent: (...args: unknown[]) => mockPinEditContent(...args),
+    remove: (...args: unknown[]) => mockPinRemove(...args),
+    reposition: (...args: unknown[]) => mockPinReposition(...args),
+    listReplies: (...args: unknown[]) => mockPinListReplies(...args),
+  },
+  comments: {
+    create: (...args: unknown[]) => mockCommentsCreate(...args),
+  },
+  approvals: {
+    submit: (...args: unknown[]) => mockApprovalsSubmit(...args),
+  },
+  tasks: {
+    submitReview: (...args: unknown[]) => mockTasksSubmitReview(...args),
+  },
+}));
+
+vi.mock("@/components/ui/useToast", () => ({
+  toast: (...args: unknown[]) => mockToast(...args),
+}));
+
+vi.mock("@/lib/download", () => ({
+  downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
+}));
+
+vi.mock("swr", () => ({
+  __esModule: true,
+  default: () => ({
+    data: undefined,
+    isLoading: false,
+    error: undefined,
+    mutate: vi.fn(),
+  }),
+}));
+
+beforeEach(() => vi.clearAllMocks());
+
+// ── usePinComments ───────────────────────────────────────────────────────────
+
+import { usePinComments } from "@/hooks/usePinComments";
+import type { DbPinComment } from "@/types";
+
+function makePin(overrides: Partial<DbPinComment> = {}): DbPinComment {
+  return {
+    id: "pin-1",
+    attachment_id: "att-1",
+    user_id: "user-1",
+    user_name: "Zaid",
+    x_percent: 50,
+    y_percent: 50,
+    page: 1,
+    content: "Test comment",
+    resolved: false,
+    task_id: null,
+    request_approval: false,
+    request_changes: false,
+    parent_id: null,
+    updated_at: null,
+    reply_count: 0,
+    created_at: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("usePinComments", () => {
+  const params = {
+    projectId: "proj-1",
+    attachmentId: "att-1",
+    userName: "Zaid",
+  };
+
+  it("starts with loading=true and fetches pins on mount", async () => {
+    const pins = [makePin()];
+    mockPinList.mockResolvedValue(pins);
+
+    const { result } = renderHook(() => usePinComments(params));
+
+    expect(result.current.loading).toBe(true);
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockPinList).toHaveBeenCalledWith("proj-1", "att-1");
+    expect(result.current.pins).toEqual(pins);
+  });
+
+  it("shows error toast when initial fetch fails", async () => {
+    mockPinList.mockRejectedValue(new Error("fail"));
+
+    const { result } = renderHook(() => usePinComments(params));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "error",
+        description: "Failed to load comments",
+      })
+    );
+  });
+
+  it("addPin: optimistically adds a temp pin, replaces with real on success", async () => {
+    mockPinList.mockResolvedValue([]);
+    const realPin = makePin({ id: "real-1", content: "Hello" });
+    mockPinCreate.mockResolvedValue(realPin);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.addPin({
+        content: "Hello",
+        xPercent: 10,
+        yPercent: 20,
+        page: 1,
+      });
+    });
+
+    expect(mockPinCreate).toHaveBeenCalledWith(
+      "proj-1",
+      "att-1",
+      expect.objectContaining({
+        content: "Hello",
+        x_percent: 10,
+        y_percent: 20,
+        page: 1,
+      })
+    );
+    expect(result.current.pins).toHaveLength(1);
+    expect(result.current.pins[0].id).toBe("real-1");
+  });
+
+  it("addPin: rolls back temp pin on failure", async () => {
+    mockPinList.mockResolvedValue([]);
+    mockPinCreate.mockRejectedValue(new Error("fail"));
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.addPin({ content: "Fail" });
+    });
+
+    expect(result.current.pins).toHaveLength(0);
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "error",
+        description: "Failed to add comment",
+      })
+    );
+  });
+
+  it("resolvePin: optimistically resolves, rolls back on failure", async () => {
+    mockPinList.mockResolvedValue([makePin({ id: "pin-1", resolved: false })]);
+    mockPinResolve.mockRejectedValue(new Error("fail"));
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Optimistic update
+    await act(async () => {
+      await result.current.resolvePin("pin-1", true);
+    });
+
+    // Rolled back
+    expect(result.current.pins[0].resolved).toBe(false);
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "error",
+        description: "Failed to update comment",
+      })
+    );
+  });
+
+  it("resolvePin: updates resolved status on success", async () => {
+    mockPinList.mockResolvedValue([makePin({ id: "pin-1", resolved: false })]);
+    mockPinResolve.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.resolvePin("pin-1", true);
+    });
+
+    expect(result.current.pins[0].resolved).toBe(true);
+  });
+
+  it("editPin: optimistically updates content", async () => {
+    mockPinList.mockResolvedValue([makePin({ id: "pin-1", content: "Old" })]);
+    mockPinEditContent.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.editPin("pin-1", "New content");
+    });
+
+    expect(result.current.pins[0].content).toBe("New content");
+    expect(mockPinEditContent).toHaveBeenCalledWith(
+      "proj-1",
+      "att-1",
+      "pin-1",
+      "New content"
+    );
+  });
+
+  it("deletePin: removes pin optimistically, refetches on failure", async () => {
+    const pin = makePin({ id: "pin-1" });
+    mockPinList.mockResolvedValue([pin]);
+    mockPinRemove.mockRejectedValue(new Error("fail"));
+    // refetchPins will re-fetch
+    mockPinList.mockResolvedValueOnce([pin]).mockResolvedValueOnce([pin]);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.deletePin("pin-1");
+    });
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "error",
+        description: "Failed to delete comment",
+      })
+    );
+  });
+
+  it("repositionPin: updates coordinates optimistically", async () => {
+    mockPinList.mockResolvedValue([
+      makePin({ id: "pin-1", x_percent: 10, y_percent: 20 }),
+    ]);
+    mockPinReposition.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.repositionPin("pin-1", 80, 90, 2);
+    });
+
+    expect(result.current.pins[0].x_percent).toBe(80);
+    expect(result.current.pins[0].y_percent).toBe(90);
+    expect(result.current.pins[0].page).toBe(2);
+    expect(mockPinReposition).toHaveBeenCalledWith("proj-1", "att-1", "pin-1", {
+      x_percent: 80,
+      y_percent: 90,
+      page: 2,
+    });
+  });
+
+  it("fetchReplies: populates repliesMap on success", async () => {
+    mockPinList.mockResolvedValue([makePin({ id: "pin-1" })]);
+    const replies = [makePin({ id: "reply-1", parent_id: "pin-1" })];
+    mockPinListReplies.mockResolvedValue(replies);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.fetchReplies("pin-1");
+    });
+
+    expect(result.current.repliesMap.get("pin-1")).toEqual(replies);
+  });
+
+  it("addReply: appends to repliesMap and increments parent reply_count", async () => {
+    mockPinList.mockResolvedValue([makePin({ id: "pin-1", reply_count: 0 })]);
+    const reply = makePin({
+      id: "reply-1",
+      parent_id: "pin-1",
+      content: "Reply!",
+    });
+    mockPinCreate.mockResolvedValue(reply);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.addReply("pin-1", "Reply!");
+    });
+
+    expect(result.current.repliesMap.get("pin-1")).toEqual([reply]);
+    expect(result.current.pins[0].reply_count).toBe(1);
+  });
+
+  it("unresolvedCount: counts unresolved pins", async () => {
+    mockPinList.mockResolvedValue([
+      makePin({ id: "pin-1", resolved: false }),
+      makePin({ id: "pin-2", resolved: true }),
+      makePin({ id: "pin-3", resolved: false }),
+    ]);
+
+    const { result } = renderHook(() => usePinComments(params));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.unresolvedCount).toBe(2);
+  });
+});
+
+// ── useProjectDetail ─────────────────────────────────────────────────────────
+
+import { useProjectDetail } from "@/hooks/useProjectDetail";
+
+describe("useProjectDetail", () => {
+  it("handleSendComment: calls comments.create and clears input", async () => {
+    mockCommentsCreate.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useProjectDetail("proj-1"));
+
+    // Set comment text
+    act(() => result.current.setNewComment("Hello world"));
+
+    await act(async () => {
+      await result.current.handleSendComment();
+    });
+
+    expect(mockCommentsCreate).toHaveBeenCalledWith("proj-1", "Hello world");
+    expect(result.current.newComment).toBe("");
+    expect(result.current.sendingComment).toBe(false);
+  });
+
+  it("handleSendComment: does nothing when comment is empty", async () => {
+    const { result } = renderHook(() => useProjectDetail("proj-1"));
+
+    await act(async () => {
+      await result.current.handleSendComment();
+    });
+
+    expect(mockCommentsCreate).not.toHaveBeenCalled();
+  });
+
+  it("handleSendComment: shows error toast on failure", async () => {
+    mockCommentsCreate.mockRejectedValue(new Error("fail"));
+
+    const { result } = renderHook(() => useProjectDetail("proj-1"));
+    act(() => result.current.setNewComment("Test"));
+
+    await act(async () => {
+      await result.current.handleSendComment();
+    });
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "error",
+        description: "Failed to send comment",
+      })
+    );
+    expect(result.current.sendingComment).toBe(false);
+  });
+
+  it("handleDecision: calls approvals.submit", async () => {
+    mockApprovalsSubmit.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() =>
+      useProjectDetail("proj-1", { includeApprovals: true })
+    );
+
+    await act(async () => {
+      await result.current.handleDecision("approved", "Looks good");
+    });
+
+    expect(mockApprovalsSubmit).toHaveBeenCalledWith("proj-1", {
+      decision: "approved",
+      comment: "Looks good",
+    });
+    expect(result.current.submittingDecision).toBe(false);
+  });
+
+  it("handleDecision: shows error toast on failure", async () => {
+    mockApprovalsSubmit.mockRejectedValue(new Error("fail"));
+
+    const { result } = renderHook(() =>
+      useProjectDetail("proj-1", { includeApprovals: true })
+    );
+
+    await act(async () => {
+      await result.current.handleDecision("changes_requested", "Fix this");
+    });
+
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variant: "error",
+        description: "Failed to submit decision",
+      })
+    );
+  });
+
+  it("handleDownload: delegates to downloadFile", async () => {
+    mockDownloadFile.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useProjectDetail("proj-1"));
+
+    const att = { file_url: "https://cdn/file.pdf", file_name: "file.pdf" };
+    await act(async () => {
+      await result.current.handleDownload(att as never);
+    });
+
+    expect(mockDownloadFile).toHaveBeenCalledWith(
+      "https://cdn/file.pdf",
+      "file.pdf"
+    );
+  });
+});
+
+// ── useDesignReview ──────────────────────────────────────────────────────────
+
+import { useDesignReview } from "@/hooks/useDesignReview";
+
+describe("useDesignReview", () => {
+  it("initializes with designId as activeFileId", () => {
+    const { result } = renderHook(() =>
+      useDesignReview({
+        projectId: "proj-1",
+        designId: "design-1",
+        basePath: "/projects",
+      })
+    );
+
+    expect(result.current.activeFileId).toBe("design-1");
+    expect(result.current.attachment).toBeNull();
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("setActiveFileId updates activeFileId and replaces URL", () => {
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+
+    const { result } = renderHook(() =>
+      useDesignReview({
+        projectId: "proj-1",
+        designId: "design-1",
+        basePath: "/projects",
+      })
+    );
+
+    act(() => result.current.setActiveFileId("design-2"));
+
+    expect(result.current.activeFileId).toBe("design-2");
+    expect(replaceStateSpy).toHaveBeenCalledWith(
+      null,
+      "",
+      "/projects/proj-1/review/design-2"
+    );
+
+    replaceStateSpy.mockRestore();
+  });
+
+  it("does not replace URL when activeFileId matches designId", () => {
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+
+    renderHook(() =>
+      useDesignReview({
+        projectId: "proj-1",
+        designId: "design-1",
+        basePath: "/projects",
+      })
+    );
+
+    // Should not have been called since activeFileId === designId
+    expect(replaceStateSpy).not.toHaveBeenCalled();
+
+    replaceStateSpy.mockRestore();
+  });
+});
+
+// ── useSlide ─────────────────────────────────────────────────────────────────
+
+import { useSlide } from "@/components/review/useSlide";
+
+describe("useSlide", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) =>
+      setTimeout(cb, 0)
+    );
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns shouldRender=true and stage='in' when open", () => {
+    const { result } = renderHook(() => useSlide(true));
+
+    // Initially stage is "in" from useState init since open=true
+    // After double-rAF, stage transitions to "in"
+    act(() => vi.advanceTimersByTime(1));
+    act(() => vi.advanceTimersByTime(1));
+
+    expect(result.current.shouldRender).toBe(true);
+    expect(result.current.stage).toBe("in");
+  });
+
+  it("transitions through closing animation when open goes false", () => {
+    const { result, rerender } = renderHook(({ open }) => useSlide(open, 200), {
+      initialProps: { open: true },
+    });
+
+    // Ensure open state
+    act(() => vi.advanceTimersByTime(1));
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.stage).toBe("in");
+
+    // Close
+    rerender({ open: false });
+
+    // After rAF fires, stage becomes "out" and closing=true
+    act(() => vi.advanceTimersByTime(1));
+
+    expect(result.current.shouldRender).toBe(true);
+    expect(result.current.stage).toBe("out");
+
+    // After duration, closing finishes
+    act(() => vi.advanceTimersByTime(200));
+
+    expect(result.current.shouldRender).toBe(false);
+    expect(result.current.stage).toBeNull();
+  });
+
+  it("starts with shouldRender=false when initially closed", () => {
+    const { result } = renderHook(() => useSlide(false));
+
+    // rAF fires but since no prior open, closing starts then ends
+    act(() => vi.advanceTimersByTime(1));
+    act(() => vi.advanceTimersByTime(200));
+
+    expect(result.current.shouldRender).toBe(false);
+    expect(result.current.stage).toBeNull();
+  });
+});
