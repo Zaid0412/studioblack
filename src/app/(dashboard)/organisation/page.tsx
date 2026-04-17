@@ -17,7 +17,6 @@ import { MembersList } from "./_components/MembersList";
 import { PendingInvitations } from "./_components/PendingInvitations";
 import { InviteDialog } from "./_components/InviteDialog";
 
-
 /** Organisation management page — create org, invite & manage members. */
 export default function OrganisationPage() {
   const t = useTranslations("organisation");
@@ -135,7 +134,6 @@ export default function OrganisationPage() {
         isInviting={org.isInviting}
         onInvite={org.handleInvite}
       />
-
     </div>
   );
 }
