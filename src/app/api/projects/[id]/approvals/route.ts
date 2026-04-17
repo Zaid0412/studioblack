@@ -58,8 +58,8 @@ export const POST = withAuth(
 
       const subject =
         decision === "approved"
-          ? `Project Approved: ${projectName}`
-          : `Changes Requested: ${projectName}`;
+          ? `${projectName} | Project Approved`
+          : `${projectName} | Changes Requested`;
 
       const body =
         decision === "approved"

@@ -28,7 +28,7 @@ export const POST = withAuth(
     if (project?.client_email) {
       await sendNotificationEmail(
         project.client_email,
-        `Review Requested: ${task.title}`,
+        `${project.name} | Review Requested: ${task.title}`,
         `
         <p>A task in your project <strong>${escapeHtml(project.name)}</strong> requires your review.</p>
         <p><strong>Task:</strong> ${escapeHtml(task.title)}</p>

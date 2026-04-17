@@ -261,7 +261,7 @@ async function sendEmail(to: string, subject: string, html: string) {
 export async function sendMagicLinkEmail(email: string, url: string) {
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} — Access Your Project`,
+    `${getEnvTag()}${branding.appName} | Access Your Project`,
     emailLayout(
       "Access Your Project",
       `${bodyText(`You've been invited to review a project on ${safeBrandName}. Click the button below to access your project dashboard.`)}
@@ -286,7 +286,7 @@ export async function sendNotificationEmail(
 ) {
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} — ${subject}`,
+    `${getEnvTag()}${branding.appName} | ${subject}`,
     emailLayout(
       subject,
       `<div style="font-size: 14px; color: ${colors.textMuted}; line-height: 1.6;">
@@ -303,7 +303,7 @@ export async function sendNotificationEmail(
 export async function sendPasswordResetEmail(email: string, url: string) {
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} — Reset Your Password`,
+    `${getEnvTag()}${branding.appName} | Reset Your Password`,
     emailLayout(
       "Reset Your Password",
       `${bodyText("We received a request to reset the password for your account. Click the button below to choose a new one.")}
@@ -333,7 +333,7 @@ export async function sendVerificationEmail(
   const safeName = escapeHtml(name);
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} — Verify Your Email`,
+    `${getEnvTag()}${branding.appName} | Verify Your Email`,
     emailLayout(
       "Verify Your Email",
       `${bodyText(`Hi ${safeName}, thanks for signing up! Please verify your email address to get started with ${safeBrandName}.`)}
@@ -358,7 +358,7 @@ export async function sendInvitationEmail(
 ) {
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} — You've been invited to ${escapeHtml(orgName)}`,
+    `${getEnvTag()}${branding.appName} | You've been invited to ${escapeHtml(orgName)}`,
     emailLayout(
       "You're Invited",
       `${bodyText(`<strong style="color: ${colors.white};">${escapeHtml(inviterName)}</strong> has invited you to join`)}
@@ -386,7 +386,7 @@ export async function sendChangeEmailVerification(
   const safeName = escapeHtml(name);
   await sendEmail(
     newEmail,
-    `${getEnvTag()}${branding.appName} — Confirm Your New Email`,
+    `${getEnvTag()}${branding.appName} | Confirm Your New Email`,
     emailLayout(
       "Confirm Your New Email",
       `${bodyText(`Hi ${safeName}, you requested to change your email address to this one. Click the button below to confirm.`)}

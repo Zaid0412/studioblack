@@ -163,8 +163,8 @@ export const POST = withAuth(
             `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
           );
           const subject = reqChanges
-            ? `Changes Requested: ${ctx.projectName}`
-            : `New Task Assigned: ${ctx.projectName}`;
+            ? `${ctx.projectName} | Changes Requested`
+            : `${ctx.projectName} | New Task Assigned`;
           const html = reqChanges
             ? `<p><strong>${escapeHtml(user.name || user.email)}</strong> requested changes on your design in <strong>${escapeHtml(ctx.projectName || "")}</strong>.</p>
                <p style="color: #666;">${escapeHtml(taskTitle)}</p>
@@ -195,8 +195,8 @@ export const POST = withAuth(
         const safeFileName = escapeHtml(attachment.file_name);
         const safeComment = `<p style="color:#555;margin-top:12px;">"${escapeHtml(taskTitle)}"</p>`;
 
-        notifyTeamByEmail(id, [user.id, assignedTo], () => ({
-          subject: `Changes Requested: ${attachment.file_name}`,
+        notifyTeamByEmail(id, [user.id, assignedTo], ({ projectName }) => ({
+          subject: `${projectName} | Changes Requested: ${attachment.file_name}`,
           html: `<p><strong>${safeReviewer}</strong> requested changes on <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;"><a href="${escapeHtml(`${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`)}" style="color: #2563eb;">View Project →</a></p>`,
         }));
       }
