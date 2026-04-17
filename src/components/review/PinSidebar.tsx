@@ -96,10 +96,10 @@ export function PinSidebar({
   // Show form when pendingPin is set (from document click)
   const formVisible = showNewForm || !!pendingPin || !!requestChangesMode;
 
-  if (!shouldRender) return null;
-
   const sorted = useMemo(() => sortPinsByDate(pins), [pins]);
   const pinIndexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
+
+  if (!shouldRender) return null;
 
   return (
     <div

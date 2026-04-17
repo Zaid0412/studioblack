@@ -86,6 +86,10 @@ vi.mock("@/lib/authClient", () => ({
   },
 }));
 
+vi.mock("@/hooks/usePageVisibility", () => ({
+  usePageVisibility: () => true,
+}));
+
 vi.mock("@/hooks/useFileUpload", () => ({
   useAvatarUpload: () => ({
     isUploading: false,

@@ -144,10 +144,28 @@ describe("Session checks", () => {
 // ── Role derivation ─────────────────────────────────────────────────────────
 
 describe("effectiveRole derivation", () => {
-  it("always derives effectiveRole and passes it to handler", async () => {
+  it("derives effectiveRole when role options are present", async () => {
     const session = mockSession({ role: "pm" });
     setupAuth(mocks.auth, session);
     vi.mocked(getMemberRole).mockResolvedValue("owner");
+
+    handler.mockImplementation(async (_req, ctx) =>
+      NextResponse.json({ effectiveRole: ctx.effectiveRole })
+    );
+
+    const wrapped = withAuth({ allowedRoles: ["pm"] }, handler);
+    const req = buildRequest("/api/test");
+
+    const { status, body } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ effectiveRole: "pm" });
+    expect(getMemberRole).toHaveBeenCalled();
+  });
+
+  it("skips getMemberRole when no role options specified", async () => {
+    const session = mockSession({ role: "pm" });
+    setupAuth(mocks.auth, session);
 
     handler.mockImplementation(async (_req, ctx) =>
       NextResponse.json({ effectiveRole: ctx.effectiveRole })
@@ -160,7 +178,7 @@ describe("effectiveRole derivation", () => {
 
     expect(status).toBe(200);
     expect(body).toMatchObject({ effectiveRole: "pm" });
-    expect(getMemberRole).toHaveBeenCalled();
+    expect(getMemberRole).not.toHaveBeenCalled();
   });
 });
 

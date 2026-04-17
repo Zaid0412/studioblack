@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardError({
   reset,
@@ -14,12 +15,9 @@ export default function DashboardError({
       <h2 className="text-lg font-semibold text-text-primary">
         {t("somethingWentWrong")}
       </h2>
-      <button
-        onClick={reset}
-        className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity"
-      >
+      <Button onClick={reset} variant="primary" size="sm">
         {t("tryAgain")}
-      </button>
+      </Button>
     </div>
   );
 }

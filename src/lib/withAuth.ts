@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { hasProjectAccess, getOrgRole, getMemberRole } from "@/lib/queries";
 import { rateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
+import type { UserRole } from "@/types";
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 type User = NonNullable<Session>["user"];
@@ -13,7 +14,7 @@ export interface AuthContext {
   user: User;
   orgId: string | null;
   orgRole?: string | null;
-  effectiveRole: string;
+  effectiveRole: UserRole;
   requestId: string;
 }
 
@@ -125,15 +126,23 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     // Derive the effective role — must match the layout's getEffectiveRole().
     // user.role is the DB default ("pm"). For org members invited as "client",
     // the org membership role is authoritative, not user.role.
-    // Always derive so handlers can use ctx.effectiveRole.
-    let role = user.role ?? "";
-    if (role === "client") {
-      // DB role is already client — authoritative
-    } else if (orgId) {
-      const memberRole = await getMemberRole(orgId, user.id);
-      if (memberRole === "client") role = "client";
-      else if (memberRole === "owner" || memberRole === "admin") role = "pm";
-      else if (memberRole === "member") role = "architect";
+    // Only query getMemberRole when the route actually needs role info to avoid
+    // an extra DB round-trip on every request.
+    let role: UserRole = (user.role as UserRole) ?? "pm";
+    const needsRole =
+      options.allowedRoles ||
+      options.blockedRoles ||
+      options.projectAccess ||
+      options.fetchOrgRole;
+    if (needsRole) {
+      if (role === "client") {
+        // DB role is already client — authoritative
+      } else if (orgId) {
+        const memberRole = await getMemberRole(orgId, user.id);
+        if (memberRole === "client") role = "client";
+        else if (memberRole === "owner" || memberRole === "admin") role = "pm";
+        else if (memberRole === "member") role = "architect";
+      }
     }
 
     // Role checks (using effective role)

@@ -21,7 +21,7 @@ export const PATCH = withAuth(
     const pin = pinOrError;
 
     const isPm = effectiveRole === "pm";
-    const isStaff = isPm; // all non-client authenticated users are staff
+    const isStaff = effectiveRole !== "client";
 
     const parsed = await parseRequest(req, updatePinSchema);
     if (!parsed.success) {
