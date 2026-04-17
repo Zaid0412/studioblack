@@ -101,6 +101,10 @@ No global store. React Context for sidebar/theme/user role. Custom hooks (`usePr
 - `vitest.config.ts` — Vitest configuration (node env, API/unit tests)
 - `vitest.config.hooks.ts` — Vitest configuration (jsdom env, React hook tests)
 - `src/hooks/usePageVisibility.ts` — Page Visibility API hook for polling gates
+- `playwright.config.ts` — Playwright E2E test configuration
+- `e2e/global-setup.ts` — E2E auth setup (login + save storage state per role)
+- `scripts/seed-e2e.ts` — Seed E2E test users with verified emails
+- `scripts/cleanup-e2e.ts` — Clean up E2E test data from database
 
 ## Project Domain
 
@@ -131,6 +135,11 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - `npm run test:all` — run both test suites
 - `npm run test:watch` — run tests in watch mode
 - `npm run test:coverage` — run tests with coverage report
+- `npm run seed:e2e` — seed E2E test users (requires running database)
+- `npm run cleanup:e2e` — remove E2E test data from database
+- `npm run test:e2e` — run Playwright E2E tests (requires dev server)
+- `npm run test:e2e:ui` — run E2E tests with Playwright UI mode
+- `npm run test:e2e:headed` — run E2E tests in headed browser
 
 ## Rules
 
@@ -138,7 +147,8 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - Do NOT append `Co-Authored-By` lines to commit messages.
 - All database queries use raw SQL with parameterized values — never use string interpolation.
 - better-auth tables use camelCase columns (`userId`, `organizationId`). App tables use snake_case.
-- Tests use Vitest. API route tests are in `src/test/api/`, unit tests in `src/test/unit/`. Global mocks (db, auth, email, storage) are in `src/test/setup.ts`, helpers in `src/test/helpers.ts`. When adding a new API route, add a corresponding test file. When adding a new Zod schema, add validation tests.
+- Unit/API tests use Vitest. API route tests are in `src/test/api/`, unit tests in `src/test/unit/`. Global mocks (db, auth, email, storage) are in `src/test/setup.ts`, helpers in `src/test/helpers.ts`. When adding a new API route, add a corresponding test file. When adding a new Zod schema, add validation tests.
+- E2E tests use Playwright in `e2e/`. Auth storage states are saved per role in `e2e/.auth/`. Test users use `e2e-*@test.studioblack.com` email pattern. Config is in `playwright.config.ts`. CI workflow is `.github/workflows/e2e.yml`.
 - Always use custom UI components from `src/components/ui/` instead of native HTML elements. Check what exists before writing raw `<select>`, `<input type="date">`, `<input type="checkbox">`, tooltips (`title=`), etc. Key components: `Select`, `DatePicker`, `Calendar`, `Checkbox`, `Tooltip`, `Input`, `Button`, `Popover`, `ToggleSwitch`.
 - Use `useSWR` for new GET-based data fetching — not manual `useState` + `useEffect` + `fetch`.
 - Use `useUserRole()` for role checks — never derive role client-side via `getFullOrganization()`.

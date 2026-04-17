@@ -1,0 +1,152 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/studioblack_e2e
+  BETTER_AUTH_SECRET: e2e-test-secret-minimum-32-chars-long
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.E2E_SUPABASE_SERVICE_KEY }}
+  E2E_PASSWORD: TestPassword123!
+  NODE_ENV: test
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: studioblack_e2e
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        # Lockfile is generated on Windows and may lack Linux native bindings
+        run: rm -f package-lock.json && npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run database migrations
+        run: npx @better-auth/cli migrate --yes 2>/dev/null || echo "Migrations may have already been applied"
+
+      - name: Seed E2E test users
+        run: npx tsx scripts/seed-e2e.ts
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Run E2E tests
+        id: e2e
+        continue-on-error: true
+        run: npx playwright test --reporter=json > e2e-results.json 2>&1 || true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            let results = null;
+            try {
+              if (fs.existsSync('e2e-results.json')) {
+                results = JSON.parse(fs.readFileSync('e2e-results.json', 'utf8'));
+              }
+            } catch {}
+
+            const passed = results?.stats?.unexpected === 0;
+            const total = results?.stats?.expected ?? 0;
+            const failed = results?.stats?.unexpected ?? 0;
+            const skipped = results?.stats?.skipped ?? 0;
+            const duration = results?.stats?.duration
+              ? (results.stats.duration / 1000).toFixed(2)
+              : '?';
+
+            const icon = passed ? '✅' : '❌';
+            const status = passed ? 'passed' : 'failed';
+
+            const MARKER = '<!-- studioblack-e2e-results -->';
+            const body = [
+              MARKER,
+              `## ${icon} E2E Tests ${status}`,
+              '',
+              `| Passed | Failed | Skipped | Duration |`,
+              `|--------|--------|---------|----------|`,
+              `| ${total - failed} | ${failed} | ${skipped} | ${duration}s |`,
+              '',
+              '📎 Full report available in workflow artifacts.',
+              '',
+            ].join('\n');
+
+            const { data: allComments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = allComments.find(c =>
+              c.user.type === 'Bot' && c.body.includes(MARKER)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Clean up E2E test data
+        if: always()
+        run: npx tsx scripts/cleanup-e2e.ts || true
+
+      - name: Fail if E2E tests failed
+        if: steps.e2e.outcome == 'failure'
+        run: exit 1

@@ -20,7 +20,12 @@
     "test:hooks": "vitest run --config vitest.config.hooks.ts",
     "test:all": "vitest run && vitest run --config vitest.config.hooks.ts",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "seed:e2e": "npx tsx scripts/seed-e2e.ts",
+    "cleanup:e2e": "npx tsx scripts/cleanup-e2e.ts",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:headed": "npx playwright test --headed"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -62,6 +67,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
