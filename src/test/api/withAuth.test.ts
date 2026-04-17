@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import { auth } from "@/lib/auth";
-import { hasProjectAccess, getOrgRole } from "@/lib/queries";
+import { hasProjectAccess, getOrgRole, getMemberRole } from "@/lib/queries";
 import { rateLimit } from "@/lib/rateLimit";
 import {
   buildRequest,
@@ -159,6 +159,9 @@ describe("Role checks", () => {
 
     it("returns 403 when user role is not in allowedRoles", async () => {
       setupAuth(mocks.auth, mockSession({ role: "architect" }));
+      // getMemberRole must return "member" (→ effective "architect") so the
+      // allowedRoles: ["pm"] check correctly rejects.
+      vi.mocked(getMemberRole).mockResolvedValueOnce("member");
 
       const wrapped = withAuth({ allowedRoles: ["pm"] }, handler);
       const req = buildRequest("/api/test");

@@ -10,7 +10,7 @@ import {
   parseResponse,
 } from "../helpers";
 
-const { setAttachmentFreezeStatus, getOrgRole } = await import("@/lib/queries");
+const { setAttachmentFreezeStatus, getOrgRole, getMemberRole } = await import("@/lib/queries");
 
 const PARAMS = buildParams({ id: "proj-1", attachmentId: "att-1" });
 
@@ -36,6 +36,7 @@ describe("PATCH /api/projects/[id]/attachments/[attachmentId]/freeze", () => {
 
   it("returns 403 for non-PM role (architect)", async () => {
     setupAuth(mocks.auth, mockSession({ role: "architect" }));
+    vi.mocked(getMemberRole).mockResolvedValueOnce("member");
     const req = buildRequest("/api/projects/proj-1/attachments/att-1/freeze", {
       method: "PATCH",
     });

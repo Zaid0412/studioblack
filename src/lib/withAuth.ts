@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess, getOrgRole } from "@/lib/queries";
+import { hasProjectAccess, getOrgRole, getMemberRole } from "@/lib/queries";
 import { rateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
 
@@ -17,9 +17,9 @@ export interface AuthContext {
 }
 
 interface WithAuthOptions {
-  /** Only these roles are allowed. Returns 403 if user.role doesn't match. */
+  /** Only these effective roles are allowed. Returns 403 if the derived role doesn't match. */
   allowedRoles?: string[];
-  /** These roles are blocked. Returns 403 if user.role matches. */
+  /** These effective roles are blocked. Returns 403 if the derived role matches. */
   blockedRoles?: string[];
   /** If true, checks hasProjectAccess() using the `id` param. Returns 403 if not allowed. */
   projectAccess?: boolean;
@@ -110,8 +110,29 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     const user = session.user;
     const resolvedParams = routeParams?.params ? await routeParams.params : {};
 
-    // Role checks
-    const role = user.role ?? "";
+    // Resolve orgId early — needed for effective role derivation
+    let orgId = session.session.activeOrganizationId ?? null;
+    if (!orgId) {
+      const orgs = await auth.api.listOrganizations({
+        headers: await headers(),
+      });
+      if (orgs && orgs.length > 0) orgId = orgs[0].id;
+    }
+
+    // Derive the effective role — must match the layout's getEffectiveRole().
+    // user.role is the DB default ("pm"). For org members invited as "client",
+    // the org membership role is authoritative, not user.role.
+    let role = user.role ?? "";
+    if (role === "client") {
+      // DB role is already client — authoritative
+    } else if (orgId) {
+      const memberRole = await getMemberRole(orgId, user.id);
+      if (memberRole === "client") role = "client";
+      else if (memberRole === "owner" || memberRole === "admin") role = "pm";
+      else if (memberRole === "member") role = "architect";
+    }
+
+    // Role checks (using effective role)
     if (options.allowedRoles && !options.allowedRoles.includes(role)) {
       logger.warn("Forbidden — role not allowed", {
         requestId,
@@ -151,7 +172,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
         projectId,
         user.id,
         user.email,
-        user.role
+        role
       );
       if (!allowed) {
         logger.warn("Forbidden — no project access", {
@@ -181,15 +202,6 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
           requestId
         );
       }
-    }
-
-    // Resolve orgId
-    let orgId = session.session.activeOrganizationId ?? null;
-    if (!orgId) {
-      const orgs = await auth.api.listOrganizations({
-        headers: await headers(),
-      });
-      if (orgs && orgs.length > 0) orgId = orgs[0].id;
     }
 
     // Org role
