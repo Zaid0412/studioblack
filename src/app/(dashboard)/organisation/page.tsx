@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { UserPlus, LogOut } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { OrgDetailsCard } from "./_components/OrgDetailsCard";
 import { MembersList } from "./_components/MembersList";
 import { PendingInvitations } from "./_components/PendingInvitations";
 import { InviteDialog } from "./_components/InviteDialog";
-import { LeaveDialog } from "./_components/LeaveDialog";
+
 
 /** Organisation management page — create org, invite & manage members. */
 export default function OrganisationPage() {
@@ -103,16 +103,6 @@ export default function OrganisationPage() {
                 {t("inviteMember")}
               </Button>
             )}
-            {org.currentUserRole === "member" && (
-              <Button
-                variant="secondary"
-                onClick={() => org.setLeaveDialogOpen(true)}
-                className="border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                {t("leaveOrganisation")}
-              </Button>
-            )}
           </div>
         }
       />
@@ -146,13 +136,6 @@ export default function OrganisationPage() {
         onInvite={org.handleInvite}
       />
 
-      <LeaveDialog
-        open={org.leaveDialogOpen}
-        onOpenChange={org.setLeaveDialogOpen}
-        orgName={org.activeOrg.name}
-        isLeaving={org.isLeaving}
-        onLeave={org.handleLeaveOrg}
-      />
     </div>
   );
 }
