@@ -6,7 +6,6 @@ import { Avatar } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { deriveInitials } from "@/lib/utils";
@@ -81,7 +80,9 @@ export function MetaBar({
         )}
         {category && (
           <div className="flex items-center gap-2 text-text-primary font-medium">
-            <span className="text-text-secondary font-medium">Category:</span>
+            <span className="text-text-secondary font-medium">
+              {t("category")}:
+            </span>
             <span className="capitalize">{category}</span>
           </div>
         )}
@@ -92,33 +93,31 @@ export function MetaBar({
           </div>
         )}
         {members.length > 0 && (
-          <TooltipProvider delayDuration={200}>
-            <div className="flex items-center gap-2 ml-auto">
-              <Users className="w-3.5 h-3.5 text-text-muted" />
-              <div className="flex -space-x-1.5">
-                {members.slice(0, 4).map((m) => (
-                  <Tooltip key={m.user_id}>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Avatar
-                          initials={deriveInitials(m.name)}
-                          color={avatarColor(m.user_id)}
-                          size="sm"
-                          className="w-6 h-6 text-[9px] border border-bg-secondary"
-                        />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">{m.email}</TooltipContent>
-                  </Tooltip>
-                ))}
-                {members.length > 4 && (
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-text-secondary bg-border-default border border-bg-secondary">
-                    +{members.length - 4}
-                  </div>
-                )}
-              </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <Users className="w-3.5 h-3.5 text-text-muted" />
+            <div className="flex -space-x-1.5">
+              {members.slice(0, 4).map((m) => (
+                <Tooltip key={m.user_id}>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Avatar
+                        initials={deriveInitials(m.name)}
+                        color={avatarColor(m.user_id)}
+                        size="sm"
+                        className="w-6 h-6 text-[9px] border border-bg-secondary"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{m.email}</TooltipContent>
+                </Tooltip>
+              ))}
+              {members.length > 4 && (
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-text-secondary bg-border-default border border-bg-secondary">
+                  +{members.length - 4}
+                </div>
+              )}
             </div>
-          </TooltipProvider>
+          </div>
         )}
       </div>
     );

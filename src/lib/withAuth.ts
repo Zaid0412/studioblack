@@ -122,14 +122,19 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     // Derive the effective role — must match the layout's getEffectiveRole().
     // user.role is the DB default ("pm"). For org members invited as "client",
     // the org membership role is authoritative, not user.role.
+    // Only query the DB when the route actually needs role information.
     let role = user.role ?? "";
-    if (role === "client") {
-      // DB role is already client — authoritative
-    } else if (orgId) {
-      const memberRole = await getMemberRole(orgId, user.id);
-      if (memberRole === "client") role = "client";
-      else if (memberRole === "owner" || memberRole === "admin") role = "pm";
-      else if (memberRole === "member") role = "architect";
+    const needsRole =
+      options.allowedRoles || options.blockedRoles || options.projectAccess;
+    if (needsRole) {
+      if (role === "client") {
+        // DB role is already client — authoritative
+      } else if (orgId) {
+        const memberRole = await getMemberRole(orgId, user.id);
+        if (memberRole === "client") role = "client";
+        else if (memberRole === "owner" || memberRole === "admin") role = "pm";
+        else if (memberRole === "member") role = "architect";
+      }
     }
 
     // Role checks (using effective role)
