@@ -621,7 +621,7 @@ export function FileTable({
                 <button
                   key={key}
                   onClick={() => updateSort(key)}
-                  className={`${width} flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer select-none`}
+                  className={`${width} flex items-center gap-1 text-xs font-semibold text-text-primary hover:text-text-primary transition-colors cursor-pointer select-none`}
                 >
                   {label}
                   <SortIcon sortKey={key} config={sortConfig} />
