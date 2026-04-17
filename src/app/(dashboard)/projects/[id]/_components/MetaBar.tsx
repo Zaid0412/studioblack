@@ -57,7 +57,7 @@ export function MetaBar({
       <div className="px-4 lg:px-10 py-3 flex items-center gap-4 lg:gap-6 text-[13px] border-b border-border-default flex-wrap">
         {status && (
           <div className="flex items-center gap-2">
-            <span className="text-text-muted">{t("statusLabel")}</span>
+            <span className="text-text-secondary font-medium">{t("statusLabel")}</span>
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                 status === "active"
@@ -72,13 +72,13 @@ export function MetaBar({
           </div>
         )}
         {category && (
-          <div className="flex items-center gap-2 text-text-secondary">
-            <span className="text-text-muted">Category:</span>
+          <div className="flex items-center gap-2 text-text-primary font-medium">
+            <span className="text-text-secondary font-medium">Category:</span>
             <span className="capitalize">{category}</span>
           </div>
         )}
         {deadline && (
-          <div className="flex items-center gap-1.5 text-text-secondary">
+          <div className="flex items-center gap-1.5 text-text-primary font-medium">
             <Calendar className="w-3.5 h-3.5 text-accent" />
             {t("duePrefix")} {formatDate(deadline)}
           </div>
