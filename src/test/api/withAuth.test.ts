@@ -141,6 +141,22 @@ describe("Session checks", () => {
   });
 });
 
+// ── Role derivation gate ────────────────────────────────────────────────────
+
+describe("needsRole gate", () => {
+  it("does NOT call getMemberRole when no role options are specified", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "pm" }));
+
+    const wrapped = withAuth({}, handler);
+    const req = buildRequest("/api/test");
+
+    const { status } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(200);
+    expect(getMemberRole).not.toHaveBeenCalled();
+  });
+});
+
 // ── Role checks ─────────────────────────────────────────────────────────────
 
 describe("Role checks", () => {
