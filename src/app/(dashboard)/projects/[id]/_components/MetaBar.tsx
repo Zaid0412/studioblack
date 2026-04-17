@@ -3,6 +3,12 @@
 import { useTranslations } from "next-intl";
 import { Calendar, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatDate } from "@/lib/formatDate";
@@ -84,25 +90,35 @@ export function MetaBar({
           </div>
         )}
         {members.length > 0 && (
-          <div className="flex items-center gap-2 ml-auto">
-            <Users className="w-3.5 h-3.5 text-text-muted" />
-            <div className="flex -space-x-1.5">
-              {members.slice(0, 4).map((m) => (
-                <Avatar
-                  key={m.user_id}
-                  initials={deriveInitials(m.name)}
-                  color={avatarColor(m.user_id)}
-                  size="sm"
-                  className="w-6 h-6 text-[9px] border border-bg-secondary"
-                />
-              ))}
-              {members.length > 4 && (
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-text-secondary bg-border-default border border-bg-secondary">
-                  +{members.length - 4}
-                </div>
-              )}
+          <TooltipProvider delayDuration={200}>
+            <div className="flex items-center gap-2 ml-auto">
+              <Users className="w-3.5 h-3.5 text-text-muted" />
+              <div className="flex -space-x-1.5">
+                {members.slice(0, 4).map((m) => (
+                  <Tooltip key={m.user_id}>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Avatar
+                          initials={deriveInitials(m.name)}
+                          color={avatarColor(m.user_id)}
+                          size="sm"
+                          className="w-6 h-6 text-[9px] border border-bg-secondary"
+                        />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {m.email}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {members.length > 4 && (
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-text-secondary bg-border-default border border-bg-secondary">
+                    +{members.length - 4}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </TooltipProvider>
         )}
       </div>
     );
