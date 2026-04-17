@@ -3,6 +3,11 @@
 import { useTranslations } from "next-intl";
 import { Calendar, Users } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatDate } from "@/lib/formatDate";
@@ -57,7 +62,9 @@ export function MetaBar({
       <div className="px-4 lg:px-10 py-3 flex items-center gap-4 lg:gap-6 text-[13px] border-b border-border-default flex-wrap">
         {status && (
           <div className="flex items-center gap-2">
-            <span className="text-text-muted">{t("statusLabel")}</span>
+            <span className="text-text-secondary font-medium">
+              {t("statusLabel")}
+            </span>
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
                 status === "active"
@@ -72,13 +79,15 @@ export function MetaBar({
           </div>
         )}
         {category && (
-          <div className="flex items-center gap-2 text-text-secondary">
-            <span className="text-text-muted">Category:</span>
+          <div className="flex items-center gap-2 text-text-primary font-medium">
+            <span className="text-text-secondary font-medium">
+              {t("category")}:
+            </span>
             <span className="capitalize">{category}</span>
           </div>
         )}
         {deadline && (
-          <div className="flex items-center gap-1.5 text-text-secondary">
+          <div className="flex items-center gap-1.5 text-text-primary font-medium">
             <Calendar className="w-3.5 h-3.5 text-accent" />
             {t("duePrefix")} {formatDate(deadline)}
           </div>
@@ -88,13 +97,19 @@ export function MetaBar({
             <Users className="w-3.5 h-3.5 text-text-muted" />
             <div className="flex -space-x-1.5">
               {members.slice(0, 4).map((m) => (
-                <Avatar
-                  key={m.user_id}
-                  initials={deriveInitials(m.name)}
-                  color={avatarColor(m.user_id)}
-                  size="sm"
-                  className="w-6 h-6 text-[9px] border border-bg-secondary"
-                />
+                <Tooltip key={m.user_id}>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Avatar
+                        initials={deriveInitials(m.name)}
+                        color={avatarColor(m.user_id)}
+                        size="sm"
+                        className="w-6 h-6 text-[9px] border border-bg-secondary"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">{m.email}</TooltipContent>
+                </Tooltip>
               ))}
               {members.length > 4 && (
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium text-text-secondary bg-border-default border border-bg-secondary">

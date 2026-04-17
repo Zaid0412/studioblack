@@ -4,6 +4,7 @@ import {
   getUserByEmail,
   createClientUser,
   getOrgRole,
+  getMemberRole,
 } from "@/lib/queries";
 import { POST } from "@/app/api/projects/[id]/send-to-client/route";
 import {
@@ -49,6 +50,7 @@ describe("POST /api/projects/[id]/send-to-client", () => {
     const session = mockSession({ role: "architect" });
     setupAuth(mocks.auth, session);
     vi.mocked(getOrgRole).mockResolvedValue("member");
+    vi.mocked(getMemberRole).mockResolvedValueOnce("member");
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/send-to-client`, {
       method: "POST",

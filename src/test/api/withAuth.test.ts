@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import { auth } from "@/lib/auth";
-import { hasProjectAccess, getOrgRole } from "@/lib/queries";
+import { hasProjectAccess, getOrgRole, getMemberRole } from "@/lib/queries";
 import { rateLimit } from "@/lib/rateLimit";
 import {
   buildRequest,
@@ -141,6 +141,22 @@ describe("Session checks", () => {
   });
 });
 
+// ── Role derivation gate ────────────────────────────────────────────────────
+
+describe("needsRole gate", () => {
+  it("does NOT call getMemberRole when no role options are specified", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "pm" }));
+
+    const wrapped = withAuth({}, handler);
+    const req = buildRequest("/api/test");
+
+    const { status } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(200);
+    expect(getMemberRole).not.toHaveBeenCalled();
+  });
+});
+
 // ── Role checks ─────────────────────────────────────────────────────────────
 
 describe("Role checks", () => {
@@ -159,6 +175,9 @@ describe("Role checks", () => {
 
     it("returns 403 when user role is not in allowedRoles", async () => {
       setupAuth(mocks.auth, mockSession({ role: "architect" }));
+      // getMemberRole must return "member" (→ effective "architect") so the
+      // allowedRoles: ["pm"] check correctly rejects.
+      vi.mocked(getMemberRole).mockResolvedValueOnce("member");
 
       const wrapped = withAuth({ allowedRoles: ["pm"] }, handler);
       const req = buildRequest("/api/test");

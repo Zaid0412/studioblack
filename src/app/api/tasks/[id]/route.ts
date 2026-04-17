@@ -127,14 +127,16 @@ export const PATCH = withAuth(
         notifyUserByEmailWithContext(
           body.assignedTo,
           updated?.project_id || null,
-          () => {
+          (ctx) => {
             const projectUrl = updated?.project_id
               ? escapeHtml(
                   `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(updated.project_id)}`
                 )
               : null;
             return {
-              subject: "Task Assigned to You",
+              subject: ctx.projectName
+                ? `${ctx.projectName} | Task Assigned to You`
+                : "Task Assigned to You",
               html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a task.</p>
               <p style="color: #666;">${escapeHtml(updated?.title || "")}</p>
               ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`,

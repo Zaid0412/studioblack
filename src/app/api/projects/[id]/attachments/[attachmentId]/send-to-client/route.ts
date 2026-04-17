@@ -64,7 +64,7 @@ export const POST = withAuth(
       const projectUrl = escapeHtml(
         `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
       );
-      const subject = `Design Ready for Review: ${proj.project_name}`;
+      const subject = `${proj.project_name} | Design Ready for Review: ${attachment.file_name}`;
       const body = `<p><strong>${senderName}</strong> has sent a design for your review in <strong>${escapeHtml(proj.project_name)}</strong>.</p>
         <p style="color: #666;">File: ${escapeHtml(attachment.file_name)}</p>
         <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Design →</a></p>`;

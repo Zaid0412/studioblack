@@ -123,8 +123,9 @@ describe("POST /api/projects", () => {
     // withAuth({ allowedRoles: ["pm"] }) blocks non-PM users
     // The role derivation in withAuth uses getOrgRole which returns "member" by default
     // Override getOrgRole to return "member" so role resolves to architect
-    const { getOrgRole } = await import("@/lib/queries");
+    const { getOrgRole, getMemberRole } = await import("@/lib/queries");
     vi.mocked(getOrgRole).mockResolvedValue("member");
+    vi.mocked(getMemberRole).mockResolvedValueOnce("member");
 
     const req = buildRequest("/api/projects", {
       method: "POST",

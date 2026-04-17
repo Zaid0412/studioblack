@@ -84,8 +84,6 @@ export function useOrganisation() {
   const [orgName, setOrgName] = useState("");
   const [orgSlug, setOrgSlug] = useState("");
   const [isCreating, setIsCreating] = useState(false);
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [isLeaving, setIsLeaving] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
@@ -255,44 +253,6 @@ export function useOrganisation() {
     await mutate();
   };
 
-  const handleLeaveOrg = async () => {
-    if (!activeOrg) return;
-    setIsLeaving(true);
-
-    const session = await authClient.getSession();
-    if (!session.data?.user) {
-      setIsLeaving(false);
-      return;
-    }
-    const me = members.find((m) => m.userId === session.data!.user.id);
-    if (!me) {
-      setIsLeaving(false);
-      return;
-    }
-
-    const { error } = await authClient.organization.removeMember({
-      memberIdOrEmail: me.id,
-    });
-    setIsLeaving(false);
-    setLeaveDialogOpen(false);
-
-    if (error) {
-      toast({
-        title: tc("error") ?? "Error",
-        description: error.message ?? "Failed to leave organisation",
-        variant: "error",
-      });
-      return;
-    }
-
-    toast({
-      title: "Left organisation",
-      description: `You have left ${activeOrg.name}`,
-      variant: "success",
-    });
-    router.push("/dashboard");
-  };
-
   const refresh = useCallback(() => {
     mutate();
   }, [mutate]);
@@ -328,12 +288,6 @@ export function useOrganisation() {
     handleUpdateMemberRole,
     handleRemoveMember,
     handleCancelInvitation,
-
-    // Leave org
-    leaveDialogOpen,
-    setLeaveDialogOpen,
-    isLeaving,
-    handleLeaveOrg,
 
     // Refresh
     refresh,

@@ -156,7 +156,7 @@ export default function ProjectDetailPage({
         state={project.state}
       />
 
-      {!isClient && (
+      {role === "pm" && (
         <WorkflowBar
           projectId={id}
           onUpload={() => uploadTriggerRef.current?.()}

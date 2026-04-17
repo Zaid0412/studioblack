@@ -344,7 +344,6 @@ describe("useOrganisation", () => {
 
     expect(result.current).toHaveProperty("handleCreateOrg");
     expect(result.current).toHaveProperty("handleInvite");
-    expect(result.current).toHaveProperty("handleLeaveOrg");
     expect(result.current).toHaveProperty("generateSlug");
     expect(result.current.activeOrg).toBeNull();
     expect(result.current.members).toEqual([]);
@@ -405,17 +404,6 @@ describe("useOrganisation", () => {
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ variant: "error" })
     );
-  });
-
-  it("handleLeaveOrg bails out when no activeOrg", async () => {
-    const { result } = renderHook(() => useOrganisation());
-
-    // activeOrg is null since SWR returns undefined
-    await act(async () => {
-      await result.current.handleLeaveOrg();
-    });
-
-    expect(mockOrgRemoveMember).not.toHaveBeenCalled();
   });
 });
 

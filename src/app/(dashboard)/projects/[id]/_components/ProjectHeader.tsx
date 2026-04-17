@@ -29,7 +29,7 @@ export function ProjectHeader({
   return (
     <div className="flex flex-col lg:flex-row lg:items-start justify-between px-4 lg:px-10 py-5 border-b border-border-default gap-3">
       <div className="min-w-0">
-        <span className="text-[13px] text-text-muted">
+        <span className="text-[13px] text-text-secondary font-medium">
           <button
             onClick={() => router.push(backPath)}
             className="hover:text-text-primary transition-colors cursor-pointer"

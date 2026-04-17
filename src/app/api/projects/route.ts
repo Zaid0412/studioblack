@@ -118,7 +118,7 @@ export const POST = withAuth(
             for (const arch of rows) {
               sendNotificationEmail(
                 arch.email,
-                "New Project Assignment",
+                `${name} | New Project Assignment`,
                 `<p>You've been assigned to project <strong>${safeName}</strong>.</p>
              <p><a href="${projectUrl}">View the project</a> to see details and start working.</p>`
               ).catch((err) =>
@@ -148,7 +148,7 @@ export const POST = withAuth(
 
             sendNotificationEmail(
               clientEmail,
-              "You've Been Added to a Project",
+              `${name} | You've Been Added to a Project`,
               `<p>You've been added to project <strong>${escapeHtml(name)}</strong> as a client.</p>
            <p><a href="${link}">${linkLabel}</a> to view the project details and track progress.</p>`
             ).catch((err) =>

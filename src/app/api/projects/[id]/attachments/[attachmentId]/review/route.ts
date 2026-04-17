@@ -102,11 +102,11 @@ export const PATCH = withAuth(
       `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
     );
 
-    notifyTeamByEmail(id, [user.id], () => ({
+    notifyTeamByEmail(id, [user.id], ({ projectName }) => ({
       subject:
         status === "approved"
-          ? `Design Approved: ${attachment.file_name}`
-          : `Changes Requested: ${attachment.file_name}`,
+          ? `${projectName} | Design Approved: ${attachment.file_name}`
+          : `${projectName} | Changes Requested: ${attachment.file_name}`,
       html:
         status === "approved"
           ? `<p><strong>${safeReviewer}</strong> approved <strong>${safeFileName}</strong>.</p>${safeComment}<p style="margin-top:16px;">The file has been frozen and is ready for the next phase.</p><p style="margin-top:8px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`

@@ -169,14 +169,16 @@ export const POST = withAuth(
       );
 
       // Email the assignee
-      notifyUserByEmailWithContext(assignedTo, projectId || null, () => {
+      notifyUserByEmailWithContext(assignedTo, projectId || null, (ctx) => {
         const projectUrl = projectId
           ? escapeHtml(
               `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(projectId)}`
             )
           : null;
         return {
-          subject: "New Task Assigned to You",
+          subject: ctx.projectName
+            ? `${ctx.projectName} | New Task Assigned to You`
+            : "New Task Assigned to You",
           html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a new task.</p>
             <p style="color: #666;">${escapeHtml(title.trim())}</p>
             ${projectUrl ? `<p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>` : ""}`,

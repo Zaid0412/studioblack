@@ -7,6 +7,7 @@ import {
   markAttachmentSentToClient,
   getProjectClientInfo,
   getOrgRole,
+  getMemberRole,
   hasProjectAccess,
 } from "@/lib/queries";
 import { PATCH as REVIEW } from "@/app/api/projects/[id]/attachments/[attachmentId]/review/route";
@@ -181,6 +182,7 @@ describe("PATCH .../freeze", () => {
     const session = mockSession({ role: "architect" });
     setupAuth(mocks.auth, session);
     vi.mocked(getOrgRole).mockResolvedValue("member" as never);
+    vi.mocked(getMemberRole).mockResolvedValueOnce("member");
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/freeze`,
@@ -237,6 +239,7 @@ describe("PATCH .../unfreeze", () => {
     const session = mockSession({ role: "architect" });
     setupAuth(mocks.auth, session);
     vi.mocked(getOrgRole).mockResolvedValue("member" as never);
+    vi.mocked(getMemberRole).mockResolvedValueOnce("member");
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/unfreeze`,
