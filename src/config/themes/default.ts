@@ -19,8 +19,8 @@ const defaultTheme: Theme = {
 
     // Text
     "text-primary": "#FFFFFF",
-    "text-secondary": "#A0A0A0",
-    "text-muted": "#666666",
+    "text-secondary": "#B0B0B0",
+    "text-muted": "#808080",
     "text-on-accent": "#0D0D0D",
 
     // Borders

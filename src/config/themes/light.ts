@@ -16,8 +16,8 @@ const lightTheme: Theme = {
 
     // Text
     "text-primary": "#111111",
-    "text-secondary": "#555555",
-    "text-muted": "#767676",
+    "text-secondary": "#444444",
+    "text-muted": "#5C5C5C",
     "text-on-accent": "#0D0D0D",
 
     // Borders

@@ -12,8 +12,8 @@
   --accent-hover: #b08e0a;
 
   --text-primary: #111111;
-  --text-secondary: #555555;
-  --text-muted: #767676;
+  --text-secondary: #444444;
+  --text-muted: #5c5c5c;
   --text-on-accent: #0d0d0d;
 
   --border: #d4d4d4;
@@ -58,8 +58,8 @@
   --accent-hover: #d4a90d;
 
   --text-primary: #ffffff;
-  --text-secondary: #a0a0a0;
-  --text-muted: #666666;
+  --text-secondary: #b0b0b0;
+  --text-muted: #808080;
   --text-on-accent: #0d0d0d;
 
   --border: #333333;
