@@ -1,4 +1,5 @@
 import type { TaskPriority, TaskStatus, TaskCategory } from "@/types";
+import { deriveInitials } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Option arrays (for dropdowns / selects)
@@ -20,6 +21,8 @@ export const CATEGORIES: readonly TaskCategory[] = [
   "handover",
 ];
 
+// "archived" is intentionally excluded — users cannot set a task to archived
+// via the status dropdown; archiving is handled by a separate action.
 export const STATUSES: readonly TaskStatus[] = [
   "todo",
   "in_progress",
@@ -79,15 +82,11 @@ export const NEXT_STATUS: Record<string, "todo" | "in_progress" | "completed"> =
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Extract 1-2 character uppercase initials from a full name. */
-export function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+/**
+ * @deprecated Use `deriveInitials` from `@/lib/utils` directly.
+ * Re-exported here for backward compatibility.
+ */
+export const initials = deriveInitials;
 
 /** Capitalize the first character of a string. */
 export function capitalize(s: string): string {

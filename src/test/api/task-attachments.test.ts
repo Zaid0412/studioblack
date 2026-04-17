@@ -149,7 +149,7 @@ describe("DELETE /api/tasks/[id]/attachments/[attachmentId]", () => {
 
     expect(status).toBe(200);
     expect(body.success).toBe(true);
-    expect(deleteAttachmentById).toHaveBeenCalledWith(ATTACHMENT_ID);
+    expect(deleteAttachmentById).toHaveBeenCalledWith(ATTACHMENT_ID, TASK_ID);
   });
 
   it("returns 403 for client role", async () => {

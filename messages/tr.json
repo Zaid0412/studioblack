@@ -23,7 +23,12 @@
     "hoursAgo": "{count} saat önce",
     "daysAgo": "{count} gün önce",
     "on": "tarihinde",
-    "error": "Hata"
+    "error": "Hata",
+    "somethingWentWrong": "Bir hata oluştu",
+    "tryAgain": "Tekrar dene",
+    "pageNotFound": "Sayfa bulunamadı",
+    "pageNotFoundDescription": "Aradığınız sayfa mevcut değil veya taşınmış.",
+    "backToDashboard": "Panele Dön"
   },
   "auth": {
     "login": "Giriş Yap",
@@ -436,9 +441,7 @@
     "unread": "Okunmamış",
     "invitations": "Davetler",
     "noUnread": "Hepsi okundu",
-    "noInvitations": "Bekleyen davet yok",
-    "accept": "Kabul Et",
-    "decline": "Reddet"
+    "noInvitations": "Bekleyen davet yok"
   },
   "settings": {
     "title": "Kullanıcı Ayarları",

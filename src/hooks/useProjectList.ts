@@ -50,7 +50,7 @@ export function useProjectList<T extends ProjectListItem>({
       return matchesSearch && matchesTab && matchesStatus;
     });
 
-    list.sort((a, b) => {
+    return [...list].sort((a, b) => {
       switch (sortBy) {
         case "oldest":
           return (
@@ -69,8 +69,6 @@ export function useProjectList<T extends ProjectListItem>({
           );
       }
     });
-
-    return list;
   }, [items, search, activeFilter, statusFilter, sortBy, matchSearch]);
 
   // Reset page when filters change (inline to avoid cascading renders)

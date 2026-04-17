@@ -41,7 +41,7 @@ export const DELETE = withAuth(
       }
     }
 
-    await deleteAttachmentById(attachmentId);
+    await deleteAttachmentById(attachmentId, taskId);
     return NextResponse.json({ success: true });
   }
 );

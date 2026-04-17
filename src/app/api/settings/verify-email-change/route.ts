@@ -70,6 +70,28 @@ export async function GET(req: NextRequest) {
 /** POST /api/settings/verify-email-change — confirm email change with password. */
 export async function POST(req: NextRequest) {
   try {
+    // CSRF origin check — matches withAuth logic
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (!origin || !host) {
+      return NextResponse.json(
+        { error: "CSRF origin missing" },
+        { status: 403 }
+      );
+    }
+    let originHost: string;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
+    }
+    if (originHost !== host) {
+      return NextResponse.json(
+        { error: "CSRF origin mismatch" },
+        { status: 403 }
+      );
+    }
+
     // IP-based rate limiting — 10 attempts per 10 minutes
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";

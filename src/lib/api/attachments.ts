@@ -28,6 +28,7 @@ export function create(
     fileName: string;
     description?: string;
     phaseId?: string | null;
+    taskId?: string | null;
     versionGroup?: string;
   }
 ) {

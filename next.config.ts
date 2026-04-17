@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { hostname: "studio-black.co.in" },
       { hostname: "*.supabase.co", protocol: "https" as const },
+      { protocol: "https" as const, hostname: "lh3.googleusercontent.com" },
     ],
   },
   async headers() {
@@ -41,7 +42,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline' https://api.fontshare.com",
-              "img-src 'self' data: blob: https://*.supabase.co",
+              "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com",
               "font-src 'self' https://cdn.fontshare.com",
               "connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io https://vitals.vercel-insights.com",
               "worker-src 'self' blob:",

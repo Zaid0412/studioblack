@@ -1,9 +1,25 @@
+import crypto from "crypto";
 import { getPool } from "@/lib/db";
 import {
   PROJECT_PHASES,
   PROJECT_STEPS,
   DEFAULT_PAGE_LIMIT,
 } from "@/lib/constants";
+
+/**
+ * Generate a 32-char alphanumeric ID matching better-auth's format.
+ * Uses the same charset (a-z, A-Z, 0-9) and length as better-auth's generateId.
+ */
+function generateBetterAuthId(size = 32): string {
+  const chars =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = crypto.randomBytes(size);
+  let result = "";
+  for (let i = 0; i < size; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
 
 /** Escape SQL LIKE/ILIKE wildcards so user input is treated as literal text. */
 export function escapeSqlLike(str: string): string {
@@ -455,30 +471,43 @@ export async function getAttachmentVersionHistory(
   return rows;
 }
 
-/** Update the review status of an attachment. */
-/** Set or clear the frozen_at timestamp on an attachment. */
+/** Set or clear the frozen_at timestamp on an attachment (atomic, TOCTOU-safe). */
 export async function setAttachmentFreezeStatus(
   attachmentId: string,
   projectId: string,
   freeze: boolean
 ) {
-  const attachment = await getAttachmentById(attachmentId, projectId);
-  if (!attachment) return { error: "not_found" as const, data: null };
-
-  if (freeze && attachment.frozen_at) {
-    return { error: "already_frozen" as const, data: null };
-  }
-  if (!freeze && !attachment.frozen_at) {
-    return { error: "already_unfrozen" as const, data: null };
-  }
-
   const pool = getPool();
   const {
     rows: [updated],
-  } = await pool.query(
-    `UPDATE attachment SET frozen_at = CASE WHEN $2 THEN NOW() ELSE NULL END WHERE id = $1 RETURNING id, file_name, file_url, frozen_at, review_status`,
-    [attachmentId, freeze]
-  );
+  } = freeze
+    ? await pool.query(
+        `UPDATE attachment SET frozen_at = NOW()
+         WHERE id = $1 AND project_id = $2 AND frozen_at IS NULL
+         RETURNING id, file_name, file_url, frozen_at, review_status`,
+        [attachmentId, projectId]
+      )
+    : await pool.query(
+        `UPDATE attachment SET frozen_at = NULL
+         WHERE id = $1 AND project_id = $2 AND frozen_at IS NOT NULL
+         RETURNING id, file_name, file_url, frozen_at, review_status`,
+        [attachmentId, projectId]
+      );
+
+  if (!updated) {
+    // Distinguish not-found from already-in-target-state
+    const { rows } = await pool.query(
+      `SELECT id, frozen_at FROM attachment WHERE id = $1 AND project_id = $2`,
+      [attachmentId, projectId]
+    );
+    if (rows.length === 0) return { error: "not_found" as const, data: null };
+    return {
+      error: (freeze ? "already_frozen" : "already_unfrozen") as
+        | "already_frozen"
+        | "already_unfrozen",
+      data: null,
+    };
+  }
   return { error: null, data: updated };
 }
 
@@ -682,9 +711,10 @@ export async function verifyTaskAccess(
   taskId: string,
   orgId: string | null
 ): Promise<boolean> {
+  if (!orgId) return false;
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id FROM task WHERE id = $1 AND ($2::text IS NULL OR org_id = $2)`,
+    `SELECT id FROM task WHERE id = $1 AND org_id = $2`,
     [taskId, orgId]
   );
   return rows.length > 0;
@@ -1424,10 +1454,16 @@ export async function getStandaloneTaskAttachment(
   return rows[0] || null;
 }
 
-/** Delete an attachment by ID. */
-export async function deleteAttachmentById(attachmentId: string) {
+/** Delete an attachment by ID, scoped to a standalone task. */
+export async function deleteAttachmentById(
+  attachmentId: string,
+  taskId: string
+) {
   const pool = getPool();
-  await pool.query(`DELETE FROM attachment WHERE id = $1`, [attachmentId]);
+  await pool.query(
+    `DELETE FROM attachment WHERE id = $1 AND standalone_task_id = $2`,
+    [attachmentId, taskId]
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1605,7 +1641,7 @@ export async function getUserEmailAndName(userId: string) {
 export async function getUsersByIds(userIds: string[]) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT id, email, name FROM "user" WHERE id = ANY($1::uuid[])`,
+    `SELECT id, email, name FROM "user" WHERE id = ANY($1::text[])`,
     [userIds]
   );
   return rows;
@@ -1909,7 +1945,7 @@ export async function createProjectAttachment(params: {
 export async function updateAttachmentStatus(
   attachmentId: string,
   projectId: string,
-  reviewStatus: string
+  reviewStatus: "pending" | "approved" | "rejected" | "reviewed"
 ) {
   const pool = getPool();
   const {
@@ -1979,15 +2015,15 @@ export async function getUserByEmail(
   return row || null;
 }
 
-/** Pre-create a client user (for send-to-client flow). */
 /** Create a client user. Uses ON CONFLICT to handle concurrent creation races. */
 export async function createClientUser(name: string, email: string) {
   const pool = getPool();
+  const id = generateBetterAuthId();
   await pool.query(
-    `INSERT INTO "user" (id, name, email, role, email_verified, created_at, updated_at)
-     VALUES (gen_random_uuid(), $1, $2, 'client', false, now(), now())
+    `INSERT INTO "user" (id, name, email, role, "emailVerified", "createdAt", "updatedAt")
+     VALUES ($1, $2, $3, 'client', false, now(), now())
      ON CONFLICT (email) DO NOTHING`,
-    [name, email]
+    [id, name, email]
   );
 }
 
@@ -2013,7 +2049,7 @@ export async function createApproval(params: {
   projectId: string;
   phaseId: string | null;
   userId: string;
-  decision: string;
+  decision: "approved" | "changes_requested";
   comment: string;
 }) {
   const pool = getPool();
@@ -2181,7 +2217,7 @@ export async function getPhaseTaskPendingReview(taskId: string) {
 /** Update a phase task's review status and status. */
 export async function updatePhaseTaskReviewStatus(
   taskId: string,
-  action: string
+  action: "approved" | "changes_requested"
 ) {
   const pool = getPool();
   const {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MapPin, MessageCircle, X, Plus } from "lucide-react";
 import {
   Tooltip,
@@ -98,8 +98,8 @@ export function PinSidebar({
 
   if (!shouldRender) return null;
 
-  const sorted = sortPinsByDate(pins);
-  const pinIndexMap = buildPinIndexMap(pins);
+  const sorted = useMemo(() => sortPinsByDate(pins), [pins]);
+  const pinIndexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
 
   return (
     <div

@@ -80,7 +80,7 @@ export const PATCH = withAuth(
 
 /** DELETE /api/projects/[id] — delete project (PM only). */
 export const DELETE = withAuth(
-  { projectAccess: true, fetchOrgRole: true },
+  { allowedRoles: ["pm"], projectAccess: true, fetchOrgRole: true },
   async (req, { orgRole }, params) => {
     const { id } = params;
 

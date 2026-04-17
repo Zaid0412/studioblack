@@ -75,7 +75,7 @@ export default function ProjectDetailPage({
           { scroll: false }
         );
       });
-  }, [highlightTaskId, project, setActivePhaseId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [highlightTaskId, project, setActivePhaseId, router, searchParams]);
 
   if (loading || roleLoading) {
     return (

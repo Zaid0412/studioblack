@@ -13,6 +13,7 @@ export interface AuthContext {
   user: User;
   orgId: string | null;
   orgRole?: string | null;
+  effectiveRole: string;
   requestId: string;
 }
 
@@ -98,7 +99,9 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
-    const session = await auth.api.getSession({ headers: await headers() });
+    const reqHeaders = await headers();
+
+    const session = await auth.api.getSession({ headers: reqHeaders });
     if (!session) {
       logger.warn("Unauthorized request — no session", { requestId, route });
       return withRequestId(
@@ -114,7 +117,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     let orgId = session.session.activeOrganizationId ?? null;
     if (!orgId) {
       const orgs = await auth.api.listOrganizations({
-        headers: await headers(),
+        headers: reqHeaders,
       });
       if (orgs && orgs.length > 0) orgId = orgs[0].id;
     }
@@ -122,19 +125,15 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     // Derive the effective role — must match the layout's getEffectiveRole().
     // user.role is the DB default ("pm"). For org members invited as "client",
     // the org membership role is authoritative, not user.role.
-    // Only query the DB when the route actually needs role information.
+    // Always derive so handlers can use ctx.effectiveRole.
     let role = user.role ?? "";
-    const needsRole =
-      options.allowedRoles || options.blockedRoles || options.projectAccess;
-    if (needsRole) {
-      if (role === "client") {
-        // DB role is already client — authoritative
-      } else if (orgId) {
-        const memberRole = await getMemberRole(orgId, user.id);
-        if (memberRole === "client") role = "client";
-        else if (memberRole === "owner" || memberRole === "admin") role = "pm";
-        else if (memberRole === "member") role = "architect";
-      }
+    if (role === "client") {
+      // DB role is already client — authoritative
+    } else if (orgId) {
+      const memberRole = await getMemberRole(orgId, user.id);
+      if (memberRole === "client") role = "client";
+      else if (memberRole === "owner" || memberRole === "admin") role = "pm";
+      else if (memberRole === "member") role = "architect";
     }
 
     // Role checks (using effective role)
@@ -218,11 +217,24 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
-    const response = await handler(
-      req,
-      { session, user, orgId, orgRole, requestId },
-      resolvedParams
-    );
-    return withRequestId(response, requestId);
+    try {
+      const response = await handler(
+        req,
+        { session, user, orgId, orgRole, effectiveRole: role, requestId },
+        resolvedParams
+      );
+      return withRequestId(response, requestId);
+    } catch (err) {
+      logger.error("Unhandled error in route handler", {
+        requestId,
+        route,
+        userId: user.id,
+        error: err,
+      });
+      return withRequestId(
+        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
+        requestId
+      );
+    }
   };
 }

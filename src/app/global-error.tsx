@@ -3,7 +3,13 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
-/** Global error boundary — captures unhandled errors and reports to Sentry. */
+/**
+ * Global error boundary — captures unhandled errors and reports to Sentry.
+ *
+ * NOTE: Strings are intentionally hardcoded here. global-error replaces the
+ * entire <html>, so NextIntlClientProvider is not available and useTranslations
+ * cannot be used. This is a last-resort fallback UI.
+ */
 export default function GlobalError({
   error,
   reset,

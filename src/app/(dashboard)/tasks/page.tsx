@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
@@ -136,7 +136,12 @@ export default function TasksPage() {
   >(mutate, "counts");
 
   // -- Side data --
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const { data: projectsRaw } =
+    useSWR<{ id: string; name: string }[]>("/api/projects");
+  const projects: ProjectOption[] = useMemo(
+    () => (projectsRaw ?? []).map((p) => ({ id: p.id, name: p.name })),
+    [projectsRaw]
+  );
   const [phases, setPhases] = useState<PhaseOption[]>([]);
   const [loadingPhases, setLoadingPhases] = useState(false);
 
@@ -182,25 +187,6 @@ export default function TasksPage() {
     },
     [searchParams, router]
   );
-
-  // -- Initial load: projects --
-  useEffect(() => {
-    async function loadProjects() {
-      try {
-        const data = await projectsApi.list<{ id: string; name: string }>();
-        setProjects(
-          (Array.isArray(data) ? data : []).map((p) => ({
-            id: p.id,
-            name: p.name,
-          }))
-        );
-      } catch (err) {
-        console.error("Failed to load projects:", err);
-      }
-    }
-
-    loadProjects();
-  }, []);
 
   // -- Task CRUD (dialog, delete, toggle, submit) --
   const {

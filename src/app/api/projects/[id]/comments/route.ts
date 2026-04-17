@@ -33,7 +33,7 @@ export const GET = withAuth(
 /** POST /api/projects/[id]/comments — add a comment (all roles). */
 export const POST = withAuth(
   { projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, { user, effectiveRole }, params) => {
     const { id } = params;
 
     const parsed = await parseRequest(req, createCommentSchema);
@@ -62,7 +62,7 @@ export const POST = withAuth(
       const title = `New comment on ${projName || "project"}`;
       const desc = `${userName}: ${content.trim().slice(0, 100)}`;
       await createNotificationsForTeam(id, user.id, "comment", title, desc);
-      if (user.role !== "client") {
+      if (effectiveRole !== "client") {
         await createNotificationForClient(id, "comment", title, desc);
       }
     } catch (err) {

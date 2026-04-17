@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { POLLING_INTERVAL_MS } from "@/lib/constants";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { OrgMember, OrgInvitation } from "@/types";
 
 interface OrgData {
@@ -16,55 +17,61 @@ interface OrgData {
   currentUserRole: string | null;
 }
 
-/** Track whether setActive has been attempted to avoid repeating on every SWR revalidation. */
-let activationAttempted = false;
-
-/** Fetches org data via authClient. Used as custom SWR fetcher. */
-async function orgFetcher(): Promise<OrgData | null> {
-  // First try to get the active org
-  let { data } = await authClient.organization.getFullOrganization();
-
-  // If no active org, list all orgs and activate the first one.
-  // Only attempt once per session to avoid SWR background revalidation
-  // repeatedly calling setActive (e.g., overriding another tab's selection).
-  if (!data && !activationAttempted) {
-    activationAttempted = true;
-    const listRes = await authClient.organization.list();
-    if (listRes.data && listRes.data.length > 0) {
-      const firstOrg = listRes.data[0];
-      await authClient.organization.setActive({
-        organizationId: firstOrg.id,
-      });
-      const retry = await authClient.organization.getFullOrganization();
-      data = retry.data;
-    }
-  }
-
-  if (!data) return null;
-
-  const members = (data.members as OrgMember[]) ?? [];
-
-  // Determine current user's role
-  const session = await authClient.getSession();
-  let currentUserRole: string | null = null;
-  if (session.data?.user) {
-    const me = members.find((m) => m.userId === session.data!.user.id);
-    currentUserRole = me?.role ?? null;
-  }
-
-  return {
-    org: { id: data.id, name: data.name, slug: data.slug, logo: data.logo },
-    members,
-    invitations: (data.invitations as OrgInvitation[]) ?? [],
-    currentUserRole,
-  };
-}
-
 /** Hook managing organisation state, members, invitations, and CRUD operations. */
 export function useOrganisation() {
   const t = useTranslations("organisation");
   const tc = useTranslations("common");
   const router = useRouter();
+  const isVisible = usePageVisibility();
+
+  /** Track whether setActive has been attempted to avoid repeating on every SWR revalidation. */
+  const activationAttemptedRef = useRef(false);
+
+  /** Fetches org data via authClient. Used as custom SWR fetcher. */
+  const orgFetcher = useCallback(async (): Promise<OrgData | null> => {
+    // First try to get the active org
+    let { data } = await authClient.organization.getFullOrganization();
+
+    // If no active org, list all orgs and activate the first one.
+    // Only attempt once per hook instance to avoid SWR background revalidation
+    // repeatedly calling setActive (e.g., overriding another tab's selection).
+    if (!data && !activationAttemptedRef.current) {
+      activationAttemptedRef.current = true;
+      const listRes = await authClient.organization.list();
+      if (listRes.data && listRes.data.length > 0) {
+        const firstOrg = listRes.data[0];
+        await authClient.organization.setActive({
+          organizationId: firstOrg.id,
+        });
+        const retry = await authClient.organization.getFullOrganization();
+        data = retry.data;
+      }
+    }
+
+    if (!data) return null;
+
+    const members = (data.members as OrgMember[]) ?? [];
+
+    // Determine current user's role
+    const session = await authClient.getSession();
+    let currentUserRole: string | null = null;
+    if (session.data?.user) {
+      const me = members.find((m) => m.userId === session.data!.user.id);
+      currentUserRole = me?.role ?? null;
+    }
+
+    return {
+      org: {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        logo: data.logo,
+      },
+      members,
+      invitations: (data.invitations as OrgInvitation[]) ?? [],
+      currentUserRole,
+    };
+  }, []);
 
   // -- Org data (SWR with auto-polling, pauses when tab hidden) --
   const {
@@ -72,7 +79,7 @@ export function useOrganisation() {
     isLoading: loading,
     mutate,
   } = useSWR<OrgData | null>("org-full", orgFetcher, {
-    refreshInterval: POLLING_INTERVAL_MS,
+    refreshInterval: isVisible ? POLLING_INTERVAL_MS : 0,
   });
 
   const activeOrg = orgData?.org ?? null;

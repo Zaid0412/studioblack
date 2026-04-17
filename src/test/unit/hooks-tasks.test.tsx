@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
+import React from "react";
+import { SWRConfig } from "swr";
 import type {
   Task,
   ChecklistItem,
@@ -433,15 +435,26 @@ describe("useTaskCrud", () => {
 
 import { useTaskDetail } from "@/app/(dashboard)/tasks/_hooks/useTaskDetail";
 
+/** SWR wrapper with fresh cache per test for useTaskDetail. */
+function taskSwrWrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(
+    SWRConfig,
+    { value: { provider: () => new Map(), dedupingInterval: 0 } },
+    children
+  );
+}
+
 describe("useTaskDetail", () => {
   const onChecklistChange = vi.fn();
   const task = makeTask();
 
   function setup(taskArg: Task | null = task, open = true) {
-    return renderHook(() => useTaskDetail(taskArg, open, onChecklistChange));
+    return renderHook(() => useTaskDetail(taskArg, open, onChecklistChange), {
+      wrapper: taskSwrWrapper,
+    });
   }
 
-  /** Setup with initial data and wait for effects to flush. */
+  /** Setup with initial data and wait for SWR to settle. */
   async function setupWith(
     checklist: ChecklistItem[] = [],
     attachments: TaskAttachment[] = []
@@ -449,7 +462,9 @@ describe("useTaskDetail", () => {
     mockGetChecklist.mockResolvedValue(checklist);
     mockGetAttachments.mockResolvedValue(attachments);
     const rendered = setup();
-    await act(() => Promise.resolve());
+    await waitFor(() =>
+      expect(rendered.result.current.loadingChecklist).toBe(false)
+    );
     return rendered;
   }
 
@@ -473,12 +488,12 @@ describe("useTaskDetail", () => {
 
     const { result, rerender } = renderHook(
       ({ open }) => useTaskDetail(task, open, onChecklistChange),
-      { initialProps: { open: true } }
+      { initialProps: { open: true }, wrapper: taskSwrWrapper }
     );
-    await act(() => Promise.resolve());
-    expect(result.current.checklistItems).toHaveLength(1);
+    await waitFor(() => expect(result.current.checklistItems).toHaveLength(1));
 
     rerender({ open: false });
+    // When closed, SWR key becomes null so data reverts to default
     expect(result.current.checklistItems).toHaveLength(0);
     expect(result.current.attachments).toHaveLength(0);
   });
@@ -558,22 +573,20 @@ describe("useTaskDetail", () => {
 
   it("deleteItem refetches on failure", async () => {
     const item = makeChecklistItem();
-    mockGetChecklist.mockResolvedValueOnce([item]);
-    mockRemoveChecklistItem.mockRejectedValue(new Error("fail"));
-    // Refetch returns the item back
-    mockGetChecklist.mockResolvedValueOnce([item]);
+    mockGetChecklist.mockResolvedValue([item]);
     mockGetAttachments.mockResolvedValue([]);
+    mockRemoveChecklistItem.mockRejectedValue(new Error("fail"));
 
     const { result } = setup();
-    await act(() => Promise.resolve());
+    await waitFor(() => expect(result.current.checklistItems).toHaveLength(1));
 
     await act(() => result.current.deleteItem(item));
 
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ variant: "error" })
     );
-    // Refetch was called
-    expect(mockGetChecklist).toHaveBeenCalledTimes(2);
+    // SWR revalidation re-fetches checklist
+    await waitFor(() => expect(mockGetChecklist).toHaveBeenCalledTimes(2));
   });
 
   // ── handleDragEnd ─────────────────────────────────────────────────────
@@ -683,7 +696,7 @@ describe("useTaskDetail", () => {
     mockRemoveAttachment.mockResolvedValue(undefined);
 
     const { result } = await setupWith([], [att]);
-    expect(result.current.attachments).toHaveLength(1);
+    await waitFor(() => expect(result.current.attachments).toHaveLength(1));
 
     await act(() => result.current.deleteAttachment(att));
 
@@ -694,19 +707,18 @@ describe("useTaskDetail", () => {
   it("deleteAttachment refetches on failure", async () => {
     const att = makeAttachment();
     mockGetChecklist.mockResolvedValue([]);
-    mockGetAttachments.mockResolvedValueOnce([att]);
+    mockGetAttachments.mockResolvedValue([att]);
     mockRemoveAttachment.mockRejectedValue(new Error("fail"));
-    mockGetAttachments.mockResolvedValueOnce([att]);
 
     const { result } = setup();
-    await act(() => Promise.resolve());
-    // Note: can't use setupWith here due to specific mockResolvedValueOnce ordering
+    await waitFor(() => expect(result.current.attachments).toHaveLength(1));
 
     await act(() => result.current.deleteAttachment(att));
 
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ variant: "error" })
     );
-    expect(mockGetAttachments).toHaveBeenCalledTimes(2);
+    // SWR revalidation re-fetches attachments
+    await waitFor(() => expect(mockGetAttachments).toHaveBeenCalledTimes(2));
   });
 });

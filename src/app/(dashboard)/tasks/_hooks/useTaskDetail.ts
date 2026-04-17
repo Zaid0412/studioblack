@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
+import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { tasks as tasksApi, upload } from "@/lib/api";
 import { downloadFile } from "@/lib/download";
@@ -21,57 +22,79 @@ export function useTaskDetail(
   open: boolean,
   onChecklistChange?: () => void
 ) {
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newItemTitle, setNewItemTitle] = useState("");
   const [addingItem, setAddingItem] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [loadingChecklist, setLoadingChecklist] = useState(false);
-  const [loadingAttachments, setLoadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ---- Data fetching ----
+  // ---- Data fetching (SWR) ----
 
-  const fetchChecklist = useCallback(async (taskId: string) => {
-    setLoadingChecklist(true);
-    try {
-      const items = await tasksApi.getChecklist(taskId);
-      setChecklistItems(items);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingChecklist(false);
-    }
-  }, []);
+  const taskId = task?.id ?? null;
+  const checklistKey = open && taskId ? `task-checklist-${taskId}` : null;
+  const attachmentsKey = open && taskId ? `task-attachments-${taskId}` : null;
 
-  const fetchAttachments = useCallback(async (taskId: string) => {
-    setLoadingAttachments(true);
-    try {
-      const items = await tasksApi.getAttachments(taskId);
-      setAttachments(items);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingAttachments(false);
-    }
-  }, []);
+  const {
+    data: checklistItems = [],
+    isLoading: loadingChecklist,
+    mutate: mutateChecklist,
+  } = useSWR<ChecklistItem[]>(checklistKey, () =>
+    tasksApi.getChecklist(taskId!)
+  );
 
-  useEffect(() => {
-    if (open && task?.id) {
-      fetchChecklist(task.id);
-      fetchAttachments(task.id);
-    } else {
-      setChecklistItems([]);
-      setNewItemTitle("");
-      setAttachments([]);
-      setPreviewId(null);
-      setPreviewLoading(null);
-      setLightboxUrl(null);
-    }
-  }, [open, task?.id, fetchChecklist, fetchAttachments]);
+  const {
+    data: attachments = [],
+    isLoading: loadingAttachments,
+    mutate: mutateAttachments,
+  } = useSWR<Attachment[]>(attachmentsKey, () =>
+    tasksApi.getAttachments(taskId!)
+  );
+
+  const setChecklistItems = useCallback(
+    (
+      updater: ChecklistItem[] | ((prev: ChecklistItem[]) => ChecklistItem[])
+    ) => {
+      mutateChecklist(
+        (prev) => {
+          const current = prev ?? [];
+          return typeof updater === "function" ? updater(current) : updater;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutateChecklist]
+  );
+
+  const setAttachments = useCallback(
+    (updater: Attachment[] | ((prev: Attachment[]) => Attachment[])) => {
+      mutateAttachments(
+        (prev) => {
+          const current = prev ?? [];
+          return typeof updater === "function" ? updater(current) : updater;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutateAttachments]
+  );
+
+  const fetchChecklist = useCallback(
+    (taskId: string) => {
+      void taskId; // used for API consistency, SWR handles the key
+      mutateChecklist();
+    },
+    [mutateChecklist]
+  );
+
+  const fetchAttachments = useCallback(
+    (taskId: string) => {
+      void taskId;
+      mutateAttachments();
+    },
+    [mutateAttachments]
+  );
 
   // ---- Checklist handlers ----
 

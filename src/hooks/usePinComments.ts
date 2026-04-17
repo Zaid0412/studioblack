@@ -1,6 +1,8 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
+import useSWR from "swr";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
+import { API } from "@/lib/api/routes";
 import type { DbPinComment } from "@/types";
 
 interface UsePinCommentsParams {
@@ -16,52 +18,31 @@ export function usePinComments({
   attachmentId,
   userName = "",
 }: UsePinCommentsParams) {
-  // Reset key forces state to reinitialize when params change
-  const fetchKey = `${projectId}:${attachmentId}`;
-  const [prevKey, setPrevKey] = useState(fetchKey);
-  const [pins, setPins] = useState<DbPinComment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const swrKey =
+    projectId && attachmentId
+      ? API.attachmentPins(projectId, attachmentId)
+      : null;
+
+  const {
+    data: pins = [],
+    isLoading: loading,
+    mutate: mutatePins,
+  } = useSWR<DbPinComment[]>(swrKey, {
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to load comments",
+        variant: "error",
+      });
+    },
+  });
+
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [pinMode, setPinMode] = useState(false);
   /** Replies keyed by parent pin ID — lazily loaded. */
   const [repliesMap, setRepliesMap] = useState<Map<string, DbPinComment[]>>(
     new Map()
   );
-
-  // Reset state when params change (React 19 idiomatic pattern)
-  if (prevKey !== fetchKey) {
-    setPrevKey(fetchKey);
-    setPins([]);
-    setLoading(true);
-    setSelectedPinId(null);
-    setPinMode(false);
-    setRepliesMap(new Map());
-  }
-
-  useEffect(() => {
-    let ignore = false;
-
-    pinComments
-      .list(projectId, attachmentId)
-      .then((data) => {
-        if (!ignore) setPins(data);
-      })
-      .catch(() => {
-        if (!ignore)
-          toast({
-            title: "Error",
-            description: "Failed to load comments",
-            variant: "error",
-          });
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, [projectId, attachmentId]);
 
   // ── Add pin (optimistic) ──────────────────────────────────────────────
 
@@ -94,7 +75,7 @@ export function usePinComments({
         reply_count: 0,
         created_at: new Date().toISOString(),
       };
-      setPins((prev) => [...prev, tempPin]);
+      mutatePins((prev) => [...(prev ?? []), tempPin], { revalidate: false });
 
       try {
         const pin = await pinComments.create(projectId, attachmentId, {
@@ -111,10 +92,17 @@ export function usePinComments({
             : undefined,
         });
         // Replace temp with real
-        setPins((prev) => prev.map((p) => (p.id === tempId ? pin : p)));
+        mutatePins(
+          (prev) => (prev ?? []).map((p) => (p.id === tempId ? pin : p)),
+          {
+            revalidate: false,
+          }
+        );
       } catch {
         // Rollback
-        setPins((prev) => prev.filter((p) => p.id !== tempId));
+        mutatePins((prev) => (prev ?? []).filter((p) => p.id !== tempId), {
+          revalidate: false,
+        });
         toast({
           title: "Error",
           description: "Failed to add comment",
@@ -122,21 +110,27 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId, userName]
+    [projectId, attachmentId, userName, mutatePins]
   );
 
   // ── Resolve ───────────────────────────────────────────────────────────
 
   const resolvePin = useCallback(
     async (pinId: string, resolved: boolean) => {
-      setPins((prev) =>
-        prev.map((p) => (p.id === pinId ? { ...p, resolved } : p))
+      mutatePins(
+        (prev) =>
+          (prev ?? []).map((p) => (p.id === pinId ? { ...p, resolved } : p)),
+        { revalidate: false }
       );
       try {
         await pinComments.resolve(projectId, attachmentId, pinId, resolved);
       } catch {
-        setPins((prev) =>
-          prev.map((p) => (p.id === pinId ? { ...p, resolved: !resolved } : p))
+        mutatePins(
+          (prev) =>
+            (prev ?? []).map((p) =>
+              p.id === pinId ? { ...p, resolved: !resolved } : p
+            ),
+          { revalidate: false }
         );
         toast({
           title: "Error",
@@ -145,33 +139,26 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId]
+    [projectId, attachmentId, mutatePins]
   );
 
   // ── Edit content ──────────────────────────────────────────────────────
 
-  const refetchPins = useCallback(async () => {
-    try {
-      const data = await pinComments.list(projectId, attachmentId);
-      setPins(data);
-    } catch {
-      /* refetch is best-effort */
-    }
-  }, [projectId, attachmentId]);
-
   const editPin = useCallback(
     async (pinId: string, content: string) => {
-      setPins((ps) =>
-        ps.map((p) =>
-          p.id === pinId
-            ? { ...p, content, updated_at: new Date().toISOString() }
-            : p
-        )
+      mutatePins(
+        (prev) =>
+          (prev ?? []).map((p) =>
+            p.id === pinId
+              ? { ...p, content, updated_at: new Date().toISOString() }
+              : p
+          ),
+        { revalidate: false }
       );
       try {
         await pinComments.editContent(projectId, attachmentId, pinId, content);
       } catch {
-        await refetchPins();
+        mutatePins(); // revalidate from server
         toast({
           title: "Error",
           description: "Failed to edit comment",
@@ -179,19 +166,21 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId, refetchPins]
+    [projectId, attachmentId, mutatePins]
   );
 
   // ── Delete ────────────────────────────────────────────────────────────
 
   const deletePin = useCallback(
     async (pinId: string) => {
-      setPins((ps) => ps.filter((pin) => pin.id !== pinId));
+      mutatePins((prev) => (prev ?? []).filter((pin) => pin.id !== pinId), {
+        revalidate: false,
+      });
       setSelectedPinId((prev) => (prev === pinId ? null : prev));
       try {
         await pinComments.remove(projectId, attachmentId, pinId);
       } catch {
-        await refetchPins();
+        mutatePins(); // revalidate from server
         toast({
           title: "Error",
           description: "Failed to delete comment",
@@ -199,19 +188,21 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId, refetchPins]
+    [projectId, attachmentId, mutatePins]
   );
 
   // ── Reposition ────────────────────────────────────────────────────────
 
   const repositionPin = useCallback(
     async (pinId: string, xPercent: number, yPercent: number, page: number) => {
-      setPins((ps) =>
-        ps.map((p) =>
-          p.id === pinId
-            ? { ...p, x_percent: xPercent, y_percent: yPercent, page }
-            : p
-        )
+      mutatePins(
+        (prev) =>
+          (prev ?? []).map((p) =>
+            p.id === pinId
+              ? { ...p, x_percent: xPercent, y_percent: yPercent, page }
+              : p
+          ),
+        { revalidate: false }
       );
       try {
         await pinComments.reposition(projectId, attachmentId, pinId, {
@@ -220,7 +211,7 @@ export function usePinComments({
           page,
         });
       } catch {
-        await refetchPins();
+        mutatePins(); // revalidate from server
         toast({
           title: "Error",
           description: "Failed to reposition pin",
@@ -228,7 +219,7 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId, refetchPins]
+    [projectId, attachmentId, mutatePins]
   );
 
   // ── Replies ───────────────────────────────────────────────────────────
@@ -272,12 +263,14 @@ export function usePinComments({
           return next;
         });
         // Increment reply_count on parent
-        setPins((ps) =>
-          ps.map((p) =>
-            p.id === parentId
-              ? { ...p, reply_count: (p.reply_count ?? 0) + 1 }
-              : p
-          )
+        mutatePins(
+          (prev) =>
+            (prev ?? []).map((p) =>
+              p.id === parentId
+                ? { ...p, reply_count: (p.reply_count ?? 0) + 1 }
+                : p
+            ),
+          { revalidate: false }
         );
       } catch {
         toast({
@@ -287,7 +280,7 @@ export function usePinComments({
         });
       }
     },
-    [projectId, attachmentId]
+    [projectId, attachmentId, mutatePins]
   );
 
   const unresolvedCount = useMemo(

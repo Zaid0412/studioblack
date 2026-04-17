@@ -141,19 +141,26 @@ describe("Session checks", () => {
   });
 });
 
-// ── Role derivation gate ────────────────────────────────────────────────────
+// ── Role derivation ─────────────────────────────────────────────────────────
 
-describe("needsRole gate", () => {
-  it("does NOT call getMemberRole when no role options are specified", async () => {
-    setupAuth(mocks.auth, mockSession({ role: "pm" }));
+describe("effectiveRole derivation", () => {
+  it("always derives effectiveRole and passes it to handler", async () => {
+    const session = mockSession({ role: "pm" });
+    setupAuth(mocks.auth, session);
+    vi.mocked(getMemberRole).mockResolvedValue("owner");
+
+    handler.mockImplementation(async (_req, ctx) =>
+      NextResponse.json({ effectiveRole: ctx.effectiveRole })
+    );
 
     const wrapped = withAuth({}, handler);
     const req = buildRequest("/api/test");
 
-    const { status } = await parseResponse(await wrapped(req));
+    const { status, body } = await parseResponse(await wrapped(req));
 
     expect(status).toBe(200);
-    expect(getMemberRole).not.toHaveBeenCalled();
+    expect(body).toMatchObject({ effectiveRole: "pm" });
+    expect(getMemberRole).toHaveBeenCalled();
   });
 });
 
@@ -526,14 +533,17 @@ describe("CSRF: other mutating methods", () => {
 // ── Handler error propagation ───────────────────────────────────────────────
 
 describe("Handler error propagation", () => {
-  it("propagates unhandled errors from handler", async () => {
+  it("catches unhandled errors from handler and returns 500", async () => {
     setupAuth(mocks.auth, mockSession());
     handler.mockRejectedValue(new Error("DB crashed"));
 
     const wrapped = withAuth({}, handler);
     const req = buildRequest("/api/test");
 
-    await expect(wrapped(req)).rejects.toThrow("DB crashed");
+    const { status, body } = await parseResponse(await wrapped(req));
+
+    expect(status).toBe(500);
+    expect(body).toMatchObject({ error: "Internal Server Error" });
   });
 });
 

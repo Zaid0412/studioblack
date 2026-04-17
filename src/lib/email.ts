@@ -14,12 +14,14 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
-let _transport: nodemailer.Transporter | null = null;
+const globalForMail = globalThis as unknown as {
+  mailTransport?: nodemailer.Transporter;
+};
 
 function getTransport(): nodemailer.Transporter {
-  if (!_transport) {
+  if (!globalForMail.mailTransport) {
     const e = env();
-    _transport = nodemailer.createTransport({
+    globalForMail.mailTransport = nodemailer.createTransport({
       host: e.SMTP_HOST,
       port: Number(e.SMTP_PORT),
       secure: false,
@@ -30,7 +32,7 @@ function getTransport(): nodemailer.Transporter {
       },
     });
   }
-  return _transport;
+  return globalForMail.mailTransport;
 }
 
 function getFromEmail(): string {
@@ -231,7 +233,12 @@ function emailLayout(title: string, body: string, footer: string): string {
 
 const logoPath = path.join(process.cwd(), "public", "logo-dark.png");
 
-async function sendEmail(to: string, subject: string, html: string) {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  opts?: { critical?: boolean }
+) {
   try {
     await getTransport().sendMail({
       from: getFromEmail(),
@@ -248,6 +255,7 @@ async function sendEmail(to: string, subject: string, html: string) {
     });
   } catch (err) {
     logger.error("Failed to send email", { to, subject, error: err });
+    if (opts?.critical) throw err;
   }
 }
 
@@ -318,7 +326,8 @@ export async function sendPasswordResetEmail(email: string, url: string) {
       "This is an automated email from " +
         safeBrandName +
         ". Please do not reply directly."
-    )
+    ),
+    { critical: true }
   );
 }
 
@@ -343,7 +352,8 @@ export async function sendVerificationEmail(
       </div>
       ${hintText("This link expires in 24 hours.")}`,
       "If you didn't create an account, you can safely ignore this email."
-    )
+    ),
+    { critical: true }
   );
 }
 
@@ -399,6 +409,7 @@ export async function sendChangeEmailVerification(
       </div>
       ${hintText("This link expires in 24 hours.")}`,
       "If you didn't request this, you can safely ignore this email."
-    )
+    ),
+    { critical: true }
   );
 }
