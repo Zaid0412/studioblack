@@ -10,7 +10,8 @@ import {
   parseResponse,
 } from "../helpers";
 
-const { setAttachmentFreezeStatus, getOrgRole, getMemberRole } = await import("@/lib/queries");
+const { setAttachmentFreezeStatus, getOrgRole, getMemberRole } =
+  await import("@/lib/queries");
 
 const PARAMS = buildParams({ id: "proj-1", attachmentId: "att-1" });
 
