@@ -4,16 +4,20 @@
  * Usage:
  *   npx tsx scripts/seed-e2e.ts
  *
- * Creates test users with verified emails for Playwright E2E tests.
+ * Creates test users with verified emails for Cypress E2E tests.
  * Uses `e2e-*@test.studioblack.com` email pattern so they're easy to identify and clean up.
  *
  * Prerequisites:
- *   1. Valid DATABASE_URL in .env.local
+ *   1. Valid DATABASE_URL in .env.local or environment
  *   2. Database tables created via `npx @better-auth/cli migrate`
+ *
+ * Note: This script uses raw SQL + scrypt (matching better-auth's hashing)
+ * instead of importing src/lib/auth to avoid requiring Supabase env vars in CI.
  */
 
 import dotenv from "dotenv";
 import path from "path";
+import crypto from "crypto";
 
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
@@ -35,14 +39,29 @@ const users = [
   },
 ];
 
+/**
+ * Hash password using scrypt to match better-auth's default hashing.
+ * Format: salt:derivedKey (hex encoded, same as better-auth)
+ */
+async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(`${salt}:${derivedKey.toString("hex")}`);
+    });
+  });
+}
+
 async function seedE2E() {
-  const { auth } = await import("../src/lib/auth");
   const pg = await import("pg");
   const Pool = pg.default?.Pool ?? pg.Pool;
 
   console.log("Seeding E2E test users...\n");
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+  const hashedPassword = await hashPassword(E2E_PASSWORD);
 
   for (const u of users) {
     try {
@@ -58,24 +77,30 @@ async function seedE2E() {
           `UPDATE "user" SET role = $1, initials = $2, "emailVerified" = true WHERE id = $3`,
           [u.role, u.initials, existing[0].id]
         );
+        // Ensure account exists with correct password
+        await pool.query(
+          `INSERT INTO "account" (id, "userId", "accountId", "providerId", password, "createdAt", "updatedAt")
+           VALUES (gen_random_uuid(), $1, $1, 'credential', $2, NOW(), NOW())
+           ON CONFLICT ("providerId", "accountId") DO UPDATE SET password = $2`,
+          [existing[0].id, hashedPassword]
+        );
         console.log(`  ${u.email} — already exists, updated`);
         continue;
       }
 
-      // Create user via better-auth API
-      const result = await auth.api.signUpEmail({
-        body: { name: u.name, email: u.email, password: E2E_PASSWORD },
-      });
-
-      if (!result?.user?.id) {
-        console.log(`  ${u.email} — could not create`);
-        continue;
-      }
-
-      // Set role, initials, and verify email
+      // Create user via raw SQL
+      const userId = crypto.randomUUID();
       await pool.query(
-        `UPDATE "user" SET role = $1, initials = $2, "emailVerified" = true WHERE id = $3`,
-        [u.role, u.initials, result.user.id]
+        `INSERT INTO "user" (id, name, email, role, initials, "emailVerified", "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())`,
+        [userId, u.name, u.email, u.role, u.initials]
+      );
+
+      // Create credential account (matches better-auth's account table)
+      await pool.query(
+        `INSERT INTO "account" (id, "userId", "accountId", "providerId", password, "createdAt", "updatedAt")
+         VALUES (gen_random_uuid(), $1, $1, 'credential', $2, NOW(), NOW())`,
+        [userId, hashedPassword]
       );
 
       console.log(`  ${u.email} — created (${u.role})`);
@@ -117,7 +142,7 @@ async function seedE2E() {
         orgId = orgRows[0].id;
         console.log(`  E2E Test Org — already exists`);
       } else {
-        // Create org directly via SQL (better-auth API requires a session context)
+        // Create org directly via SQL
         const { rows: newOrg } = await pool.query(
           `INSERT INTO "organization" (id, name, slug, "createdAt")
            VALUES (gen_random_uuid(), 'E2E Test Org', 'e2e-test-org', NOW())
@@ -137,16 +162,13 @@ async function seedE2E() {
       }
 
       // Add architect as member (ignore if already exists)
-      const { rowCount } = await pool.query(
+      await pool.query(
         `INSERT INTO "member" (id, "organizationId", "userId", role, "createdAt")
          VALUES (gen_random_uuid(), $1, $2, 'member', NOW())
          ON CONFLICT DO NOTHING`,
         [orgId, archId]
       );
       console.log(`  Architect added to E2E Test Org`);
-
-      // Set active org for both users (better-auth uses session-level activeOrgId,
-      // but we can also set it in the "session" table if needed)
     }
   } catch (err) {
     console.error(
