@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
@@ -108,20 +108,18 @@ export function AuthShell({
   children,
   redirectDelay = 0,
 }: AuthShellProps) {
-  const t = useTranslations("auth");
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
   const { data: session } = authClient.useSession();
   const { mode: themeMode } = useTheme();
   const isLight = themeMode === "light";
-  const isFirstRender = useRef(true);
+  const [hasRendered, setHasRendered] = useState(false);
 
   // Disable transition on first render to prevent slide-in on page load
   useEffect(() => {
-    // Wait for one frame so the initial position is applied without transition
     const raf = requestAnimationFrame(() => {
-      isFirstRender.current = false;
+      setHasRendered(true);
     });
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -138,7 +136,7 @@ export function AuthShell({
   }, [session?.user, router, redirectDelay, returnTo]);
 
   const isRegister = mode === "register";
-  const shouldAnimate = !isFirstRender.current && mode !== "static";
+  const shouldAnimate = hasRendered && mode !== "static";
 
   // Already signed in state
   if (session?.user) {

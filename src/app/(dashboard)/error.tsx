@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
+/** Dashboard-level error boundary — shown when an unhandled error occurs. */
 export default function DashboardError({
   reset,
 }: {
