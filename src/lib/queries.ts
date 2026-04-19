@@ -1945,7 +1945,7 @@ export async function createProjectAttachment(params: {
 export async function updateAttachmentStatus(
   attachmentId: string,
   projectId: string,
-  reviewStatus: "pending" | "approved" | "rejected" | "reviewed"
+  reviewStatus: "pending" | "approved" | "rejected" | "request_changes"
 ) {
   const pool = getPool();
   const {
