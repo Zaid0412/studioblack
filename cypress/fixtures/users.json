@@ -1,0 +1,12 @@
+{
+  "pm": {
+    "name": "E2E PM User",
+    "email": "e2e-pm@test.studioblack.com",
+    "password": "TestPassword123!"
+  },
+  "architect": {
+    "name": "E2E Architect User",
+    "email": "e2e-architect@test.studioblack.com",
+    "password": "TestPassword123!"
+  }
+}

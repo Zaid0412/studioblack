@@ -1,0 +1,91 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/studioblack_e2e
+  BETTER_AUTH_SECRET: e2e-test-secret-minimum-32-chars-long
+  NEXT_PUBLIC_APP_URL: http://localhost:3000
+  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+  SUPABASE_SERVICE_ROLE_KEY: placeholder-key-for-build
+  E2E_PASSWORD: TestPassword123!
+  NODE_ENV: test
+
+jobs:
+  e2e:
+    name: Cypress E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: studioblack_e2e
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: rm -f package-lock.json && npm install
+
+      - name: Run database migrations
+        run: npx @better-auth/cli migrate --yes 2>/dev/null || echo "Migrations may have already been applied"
+
+      - name: Seed E2E test users
+        run: npx tsx scripts/seed-e2e.ts
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Run E2E tests
+        uses: cypress-io/github-action@v6
+        with:
+          start: npm run start
+          wait-on: http://localhost:3000
+          wait-on-timeout: 120
+          browser: chrome
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots/
+          retention-days: 7
+
+      - name: Upload videos
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-videos
+          path: cypress/videos/
+          retention-days: 7
+
+      - name: Clean up E2E test data
+        if: always()
+        run: npx tsx scripts/cleanup-e2e.ts || true
