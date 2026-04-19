@@ -1,5 +1,6 @@
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
+/** Tasks page loading skeleton. */
 export default function TasksLoading() {
   return (
     <div className="p-4 lg:p-10 space-y-6">

@@ -1,5 +1,6 @@
 import { Skeleton, SkeletonRow, SkeletonText } from "@/components/ui/Skeleton";
 
+/** Project detail loading skeleton. */
 export default function ProjectDetailLoading() {
   return (
     <div className="p-4 lg:p-10 space-y-6">

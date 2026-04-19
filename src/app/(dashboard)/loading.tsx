@@ -1,5 +1,6 @@
 import { Skeleton, SkeletonCard } from "@/components/ui/Skeleton";
 
+/** Dashboard loading skeleton. */
 export default function DashboardLoading() {
   return (
     <div className="p-4 lg:p-10 space-y-6">

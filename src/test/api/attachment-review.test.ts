@@ -45,7 +45,10 @@ function setupReviewMocks(reviewStatus: "approved" | "rejected") {
   setupAuth(mocks.auth, session);
 
   vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-  const updatedAttachment = { ...sampleAttachment, review_status: reviewStatus };
+  const updatedAttachment = {
+    ...sampleAttachment,
+    review_status: reviewStatus,
+  };
   vi.mocked(submitAttachmentReview).mockResolvedValue({
     attachment: updatedAttachment,
     conflict: false,

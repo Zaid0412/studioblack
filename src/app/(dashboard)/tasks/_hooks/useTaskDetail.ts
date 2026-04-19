@@ -119,7 +119,7 @@ export function useTaskDetail(
         fetchChecklist(task.id);
       }
     },
-    [checklistItems, task, fetchChecklist]
+    [checklistItems, task, fetchChecklist, setChecklistItems]
   );
 
   const addItem = useCallback(async () => {
@@ -142,7 +142,7 @@ export function useTaskDetail(
     } finally {
       setAddingItem(false);
     }
-  }, [task, newItemTitle, addingItem, onChecklistChange]);
+  }, [task, newItemTitle, addingItem, onChecklistChange, setChecklistItems]);
 
   const toggleItem = useCallback(
     async (item: ChecklistItem) => {
@@ -166,7 +166,7 @@ export function useTaskDetail(
         );
       }
     },
-    [task, onChecklistChange]
+    [task, onChecklistChange, setChecklistItems]
   );
 
   const deleteItem = useCallback(
@@ -185,7 +185,7 @@ export function useTaskDetail(
         fetchChecklist(task.id);
       }
     },
-    [task, onChecklistChange, fetchChecklist]
+    [task, onChecklistChange, fetchChecklist, setChecklistItems]
   );
 
   // ---- Attachment handlers ----
@@ -213,7 +213,7 @@ export function useTaskDetail(
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [task, uploading]
+    [task, uploading, setAttachments]
   );
 
   const handleDownload = useCallback(async (att: Attachment) => {
@@ -243,7 +243,7 @@ export function useTaskDetail(
         fetchAttachments(task.id);
       }
     },
-    [task, fetchAttachments]
+    [task, fetchAttachments, setAttachments]
   );
 
   return {

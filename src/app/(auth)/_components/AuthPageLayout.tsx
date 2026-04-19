@@ -87,11 +87,7 @@ export function AuthPageLayout({
             )}
           </div>
 
-          {session?.user ? (
-            <AlreadySignedIn />
-          ) : (
-            children
-          )}
+          {session?.user ? <AlreadySignedIn /> : children}
         </div>
       </div>
     </div>

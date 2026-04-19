@@ -1711,6 +1711,7 @@ const TASK_COLS = new Set([
   "reminder_at",
 ]);
 
+/** Update a task with the given fields. */
 export async function updateTask(
   taskId: string,
   fields: Record<string, unknown>,
@@ -2238,6 +2239,7 @@ export async function updatePhaseTaskReviewStatus(
 // Pending email change
 // ---------------------------------------------------------------------------
 
+/** Create a pending email change record and return the verification token. */
 export async function createPendingEmailChange(
   userId: string,
   newEmail: string
@@ -2273,6 +2275,7 @@ interface PendingEmailChange {
   failed_attempts: number;
 }
 
+/** Retrieve a pending email change by token. */
 export async function getPendingEmailChange(
   token: string
 ): Promise<PendingEmailChange | null> {
@@ -2287,6 +2290,7 @@ export async function getPendingEmailChange(
   return rows[0] || null;
 }
 
+/** Increment and return the failed attempts count for a pending email change. */
 export async function incrementFailedAttempts(token: string): Promise<number> {
   const pool = getPool();
   const { rows } = await pool.query(
@@ -2296,6 +2300,7 @@ export async function incrementFailedAttempts(token: string): Promise<number> {
   return rows[0]?.failed_attempts ?? 0;
 }
 
+/** Delete a pending email change by token. */
 export async function deletePendingEmailChange(token: string) {
   const pool = getPool();
   await pool.query(`DELETE FROM pending_email_change WHERE token = $1`, [
@@ -2303,6 +2308,7 @@ export async function deletePendingEmailChange(token: string) {
   ]);
 }
 
+/** Check whether an email address is already in use. */
 export async function isEmailTaken(email: string): Promise<boolean> {
   const pool = getPool();
   const { rows } = await pool.query(
@@ -2323,6 +2329,7 @@ export class EmailTakenError extends Error {
   }
 }
 
+/** Update user email, mark as verified, and invalidate all sessions. */
 export async function updateUserEmail(userId: string, newEmail: string) {
   const pool = getPool();
   try {
@@ -2346,6 +2353,7 @@ export async function updateUserEmail(userId: string, newEmail: string) {
   await pool.query(`DELETE FROM session WHERE "userId" = $1`, [userId]);
 }
 
+/** Get the password hash for a user's credential account. */
 export async function getAccountPasswordHash(
   userId: string
 ): Promise<string | null> {

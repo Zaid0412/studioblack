@@ -22,7 +22,6 @@ import {
   TEST_ORG_ID,
   TEST_USER_ID,
 } from "../helpers";
-import { mocks } from "../setup";
 import { vi } from "vitest";
 
 // ── Shared fixtures ─────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
@@ -17,8 +17,10 @@ interface OrgData {
   currentUserRole: string | null;
 }
 
-/** Track whether setActive has been attempted to avoid repeating on every SWR revalidation.
- *  Module-level so the guard persists across component remounts and is shared across instances. */
+/**
+ * Track whether setActive has been attempted to avoid repeating on every SWR revalidation.
+ * Module-level so the guard persists across component remounts and is shared across instances.
+ */
 let activationAttempted = false;
 
 /** Fetches org data via authClient. Used as custom SWR fetcher. */
@@ -71,7 +73,6 @@ async function orgFetcher(): Promise<OrgData | null> {
 export function useOrganisation() {
   const t = useTranslations("organisation");
   const tc = useTranslations("common");
-  const router = useRouter();
   const isVisible = usePageVisibility();
 
   // -- Org data (SWR with auto-polling, pauses when tab hidden) --

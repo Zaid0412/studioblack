@@ -31,7 +31,6 @@ export default function ProjectDetailPage({
 
   const {
     project,
-    attachments,
     comments,
     approvals,
     pendingTasks,

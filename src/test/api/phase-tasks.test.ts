@@ -24,7 +24,6 @@ import {
   mockSession,
   setupAuth,
   parseResponse,
-  TEST_USER_ID,
 } from "../helpers";
 import { mocks } from "../setup";
 
