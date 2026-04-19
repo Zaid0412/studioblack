@@ -61,12 +61,12 @@ export function UploadDialog({
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (initialFiles && initialFiles.length > 0) {
+    if (open && initialFiles && initialFiles.length > 0) {
       const selected = versionGroup ? [initialFiles[0]] : initialFiles;
       setFiles(selected);
       setDisplayNames(selected.map((f) => f.name));
     }
-  }, [initialFiles, versionGroup]);
+  }, [open, initialFiles, versionGroup]);
 
   const resetState = useCallback(() => {
     setFiles([]);

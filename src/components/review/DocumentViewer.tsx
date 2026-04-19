@@ -9,9 +9,17 @@ import {
 } from "react";
 import { Download, FileText, MapPin } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
+import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { isImage, isPdf, isSpreadsheet } from "@/lib/fileUtils";
-import { SpreadsheetViewer } from "./SpreadsheetViewer";
+
+const SpreadsheetViewer = dynamic(
+  () =>
+    import("./SpreadsheetViewer").then((mod) => ({
+      default: mod.SpreadsheetViewer,
+    })),
+  { ssr: false }
+);
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
@@ -87,33 +95,40 @@ export function DocumentViewer({
 
   // Render individual pages onto canvases
   useEffect(() => {
-    if (!pdfDocRef.current || numPages === 0) return;
+    const pdfDoc = pdfDocRef.current;
+    if (!pdfDoc || numPages === 0) return;
     let cancelled = false;
 
-    async function renderPages() {
-      const doc = pdfDocRef.current;
-      if (!doc) return;
+    // Use requestAnimationFrame to ensure canvas refs are populated after React render
+    const rafId = requestAnimationFrame(() => {
+      async function renderPages() {
+        if (cancelled || !pdfDoc) return;
 
-      for (let i = 1; i <= doc.numPages; i++) {
-        if (cancelled) return;
-        const canvas = canvasRefs.current.get(i);
-        if (!canvas) continue;
+        for (let i = 1; i <= pdfDoc.numPages; i++) {
+          if (cancelled) return;
+          const canvas = canvasRefs.current.get(i);
+          if (!canvas) continue;
 
-        const page = await doc.getPage(i);
-        const viewport = page.getViewport({ scale: 1.5 });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+          const page = await pdfDoc.getPage(i);
+          if (cancelled) return;
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) continue;
+          const viewport = page.getViewport({ scale: 1.5 });
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
 
-        await page.render({ canvasContext: ctx, viewport }).promise;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) continue;
+
+          await page.render({ canvasContext: ctx, viewport }).promise;
+        }
       }
-    }
 
-    renderPages();
+      renderPages();
+    });
+
     return () => {
       cancelled = true;
+      cancelAnimationFrame(rafId);
     };
   }, [numPages]);
 

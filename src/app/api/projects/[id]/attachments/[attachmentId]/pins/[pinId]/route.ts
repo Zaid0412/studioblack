@@ -15,13 +15,13 @@ import { findPinOrFail } from "../helpers";
  */
 export const PATCH = withAuth(
   { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
-  async (req, { user }, params) => {
+  async (req, { user, effectiveRole }, params) => {
     const pinOrError = await findPinOrFail(params);
     if (pinOrError instanceof NextResponse) return pinOrError;
     const pin = pinOrError;
 
-    const isPm = user.role === "pm";
-    const isStaff = isPm; // all non-client authenticated users are staff
+    const isPm = effectiveRole === "pm";
+    const isStaff = effectiveRole !== "client";
 
     const parsed = await parseRequest(req, updatePinSchema);
     if (!parsed.success) {
@@ -86,13 +86,13 @@ export const PATCH = withAuth(
 /** DELETE /api/projects/[id]/attachments/[attachmentId]/pins/[pinId] — delete a pin. */
 export const DELETE = withAuth(
   { projectAccess: true, rateLimit: { limit: 30, windowMs: 60_000 } },
-  async (req, { user }, params) => {
+  async (req, { user, effectiveRole }, params) => {
     const pinOrError = await findPinOrFail(params);
     if (pinOrError instanceof NextResponse) return pinOrError;
     const pin = pinOrError;
 
     // Only the pin author or a PM can delete
-    const isPm = user.role === "pm";
+    const isPm = effectiveRole === "pm";
     if (pin.user_id !== user.id && !isPm) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

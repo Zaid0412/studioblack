@@ -5,8 +5,6 @@ import {
   createProjectAttachment,
   updateAttachmentStatus,
   deleteAttachment,
-  verifyResourceOwnership,
-  getAttachmentVersionHistory,
   getOrgRole,
   hasProjectAccess,
 } from "@/lib/queries";

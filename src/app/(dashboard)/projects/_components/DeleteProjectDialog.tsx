@@ -23,6 +23,7 @@ interface DeleteProjectDialogProps {
   confirmLabel: string;
 }
 
+/** Confirmation dialog for deleting a project. */
 export function DeleteProjectDialog({
   open,
   onOpenChange,

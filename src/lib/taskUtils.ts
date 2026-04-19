@@ -1,4 +1,5 @@
 import type { TaskPriority, TaskStatus, TaskCategory } from "@/types";
+import { deriveInitials } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Option arrays (for dropdowns / selects)
@@ -20,6 +21,8 @@ export const CATEGORIES: readonly TaskCategory[] = [
   "handover",
 ];
 
+// "archived" is intentionally excluded — users cannot set a task to archived
+// via the status dropdown; archiving is handled by a separate action.
 export const STATUSES: readonly TaskStatus[] = [
   "todo",
   "in_progress",
@@ -30,28 +33,28 @@ export const STATUSES: readonly TaskStatus[] = [
 // Display maps
 // ---------------------------------------------------------------------------
 
-export const PRIORITY_DOT: Record<string, string> = {
+export const PRIORITY_DOT: Record<TaskPriority, string> = {
   urgent: "bg-red-500",
   high: "bg-orange-500",
   medium: "bg-yellow-500",
   low: "bg-gray-400",
 };
 
-export const PRIORITY_LABEL: Record<string, string> = {
+export const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
   urgent: "Urgent",
 };
 
-export const STATUS_LABEL: Record<string, string> = {
+export const STATUS_LABEL: Record<TaskStatus, string> = {
   todo: "To Do",
   in_progress: "In Progress",
   completed: "Completed",
   archived: "Archived",
 };
 
-export const STATUS_DOT: Record<string, string> = {
+export const STATUS_DOT: Record<TaskStatus, string> = {
   todo: "bg-blue-500",
   in_progress: "bg-yellow-500",
   completed: "bg-green-500",
@@ -59,7 +62,7 @@ export const STATUS_DOT: Record<string, string> = {
 };
 
 export const STATUS_BADGE_VARIANT: Record<
-  string,
+  TaskStatus,
   "draft" | "warning" | "success" | "archived"
 > = {
   todo: "draft",
@@ -68,26 +71,25 @@ export const STATUS_BADGE_VARIANT: Record<
   archived: "archived",
 };
 
-export const NEXT_STATUS: Record<string, "todo" | "in_progress" | "completed"> =
-  {
-    todo: "in_progress",
-    in_progress: "completed",
-    completed: "todo",
-  };
+export const NEXT_STATUS: Record<
+  TaskStatus,
+  "todo" | "in_progress" | "completed"
+> = {
+  todo: "in_progress",
+  in_progress: "completed",
+  completed: "todo",
+  archived: "todo",
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Extract 1-2 character uppercase initials from a full name. */
-export function initials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+/**
+ * @deprecated Use `deriveInitials` from `@/lib/utils` directly.
+ * Re-exported here for backward compatibility.
+ */
+export const initials = deriveInitials;
 
 /** Capitalize the first character of a string. */
 export function capitalize(s: string): string {

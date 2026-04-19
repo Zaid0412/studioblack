@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback, useEffect } from "react";
+import { use, useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -91,12 +91,14 @@ export default function DesignReviewPage({
 
   // Org members for assignee dropdown (same source as tasks page)
   const { members: orgMembers } = useOrgMembers({ assignableOnly: true });
-  const members = orgMembers.map((m) => ({
-    user_id: m.userId,
-    name: m.user.name,
-  }));
-  const defaultAssignee =
-    orgMembers.find((m) => m.role === "member")?.userId ?? "";
+  const members = useMemo(
+    () => orgMembers.map((m) => ({ user_id: m.userId, name: m.user.name })),
+    [orgMembers]
+  );
+  const defaultAssignee = useMemo(
+    () => orgMembers.find((m) => m.role === "member")?.userId ?? "",
+    [orgMembers]
+  );
 
   // Pending pin: stores the click coordinates while the form is open
   const [pendingPin, setPendingPin] = useState<{

@@ -9,7 +9,11 @@ export const TASK_STATUSES = [
   "completed",
   "archived",
 ] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
 export const TASK_CATEGORIES = [
   "general",
   "design",
@@ -18,6 +22,7 @@ export const TASK_CATEGORIES = [
   "production",
   "handover",
 ] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 export const PROJECT_STATUSES = [
   "draft",
   "active",

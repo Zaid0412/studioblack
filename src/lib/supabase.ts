@@ -7,18 +7,22 @@ import { env } from "@/env";
  * Uses the service role key — must NEVER be imported in client components.
  * Currently used for Storage uploads (avatar images).
  *
- * Lazily initialised so the build doesn't crash when env vars are absent
- * (e.g. CI without Supabase credentials).
+ * Uses globalThis to survive Next.js dev-mode hot reloads without leaking
+ * connections (each HMR cycle re-evaluates modules but globalThis persists).
  */
-let _client: SupabaseClient | null = null;
+const globalForSupabase = globalThis as unknown as {
+  supabaseAdmin?: SupabaseClient;
+};
 
 /** Return the lazily-initialised Supabase admin client. */
 export function getSupabaseAdmin(): SupabaseClient {
-  if (!_client) {
-    _client = createClient(
-      env().NEXT_PUBLIC_SUPABASE_URL,
-      env().SUPABASE_SERVICE_ROLE_KEY
-    );
-  }
-  return _client;
+  if (globalForSupabase.supabaseAdmin) return globalForSupabase.supabaseAdmin;
+
+  const client = createClient(
+    env().NEXT_PUBLIC_SUPABASE_URL,
+    env().SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  globalForSupabase.supabaseAdmin = client;
+  return client;
 }

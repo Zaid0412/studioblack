@@ -1,8 +1,9 @@
 "use client";
 
-import { use, useState, useEffect, useMemo } from "react";
+import { use, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteProjectDialog } from "../../_components/DeleteProjectDialog";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import {
   ProjectForm,
@@ -54,21 +56,12 @@ export default function EditProjectPage({
   const { members: architects } = useOrgMembers();
   const { members: clients } = useOrgMembers({ roleFilter: "client" });
 
-  const [project, setProject] = useState<ProjectData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: project, isLoading: loading } = useSWR<ProjectData>(
+    API.project(id)
+  );
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    projects
-      .get<ProjectData>(id)
-      .then((data) => {
-        setProject(data);
-      })
-      .catch(() => setProject(null))
-      .finally(() => setLoading(false));
-  }, [id]);
 
   const initialData = useMemo(() => {
     if (!project) return undefined;

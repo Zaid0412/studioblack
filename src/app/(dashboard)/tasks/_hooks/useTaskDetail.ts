@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
+import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { tasks as tasksApi, upload } from "@/lib/api";
 import { downloadFile } from "@/lib/download";
@@ -21,57 +22,63 @@ export function useTaskDetail(
   open: boolean,
   onChecklistChange?: () => void
 ) {
-  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newItemTitle, setNewItemTitle] = useState("");
   const [addingItem, setAddingItem] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [loadingChecklist, setLoadingChecklist] = useState(false);
-  const [loadingAttachments, setLoadingAttachments] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ---- Data fetching ----
+  // ---- Data fetching (SWR) ----
 
-  const fetchChecklist = useCallback(async (taskId: string) => {
-    setLoadingChecklist(true);
-    try {
-      const items = await tasksApi.getChecklist(taskId);
-      setChecklistItems(items);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingChecklist(false);
-    }
-  }, []);
+  const taskId = task?.id ?? null;
+  const checklistKey = open && taskId ? `task-checklist-${taskId}` : null;
+  const attachmentsKey = open && taskId ? `task-attachments-${taskId}` : null;
 
-  const fetchAttachments = useCallback(async (taskId: string) => {
-    setLoadingAttachments(true);
-    try {
-      const items = await tasksApi.getAttachments(taskId);
-      setAttachments(items);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingAttachments(false);
-    }
-  }, []);
+  const {
+    data: checklistItems = [],
+    isLoading: loadingChecklist,
+    mutate: mutateChecklist,
+  } = useSWR<ChecklistItem[]>(checklistKey, () =>
+    tasksApi.getChecklist(taskId!)
+  );
 
-  useEffect(() => {
-    if (open && task?.id) {
-      fetchChecklist(task.id);
-      fetchAttachments(task.id);
-    } else {
-      setChecklistItems([]);
-      setNewItemTitle("");
-      setAttachments([]);
-      setPreviewId(null);
-      setPreviewLoading(null);
-      setLightboxUrl(null);
-    }
-  }, [open, task?.id, fetchChecklist, fetchAttachments]);
+  const {
+    data: attachments = [],
+    isLoading: loadingAttachments,
+    mutate: mutateAttachments,
+  } = useSWR<Attachment[]>(attachmentsKey, () =>
+    tasksApi.getAttachments(taskId!)
+  );
+
+  const setChecklistItems = useCallback(
+    (
+      updater: ChecklistItem[] | ((prev: ChecklistItem[]) => ChecklistItem[])
+    ) => {
+      mutateChecklist(
+        (prev) => {
+          const current = prev ?? [];
+          return typeof updater === "function" ? updater(current) : updater;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutateChecklist]
+  );
+
+  const setAttachments = useCallback(
+    (updater: Attachment[] | ((prev: Attachment[]) => Attachment[])) => {
+      mutateAttachments(
+        (prev) => {
+          const current = prev ?? [];
+          return typeof updater === "function" ? updater(current) : updater;
+        },
+        { revalidate: false }
+      );
+    },
+    [mutateAttachments]
+  );
 
   // ---- Checklist handlers ----
 
@@ -93,10 +100,11 @@ export function useTaskDetail(
           reordered.map((i) => i.id)
         );
       } catch {
-        fetchChecklist(task.id);
+        // Revalidate from server to restore correct order
+        mutateChecklist();
       }
     },
-    [checklistItems, task, fetchChecklist]
+    [checklistItems, task, mutateChecklist, setChecklistItems]
   );
 
   const addItem = useCallback(async () => {
@@ -119,7 +127,7 @@ export function useTaskDetail(
     } finally {
       setAddingItem(false);
     }
-  }, [task, newItemTitle, addingItem, onChecklistChange]);
+  }, [task, newItemTitle, addingItem, onChecklistChange, setChecklistItems]);
 
   const toggleItem = useCallback(
     async (item: ChecklistItem) => {
@@ -143,7 +151,7 @@ export function useTaskDetail(
         );
       }
     },
-    [task, onChecklistChange]
+    [task, onChecklistChange, setChecklistItems]
   );
 
   const deleteItem = useCallback(
@@ -159,10 +167,10 @@ export function useTaskDetail(
           description: "Failed to delete checklist item",
           variant: "error",
         });
-        fetchChecklist(task.id);
+        mutateChecklist();
       }
     },
-    [task, onChecklistChange, fetchChecklist]
+    [task, onChecklistChange, mutateChecklist, setChecklistItems]
   );
 
   // ---- Attachment handlers ----
@@ -190,7 +198,7 @@ export function useTaskDetail(
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [task, uploading]
+    [task, uploading, setAttachments]
   );
 
   const handleDownload = useCallback(async (att: Attachment) => {
@@ -217,10 +225,10 @@ export function useTaskDetail(
           description: "Failed to delete attachment",
           variant: "error",
         });
-        fetchAttachments(task.id);
+        mutateAttachments();
       }
     },
-    [task, fetchAttachments]
+    [task, mutateAttachments, setAttachments]
   );
 
   return {

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { hasProjectAccess, getOrgRole, getMemberRole } from "@/lib/queries";
 import { rateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
+import type { UserRole } from "@/types";
 
 type Session = Awaited<ReturnType<typeof auth.api.getSession>>;
 type User = NonNullable<Session>["user"];
@@ -13,6 +14,7 @@ export interface AuthContext {
   user: User;
   orgId: string | null;
   orgRole?: string | null;
+  effectiveRole: UserRole;
   requestId: string;
 }
 
@@ -98,7 +100,9 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
-    const session = await auth.api.getSession({ headers: await headers() });
+    const reqHeaders = await headers();
+
+    const session = await auth.api.getSession({ headers: reqHeaders });
     if (!session) {
       logger.warn("Unauthorized request — no session", { requestId, route });
       return withRequestId(
@@ -114,7 +118,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     let orgId = session.session.activeOrganizationId ?? null;
     if (!orgId) {
       const orgs = await auth.api.listOrganizations({
-        headers: await headers(),
+        headers: reqHeaders,
       });
       if (orgs && orgs.length > 0) orgId = orgs[0].id;
     }
@@ -122,10 +126,14 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
     // Derive the effective role — must match the layout's getEffectiveRole().
     // user.role is the DB default ("pm"). For org members invited as "client",
     // the org membership role is authoritative, not user.role.
-    // Only query the DB when the route actually needs role information.
-    let role = user.role ?? "";
+    // Only query getMemberRole when the route actually needs role info to avoid
+    // an extra DB round-trip on every request.
+    let role: UserRole = (user.role as UserRole) ?? "pm";
     const needsRole =
-      options.allowedRoles || options.blockedRoles || options.projectAccess;
+      options.allowedRoles ||
+      options.blockedRoles ||
+      options.projectAccess ||
+      options.fetchOrgRole;
     if (needsRole) {
       if (role === "client") {
         // DB role is already client — authoritative
@@ -218,11 +226,24 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
-    const response = await handler(
-      req,
-      { session, user, orgId, orgRole, requestId },
-      resolvedParams
-    );
-    return withRequestId(response, requestId);
+    try {
+      const response = await handler(
+        req,
+        { session, user, orgId, orgRole, effectiveRole: role, requestId },
+        resolvedParams
+      );
+      return withRequestId(response, requestId);
+    } catch (err) {
+      logger.error("Unhandled error in route handler", {
+        requestId,
+        route,
+        userId: user.id,
+        error: err,
+      });
+      return withRequestId(
+        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
+        requestId
+      );
+    }
   };
 }

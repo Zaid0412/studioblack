@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { POLLING_INTERVAL_MS } from "@/lib/constants";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { OrgMember, OrgInvitation } from "@/types";
 
 interface OrgData {
@@ -16,7 +17,10 @@ interface OrgData {
   currentUserRole: string | null;
 }
 
-/** Track whether setActive has been attempted to avoid repeating on every SWR revalidation. */
+/**
+ * Track whether setActive has been attempted to avoid repeating on every SWR revalidation.
+ * Module-level so the guard persists across component remounts and is shared across instances.
+ */
 let activationAttempted = false;
 
 /** Fetches org data via authClient. Used as custom SWR fetcher. */
@@ -53,7 +57,12 @@ async function orgFetcher(): Promise<OrgData | null> {
   }
 
   return {
-    org: { id: data.id, name: data.name, slug: data.slug, logo: data.logo },
+    org: {
+      id: data.id,
+      name: data.name,
+      slug: data.slug,
+      logo: data.logo,
+    },
     members,
     invitations: (data.invitations as OrgInvitation[]) ?? [],
     currentUserRole,
@@ -64,7 +73,7 @@ async function orgFetcher(): Promise<OrgData | null> {
 export function useOrganisation() {
   const t = useTranslations("organisation");
   const tc = useTranslations("common");
-  const router = useRouter();
+  const isVisible = usePageVisibility();
 
   // -- Org data (SWR with auto-polling, pauses when tab hidden) --
   const {
@@ -72,7 +81,7 @@ export function useOrganisation() {
     isLoading: loading,
     mutate,
   } = useSWR<OrgData | null>("org-full", orgFetcher, {
-    refreshInterval: POLLING_INTERVAL_MS,
+    refreshInterval: isVisible ? POLLING_INTERVAL_MS : 0,
   });
 
   const activeOrg = orgData?.org ?? null;

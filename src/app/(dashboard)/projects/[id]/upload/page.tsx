@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useCallback, useRef } from "react";
+import { use, useState, useCallback, useRef, useEffect } from "react";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
 import { useRouter } from "next/navigation";
 import {
@@ -38,6 +38,14 @@ export default function DesignUploadPage({
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup redirect timer on unmount
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, []);
 
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles);
@@ -78,7 +86,7 @@ export default function DesignUploadPage({
       setDescription("");
 
       // Go back after a short delay
-      setTimeout(() => {
+      redirectTimerRef.current = setTimeout(() => {
         router.push(`/projects/${id}`);
         router.refresh();
       }, 1500);

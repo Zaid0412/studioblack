@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { MapPin, MessageCircle, X, Plus } from "lucide-react";
 import {
   Tooltip,
@@ -96,10 +96,10 @@ export function PinSidebar({
   // Show form when pendingPin is set (from document click)
   const formVisible = showNewForm || !!pendingPin || !!requestChangesMode;
 
-  if (!shouldRender) return null;
+  const sorted = useMemo(() => sortPinsByDate(pins), [pins]);
+  const pinIndexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
 
-  const sorted = sortPinsByDate(pins);
-  const pinIndexMap = buildPinIndexMap(pins);
+  if (!shouldRender) return null;
 
   return (
     <div

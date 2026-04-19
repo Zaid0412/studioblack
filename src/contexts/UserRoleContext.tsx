@@ -10,6 +10,7 @@ interface UserRoleContextValue {
 
 const UserRoleContext = createContext<UserRoleContextValue | null>(null);
 
+/** Provides user role and ID to the component tree. */
 export function UserRoleProvider({
   role,
   userId,

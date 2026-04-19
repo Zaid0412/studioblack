@@ -37,6 +37,27 @@ const sampleAttachment = {
   sent_to_client_at: null,
 };
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Set up mocks for a review submission (approve or reject). Returns the session and expected attachment. */
+function setupReviewMocks(reviewStatus: "approved" | "rejected") {
+  const session = mockSession();
+  setupAuth(mocks.auth, session);
+
+  vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
+  const updatedAttachment = {
+    ...sampleAttachment,
+    review_status: reviewStatus,
+  };
+  vi.mocked(submitAttachmentReview).mockResolvedValue({
+    attachment: updatedAttachment,
+    conflict: false,
+  } as never);
+  vi.mocked(createAttachmentReview).mockResolvedValue(undefined as never);
+
+  return { session, updatedAttachment };
+}
+
 // ── PATCH /api/projects/[id]/attachments/[attachmentId]/review ──────────────
 
 describe("PATCH .../review", () => {
@@ -45,19 +66,7 @@ describe("PATCH .../review", () => {
   });
 
   it("approves attachment", async () => {
-    const session = mockSession();
-    setupAuth(mocks.auth, session);
-
-    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-    const updatedAttachment = {
-      ...sampleAttachment,
-      review_status: "approved",
-    };
-    vi.mocked(submitAttachmentReview).mockResolvedValue({
-      attachment: updatedAttachment,
-      conflict: false,
-    } as never);
-    vi.mocked(createAttachmentReview).mockResolvedValue(undefined as never);
+    const { session, updatedAttachment } = setupReviewMocks("approved");
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/review`,
@@ -81,19 +90,7 @@ describe("PATCH .../review", () => {
   });
 
   it("rejects attachment with comment", async () => {
-    const session = mockSession();
-    setupAuth(mocks.auth, session);
-
-    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-    const updatedAttachment = {
-      ...sampleAttachment,
-      review_status: "rejected",
-    };
-    vi.mocked(submitAttachmentReview).mockResolvedValue({
-      attachment: updatedAttachment,
-      conflict: false,
-    } as never);
-    vi.mocked(createAttachmentReview).mockResolvedValue(undefined as never);
+    const { session, updatedAttachment } = setupReviewMocks("rejected");
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/attachments/${ATTACHMENT_ID}/review`,

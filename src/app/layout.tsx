@@ -34,6 +34,12 @@ export default async function RootLayout({
           }}
         />
         {/* Fontshare: Satoshi (body) + Cabinet Grotesk (headings) */}
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link
+          rel="preconnect"
+          href="https://cdn.fontshare.com"
+          crossOrigin="anonymous"
+        />
         <link
           href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap"
           rel="stylesheet"

@@ -20,9 +20,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
       body.error || body.message || `Request failed (${res.status})`
     );
   }
+  // 204 No Content or empty body — expected for DELETE and some POST responses
+  if (res.status === 204) return undefined as T;
   const text = await res.text();
-  /** Returns undefined for empty response bodies (e.g. 204 No Content). */
-  if (!text) return undefined as unknown as T;
+  if (!text) return undefined as T;
   return JSON.parse(text) as T;
 }
 

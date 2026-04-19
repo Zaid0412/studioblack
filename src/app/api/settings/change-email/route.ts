@@ -4,6 +4,7 @@ import { parseRequest } from "@/lib/validations";
 import { z } from "zod";
 import { createPendingEmailChange, isEmailTaken } from "@/lib/queries";
 import { sendChangeEmailVerification } from "@/lib/email";
+import { env } from "@/env";
 
 const changeEmailSchema = z.object({
   newEmail: z.string().email(),
@@ -38,9 +39,7 @@ export const POST = withAuth(
 
     const { token } = await createPendingEmailChange(user.id, normalizedNew);
 
-    const proto = req.headers.get("x-forwarded-proto") ?? "https";
-    const host = req.headers.get("host") ?? "localhost:3000";
-    const baseUrl = `${proto}://${host}`;
+    const baseUrl = env().NEXT_PUBLIC_APP_URL;
     const verifyUrl = `${baseUrl}/verify-email-change?token=${token}`;
 
     await sendChangeEmailVerification(

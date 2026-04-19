@@ -4,6 +4,7 @@ import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
 import { POLLING_INTERVAL_MS } from "@/lib/constants";
+import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { Notification, DbNotificationRow } from "@/types";
 
 // next-intl's Translator uses Record<string, any> — narrowing further breaks compatibility
@@ -29,6 +30,7 @@ export function useNotifications({
   onNavigate,
   onClose,
 }: UseNotificationsOptions) {
+  const isVisible = usePageVisibility();
   const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
 
   const roleLabel = useCallback(
@@ -47,7 +49,7 @@ export function useNotifications({
     isLoading: dbLoading,
     mutate: mutateDbNotifs,
   } = useSWR<DbNotificationRow[]>("/api/notifications", {
-    refreshInterval: POLLING_INTERVAL_MS,
+    refreshInterval: isVisible ? POLLING_INTERVAL_MS : 0,
   });
 
   // -- Invitation notifications (SWR with custom fetcher) --
@@ -98,7 +100,7 @@ export function useNotifications({
     isLoading: invLoading,
     mutate: mutateInvitations,
   } = useSWR<InvitationData>("invitations", invitationFetcher, {
-    refreshInterval: POLLING_INTERVAL_MS,
+    refreshInterval: isVisible ? POLLING_INTERVAL_MS : 0,
   });
 
   const invitationNotifs = useMemo(

@@ -1,3 +1,5 @@
+import type { TaskStatus, TaskPriority, TaskCategory } from "@/lib/validations";
+
 /** Roles available to authenticated users. */
 export type UserRole = "pm" | "architect" | "client";
 
@@ -266,15 +268,7 @@ export interface DbPendingTask {
 // Task manager types
 // ---------------------------------------------------------------------------
 
-export type TaskStatus = "todo" | "in_progress" | "completed" | "archived";
-export type TaskPriority = "low" | "medium" | "high" | "urgent";
-export type TaskCategory =
-  | "general"
-  | "design"
-  | "review"
-  | "revision"
-  | "production"
-  | "handover";
+export type { TaskStatus, TaskPriority, TaskCategory };
 
 export interface Task {
   id: string;

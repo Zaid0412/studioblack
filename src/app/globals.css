@@ -98,6 +98,20 @@
   display: none;
 }
 
+/* ─── Not-found page logo: swap light/dark via data-theme ─── */
+.not-found-logo-light {
+  display: block;
+}
+.not-found-logo-dark {
+  display: none;
+}
+:root[data-theme="dark"] .not-found-logo-light {
+  display: none;
+}
+:root[data-theme="dark"] .not-found-logo-dark {
+  display: block;
+}
+
 /* ─── Tailwind v4 theme extension ─── */
 @theme inline {
   /* Backgrounds */
@@ -262,4 +276,9 @@ h6 {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+/* Auth shell slide panels — only animate after first paint (data-ready) */
+[data-ready] > .auth-slide-panel {
+  transition: left 500ms ease-in-out;
 }

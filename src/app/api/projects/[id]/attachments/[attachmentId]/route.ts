@@ -34,15 +34,13 @@ export const GET = withAuth(
 /** DELETE /api/projects/[id]/attachments/[attachmentId] — remove an attachment. */
 export const DELETE = withAuth(
   { projectAccess: true, allowedRoles: ["pm", "architect"] },
-  async (req, { user }, params) => {
+  async (req, { user, effectiveRole }, params) => {
     const { id, attachmentId } = params;
 
     // Architects can only delete their own uploads
     const attachmentOrErr = await findAttachmentOrFail(attachmentId, id);
     if (attachmentOrErr instanceof NextResponse) return attachmentOrErr;
     const attachment = attachmentOrErr;
-
-    const effectiveRole = user.role === "pm" ? "pm" : "architect";
     if (effectiveRole === "architect" && attachment.uploaded_by !== user.id) {
       return NextResponse.json(
         { error: "You can only remove files you uploaded" },

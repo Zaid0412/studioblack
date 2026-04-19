@@ -15,7 +15,7 @@ import { logger } from "@/lib/logger";
 /** GET /api/projects/[id]/attachments — list attachments. */
 export const GET = withAuth(
   { projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, { effectiveRole }, params) => {
     const { id } = params;
 
     const { searchParams } = req.nextUrl;
@@ -24,7 +24,7 @@ export const GET = withAuth(
       phaseId: searchParams.get("phaseId") || undefined,
       taskId: searchParams.get("taskId") || undefined,
       all: searchParams.get("all") === "true",
-      clientOnly: user.role === "client",
+      clientOnly: effectiveRole === "client",
     });
 
     return NextResponse.json(attachments);

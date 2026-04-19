@@ -67,9 +67,12 @@ export const auth = betterAuth({
       enabled: true,
       beforeDelete: async (user) => {
         const pool = getPool();
+        const client = await pool.connect();
         try {
+          await client.query("BEGIN");
+
           // Block deletion if user is the sole owner of any organization
-          const { rows: soleOwnerOrgs } = await pool.query(
+          const { rows: soleOwnerOrgs } = await client.query(
             `SELECT m."organizationId" FROM "member" m
              WHERE m."userId" = $1 AND m.role = 'owner'
              AND NOT EXISTS (
@@ -88,7 +91,7 @@ export const auth = betterAuth({
           // Nullify FK references before user row deletion so
           // ON DELETE SET NULL triggers don't hit NOT NULL constraints.
           await Promise.all([
-            pool.query(
+            client.query(
               `UPDATE attachment SET
                  uploaded_by = CASE WHEN uploaded_by = $1 THEN NULL ELSE uploaded_by END,
                  reviewed_by = CASE WHEN reviewed_by = $1 THEN NULL ELSE reviewed_by END,
@@ -96,14 +99,15 @@ export const auth = betterAuth({
                WHERE uploaded_by = $1 OR reviewed_by = $1 OR sent_to_client_by = $1`,
               [user.id]
             ),
-            pool.query(`UPDATE comment SET user_id = NULL WHERE user_id = $1`, [
-              user.id,
-            ]),
-            pool.query(
+            client.query(
+              `UPDATE comment SET user_id = NULL WHERE user_id = $1`,
+              [user.id]
+            ),
+            client.query(
               `UPDATE project SET created_by = NULL WHERE created_by = $1`,
               [user.id]
             ),
-            pool.query(
+            client.query(
               `UPDATE phase_task SET assigned_to = NULL WHERE assigned_to = $1`,
               [user.id]
             ),
@@ -111,16 +115,20 @@ export const auth = betterAuth({
 
           // Clean up better-auth org plugin tables BEFORE user row is deleted,
           // otherwise FK constraints on member/invitation block the deletion.
-          await pool.query(`DELETE FROM "member" WHERE "userId" = $1`, [
+          await client.query(`DELETE FROM "member" WHERE "userId" = $1`, [
             user.id,
           ]);
-          await pool.query(`DELETE FROM "invitation" WHERE "inviterId" = $1`, [
-            user.id,
-          ]);
+          await client.query(
+            `DELETE FROM "invitation" WHERE "inviterId" = $1`,
+            [user.id]
+          );
+
+          await client.query("COMMIT");
           logger.info("Cleaned up org membership before user deletion", {
             email: user.email,
           });
         } catch (err) {
+          await client.query("ROLLBACK");
           // Re-throw sole-owner guard — let everything else fail gracefully
           if (err instanceof Error && err.message.includes("sole owner")) {
             throw err;
@@ -129,6 +137,8 @@ export const auth = betterAuth({
             email: user.email,
             error: err,
           });
+        } finally {
+          client.release();
         }
       },
     },

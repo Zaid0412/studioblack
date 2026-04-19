@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import React from "react";
+import { SWRConfig } from "swr";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -40,6 +42,13 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
+vi.mock("@/lib/api/routes", () => ({
+  API: {
+    attachmentPins: (pid: string, fid: string) =>
+      `/api/projects/${pid}/attachments/${fid}/pins`,
+  },
+}));
+
 vi.mock("@/components/ui/useToast", () => ({
   toast: (...args: unknown[]) => mockToast(...args),
 }));
@@ -48,19 +57,9 @@ vi.mock("@/lib/download", () => ({
   downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
 }));
 
-vi.mock("swr", () => ({
-  __esModule: true,
-  default: () => ({
-    data: undefined,
-    isLoading: false,
-    error: undefined,
-    mutate: vi.fn(),
-  }),
-}));
-
 beforeEach(() => vi.clearAllMocks());
 
-// ── usePinComments ───────────────────────────────────────────────────────────
+// ── usePinComments ────────────────────────────────────────────────���──────────
 
 import { usePinComments } from "@/hooks/usePinComments";
 import type { DbPinComment, DbAttachment } from "@/types";
@@ -94,11 +93,36 @@ describe("usePinComments", () => {
     userName: "Zaid",
   };
 
+  /** Custom SWR fetcher that delegates to pinComments.list (matching hook behavior). */
+  function pinSwrWrapper({ children }: { children: React.ReactNode }) {
+    return React.createElement(
+      SWRConfig,
+      {
+        value: {
+          provider: () => new Map(),
+          dedupingInterval: 0,
+          fetcher: (key: string) => {
+            // The hook uses API.attachmentPins as SWR key — the global fetcher
+            // calls apiGet which we don't mock. Instead, intercept and delegate
+            // to the mock pinComments.list.
+            if (key.includes("/pins")) {
+              return mockPinList("proj-1", "att-1");
+            }
+            return Promise.resolve(undefined);
+          },
+        },
+      },
+      children
+    );
+  }
+
   it("starts with loading=true and fetches pins on mount", async () => {
     const pins = [makePin()];
     mockPinList.mockResolvedValue(pins);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
 
     expect(result.current.loading).toBe(true);
 
@@ -110,7 +134,9 @@ describe("usePinComments", () => {
   it("shows error toast when initial fetch fails", async () => {
     mockPinList.mockRejectedValue(new Error("fail"));
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(mockToast).toHaveBeenCalledWith(
@@ -126,7 +152,9 @@ describe("usePinComments", () => {
     const realPin = makePin({ id: "real-1", content: "Hello" });
     mockPinCreate.mockResolvedValue(realPin);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -156,7 +184,9 @@ describe("usePinComments", () => {
     mockPinList.mockResolvedValue([]);
     mockPinCreate.mockRejectedValue(new Error("fail"));
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -176,7 +206,9 @@ describe("usePinComments", () => {
     mockPinList.mockResolvedValue([makePin({ id: "pin-1", resolved: false })]);
     mockPinResolve.mockRejectedValue(new Error("fail"));
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     // Optimistic update
@@ -198,7 +230,9 @@ describe("usePinComments", () => {
     mockPinList.mockResolvedValue([makePin({ id: "pin-1", resolved: false })]);
     mockPinResolve.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -212,7 +246,9 @@ describe("usePinComments", () => {
     mockPinList.mockResolvedValue([makePin({ id: "pin-1", content: "Old" })]);
     mockPinEditContent.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -232,10 +268,10 @@ describe("usePinComments", () => {
     const pin = makePin({ id: "pin-1" });
     mockPinList.mockResolvedValue([pin]);
     mockPinRemove.mockRejectedValue(new Error("fail"));
-    // refetchPins will re-fetch
-    mockPinList.mockResolvedValueOnce([pin]).mockResolvedValueOnce([pin]);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -248,8 +284,8 @@ describe("usePinComments", () => {
         description: "Failed to delete comment",
       })
     );
-    // Pin should be restored after rollback
-    expect(result.current.pins).toHaveLength(1);
+    // After SWR revalidation, pin is restored
+    await waitFor(() => expect(result.current.pins).toHaveLength(1));
   });
 
   it("repositionPin: updates coordinates optimistically", async () => {
@@ -258,7 +294,9 @@ describe("usePinComments", () => {
     ]);
     mockPinReposition.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -280,7 +318,9 @@ describe("usePinComments", () => {
     const replies = [makePin({ id: "reply-1", parent_id: "pin-1" })];
     mockPinListReplies.mockResolvedValue(replies);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -299,7 +339,9 @@ describe("usePinComments", () => {
     });
     mockPinCreate.mockResolvedValue(reply);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     await act(async () => {
@@ -317,7 +359,9 @@ describe("usePinComments", () => {
       makePin({ id: "pin-3", resolved: false }),
     ]);
 
-    const { result } = renderHook(() => usePinComments(params));
+    const { result } = renderHook(() => usePinComments(params), {
+      wrapper: pinSwrWrapper,
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.unresolvedCount).toBe(2);
@@ -328,11 +372,32 @@ describe("usePinComments", () => {
 
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 
+/**
+ * Wrapper for hooks that use useSWR via other hooks (useProjectDetail, useDesignReview)
+ * but we only want to test the non-SWR logic. Provides a fresh SWR cache with a
+ * no-op fetcher that returns undefined.
+ */
+function noopSwrWrapper({ children }: { children: React.ReactNode }) {
+  return React.createElement(
+    SWRConfig,
+    {
+      value: {
+        provider: () => new Map(),
+        dedupingInterval: 0,
+        fetcher: () => Promise.resolve(undefined),
+      },
+    },
+    children
+  );
+}
+
 describe("useProjectDetail", () => {
   it("handleSendComment: calls comments.create and clears input", async () => {
     mockCommentsCreate.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => useProjectDetail("proj-1"));
+    const { result } = renderHook(() => useProjectDetail("proj-1"), {
+      wrapper: noopSwrWrapper,
+    });
 
     // Set comment text
     act(() => result.current.setNewComment("Hello world"));
@@ -347,7 +412,9 @@ describe("useProjectDetail", () => {
   });
 
   it("handleSendComment: does nothing when comment is empty", async () => {
-    const { result } = renderHook(() => useProjectDetail("proj-1"));
+    const { result } = renderHook(() => useProjectDetail("proj-1"), {
+      wrapper: noopSwrWrapper,
+    });
 
     await act(async () => {
       await result.current.handleSendComment();
@@ -359,7 +426,9 @@ describe("useProjectDetail", () => {
   it("handleSendComment: shows error toast on failure", async () => {
     mockCommentsCreate.mockRejectedValue(new Error("fail"));
 
-    const { result } = renderHook(() => useProjectDetail("proj-1"));
+    const { result } = renderHook(() => useProjectDetail("proj-1"), {
+      wrapper: noopSwrWrapper,
+    });
     act(() => result.current.setNewComment("Test"));
 
     await act(async () => {
@@ -378,8 +447,9 @@ describe("useProjectDetail", () => {
   it("handleDecision: calls approvals.submit", async () => {
     mockApprovalsSubmit.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() =>
-      useProjectDetail("proj-1", { includeApprovals: true })
+    const { result } = renderHook(
+      () => useProjectDetail("proj-1", { includeApprovals: true }),
+      { wrapper: noopSwrWrapper }
     );
 
     await act(async () => {
@@ -396,8 +466,9 @@ describe("useProjectDetail", () => {
   it("handleDecision: shows error toast on failure", async () => {
     mockApprovalsSubmit.mockRejectedValue(new Error("fail"));
 
-    const { result } = renderHook(() =>
-      useProjectDetail("proj-1", { includeApprovals: true })
+    const { result } = renderHook(
+      () => useProjectDetail("proj-1", { includeApprovals: true }),
+      { wrapper: noopSwrWrapper }
     );
 
     await act(async () => {
@@ -415,7 +486,9 @@ describe("useProjectDetail", () => {
   it("handleDownload: delegates to downloadFile", async () => {
     mockDownloadFile.mockResolvedValue(undefined);
 
-    const { result } = renderHook(() => useProjectDetail("proj-1"));
+    const { result } = renderHook(() => useProjectDetail("proj-1"), {
+      wrapper: noopSwrWrapper,
+    });
 
     const att = {
       file_url: "https://cdn/file.pdf",
@@ -437,29 +510,34 @@ describe("useProjectDetail", () => {
 import { useDesignReview } from "@/hooks/useDesignReview";
 
 describe("useDesignReview", () => {
-  it("initializes with designId as activeFileId", () => {
-    const { result } = renderHook(() =>
-      useDesignReview({
-        projectId: "proj-1",
-        designId: "design-1",
-        basePath: "/projects",
-      })
+  it("initializes with designId as activeFileId", async () => {
+    const { result } = renderHook(
+      () =>
+        useDesignReview({
+          projectId: "proj-1",
+          designId: "design-1",
+          basePath: "/projects",
+        }),
+      { wrapper: noopSwrWrapper }
     );
 
     expect(result.current.activeFileId).toBe("design-1");
+    // Noop fetcher resolves to undefined, so attachment stays null
+    await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.attachment).toBeNull();
-    expect(result.current.loading).toBe(false);
   });
 
   it("setActiveFileId updates activeFileId and replaces URL", () => {
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
 
-    const { result } = renderHook(() =>
-      useDesignReview({
-        projectId: "proj-1",
-        designId: "design-1",
-        basePath: "/projects",
-      })
+    const { result } = renderHook(
+      () =>
+        useDesignReview({
+          projectId: "proj-1",
+          designId: "design-1",
+          basePath: "/projects",
+        }),
+      { wrapper: noopSwrWrapper }
     );
 
     act(() => result.current.setActiveFileId("design-2"));
@@ -477,12 +555,14 @@ describe("useDesignReview", () => {
   it("does not replace URL when activeFileId matches designId", () => {
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
 
-    renderHook(() =>
-      useDesignReview({
-        projectId: "proj-1",
-        designId: "design-1",
-        basePath: "/projects",
-      })
+    renderHook(
+      () =>
+        useDesignReview({
+          projectId: "proj-1",
+          designId: "design-1",
+          basePath: "/projects",
+        }),
+      { wrapper: noopSwrWrapper }
     );
 
     // Should not have been called since activeFileId === designId

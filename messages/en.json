@@ -23,7 +23,12 @@
     "hoursAgo": "{count}h ago",
     "daysAgo": "{count}d ago",
     "on": "on",
-    "error": "Error"
+    "error": "Error",
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Try again",
+    "pageNotFound": "Page not found",
+    "pageNotFoundDescription": "The page you're looking for doesn't exist or has been moved.",
+    "backToDashboard": "Back to Dashboard"
   },
   "auth": {
     "login": "Login",
@@ -436,9 +441,7 @@
     "unread": "Unread",
     "invitations": "Invitations",
     "noUnread": "You're all caught up",
-    "noInvitations": "No pending invitations",
-    "accept": "Accept",
-    "decline": "Decline"
+    "noInvitations": "No pending invitations"
   },
   "settings": {
     "title": "User Settings",

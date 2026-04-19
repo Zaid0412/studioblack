@@ -23,7 +23,12 @@ export default function CreateProjectPage() {
   const tc = useTranslations("common");
   const { members: architects } = useOrgMembers();
   const { members: clients } = useOrgMembers({ roleFilter: "client" });
-  const [phases, setPhases] = useState<string[]>([...PROJECT_PHASES]);
+  const [phases, setPhases] = useState<{ id: string; name: string }[]>(
+    PROJECT_PHASES.map((name) => ({
+      id: Math.random().toString(36).slice(2),
+      name,
+    }))
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(data: ProjectFormData) {
@@ -59,7 +64,9 @@ export default function CreateProjectPage() {
         address: data.address.trim() || undefined,
         city: data.city.trim() || undefined,
         state: data.state.trim() || undefined,
-        phases: phases.filter((p) => p.trim()) as unknown as {
+        phases: phases
+          .filter((p) => p.name.trim())
+          .map((p) => p.name) as unknown as {
           name: string;
         }[],
         architectIds: data.selectedArchitects.length
@@ -112,20 +119,24 @@ export default function CreateProjectPage() {
           <h3 className="text-base font-semibold text-text-primary">
             {t("designSections")}
           </h3>
-          {phases.map((phase, i) => (
-            <div key={i} className="flex items-center gap-2">
+          {phases.map((phase) => (
+            <div key={phase.id} className="flex items-center gap-2">
               <Input
-                value={phase}
+                value={phase.name}
                 onChange={(e) => {
-                  const updated = [...phases];
-                  updated[i] = e.target.value;
-                  setPhases(updated);
+                  setPhases((prev) =>
+                    prev.map((p) =>
+                      p.id === phase.id ? { ...p, name: e.target.value } : p
+                    )
+                  );
                 }}
                 className="flex-1"
               />
               <button
                 type="button"
-                onClick={() => setPhases(phases.filter((_, idx) => idx !== i))}
+                onClick={() =>
+                  setPhases((prev) => prev.filter((p) => p.id !== phase.id))
+                }
                 className="p-2 rounded-md text-text-muted hover:text-error hover:bg-error/10 transition-colors cursor-pointer"
                 disabled={phases.length <= 1}
               >
@@ -138,7 +149,12 @@ export default function CreateProjectPage() {
             variant="ghost"
             size="sm"
             className="self-start"
-            onClick={() => setPhases([...phases, ""])}
+            onClick={() =>
+              setPhases((prev) => [
+                ...prev,
+                { id: Math.random().toString(36).slice(2), name: "" },
+              ])
+            }
           >
             <Plus className="w-4 h-4" />
             {t("addSection")}
