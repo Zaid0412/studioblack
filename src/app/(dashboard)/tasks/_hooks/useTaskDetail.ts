@@ -99,8 +99,8 @@ export function useTaskDetail(
           task.id,
           reordered.map((i) => i.id)
         );
-        mutateChecklist();
       } catch {
+        // Revalidate from server to restore correct order
         mutateChecklist();
       }
     },
@@ -118,7 +118,6 @@ export function useTaskDetail(
       setChecklistItems((prev) => [...prev, item]);
       setNewItemTitle("");
       onChecklistChange?.();
-      mutateChecklist();
     } catch {
       toast({
         title: "Error",
@@ -128,14 +127,7 @@ export function useTaskDetail(
     } finally {
       setAddingItem(false);
     }
-  }, [
-    task,
-    newItemTitle,
-    addingItem,
-    onChecklistChange,
-    setChecklistItems,
-    mutateChecklist,
-  ]);
+  }, [task, newItemTitle, addingItem, onChecklistChange, setChecklistItems]);
 
   const toggleItem = useCallback(
     async (item: ChecklistItem) => {
@@ -146,7 +138,6 @@ export function useTaskDetail(
       try {
         await tasksApi.toggleChecklistItem(task.id, item.id, !item.is_done);
         onChecklistChange?.();
-        mutateChecklist();
       } catch {
         toast({
           title: "Error",
@@ -160,7 +151,7 @@ export function useTaskDetail(
         );
       }
     },
-    [task, onChecklistChange, setChecklistItems, mutateChecklist]
+    [task, onChecklistChange, setChecklistItems]
   );
 
   const deleteItem = useCallback(
@@ -170,7 +161,6 @@ export function useTaskDetail(
       try {
         await tasksApi.removeChecklistItem(task.id, item.id);
         onChecklistChange?.();
-        mutateChecklist();
       } catch {
         toast({
           title: "Error",
@@ -197,7 +187,6 @@ export function useTaskDetail(
           fileSize: file.size,
         });
         setAttachments((prev) => [att, ...prev]);
-        mutateAttachments();
       } catch {
         toast({
           title: "Error",
@@ -209,7 +198,7 @@ export function useTaskDetail(
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [task, uploading, setAttachments, mutateAttachments]
+    [task, uploading, setAttachments]
   );
 
   const handleDownload = useCallback(async (att: Attachment) => {
@@ -230,7 +219,6 @@ export function useTaskDetail(
       setAttachments((prev) => prev.filter((a) => a.id !== att.id));
       try {
         await tasksApi.removeAttachment(task.id, att.id);
-        mutateAttachments();
       } catch {
         toast({
           title: "Error",
