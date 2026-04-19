@@ -24,7 +24,10 @@ export default function CreateProjectPage() {
   const { members: architects } = useOrgMembers();
   const { members: clients } = useOrgMembers({ roleFilter: "client" });
   const [phases, setPhases] = useState<{ id: string; name: string }[]>(
-    PROJECT_PHASES.map((name) => ({ id: crypto.randomUUID(), name }))
+    PROJECT_PHASES.map((name) => ({
+      id: Math.random().toString(36).slice(2),
+      name,
+    }))
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -149,7 +152,7 @@ export default function CreateProjectPage() {
             onClick={() =>
               setPhases((prev) => [
                 ...prev,
-                { id: crypto.randomUUID(), name: "" },
+                { id: Math.random().toString(36).slice(2), name: "" },
               ])
             }
           >

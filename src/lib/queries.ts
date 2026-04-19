@@ -13,10 +13,15 @@ import {
 function generateBetterAuthId(size = 32): string {
   const chars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  const bytes = crypto.randomBytes(size);
+  const limit = 256 - (256 % chars.length); // rejection threshold to avoid modulo bias
   let result = "";
-  for (let i = 0; i < size; i++) {
-    result += chars[bytes[i] % chars.length];
+  while (result.length < size) {
+    const bytes = crypto.randomBytes(size - result.length);
+    for (let i = 0; i < bytes.length && result.length < size; i++) {
+      if (bytes[i] < limit) {
+        result += chars[bytes[i] % chars.length];
+      }
+    }
   }
   return result;
 }

@@ -80,22 +80,6 @@ export function useTaskDetail(
     [mutateAttachments]
   );
 
-  const fetchChecklist = useCallback(
-    (taskId: string) => {
-      void taskId; // used for API consistency, SWR handles the key
-      mutateChecklist();
-    },
-    [mutateChecklist]
-  );
-
-  const fetchAttachments = useCallback(
-    (taskId: string) => {
-      void taskId;
-      mutateAttachments();
-    },
-    [mutateAttachments]
-  );
-
   // ---- Checklist handlers ----
 
   const handleDragEnd = useCallback(
@@ -115,11 +99,12 @@ export function useTaskDetail(
           task.id,
           reordered.map((i) => i.id)
         );
+        mutateChecklist();
       } catch {
-        fetchChecklist(task.id);
+        mutateChecklist();
       }
     },
-    [checklistItems, task, fetchChecklist, setChecklistItems]
+    [checklistItems, task, mutateChecklist, setChecklistItems]
   );
 
   const addItem = useCallback(async () => {
@@ -133,6 +118,7 @@ export function useTaskDetail(
       setChecklistItems((prev) => [...prev, item]);
       setNewItemTitle("");
       onChecklistChange?.();
+      mutateChecklist();
     } catch {
       toast({
         title: "Error",
@@ -142,7 +128,14 @@ export function useTaskDetail(
     } finally {
       setAddingItem(false);
     }
-  }, [task, newItemTitle, addingItem, onChecklistChange, setChecklistItems]);
+  }, [
+    task,
+    newItemTitle,
+    addingItem,
+    onChecklistChange,
+    setChecklistItems,
+    mutateChecklist,
+  ]);
 
   const toggleItem = useCallback(
     async (item: ChecklistItem) => {
@@ -153,6 +146,7 @@ export function useTaskDetail(
       try {
         await tasksApi.toggleChecklistItem(task.id, item.id, !item.is_done);
         onChecklistChange?.();
+        mutateChecklist();
       } catch {
         toast({
           title: "Error",
@@ -166,7 +160,7 @@ export function useTaskDetail(
         );
       }
     },
-    [task, onChecklistChange, setChecklistItems]
+    [task, onChecklistChange, setChecklistItems, mutateChecklist]
   );
 
   const deleteItem = useCallback(
@@ -176,16 +170,17 @@ export function useTaskDetail(
       try {
         await tasksApi.removeChecklistItem(task.id, item.id);
         onChecklistChange?.();
+        mutateChecklist();
       } catch {
         toast({
           title: "Error",
           description: "Failed to delete checklist item",
           variant: "error",
         });
-        fetchChecklist(task.id);
+        mutateChecklist();
       }
     },
-    [task, onChecklistChange, fetchChecklist, setChecklistItems]
+    [task, onChecklistChange, mutateChecklist, setChecklistItems]
   );
 
   // ---- Attachment handlers ----
@@ -202,6 +197,7 @@ export function useTaskDetail(
           fileSize: file.size,
         });
         setAttachments((prev) => [att, ...prev]);
+        mutateAttachments();
       } catch {
         toast({
           title: "Error",
@@ -213,7 +209,7 @@ export function useTaskDetail(
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [task, uploading, setAttachments]
+    [task, uploading, setAttachments, mutateAttachments]
   );
 
   const handleDownload = useCallback(async (att: Attachment) => {
@@ -234,16 +230,17 @@ export function useTaskDetail(
       setAttachments((prev) => prev.filter((a) => a.id !== att.id));
       try {
         await tasksApi.removeAttachment(task.id, att.id);
+        mutateAttachments();
       } catch {
         toast({
           title: "Error",
           description: "Failed to delete attachment",
           variant: "error",
         });
-        fetchAttachments(task.id);
+        mutateAttachments();
       }
     },
-    [task, fetchAttachments, setAttachments]
+    [task, mutateAttachments, setAttachments]
   );
 
   return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLogo } from "@/components/ui/BrandLogo";
@@ -114,12 +114,12 @@ export function AuthShell({
   const { data: session } = authClient.useSession();
   const { mode: themeMode } = useTheme();
   const isLight = themeMode === "light";
-  const [hasRendered, setHasRendered] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Disable transition on first render to prevent slide-in on page load
+  // Enable transitions after first paint to prevent slide-in on page load
   useEffect(() => {
     const raf = requestAnimationFrame(() => {
-      setHasRendered(true);
+      containerRef.current?.setAttribute("data-ready", "");
     });
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -136,7 +136,6 @@ export function AuthShell({
   }, [session?.user, router, redirectDelay, returnTo]);
 
   const isRegister = mode === "register";
-  const shouldAnimate = hasRendered && mode !== "static";
 
   // Already signed in state
   if (session?.user) {
@@ -152,19 +151,18 @@ export function AuthShell({
     );
   }
 
-  const transitionClass = shouldAnimate
-    ? "transition-[left] duration-500 ease-in-out"
-    : "";
-
   return (
-    <div className="relative min-h-screen lg:h-screen overflow-hidden bg-bg-primary">
+    <div
+      ref={containerRef}
+      className="relative min-h-screen lg:h-screen overflow-hidden bg-bg-primary"
+    >
       <ThemeToggle className="absolute top-4 right-4 z-50" />
 
       {/* ---- Desktop: absolute-positioned sliding panels ---- */}
 
       {/* Hero panel */}
       <div
-        className={`hidden lg:block absolute top-0 bottom-0 w-1/2 ${transitionClass}`}
+        className="hidden lg:block absolute top-0 bottom-0 w-1/2 auth-slide-panel"
         style={{ left: isRegister ? "50%" : "0%" }}
       >
         <HeroPanel />
@@ -172,7 +170,7 @@ export function AuthShell({
 
       {/* Form panel */}
       <div
-        className={`hidden lg:flex absolute top-0 bottom-0 w-1/2 items-center justify-center ${transitionClass}`}
+        className="hidden lg:flex absolute top-0 bottom-0 w-1/2 items-center justify-center auth-slide-panel"
         style={{ left: isRegister ? "0%" : "50%" }}
       >
         <FormCard isLight={isLight}>
