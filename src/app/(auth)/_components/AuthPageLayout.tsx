@@ -3,11 +3,11 @@
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
 import { getSafeReturnTo } from "@/lib/utils";
+import { AlreadySignedIn } from "./AlreadySignedIn";
 
 interface AuthPageLayoutProps {
   children: React.ReactNode;
@@ -88,15 +88,7 @@ export function AuthPageLayout({
           </div>
 
           {session?.user ? (
-            <div className="flex flex-col items-center text-center gap-4 py-8">
-              <h2 className="text-2xl font-bold text-text-primary">
-                {t("alreadySignedIn")}
-              </h2>
-              <p className="text-sm text-text-muted flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {t("redirecting")}
-              </p>
-            </div>
+            <AlreadySignedIn />
           ) : (
             children
           )}
