@@ -18,16 +18,26 @@ Cypress.Commands.add("login", (email: string, password: string) => {
     email,
     () => {
       cy.visit("/login");
-      cy.get("#email-address").type(email);
-      cy.get("#password").type(password);
+      // Wait for the login form to stabilize (splash screen + React hydration)
+      cy.get("#email-address", { timeout: 15_000 }).should("be.visible");
+      // Small wait for React to finish any re-renders after hydration
+      cy.wait(1000);
+      // Re-query the element after waiting to avoid detached DOM
+      cy.get("#email-address").clear().type(email);
+      cy.get("#password").clear().type(password);
       cy.contains("button", "Sign In").click();
-      cy.url().should("include", "/dashboard", { timeout: 30_000 });
+      cy.url({ timeout: 60_000 }).should("include", "/dashboard");
     },
     {
       cacheAcrossSpecs: true,
       validate() {
-        cy.visit("/dashboard");
-        cy.url().should("include", "/dashboard", { timeout: 15_000 });
+        cy.request({
+          url: "/api/auth/get-session",
+          failOnStatusCode: false,
+        }).then((res) => {
+          expect(res.status).to.eq(200);
+          expect(res.body).to.have.property("user");
+        });
       },
     }
   );

@@ -5,8 +5,8 @@ describe("Create project", () => {
 
   it("navigates to new project form from projects list", () => {
     cy.visit("/projects");
-    cy.contains("button", "New Project").click();
-    cy.url().should("include", "/projects/new", { timeout: 15_000 });
+    cy.contains("button", "New Project", { timeout: 15_000 }).click();
+    cy.url({ timeout: 15_000 }).should("include", "/projects/new");
   });
 
   it("shows project form with required fields", () => {
@@ -31,6 +31,6 @@ describe("Create project", () => {
     cy.contains("button", "Create Project").scrollIntoView().click();
 
     // Should redirect to projects list or project detail
-    cy.url().should("include", "/projects", { timeout: 15_000 });
+    cy.url({ timeout: 15_000 }).should("include", "/projects");
   });
 });
