@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { Search } from "lucide-react";
+import { Search, SearchX } from "lucide-react";
 import { icons, type LucideIcon } from "lucide-react";
 import {
   Dialog,
@@ -22,6 +22,71 @@ import {
 import { cn } from "@/lib/utils";
 
 const ICON_ENTRIES = Object.entries(icons) as [string, LucideIcon][];
+
+/**
+ * Word-level vocabulary pulled from lucide icon names — "ArrowUp" contributes
+ * "arrow" and "up". Used to suggest real search terms when the user mistypes.
+ */
+const SEARCH_VOCABULARY: readonly string[] = Array.from(
+  new Set(
+    ICON_ENTRIES.flatMap(([name]) =>
+      name
+        .replace(/([A-Z0-9]+)/g, " $1")
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length >= 3)
+    )
+  )
+);
+
+/** Classic iterative Levenshtein distance (rows-only matrix, O(n*m) time, O(m) space). */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  let prev = new Array<number>(b.length + 1);
+  let curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[b.length];
+}
+
+/**
+ * Returns up to `limit` vocabulary terms closest to `query` by edit distance.
+ * Looser threshold for longer queries: ceil(length / 3).
+ */
+function suggestSearches(query: string, limit = 3): string[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const threshold = Math.max(1, Math.ceil(q.length / 3));
+  const scored: { term: string; distance: number }[] = [];
+  for (const term of SEARCH_VOCABULARY) {
+    const d = levenshtein(q, term);
+    if (d <= threshold) scored.push({ term, distance: d });
+  }
+  scored.sort(
+    (a, b) => a.distance - b.distance || a.term.length - b.term.length
+  );
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const { term } of scored) {
+    if (seen.has(term)) continue;
+    seen.add(term);
+    out.push(term);
+    if (out.length === limit) break;
+  }
+  return out;
+}
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 interface Props {
   open: boolean;
@@ -104,9 +169,43 @@ export function CategoryIconBrowseDialog({
 
         <div className="h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-input p-2">
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-text-muted">
-              No icons match &ldquo;{query}&rdquo;
-            </p>
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <SearchX
+                className="h-10 w-10 text-text-muted"
+                aria-hidden
+                strokeWidth={1.5}
+              />
+              <p className="text-sm font-medium text-text-primary">
+                No icons match &ldquo;{query}&rdquo;
+              </p>
+              {(() => {
+                const suggestions = suggestSearches(debounced);
+                if (suggestions.length === 0) {
+                  return (
+                    <p className="text-xs text-text-muted">
+                      Try a different search term
+                    </p>
+                  );
+                }
+                return (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-xs text-text-muted">Try one of these:</p>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5">
+                      {suggestions.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setQuery(s)}
+                          className="cursor-pointer rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary"
+                        >
+                          {capitalize(s)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
           ) : (
             <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
               {filtered.map(([name, Icon]) => {
