@@ -190,7 +190,7 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
               </button>
               {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-text-muted text-center">
-                  {t("noResults")}
+                  {query.trim() ? t("noResults") : t("categoryEmpty")}
                 </p>
               ) : (
                 filtered.map((opt) => {
