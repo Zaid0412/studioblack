@@ -35,7 +35,6 @@ export interface CategoryFormSubmit {
 }
 
 interface Props {
-  mode: "create" | "edit";
   initial?: Partial<CategoryFormValues>;
   parentOptions: CategoryOption[];
   /** IDs that cannot be selected as parent (e.g. self or descendants when editing). */
@@ -59,7 +58,6 @@ const EMPTY: CategoryFormValues = {
  * the settings-page dialog, and the inline dialog popover.
  */
 export function CategoryForm({
-  mode,
   initial,
   parentOptions,
   disabledParentIds = [],
@@ -121,9 +119,7 @@ export function CategoryForm({
           </label>
           <Select
             value={values.parentId ?? NONE}
-            onValueChange={(v) =>
-              setField("parentId", v === NONE ? null : v)
-            }
+            onValueChange={(v) => setField("parentId", v === NONE ? null : v)}
           >
             <SelectTrigger>
               <SelectValue placeholder={t("categoryParentNone")} />
@@ -165,18 +161,17 @@ export function CategoryForm({
       />
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           <X className="h-4 w-4" />
           {tCommon("cancel")}
         </Button>
-        <Button type="submit" size="sm" disabled={submitting || !values.name.trim()}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={submitting || !values.name.trim()}
+        >
           <Save className="h-4 w-4" />
-          {submitting ? tCommon("loading") : mode === "create" ? tCommon("save") : tCommon("save")}
+          {submitting ? tCommon("loading") : tCommon("save")}
         </Button>
       </div>
     </form>

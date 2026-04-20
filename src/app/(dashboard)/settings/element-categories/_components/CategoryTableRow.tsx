@@ -67,7 +67,9 @@ export function CategoryTableRow({
             <GripVertical className="w-3.5 h-3.5" />
           </button>
           <CategoryIcon icon={node.icon} color={node.color} size={16} />
-          <span className="text-sm text-text-primary truncate">{node.name}</span>
+          <span className="text-sm text-text-primary truncate">
+            {node.name}
+          </span>
         </div>
       </td>
       <td className="py-2 px-3 text-sm text-text-secondary">

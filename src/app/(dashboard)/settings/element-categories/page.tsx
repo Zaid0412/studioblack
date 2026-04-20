@@ -84,15 +84,15 @@ export default function ElementCategoriesSettingsPage() {
   const { data, isLoading } = useSWR<TreeResponse>(
     canManage ? API.elementCategories() : null
   );
-  const tree = data?.tree ?? [];
+  const tree = useMemo(() => data?.tree ?? [], [data?.tree]);
   const flat = useMemo(() => flattenTree(tree), [tree]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
   const [editing, setEditing] = useState<ElementCategoryNode | null>(null);
-  const [presetParentId, setPresetParentId] = useState<string | null | undefined>(
-    undefined
-  );
+  const [presetParentId, setPresetParentId] = useState<
+    string | null | undefined
+  >(undefined);
   const [deleting, setDeleting] = useState<ElementCategoryNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -205,9 +205,7 @@ export default function ElementCategoriesSettingsPage() {
       <div className="flex flex-col gap-6">
         <PageHeader title={t("manageCategories")} />
         <Card>
-          <p className="text-sm text-text-secondary">
-            {tCommon("error")}
-          </p>
+          <p className="text-sm text-text-secondary">{tCommon("error")}</p>
         </Card>
       </div>
     );

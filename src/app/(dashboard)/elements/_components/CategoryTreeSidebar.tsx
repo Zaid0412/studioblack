@@ -79,7 +79,6 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
       {creating && (
         <div className="mb-3">
           <CategoryForm
-            mode="create"
             parentOptions={flattenCategories(tree)}
             submitting={submitting}
             onSubmit={handleCreate}

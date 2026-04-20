@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, fireEvent, screen, cleanup } from "@testing-library/react";
 import { useState } from "react";
 
@@ -122,9 +122,7 @@ describe("TagInput", () => {
 
   it("stops committing once maxTags is reached", () => {
     const onChange = vi.fn();
-    render(
-      <Harness initial={["a", "b"]} maxTags={2} onChangeSpy={onChange} />
-    );
+    render(<Harness initial={["a", "b"]} maxTags={2} onChangeSpy={onChange} />);
     const input = screen.getByRole("textbox") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "c" } });
     fireEvent.keyDown(input, { key: "Enter" });

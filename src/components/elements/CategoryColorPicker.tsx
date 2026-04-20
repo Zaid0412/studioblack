@@ -28,7 +28,8 @@ export function CategoryColorPicker({
   onChange,
   label,
 }: CategoryColorPickerProps) {
-  const isPreset = value != null && (PRESETS as readonly string[]).includes(value);
+  const isPreset =
+    value != null && (PRESETS as readonly string[]).includes(value);
   const [hex, setHex] = useState<string>(value && !isPreset ? value : "");
 
   const commitHex = (raw: string) => {

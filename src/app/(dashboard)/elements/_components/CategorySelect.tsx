@@ -38,7 +38,11 @@ interface FlatOption {
 
 function flattenWithIcons(tree: ElementCategoryNode[]): FlatOption[] {
   const out: FlatOption[] = [];
-  const walk = (nodes: ElementCategoryNode[], path: string[], depth: number) => {
+  const walk = (
+    nodes: ElementCategoryNode[],
+    path: string[],
+    depth: number
+  ) => {
     for (const n of nodes) {
       const nextPath = [...path, n.name];
       out.push({
@@ -79,7 +83,9 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
   const handleCreate = async (values: CategoryFormSubmit) => {
     setSubmitting(true);
     try {
-      const created = (await elementCategories.create(values)) as ElementCategory;
+      const created = (await elementCategories.create(
+        values
+      )) as ElementCategory;
       await globalMutate(API.elementCategories());
       toast({ title: t("categoryCreatedToast") });
       onChange(created.id);
@@ -144,7 +150,6 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
           {creating ? (
             <div className="p-2">
               <CategoryForm
-                mode="create"
                 parentOptions={flattenCategories(tree)}
                 submitting={submitting}
                 onSubmit={handleCreate}
@@ -187,7 +192,9 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
                     value === null && "text-accent"
                   )}
                 >
-                  <span className="w-4">{value === null && <Check className="h-4 w-4" />}</span>
+                  <span className="w-4">
+                    {value === null && <Check className="h-4 w-4" />}
+                  </span>
                   <span className="text-text-muted">—</span>
                 </button>
                 {filtered.length === 0 ? (
@@ -214,7 +221,11 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
                         <span className="w-4 shrink-0">
                           {selected && <Check className="h-4 w-4" />}
                         </span>
-                        <CategoryIcon icon={opt.icon} color={opt.color} size={14} />
+                        <CategoryIcon
+                          icon={opt.icon}
+                          color={opt.color}
+                          size={14}
+                        />
                         <span className="truncate">{opt.label}</span>
                       </button>
                     );

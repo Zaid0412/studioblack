@@ -46,9 +46,7 @@ export function DeleteConfirmDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {blocked
-              ? tCommon("error")
-              : t("categoryDeleteConfirm")}
+            {blocked ? tCommon("error") : t("categoryDeleteConfirm")}
           </DialogTitle>
           <DialogDescription>
             {blocked ? (
@@ -59,9 +57,7 @@ export function DeleteConfirmDialog({
                 </span>
               </span>
             ) : (
-              <>
-                {target?.name ? `"${target.name}"` : ""}
-              </>
+              <>{target?.name ? `"${target.name}"` : ""}</>
             )}
           </DialogDescription>
         </DialogHeader>

@@ -64,7 +64,6 @@ export function CategoryEditDialog({
           </DialogTitle>
         </DialogHeader>
         <CategoryForm
-          mode={mode}
           initial={initial}
           parentOptions={parentOptions}
           disabledParentIds={disabledParentIds}

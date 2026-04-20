@@ -40,13 +40,18 @@ export function CategoryIconBrowseDialog({
   const [pending, setPending] = useState<string | null>(value);
 
   useEffect(() => {
-    if (open) setPending(value);
+    if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync: hydrate pending selection when dialog opens
+    setPending(value);
   }, [open, value]);
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setDebounced(query.trim().toLowerCase()), 120);
+    timer.current = setTimeout(
+      () => setDebounced(query.trim().toLowerCase()),
+      120
+    );
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
