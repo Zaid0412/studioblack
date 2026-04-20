@@ -377,7 +377,6 @@ export default function ElementCategoriesSettingsPage() {
   const presetParent = presetParentId
     ? (flat.find((r) => r.node.id === presetParentId)?.node ?? null)
     : null;
-  const presetParentName = presetParent?.name;
 
   return (
     <div className="flex flex-col gap-4">
@@ -488,8 +487,6 @@ export default function ElementCategoriesSettingsPage() {
         open={dialogOpen}
         mode={dialogMode}
         editing={editing}
-        presetParentId={presetParentId}
-        presetParentName={presetParentName}
         presetParent={presetParent}
         parentOptions={flattenCategories(tree)}
         disabledParentIds={disabledParentIds}

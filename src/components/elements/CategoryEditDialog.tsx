@@ -19,17 +19,12 @@ interface Props {
   open: boolean;
   mode: "create" | "edit";
   editing?: ElementCategoryNode | null;
-  /** Forced parent when creating a child row. */
-  presetParentId?: string | null;
-  parentOptions: CategoryOption[];
-  /** Name of the forced parent — used in the title when presetParentId is set. */
-  presetParentName?: string;
   /**
-   * Full parent node — when present, new-subcategory creation pre-fills
-   * code_prefix / icon / color from it so related categories inherit
-   * their parent's look by default.
+   * Forced parent when creating a child row. New subcategories inherit
+   * the parent's code_prefix / icon / color as defaults.
    */
   presetParent?: ElementCategoryNode | null;
+  parentOptions: CategoryOption[];
   /** IDs that cannot be selected as parent (self + descendants when editing). */
   disabledParentIds?: string[];
   submitting: boolean;
@@ -46,8 +41,6 @@ export function CategoryEditDialog({
   open,
   mode,
   editing,
-  presetParentId,
-  presetParentName,
   presetParent,
   parentOptions,
   disabledParentIds,
@@ -73,15 +66,13 @@ export function CategoryEditDialog({
           icon: presetParent.icon,
           color: presetParent.color,
         }
-      : presetParentId !== undefined
-        ? { parentId: presetParentId }
-        : undefined;
+      : undefined;
 
   const title =
     mode === "edit"
       ? tCommon("edit")
-      : presetParentId && presetParentName
-        ? t("newSubcategoryUnder", { parent: presetParentName })
+      : presetParent
+        ? t("newSubcategoryUnder", { parent: presetParent.name })
         : t("newCategory");
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Search, SearchX } from "lucide-react";
 import { icons, type LucideIcon } from "lucide-react";
 import {
@@ -19,14 +19,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { capitalize } from "@/lib/taskUtils";
 import { cn } from "@/lib/utils";
 
 const ICON_ENTRIES = Object.entries(icons) as [string, LucideIcon][];
 
-/**
- * Word-level vocabulary pulled from lucide icon names — "ArrowUp" contributes
- * "arrow" and "up". Used to suggest real search terms when the user mistypes.
- */
 const SEARCH_VOCABULARY: readonly string[] = Array.from(
   new Set(
     ICON_ENTRIES.flatMap(([name]) =>
@@ -40,7 +37,6 @@ const SEARCH_VOCABULARY: readonly string[] = Array.from(
   )
 );
 
-/** Classic iterative Levenshtein distance (rows-only matrix, O(n*m) time, O(m) space). */
 function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (!a.length) return b.length;
@@ -59,10 +55,7 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
-/**
- * Returns up to `limit` vocabulary terms closest to `query` by edit distance.
- * Looser threshold for longer queries: ceil(length / 3).
- */
+/** Threshold scales with query length so longer queries tolerate more typos. */
 function suggestSearches(query: string, limit = 3): string[] {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
@@ -85,8 +78,6 @@ function suggestSearches(query: string, limit = 3): string[] {
   }
   return out;
 }
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** "BrickWall" → "Brick Wall", "Icon3D" → "Icon 3 D". */
 const humanize = (name: string) => name.replace(/([A-Z0-9]+)/g, " $1").trim();
@@ -116,10 +107,10 @@ export function CategoryIconBrowseDialog({
   const [hovered, setHovered] = useState<string | null>(null);
 
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleHover = (name: string | null) => {
+  const scheduleHover = useCallback((name: string | null) => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     hoverTimer.current = setTimeout(() => setHovered(name), 60);
-  };
+  }, []);
   useEffect(() => {
     return () => {
       if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -150,6 +141,11 @@ export function CategoryIconBrowseDialog({
       name.toLowerCase().includes(debounced)
     ).slice(0, 600);
   }, [debounced]);
+
+  const suggestions = useMemo(
+    () => (filtered.length === 0 ? suggestSearches(debounced) : []),
+    [filtered.length, debounced]
+  );
 
   const confirm = () => {
     if (pending) {
@@ -198,33 +194,27 @@ export function CategoryIconBrowseDialog({
               <p className="text-sm font-medium text-text-primary">
                 No icons match &ldquo;{query}&rdquo;
               </p>
-              {(() => {
-                const suggestions = suggestSearches(debounced);
-                if (suggestions.length === 0) {
-                  return (
-                    <p className="text-xs text-text-muted">
-                      Try a different search term
-                    </p>
-                  );
-                }
-                return (
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-xs text-text-muted">Try one of these:</p>
-                    <div className="flex flex-wrap items-center justify-center gap-1.5">
-                      {suggestions.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setQuery(s)}
-                          className="cursor-pointer rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary"
-                        >
-                          {capitalize(s)}
-                        </button>
-                      ))}
-                    </div>
+              {suggestions.length === 0 ? (
+                <p className="text-xs text-text-muted">
+                  Try a different search term
+                </p>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-xs text-text-muted">Try one of these:</p>
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    {suggestions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setQuery(s)}
+                        className="cursor-pointer rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary transition-colors hover:border-accent/60 hover:text-text-primary"
+                      >
+                        {capitalize(s)}
+                      </button>
+                    ))}
                   </div>
-                );
-              })()}
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
