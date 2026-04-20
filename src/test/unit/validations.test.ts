@@ -991,10 +991,10 @@ describe("updateElementSchema", () => {
 // ── listElementsQuerySchema ──────────────────────────────────────────────────
 
 describe("listElementsQuerySchema", () => {
-  it("defaults page=1 and limit=50", () => {
+  it("defaults page=1 and limit=25", () => {
     const data = expectPass(listElementsQuerySchema, {});
     expect(data.page).toBe(1);
-    expect(data.limit).toBe(50);
+    expect(data.limit).toBe(25);
   });
 
   it("coerces numeric strings to numbers (URL params)", () => {

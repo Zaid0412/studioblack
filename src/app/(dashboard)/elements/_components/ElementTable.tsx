@@ -59,7 +59,7 @@ export function ElementTable({
       <div className="flex flex-col">
         {isLoading ? (
           Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonRow key={i} columns={5} />
+            <SkeletonRow key={i} columns={6} />
           ))
         ) : rows.length === 0 ? (
           <EmptyState

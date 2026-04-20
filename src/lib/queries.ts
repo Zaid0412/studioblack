@@ -2663,12 +2663,11 @@ const ELEMENT_COLS: Record<string, string> = {
  * Uses `COUNT(*) OVER()` for the total so it's one round-trip.
  * Category filter is descendant-inclusive via a recursive CTE.
  */
-export async function getElements(orgId: string, filters: ElementFilters = {}) {
-  const pool = getPool();
-  const page = filters.page ?? 1;
-  const limit = filters.limit ?? DEFAULT_PAGE_LIMIT;
-  const offset = (page - 1) * limit;
-
+/** Build the shared WHERE clause + params for element listing queries. */
+function buildElementWhere(
+  orgId: string,
+  filters: ElementFilters
+): { where: string; params: unknown[] } {
   const conditions: string[] = ["e.org_id = $1"];
   const params: unknown[] = [orgId];
 
@@ -2712,20 +2711,39 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
     conditions.push(`e.is_active = $${params.length}`);
   }
 
-  params.push(limit, offset);
-  const limitIdx = params.length - 1;
-  const offsetIdx = params.length;
+  return { where: conditions.join(" AND "), params };
+}
+
+export async function getElements(orgId: string, filters: ElementFilters = {}) {
+  const pool = getPool();
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? DEFAULT_PAGE_LIMIT;
+  const offset = (page - 1) * limit;
+
+  const { where, params } = buildElementWhere(orgId, filters);
+  const limitIdx = params.length + 1;
+  const offsetIdx = params.length + 2;
 
   const { rows } = await pool.query(
     `SELECT e.*, COUNT(*) OVER() AS total_count
        FROM element e
-      WHERE ${conditions.join(" AND ")}
+      WHERE ${where}
       ORDER BY e.code ASC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-    params
+    [...params, limit, offset]
   );
 
-  const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
+  let total = rows.length > 0 ? Number(rows[0].total_count) : 0;
+  // COUNT(*) OVER() returns no row when the page is past the end.
+  // Fall back to a dedicated count so pagination still shows the true total.
+  if (rows.length === 0 && page > 1) {
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM element e WHERE ${where}`,
+      params
+    );
+    total = Number(countRows[0]?.total ?? 0);
+  }
+
   const elements = rows.map(
     ({ total_count: _ignore, ...rest }) => rest as Element
   );
@@ -3104,15 +3122,21 @@ export async function duplicateElement(
   }
 }
 
-/** List elements for export (no pagination). Used by F3 Excel export. */
+/**
+ * List elements for export (no pagination). Used by F3 Excel export.
+ * Hard-capped at 10k rows; `truncated` signals when the cap was hit so the
+ * caller can surface a warning instead of silently shipping an incomplete file.
+ */
+export const ELEMENT_EXPORT_LIMIT = 10_000;
+
 export async function getElementsForExport(
   orgId: string,
   filters: Omit<ElementFilters, "page" | "limit"> = {}
-): Promise<Element[]> {
-  const { rows } = await getElements(orgId, {
+): Promise<{ rows: Element[]; total: number; truncated: boolean }> {
+  const { rows, total } = await getElements(orgId, {
     ...filters,
     page: 1,
-    limit: 10_000,
+    limit: ELEMENT_EXPORT_LIMIT,
   });
-  return rows;
+  return { rows, total, truncated: total > rows.length };
 }

@@ -344,7 +344,7 @@ export const listElementsQuerySchema = z.object({
     .transform((v) => (typeof v === "boolean" ? v : v === "true"))
     .optional(),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
