@@ -2,7 +2,7 @@
 -- Master catalogue of construction elements with optional free-form attributes.
 -- Org-scoped; code is unique within an org.
 
-CREATE TABLE element (
+CREATE TABLE IF NOT EXISTS element (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id TEXT NOT NULL REFERENCES "organization"(id) ON DELETE CASCADE,
   code VARCHAR(50) NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE element (
   CONSTRAINT uq_element_org_code UNIQUE (org_id, code)
 );
 
-CREATE TABLE element_attribute (
+CREATE TABLE IF NOT EXISTS element_attribute (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   element_id UUID NOT NULL REFERENCES element(id) ON DELETE CASCADE,
   attribute_key VARCHAR(100) NOT NULL,
@@ -35,8 +35,8 @@ CREATE TABLE element_attribute (
   sort_order INTEGER DEFAULT 0
 );
 
-CREATE INDEX idx_element_org ON element(org_id);
-CREATE INDEX idx_element_category ON element(category_id);
-CREATE INDEX idx_element_active ON element(is_active);
-CREATE INDEX idx_element_tags ON element USING GIN(tags);
-CREATE INDEX idx_element_attr_element ON element_attribute(element_id);
+CREATE INDEX IF NOT EXISTS idx_element_org ON element(org_id);
+CREATE INDEX IF NOT EXISTS idx_element_category ON element(category_id);
+CREATE INDEX IF NOT EXISTS idx_element_active ON element(is_active);
+CREATE INDEX IF NOT EXISTS idx_element_tags ON element USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_element_attr_element ON element_attribute(element_id);
