@@ -2436,31 +2436,42 @@ export async function createCategory(
   const parentId = input.parentId ?? null;
 
   // Single query: derive level from parent, auto-increment sort_order if not given
-  const { rows } = await pool.query(
-    `INSERT INTO element_category (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
-     SELECT $1, $2, $3,
-       CASE WHEN $3::uuid IS NULL THEN 1
-            ELSE (SELECT level + 1 FROM element_category WHERE id = $3)
-       END,
-       $4, COALESCE($5::int, (
-         SELECT COALESCE(MAX(sort_order), -1) + 1
-         FROM element_category
-         WHERE org_id = $1 AND parent_id IS NOT DISTINCT FROM $3
-       )), $6, $7
-     WHERE ($3::uuid IS NULL OR EXISTS (
-       SELECT 1 FROM element_category WHERE id = $3 AND level < 3
-     ))
-     RETURNING *`,
-    [
-      orgId,
-      input.name,
-      parentId,
-      input.codePrefix ?? null,
-      input.sortOrder ?? null,
-      input.icon ?? null,
-      input.color ?? null,
-    ]
-  );
+  let rows: ElementCategory[];
+  try {
+    const result = await pool.query(
+      `INSERT INTO element_category (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
+       SELECT $1, $2, $3,
+         CASE WHEN $3::uuid IS NULL THEN 1
+              ELSE (SELECT level + 1 FROM element_category WHERE id = $3)
+         END,
+         $4, COALESCE($5::int, (
+           SELECT COALESCE(MAX(sort_order), -1) + 1
+           FROM element_category
+           WHERE org_id = $1 AND parent_id IS NOT DISTINCT FROM $3
+         )), $6, $7
+       WHERE ($3::uuid IS NULL OR EXISTS (
+         SELECT 1 FROM element_category WHERE id = $3 AND level < 3
+       ))
+       RETURNING *`,
+      [
+        orgId,
+        input.name,
+        parentId,
+        input.codePrefix ?? null,
+        input.sortOrder ?? null,
+        input.icon ?? null,
+        input.color ?? null,
+      ]
+    );
+    rows = result.rows;
+  } catch (err: unknown) {
+    // Handle DB constraint violations (e.g., chk_parent_level race condition)
+    const pgErr = err as { code?: string };
+    if (pgErr.code === "23514")
+      throw new Error("Maximum nesting depth reached");
+    if (pgErr.code === "23503") throw new Error("Parent category not found");
+    throw err;
+  }
 
   if (rows.length === 0) {
     // The WHERE clause filtered out — either parent not found or max depth exceeded
@@ -2493,6 +2504,7 @@ const CATEGORY_COLS = new Set([
  */
 export async function updateCategory(
   id: string,
+  orgId: string,
   fields: Record<string, unknown>
 ) {
   const updates: string[] = [];
@@ -2510,11 +2522,11 @@ export async function updateCategory(
   if (updates.length === 0) return null;
 
   updates.push(`updated_at = now()`);
-  values.push(id);
+  values.push(id, orgId);
 
   const pool = getPool();
   const { rows } = await pool.query(
-    `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
+    `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} AND org_id = $${idx + 1} RETURNING *`,
     values
   );
   return (rows[0] as ElementCategory) ?? null;
@@ -2524,14 +2536,14 @@ export async function updateCategory(
  * Delete a category atomically. Returns not_found/has_children/deleted.
  * Single query via conditional DELETE — no TOCTOU race.
  */
-export async function deleteCategory(id: string) {
+export async function deleteCategory(id: string, orgId: string) {
   const pool = getPool();
 
   const { rowCount } = await pool.query(
     `DELETE FROM element_category
-     WHERE id = $1
+     WHERE id = $1 AND org_id = $2
        AND NOT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1)`,
-    [id]
+    [id, orgId]
   );
 
   if ((rowCount ?? 0) > 0) return { deleted: true as const };
@@ -2552,6 +2564,7 @@ export async function deleteCategory(id: string) {
 
 /** Reorder categories within a parent (or root level when parentId is null). */
 export async function reorderCategories(
+  orgId: string,
   parentId: string | null,
   orderedIds: string[]
 ) {
@@ -2561,7 +2574,8 @@ export async function reorderCategories(
      SET sort_order = data.pos, updated_at = now()
      FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
      WHERE element_category.id = data.id
-       AND element_category.parent_id IS NOT DISTINCT FROM $3`,
-    [orderedIds, orderedIds.length - 1, parentId]
+       AND element_category.org_id = $3
+       AND element_category.parent_id IS NOT DISTINCT FROM $4`,
+    [orderedIds, orderedIds.length - 1, orgId, parentId]
   );
 }

@@ -31,6 +31,7 @@ const GRANDCHILD_ID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 const fakeCategory: ElementCategory = {
   id: CAT_ID,
+  org_id: "org-test-001",
   name: "Finishes",
   parent_id: null,
   level: 1,
@@ -399,7 +400,11 @@ describe("PATCH /api/element-categories/reorder", () => {
 
     expect(status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(reorderCategories).toHaveBeenCalledWith(null, orderedIds);
+    expect(reorderCategories).toHaveBeenCalledWith(
+      "org-test-001",
+      null,
+      orderedIds
+    );
   });
 
   it("reorders children within a parent", async () => {
@@ -414,7 +419,11 @@ describe("PATCH /api/element-categories/reorder", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(200);
-    expect(reorderCategories).toHaveBeenCalledWith(CAT_ID, orderedIds);
+    expect(reorderCategories).toHaveBeenCalledWith(
+      "org-test-001",
+      CAT_ID,
+      orderedIds
+    );
   });
 
   it("returns 400 when orderedIds is empty", async () => {
