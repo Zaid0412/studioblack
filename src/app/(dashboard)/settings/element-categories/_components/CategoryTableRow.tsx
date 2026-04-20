@@ -1,14 +1,7 @@
 "use client";
 
 import type React from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  GripVertical,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+import { ChevronDown, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslations } from "next-intl";
@@ -23,7 +16,8 @@ import { cn } from "@/lib/utils";
 import type { ElementCategoryNode } from "@/types";
 
 const INDENT_PX = 20;
-const CONNECTOR_COLOR = "var(--border)";
+const CONNECTOR_COLOR = "var(--border-light)";
+const CONNECTOR_WIDTH = 1.5;
 
 interface Props {
   node: ElementCategoryNode;
@@ -60,8 +54,8 @@ function TreeConnector({
           top: 0,
           width: 10,
           height: "calc(50% + 1px)",
-          borderLeft: `1px solid ${CONNECTOR_COLOR}`,
-          borderBottom: `1px solid ${CONNECTOR_COLOR}`,
+          borderLeft: `${CONNECTOR_WIDTH}px solid ${CONNECTOR_COLOR}`,
+          borderBottom: `${CONNECTOR_WIDTH}px solid ${CONNECTOR_COLOR}`,
           borderBottomLeftRadius: 4,
         }}
       />
@@ -72,7 +66,7 @@ function TreeConnector({
           style={{
             left,
             top: "50%",
-            width: 1,
+            width: CONNECTOR_WIDTH,
             height: "50%",
             background: CONNECTOR_COLOR,
           }}
@@ -126,6 +120,7 @@ export function CategoryTableRow({
     <tr
       ref={setNodeRef}
       style={style}
+      data-tree-depth={depth}
       className={cn(
         "border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors",
         isDragging && "bg-bg-elevated"
@@ -154,16 +149,17 @@ export function CategoryTableRow({
               onClick={() => onToggleCollapse(node.id)}
               aria-label={isCollapsed ? tCommon("expand") : tCommon("collapse")}
               aria-expanded={!isCollapsed}
-              className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
+              className="shrink-0 cursor-pointer rounded p-0.5 text-text-muted hover:bg-bg-elevated hover:text-text-primary transition-colors"
             >
-              {isCollapsed ? (
-                <ChevronRight className="w-3.5 h-3.5" />
-              ) : (
-                <ChevronDown className="w-3.5 h-3.5" />
-              )}
+              <ChevronDown
+                className={cn(
+                  "w-3.5 h-3.5 transition-transform duration-150",
+                  isCollapsed && "-rotate-90"
+                )}
+              />
             </button>
           ) : (
-            <span aria-hidden className="w-3.5 shrink-0" />
+            <span aria-hidden className="w-[18px] shrink-0" />
           )}
           <CategoryIcon icon={node.icon} color={node.color} size={16} />
           <span className={nameClassForDepth(depth)}>{node.name}</span>

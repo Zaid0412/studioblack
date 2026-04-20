@@ -296,3 +296,25 @@ h6 {
   height: 16px;
   border-radius: 0 0 8px 8px;
 }
+
+/* Element-category tree — mount animation for nested rows */
+@keyframes category-row-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+tr[data-tree-depth="1"],
+tr[data-tree-depth="2"] {
+  animation: category-row-slide-in 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  tr[data-tree-depth="1"],
+  tr[data-tree-depth="2"] {
+    animation: none;
+  }
+}

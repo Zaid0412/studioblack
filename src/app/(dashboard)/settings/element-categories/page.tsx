@@ -384,7 +384,14 @@ export default function ElementCategoriesSettingsPage() {
               strategy={verticalListSortingStrategy}
             >
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full table-fixed">
+                  <colgroup>
+                    <col />
+                    <col className="w-[140px]" />
+                    <col className="w-[120px]" />
+                    <col className="w-[140px]" />
+                    <col className="w-[140px]" />
+                  </colgroup>
                   <thead>
                     <tr className="border-b border-border-default">
                       <th className="text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pr-3">
