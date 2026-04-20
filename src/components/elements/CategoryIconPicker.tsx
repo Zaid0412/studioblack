@@ -42,7 +42,7 @@ export function CategoryIconPicker({
         className={cn(
           "flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border transition-colors",
           selected
-            ? "border-accent bg-accent/10"
+            ? "border-2 border-accent bg-accent/10"
             : "border-border-default bg-bg-input hover:border-accent/60"
         )}
       >
