@@ -261,7 +261,7 @@ export const createElementCategorySchema = z.object({
 });
 
 export const updateElementCategorySchema = z.object({
-  name: z.string().trim().min(1).max(150).optional(),
+  name: trimmedString.max(150).optional(),
   codePrefix: z.string().max(10).optional().nullable(),
   sortOrder: z.number().int().min(0).optional(),
   icon: z.string().max(50).optional().nullable(),

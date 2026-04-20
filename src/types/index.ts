@@ -343,6 +343,7 @@ export interface TaskFormData {
 /** A single element category row from the DB. */
 export interface ElementCategory {
   id: string;
+  org_id: string;
   name: string;
   parent_id: string | null;
   level: 1 | 2 | 3;

@@ -5,6 +5,7 @@ import {
   PROJECT_STEPS,
   DEFAULT_PAGE_LIMIT,
 } from "@/lib/constants";
+import type { ElementCategory, ElementCategoryNode } from "@/types";
 
 /**
  * Generate a 32-char alphanumeric ID matching better-auth's format.
@@ -2375,11 +2376,9 @@ export async function getAccountPasswordHash(
 // ---------------------------------------------------------------------------
 
 /** Build a nested tree from flat category rows. */
-export function buildCategoryTree(
-  rows: import("@/types").ElementCategory[]
-): import("@/types").ElementCategoryNode[] {
-  const map = new Map<string, import("@/types").ElementCategoryNode>();
-  const roots: import("@/types").ElementCategoryNode[] = [];
+export function buildCategoryTree(rows: ElementCategory[]): ElementCategoryNode[] {
+  const map = new Map<string, ElementCategoryNode>();
+  const roots: ElementCategoryNode[] = [];
 
   for (const row of rows) {
     map.set(row.id, { ...row, children: [] });
@@ -2403,7 +2402,7 @@ export async function getCategoryTree(orgId: string) {
     `SELECT * FROM element_category WHERE org_id = $1 ORDER BY level, sort_order, name`,
     [orgId]
   );
-  return rows as import("@/types").ElementCategory[];
+  return rows as ElementCategory[];
 }
 
 /** Fetch a single category by ID. */
@@ -2413,10 +2412,13 @@ export async function getCategoryById(id: string) {
     `SELECT * FROM element_category WHERE id = $1`,
     [id]
   );
-  return (rows[0] as import("@/types").ElementCategory) ?? null;
+  return (rows[0] as ElementCategory) ?? null;
 }
 
-/** Create a new category. Level is derived from parent. */
+/**
+ * Create a new category. Level is derived from parent via a single INSERT
+ * with subqueries (no extra round-trips for parent lookup or sort_order).
+ */
 export async function createCategory(
   orgId: string,
   input: {
@@ -2429,46 +2431,49 @@ export async function createCategory(
   }
 ) {
   const pool = getPool();
-  let level = 1;
+  const parentId = input.parentId ?? null;
 
-  if (input.parentId) {
-    const { rows: parentRows } = await pool.query(
-      `SELECT level FROM element_category WHERE id = $1`,
-      [input.parentId]
-    );
-    if (parentRows.length === 0) throw new Error("Parent category not found");
-    if (parentRows[0].level >= 3) throw new Error("Maximum nesting depth reached");
-    level = parentRows[0].level + 1;
-  }
-
-  // Auto-increment sort_order if not provided
-  let sortOrder = input.sortOrder;
-  if (sortOrder === undefined) {
-    const { rows: maxRows } = await pool.query(
-      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order
-       FROM element_category
-       WHERE org_id = $1 AND parent_id IS NOT DISTINCT FROM $2`,
-      [orgId, input.parentId ?? null]
-    );
-    sortOrder = maxRows[0].next_order;
-  }
-
+  // Single query: derive level from parent, auto-increment sort_order if not given
   const { rows } = await pool.query(
     `INSERT INTO element_category (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     SELECT $1, $2, $3,
+       CASE WHEN $3::uuid IS NULL THEN 1
+            ELSE (SELECT level + 1 FROM element_category WHERE id = $3)
+       END,
+       $4, COALESCE($5::int, (
+         SELECT COALESCE(MAX(sort_order), -1) + 1
+         FROM element_category
+         WHERE org_id = $1 AND parent_id IS NOT DISTINCT FROM $3
+       )), $6, $7
+     WHERE ($3::uuid IS NULL OR EXISTS (
+       SELECT 1 FROM element_category WHERE id = $3 AND level < 3
+     ))
      RETURNING *`,
     [
       orgId,
       input.name,
-      input.parentId ?? null,
-      level,
+      parentId,
       input.codePrefix ?? null,
-      sortOrder,
+      input.sortOrder ?? null,
       input.icon ?? null,
       input.color ?? null,
     ]
   );
-  return rows[0] as import("@/types").ElementCategory;
+
+  if (rows.length === 0) {
+    // The WHERE clause filtered out — either parent not found or max depth exceeded
+    if (parentId) {
+      const { rows: check } = await pool.query(
+        `SELECT level FROM element_category WHERE id = $1`,
+        [parentId]
+      );
+      if (check.length === 0) throw new Error("Parent category not found");
+      throw new Error("Maximum nesting depth reached");
+    }
+    throw new Error("Failed to create category");
+  }
+
+  return rows[0] as ElementCategory;
 }
 
 const CATEGORY_COLS = new Set([
@@ -2480,7 +2485,10 @@ const CATEGORY_COLS = new Set([
   "is_active",
 ]);
 
-/** Update a category's fields. Only updates provided fields. */
+/**
+ * Update a category's fields. Expects snake_case keys (route handler converts).
+ * Returns null if the category doesn't exist or no fields to update.
+ */
 export async function updateCategory(
   id: string,
   fields: Record<string, unknown>
@@ -2489,20 +2497,9 @@ export async function updateCategory(
   const values: unknown[] = [];
   let idx = 1;
 
-  // Map camelCase to snake_case
-  const fieldMap: Record<string, string> = {
-    name: "name",
-    codePrefix: "code_prefix",
-    sortOrder: "sort_order",
-    icon: "icon",
-    color: "color",
-    isActive: "is_active",
-  };
-
-  for (const [camel, snake] of Object.entries(fieldMap)) {
-    const value = fields[camel];
-    if (value !== undefined && CATEGORY_COLS.has(snake)) {
-      updates.push(`"${snake}" = $${idx}`);
+  for (const [col, value] of Object.entries(fields)) {
+    if (value !== undefined && CATEGORY_COLS.has(col)) {
+      updates.push(`"${col}" = $${idx}`);
       values.push(value === "" ? null : value);
       idx++;
     }
@@ -2518,25 +2515,34 @@ export async function updateCategory(
     `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} RETURNING *`,
     values
   );
-  return (rows[0] as import("@/types").ElementCategory) ?? null;
+  return (rows[0] as ElementCategory) ?? null;
 }
 
-/** Delete a category. Blocks if it has children. */
+/**
+ * Delete a category atomically. Returns not_found/has_children/deleted.
+ * Single query via conditional DELETE — no TOCTOU race.
+ */
 export async function deleteCategory(id: string) {
   const pool = getPool();
-  const { rows: children } = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM element_category WHERE parent_id = $1`,
-    [id]
-  );
-  if (children[0].count > 0) {
-    return { deleted: false, error: "Category has children. Remove or move them first." };
-  }
 
   const { rowCount } = await pool.query(
-    `DELETE FROM element_category WHERE id = $1`,
+    `DELETE FROM element_category
+     WHERE id = $1
+       AND NOT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1)`,
     [id]
   );
-  return { deleted: (rowCount ?? 0) > 0 };
+
+  if ((rowCount ?? 0) > 0) return { deleted: true as const };
+
+  // Distinguish not-found from has-children
+  const { rows } = await pool.query(
+    `SELECT EXISTS (SELECT 1 FROM element_category WHERE parent_id = $1) AS has_children`,
+    [id]
+  );
+  if (rows[0]?.has_children) {
+    return { deleted: false as const, error: "Category has children. Remove or move them first." };
+  }
+  return { deleted: false as const, error: "Category not found" };
 }
 
 /** Reorder categories within a parent (or root level when parentId is null). */

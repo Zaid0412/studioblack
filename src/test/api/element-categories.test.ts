@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getCategoryTree,
   buildCategoryTree,
-  getCategoryById,
   createCategory,
   updateCategory,
   deleteCategory,
@@ -248,7 +247,6 @@ describe("POST /api/element-categories", () => {
 describe("PATCH /api/element-categories/[id]", () => {
   it("updates category name", async () => {
     const updated = { ...fakeCategory, name: "Updated Finishes" };
-    vi.mocked(getCategoryById).mockResolvedValue(fakeCategory);
     vi.mocked(updateCategory).mockResolvedValue(updated);
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
@@ -264,7 +262,6 @@ describe("PATCH /api/element-categories/[id]", () => {
 
   it("updates color, icon, isActive", async () => {
     const updated = { ...fakeCategory, color: "#000000", icon: "star", is_active: false };
-    vi.mocked(getCategoryById).mockResolvedValue(fakeCategory);
     vi.mocked(updateCategory).mockResolvedValue(updated);
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
@@ -279,7 +276,7 @@ describe("PATCH /api/element-categories/[id]", () => {
   });
 
   it("returns 404 when category not found", async () => {
-    vi.mocked(getCategoryById).mockResolvedValue(null);
+    vi.mocked(updateCategory).mockResolvedValue(null);
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
       method: "PATCH",
@@ -291,8 +288,7 @@ describe("PATCH /api/element-categories/[id]", () => {
     expect(status).toBe(404);
   });
 
-  it("returns 400 when no valid fields provided", async () => {
-    vi.mocked(getCategoryById).mockResolvedValue(fakeCategory);
+  it("returns 404 when no valid fields provided", async () => {
     vi.mocked(updateCategory).mockResolvedValue(null);
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
@@ -302,7 +298,7 @@ describe("PATCH /api/element-categories/[id]", () => {
     const res = await PATCH_ITEM(req, buildParams({ id: CAT_ID }));
     const { status } = await parseResponse(res);
 
-    expect(status).toBe(400);
+    expect(status).toBe(404);
   });
 
   it("returns 403 for client role", async () => {
@@ -323,7 +319,6 @@ describe("PATCH /api/element-categories/[id]", () => {
 
 describe("DELETE /api/element-categories/[id]", () => {
   it("deletes a leaf category", async () => {
-    vi.mocked(getCategoryById).mockResolvedValue(fakeGrandchild);
     vi.mocked(deleteCategory).mockResolvedValue({ deleted: true });
 
     const req = buildRequest(`/api/element-categories/${GRANDCHILD_ID}`, {
@@ -337,7 +332,6 @@ describe("DELETE /api/element-categories/[id]", () => {
   });
 
   it("returns 409 when category has children", async () => {
-    vi.mocked(getCategoryById).mockResolvedValue(fakeCategory);
     vi.mocked(deleteCategory).mockResolvedValue({
       deleted: false,
       error: "Category has children. Remove or move them first.",
@@ -354,7 +348,10 @@ describe("DELETE /api/element-categories/[id]", () => {
   });
 
   it("returns 404 when category not found", async () => {
-    vi.mocked(getCategoryById).mockResolvedValue(null);
+    vi.mocked(deleteCategory).mockResolvedValue({
+      deleted: false,
+      error: "Category not found",
+    });
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {
       method: "DELETE",

@@ -1,6 +1,14 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
+import type { z } from "zod";
+import type {
+  createElementCategorySchema,
+  updateElementCategorySchema,
+} from "@/lib/validations";
+
+type CreateInput = z.infer<typeof createElementCategorySchema>;
+type UpdateInput = z.infer<typeof updateElementCategorySchema>;
 
 /** Fetch the full category tree for the current org. */
 export function getTree() {
@@ -8,29 +16,12 @@ export function getTree() {
 }
 
 /** Create a new category. */
-export function create(data: {
-  name: string;
-  parentId?: string;
-  codePrefix?: string;
-  sortOrder?: number;
-  icon?: string;
-  color?: string;
-}) {
+export function create(data: CreateInput) {
   return apiPost<ElementCategory>(API.elementCategories(), data);
 }
 
 /** Update a category. */
-export function update(
-  id: string,
-  data: {
-    name?: string;
-    codePrefix?: string | null;
-    sortOrder?: number;
-    icon?: string | null;
-    color?: string | null;
-    isActive?: boolean;
-  }
-) {
+export function update(id: string, data: UpdateInput) {
   return apiPatch<ElementCategory>(API.elementCategory(id), data);
 }
 

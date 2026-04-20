@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCategoryById, updateCategory, deleteCategory } from "@/lib/queries";
+import { updateCategory, deleteCategory } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateElementCategorySchema } from "@/lib/validations";
 
@@ -7,19 +7,24 @@ import { parseRequest, updateElementCategorySchema } from "@/lib/validations";
 export const PATCH = withAuth(
   { allowedRoles: ["pm", "architect"] },
   async (req, _ctx, params) => {
-    const category = await getCategoryById(params.id);
-    if (!category) {
-      return NextResponse.json({ error: "Category not found" }, { status: 404 });
-    }
-
     const parsed = await parseRequest(req, updateElementCategorySchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const updated = await updateCategory(params.id, parsed.data);
+    const body = parsed.data;
+    const fields: Record<string, unknown> = {
+      name: body.name,
+      code_prefix: body.codePrefix,
+      sort_order: body.sortOrder,
+      icon: body.icon,
+      color: body.color,
+      is_active: body.isActive,
+    };
+
+    const updated = await updateCategory(params.id, fields);
     if (!updated) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
     return NextResponse.json(updated);
   }
@@ -29,14 +34,10 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   { allowedRoles: ["pm", "architect"] },
   async (_req, _ctx, params) => {
-    const category = await getCategoryById(params.id);
-    if (!category) {
-      return NextResponse.json({ error: "Category not found" }, { status: 404 });
-    }
-
     const result = await deleteCategory(params.id);
     if (!result.deleted) {
-      return NextResponse.json({ error: result.error }, { status: 409 });
+      const status = result.error === "Category not found" ? 404 : 409;
+      return NextResponse.json({ error: result.error }, { status });
     }
     return NextResponse.json({ success: true });
   }
