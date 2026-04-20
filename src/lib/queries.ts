@@ -2376,7 +2376,9 @@ export async function getAccountPasswordHash(
 // ---------------------------------------------------------------------------
 
 /** Build a nested tree from flat category rows. */
-export function buildCategoryTree(rows: ElementCategory[]): ElementCategoryNode[] {
+export function buildCategoryTree(
+  rows: ElementCategory[]
+): ElementCategoryNode[] {
   const map = new Map<string, ElementCategoryNode>();
   const roots: ElementCategoryNode[] = [];
 
@@ -2540,7 +2542,10 @@ export async function deleteCategory(id: string) {
     [id]
   );
   if (rows[0]?.has_children) {
-    return { deleted: false as const, error: "Category has children. Remove or move them first." };
+    return {
+      deleted: false as const,
+      error: "Category has children. Remove or move them first.",
+    };
   }
   return { deleted: false as const, error: "Category not found" };
 }

@@ -24,7 +24,10 @@ export const PATCH = withAuth(
 
     const updated = await updateCategory(params.id, fields);
     if (!updated) {
-      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      );
     }
     return NextResponse.json(updated);
   }

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { getCategoryTree, buildCategoryTree, createCategory } from "@/lib/queries";
+import {
+  getCategoryTree,
+  buildCategoryTree,
+  createCategory,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, createElementCategorySchema } from "@/lib/validations";
 
@@ -33,7 +37,8 @@ export const POST = withAuth(
       const category = await createCategory(orgId, parsed.data);
       return NextResponse.json(category, { status: 201 });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create category";
+      const message =
+        err instanceof Error ? err.message : "Failed to create category";
       return NextResponse.json({ error: message }, { status: 400 });
     }
   }

@@ -7,7 +7,11 @@ vi.unmock("@/lib/queries");
 const { buildCategoryTree } = await import("@/lib/queries");
 
 const makeCategory = (
-  overrides: Partial<ElementCategory> & { id: string; name: string; level: 1 | 2 | 3 }
+  overrides: Partial<ElementCategory> & {
+    id: string;
+    name: string;
+    level: 1 | 2 | 3;
+  }
 ): ElementCategory => ({
   parent_id: null,
   code_prefix: null,
@@ -73,8 +77,20 @@ describe("buildCategoryTree", () => {
   it("handles multiple children under one parent", () => {
     const rows = [
       makeCategory({ id: "a", name: "Root", level: 1 }),
-      makeCategory({ id: "b", name: "Child 1", level: 2, parent_id: "a", sort_order: 0 }),
-      makeCategory({ id: "c", name: "Child 2", level: 2, parent_id: "a", sort_order: 1 }),
+      makeCategory({
+        id: "b",
+        name: "Child 1",
+        level: 2,
+        parent_id: "a",
+        sort_order: 0,
+      }),
+      makeCategory({
+        id: "c",
+        name: "Child 2",
+        level: 2,
+        parent_id: "a",
+        sort_order: 1,
+      }),
     ];
     const tree = buildCategoryTree(rows);
 
@@ -84,7 +100,12 @@ describe("buildCategoryTree", () => {
   it("skips orphaned records (parent not in set)", () => {
     const rows = [
       makeCategory({ id: "a", name: "Root", level: 1 }),
-      makeCategory({ id: "b", name: "Orphan", level: 2, parent_id: "nonexistent" }),
+      makeCategory({
+        id: "b",
+        name: "Orphan",
+        level: 2,
+        parent_id: "nonexistent",
+      }),
     ];
     const tree = buildCategoryTree(rows);
 

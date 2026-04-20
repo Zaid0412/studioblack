@@ -198,7 +198,10 @@ describe("POST /api/element-categories", () => {
 
     const req = buildRequest("/api/element-categories", {
       method: "POST",
-      body: { name: "Orphan", parentId: "f47ac10b-58cc-4372-a567-000000000000" },
+      body: {
+        name: "Orphan",
+        parentId: "f47ac10b-58cc-4372-a567-000000000000",
+      },
     });
     const res = await POST(req);
     const { status } = await parseResponse(res);
@@ -261,7 +264,12 @@ describe("PATCH /api/element-categories/[id]", () => {
   });
 
   it("updates color, icon, isActive", async () => {
-    const updated = { ...fakeCategory, color: "#000000", icon: "star", is_active: false };
+    const updated = {
+      ...fakeCategory,
+      color: "#000000",
+      icon: "star",
+      is_active: false,
+    };
     vi.mocked(updateCategory).mockResolvedValue(updated);
 
     const req = buildRequest(`/api/element-categories/${CAT_ID}`, {

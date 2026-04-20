@@ -1,6 +1,7 @@
 # ArchBuild Implementation Plan
 
 > **Source PRD** (Google Docs — 4 tabs):
+>
 > - [Tab 1 — Overview & Architecture](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.0)
 > - [Tab 2 — Database Schema & Permissions](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.kxk5xif02yog)
 > - [Tab 3 — UI Specs & Workflows](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.l1rfcv6wiy3h)
@@ -19,6 +20,7 @@ Transform StudioBlack (design review platform) into ArchBuild (BOQ-centric const
 ## Key Architecture Decisions
 
 ### What stays the same
+
 - **Next.js App Router** — no migration to Vite/SPA (PRD assumes greenfield React+Vite; we already have Next.js)
 - **better-auth** — no migration to Supabase Auth (our auth is mature, tested, works)
 - **Raw SQL via `pg`** — no PostgREST, no ORM (matches existing patterns in `queries.ts`)
@@ -26,20 +28,22 @@ Transform StudioBlack (design review platform) into ArchBuild (BOQ-centric const
 - **Existing UI components** — shadcn pattern already in place, reuse everything
 
 ### What the PRD says vs what we do
-| PRD says | We do instead | Why |
-|----------|--------------|-----|
-| Supabase Auth + RLS | better-auth + `withAuth()` | Already built, tested, 40+ routes use it |
-| TanStack Query v5 | SWR | Already configured globally, same purpose |
-| Supabase Realtime | SWR polling + `usePageVisibility()` | Already have the pattern; add Realtime later if needed |
-| Vercel Edge Functions | Next.js API Routes | Same hosting, simpler |
-| React Hook Form | Continue with current form patterns | Add RHF only if forms get complex enough to justify it |
-| TanStack Table v8 | Add for BOQ table (new dependency) | Justified — BOQ needs virtualisation for 1000+ rows |
-| Recharts | Add when needed (Phase 3+) | Not needed until dashboard charts |
-| React-PDF | Add when needed (Phase 3+) | Not needed until PDF export |
-| SheetJS (xlsx) | Add for Element Library import (new dependency) | Justified — Excel import is core feature |
-| TipTap | Evaluate when needed | Rich text only needed for custom tabs (late feature) |
+
+| PRD says              | We do instead                                   | Why                                                    |
+| --------------------- | ----------------------------------------------- | ------------------------------------------------------ |
+| Supabase Auth + RLS   | better-auth + `withAuth()`                      | Already built, tested, 40+ routes use it               |
+| TanStack Query v5     | SWR                                             | Already configured globally, same purpose              |
+| Supabase Realtime     | SWR polling + `usePageVisibility()`             | Already have the pattern; add Realtime later if needed |
+| Vercel Edge Functions | Next.js API Routes                              | Same hosting, simpler                                  |
+| React Hook Form       | Continue with current form patterns             | Add RHF only if forms get complex enough to justify it |
+| TanStack Table v8     | Add for BOQ table (new dependency)              | Justified — BOQ needs virtualisation for 1000+ rows    |
+| Recharts              | Add when needed (Phase 3+)                      | Not needed until dashboard charts                      |
+| React-PDF             | Add when needed (Phase 3+)                      | Not needed until PDF export                            |
+| SheetJS (xlsx)        | Add for Element Library import (new dependency) | Justified — Excel import is core feature               |
+| TipTap                | Evaluate when needed                            | Rich text only needed for custom tabs (late feature)   |
 
 ### New role: Vendor
+
 - Add `vendor` to `UserRole` type
 - Add `vendor` role to better-auth org plugin
 - Add vendor-specific nav items to sidebar
@@ -143,6 +147,7 @@ PROJECT DETAIL PAGE (after all features)
 **Implementation**: A new `ProjectTabs` component wraps the tab content. The current page content (PhaseTabs + FileTable + TaskSection) becomes the "Designs" tab. Each new feature adds its tab content incrementally. Tabs that don't have their feature flag enabled simply don't render.
 
 **When each tab appears**:
+
 - Feature 4+5: BOQ tab appears
 - Feature 9: RFQs tab appears
 - Feature 11: Proposals tab appears
@@ -159,6 +164,7 @@ Before Feature 5, the project page looks exactly as it does today. After Feature
 Currently: `Edit Project` + `Upload Designs` buttons.
 
 After features are added:
+
 ```
 WorkflowBar (PM/Architect, adapts to active tab)
 ├── Designs tab active:  Edit Project | Upload Designs (current)
@@ -177,6 +183,7 @@ The WorkflowBar becomes **context-aware** — it renders different action button
 **Current PM/Architect dashboard**: 4 stat cards (Active Projects, Pending Reviews, Approved Designs, Team Members) + Recent Activity + Upcoming Deadlines.
 
 **After BOQ features** (Feature 18):
+
 ```
 PM/ARCHITECT DASHBOARD
 ├── Stats row (extended)
@@ -197,6 +204,7 @@ PM/ARCHITECT DASHBOARD
 **Current client dashboard**: 3 stats (Total Projects, Pending Review, Reviewed) + Project cards.
 
 **After client BOQ portal** (Feature 12):
+
 ```
 CLIENT DASHBOARD
 ├── Stats row (extended)
@@ -317,27 +325,28 @@ The BOQ lives as a tab within the project detail page:
 
 These are the "connective tissue" links between modules:
 
-| From | To | Trigger |
-|------|----|---------|
-| Element Library → BOQ | "Add to BOQ" action on element | Creates BOQ item from element |
-| BOQ item → Element Library | "View in Library" link in item drawer | Opens element detail |
-| BOQ item → RFQ | "Add to RFQ" action column | Opens RFQ creation with item pre-selected |
-| RFQ → Vendor | "Suggested Vendors" panel | Links to vendor profiles |
-| RFQ → Vendor Quote | "View Quotes" on RFQ detail | Opens quote comparison |
-| Quote → PO | "Create PO" after award | Auto-populates PO from quote |
-| BOQ item → Change Order | "Raise CO" when item is locked | Opens CO creation |
-| Change Order → BOQ | "Implement" action | Applies changes to BOQ |
-| BOQ item → Snag | "Report Snag" action | Creates snag linked to item |
-| Snag → BOQ item | "View BOQ item" link in snag | Navigates to item in BOQ table |
-| Dashboard → BOQ | "Margin Bleed" widget | Links to specific project's BOQ |
-| Notification → Project tab | Notification click | Deep-links to specific tab (BOQ approval, CO, etc.) |
-| Client approval → BOQ item | Approve/reject in client portal | Updates item status |
+| From                       | To                                    | Trigger                                             |
+| -------------------------- | ------------------------------------- | --------------------------------------------------- |
+| Element Library → BOQ      | "Add to BOQ" action on element        | Creates BOQ item from element                       |
+| BOQ item → Element Library | "View in Library" link in item drawer | Opens element detail                                |
+| BOQ item → RFQ             | "Add to RFQ" action column            | Opens RFQ creation with item pre-selected           |
+| RFQ → Vendor               | "Suggested Vendors" panel             | Links to vendor profiles                            |
+| RFQ → Vendor Quote         | "View Quotes" on RFQ detail           | Opens quote comparison                              |
+| Quote → PO                 | "Create PO" after award               | Auto-populates PO from quote                        |
+| BOQ item → Change Order    | "Raise CO" when item is locked        | Opens CO creation                                   |
+| Change Order → BOQ         | "Implement" action                    | Applies changes to BOQ                              |
+| BOQ item → Snag            | "Report Snag" action                  | Creates snag linked to item                         |
+| Snag → BOQ item            | "View BOQ item" link in snag          | Navigates to item in BOQ table                      |
+| Dashboard → BOQ            | "Margin Bleed" widget                 | Links to specific project's BOQ                     |
+| Notification → Project tab | Notification click                    | Deep-links to specific tab (BOQ approval, CO, etc.) |
+| Client approval → BOQ item | Approve/reject in client portal       | Updates item status                                 |
 
 #### 10. Notification System Extension
 
 Current notification types: review, comment, approval, upload, deadline, team, invitation, task_assigned, review_requested, review_submitted.
 
 New notification types added incrementally:
+
 ```
 Feature 4:  boq_submitted        — "BOQ for [project] was issued to client"
 Feature 9:  rfq_issued           — "New RFQ received: [title]" (to vendor)
@@ -361,18 +370,18 @@ All use the existing `notification` table and `useNotifications` hook. No new in
 
 #### 11. Existing Feature Connections (What Stays, What Evolves)
 
-| Existing Feature | What Happens to It |
-|------------------|-------------------|
-| Design Review (upload → review → approve → freeze) | **Stays exactly as-is**. Becomes the "Designs" tab in project tabs. |
-| Pin Comments + Annotations | **Stays as-is**. Design review workspace unchanged. |
-| Tasks | **Stays as-is** + gains BOQ item linking. Tasks can now be auto-created from BOQ rejections (like pin→task today). |
-| Comments (project-level) | **Stays as-is**. Always visible below the project tabs. |
-| Approval History (client) | **Extended**. Shows BOQ approvals and CO decisions alongside design approvals. |
-| File versioning | **Stays as-is**. Design files continue using version_group pattern. |
-| Organisation management | **Extended**. Vendor invitations use the same org invitation flow. |
-| Settings page | **Extended**. Vendors get a settings page too. |
-| Audit history | **Extended**. Gains BOQ change log entries alongside existing audit events. |
-| `PROJECT_STEPS` workflow bar | **Kept but may become secondary**. The 7 steps (Recce → Design → BOQ → Order → Work Progress → Snag → Finance) map naturally to the new modules. Consider evolving this into a project-level progress indicator. |
+| Existing Feature                                   | What Happens to It                                                                                                                                                                                               |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Design Review (upload → review → approve → freeze) | **Stays exactly as-is**. Becomes the "Designs" tab in project tabs.                                                                                                                                              |
+| Pin Comments + Annotations                         | **Stays as-is**. Design review workspace unchanged.                                                                                                                                                              |
+| Tasks                                              | **Stays as-is** + gains BOQ item linking. Tasks can now be auto-created from BOQ rejections (like pin→task today).                                                                                               |
+| Comments (project-level)                           | **Stays as-is**. Always visible below the project tabs.                                                                                                                                                          |
+| Approval History (client)                          | **Extended**. Shows BOQ approvals and CO decisions alongside design approvals.                                                                                                                                   |
+| File versioning                                    | **Stays as-is**. Design files continue using version_group pattern.                                                                                                                                              |
+| Organisation management                            | **Extended**. Vendor invitations use the same org invitation flow.                                                                                                                                               |
+| Settings page                                      | **Extended**. Vendors get a settings page too.                                                                                                                                                                   |
+| Audit history                                      | **Extended**. Gains BOQ change log entries alongside existing audit events.                                                                                                                                      |
+| `PROJECT_STEPS` workflow bar                       | **Kept but may become secondary**. The 7 steps (Recce → Design → BOQ → Order → Work Progress → Snag → Finance) map naturally to the new modules. Consider evolving this into a project-level progress indicator. |
 
 #### 12. Data Flow: From Element to Client Invoice
 
@@ -449,6 +458,7 @@ Feature 21: Audit Trail (boq_change_log — full history of all BOQ mutations)
 **Goal**: Three-level category tree for organising construction elements.
 
 **Database** — new migration `scripts/migrate-element-categories.sql`:
+
 ```sql
 CREATE TABLE element_category (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -469,6 +479,7 @@ CREATE INDEX idx_element_category_level ON element_category(level);
 ```
 
 **Queries** — add to `queries.ts`:
+
 - `getCategoryTree()` — recursive CTE returning nested tree
 - `getCategoryById(id)`
 - `createCategory(input)` — validate parent level (parent level must be < 3)
@@ -477,6 +488,7 @@ CREATE INDEX idx_element_category_level ON element_category(level);
 - `reorderCategories(parentId, orderedIds)`
 
 **API Routes**:
+
 - `GET /api/element-categories` — returns full tree
 - `POST /api/element-categories` — create category
 - `PATCH /api/element-categories/[id]` — update
@@ -484,6 +496,7 @@ CREATE INDEX idx_element_category_level ON element_category(level);
 - `PATCH /api/element-categories/reorder` — reorder within parent
 
 **UI**:
+
 - No standalone page yet — the category tree UI will be the left panel of the Element Library page (Feature 2)
 - Build the `CategoryTree` component as a reusable component in `src/components/elements/CategoryTree.tsx`
 - Collapsible tree with drag-to-reorder
@@ -495,10 +508,12 @@ CREATE INDEX idx_element_category_level ON element_category(level);
 **Feature flag**: Add `elementLibrary: false` to `features.ts` — toggle on when ready
 
 **Tests**:
+
 - API route tests for CRUD + validation (level constraints, delete with children)
 - Unit tests for tree building logic
 
 **Files to create/modify**:
+
 - `scripts/migrate-element-categories.sql` (new)
 - `src/lib/queries.ts` (add ~100 lines)
 - `src/app/api/element-categories/route.ts` (new)
@@ -518,6 +533,7 @@ CREATE INDEX idx_element_category_level ON element_category(level);
 **Goal**: Master catalogue of construction elements with full CRUD, search, filter, and the two-panel split view.
 
 **Database** — `scripts/migrate-elements.sql`:
+
 ```sql
 CREATE TABLE element (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -558,6 +574,7 @@ CREATE INDEX idx_element_attribute_element ON element_attribute(element_id);
 ```
 
 **Queries** — add to `queries.ts`:
+
 - `getElements(filters)` — paginated, filterable by category, unit, tags, search text, is_active. Uses `ILIKE` for search on name+code+description
 - `getElementById(id)` — includes attributes and category path
 - `createElement(input)` — validate unique code, category exists
@@ -568,6 +585,7 @@ CREATE INDEX idx_element_attribute_element ON element_attribute(element_id);
 - `upsertElementAttributes(elementId, attributes[])` — delete+insert in transaction
 
 **API Routes**:
+
 - `GET /api/elements` — list with filters (query params: search, categoryId, unit, tags, isActive, page, limit)
 - `POST /api/elements` — create element + attributes
 - `GET /api/elements/[id]` — detail with attributes
@@ -576,6 +594,7 @@ CREATE INDEX idx_element_attribute_element ON element_attribute(element_id);
 - `POST /api/elements/[id]/duplicate` — duplicate
 
 **UI** — new page at `src/app/(dashboard)/elements/page.tsx`:
+
 - Two-panel layout: CategoryTree (left 30%) | Element grid/table (right 70%)
 - Top bar: search input, filter chips (unit, tags, active/inactive), Add Element button
 - Table columns per PRD: Code, Name, Category (badge), Unit, Unit Cost, Margin % (color-coded), Tags, Status, Actions
@@ -591,17 +610,33 @@ CREATE INDEX idx_element_attribute_element ON element_attribute(element_id);
 **Zod Schemas**: Element create/update validation matching PRD Table 15 constraints
 
 **Allowed units list**: Define `ALLOWED_UNITS` constant in `constants.ts`:
+
 ```ts
 export const ALLOWED_UNITS = [
-  "m2", "m3", "lm", "nr", "item", "kg", "tonne", "ls",
-  "set", "pair", "roll", "sheet", "bag", "box", "pallet",
+  "m2",
+  "m3",
+  "lm",
+  "nr",
+  "item",
+  "kg",
+  "tonne",
+  "ls",
+  "set",
+  "pair",
+  "roll",
+  "sheet",
+  "bag",
+  "box",
+  "pallet",
 ] as const;
 ```
+
 Used in Zod schemas for validation and as dropdown options in UI.
 
 **Edge case — archive with BOQ references**: When soft-deleting an element (`is_active = false`), check for referencing `boq_item` rows. If found, don't block the archive — but set a flag on those BOQ items indicating the source element is archived. Add `element_archived BOOLEAN DEFAULT false` to `boq_item` (in Feature 4 migration). The archive query updates both: `UPDATE element SET is_active = false` + `UPDATE boq_item SET element_archived = true WHERE element_id = $1`.
 
 **Files to create/modify**:
+
 - `scripts/migrate-elements.sql` (new)
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/lib/constants.ts` (add ALLOWED_UNITS)
@@ -631,6 +666,7 @@ Used in Zod schemas for validation and as dropdown options in UI.
 **New dependency**: `xlsx` (SheetJS)
 
 **Import flow** (matches PRD):
+
 1. Upload .xlsx file
 2. Parse and validate rows against PRD Table 16 rules
 3. Show preview table with row-by-row validation status (valid/warning/error)
@@ -638,19 +674,23 @@ Used in Zod schemas for validation and as dropdown options in UI.
 5. Architect confirms → bulk insert/update
 
 **Export flow**:
+
 - Download current filtered view as .xlsx
 - Columns match import template
 
 **API Routes**:
+
 - `POST /api/elements/import` — accepts multipart form data, returns validation results
 - `POST /api/elements/import/confirm` — executes the confirmed import
 - `GET /api/elements/export` — returns .xlsx blob
 
 **Queries**:
+
 - `bulkUpsertElements(elements[], strategy)` — transactional bulk insert with duplicate handling
 - `getElementsForExport(filters)` — all fields for export
 
 **UI**:
+
 - Import button in Element Library top bar → opens multi-step dialog:
   - Step 1: Upload file
   - Step 2: Column mapping preview (auto-mapped)
@@ -660,6 +700,7 @@ Used in Zod schemas for validation and as dropdown options in UI.
 - Export button → downloads filtered results
 
 **Files to create/modify**:
+
 - `package.json` (add `xlsx`)
 - `src/app/api/elements/import/route.ts` (new)
 - `src/app/api/elements/import/confirm/route.ts` (new)
@@ -677,6 +718,7 @@ Used in Zod schemas for validation and as dropdown options in UI.
 **Goal**: Database schema and API for BOQ management — the foundation for the BOQ UI.
 
 **Database** — `scripts/migrate-boq.sql`:
+
 ```sql
 CREATE TABLE boq (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -764,11 +806,13 @@ CREATE INDEX idx_boq_item_element ON boq_item(element_id);
 ```
 
 **Note on GENERATED columns**: The PRD specifies `total_cost`, `sell_price`, `progress_pct`, `margin_alert` as GENERATED ALWAYS AS columns. We'll compute these in SQL queries instead (using expressions in SELECT), because:
+
 1. Our `pg` driver handles this cleanly
 2. Computed columns can't reference other tables (margin threshold is per-BOQ)
 3. More flexible for display logic
 
 **Cost calculation expressions** (used in queries):
+
 ```sql
 -- Per item:
 quantity * unit_cost AS total_cost,
@@ -784,6 +828,7 @@ pre_vat_total * (1 + vat_pct/100) AS client_total
 ```
 
 **Queries** — add to `queries.ts`:
+
 - `createBoq(projectId, input)` — one BOQ per project (for now)
 - `getBoq(boqId)` — full BOQ with sections, items (with computed columns), and summary totals
 - `getBoqByProject(projectId)` — get project's active BOQ
@@ -800,6 +845,7 @@ pre_vat_total * (1 + vat_pct/100) AS client_total
 - `getBoqSummary(boqId)` — totals, section breakdowns, margin bleed count
 
 **API Routes**:
+
 - `GET /api/projects/[id]/boq` — get project's BOQ (full data)
 - `POST /api/projects/[id]/boq` — create BOQ for project
 - `PATCH /api/projects/[id]/boq` — update BOQ header
@@ -821,6 +867,7 @@ pre_vat_total * (1 + vat_pct/100) AS client_total
 **Re-approval after edit**: If an architect edits a BOQ item that has `client_approval_status = 'approved'`, automatically set `requires_reapproval = true` and `client_approval_status = 'pending'`. The client sees a "Modified after approval — re-approval required" badge. This is enforced in the `updateBoqItem` query.
 
 **BOQ item lifecycle states** (two-track status):
+
 - `lifecycle_status` tracks the internal workflow: draft → submitted → approved/rejected/queried → locked → change_order_pending → superseded
 - `client_approval_status` tracks the client's decision per item: pending → approved/rejected/queried
 - These are separate because lifecycle can be `locked` while client_approval is `approved`
@@ -833,6 +880,7 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 **Zod Schemas**: BOQ, section, item create/update validation
 
 **Files to create/modify**:
+
 - `scripts/migrate-boq.sql` (new)
 - `src/lib/queries.ts` (add ~400 lines)
 - `src/app/api/projects/[id]/boq/route.ts` (new)
@@ -863,6 +911,7 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 **UI** — new page at `src/app/(dashboard)/projects/[id]/boq/page.tsx`:
 
 **Layout** (per PRD Table 24):
+
 - Top bar: Project name, BOQ title, version badge, status badge, last updated
 - Action bar: Add Section, Add Item, Import Excel, Export PDF, Export Excel, Issue to Client, Lock BOQ
 - Summary cards: Total Cost, Total Sell Price, Total Margin %, Pending Approvals, Margin Bleed Items
@@ -871,6 +920,7 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 - Bottom bar: Grand totals, contingency, VAT, client total
 
 **Table columns** (per PRD Table 25):
+
 - Ref #, Description, Unit, Qty, Unit Cost, Total Cost (computed), Margin %, Sell Price (computed), Client Status, PO Status, Progress, Flags, Actions
 
 **Inline editing**: Qty, Unit Cost, Margin %, Description, Unit are editable inline. Save on blur/Enter. Debounced API calls.
@@ -882,12 +932,14 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 **Element picker**: "Add from Library" button opens element search dialog → select → auto-fills item fields from element defaults.
 
 **Hooks**:
+
 - `useBoq(projectId)` — SWR-based, fetches full BOQ data
 - `useBoqMutations(projectId)` — CRUD operations with SWR cache invalidation
 
 **Sidebar**: Add "BOQ" tab to project detail page (alongside existing tabs)
 
 **Files to create/modify**:
+
 - `package.json` (add `@tanstack/react-table`)
 - `src/app/(dashboard)/projects/[id]/boq/page.tsx` (new)
 - `src/app/(dashboard)/projects/[id]/boq/_components/BoqTable.tsx` (new)
@@ -907,22 +959,26 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 **Goal**: Import BOQ items from Excel, export current BOQ to Excel/PDF.
 
 **Import** (per PRD Table 29):
+
 - Parse .xlsx with columns: Section, Item Code, Description, Unit, Quantity, Unit Cost, Margin %, Overhead %, Notes, Client Notes, Is Provisional
 - Match item codes to Element Library elements (auto-link element_id)
 - Validate against existing BOQ (duplicate codes, invalid units)
 - Preview → confirm
 
 **Export**:
+
 - Excel: Full BOQ with all columns + section totals + grand total
 - PDF: Client-facing view (no cost columns, only sell price) — basic PDF initially, enhanced in Feature 19
 
 **API Routes**:
+
 - `POST /api/projects/[id]/boq/import` — upload + validate
 - `POST /api/projects/[id]/boq/import/confirm` — execute import
 - `GET /api/projects/[id]/boq/export` — export as xlsx
 - `GET /api/projects/[id]/boq/export/pdf` — export as PDF (basic)
 
 **Files to create/modify**:
+
 - `src/app/api/projects/[id]/boq/import/route.ts` (new)
 - `src/app/api/projects/[id]/boq/import/confirm/route.ts` (new)
 - `src/app/api/projects/[id]/boq/export/route.ts` (new)
@@ -937,6 +993,7 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 **Goal**: Vendor profiles, contacts, and trade category mapping.
 
 **Database** — `scripts/migrate-vendors.sql`:
+
 ```sql
 CREATE TABLE vendor (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -990,6 +1047,7 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 **Queries**: Full CRUD for vendors, contacts, trades. `getVendorsByTrade(categoryId)` for RFQ vendor suggestion.
 
 **API Routes**:
+
 - `GET /api/vendors` — list with filters (search, status, trade)
 - `POST /api/vendors` — create vendor + contacts + trades
 - `GET /api/vendors/[id]` — detail with contacts and trades
@@ -998,6 +1056,7 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 - `GET /api/vendors/by-trade/[categoryId]` — vendors matching a trade
 
 **UI** — new page at `src/app/(dashboard)/vendors/page.tsx`:
+
 - Vendor list with search, status filter, trade filter
 - Vendor detail drawer/page with contacts tab, trades tab
 - Add/edit vendor dialog
@@ -1007,6 +1066,7 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 **Feature flag**: Add `vendorManagement: false` to `features.ts`
 
 **Bank details encryption**: The `bank_details` JSONB field stores sensitive financial data (bank name, account number, IBAN, SWIFT). Encrypt at the application level before writing to DB:
+
 - Use `crypto.createCipheriv('aes-256-gcm', key, iv)` with a `VENDOR_ENCRYPTION_KEY` env var
 - Store as `{ encrypted: string, iv: string, tag: string }` in the JSONB column
 - Decrypt on read in the query helper — never expose raw bank details in API responses unless explicitly requested
@@ -1015,6 +1075,7 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 **Vendor ratings**: Ratings are manually assigned by the architect via a 5-star selector in the vendor detail view. Add `PATCH /api/vendors/[id]/rating` endpoint. Future enhancement: auto-calculate from delivery performance (on-time %, quality score from snags) — for now, manual is sufficient.
 
 **Files to create/modify**:
+
 - `scripts/migrate-vendors.sql` (new)
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/lib/vendorEncryption.ts` (new — encrypt/decrypt helpers)
@@ -1040,22 +1101,26 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 **Goal**: Add vendor as a new auth role with its own portal view.
 
 **Auth changes**:
+
 - Add `"vendor"` to `UserRole` type
 - Add `vendor` role to better-auth org plugin in `permissions.ts`
 - Update `withAuth.ts` role derivation to handle vendor
 - Vendor is invited to org with `vendor` role → linked to vendor record via `vendor_contact.user_id`
 
 **Sidebar**: New `vendorNav` array in `sidebar.tsx`:
+
 - Dashboard (vendor-specific)
 - RFQs (assigned to them)
 - Purchase Orders (issued to them)
 - Settings
 
 **UI**:
+
 - `src/app/(dashboard)/vendor-portal/` — vendor-facing pages
 - Vendor dashboard: open RFQs, active POs, quote status
 
 **Files to create/modify**:
+
 - `src/types/index.ts` (update UserRole)
 - `src/lib/permissions.ts` (add vendor role)
 - `src/lib/withAuth.ts` (update role derivation)
@@ -1070,6 +1135,7 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 **Goal**: Create RFQ packages from BOQ items, issue to vendors.
 
 **Database** — `scripts/migrate-rfq.sql`:
+
 ```sql
 CREATE TABLE rfq (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1116,6 +1182,7 @@ CREATE INDEX idx_rfq_item_boq ON rfq_item(boq_item_id);
 **Email notification**: When RFQ is issued, send email to selected vendor contacts (where `receives_rfq = true`) with portal deep link.
 
 **API Routes**:
+
 - `GET /api/projects/[id]/rfqs` — list RFQs
 - `POST /api/projects/[id]/rfqs` — create RFQ + items
 - `GET /api/projects/[id]/rfqs/[rfqId]` — detail
@@ -1125,11 +1192,13 @@ CREATE INDEX idx_rfq_item_boq ON rfq_item(boq_item_id);
 - `GET /api/projects/[id]/rfqs/[rfqId]/suggested-vendors` — auto-suggest by trade
 
 **UI**:
+
 - RFQ list within project (tab alongside BOQ)
 - Create RFQ: select BOQ items → auto-populate RFQ items → select vendors → set deadline → issue
 - RFQ detail view with status timeline
 
 **Files to create/modify**:
+
 - `scripts/migrate-rfq.sql` (new)
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/lib/email.ts` (add RFQ notification email)
@@ -1147,6 +1216,7 @@ CREATE INDEX idx_rfq_item_boq ON rfq_item(boq_item_id);
 **Goal**: Vendors submit itemised quotes against RFQs. Architects compare quotes side-by-side.
 
 **Database** — `scripts/migrate-quotes.sql`:
+
 ```sql
 CREATE TABLE vendor_quote (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1190,10 +1260,12 @@ CREATE INDEX idx_quote_item_quote ON vendor_quote_item(quote_id);
 **Late quote handling**: If a vendor submits after `rfq.response_deadline`, accept the quote but add `is_late BOOLEAN DEFAULT false` flag (add to `vendor_quote` schema). Show "Late submission" badge in comparison table. Late quotes can still be considered.
 
 **Award flow — single or split**:
+
 - **Single award** (default): Architect selects one winning vendor for the entire RFQ → RFQ status → awarded, winning quote → awarded, other quotes → rejected. BOQ items' `po_status` → `quoted`.
 - **Split award**: Architect awards at the `rfq_item` level — different vendors can win different items. Add `awarded_vendor_id UUID` and `awarded_quote_item_id UUID` columns to `rfq_item`. RFQ status → `awarded` when all items are awarded. Multiple POs are created (one per vendor).
 
 **API Routes**:
+
 - `POST /api/rfqs/[rfqId]/quotes` — vendor submits quote (vendor auth)
 - `GET /api/rfqs/[rfqId]/quotes` — all quotes for an RFQ (architect)
 - `GET /api/rfqs/[rfqId]/quotes/[quoteId]` — quote detail
@@ -1204,6 +1276,7 @@ CREATE INDEX idx_quote_item_quote ON vendor_quote_item(quote_id);
 **Vendor portal**: Quote submission form linked from RFQ email deep link.
 
 **Files to create/modify**:
+
 - `scripts/migrate-quotes.sql` (new)
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/app/api/rfqs/[rfqId]/quotes/` (new)
@@ -1221,6 +1294,7 @@ CREATE INDEX idx_quote_item_quote ON vendor_quote_item(quote_id);
 **Goal**: Generate client proposals from awarded quotes with markup, send to client for approval.
 
 **Database** — `scripts/migrate-proposals.sql`:
+
 ```sql
 CREATE TABLE client_proposal (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1251,6 +1325,7 @@ CREATE INDEX idx_proposal_boq ON client_proposal(boq_id);
 **Flow**: Create proposal from BOQ → select template (or default) → add cover letter → generate PDF → send to client via email → client views/approves/rejects in portal.
 
 **Proposal templates**: Add a `proposal_template` table for reusable proposal formats:
+
 ```sql
 CREATE TABLE proposal_template (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1268,11 +1343,13 @@ CREATE TABLE proposal_template (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ```
+
 Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal` table. Templates control which columns appear in the client-facing PDF and what header/footer text wraps the BOQ data.
 
 **Proposal expiry**: Proposals have `validity_days` (default 30). The `getProposals()` query checks `sent_at + validity_days < NOW()` and auto-sets `status = 'expired'` on read (same check-on-read pattern as quote expiry).
 
 **API Routes**:
+
 - `GET /api/projects/[id]/proposals` — list proposals
 - `POST /api/projects/[id]/proposals` — create proposal
 - `GET /api/projects/[id]/proposals/[proposalId]` — detail
@@ -1286,6 +1363,7 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 - `DELETE /api/proposal-templates/[id]` — delete template
 
 **Files to create/modify**:
+
 - `scripts/migrate-proposals.sql` (new — includes proposal_template table)
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/lib/email.ts` (add proposal email)
@@ -1304,6 +1382,7 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 **What exists**: Client portal already has project list, task review, comments. We extend it.
 
 **New client-facing sections** (per PRD Table 43):
+
 - **Scope (BOQ)**: Filtered BOQ view — item descriptions, quantities, units, sell prices only (NO costs, margins, overheads). Client can Approve/Reject/Query per item.
 - **Proposals**: List of proposals with status badges. View PDF, approve, reject.
 - **Change Orders**: Pending COs with description, cost impact, justification. Approve/reject.
@@ -1311,12 +1390,14 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 - **Invoices**: Client-facing invoice list.
 
 **Client BOQ approval workflow** (per PRD Table 28):
+
 - Items start as `pending`
 - Client can approve → status = `approved`
 - Client can reject → status = `rejected` → goes back to architect as draft
 - Client can query → status = `queried` → threaded discussion
 
 **API Routes**:
+
 - `GET /api/client/projects/[id]/boq` — client-filtered BOQ (no cost columns)
 - `POST /api/client/projects/[id]/boq/items/[itemId]/approve` — approve item
 - `POST /api/client/projects/[id]/boq/items/[itemId]/reject` — reject item
@@ -1325,6 +1406,7 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 **Auth**: `allowedRoles: ["client"]`, `projectAccess: true` (via client_email match)
 
 **Files to create/modify**:
+
 - `src/app/api/client/projects/[id]/boq/` (new)
 - `src/app/(dashboard)/projects/[id]/_components/` (extend client view)
 - `src/lib/queries.ts` (add client-filtered BOQ queries)
@@ -1337,11 +1419,13 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 **Goal**: Lock approved BOQs, manage scope changes through formal change orders.
 
 **BOQ locking**:
+
 - When all items are approved → architect can lock BOQ → status = `locked`
 - Locked BOQ items cannot be edited — any change requires a Change Order
 - UI shows lock icon, disables inline editing, shows "Raise Change Order" button
 
 **Database** — `scripts/migrate-change-orders.sql`:
+
 ```sql
 CREATE TABLE change_order (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1384,6 +1468,7 @@ CREATE INDEX idx_co_item_co ON change_order_item(change_order_id);
 ```
 
 **Change order workflow** (per PRD Table 51):
+
 - `draft` → architect edits items, adds justification
 - `submitted_to_client` → client reviews
 - `client_approved` → architect implements (atomic BOQ update)
@@ -1392,6 +1477,7 @@ CREATE INDEX idx_co_item_co ON change_order_item(change_order_id);
 - `cancelled` → read-only record
 
 **Implement CO** (critical — per PRD Table 56 row 6):
+
 - Atomic transaction: for each CO item, apply changes to BOQ
 - Addition → create new boq_item
 - Omission → mark existing item as excluded
@@ -1400,6 +1486,7 @@ CREATE INDEX idx_co_item_co ON change_order_item(change_order_id);
 - If transaction fails → rollback, keep CO in `client_approved` state
 
 **API Routes**:
+
 - `GET /api/projects/[id]/change-orders` — list
 - `POST /api/projects/[id]/change-orders` — create
 - `GET /api/projects/[id]/change-orders/[coId]` — detail
@@ -1412,6 +1499,7 @@ CREATE INDEX idx_co_item_co ON change_order_item(change_order_id);
 - `POST /api/projects/[id]/boq/lock` — lock the BOQ
 
 **Files to create/modify**:
+
 - `scripts/migrate-change-orders.sql` (new)
 - `src/lib/queries.ts` (add ~300 lines)
 - `src/app/api/projects/[id]/change-orders/` (new — multiple route files)
@@ -1427,6 +1515,7 @@ CREATE INDEX idx_co_item_co ON change_order_item(change_order_id);
 **Goal**: Create POs from awarded quotes, track delivery.
 
 **Database** — `scripts/migrate-purchase-orders.sql`:
+
 ```sql
 CREATE TABLE purchase_order (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1474,6 +1563,7 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 **Auto-create from award**: When a quote is awarded (Feature 10), optionally auto-create a PO draft with items pre-populated from the quote.
 
 **API Routes**:
+
 - `GET /api/projects/[id]/purchase-orders` — list POs
 - `POST /api/projects/[id]/purchase-orders` — create PO
 - `GET /api/projects/[id]/purchase-orders/[poId]` — detail
@@ -1485,6 +1575,7 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 **Vendor portal**: PO list + detail view for vendors. Acknowledge receipt button.
 
 **Files to create/modify**:
+
 - `scripts/migrate-purchase-orders.sql` (new)
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/app/api/projects/[id]/purchase-orders/` (new)
@@ -1500,6 +1591,7 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 **Goal**: Track vendor invoices against POs.
 
 **Database** — `scripts/migrate-invoices.sql`:
+
 ```sql
 CREATE TABLE invoice (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1525,6 +1617,7 @@ CREATE INDEX idx_invoice_vendor ON invoice(vendor_id);
 **Invoice overdue check**: The `getInvoices()` query checks `due_date < NOW() AND status = 'received'` and auto-sets `status = 'overdue'` on read (check-on-read pattern, same as quote/proposal expiry).
 
 **API Routes**:
+
 - `GET /api/projects/[id]/invoices` — list (architect view — all details)
 - `POST /api/projects/[id]/invoices` — create
 - `PATCH /api/projects/[id]/invoices/[invoiceId]` — update status
@@ -1535,6 +1628,7 @@ CREATE INDEX idx_invoice_vendor ON invoice(vendor_id);
 **Client invoice view**: The client portal's Invoices tab shows a simplified list: invoice number, date, amount, status badge, download PDF button. If the org has `allow_client_mark_paid` setting (future), client can mark invoices as paid.
 
 **Files to create/modify**:
+
 - `scripts/migrate-invoices.sql` (new)
 - `src/lib/queries.ts` (add ~120 lines)
 - `src/app/api/projects/[id]/invoices/` (new)
@@ -1550,21 +1644,25 @@ CREATE INDEX idx_invoice_vendor ON invoice(vendor_id);
 **Goal**: Track installation progress against BOQ items.
 
 **What changes**:
+
 - `boq_item.installed_qty` already exists from Feature 4
 - Add API to update installed_qty (architect or future contractor role)
 - Progress bar in BOQ table (already in UI from Feature 5, now with real data)
 - Section-level and BOQ-level progress aggregation
 
 **API Routes**:
+
 - `PATCH /api/projects/[id]/boq/items/[itemId]/progress` — update installed_qty
 - `GET /api/projects/[id]/boq/progress` — aggregated progress per section + overall
 
 **UI**:
+
 - Progress tab in project view (per PRD Table 43)
 - Visual progress bars per section
 - Overall project completion percentage
 
 **Files to create/modify**:
+
 - `src/lib/queries.ts` (add progress queries)
 - `src/app/api/projects/[id]/boq/items/[itemId]/progress/route.ts` (new)
 - `src/app/api/projects/[id]/boq/progress/route.ts` (new)
@@ -1577,6 +1675,7 @@ CREATE INDEX idx_invoice_vendor ON invoice(vendor_id);
 **Goal**: Link quality snags to BOQ items.
 
 **Database** — `scripts/migrate-snags.sql`:
+
 ```sql
 CREATE TABLE snag (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1603,12 +1702,14 @@ CREATE INDEX idx_snag_boq_item ON snag(boq_item_id);
 **Auto-flag**: When a snag is created for a BOQ item, set `boq_item.has_snag = true`. When all snags for that item are resolved, set back to false.
 
 **API Routes**:
+
 - `GET /api/projects/[id]/snags` — list with filters
 - `POST /api/projects/[id]/snags` — create snag
 - `PATCH /api/projects/[id]/snags/[snagId]` — update
 - `GET /api/projects/[id]/snags/[snagId]` — detail
 
 **Files to create/modify**:
+
 - `scripts/migrate-snags.sql` (new)
 - `src/lib/queries.ts` (add ~150 lines)
 - `src/app/api/projects/[id]/snags/` (new)
@@ -1623,6 +1724,7 @@ CREATE INDEX idx_snag_boq_item ON snag(boq_item_id);
 **Goal**: Project dashboard with BOQ-specific analytics.
 
 **Widgets** (per PRD):
+
 - Margin bleed items (count + drill-down)
 - Budget cap alerts per section
 - Cost breakdown by section (pie/bar chart)
@@ -1634,11 +1736,13 @@ CREATE INDEX idx_snag_boq_item ON snag(boq_item_id);
 **New dependency**: `recharts` (charts)
 
 **API Routes**:
+
 - `GET /api/projects/[id]/boq/dashboard` — aggregated widget data
 
 **UI**: Dashboard cards + charts on project overview page
 
 **Files to create/modify**:
+
 - `package.json` (add `recharts`)
 - `src/lib/queries.ts` (add dashboard aggregation queries)
 - `src/app/api/projects/[id]/boq/dashboard/route.ts` (new)
@@ -1654,6 +1758,7 @@ CREATE INDEX idx_snag_boq_item ON snag(boq_item_id);
 **New dependency**: `@react-pdf/renderer`
 
 **PDFs**:
+
 - BOQ PDF (architect view — all columns)
 - BOQ PDF (client view — no cost/margin, only sell price)
 - Client proposal PDF (cover letter + BOQ summary + terms)
@@ -1663,6 +1768,7 @@ CREATE INDEX idx_snag_boq_item ON snag(boq_item_id);
 **API Routes**: Extend existing export endpoints to generate PDFs via `@react-pdf/renderer`
 
 **Files to create/modify**:
+
 - `package.json` (add `@react-pdf/renderer`)
 - `src/lib/pdf/boq-pdf.tsx` (new)
 - `src/lib/pdf/proposal-pdf.tsx` (new)
@@ -1679,6 +1785,7 @@ CREATE INDEX idx_snag_boq_item ON snag(boq_item_id);
 **New dependency**: `tiptap` (evaluate lightweight alternatives first)
 
 **Database** — `scripts/migrate-custom-tabs.sql`:
+
 ```sql
 CREATE TABLE project_custom_tab (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1696,6 +1803,7 @@ CREATE TABLE project_custom_tab (
 ```
 
 **Tab types** (per PRD Table 30):
+
 - Rich Text: TipTap editor
 - Table: Custom column definitions + data entry
 - Document: File upload with versions
@@ -1703,6 +1811,7 @@ CREATE TABLE project_custom_tab (
 - Q&A: Threaded comments
 
 **Files to create/modify**:
+
 - `scripts/migrate-custom-tabs.sql` (new)
 - `src/lib/queries.ts` (add ~100 lines)
 - `src/app/api/projects/[id]/custom-tabs/` (new)
@@ -1715,6 +1824,7 @@ CREATE TABLE project_custom_tab (
 **Goal**: Full audit trail for all BOQ mutations.
 
 **Database** — `scripts/migrate-boq-audit.sql`:
+
 ```sql
 CREATE TABLE boq_change_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1739,6 +1849,7 @@ CREATE INDEX idx_boq_log_time ON boq_change_log(created_at);
 **Implementation**: Add logging calls to all BOQ mutation queries (create/update/delete item, approve, progress update). This is a cross-cutting concern — retroactively add to existing BOQ queries.
 
 **API Routes**:
+
 - `GET /api/projects/[id]/boq/audit` — paginated audit log with filters (date range, change type, user)
 
 **UI**: Audit tab in BOQ page showing timeline of all changes.
@@ -1746,6 +1857,7 @@ CREATE INDEX idx_boq_log_time ON boq_change_log(created_at);
 **Auth**: `allowedRoles: ["pm", "architect"]` — never shown to client or vendor.
 
 **Files to create/modify**:
+
 - `scripts/migrate-boq-audit.sql` (new)
 - `src/lib/queries.ts` (add audit logging to existing queries + audit read queries)
 - `src/app/api/projects/[id]/boq/audit/route.ts` (new)
@@ -1786,29 +1898,29 @@ F21 (Audit Trail) — depends on F4, best added after F13
 
 ## Estimated Scope per Feature
 
-| # | Feature | New Files | queries.ts Lines | API Routes | Complexity |
-|---|---------|-----------|-----------------|------------|------------|
-| 1 | Categories | ~10 | ~100 | 5 | Low |
-| 2 | Elements CRUD | ~15 | ~200 | 6 | Medium |
-| 3 | Excel Import | ~8 | ~50 | 3 | Medium |
-| 4 | BOQ Core | ~16 | ~450 | 13 | High |
-| 5 | BOQ UI | ~12 | 0 | 0 | High |
-| 6 | BOQ Excel | ~6 | ~50 | 3 | Medium |
-| 7 | Vendors | ~14 | ~220 | 8 | Medium |
-| 8 | Vendor Role | ~6 | ~30 | 0 | Low |
-| 9 | RFQ | ~12 | ~200 | 7 | High |
-| 10 | Quotes | ~10 | ~220 | 7 | High |
-| 11 | Proposals | ~10 | ~200 | 11 | Medium |
-| 12 | Client BOQ | ~8 | ~100 | 4 | Medium |
-| 13 | Locking + CO | ~12 | ~300 | 10 | High |
-| 14 | POs | ~10 | ~200 | 7 | Medium |
-| 15 | Invoices | ~8 | ~120 | 6 | Low |
-| 16 | Progress | ~5 | ~80 | 2 | Low |
-| 17 | Snags | ~8 | ~150 | 4 | Medium |
-| 18 | Dashboard | ~5 | ~100 | 1 | Medium |
-| 19 | PDF Export | ~8 | 0 | 4 | Medium |
-| 20 | Custom Tabs | ~8 | ~100 | 4 | Medium |
-| 21 | Audit Trail | ~4 | ~80 | 1 | Low |
+| #   | Feature       | New Files | queries.ts Lines | API Routes | Complexity |
+| --- | ------------- | --------- | ---------------- | ---------- | ---------- |
+| 1   | Categories    | ~10       | ~100             | 5          | Low        |
+| 2   | Elements CRUD | ~15       | ~200             | 6          | Medium     |
+| 3   | Excel Import  | ~8        | ~50              | 3          | Medium     |
+| 4   | BOQ Core      | ~16       | ~450             | 13         | High       |
+| 5   | BOQ UI        | ~12       | 0                | 0          | High       |
+| 6   | BOQ Excel     | ~6        | ~50              | 3          | Medium     |
+| 7   | Vendors       | ~14       | ~220             | 8          | Medium     |
+| 8   | Vendor Role   | ~6        | ~30              | 0          | Low        |
+| 9   | RFQ           | ~12       | ~200             | 7          | High       |
+| 10  | Quotes        | ~10       | ~220             | 7          | High       |
+| 11  | Proposals     | ~10       | ~200             | 11         | Medium     |
+| 12  | Client BOQ    | ~8        | ~100             | 4          | Medium     |
+| 13  | Locking + CO  | ~12       | ~300             | 10         | High       |
+| 14  | POs           | ~10       | ~200             | 7          | Medium     |
+| 15  | Invoices      | ~8        | ~120             | 6          | Low        |
+| 16  | Progress      | ~5        | ~80              | 2          | Low        |
+| 17  | Snags         | ~8        | ~150             | 4          | Medium     |
+| 18  | Dashboard     | ~5        | ~100             | 1          | Medium     |
+| 19  | PDF Export    | ~8        | 0                | 4          | Medium     |
+| 20  | Custom Tabs   | ~8        | ~100             | 4          | Medium     |
+| 21  | Audit Trail   | ~4        | ~80              | 1          | Low        |
 
 **Total**: ~21 PRs, ~190 new files, ~2,900 new lines in queries.ts, ~100 new API routes
 
@@ -1817,6 +1929,7 @@ F21 (Audit Trail) — depends on F4, best added after F13
 ## Phase 2 (Future — Not in This Plan)
 
 Per PRD Table 57, these are explicitly deferred:
+
 - **Contractor role** — field team progress logging, daily reports
 - **Material deliveries** — delivery tracking linked to POs
 - **Retention ledger** — financial retention management
