@@ -3,8 +3,14 @@
 import { GripVertical, Plus, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTranslations } from "next-intl";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { ElementCategoryNode } from "@/types";
 
@@ -26,6 +32,8 @@ export function CategoryTableRow({
   onAddChild,
   canAddChild,
 }: Props) {
+  const t = useTranslations("elements");
+  const tCommon = useTranslations("common");
   const {
     attributes,
     listeners,
@@ -82,38 +90,50 @@ export function CategoryTableRow({
       <td className="py-2 pl-3 text-right whitespace-nowrap">
         <div className="inline-flex items-center gap-1">
           {canAddChild && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddChild(node)}
-              aria-label="Add child category"
-              title="Add child"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onAddChild(node)}
+                  aria-label={t("addSubcategory")}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("addSubcategory")}</TooltipContent>
+            </Tooltip>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onEdit(node)}
-            aria-label="Edit category"
-            title="Edit"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(node)}
-            aria-label="Delete category"
-            title="Delete"
-            className="text-error hover:text-error"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(node)}
+                aria-label={tCommon("edit")}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{tCommon("edit")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(node)}
+                aria-label={tCommon("delete")}
+                className="text-error hover:text-error"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{tCommon("delete")}</TooltipContent>
+          </Tooltip>
         </div>
       </td>
     </tr>

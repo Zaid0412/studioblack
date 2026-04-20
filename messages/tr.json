@@ -754,6 +754,7 @@
     "manageCategories": "Kategorileri yönet",
     "newCategory": "Yeni kategori",
     "newSubcategoryUnder": "{parent} altında yeni alt kategori",
+    "addSubcategory": "Alt kategori ekle",
     "uncategorized": "Kategorisiz",
     "backToElements": "Elementlere dön",
     "backToSettings": "Ayarlara dön",
