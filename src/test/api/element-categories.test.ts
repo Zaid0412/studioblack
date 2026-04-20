@@ -111,6 +111,30 @@ describe("GET /api/element-categories", () => {
     expect(body.tree).toHaveLength(1);
   });
 
+  it("propagates element_count from getCategoryTree through to the response", async () => {
+    const withCounts = [
+      { ...fakeCategory, element_count: 5 },
+      { ...fakeChild, element_count: 2 },
+    ];
+    vi.mocked(getCategoryTree).mockResolvedValue(withCounts);
+    vi.mocked(buildCategoryTree).mockReturnValue([
+      {
+        ...withCounts[0],
+        children: [{ ...withCounts[1], children: [] }],
+      },
+    ]);
+
+    const req = buildRequest("/api/element-categories");
+    const res = await GET(req);
+    const { status, body } = await parseResponse<{
+      tree: { element_count: number; children: { element_count: number }[] }[];
+    }>(res);
+
+    expect(status).toBe(200);
+    expect(body.tree[0].element_count).toBe(5);
+    expect(body.tree[0].children[0].element_count).toBe(2);
+  });
+
   it("returns 200 for architect role", async () => {
     setupAuth(mocks.auth, architectSession);
     vi.mocked(getCategoryTree).mockResolvedValue([]);

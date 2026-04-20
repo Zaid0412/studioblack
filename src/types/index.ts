@@ -354,6 +354,8 @@ export interface ElementCategory {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** Present when loaded via `getCategoryTree` — direct element count (archived included). */
+  element_count?: number;
 }
 
 /** Recursive tree node for nested category display. */

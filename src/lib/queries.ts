@@ -2403,14 +2403,27 @@ export function buildCategoryTree(
   return roots;
 }
 
-/** Fetch all categories for an org, ordered for tree assembly. */
+/**
+ * Fetch all categories for an org with a per-node element count, ordered
+ * for tree assembly. `element_count` covers the node's direct elements
+ * (archived included) — aggregate for subtree counts client-side.
+ */
 export async function getCategoryTree(orgId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT * FROM element_category WHERE org_id = $1 ORDER BY level, sort_order, name`,
+    `SELECT c.*, COALESCE(e.cnt, 0)::int AS element_count
+     FROM element_category c
+     LEFT JOIN (
+       SELECT category_id, COUNT(*)::int AS cnt
+       FROM element
+       WHERE org_id = $1 AND category_id IS NOT NULL
+       GROUP BY category_id
+     ) e ON e.category_id = c.id
+     WHERE c.org_id = $1
+     ORDER BY c.level, c.sort_order, c.name`,
     [orgId]
   );
-  return rows as ElementCategory[];
+  return rows as (ElementCategory & { element_count: number })[];
 }
 
 /** Fetch a single category by ID. */
