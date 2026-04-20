@@ -113,6 +113,18 @@ export function CategoryIconBrowseDialog({
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [pending, setPending] = useState<string | null>(value);
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleHover = (name: string | null) => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHovered(name), 60);
+  };
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -146,8 +158,9 @@ export function CategoryIconBrowseDialog({
     }
   };
 
-  const SelectedIcon = pending
-    ? (icons[pending as keyof typeof icons] as LucideIcon | undefined)
+  const displayed = hovered ?? pending;
+  const DisplayedIcon = displayed
+    ? (icons[displayed as keyof typeof icons] as LucideIcon | undefined)
     : undefined;
 
   return (
@@ -228,6 +241,10 @@ export function CategoryIconBrowseDialog({
                           onSelect(name);
                           onOpenChange(false);
                         }}
+                        onMouseEnter={() => scheduleHover(name)}
+                        onMouseLeave={() => scheduleHover(null)}
+                        onFocus={() => scheduleHover(name)}
+                        onBlur={() => scheduleHover(null)}
                         aria-label={name}
                         aria-pressed={selected}
                         className={cn(
@@ -253,10 +270,10 @@ export function CategoryIconBrowseDialog({
         </div>
 
         <div className="flex min-h-[52px] items-center gap-3 rounded-lg border border-border-default bg-bg-input px-3 py-2">
-          {pending && SelectedIcon ? (
+          {displayed && DisplayedIcon ? (
             <>
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border-default bg-bg-secondary">
-                <SelectedIcon
+                <DisplayedIcon
                   className="h-5 w-5"
                   style={color ? { color } : undefined}
                   aria-hidden
@@ -264,16 +281,21 @@ export function CategoryIconBrowseDialog({
               </div>
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-sm font-medium text-text-primary">
-                  {humanize(pending)}
+                  {humanize(displayed)}
                 </span>
                 <code className="truncate font-mono text-[11px] text-text-muted">
-                  {pending}
+                  {displayed}
                 </code>
               </div>
+              {pending === displayed && (
+                <span className="ml-auto shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent">
+                  Selected
+                </span>
+              )}
             </>
           ) : (
             <span className="text-xs text-text-muted">
-              Select an icon to see details
+              Hover or select an icon to see details
             </span>
           )}
         </div>
