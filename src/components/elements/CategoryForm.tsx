@@ -105,6 +105,7 @@ export function CategoryForm({
     >
       <Input
         label={t("categoryName")}
+        placeholder={t("categoryNamePlaceholder")}
         value={values.name}
         onChange={(e) => setField("name", e.target.value)}
         required
@@ -141,6 +142,7 @@ export function CategoryForm({
 
         <Input
           label={t("categoryCodePrefix")}
+          placeholder={t("categoryCodePrefixPlaceholder")}
           value={values.codePrefix}
           onChange={(e) => setField("codePrefix", e.target.value)}
           maxLength={10}
