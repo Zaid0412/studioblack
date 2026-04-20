@@ -335,3 +335,27 @@ export interface TaskFormData {
   /** Files to upload and attach after task creation (create mode only). Client-only — uses browser File API. */
   pendingFiles: globalThis.File[];
 }
+
+// ---------------------------------------------------------------------------
+// Element Library types
+// ---------------------------------------------------------------------------
+
+/** A single element category row from the DB. */
+export interface ElementCategory {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  level: 1 | 2 | 3;
+  code_prefix: string | null;
+  sort_order: number;
+  icon: string | null;
+  color: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Recursive tree node for nested category display. */
+export interface ElementCategoryNode extends ElementCategory {
+  children: ElementCategoryNode[];
+}
