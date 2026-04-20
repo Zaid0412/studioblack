@@ -251,7 +251,7 @@ export function CategoryIconBrowseDialog({
                           "flex aspect-square cursor-pointer items-center justify-center rounded-md transition-all duration-150",
                           selected
                             ? "bg-accent/10 text-accent ring-2 ring-accent scale-105"
-                            : "ring-1 ring-transparent text-text-secondary hover:bg-accent/8 hover:ring-accent/25"
+                            : "ring-1 ring-transparent text-text-secondary hover:bg-accent/8 hover:ring-accent/60"
                         )}
                       >
                         <Icon
