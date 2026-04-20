@@ -637,6 +637,8 @@
     "uploadFile": "Dosya yükle",
     "uploading": "Yükleniyor...",
     "edit": "Düzenle",
+    "expand": "Genişlet",
+    "collapse": "Daralt",
     "hidePreview": "Önizlemeyi gizle",
     "preview": "Önizleme",
     "openInNewTab": "Yeni sekmede aç",

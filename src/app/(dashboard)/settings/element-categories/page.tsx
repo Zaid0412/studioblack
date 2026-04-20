@@ -35,6 +35,8 @@ import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { DeleteConfirmDialog } from "./_components/DeleteConfirmDialog";
 import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 
+const COLLAPSED_STORAGE_KEY = "element-categories-collapsed";
+
 interface TreeResponse {
   tree: ElementCategoryNode[];
 }
@@ -42,15 +44,28 @@ interface TreeResponse {
 interface FlatRow {
   node: ElementCategoryNode;
   depth: number;
+  hasChildren: boolean;
+  isLastSibling: boolean;
 }
 
-function flattenTree(tree: ElementCategoryNode[]): FlatRow[] {
+function flattenTree(
+  tree: ElementCategoryNode[],
+  collapsedIds: ReadonlySet<string>
+): FlatRow[] {
   const out: FlatRow[] = [];
   const walk = (nodes: ElementCategoryNode[], depth: number) => {
-    for (const n of nodes) {
-      out.push({ node: n, depth });
-      if (n.children.length > 0) walk(n.children, depth + 1);
-    }
+    nodes.forEach((n, i) => {
+      const hasChildren = n.children.length > 0;
+      out.push({
+        node: n,
+        depth,
+        hasChildren,
+        isLastSibling: i === nodes.length - 1,
+      });
+      if (hasChildren && !collapsedIds.has(n.id)) {
+        walk(n.children, depth + 1);
+      }
+    });
   };
   walk(tree, 0);
   return out;
@@ -117,7 +132,42 @@ export default function ElementCategoriesSettingsPage() {
     canManage ? API.elementCategories() : null
   );
   const tree = useMemo(() => data?.tree ?? [], [data?.tree]);
-  const flat = useMemo(() => flattenTree(tree), [tree]);
+
+  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      if (raw) {
+        const ids = JSON.parse(raw) as string[];
+        if (Array.isArray(ids)) setCollapsedIds(new Set(ids));
+      }
+    } catch {
+      // malformed value — ignore and start fresh
+    }
+  }, []);
+  const toggleCollapse = (id: string) => {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem(
+          COLLAPSED_STORAGE_KEY,
+          JSON.stringify(Array.from(next))
+        );
+      } catch {
+        // storage full or disabled — non-fatal
+      }
+      return next;
+    });
+  };
+
+  const flat = useMemo(
+    () => flattenTree(tree, collapsedIds),
+    [tree, collapsedIds]
+  );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
@@ -357,12 +407,16 @@ export default function ElementCategoriesSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {flat.map(({ node, depth }) => (
+                    {flat.map(({ node, depth, hasChildren, isLastSibling }) => (
                       <CategoryTableRow
                         key={node.id}
                         node={node}
                         depth={depth}
                         canAddChild={node.level < 3}
+                        hasChildren={hasChildren}
+                        isLastSibling={isLastSibling}
+                        isCollapsed={collapsedIds.has(node.id)}
+                        onToggleCollapse={toggleCollapse}
                         hidden={activeDescendantIds.has(node.id)}
                         onEdit={openEdit}
                         onDelete={setDeleting}

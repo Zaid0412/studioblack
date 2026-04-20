@@ -1,7 +1,14 @@
 "use client";
 
 import type React from "react";
-import { GripVertical, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTranslations } from "next-intl";
@@ -15,16 +22,71 @@ import {
 import { cn } from "@/lib/utils";
 import type { ElementCategoryNode } from "@/types";
 
+const INDENT_PX = 20;
+const CONNECTOR_COLOR = "var(--border)";
+
 interface Props {
   node: ElementCategoryNode;
   depth: number;
   onEdit: (node: ElementCategoryNode) => void;
   onDelete: (node: ElementCategoryNode) => void;
   onAddChild: (parent: ElementCategoryNode) => void;
+  onToggleCollapse: (id: string) => void;
   /** Disable add-child when the node is already at level 3 (max nesting). */
   canAddChild: boolean;
+  hasChildren: boolean;
+  isLastSibling: boolean;
+  isCollapsed: boolean;
   /** True while an ancestor is being dragged — hide to signal it travels with the parent. */
   hidden?: boolean;
+}
+
+/** D2 curved elbow connector drawn with CSS borders. */
+function TreeConnector({
+  depth,
+  isLastSibling,
+}: {
+  depth: number;
+  isLastSibling: boolean;
+}) {
+  const left = (depth - 1) * INDENT_PX + 10;
+  return (
+    <>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute"
+        style={{
+          left,
+          top: 0,
+          width: 10,
+          height: "calc(50% + 1px)",
+          borderLeft: `1px solid ${CONNECTOR_COLOR}`,
+          borderBottom: `1px solid ${CONNECTOR_COLOR}`,
+          borderBottomLeftRadius: 4,
+        }}
+      />
+      {!isLastSibling && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute"
+          style={{
+            left,
+            top: "50%",
+            width: 1,
+            height: "50%",
+            background: CONNECTOR_COLOR,
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** Typography tuned per nesting depth (L1/L2/L3). */
+function nameClassForDepth(depth: number): string {
+  if (depth === 0) return "text-sm font-semibold text-text-primary truncate";
+  if (depth === 1) return "text-[13px] text-text-primary truncate";
+  return "text-xs text-text-secondary truncate";
 }
 
 export function CategoryTableRow({
@@ -33,7 +95,11 @@ export function CategoryTableRow({
   onEdit,
   onDelete,
   onAddChild,
+  onToggleCollapse,
   canAddChild,
+  hasChildren,
+  isLastSibling,
+  isCollapsed,
   hidden = false,
 }: Props) {
   const t = useTranslations("elements");
@@ -65,10 +131,13 @@ export function CategoryTableRow({
         isDragging && "bg-bg-elevated"
       )}
     >
-      <td className="py-2 pr-3">
+      <td className="py-2 pr-3 relative">
+        {depth > 0 && (
+          <TreeConnector depth={depth} isLastSibling={isLastSibling} />
+        )}
         <div
           className="flex items-center gap-2"
-          style={{ paddingLeft: `${depth * 20}px` }}
+          style={{ paddingLeft: `${depth * INDENT_PX}px` }}
         >
           <button
             type="button"
@@ -79,10 +148,25 @@ export function CategoryTableRow({
           >
             <GripVertical className="w-3.5 h-3.5" />
           </button>
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => onToggleCollapse(node.id)}
+              aria-label={isCollapsed ? tCommon("expand") : tCommon("collapse")}
+              aria-expanded={!isCollapsed}
+              className="shrink-0 text-text-muted hover:text-text-primary transition-colors"
+            >
+              {isCollapsed ? (
+                <ChevronRight className="w-3.5 h-3.5" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5" />
+              )}
+            </button>
+          ) : (
+            <span aria-hidden className="w-3.5 shrink-0" />
+          )}
           <CategoryIcon icon={node.icon} color={node.color} size={16} />
-          <span className="text-sm text-text-primary truncate">
-            {node.name}
-          </span>
+          <span className={nameClassForDepth(depth)}>{node.name}</span>
         </div>
       </td>
       <td className="py-2 px-3 text-sm text-text-secondary">

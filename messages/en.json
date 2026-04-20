@@ -637,6 +637,8 @@
     "uploadFile": "Upload file",
     "uploading": "Uploading...",
     "edit": "Edit",
+    "expand": "Expand",
+    "collapse": "Collapse",
     "hidePreview": "Hide preview",
     "preview": "Preview",
     "openInNewTab": "Open in new tab",
