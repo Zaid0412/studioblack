@@ -297,38 +297,21 @@ h6 {
   border-radius: 0 0 8px 8px;
 }
 
-/* Element-category tree — mount/unmount animations for nested rows */
-@keyframes category-row-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Element-category tree — tune the View Transitions crossfade that fires when
+   rows expand/collapse. Each row has its own view-transition-name (set inline),
+   so the browser tweens their positions and crossfades enter/exit. */
+::view-transition-group(*) {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
 }
-@keyframes category-row-slide-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-tr[data-tree-depth="1"]:not([data-tree-state="closing"]),
-tr[data-tree-depth="2"]:not([data-tree-state="closing"]) {
-  animation: category-row-slide-in 180ms ease-out;
-}
-tr[data-tree-state="closing"] {
-  animation: category-row-slide-out 160ms ease-in forwards;
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 140ms;
 }
 @media (prefers-reduced-motion: reduce) {
-  tr[data-tree-depth="1"],
-  tr[data-tree-depth="2"],
-  tr[data-tree-state="closing"] {
-    animation: none;
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

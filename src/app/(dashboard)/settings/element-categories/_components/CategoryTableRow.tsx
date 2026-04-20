@@ -31,8 +31,6 @@ interface Props {
   hasChildren: boolean;
   isLastSibling: boolean;
   isCollapsed: boolean;
-  /** True while an ancestor is collapsing — trigger the close animation before unmount. */
-  exiting?: boolean;
   /** True while an ancestor is being dragged — hide to signal it travels with the parent. */
   hidden?: boolean;
 }
@@ -96,7 +94,6 @@ export function CategoryTableRow({
   hasChildren,
   isLastSibling,
   isCollapsed,
-  exiting = false,
   hidden = false,
 }: Props) {
   const t = useTranslations("elements");
@@ -114,6 +111,11 @@ export function CategoryTableRow({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : undefined,
+    // Unique per-row name so the View Transitions API can tween position
+    // changes when siblings collapse/expand. CSS identifiers can't contain
+    // raw hyphens from UUIDs in certain positions, so we only strip them
+    // as a safety net — the `cat-row-` prefix already ensures a valid start.
+    viewTransitionName: `cat-row-${node.id.replace(/-/g, "")}`,
     ...(hidden && { display: "none" }),
   };
 
@@ -123,8 +125,6 @@ export function CategoryTableRow({
     <tr
       ref={setNodeRef}
       style={style}
-      data-tree-depth={depth}
-      data-tree-state={exiting ? "closing" : undefined}
       className={cn(
         "border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors",
         isDragging && "bg-bg-elevated"

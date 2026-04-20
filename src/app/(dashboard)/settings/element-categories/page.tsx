@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
@@ -46,27 +47,14 @@ interface FlatRow {
   depth: number;
   hasChildren: boolean;
   isLastSibling: boolean;
-  exiting: boolean;
 }
 
-const COLLAPSE_ANIMATION_MS = 160;
-
-/**
- * Flatten the tree into rows. Nodes whose ID is in `closingIds` still render
- * their children (ignoring `collapsedIds`) but mark them as `exiting` so the
- * UI can play a close animation before unmount.
- */
 function flattenTree(
   tree: ElementCategoryNode[],
-  collapsedIds: ReadonlySet<string>,
-  closingIds: ReadonlySet<string>
+  collapsedIds: ReadonlySet<string>
 ): FlatRow[] {
   const out: FlatRow[] = [];
-  const walk = (
-    nodes: ElementCategoryNode[],
-    depth: number,
-    exiting: boolean
-  ) => {
+  const walk = (nodes: ElementCategoryNode[], depth: number) => {
     nodes.forEach((n, i) => {
       const hasChildren = n.children.length > 0;
       out.push({
@@ -74,17 +62,13 @@ function flattenTree(
         depth,
         hasChildren,
         isLastSibling: i === nodes.length - 1,
-        exiting,
       });
-      if (!hasChildren) return;
-      if (closingIds.has(n.id)) {
-        walk(n.children, depth + 1, true);
-      } else if (!collapsedIds.has(n.id)) {
-        walk(n.children, depth + 1, exiting);
+      if (hasChildren && !collapsedIds.has(n.id)) {
+        walk(n.children, depth + 1);
       }
     });
   };
-  walk(tree, 0, false);
+  walk(tree, 0);
   return out;
 }
 
@@ -151,9 +135,6 @@ export default function ElementCategoriesSettingsPage() {
   const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
     () => new Set()
   );
-  const [closingIds, setClosingIds] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
   useEffect(() => {
     try {
       const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
@@ -166,9 +147,8 @@ export default function ElementCategoriesSettingsPage() {
     }
   }, []);
   const toggleCollapse = (id: string) => {
-    const currentlyCollapsed = collapsedIds.has(id);
     const next = new Set(collapsedIds);
-    if (currentlyCollapsed) next.delete(id);
+    if (next.has(id)) next.delete(id);
     else next.add(id);
     try {
       localStorage.setItem(
@@ -178,31 +158,32 @@ export default function ElementCategoriesSettingsPage() {
     } catch {
       // storage full or disabled — non-fatal
     }
-    if (currentlyCollapsed) {
-      // Expanding: children remount and play the open animation.
-      setCollapsedIds(next);
-      return;
-    }
-    // Collapsing: keep children rendered briefly with data-tree-state="closing"
-    // so the exit animation can play, then commit.
-    setClosingIds((prev) => {
-      const s = new Set(prev);
-      s.add(id);
-      return s;
-    });
-    setTimeout(() => {
-      setCollapsedIds(next);
-      setClosingIds((prev) => {
-        const s = new Set(prev);
-        s.delete(id);
-        return s;
+    // View Transitions lets the browser crossfade + tween row positions for us.
+    // flushSync forces the DOM mutation to be synchronous inside the callback
+    // so startViewTransition can capture the "after" snapshot correctly.
+    const supportsViewTransitions =
+      typeof document !== "undefined" &&
+      typeof (
+        document as Document & {
+          startViewTransition?: (cb: () => void) => unknown;
+        }
+      ).startViewTransition === "function";
+    if (supportsViewTransitions) {
+      (
+        document as Document & {
+          startViewTransition: (cb: () => void) => unknown;
+        }
+      ).startViewTransition(() => {
+        flushSync(() => setCollapsedIds(next));
       });
-    }, COLLAPSE_ANIMATION_MS);
+    } else {
+      setCollapsedIds(next);
+    }
   };
 
   const flat = useMemo(
-    () => flattenTree(tree, collapsedIds, closingIds),
-    [tree, collapsedIds, closingIds]
+    () => flattenTree(tree, collapsedIds),
+    [tree, collapsedIds]
   );
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -450,31 +431,22 @@ export default function ElementCategoriesSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {flat.map(
-                      ({
-                        node,
-                        depth,
-                        hasChildren,
-                        isLastSibling,
-                        exiting,
-                      }) => (
-                        <CategoryTableRow
-                          key={node.id}
-                          node={node}
-                          depth={depth}
-                          canAddChild={node.level < 3}
-                          hasChildren={hasChildren}
-                          isLastSibling={isLastSibling}
-                          isCollapsed={collapsedIds.has(node.id)}
-                          exiting={exiting}
-                          onToggleCollapse={toggleCollapse}
-                          hidden={activeDescendantIds.has(node.id)}
-                          onEdit={openEdit}
-                          onDelete={setDeleting}
-                          onAddChild={(parent) => openCreate(parent.id)}
-                        />
-                      )
-                    )}
+                    {flat.map(({ node, depth, hasChildren, isLastSibling }) => (
+                      <CategoryTableRow
+                        key={node.id}
+                        node={node}
+                        depth={depth}
+                        canAddChild={node.level < 3}
+                        hasChildren={hasChildren}
+                        isLastSibling={isLastSibling}
+                        isCollapsed={collapsedIds.has(node.id)}
+                        onToggleCollapse={toggleCollapse}
+                        hidden={activeDescendantIds.has(node.id)}
+                        onEdit={openEdit}
+                        onDelete={setDeleting}
+                        onAddChild={(parent) => openCreate(parent.id)}
+                      />
+                    ))}
                   </tbody>
                 </table>
               </div>
