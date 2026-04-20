@@ -24,6 +24,12 @@ interface Props {
   parentOptions: CategoryOption[];
   /** Name of the forced parent — used in the title when presetParentId is set. */
   presetParentName?: string;
+  /**
+   * Full parent node — when present, new-subcategory creation pre-fills
+   * code_prefix / icon / color from it so related categories inherit
+   * their parent's look by default.
+   */
+  presetParent?: ElementCategoryNode | null;
   /** IDs that cannot be selected as parent (self + descendants when editing). */
   disabledParentIds?: string[];
   submitting: boolean;
@@ -42,6 +48,7 @@ export function CategoryEditDialog({
   editing,
   presetParentId,
   presetParentName,
+  presetParent,
   parentOptions,
   disabledParentIds,
   submitting,
@@ -59,9 +66,16 @@ export function CategoryEditDialog({
         icon: editing.icon,
         color: editing.color,
       }
-    : presetParentId !== undefined
-      ? { parentId: presetParentId }
-      : undefined;
+    : presetParent
+      ? {
+          parentId: presetParent.id,
+          codePrefix: presetParent.code_prefix ?? "",
+          icon: presetParent.icon,
+          color: presetParent.color,
+        }
+      : presetParentId !== undefined
+        ? { parentId: presetParentId }
+        : undefined;
 
   const title =
     mode === "edit"
