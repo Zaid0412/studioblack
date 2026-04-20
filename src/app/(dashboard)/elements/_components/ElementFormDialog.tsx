@@ -25,9 +25,7 @@ import {
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import { API } from "@/lib/api/routes";
 import type { ElementCategoryNode, ElementWithDetails } from "@/types";
-import { flattenCategories } from "../_lib/categoryUtils";
-
-const NONE = "__none__";
+import { CategorySelect } from "./CategorySelect";
 
 interface Attribute {
   attribute_key: string;
@@ -128,7 +126,7 @@ export function ElementFormDialog({
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     API.elementCategories()
   );
-  const categoryOptions = catData?.tree ? flattenCategories(catData.tree) : [];
+  const categoryTree = catData?.tree ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -229,29 +227,12 @@ export function ElementFormDialog({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                {t("fieldCategory")}
-              </label>
-              <Select
-                value={values.categoryId ?? NONE}
-                onValueChange={(v) =>
-                  setField("categoryId", v === NONE ? null : v)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("allCategories")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>—</SelectItem>
-                  {categoryOptions.map((opt) => (
-                    <SelectItem key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CategorySelect
+              label={t("fieldCategory")}
+              value={values.categoryId}
+              onChange={(id) => setField("categoryId", id)}
+              tree={categoryTree}
+            />
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-medium text-text-secondary">
