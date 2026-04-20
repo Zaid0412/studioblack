@@ -16,8 +16,9 @@ import { cn } from "@/lib/utils";
 import type { ElementCategoryNode } from "@/types";
 
 const INDENT_PX = 20;
-const CONNECTOR_COLOR = "var(--text-muted)";
+const CONNECTOR_COLOR = "var(--border-default)";
 const CONNECTOR_WIDTH = 2;
+const GRIP_ICON_PX = 14;
 
 interface Props {
   node: ElementCategoryNode;
@@ -44,6 +45,12 @@ function TreeConnector({
   isLastSibling: boolean;
 }) {
   const left = (depth - 1) * INDENT_PX + 10;
+  // End the horizontal stroke at the horizontal midpoint of the drag handle.
+  // Grip icon starts at `depth * INDENT_PX` from the td's left edge; its
+  // center is half the icon's width deeper. The connector box is `left`
+  // from the td, so its width covers the gap in between.
+  const horizontalEndX = depth * INDENT_PX + GRIP_ICON_PX / 2;
+  const width = horizontalEndX - left;
   return (
     <>
       <span
@@ -52,8 +59,9 @@ function TreeConnector({
         style={{
           left,
           top: 0,
-          width: 10,
-          height: "calc(50% + 1px)",
+          width,
+          // ~py-2 (8px) lands at the top of the grip icon.
+          height: 10,
           borderLeft: `${CONNECTOR_WIDTH}px solid ${CONNECTOR_COLOR}`,
           borderBottom: `${CONNECTOR_WIDTH}px solid ${CONNECTOR_COLOR}`,
           borderBottomLeftRadius: 4,
@@ -65,9 +73,9 @@ function TreeConnector({
           className="pointer-events-none absolute"
           style={{
             left,
-            top: "50%",
+            top: 10,
             width: CONNECTOR_WIDTH,
-            height: "50%",
+            height: "calc(100% - 10px)",
             background: CONNECTOR_COLOR,
           }}
         />
