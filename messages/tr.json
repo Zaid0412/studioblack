@@ -751,6 +751,8 @@
     "categoryBreadcrumb": "Kategori",
     "manageCategories": "Kategorileri yönet",
     "newCategory": "Yeni kategori",
+    "colCategoryElements": "# Element",
+    "colUpdated": "Güncellendi",
     "categoryName": "Ad",
     "categoryParent": "Üst kategori",
     "categoryParentNone": "Yok (kök)",

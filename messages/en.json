@@ -751,6 +751,8 @@
     "categoryBreadcrumb": "Category",
     "manageCategories": "Manage categories",
     "newCategory": "New category",
+    "colCategoryElements": "# Elements",
+    "colUpdated": "Updated",
     "categoryName": "Name",
     "categoryParent": "Parent",
     "categoryParentNone": "None (root)",
