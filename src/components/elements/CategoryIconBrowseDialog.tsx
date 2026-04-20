@@ -21,6 +21,7 @@ const ICON_ENTRIES = Object.entries(icons) as [string, LucideIcon][];
 interface Props {
   open: boolean;
   value: string | null;
+  color?: string | null;
   onOpenChange: (open: boolean) => void;
   onSelect: (name: string) => void;
 }
@@ -32,6 +33,7 @@ interface Props {
 export function CategoryIconBrowseDialog({
   open,
   value,
+  color,
   onOpenChange,
   onSelect,
 }: Props) {
@@ -124,7 +126,11 @@ export function CategoryIconBrowseDialog({
                         : "border-transparent text-text-secondary hover:border-border-default hover:bg-bg-hover"
                     )}
                   >
-                    <Icon className="h-5 w-5" aria-hidden />
+                    <Icon
+                      className="h-5 w-5"
+                      style={color ? { color } : undefined}
+                      aria-hidden
+                    />
                   </button>
                 );
               })}

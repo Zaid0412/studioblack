@@ -46,7 +46,7 @@ export function CategoryIconPicker({
             : "border-border-default bg-bg-input hover:border-accent/60"
         )}
       >
-        <CategoryIcon icon={name} color={selected ? color : null} size={18} />
+        <CategoryIcon icon={name} color={color ?? null} size={18} />
       </button>
     );
   };
@@ -76,6 +76,7 @@ export function CategoryIconPicker({
       <CategoryIconBrowseDialog
         open={browseOpen}
         value={value}
+        color={color ?? null}
         onOpenChange={setBrowseOpen}
         onSelect={onChange}
       />
