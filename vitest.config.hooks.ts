@@ -13,6 +13,7 @@ export default defineConfig({
       "src/test/unit/hooks-settings-org.test.tsx",
       "src/test/unit/hooks-contexts.test.tsx",
       "src/test/unit/hooks-ui-components.test.tsx",
+      "src/test/unit/TagInput.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

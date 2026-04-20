@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { Save, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TagInput } from "@/components/ui/TagInput";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +49,7 @@ export interface ElementFormValues {
   marginPct: string;
   specReference: string;
   drawingRef: string;
-  tagsInput: string;
+  tags: string[];
   attributes: Attribute[];
 }
 
@@ -66,7 +67,7 @@ const EMPTY_FORM: ElementFormValues = {
   marginPct: "",
   specReference: "",
   drawingRef: "",
-  tagsInput: "",
+  tags: [],
   attributes: [],
 };
 
@@ -85,7 +86,7 @@ function elementToFormValues(el: ElementWithDetails): ElementFormValues {
     marginPct: el.margin_pct ?? "",
     specReference: el.spec_reference ?? "",
     drawingRef: el.drawing_ref ?? "",
-    tagsInput: (el.tags ?? []).join(", "),
+    tags: el.tags ?? [],
     attributes: el.attributes.map((a) => ({
       attribute_key: a.attribute_key,
       attribute_value: a.attribute_value,
@@ -102,14 +103,8 @@ interface Props {
   onSubmit: (
     values: Omit<
       ElementFormValues,
-      | "tagsInput"
-      | "unitCost"
-      | "materialCost"
-      | "labourCost"
-      | "overheadPct"
-      | "marginPct"
+      "unitCost" | "materialCost" | "labourCost" | "overheadPct" | "marginPct"
     > & {
-      tags: string[];
       unitCost: number;
       materialCost?: number;
       labourCost?: number;
@@ -171,10 +166,6 @@ export function ElementFormDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const tags = values.tagsInput
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
     const toNumber = (s: string) =>
       s === "" ? undefined : Number.parseFloat(s);
     await onSubmit({
@@ -189,7 +180,7 @@ export function ElementFormDialog({
       attributes: values.attributes.filter(
         (a) => a.attribute_key && a.attribute_value
       ),
-      tags,
+      tags: values.tags,
       unitCost: Number.parseFloat(values.unitCost || "0"),
       materialCost: toNumber(values.materialCost),
       labourCost: toNumber(values.labourCost),
@@ -357,11 +348,11 @@ export function ElementFormDialog({
               maxLength={255}
             />
           </div>
-          <Input
+          <TagInput
             label={t("fieldTags")}
             placeholder={t("tagsPlaceholder")}
-            value={values.tagsInput}
-            onChange={(e) => setField("tagsInput", e.target.value)}
+            value={values.tags}
+            onChange={(tags) => setField("tags", tags)}
           />
 
           {/* Attributes */}
