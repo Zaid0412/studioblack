@@ -101,9 +101,7 @@ function reorderSiblings(
   parentId: string | null,
   orderedChildIds: string[]
 ): ElementCategoryNode[] {
-  const reorder = (
-    children: ElementCategoryNode[]
-  ): ElementCategoryNode[] => {
+  const reorder = (children: ElementCategoryNode[]): ElementCategoryNode[] => {
     const byId = new Map(children.map((c) => [c.id, c]));
     return orderedChildIds
       .map((id) => byId.get(id))
