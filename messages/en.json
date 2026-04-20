@@ -449,6 +449,8 @@
     "subtitle": "Manage your account and preferences",
     "profile": "Profile",
     "preferences": "Preferences",
+    "elementCategoriesTitle": "Element categories",
+    "elementCategoriesDesc": "Manage the category tree used across the element library",
     "fullName": "Full Name",
     "email": "Email",
     "role": "Role",

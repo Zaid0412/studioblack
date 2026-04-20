@@ -449,6 +449,8 @@
     "subtitle": "Hesabınızı ve tercihlerinizi yönetin",
     "profile": "Profil",
     "preferences": "Tercihler",
+    "elementCategoriesTitle": "Element kategorileri",
+    "elementCategoriesDesc": "Element kütüphanesinde kullanılan kategori ağacını yönetin",
     "fullName": "Ad Soyad",
     "email": "E-posta",
     "role": "Rol",

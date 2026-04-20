@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -99,6 +100,20 @@ export default function ElementCategoriesSettingsPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
+
+  const [backHref, setBackHref] = useState<"/elements" | "/settings">(
+    "/settings"
+  );
+  useEffect(() => {
+    try {
+      const r = document.referrer;
+      if (r && new URL(r).pathname.endsWith("/elements")) {
+        setBackHref("/elements");
+      }
+    } catch {
+      // malformed referrer — keep the /settings default
+    }
+  }, []);
 
   const openCreate = (parentId?: string | null) => {
     setDialogMode("create");
@@ -220,7 +235,14 @@ export default function ElementCategoriesSettingsPage() {
     : undefined;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
+      <Link
+        href={backHref}
+        className="inline-flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-primary transition-colors w-fit"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        {backHref === "/elements" ? t("backToElements") : t("backToSettings")}
+      </Link>
       <PageHeader
         title={t("manageCategories")}
         subtitle={t("subtitle")}

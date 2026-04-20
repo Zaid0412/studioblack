@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { ChevronRight, FolderTree } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/card";
+import { features } from "@/config/features";
 import { useSettings } from "./_hooks/useSettings";
 import { ProfileSection } from "./_components/ProfileSection";
 import { PasswordSection } from "./_components/PasswordSection";
@@ -113,6 +116,30 @@ export default function SettingsPage() {
       )}
 
       <PreferencesSection />
+
+      {!isClient && features.elementLibrary && (
+        <Link
+          href="/settings/element-categories"
+          className="block rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-5 transition-colors hover:border-border-light hover:bg-bg-elevated"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                <FolderTree className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-text-primary">
+                  {t("elementCategoriesTitle")}
+                </span>
+                <span className="text-[13px] text-text-muted">
+                  {t("elementCategoriesDesc")}
+                </span>
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
+          </div>
+        </Link>
+      )}
 
       <DangerZoneSection
         deleteOpen={settings.deleteOpen}
