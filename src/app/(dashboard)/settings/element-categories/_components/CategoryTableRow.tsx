@@ -31,6 +31,8 @@ interface Props {
   hasChildren: boolean;
   isLastSibling: boolean;
   isCollapsed: boolean;
+  /** True while an ancestor is collapsing — trigger the close animation before unmount. */
+  exiting?: boolean;
   /** True while an ancestor is being dragged — hide to signal it travels with the parent. */
   hidden?: boolean;
 }
@@ -94,6 +96,7 @@ export function CategoryTableRow({
   hasChildren,
   isLastSibling,
   isCollapsed,
+  exiting = false,
   hidden = false,
 }: Props) {
   const t = useTranslations("elements");
@@ -121,6 +124,7 @@ export function CategoryTableRow({
       ref={setNodeRef}
       style={style}
       data-tree-depth={depth}
+      data-tree-state={exiting ? "closing" : undefined}
       className={cn(
         "border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors",
         isDragging && "bg-bg-elevated"

@@ -46,14 +46,27 @@ interface FlatRow {
   depth: number;
   hasChildren: boolean;
   isLastSibling: boolean;
+  exiting: boolean;
 }
 
+const COLLAPSE_ANIMATION_MS = 160;
+
+/**
+ * Flatten the tree into rows. Nodes whose ID is in `closingIds` still render
+ * their children (ignoring `collapsedIds`) but mark them as `exiting` so the
+ * UI can play a close animation before unmount.
+ */
 function flattenTree(
   tree: ElementCategoryNode[],
-  collapsedIds: ReadonlySet<string>
+  collapsedIds: ReadonlySet<string>,
+  closingIds: ReadonlySet<string>
 ): FlatRow[] {
   const out: FlatRow[] = [];
-  const walk = (nodes: ElementCategoryNode[], depth: number) => {
+  const walk = (
+    nodes: ElementCategoryNode[],
+    depth: number,
+    exiting: boolean
+  ) => {
     nodes.forEach((n, i) => {
       const hasChildren = n.children.length > 0;
       out.push({
@@ -61,13 +74,17 @@ function flattenTree(
         depth,
         hasChildren,
         isLastSibling: i === nodes.length - 1,
+        exiting,
       });
-      if (hasChildren && !collapsedIds.has(n.id)) {
-        walk(n.children, depth + 1);
+      if (!hasChildren) return;
+      if (closingIds.has(n.id)) {
+        walk(n.children, depth + 1, true);
+      } else if (!collapsedIds.has(n.id)) {
+        walk(n.children, depth + 1, exiting);
       }
     });
   };
-  walk(tree, 0);
+  walk(tree, 0, false);
   return out;
 }
 
@@ -134,6 +151,9 @@ export default function ElementCategoriesSettingsPage() {
   const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
     () => new Set()
   );
+  const [closingIds, setClosingIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
   useEffect(() => {
     try {
       const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
@@ -146,25 +166,43 @@ export default function ElementCategoriesSettingsPage() {
     }
   }, []);
   const toggleCollapse = (id: string) => {
-    setCollapsedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem(
-          COLLAPSED_STORAGE_KEY,
-          JSON.stringify(Array.from(next))
-        );
-      } catch {
-        // storage full or disabled — non-fatal
-      }
-      return next;
+    const currentlyCollapsed = collapsedIds.has(id);
+    const next = new Set(collapsedIds);
+    if (currentlyCollapsed) next.delete(id);
+    else next.add(id);
+    try {
+      localStorage.setItem(
+        COLLAPSED_STORAGE_KEY,
+        JSON.stringify(Array.from(next))
+      );
+    } catch {
+      // storage full or disabled — non-fatal
+    }
+    if (currentlyCollapsed) {
+      // Expanding: children remount and play the open animation.
+      setCollapsedIds(next);
+      return;
+    }
+    // Collapsing: keep children rendered briefly with data-tree-state="closing"
+    // so the exit animation can play, then commit.
+    setClosingIds((prev) => {
+      const s = new Set(prev);
+      s.add(id);
+      return s;
     });
+    setTimeout(() => {
+      setCollapsedIds(next);
+      setClosingIds((prev) => {
+        const s = new Set(prev);
+        s.delete(id);
+        return s;
+      });
+    }, COLLAPSE_ANIMATION_MS);
   };
 
   const flat = useMemo(
-    () => flattenTree(tree, collapsedIds),
-    [tree, collapsedIds]
+    () => flattenTree(tree, collapsedIds, closingIds),
+    [tree, collapsedIds, closingIds]
   );
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -412,22 +450,31 @@ export default function ElementCategoriesSettingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {flat.map(({ node, depth, hasChildren, isLastSibling }) => (
-                      <CategoryTableRow
-                        key={node.id}
-                        node={node}
-                        depth={depth}
-                        canAddChild={node.level < 3}
-                        hasChildren={hasChildren}
-                        isLastSibling={isLastSibling}
-                        isCollapsed={collapsedIds.has(node.id)}
-                        onToggleCollapse={toggleCollapse}
-                        hidden={activeDescendantIds.has(node.id)}
-                        onEdit={openEdit}
-                        onDelete={setDeleting}
-                        onAddChild={(parent) => openCreate(parent.id)}
-                      />
-                    ))}
+                    {flat.map(
+                      ({
+                        node,
+                        depth,
+                        hasChildren,
+                        isLastSibling,
+                        exiting,
+                      }) => (
+                        <CategoryTableRow
+                          key={node.id}
+                          node={node}
+                          depth={depth}
+                          canAddChild={node.level < 3}
+                          hasChildren={hasChildren}
+                          isLastSibling={isLastSibling}
+                          isCollapsed={collapsedIds.has(node.id)}
+                          exiting={exiting}
+                          onToggleCollapse={toggleCollapse}
+                          hidden={activeDescendantIds.has(node.id)}
+                          onEdit={openEdit}
+                          onDelete={setDeleting}
+                          onAddChild={(parent) => openCreate(parent.id)}
+                        />
+                      )
+                    )}
                   </tbody>
                 </table>
               </div>

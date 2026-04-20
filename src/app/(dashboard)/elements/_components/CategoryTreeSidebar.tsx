@@ -181,17 +181,27 @@ function TreeNode({ node, depth, selectedId, onSelect }: NodeProps) {
         <CategoryIcon icon={node.icon} color={node.color} size={14} />
         <span className="truncate">{node.name}</span>
       </div>
-      {hasChildren && expanded && (
-        <div className="flex flex-col gap-0.5">
-          {node.children.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              onSelect={onSelect}
-            />
-          ))}
+      {hasChildren && (
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+            expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+          )}
+          aria-hidden={!expanded}
+        >
+          <div className="overflow-hidden">
+            <div className="flex flex-col gap-0.5 pt-0.5">
+              {node.children.map((child) => (
+                <TreeNode
+                  key={child.id}
+                  node={child}
+                  depth={depth + 1}
+                  selectedId={selectedId}
+                  onSelect={onSelect}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
