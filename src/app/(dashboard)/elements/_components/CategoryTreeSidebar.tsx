@@ -10,10 +10,8 @@ import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
-import {
-  CategoryForm,
-  type CategoryFormSubmit,
-} from "@/components/elements/CategoryForm";
+import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
+import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 import { useUserRole } from "@/hooks/useUserRole";
 import { features } from "@/config/features";
 import type { ElementCategoryNode } from "@/types";
@@ -35,7 +33,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const { data, isLoading } = useSWR<TreeResponse>(API.elementCategories());
   const tree = data?.tree ?? [];
 
-  const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const canManage =
@@ -47,7 +45,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
       await elementCategories.create(values);
       await globalMutate(API.elementCategories());
       toast({ title: t("categoryCreatedToast") });
-      setCreating(false);
+      setCreateOpen(false);
     } catch (e) {
       toast({
         title: e instanceof Error ? e.message : String(e),
@@ -67,7 +65,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
         {canManage && (
           <button
             type="button"
-            onClick={() => setCreating((v) => !v)}
+            onClick={() => setCreateOpen(true)}
             className="flex items-center gap-1 text-xs text-accent hover:underline"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -75,17 +73,6 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
           </button>
         )}
       </div>
-
-      {creating && (
-        <div className="mb-3">
-          <CategoryForm
-            parentOptions={flattenCategories(tree)}
-            submitting={submitting}
-            onSubmit={handleCreate}
-            onCancel={() => setCreating(false)}
-          />
-        </div>
-      )}
 
       <button
         type="button"
@@ -135,6 +122,15 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
           </Link>
         </>
       )}
+
+      <CategoryEditDialog
+        open={createOpen}
+        mode="create"
+        parentOptions={flattenCategories(tree)}
+        submitting={submitting}
+        onOpenChange={setCreateOpen}
+        onSubmit={handleCreate}
+      />
     </aside>
   );
 }

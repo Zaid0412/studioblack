@@ -18,10 +18,12 @@ import type { ElementCategoryNode } from "@/types";
 interface Props {
   open: boolean;
   mode: "create" | "edit";
-  editing: ElementCategoryNode | null;
+  editing?: ElementCategoryNode | null;
   /** Forced parent when creating a child row. */
   presetParentId?: string | null;
   parentOptions: CategoryOption[];
+  /** Name of the forced parent — used in the title when presetParentId is set. */
+  presetParentName?: string;
   /** IDs that cannot be selected as parent (self + descendants when editing). */
   disabledParentIds?: string[];
   submitting: boolean;
@@ -29,11 +31,17 @@ interface Props {
   onSubmit: (values: CategoryFormSubmit) => Promise<void> | void;
 }
 
+/**
+ * Shared create/edit dialog for element categories. Used by the settings
+ * page, the sidebar quick-create, and the element form's category picker
+ * so there is exactly one modal that owns the CategoryForm.
+ */
 export function CategoryEditDialog({
   open,
   mode,
   editing,
   presetParentId,
+  presetParentName,
   parentOptions,
   disabledParentIds,
   submitting,
@@ -55,13 +63,18 @@ export function CategoryEditDialog({
       ? { parentId: presetParentId }
       : undefined;
 
+  const title =
+    mode === "edit"
+      ? tCommon("edit")
+      : presetParentId && presetParentName
+        ? t("newSubcategoryUnder", { parent: presetParentName })
+        : t("newCategory");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>
-            {mode === "edit" ? tCommon("edit") : t("newCategory")}
-          </DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <CategoryForm
           initial={initial}

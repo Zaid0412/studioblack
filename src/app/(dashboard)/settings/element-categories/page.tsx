@@ -29,7 +29,7 @@ import { features } from "@/config/features";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
-import { CategoryEditDialog } from "./_components/CategoryEditDialog";
+import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { DeleteConfirmDialog } from "./_components/DeleteConfirmDialog";
 import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 
@@ -215,6 +215,9 @@ export default function ElementCategoriesSettingsPage() {
   const disabledParentIds = editing
     ? [editing.id, ...collectDescendants(editing)]
     : [];
+  const presetParentName = presetParentId
+    ? (flat.find((r) => r.node.id === presetParentId)?.node.name ?? undefined)
+    : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -296,6 +299,7 @@ export default function ElementCategoriesSettingsPage() {
         mode={dialogMode}
         editing={editing}
         presetParentId={presetParentId}
+        presetParentName={presetParentName}
         parentOptions={flattenCategories(tree)}
         disabledParentIds={disabledParentIds}
         submitting={submitting}
