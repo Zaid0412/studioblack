@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
 import { ArrowLeft, Plus } from "lucide-react";
@@ -207,19 +208,12 @@ export default function ElementCategoriesSettingsPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
 
-  const [backHref, setBackHref] = useState<"/elements" | "/settings">(
-    "/settings"
-  );
-  useEffect(() => {
-    try {
-      const r = document.referrer;
-      if (r && new URL(r).pathname.endsWith("/elements")) {
-        setBackHref("/elements");
-      }
-    } catch {
-      // malformed referrer — keep the /settings default
-    }
-  }, []);
+  // Link from the elements sidebar sets ?from=elements. document.referrer is
+  // unreliable with Next.js client-side nav (stays frozen at the initial load
+  // referrer), so the entry point tells us explicitly where to go back to.
+  const searchParams = useSearchParams();
+  const backHref: "/elements" | "/settings" =
+    searchParams.get("from") === "elements" ? "/elements" : "/settings";
 
   const openCreate = (parentId?: string | null) => {
     setDialogMode("create");

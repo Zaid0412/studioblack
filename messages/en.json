@@ -723,6 +723,7 @@
     "filterByCategory": "Filter by category",
     "filterByUnit": "Filter by unit",
     "allCategories": "All categories",
+    "categories": "Categories",
     "allUnits": "All units",
     "clearFilters": "Clear filters",
     "noResults": "No elements found",

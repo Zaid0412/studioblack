@@ -60,7 +60,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
     <aside className="w-full lg:w-60 shrink-0 rounded-[10px] bg-bg-secondary border border-border-default p-3 flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[13px] font-medium text-text-secondary">
-          {t("allCategories")}
+          {t("categories")}
         </span>
         {canManage && (
           <button
@@ -111,7 +111,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
         <>
           <div className="my-3 h-px bg-border-default" />
           <Link
-            href="/settings/element-categories"
+            href="/settings/element-categories?from=elements"
             className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] text-accent hover:bg-accent/10 transition-colors"
           >
             <span className="flex items-center gap-1.5">
