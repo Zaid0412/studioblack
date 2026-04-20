@@ -14,6 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const ICON_ENTRIES = Object.entries(icons) as [string, LucideIcon][];
@@ -97,7 +102,7 @@ export function CategoryIconBrowseDialog({
           />
         </div>
 
-        <div className="max-h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-input p-2">
+        <div className="h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-input p-2">
           {filtered.length === 0 ? (
             <p className="py-8 text-center text-sm text-text-muted">
               No icons match &ldquo;{query}&rdquo;
@@ -107,31 +112,34 @@ export function CategoryIconBrowseDialog({
               {filtered.map(([name, Icon]) => {
                 const selected = pending === name;
                 return (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setPending(name)}
-                    onDoubleClick={() => {
-                      setPending(name);
-                      onSelect(name);
-                      onOpenChange(false);
-                    }}
-                    title={name}
-                    aria-label={name}
-                    aria-pressed={selected}
-                    className={cn(
-                      "flex aspect-square items-center justify-center rounded-md border transition-colors",
-                      selected
-                        ? "border-accent bg-accent/10 text-accent"
-                        : "border-transparent text-text-secondary hover:border-border-default hover:bg-bg-hover"
-                    )}
-                  >
-                    <Icon
-                      className="h-5 w-5"
-                      style={color ? { color } : undefined}
-                      aria-hidden
-                    />
-                  </button>
+                  <Tooltip key={name} delayDuration={300}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setPending(name)}
+                        onDoubleClick={() => {
+                          setPending(name);
+                          onSelect(name);
+                          onOpenChange(false);
+                        }}
+                        aria-label={name}
+                        aria-pressed={selected}
+                        className={cn(
+                          "flex aspect-square items-center justify-center rounded-md transition-all duration-150",
+                          selected
+                            ? "bg-accent/10 text-accent ring-2 ring-accent scale-105"
+                            : "ring-1 ring-transparent text-text-secondary hover:ring-border-default hover:bg-bg-hover"
+                        )}
+                      >
+                        <Icon
+                          className="h-5 w-5"
+                          style={color ? { color } : undefined}
+                          aria-hidden
+                        />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{name}</TooltipContent>
+                  </Tooltip>
                 );
               })}
             </div>
