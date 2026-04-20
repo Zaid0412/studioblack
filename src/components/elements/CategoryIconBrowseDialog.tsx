@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, SearchX } from "lucide-react";
 import { icons, type LucideIcon } from "lucide-react";
 import {
@@ -19,6 +19,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useDebouncedCallback, useDebouncedValue } from "@/hooks/useDebounce";
 import { capitalize } from "@/lib/taskUtils";
 import { cn } from "@/lib/utils";
 
@@ -102,38 +103,17 @@ export function CategoryIconBrowseDialog({
   onSelect,
 }: Props) {
   const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
   const [pending, setPending] = useState<string | null>(value);
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const scheduleHover = useCallback((name: string | null) => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => setHovered(name), 60);
-  }, []);
-  useEffect(() => {
-    return () => {
-      if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    };
-  }, []);
+  const debounced = useDebouncedValue(query.trim().toLowerCase(), 120);
+  const scheduleHover = useDebouncedCallback(setHovered, 60);
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync: hydrate pending selection when dialog opens
     setPending(value);
   }, [open, value]);
-
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(
-      () => setDebounced(query.trim().toLowerCase()),
-      120
-    );
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [query]);
 
   const filtered = useMemo(() => {
     if (!debounced) return ICON_ENTRIES.slice(0, 300);

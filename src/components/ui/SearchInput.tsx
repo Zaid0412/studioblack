@@ -2,14 +2,13 @@
 
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useDebouncedCallback } from "@/hooks/useDebounce";
 import {
   forwardRef,
-  useState,
-  useEffect,
-  useRef,
   useCallback,
-  type InputHTMLAttributes,
+  useState,
   type ChangeEvent,
+  type InputHTMLAttributes,
 } from "react";
 
 interface SearchInputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -43,14 +42,9 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
     ref
   ) => {
     const [localValue, setLocalValue] = useState(value ?? "");
-    const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-    // Cleanup timer on unmount
-    useEffect(
-      () => () => {
-        clearTimeout(timerRef.current);
-      },
-      []
+    const fireDebounced = useDebouncedCallback(
+      (val: string) => onDebouncedChange?.(val),
+      debounceMs ?? 0
     );
 
     const handleChange = useCallback(
@@ -61,12 +55,9 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
         }
         const val = e.target.value;
         setLocalValue(val);
-        clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => {
-          onDebouncedChange?.(val);
-        }, debounceMs);
+        fireDebounced(val);
       },
-      [debounceMs, onChange, onDebouncedChange]
+      [debounceMs, onChange, fireDebounced]
     );
 
     return (
