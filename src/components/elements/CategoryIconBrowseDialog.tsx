@@ -269,7 +269,7 @@ export function CategoryIconBrowseDialog({
           )}
         </div>
 
-        <div className="flex min-h-[52px] items-center gap-3 rounded-lg border border-border-default bg-bg-input px-3 py-2">
+        <div className="flex h-[60px] items-center gap-3 rounded-lg border border-border-default bg-bg-input px-3">
           {displayed && DisplayedIcon ? (
             <>
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border-default bg-bg-secondary">
@@ -279,11 +279,11 @@ export function CategoryIconBrowseDialog({
                   aria-hidden
                 />
               </div>
-              <div className="flex min-w-0 flex-col">
+              <div className="flex min-w-0 flex-col leading-tight">
                 <span className="truncate text-sm font-medium text-text-primary">
                   {humanize(displayed)}
                 </span>
-                <code className="truncate font-mono text-[11px] text-text-muted">
+                <code className="mt-0.5 truncate font-mono text-[11px] text-text-muted">
                   {displayed}
                 </code>
               </div>
