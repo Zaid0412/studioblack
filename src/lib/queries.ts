@@ -5,7 +5,13 @@ import {
   PROJECT_STEPS,
   DEFAULT_PAGE_LIMIT,
 } from "@/lib/constants";
-import type { ElementCategory, ElementCategoryNode } from "@/types";
+import type {
+  Element,
+  ElementAttribute,
+  ElementCategory,
+  ElementCategoryNode,
+  ElementWithDetails,
+} from "@/types";
 
 /**
  * Generate a 32-char alphanumeric ID matching better-auth's format.
@@ -2578,4 +2584,499 @@ export async function reorderCategories(
        AND element_category.parent_id IS NOT DISTINCT FROM $4`,
     [orderedIds, orderedIds.length - 1, orgId, parentId]
   );
+}
+
+// ---------------------------------------------------------------------------
+// Elements
+// ---------------------------------------------------------------------------
+
+export interface ElementFilters {
+  search?: string;
+  categoryId?: string;
+  unit?: string;
+  tags?: string[];
+  isActive?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface CreateElementInput {
+  code: string;
+  name: string;
+  description?: string;
+  categoryId?: string;
+  unit: string;
+  unitCost: number;
+  currency?: string;
+  materialCost?: number;
+  labourCost?: number;
+  overheadPct?: number;
+  marginPct?: number;
+  specReference?: string;
+  drawingRef?: string;
+  tags?: string[];
+  attributes?: Array<{
+    attribute_key: string;
+    attribute_value: string;
+    unit?: string;
+    sort_order?: number;
+  }>;
+}
+
+export type UpdateElementInput = Partial<CreateElementInput> & {
+  isActive?: boolean;
+};
+
+const ELEMENT_COLS: Record<string, string> = {
+  code: "code",
+  name: "name",
+  description: "description",
+  categoryId: "category_id",
+  unit: "unit",
+  unitCost: "unit_cost",
+  currency: "currency",
+  materialCost: "material_cost",
+  labourCost: "labour_cost",
+  overheadPct: "overhead_pct",
+  marginPct: "margin_pct",
+  specReference: "spec_reference",
+  drawingRef: "drawing_ref",
+  tags: "tags",
+  isActive: "is_active",
+};
+
+/**
+ * List elements for an org with filters + pagination.
+ * Uses `COUNT(*) OVER()` for the total so it's one round-trip.
+ * Category filter is descendant-inclusive via a recursive CTE.
+ */
+export async function getElements(orgId: string, filters: ElementFilters = {}) {
+  const pool = getPool();
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? DEFAULT_PAGE_LIMIT;
+  const offset = (page - 1) * limit;
+
+  const conditions: string[] = ["e.org_id = $1"];
+  const params: unknown[] = [orgId];
+
+  if (filters.search) {
+    const like = `%${escapeSqlLike(filters.search)}%`;
+    params.push(like);
+    const i = params.length;
+    conditions.push(
+      `(e.name ILIKE $${i} OR e.code ILIKE $${i} OR e.description ILIKE $${i})`
+    );
+  }
+
+  if (filters.categoryId) {
+    params.push(filters.categoryId);
+    const i = params.length;
+    conditions.push(
+      `e.category_id IN (
+         WITH RECURSIVE cat_tree AS (
+           SELECT id FROM element_category WHERE id = $${i}
+           UNION ALL
+           SELECT c.id FROM element_category c
+           JOIN cat_tree t ON c.parent_id = t.id
+         )
+         SELECT id FROM cat_tree
+       )`
+    );
+  }
+
+  if (filters.unit) {
+    params.push(filters.unit);
+    conditions.push(`e.unit = $${params.length}`);
+  }
+
+  if (filters.tags && filters.tags.length > 0) {
+    params.push(filters.tags);
+    conditions.push(`e.tags && $${params.length}::text[]`);
+  }
+
+  if (filters.isActive !== undefined) {
+    params.push(filters.isActive);
+    conditions.push(`e.is_active = $${params.length}`);
+  }
+
+  params.push(limit, offset);
+  const limitIdx = params.length - 1;
+  const offsetIdx = params.length;
+
+  const { rows } = await pool.query(
+    `SELECT e.*, COUNT(*) OVER() AS total_count
+       FROM element e
+      WHERE ${conditions.join(" AND ")}
+      ORDER BY e.code ASC
+      LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+    params
+  );
+
+  const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
+  const elements = rows.map(({ total_count: _ignore, ...rest }) => rest as Element);
+  return { rows: elements, total };
+}
+
+/**
+ * Fetch a single element with its attributes and category breadcrumb.
+ * Returns null if the element doesn't exist or belongs to another org.
+ */
+export async function getElementById(
+  orgId: string,
+  id: string
+): Promise<ElementWithDetails | null> {
+  const pool = getPool();
+
+  const { rows } = await pool.query(
+    `SELECT * FROM element WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+  if (rows.length === 0) return null;
+  const element = rows[0] as Element;
+
+  const { rows: attrRows } = await pool.query(
+    `SELECT * FROM element_attribute
+      WHERE element_id = $1
+      ORDER BY sort_order, attribute_key`,
+    [id]
+  );
+
+  let categoryPath: string[] | null = null;
+  if (element.category_id) {
+    const { rows: pathRows } = await pool.query(
+      `WITH RECURSIVE ancestors AS (
+         SELECT id, name, parent_id, level FROM element_category WHERE id = $1
+         UNION ALL
+         SELECT c.id, c.name, c.parent_id, c.level
+           FROM element_category c
+           JOIN ancestors a ON c.id = a.parent_id
+       )
+       SELECT name FROM ancestors ORDER BY level ASC`,
+      [element.category_id]
+    );
+    categoryPath = pathRows.map((r) => r.name as string);
+  }
+
+  return {
+    ...element,
+    attributes: attrRows as ElementAttribute[],
+    category_path: categoryPath,
+  };
+}
+
+/** Internal: replace the attribute set for an element inside an open tx. */
+async function replaceElementAttributes(
+  client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
+  elementId: string,
+  attributes: CreateElementInput["attributes"] | undefined
+): Promise<void> {
+  await client.query(`DELETE FROM element_attribute WHERE element_id = $1`, [
+    elementId,
+  ]);
+  if (!attributes || attributes.length === 0) return;
+
+  const values: unknown[] = [];
+  const rows: string[] = [];
+  attributes.forEach((attr, idx) => {
+    const base = idx * 5;
+    values.push(
+      elementId,
+      attr.attribute_key,
+      attr.attribute_value,
+      attr.unit ?? null,
+      attr.sort_order ?? idx
+    );
+    rows.push(
+      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`
+    );
+  });
+
+  await client.query(
+    `INSERT INTO element_attribute
+       (element_id, attribute_key, attribute_value, unit, sort_order)
+     VALUES ${rows.join(", ")}`,
+    values
+  );
+}
+
+/**
+ * Create an element + its attributes inside a transaction.
+ * Throws "Code already exists" (23505) or "Category not found" (23503).
+ */
+export async function createElement(
+  orgId: string,
+  createdBy: string,
+  input: CreateElementInput
+): Promise<ElementWithDetails> {
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    let elementRow: Element;
+    try {
+      const { rows } = await client.query(
+        `INSERT INTO element
+           (org_id, code, name, description, category_id, unit, unit_cost,
+            currency, material_cost, labour_cost, overhead_pct, margin_pct,
+            spec_reference, drawing_ref, tags, created_by)
+         VALUES
+           ($1, $2, $3, $4, $5, $6, $7,
+            $8, $9, $10, $11, $12,
+            $13, $14, $15, $16)
+         RETURNING *`,
+        [
+          orgId,
+          input.code,
+          input.name,
+          input.description ?? null,
+          input.categoryId ?? null,
+          input.unit,
+          input.unitCost,
+          input.currency ?? "USD",
+          input.materialCost ?? null,
+          input.labourCost ?? null,
+          input.overheadPct ?? null,
+          input.marginPct ?? null,
+          input.specReference ?? null,
+          input.drawingRef ?? null,
+          input.tags ?? null,
+          createdBy,
+        ]
+      );
+      elementRow = rows[0] as Element;
+    } catch (err: unknown) {
+      const pgErr = err as { code?: string };
+      if (pgErr.code === "23505") throw new Error("Code already exists");
+      if (pgErr.code === "23503") throw new Error("Category not found");
+      throw err;
+    }
+
+    await replaceElementAttributes(client, elementRow.id, input.attributes);
+
+    const { rows: attrRows } = await client.query(
+      `SELECT * FROM element_attribute
+        WHERE element_id = $1
+        ORDER BY sort_order, attribute_key`,
+      [elementRow.id]
+    );
+
+    await client.query("COMMIT");
+    return {
+      ...elementRow,
+      attributes: attrRows as ElementAttribute[],
+      category_path: null,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Update element fields + optionally replace attributes in one transaction.
+ * Returns the updated element+attributes or null if not found in this org.
+ * Throws "Code already exists" on unique violation.
+ */
+export async function updateElement(
+  orgId: string,
+  id: string,
+  input: UpdateElementInput
+): Promise<ElementWithDetails | null> {
+  const pool = getPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    for (const [key, col] of Object.entries(ELEMENT_COLS)) {
+      const value = (input as Record<string, unknown>)[key];
+      if (value !== undefined) {
+        updates.push(`"${col}" = $${idx}`);
+        values.push(value);
+        idx++;
+      }
+    }
+
+    let elementRow: Element | null = null;
+    if (updates.length > 0) {
+      updates.push(`updated_at = now()`);
+      values.push(id, orgId);
+      try {
+        const { rows } = await client.query(
+          `UPDATE element SET ${updates.join(", ")}
+            WHERE id = $${idx} AND org_id = $${idx + 1}
+            RETURNING *`,
+          values
+        );
+        elementRow = (rows[0] as Element) ?? null;
+      } catch (err: unknown) {
+        const pgErr = err as { code?: string };
+        if (pgErr.code === "23505") throw new Error("Code already exists");
+        if (pgErr.code === "23503") throw new Error("Category not found");
+        throw err;
+      }
+    } else {
+      const { rows } = await client.query(
+        `SELECT * FROM element WHERE id = $1 AND org_id = $2`,
+        [id, orgId]
+      );
+      elementRow = (rows[0] as Element) ?? null;
+    }
+
+    if (!elementRow) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    if (input.attributes !== undefined) {
+      await replaceElementAttributes(client, elementRow.id, input.attributes);
+    }
+
+    const { rows: attrRows } = await client.query(
+      `SELECT * FROM element_attribute
+        WHERE element_id = $1
+        ORDER BY sort_order, attribute_key`,
+      [elementRow.id]
+    );
+
+    await client.query("COMMIT");
+    return {
+      ...elementRow,
+      attributes: attrRows as ElementAttribute[],
+      category_path: null,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Soft-delete (archive) an element. Only affects currently-active rows.
+ * Returns { deleted: false } if the element doesn't exist or is already archived.
+ */
+export async function softDeleteElement(
+  orgId: string,
+  id: string
+): Promise<{ deleted: boolean }> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE element SET is_active = false, updated_at = now()
+      WHERE id = $1 AND org_id = $2 AND is_active = true`,
+    [id, orgId]
+  );
+  return { deleted: (rowCount ?? 0) > 0 };
+}
+
+/**
+ * Duplicate an element (with its attributes). Derives a new code as
+ * `{code}-copy`, `{code}-copy-2`, … retrying up to 5 times on unique-collision.
+ */
+export async function duplicateElement(
+  orgId: string,
+  createdBy: string,
+  id: string
+): Promise<ElementWithDetails | null> {
+  const pool = getPool();
+
+  const { rows: srcRows } = await pool.query(
+    `SELECT * FROM element WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+  if (srcRows.length === 0) return null;
+  const src = srcRows[0] as Element;
+
+  const client = await pool.connect();
+  try {
+    for (let n = 1; n <= 5; n++) {
+      const suffix = n === 1 ? "-copy" : `-copy-${n}`;
+      const newCode = `${src.code}${suffix}`;
+
+      try {
+        await client.query("BEGIN");
+
+        const {
+          rows: [newRow],
+        } = await client.query(
+          `INSERT INTO element
+             (org_id, code, name, description, category_id, unit, unit_cost,
+              currency, material_cost, labour_cost, overhead_pct, margin_pct,
+              spec_reference, drawing_ref, tags, is_active, created_by)
+           VALUES
+             ($1, $2, $3, $4, $5, $6, $7,
+              $8, $9, $10, $11, $12,
+              $13, $14, $15, true, $16)
+           RETURNING *`,
+          [
+            orgId,
+            newCode,
+            src.name,
+            src.description,
+            src.category_id,
+            src.unit,
+            src.unit_cost,
+            src.currency,
+            src.material_cost,
+            src.labour_cost,
+            src.overhead_pct,
+            src.margin_pct,
+            src.spec_reference,
+            src.drawing_ref,
+            src.tags,
+            createdBy,
+          ]
+        );
+
+        await client.query(
+          `INSERT INTO element_attribute
+             (element_id, attribute_key, attribute_value, unit, sort_order)
+           SELECT $1, attribute_key, attribute_value, unit, sort_order
+             FROM element_attribute
+            WHERE element_id = $2`,
+          [newRow.id, src.id]
+        );
+
+        const { rows: attrRows } = await client.query(
+          `SELECT * FROM element_attribute
+            WHERE element_id = $1
+            ORDER BY sort_order, attribute_key`,
+          [newRow.id]
+        );
+
+        await client.query("COMMIT");
+        return {
+          ...(newRow as Element),
+          attributes: attrRows as ElementAttribute[],
+          category_path: null,
+        };
+      } catch (err: unknown) {
+        await client.query("ROLLBACK");
+        const pgErr = err as { code?: string };
+        if (pgErr.code === "23505") continue;
+        throw err;
+      }
+    }
+    throw new Error("Could not generate unique code for duplicate");
+  } finally {
+    client.release();
+  }
+}
+
+/** List elements for export (no pagination). Used by F3 Excel export. */
+export async function getElementsForExport(
+  orgId: string,
+  filters: Omit<ElementFilters, "page" | "limit"> = {}
+): Promise<Element[]> {
+  const { rows } = await getElements(orgId, { ...filters, page: 1, limit: 10_000 });
+  return rows;
 }

@@ -360,3 +360,46 @@ export interface ElementCategory {
 export interface ElementCategoryNode extends ElementCategory {
   children: ElementCategoryNode[];
 }
+
+/**
+ * A construction element row.
+ * Numeric fields arrive from `pg` as strings (NUMERIC type) — format on display.
+ */
+export interface Element {
+  id: string;
+  org_id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  category_id: string | null;
+  unit: string;
+  unit_cost: string;
+  currency: string;
+  material_cost: string | null;
+  labour_cost: string | null;
+  overhead_pct: string | null;
+  margin_pct: string | null;
+  spec_reference: string | null;
+  drawing_ref: string | null;
+  tags: string[] | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Free-form attribute attached to an element (e.g., "Finish": "Matte"). */
+export interface ElementAttribute {
+  id: string;
+  element_id: string;
+  attribute_key: string;
+  attribute_value: string;
+  unit: string | null;
+  sort_order: number;
+}
+
+/** Element enriched with attributes + category breadcrumb for detail views. */
+export interface ElementWithDetails extends Element {
+  attributes: ElementAttribute[];
+  category_path: string[] | null;
+}

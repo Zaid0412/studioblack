@@ -21,6 +21,10 @@ import {
   createChecklistItemSchema,
   updateChecklistItemSchema,
   reorderChecklistSchema,
+  createElementSchema,
+  updateElementSchema,
+  listElementsQuerySchema,
+  ALLOWED_UNITS,
   parseBody,
   parseRequest,
   TASK_STATUSES,
@@ -843,5 +847,215 @@ describe("parseRequest", () => {
     if (!result.success) {
       expect(result.error).toBeTruthy();
     }
+  });
+});
+
+// ── createElementSchema ──────────────────────────────────────────────────────
+
+describe("createElementSchema", () => {
+  it("accepts minimal valid input", () => {
+    const data = expectPass(createElementSchema, {
+      code: "WAL-PNT-001",
+      name: "Paint",
+      unit: "m2",
+      unitCost: 120,
+    });
+    expect(data).toMatchObject({
+      code: "WAL-PNT-001",
+      name: "Paint",
+      unit: "m2",
+      unitCost: 120,
+      currency: "USD",
+    });
+  });
+
+  it("accepts all optional fields", () => {
+    const data = expectPass(createElementSchema, {
+      code: "X",
+      name: "X",
+      description: "desc",
+      categoryId: VALID_UUID,
+      unit: "m3",
+      unitCost: 10,
+      currency: "INR",
+      materialCost: 5,
+      labourCost: 3,
+      overheadPct: 10,
+      marginPct: 15,
+      specReference: "spec",
+      drawingRef: "draw",
+      tags: ["a", "b"],
+      attributes: [
+        { attribute_key: "Finish", attribute_value: "Matte", sort_order: 0 },
+      ],
+    });
+    expect(data.attributes).toHaveLength(1);
+    expect(data.tags).toEqual(["a", "b"]);
+  });
+
+  it("rejects empty code", () => {
+    expectFail(createElementSchema, {
+      code: "",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+    });
+  });
+
+  it("rejects unit not in ALLOWED_UNITS", () => {
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "bananas",
+      unitCost: 10,
+    });
+  });
+
+  it("rejects negative unitCost", () => {
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: -1,
+    });
+  });
+
+  it("rejects overheadPct above 100", () => {
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      overheadPct: 101,
+    });
+  });
+
+  it("trims name and code whitespace", () => {
+    const data = expectPass(createElementSchema, {
+      code: "  CODE  ",
+      name: "  Name  ",
+      unit: "m2",
+      unitCost: 10,
+    });
+    expect(data.code).toBe("CODE");
+    expect(data.name).toBe("Name");
+  });
+
+  it("rejects attribute with empty key", () => {
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      attributes: [{ attribute_key: "", attribute_value: "v" }],
+    });
+  });
+
+  it("rejects currency of wrong length", () => {
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      currency: "US",
+    });
+  });
+});
+
+// ── updateElementSchema ──────────────────────────────────────────────────────
+
+describe("updateElementSchema", () => {
+  it("accepts empty object (all fields optional)", () => {
+    expectPass(updateElementSchema, {});
+  });
+
+  it("accepts isActive flag", () => {
+    const data = expectPass(updateElementSchema, { isActive: false });
+    expect(data.isActive).toBe(false);
+  });
+
+  it("accepts partial update", () => {
+    const data = expectPass(updateElementSchema, {
+      name: "New Name",
+      unitCost: 200,
+    });
+    expect(data.name).toBe("New Name");
+    expect(data.unitCost).toBe(200);
+  });
+
+  it("rejects negative materialCost", () => {
+    expectFail(updateElementSchema, { materialCost: -5 });
+  });
+});
+
+// ── listElementsQuerySchema ──────────────────────────────────────────────────
+
+describe("listElementsQuerySchema", () => {
+  it("defaults page=1 and limit=50", () => {
+    const data = expectPass(listElementsQuerySchema, {});
+    expect(data.page).toBe(1);
+    expect(data.limit).toBe(50);
+  });
+
+  it("coerces numeric strings to numbers (URL params)", () => {
+    const data = expectPass(listElementsQuerySchema, {
+      page: "3",
+      limit: "25",
+    });
+    expect(data.page).toBe(3);
+    expect(data.limit).toBe(25);
+  });
+
+  it("coerces isActive string 'true' to boolean", () => {
+    const data = expectPass(listElementsQuerySchema, { isActive: "true" });
+    expect(data.isActive).toBe(true);
+  });
+
+  it("coerces isActive string 'false' to boolean", () => {
+    const data = expectPass(listElementsQuerySchema, { isActive: "false" });
+    expect(data.isActive).toBe(false);
+  });
+
+  it("accepts tags as array", () => {
+    const data = expectPass(listElementsQuerySchema, {
+      tags: ["a", "b"],
+    });
+    expect(data.tags).toEqual(["a", "b"]);
+  });
+
+  it("rejects limit above 200", () => {
+    expectFail(listElementsQuerySchema, { limit: 500 });
+  });
+
+  it("rejects invalid unit", () => {
+    expectFail(listElementsQuerySchema, { unit: "bananas" });
+  });
+
+  it("rejects non-UUID categoryId", () => {
+    expectFail(listElementsQuerySchema, { categoryId: "not-a-uuid" });
+  });
+});
+
+// ── ALLOWED_UNITS constant ───────────────────────────────────────────────────
+
+describe("ALLOWED_UNITS", () => {
+  it("exposes all 15 canonical units", () => {
+    expect(ALLOWED_UNITS).toEqual([
+      "m2",
+      "m3",
+      "lm",
+      "nr",
+      "item",
+      "kg",
+      "tonne",
+      "ls",
+      "set",
+      "pair",
+      "roll",
+      "sheet",
+      "bag",
+      "box",
+      "pallet",
+    ]);
   });
 });
