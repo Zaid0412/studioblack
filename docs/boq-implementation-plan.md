@@ -1,5 +1,11 @@
 # ArchBuild Implementation Plan
 
+> **Source PRD** (Google Docs — 4 tabs):
+> - [Tab 1 — Overview & Architecture](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.0)
+> - [Tab 2 — Database Schema & Permissions](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.kxk5xif02yog)
+> - [Tab 3 — UI Specs & Workflows](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.l1rfcv6wiy3h)
+> - [Tab 4 — Error Handling & Phase 2](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.awk8tpqx406u)
+
 ## Overview
 
 Transform StudioBlack (design review platform) into ArchBuild (BOQ-centric construction management platform). Each feature is a self-contained PR that ships to production independently.
