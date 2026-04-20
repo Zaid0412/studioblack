@@ -88,6 +88,9 @@ function suggestSearches(query: string, limit = 3): string[] {
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+/** "BrickWall" → "Brick Wall", "Icon3D" → "Icon 3 D". */
+const humanize = (name: string) => name.replace(/([A-Z0-9]+)/g, " $1").trim();
+
 interface Props {
   open: boolean;
   value: string | null;
@@ -142,6 +145,10 @@ export function CategoryIconBrowseDialog({
       onOpenChange(false);
     }
   };
+
+  const SelectedIcon = pending
+    ? (icons[pending as keyof typeof icons] as LucideIcon | undefined)
+    : undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -242,6 +249,32 @@ export function CategoryIconBrowseDialog({
                 );
               })}
             </div>
+          )}
+        </div>
+
+        <div className="flex min-h-[52px] items-center gap-3 rounded-lg border border-border-default bg-bg-input px-3 py-2">
+          {pending && SelectedIcon ? (
+            <>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border-default bg-bg-secondary">
+                <SelectedIcon
+                  className="h-5 w-5"
+                  style={color ? { color } : undefined}
+                  aria-hidden
+                />
+              </div>
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium text-text-primary">
+                  {humanize(pending)}
+                </span>
+                <code className="truncate font-mono text-[11px] text-text-muted">
+                  {pending}
+                </code>
+              </div>
+            </>
+          ) : (
+            <span className="text-xs text-text-muted">
+              Select an icon to see details
+            </span>
           )}
         </div>
 
