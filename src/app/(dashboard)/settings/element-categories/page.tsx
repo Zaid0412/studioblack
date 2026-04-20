@@ -12,6 +12,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -75,6 +76,36 @@ function subtreeElementCount(node: ElementCategoryNode): number {
   return total;
 }
 
+/**
+ * Returns a new tree where the children of `parentId` (or the root list if
+ * parentId is null) are reordered to match `orderedChildIds`. Pure — does not
+ * mutate the input tree.
+ */
+function reorderSiblings(
+  tree: ElementCategoryNode[],
+  parentId: string | null,
+  orderedChildIds: string[]
+): ElementCategoryNode[] {
+  const reorder = (
+    children: ElementCategoryNode[]
+  ): ElementCategoryNode[] => {
+    const byId = new Map(children.map((c) => [c.id, c]));
+    return orderedChildIds
+      .map((id) => byId.get(id))
+      .filter((n): n is ElementCategoryNode => n !== undefined);
+  };
+
+  if (parentId === null) return reorder(tree);
+
+  const walk = (nodes: ElementCategoryNode[]): ElementCategoryNode[] =>
+    nodes.map((n) =>
+      n.id === parentId
+        ? { ...n, children: reorder(n.children) }
+        : { ...n, children: walk(n.children) }
+    );
+  return walk(tree);
+}
+
 export default function ElementCategoriesSettingsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -96,6 +127,14 @@ export default function ElementCategoriesSettingsPage() {
   >(undefined);
   const [deleting, setDeleting] = useState<ElementCategoryNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const activeDescendantIds = useMemo(() => {
+    if (!activeId) return new Set<string>();
+    const node = flat.find((r) => r.node.id === activeId)?.node;
+    if (!node) return new Set<string>();
+    return new Set(collectDescendants(node));
+  }, [activeId, flat]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -174,8 +213,17 @@ export default function ElementCategoriesSettingsPage() {
     }
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
     if (!over || active.id === over.id) return;
 
     const activeRow = flat.find((r) => r.node.id === active.id);
@@ -195,10 +243,20 @@ export default function ElementCategoriesSettingsPage() {
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(siblings, oldIndex, newIndex);
+    const key = API.elementCategories();
+    const previousTree = tree;
+    const optimisticTree = reorderSiblings(tree, activeParent, reordered);
+
+    // Optimistic update — apply the new order to the SWR cache immediately
+    // so descendants relocate under the parent in the new position.
+    await globalMutate(key, { tree: optimisticTree }, { revalidate: false });
+
     try {
       await elementCategories.reorder(activeParent, reordered);
-      await globalMutate(API.elementCategories());
+      await globalMutate(key);
     } catch (e) {
+      // Rollback to the prior tree on failure.
+      await globalMutate(key, { tree: previousTree }, { revalidate: false });
       toast({
         title: e instanceof Error ? e.message : String(e),
         variant: "error",
@@ -269,6 +327,8 @@ export default function ElementCategoriesSettingsPage() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragCancel={handleDragCancel}
             onDragEnd={handleDragEnd}
           >
             <SortableContext
@@ -303,6 +363,7 @@ export default function ElementCategoriesSettingsPage() {
                         node={node}
                         depth={depth}
                         canAddChild={node.level < 3}
+                        hidden={activeDescendantIds.has(node.id)}
                         onEdit={openEdit}
                         onDelete={setDeleting}
                         onAddChild={(parent) => openCreate(parent.id)}

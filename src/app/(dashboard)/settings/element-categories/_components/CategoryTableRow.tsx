@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { GripVertical, Plus, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -22,6 +23,8 @@ interface Props {
   onAddChild: (parent: ElementCategoryNode) => void;
   /** Disable add-child when the node is already at level 3 (max nesting). */
   canAddChild: boolean;
+  /** True while an ancestor is being dragged — hide to signal it travels with the parent. */
+  hidden?: boolean;
 }
 
 export function CategoryTableRow({
@@ -31,6 +34,7 @@ export function CategoryTableRow({
   onDelete,
   onAddChild,
   canAddChild,
+  hidden = false,
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -43,10 +47,11 @@ export function CategoryTableRow({
     isDragging,
   } = useSortable({ id: node.id });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : undefined,
+    ...(hidden && { display: "none" }),
   };
 
   const updatedRel = new Date(node.updated_at).toLocaleDateString();
