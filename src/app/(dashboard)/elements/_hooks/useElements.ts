@@ -99,6 +99,20 @@ export function useElements(filters: ElementFilterState) {
     [mutate]
   );
 
+  const restore = useCallback(
+    async (id: string) => {
+      try {
+        await elementsApi.restore(id);
+        toast({ title: "Element restored" });
+        mutate();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to restore";
+        toast({ title: msg, variant: "error" });
+      }
+    },
+    [mutate]
+  );
+
   return {
     rows,
     total,
@@ -112,5 +126,6 @@ export function useElements(filters: ElementFilterState) {
     update,
     archive,
     duplicate,
+    restore,
   };
 }

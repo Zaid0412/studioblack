@@ -58,6 +58,7 @@ export default function ElementsPage() {
     update,
     archive,
     duplicate,
+    restore,
   } = useElements(state);
 
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
@@ -165,6 +166,9 @@ export default function ElementsPage() {
                 void duplicate(el.id);
               }}
               onArchive={setArchiveTarget}
+              onRestore={(el) => {
+                void restore(el.id);
+              }}
             />
 
             {!isLoading && total > 0 && (

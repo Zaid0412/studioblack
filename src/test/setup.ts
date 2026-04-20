@@ -268,6 +268,7 @@ vi.mock("@/lib/queries", () => ({
   createElement: vi.fn(),
   updateElement: vi.fn(),
   softDeleteElement: vi.fn().mockResolvedValue({ deleted: true }),
+  restoreElement: vi.fn().mockResolvedValue({ restored: true }),
   duplicateElement: vi.fn(),
   getElementsForExport: vi.fn().mockResolvedValue([]),
   EmailTakenError: class EmailTakenError extends Error {

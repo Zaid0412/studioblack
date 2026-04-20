@@ -1,7 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { MoreHorizontal, Copy, Edit3, Archive, Layers } from "lucide-react";
+import {
+  MoreHorizontal,
+  Copy,
+  Edit3,
+  Archive,
+  ArchiveRestore,
+  Layers,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +30,7 @@ interface Props {
   onEdit: (el: Element) => void;
   onDuplicate: (el: Element) => void;
   onArchive: (el: Element) => void;
+  onRestore: (el: Element) => void;
 }
 
 export function ElementTable({
@@ -33,6 +41,7 @@ export function ElementTable({
   onEdit,
   onDuplicate,
   onArchive,
+  onRestore,
 }: Props) {
   const t = useTranslations("elements");
 
@@ -70,6 +79,7 @@ export function ElementTable({
               onEdit={() => onEdit(el)}
               onDuplicate={() => onDuplicate(el)}
               onArchive={() => onArchive(el)}
+              onRestore={() => onRestore(el)}
             />
           ))
         )}
@@ -85,6 +95,7 @@ interface RowProps {
   onEdit: () => void;
   onDuplicate: () => void;
   onArchive: () => void;
+  onRestore: () => void;
 }
 
 function ElementRow({
@@ -94,6 +105,7 @@ function ElementRow({
   onEdit,
   onDuplicate,
   onArchive,
+  onRestore,
 }: RowProps) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -140,10 +152,17 @@ function ElementRow({
               <Copy className="w-4 h-4" />
               {t("duplicate")}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onArchive}>
-              <Archive className="w-4 h-4" />
-              {t("archive")}
-            </DropdownMenuItem>
+            {element.is_active ? (
+              <DropdownMenuItem onClick={onArchive}>
+                <Archive className="w-4 h-4" />
+                {t("archive")}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={onRestore}>
+                <ArchiveRestore className="w-4 h-4" />
+                {t("restore")}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

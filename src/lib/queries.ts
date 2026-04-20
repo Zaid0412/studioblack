@@ -2994,6 +2994,23 @@ export async function softDeleteElement(
 }
 
 /**
+ * Restore a previously archived element. Mirror of softDeleteElement.
+ * Returns { restored: false } if the element doesn't exist or is already active.
+ */
+export async function restoreElement(
+  orgId: string,
+  id: string
+): Promise<{ restored: boolean }> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE element SET is_active = true, updated_at = now()
+      WHERE id = $1 AND org_id = $2 AND is_active = false`,
+    [id, orgId]
+  );
+  return { restored: (rowCount ?? 0) > 0 };
+}
+
+/**
  * Duplicate an element (with its attributes). Derives a new code as
  * `{code}-copy`, `{code}-copy-2`, … retrying up to 5 times on unique-collision.
  */

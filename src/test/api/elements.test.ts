@@ -5,6 +5,7 @@ import {
   createElement,
   updateElement,
   softDeleteElement,
+  restoreElement,
   duplicateElement,
 } from "@/lib/queries";
 import { GET, POST } from "@/app/api/elements/route";
@@ -14,6 +15,7 @@ import {
   DELETE as DELETE_ITEM,
 } from "@/app/api/elements/[id]/route";
 import { POST as POST_DUPLICATE } from "@/app/api/elements/[id]/duplicate/route";
+import { POST as POST_RESTORE } from "@/app/api/elements/[id]/restore/route";
 import {
   buildRequest,
   buildParams,
@@ -421,6 +423,48 @@ describe("DELETE /api/elements/[id]", () => {
 
     const req = buildRequest(`/api/elements/${ELEM_ID}`, { method: "DELETE" });
     const res = await DELETE_ITEM(req, buildParams({ id: ELEM_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(403);
+  });
+});
+
+// ── POST /api/elements/[id]/restore ─────────────────────────────────────────
+
+describe("POST /api/elements/[id]/restore", () => {
+  it("restores an archived element", async () => {
+    vi.mocked(restoreElement).mockResolvedValue({ restored: true });
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/restore`, {
+      method: "POST",
+    });
+    const res = await POST_RESTORE(req, buildParams({ id: ELEM_ID }));
+    const { status, body } = await parseResponse<{ success: boolean }>(res);
+
+    expect(status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(restoreElement).toHaveBeenCalledWith("org-test-001", ELEM_ID);
+  });
+
+  it("returns 404 when element not found or already active", async () => {
+    vi.mocked(restoreElement).mockResolvedValue({ restored: false });
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/restore`, {
+      method: "POST",
+    });
+    const res = await POST_RESTORE(req, buildParams({ id: ELEM_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(404);
+  });
+
+  it("returns 403 for client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/restore`, {
+      method: "POST",
+    });
+    const res = await POST_RESTORE(req, buildParams({ id: ELEM_ID }));
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);

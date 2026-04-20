@@ -69,3 +69,8 @@ export function remove(id: string) {
 export function duplicate(id: string) {
   return apiPost<ElementWithDetails>(API.elementDuplicate(id), {});
 }
+
+/** Restore a previously archived element. */
+export function restore(id: string) {
+  return apiPost<{ success: true }>(API.elementRestore(id), {});
+}

@@ -85,6 +85,7 @@ export const API = {
   elements:                 ()                            => "/api/elements",
   element:                  (id: string)                  => `/api/elements/${id}`,
   elementDuplicate:         (id: string)                  => `/api/elements/${id}/duplicate`,
+  elementRestore:           (id: string)                  => `/api/elements/${id}/restore`,
 
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",
