@@ -76,6 +76,11 @@ export const API = {
   changeEmail:           ()                            => "/api/settings/change-email",
   verifyEmailChange:     ()                            => "/api/settings/verify-email-change",
 
+  // ── Element Categories ──────────────────────────
+  elementCategories:        ()                            => "/api/element-categories",
+  elementCategory:          (id: string)                  => `/api/element-categories/${id}`,
+  elementCategoriesReorder: ()                            => "/api/element-categories/reorder",
+
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",
 } as const;

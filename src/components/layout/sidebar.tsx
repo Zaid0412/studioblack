@@ -13,6 +13,7 @@ import {
   ChevronsLeft,
   ChevronUp,
   CheckSquare,
+  Layers,
   Sun,
   Moon,
 } from "lucide-react";
@@ -79,6 +80,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
+    ...(features.elementLibrary
+      ? [{ href: "/elements", label: t("elements"), icon: Layers }]
+      : []),
     { href: "/organisation", label: t("organisation"), icon: Building2 },
     { href: "/settings", label: t("settings"), icon: Settings },
     ...(features.auditHistory
@@ -90,6 +94,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
+    ...(features.elementLibrary
+      ? [{ href: "/elements", label: t("elements"), icon: Layers }]
+      : []),
     { href: "/organisation", label: t("organisation"), icon: Building2 },
     { href: "/settings", label: t("settings"), icon: Settings },
   ];

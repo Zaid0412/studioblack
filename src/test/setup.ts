@@ -254,6 +254,14 @@ vi.mock("@/lib/queries", () => ({
   getRecentActivity: vi.fn().mockResolvedValue([]),
   getProjectsByClientEmail: vi.fn().mockResolvedValue([]),
   clearClientEmailByEmail: vi.fn().mockResolvedValue(0),
+  // Element Categories
+  buildCategoryTree: vi.fn().mockReturnValue([]),
+  getCategoryTree: vi.fn().mockResolvedValue([]),
+  getCategoryById: vi.fn().mockResolvedValue(null),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
+  reorderCategories: vi.fn(),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
       super("This email is already in use");

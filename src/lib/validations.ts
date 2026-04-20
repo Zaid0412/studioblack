@@ -249,6 +249,38 @@ export const reorderChecklistSchema = z.object({
   orderedIds: z.array(uuid).min(1),
 });
 
+// ─── Element Categories (/api/element-categories) ──────────────────────────
+
+export const createElementCategorySchema = z.object({
+  name: trimmedString.max(150),
+  parentId: optionalUuid,
+  codePrefix: z.string().max(10).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  icon: z.string().max(50).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+});
+
+export const updateElementCategorySchema = z.object({
+  name: trimmedString.max(150).optional(),
+  codePrefix: z.string().max(10).optional().nullable(),
+  sortOrder: z.number().int().min(0).optional(),
+  icon: z.string().max(50).optional().nullable(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+});
+
+export const reorderCategoriesSchema = z.object({
+  parentId: z.string().uuid().nullable(),
+  orderedIds: z.array(uuid).min(1),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */
