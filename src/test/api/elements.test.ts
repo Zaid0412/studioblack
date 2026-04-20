@@ -219,9 +219,7 @@ describe("POST /api/elements", () => {
   });
 
   it("returns 400 on invalid category", async () => {
-    vi.mocked(createElement).mockRejectedValue(
-      new Error("Category not found")
-    );
+    vi.mocked(createElement).mockRejectedValue(new Error("Category not found"));
 
     const req = buildRequest("/api/elements", {
       method: "POST",

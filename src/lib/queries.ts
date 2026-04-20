@@ -2713,7 +2713,9 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
   );
 
   const total = rows.length > 0 ? Number(rows[0].total_count) : 0;
-  const elements = rows.map(({ total_count: _ignore, ...rest }) => rest as Element);
+  const elements = rows.map(
+    ({ total_count: _ignore, ...rest }) => rest as Element
+  );
   return { rows: elements, total };
 }
 
@@ -3077,6 +3079,10 @@ export async function getElementsForExport(
   orgId: string,
   filters: Omit<ElementFilters, "page" | "limit"> = {}
 ): Promise<Element[]> {
-  const { rows } = await getElements(orgId, { ...filters, page: 1, limit: 10_000 });
+  const { rows } = await getElements(orgId, {
+    ...filters,
+    page: 1,
+    limit: 10_000,
+  });
   return rows;
 }

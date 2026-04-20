@@ -24,7 +24,8 @@ function buildQuery(params: ListParams): string {
   if (params.search) search.set("search", params.search);
   if (params.categoryId) search.set("categoryId", params.categoryId);
   if (params.unit) search.set("unit", params.unit);
-  if (params.isActive !== undefined) search.set("isActive", String(params.isActive));
+  if (params.isActive !== undefined)
+    search.set("isActive", String(params.isActive));
   if (params.page !== undefined) search.set("page", String(params.page));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   if (params.tags && Array.isArray(params.tags)) {

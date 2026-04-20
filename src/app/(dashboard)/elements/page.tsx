@@ -122,7 +122,11 @@ export default function ElementsPage() {
         subtitle={t("subtitle")}
         actions={
           <>
-            <RefreshButton onRefresh={() => mutate()} />
+            <RefreshButton
+              onRefresh={() => {
+                mutate();
+              }}
+            />
             <Button onClick={openCreate}>
               <Plus className="w-4 h-4" />
               {t("newElement")}
