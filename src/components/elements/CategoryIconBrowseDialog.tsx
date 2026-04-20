@@ -125,7 +125,7 @@ export function CategoryIconBrowseDialog({
                         aria-label={name}
                         aria-pressed={selected}
                         className={cn(
-                          "flex aspect-square items-center justify-center rounded-md transition-all duration-150",
+                          "flex aspect-square cursor-pointer items-center justify-center rounded-md transition-all duration-150",
                           selected
                             ? "bg-accent/10 text-accent ring-2 ring-accent scale-105"
                             : "ring-1 ring-transparent text-text-secondary hover:ring-border-default hover:bg-bg-hover"

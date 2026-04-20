@@ -96,7 +96,7 @@ export function CategoryColorPicker({
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="h-8 rounded-md border border-border-default bg-bg-input px-3 text-[12px] text-text-secondary hover:text-text-primary hover:border-accent/60"
+            className="h-8 cursor-pointer rounded-md border border-border-default bg-bg-input px-3 text-[12px] text-text-secondary hover:text-text-primary hover:border-accent/60"
           >
             {tCommon("clear")}
           </button>
@@ -114,7 +114,7 @@ export function CategoryColorPicker({
               aria-label={`Select color ${c}`}
               aria-pressed={selected}
               className={cn(
-                "relative h-6 w-6 rounded-full border border-border-default transition-transform",
+                "relative h-6 w-6 cursor-pointer rounded-full border border-border-default transition-transform",
                 !selected && "hover:scale-110"
               )}
               style={{ backgroundColor: c }}

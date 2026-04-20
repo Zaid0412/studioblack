@@ -40,7 +40,7 @@ export function CategoryIconPicker({
         aria-label={name ? `Select icon ${name}` : "Clear icon"}
         aria-pressed={selected}
         className={cn(
-          "flex h-9 w-9 items-center justify-center rounded-md border transition-colors",
+          "flex h-9 w-9 cursor-pointer items-center justify-center rounded-md border transition-colors",
           selected
             ? "border-accent bg-accent/10"
             : "border-border-default bg-bg-input hover:border-accent/60"
@@ -65,7 +65,7 @@ export function CategoryIconPicker({
           type="button"
           onClick={() => setBrowseOpen(true)}
           className={cn(
-            "flex h-9 items-center gap-1.5 rounded-md border border-dashed border-border-default bg-transparent px-3 text-[12px] text-text-secondary",
+            "flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-border-default bg-transparent px-3 text-[12px] text-text-secondary",
             "hover:border-accent/60 hover:text-text-primary"
           )}
         >

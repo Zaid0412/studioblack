@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 import type { ElementCategoryNode } from "@/types";
 
 const INDENT_PX = 20;
-const CONNECTOR_COLOR = "var(--border-light)";
-const CONNECTOR_WIDTH = 1.5;
+const CONNECTOR_COLOR = "var(--text-muted)";
+const CONNECTOR_WIDTH = 2;
 
 interface Props {
   node: ElementCategoryNode;
