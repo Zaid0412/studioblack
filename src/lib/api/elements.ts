@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
+import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "./client";
 import { API } from "./routes";
 import type { Element, ElementWithDetails } from "@/types";
 import type { z } from "zod";
@@ -6,11 +6,15 @@ import type {
   createElementSchema,
   updateElementSchema,
   listElementsQuerySchema,
+  importConfirmSchema,
+  DuplicateStrategy,
 } from "@/lib/validations";
+import type { ParseResult } from "@/lib/excel/elementParser";
 
 type CreateInput = z.infer<typeof createElementSchema>;
 type UpdateInput = z.infer<typeof updateElementSchema>;
 type ListParams = Partial<z.input<typeof listElementsQuerySchema>>;
+type ConfirmInput = z.infer<typeof importConfirmSchema>;
 
 export interface ListElementsResponse {
   rows: Element[];
@@ -73,4 +77,47 @@ export function duplicate(id: string) {
 /** Restore a previously archived element. */
 export function restore(id: string) {
   return apiPost<{ success: true }>(API.elementRestore(id), {});
+}
+
+// ── F3: Excel import / export ────────────────────────────────────────────────
+
+export interface ImportConfirmResult {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  versioned: number;
+  failed: Array<{ rowNumber: number; code: string; error: string }>;
+}
+
+/** Upload an .xlsx file, return per-row parse results for the preview table. */
+export function validateImport(file: File): Promise<ParseResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPost<ParseResult>(API.elementsImport(), fd);
+}
+
+/** Execute a previously-previewed import with the user's chosen strategy. */
+export function confirmImport(body: ConfirmInput): Promise<ImportConfirmResult> {
+  return apiPost<ImportConfirmResult>(API.elementsImportConfirm(), body);
+}
+
+export type { DuplicateStrategy };
+
+/** Download the current filtered element library as an .xlsx blob. */
+export async function downloadExport(
+  params: ListParams = {}
+): Promise<{ blob: Blob; truncated: boolean; total: number }> {
+  const res = await fetch(API.elementsExport(buildQuery(params)));
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(
+      res.status,
+      body.error || `Export failed (${res.status})`
+    );
+  }
+  return {
+    blob: await res.blob(),
+    truncated: res.headers.get("X-Export-Truncated") === "true",
+    total: Number(res.headers.get("X-Element-Total") ?? "0"),
+  };
 }
