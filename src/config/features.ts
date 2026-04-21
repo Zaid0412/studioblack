@@ -12,5 +12,5 @@ export const features = {
   notifications: true,
   designUpload: true,
   emailVerification: true,
-  elementLibrary: true,
+  elementLibrary: false,
 } as const;
