@@ -25,7 +25,11 @@ import {
   DUPLICATE_STRATEGIES,
   type DuplicateStrategy,
 } from "@/lib/validations";
-import type { ParseResult, ParsedElementRow } from "@/lib/excel/elementParser";
+import {
+  TEMPLATE_COLUMN_LABELS,
+  type ParseResult,
+  type ParsedElementRow,
+} from "@/lib/excel/elementParser";
 import type { ImportConfirmResult } from "@/lib/api/elements";
 
 type Step = "upload" | "preview" | "strategy" | "confirming" | "result";
@@ -123,6 +127,10 @@ export function ImportDialog({
     [parse]
   );
   const hasFatal = (parse?.missingColumns.length ?? 0) > 0;
+  const missingLabels = useMemo(
+    () => new Set(parse?.missingColumns ?? []),
+    [parse]
+  );
 
   const toggleRow = (rowNumber: number) => {
     setSelected((prev) => {
@@ -255,19 +263,29 @@ export function ImportDialog({
             {hasFatal && (
               <div className="flex gap-3 rounded-md border border-error/40 bg-error/10 p-3">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-error mt-0.5" />
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   <p className="text-sm font-medium text-error">
                     {t("importMissingColumnsTitle")}
                   </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parse.missingColumns.map((col) => (
+                      <span
+                        key={col}
+                        className="rounded border border-error/40 bg-error/15 px-1.5 py-0.5 font-mono text-[11px] text-error"
+                      >
+                        {col}
+                      </span>
+                    ))}
+                  </div>
                   <p className="text-xs text-text-secondary">
-                    {parse.missingColumns.join(", ")}
+                    {t("importMissingColumnsHint")}
                   </p>
                 </div>
               </div>
             )}
 
             {/* Warning: unknown columns */}
-            {!hasFatal && parse.unknownColumns.length > 0 && (
+            {parse.unknownColumns.length > 0 && (
               <div className="flex gap-3 rounded-md border border-warning/40 bg-warning/10 p-3">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
                 <div className="flex flex-col gap-1">
@@ -293,7 +311,7 @@ export function ImportDialog({
             </div>
 
             {/* Row table */}
-            {!hasFatal && parse.rows.length > 0 && (
+            {parse.rows.length > 0 && (
               <div className="max-h-[360px] overflow-y-auto rounded-md border border-border-default">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-bg-elevated">
@@ -309,15 +327,29 @@ export function ImportDialog({
                             selected.size < validRows.length
                           }
                           onCheckedChange={toggleAll}
+                          disabled={validRows.length === 0}
                         />
                       </th>
                       <th className="w-12 px-2 py-2">#</th>
-                      <th className="px-2 py-2">{t("colCode")}</th>
-                      <th className="px-2 py-2">{t("colName")}</th>
-                      <th className="px-2 py-2">{t("colUnit")}</th>
-                      <th className="w-24 px-2 py-2 text-right">
-                        {t("colUnitCost")}
-                      </th>
+                      <ColumnHeader
+                        label={t("colCode")}
+                        missing={missingLabels.has(TEMPLATE_COLUMN_LABELS.code)}
+                      />
+                      <ColumnHeader
+                        label={t("colName")}
+                        missing={missingLabels.has(TEMPLATE_COLUMN_LABELS.name)}
+                      />
+                      <ColumnHeader
+                        label={t("colUnit")}
+                        missing={missingLabels.has(TEMPLATE_COLUMN_LABELS.unit)}
+                      />
+                      <ColumnHeader
+                        className="w-24 text-right"
+                        label={t("colUnitCost")}
+                        missing={missingLabels.has(
+                          TEMPLATE_COLUMN_LABELS.unitCost
+                        )}
+                      />
                       <th className="w-24 px-2 py-2">{t("importStatus")}</th>
                     </tr>
                   </thead>
@@ -475,6 +507,27 @@ export function ImportDialog({
 }
 
 // ── Subcomponents ──────────────────────────────────────────────────────────
+
+function ColumnHeader({
+  label,
+  missing,
+  className = "",
+}: {
+  label: string;
+  missing: boolean;
+  className?: string;
+}) {
+  return (
+    <th
+      className={`px-2 py-2 ${missing ? "text-error" : ""} ${className}`.trim()}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {missing && <AlertTriangle className="h-3 w-3" aria-hidden="true" />}
+      </span>
+    </th>
+  );
+}
 
 function PreviewRow({
   row,

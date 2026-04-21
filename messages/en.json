@@ -811,6 +811,7 @@
     "importContinueWithCount": "Continue ({count})",
     "importConfirmWithCount": "Import {count} rows",
     "importMissingColumnsTitle": "Missing required columns",
+    "importMissingColumnsHint": "The file can't be imported until these columns are added. The preview below shows what was found so you can spot the gap.",
     "importUnknownColumnsTitle": "Unknown columns (ignored)",
     "importSummary": "{total} rows — {valid} valid, {errors} with errors",
     "importStatus": "Status",

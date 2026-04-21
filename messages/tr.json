@@ -811,6 +811,7 @@
     "importContinueWithCount": "Devam et ({count})",
     "importConfirmWithCount": "{count} satırı içe aktar",
     "importMissingColumnsTitle": "Zorunlu sütunlar eksik",
+    "importMissingColumnsHint": "Bu sütunlar eklenene kadar dosya içe aktarılamaz. Aşağıdaki önizleme, eksikliği görmeniz için dosyada bulunanları gösterir.",
     "importUnknownColumnsTitle": "Bilinmeyen sütunlar (yok sayılır)",
     "importSummary": "{total} satır — {valid} geçerli, {errors} hatalı",
     "importStatus": "Durum",
