@@ -322,9 +322,20 @@ describe("downloadFile", () => {
     mockDownloadFile.mockResolvedValue(blob);
 
     const mockClick = vi.fn();
-    const mockAnchor = { href: "", download: "", click: mockClick };
+    const mockRemove = vi.fn();
+    const mockAnchor = {
+      href: "",
+      download: "",
+      rel: "",
+      style: {} as CSSStyleDeclaration,
+      click: mockClick,
+      remove: mockRemove,
+    };
     vi.spyOn(document, "createElement").mockReturnValue(
       mockAnchor as unknown as HTMLElement
+    );
+    vi.spyOn(document.body, "appendChild").mockImplementation(
+      (node) => node as never
     );
     const mockCreateObjectURL = vi.fn().mockReturnValue("blob:mock-url");
     const mockRevokeObjectURL = vi.fn();
@@ -332,8 +343,11 @@ describe("downloadFile", () => {
       createObjectURL: mockCreateObjectURL,
       revokeObjectURL: mockRevokeObjectURL,
     });
+    vi.useFakeTimers();
 
     await downloadFile("https://cdn/file.pdf", "file.pdf");
+    vi.runAllTimers();
+    vi.useRealTimers();
 
     expect(mockDownloadFile).toHaveBeenCalledWith("https://cdn/file.pdf");
     expect(mockCreateObjectURL).toHaveBeenCalledWith(blob);

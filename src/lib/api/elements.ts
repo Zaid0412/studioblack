@@ -1,4 +1,10 @@
-import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "./client";
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  apiBlobWithHeaders,
+} from "./client";
 import { API } from "./routes";
 import type { Element, ElementWithDetails } from "@/types";
 import type { z } from "zod";
@@ -93,36 +99,62 @@ export interface ImportConfirmResult {
 }
 
 /** Upload an .xlsx file, return per-row parse results for the preview table. */
-export function validateImport(file: File): Promise<ParseResult> {
+export function validateImport(
+  file: File,
+  signal?: AbortSignal
+): Promise<ParseResult> {
   const fd = new FormData();
   fd.append("file", file);
-  return apiPost<ParseResult>(API.elementsImport(), fd);
+  return apiPost<ParseResult>(API.elementsImport(), fd, { signal });
 }
 
 /** Execute a previously-previewed import with the user's chosen strategy. */
 export function confirmImport(
-  body: ConfirmInput
+  body: ConfirmInput,
+  signal?: AbortSignal
 ): Promise<ImportConfirmResult> {
-  return apiPost<ImportConfirmResult>(API.elementsImportConfirm(), body);
+  return apiPost<ImportConfirmResult>(API.elementsImportConfirm(), body, {
+    signal,
+  });
 }
 
 export type { DuplicateStrategy };
 
 /** Download the current filtered element library as an .xlsx blob. */
-export async function downloadExport(
-  params: ListParams = {}
-): Promise<{ blob: Blob; truncated: boolean; total: number }> {
-  const res = await fetch(API.elementsExport(buildQuery(params)));
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(
-      res.status,
-      body.error || `Export failed (${res.status})`
-    );
-  }
+export async function downloadExport(params: ListParams = {}): Promise<{
+  blob: Blob;
+  truncated: boolean;
+  total: number;
+  filename: string | null;
+}> {
+  const { blob, headers } = await apiBlobWithHeaders(
+    API.elementsExport(buildQuery(params))
+  );
   return {
-    blob: await res.blob(),
-    truncated: res.headers.get("X-Export-Truncated") === "true",
-    total: Number(res.headers.get("X-Element-Total") ?? "0"),
+    blob,
+    truncated: headers.get("X-Export-Truncated") === "true",
+    total: Number(headers.get("X-Element-Total") ?? "0"),
+    filename: parseContentDispositionFilename(
+      headers.get("Content-Disposition")
+    ),
   };
+}
+
+/**
+ * Extract a filename from an RFC 5987 Content-Disposition header.
+ * Prefers the UTF-8 `filename*=UTF-8''…` form, falls back to the ASCII
+ * `filename="…"` form. Returns null when the header is absent or malformed.
+ */
+function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+  const starMatch = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(header);
+  if (starMatch) {
+    try {
+      return decodeURIComponent(starMatch[1].trim());
+    } catch {
+      // fall through to plain filename
+    }
+  }
+  const plainMatch = /filename\s*=\s*"?([^";]+)"?/i.exec(header);
+  return plainMatch ? plainMatch[1].trim() : null;
 }

@@ -4,6 +4,23 @@
 --
 -- Legacy rows imported with the old "-v2" suffix strategy stay as independent
 -- elements — no auto-linking heuristics run here.
+--
+-- ⚠️  WARNING for large / high-traffic deployments (>1M rows):
+-- `DEFAULT gen_random_uuid()` is VOLATILE, so step 1 rewrites every heap row
+-- under AccessExclusiveLock. `ADD CONSTRAINT UNIQUE` in step 3 builds its
+-- index under exclusive lock too. On a big table, replay this as four steps
+-- instead:
+--   1) ALTER TABLE element ADD COLUMN version_group UUID, ADD COLUMN version_number INTEGER;
+--   2) UPDATE element SET version_group = gen_random_uuid(), version_number = 1
+--        WHERE version_group IS NULL;  -- batch in chunks of ~1000
+--   3) ALTER TABLE element ALTER COLUMN version_group SET NOT NULL,
+--        ALTER COLUMN version_number SET NOT NULL;
+--   4) CREATE UNIQUE INDEX CONCURRENTLY idx_uq_element_org_version
+--        ON element(org_id, version_group, version_number);
+--      ALTER TABLE element ADD CONSTRAINT uq_element_org_version
+--        UNIQUE USING INDEX idx_uq_element_org_version;
+--
+-- This file is left as-is for reproducibility on fresh/small databases.
 
 BEGIN;
 

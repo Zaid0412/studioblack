@@ -8,6 +8,7 @@ import {
   restoreElement,
   duplicateElement,
   getVersionHistory,
+  getMemberRole,
 } from "@/lib/queries";
 import { GET, POST } from "@/app/api/elements/route";
 import {
@@ -144,6 +145,10 @@ describe("GET /api/elements", () => {
 
   it("returns 200 for architect", async () => {
     setupAuth(mocks.auth, architectSession);
+    // withAuth re-derives the effective role from getMemberRole — without this
+    // override the global mock returns "owner", which maps to "pm", and the
+    // architect branch is never exercised.
+    vi.mocked(getMemberRole).mockResolvedValue("member");
     vi.mocked(getElements).mockResolvedValue({ rows: [], total: 0 });
 
     const req = buildRequest("/api/elements");
@@ -410,6 +415,10 @@ describe("DELETE /api/elements/[id]", () => {
 
     expect(status).toBe(200);
     expect(body.success).toBe(true);
+    // Route must forward the anchor element id — query archives every row that
+    // shares this anchor's version_group, so archiving v3 when v5 is latest
+    // now hides the whole group instead of leaving a stale active latest.
+    expect(softDeleteElement).toHaveBeenCalledWith("org-test-001", ELEM_ID);
   });
 
   it("returns 404 when element not found or already archived", async () => {
@@ -496,6 +505,20 @@ describe("GET /api/elements/[id]/versions", () => {
     expect(body.versions).toHaveLength(2);
     expect(body.versions[0].version_number).toBe(2);
     expect(getVersionHistory).toHaveBeenCalledWith("org-test-001", ELEM_ID);
+  });
+
+  it("returns 200 with single-version history (happy path)", async () => {
+    // Disambiguates the 404 branch: an anchor row exists but has no siblings.
+    // getVersionHistory returns just the anchor itself → must be 200, not 404.
+    vi.mocked(getVersionHistory).mockResolvedValue([fakeElement]);
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/versions`);
+    const res = await GET_VERSIONS(req, buildParams({ id: ELEM_ID }));
+    const { status, body } = await parseResponse<{ versions: Element[] }>(res);
+
+    expect(status).toBe(200);
+    expect(body.versions).toHaveLength(1);
+    expect(body.versions[0].version_number).toBe(1);
   });
 
   it("returns 404 when element not found", async () => {

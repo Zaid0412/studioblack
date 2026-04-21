@@ -11,13 +11,19 @@ const ALLOWED_MIME_TYPES = [
   "application/octet-stream",
 ];
 
+/** ZIP local-file-header magic ("PK\x03\x04") — xlsx is a zip archive. */
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+
 /**
  * POST /api/elements/import
  * Accepts an .xlsx file, parses it against the template, returns a
  * ParseResult the client renders as a preview table. No DB writes.
  */
 export const POST = withAuth(
-  { allowedRoles: ["pm", "architect"] },
+  {
+    allowedRoles: ["pm", "architect"],
+    rateLimit: { limit: 5, windowMs: 60_000 },
+  },
   async (req, { orgId }) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
@@ -53,6 +59,19 @@ export const POST = withAuth(
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Magic-byte check — MIME/extension are both client-controlled, so a
+    // renamed zip bomb or arbitrary file would otherwise reach ExcelJS.
+    if (
+      buffer.length < ZIP_MAGIC.length ||
+      !buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)
+    ) {
+      return NextResponse.json(
+        { error: "File must be an .xlsx spreadsheet" },
+        { status: 400 }
+      );
+    }
+
     const categories = await getCategoryTree(orgId);
 
     try {

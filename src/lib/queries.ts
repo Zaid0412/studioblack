@@ -1,10 +1,15 @@
 import crypto from "crypto";
 import { getPool } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import {
   PROJECT_PHASES,
   PROJECT_STEPS,
   DEFAULT_PAGE_LIMIT,
 } from "@/lib/constants";
+import {
+  buildCategoryPathMap,
+  normalizeCategorySegment,
+} from "@/lib/excel/elementParser";
 import type {
   Element,
   ElementAttribute,
@@ -2663,22 +2668,18 @@ const ELEMENT_COLS: Record<string, string> = {
  * Uses `COUNT(*) OVER()` for the total so it's one round-trip.
  * Category filter is descendant-inclusive via a recursive CTE.
  */
-/** Build the shared WHERE clause + params for element listing queries. */
+/**
+ * Build the shared WHERE clause + params for element listing queries. Operates
+ * on the collapsed-latest view, so filters here apply to the latest version of
+ * each group. Search is handled separately — see `buildElementWhere`'s caller
+ * in `getElements` for the EXISTS against raw `element` rows.
+ */
 function buildElementWhere(
   orgId: string,
   filters: ElementFilters
 ): { where: string; params: unknown[] } {
   const conditions: string[] = ["e.org_id = $1"];
   const params: unknown[] = [orgId];
-
-  if (filters.search) {
-    const like = `%${escapeSqlLike(filters.search)}%`;
-    params.push(like);
-    const i = params.length;
-    conditions.push(
-      `(e.name ILIKE $${i} OR e.code ILIKE $${i} OR e.description ILIKE $${i})`
-    );
-  }
 
   if (filters.categoryId) {
     params.push(filters.categoryId);
@@ -2721,6 +2722,21 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
   const offset = (page - 1) * limit;
 
   const { where, params } = buildElementWhere(orgId, filters);
+
+  // Search runs against *every* version of each group — an older version's
+  // description matching the term surfaces the group. The hit set is then
+  // collapsed to the latest version by DISTINCT ON.
+  let searchClause = "";
+  if (filters.search) {
+    params.push(`%${escapeSqlLike(filters.search)}%`);
+    const i = params.length;
+    searchClause = `AND e.version_group IN (
+      SELECT version_group FROM element
+       WHERE org_id = $1
+         AND (name ILIKE $${i} OR code ILIKE $${i} OR description ILIKE $${i})
+    )`;
+  }
+
   const limitIdx = params.length + 1;
   const offsetIdx = params.length + 2;
 
@@ -2730,7 +2746,7 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
   const latestCte = `WITH latest AS (
     SELECT DISTINCT ON (version_group) e.*
       FROM element e
-     WHERE e.org_id = $1
+     WHERE e.org_id = $1 ${searchClause}
      ORDER BY e.version_group, e.version_number DESC
   )`;
 
@@ -2887,7 +2903,10 @@ export async function createElement(
     await client.query("BEGIN");
 
     // Code uniqueness is enforced at the application layer now that the DB
-    // allows multiple versions per code within a single group.
+    // allows multiple versions per code within a single group. The advisory
+    // lock serialises concurrent inserts of the same code so the SELECT →
+    // INSERT window can't race.
+    await lockElementCode(client, orgId, input.code);
     const dup = await client.query(
       `SELECT id FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
       [orgId, input.code]
@@ -2989,6 +3008,31 @@ export async function updateElement(
 
     let elementRow: Element | null = null;
     if (updates.length > 0) {
+      // App-layer uniqueness check on code rename: DB no longer has a unique
+      // index on (org_id, code), so a rename to a code held by a different
+      // version_group would silently create duplicates without this guard.
+      if (input.code !== undefined) {
+        await lockElementCode(client, orgId, input.code);
+        const { rows: currentRows } = await client.query<{
+          code: string;
+          version_group: string;
+        }>(
+          `SELECT code, version_group FROM element
+            WHERE id = $1 AND org_id = $2`,
+          [id, orgId]
+        );
+        const current = currentRows[0];
+        if (current && current.code !== input.code) {
+          const { rows: dup } = await client.query(
+            `SELECT 1 FROM element
+              WHERE org_id = $1 AND code = $2 AND version_group <> $3
+              LIMIT 1`,
+            [orgId, input.code, current.version_group]
+          );
+          if (dup.length > 0) throw new Error("Code already exists");
+        }
+      }
+
       updates.push(`updated_at = now()`);
       values.push(id, orgId);
       try {
@@ -3044,8 +3088,12 @@ export async function updateElement(
 }
 
 /**
- * Soft-delete (archive) an element. Only affects currently-active rows.
- * Returns { deleted: false } if the element doesn't exist or is already archived.
+ * Soft-delete (archive) an element group. Archives every version in the same
+ * `version_group` so the listing (which collapses to latest) hides the element
+ * and a later version-strategy import can't silently revive it by appending a
+ * fresh active row.
+ * Returns { deleted: false } if the element doesn't exist or every version is
+ * already archived.
  */
 export async function softDeleteElement(
   orgId: string,
@@ -3054,15 +3102,23 @@ export async function softDeleteElement(
   const pool = getPool();
   const { rowCount } = await pool.query(
     `UPDATE element SET is_active = false, updated_at = now()
-      WHERE id = $1 AND org_id = $2 AND is_active = true`,
-    [id, orgId]
+      WHERE org_id = $1
+        AND version_group = (
+          SELECT version_group FROM element
+           WHERE id = $2 AND org_id = $1
+        )
+        AND is_active = true`,
+    [orgId, id]
   );
   return { deleted: (rowCount ?? 0) > 0 };
 }
 
 /**
- * Restore a previously archived element. Mirror of softDeleteElement.
- * Returns { restored: false } if the element doesn't exist or is already active.
+ * Restore a previously archived element group. Mirror of softDeleteElement —
+ * operates on every row sharing the same `version_group` so the listing can
+ * surface the element again.
+ * Returns { restored: false } if the element doesn't exist or every version
+ * is already active.
  */
 export async function restoreElement(
   orgId: string,
@@ -3071,8 +3127,13 @@ export async function restoreElement(
   const pool = getPool();
   const { rowCount } = await pool.query(
     `UPDATE element SET is_active = true, updated_at = now()
-      WHERE id = $1 AND org_id = $2 AND is_active = false`,
-    [id, orgId]
+      WHERE org_id = $1
+        AND version_group = (
+          SELECT version_group FROM element
+           WHERE id = $2 AND org_id = $1
+        )
+        AND is_active = false`,
+    [orgId, id]
   );
   return { restored: (rowCount ?? 0) > 0 };
 }
@@ -3097,27 +3158,28 @@ export async function duplicateElement(
 
   const client = await pool.connect();
   try {
-    // Find a free copy-suffix code up front — uniqueness is no longer at
-    // the DB layer, so we SELECT instead of catching 23505.
-    let newCode: string | null = null;
-    for (let n = 1; n <= 5; n++) {
-      const suffix = n === 1 ? "-copy" : `-copy-${n}`;
-      const candidate = `${src.code}${suffix}`;
-      const { rows: existing } = await client.query(
-        `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
-        [orgId, candidate]
-      );
-      if (existing.length === 0) {
-        newCode = candidate;
-        break;
-      }
-    }
-    if (!newCode) {
-      throw new Error("Could not generate unique code for duplicate");
-    }
-
+    await client.query("BEGIN");
     try {
-      await client.query("BEGIN");
+      // Find a free copy-suffix code inside the transaction, each candidate
+      // guarded by an advisory lock so two concurrent duplicates of the same
+      // element can't both claim `-copy`.
+      let newCode: string | null = null;
+      for (let n = 1; n <= 5; n++) {
+        const suffix = n === 1 ? "-copy" : `-copy-${n}`;
+        const candidate = `${src.code}${suffix}`;
+        await lockElementCode(client, orgId, candidate);
+        const { rows: existing } = await client.query(
+          `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
+          [orgId, candidate]
+        );
+        if (existing.length === 0) {
+          newCode = candidate;
+          break;
+        }
+      }
+      if (!newCode) {
+        throw new Error("Could not generate unique code for duplicate");
+      }
 
       const {
         rows: [newRow],
@@ -3193,12 +3255,58 @@ export async function getElementsForExport(
   orgId: string,
   filters: Omit<ElementFilters, "page" | "limit"> = {}
 ): Promise<{ rows: Element[]; total: number; truncated: boolean }> {
-  const { rows, total } = await getElements(orgId, {
+  // Fetch LIMIT+1 to detect truncation without a COUNT. Only pay for the
+  // dedicated count query when the result set actually hit the cap — most
+  // exports are under 10k and skip the window aggregate entirely.
+  const { rows } = await getElements(orgId, {
     ...filters,
     page: 1,
-    limit: ELEMENT_EXPORT_LIMIT,
+    limit: ELEMENT_EXPORT_LIMIT + 1,
   });
-  return { rows, total, truncated: total > rows.length };
+
+  if (rows.length <= ELEMENT_EXPORT_LIMIT) {
+    return { rows, total: rows.length, truncated: false };
+  }
+
+  const capped = rows.slice(0, ELEMENT_EXPORT_LIMIT);
+  const total = await countElements(orgId, filters);
+  return { rows: capped, total, truncated: true };
+}
+
+/**
+ * Standalone COUNT for the export path. Mirrors `getElements`' latest-version
+ * collapse + WHERE clause so the total matches what the user would see in
+ * the UI list.
+ */
+async function countElements(
+  orgId: string,
+  filters: Omit<ElementFilters, "page" | "limit"> = {}
+): Promise<number> {
+  const pool = getPool();
+  const { where, params } = buildElementWhere(orgId, filters);
+
+  let searchClause = "";
+  if (filters.search) {
+    params.push(`%${escapeSqlLike(filters.search)}%`);
+    const i = params.length;
+    searchClause = `AND e.version_group IN (
+      SELECT version_group FROM element
+       WHERE org_id = $1
+         AND (name ILIKE $${i} OR code ILIKE $${i} OR description ILIKE $${i})
+    )`;
+  }
+
+  const { rows } = await pool.query<{ total: number }>(
+    `WITH latest AS (
+       SELECT DISTINCT ON (version_group) e.*
+         FROM element e
+        WHERE e.org_id = $1 ${searchClause}
+        ORDER BY e.version_group, e.version_number DESC
+     )
+     SELECT COUNT(*)::int AS total FROM latest e WHERE ${where}`,
+    params
+  );
+  return Number(rows[0]?.total ?? 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -3245,10 +3353,33 @@ export interface BulkElementImportResult {
 }
 
 type PgClientLike = {
-  query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
+  query<T = unknown>(
+    text: string,
+    params?: unknown[]
+  ): Promise<{ rows: T[]; rowCount?: number | null }>;
 };
 
-/** Look up the latest version of an element by code within an org. */
+/**
+ * Take a transaction-scoped advisory lock keyed on (org_id, code) so that
+ * concurrent writers serialise before the SELECT → INSERT/UPDATE window that
+ * enforces code uniqueness. Released automatically at COMMIT/ROLLBACK.
+ */
+async function lockElementCode(
+  client: PgClientLike,
+  orgId: string,
+  code: string
+): Promise<void> {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+    `element:${orgId}:${code}`,
+  ]);
+}
+
+/**
+ * Look up the latest version of an element by code within an org. Caller is
+ * expected to have taken `lockElementCode` first when the lookup is followed
+ * by a write — the `FOR UPDATE` is belt-and-braces for the version_number
+ * race.
+ */
 async function findLatestByCode(
   client: PgClientLike,
   orgId: string,
@@ -3258,45 +3389,26 @@ async function findLatestByCode(
   versionGroup: string;
   versionNumber: number;
 } | null> {
-  const { rows } = await client.query(
+  const { rows } = await client.query<{
+    id: string;
+    version_group: string;
+    version_number: number;
+  }>(
     `SELECT id, version_group, version_number
        FROM element
       WHERE org_id = $1 AND code = $2
       ORDER BY version_number DESC
-      LIMIT 1`,
+      LIMIT 1
+      FOR UPDATE`,
     [orgId, code]
   );
   if (rows.length === 0) return null;
-  const r = rows[0] as {
-    id: string;
-    version_group: string;
-    version_number: number;
-  };
+  const r = rows[0];
   return {
     id: r.id,
     versionGroup: r.version_group,
     versionNumber: r.version_number,
   };
-}
-
-function buildBulkCategoryPathMap(
-  rows: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
-): Map<string, string> {
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const map = new Map<string, string>();
-  for (const cat of rows) {
-    const parts: string[] = [cat.name];
-    let parentId = cat.parent_id;
-    while (parentId) {
-      const parent = byId.get(parentId);
-      if (!parent) break;
-      parts.unshift(parent.name);
-      parentId = parent.parent_id;
-    }
-    const key = parts.map((s) => s.trim().toLowerCase()).join(" > ");
-    map.set(key, cat.id);
-  }
-  return map;
 }
 
 /**
@@ -3312,10 +3424,12 @@ async function tryInsertElementRow(
   row: BulkElementRow,
   categoryId: string | null
 ): Promise<string | null> {
+  // Caller has already taken `lockElementCode` for this (orgId, code) inside
+  // the outer transaction, so the SELECT → INSERT window is race-free.
   const existing = await findLatestByCode(client, orgId, code);
   if (existing) return null;
 
-  const { rows } = await client.query(
+  const { rows } = await client.query<{ id: string }>(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
         currency, material_cost, labour_cost, overhead_pct, margin_pct,
@@ -3344,24 +3458,56 @@ async function tryInsertElementRow(
       createdBy,
     ]
   );
-  return (rows[0] as { id: string }).id;
+  return rows[0].id;
 }
 
 /**
  * Insert a new version into an existing group. `versionGroup` + `nextVersion`
  * come from the previously-found latest row — bulkUpsertElements computes them
  * together so concurrent callers in the same request share a consistent view.
+ *
+ * Optional fields absent from `row` inherit from the previous latest row —
+ * "blank cell in sheet = leave alone" — matching the overwrite strategy's
+ * semantics. Required fields (name, unit, unitCost) always take the new value.
  */
 async function insertElementVersion(
   client: PgClientLike,
   orgId: string,
   createdBy: string,
   row: BulkElementRow,
-  categoryId: string | null,
+  categoryId: string | null | undefined,
   versionGroup: string,
-  nextVersion: number
+  nextVersion: number,
+  prevLatestId: string
 ): Promise<string> {
-  const { rows } = await client.query(
+  // Fetch the prev row's optional fields so blank cells inherit instead of
+  // getting silently nulled. Also doubles as the org-guard: the row is
+  // scoped by orgId via the outer findLatestByCode, so an existing row
+  // means the group belongs to this org.
+  const { rows: prevRows } = await client.query<{
+    description: string | null;
+    category_id: string | null;
+    currency: string;
+    material_cost: string | null;
+    labour_cost: string | null;
+    overhead_pct: string | null;
+    margin_pct: string | null;
+    spec_reference: string | null;
+    drawing_ref: string | null;
+    tags: string[] | null;
+  }>(
+    `SELECT description, category_id, currency, material_cost, labour_cost,
+            overhead_pct, margin_pct, spec_reference, drawing_ref, tags
+       FROM element
+      WHERE id = $1 AND org_id = $2`,
+    [prevLatestId, orgId]
+  );
+  if (prevRows.length === 0) {
+    throw new Error("Previous version row not found");
+  }
+  const prev = prevRows[0];
+
+  const { rows } = await client.query<{ id: string }>(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
         currency, material_cost, labour_cost, overhead_pct, margin_pct,
@@ -3377,32 +3523,51 @@ async function insertElementVersion(
       orgId,
       row.code,
       row.name,
-      row.description ?? null,
-      categoryId,
+      row.description ?? prev.description,
+      categoryId ?? prev.category_id,
       row.unit,
       row.unitCost,
-      row.currency ?? "USD",
-      row.materialCost ?? null,
-      row.labourCost ?? null,
-      row.overheadPct ?? null,
-      row.marginPct ?? null,
-      row.specReference ?? null,
-      row.drawingRef ?? null,
-      row.tags && row.tags.length > 0 ? row.tags : null,
+      row.currency ?? prev.currency,
+      row.materialCost ?? prev.material_cost,
+      row.labourCost ?? prev.labour_cost,
+      row.overheadPct ?? prev.overhead_pct,
+      row.marginPct ?? prev.margin_pct,
+      row.specReference ?? prev.spec_reference,
+      row.drawingRef ?? prev.drawing_ref,
+      row.tags && row.tags.length > 0 ? row.tags : prev.tags,
       createdBy,
       versionGroup,
       nextVersion,
     ]
   );
-  return (rows[0] as { id: string }).id;
+  const newId = rows[0].id;
+
+  // Preserve attributes from the prior latest version. Excel import has no
+  // column for attributes, so without this copy every version-strategy import
+  // would silently drop the attribute set attached to the prior latest row.
+  await client.query(
+    `INSERT INTO element_attribute
+       (element_id, attribute_key, attribute_value, unit, sort_order)
+     SELECT $1, attribute_key, attribute_value, unit, sort_order
+       FROM element_attribute
+      WHERE element_id = $2`,
+    [newId, prevLatestId]
+  );
+
+  return newId;
 }
 
-/** Dynamic UPDATE — only overwrite columns that are present in the row. */
+/**
+ * Dynamic UPDATE — only overwrite columns that are present in the row.
+ * `categoryId === undefined` means "leave the existing value alone" — the
+ * import sheet has no syntax for explicitly clearing a category, so a blank
+ * cell must not wipe the column.
+ */
 async function overwriteElementRow(
   client: PgClientLike,
   orgId: string,
   row: BulkElementRow,
-  categoryId: string | null
+  categoryId: string | undefined
 ): Promise<boolean> {
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -3418,7 +3583,7 @@ async function overwriteElementRow(
 
   // Optional columns — only overwrite when present.
   if (row.description !== undefined) push("description", row.description);
-  if (categoryId !== null) push("category_id", categoryId);
+  if (categoryId !== undefined) push("category_id", categoryId);
   if (row.currency !== undefined) push("currency", row.currency);
   if (row.materialCost !== undefined) push("material_cost", row.materialCost);
   if (row.labourCost !== undefined) push("labour_cost", row.labourCost);
@@ -3452,9 +3617,17 @@ async function overwriteElementRow(
 }
 
 /**
- * Bulk-upsert elements from an import. Runs inside one transaction — per-row
- * conflicts are handled via `ON CONFLICT DO NOTHING` + strategy-specific
- * follow-up writes, so a single bad row does not roll back the whole batch.
+ * Batch size for bulk imports. Kept at/under PostgreSQL's per-transaction
+ * subtransaction cache threshold (~64 savepoints) so the per-row SAVEPOINTs
+ * stay in memory instead of spilling to disk, and the pool connection isn't
+ * pinned for 10k-row runs.
+ */
+const BULK_IMPORT_BATCH_SIZE = 64;
+
+/**
+ * Bulk-upsert elements from an import. Splits `input.rows` into batches,
+ * each its own transaction with per-row savepoints so one bad row doesn't
+ * doom the batch. Aggregates success/failure counters across batches.
  */
 export async function bulkUpsertElements(
   orgId: string,
@@ -3475,20 +3648,68 @@ export async function bulkUpsertElements(
       WHERE org_id = $1 AND is_active = true`,
     [orgId]
   );
-  const pathMap = buildBulkCategoryPathMap(
+  const pathMap = buildCategoryPathMap(
     catRows as Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
   );
 
+  for (let i = 0; i < input.rows.length; i += BULK_IMPORT_BATCH_SIZE) {
+    const batch = input.rows.slice(i, i + BULK_IMPORT_BATCH_SIZE);
+    await runBulkImportBatchWithRetry(
+      pool,
+      orgId,
+      input,
+      batch,
+      pathMap,
+      result
+    );
+  }
+
+  return result;
+}
+
+/**
+ * Run a single batch, retrying once on a PostgreSQL serialization failure
+ * (SQLSTATE 40001). A single retry salvages the common case where a
+ * concurrent writer caused the abort; a second retry on top of that is
+ * already fighting pool contention, so we surface the error instead.
+ */
+async function runBulkImportBatchWithRetry(
+  pool: ReturnType<typeof getPool>,
+  orgId: string,
+  input: BulkElementImportInput,
+  rows: BulkElementRow[],
+  pathMap: Map<string, string>,
+  result: BulkElementImportResult
+): Promise<void> {
+  try {
+    await runBulkImportBatch(pool, orgId, input, rows, pathMap, result);
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    if (code !== "40001") throw err;
+    logger.warn("bulk import batch hit serialization failure; retrying once", {
+      orgId,
+      rows: rows.length,
+    });
+    await runBulkImportBatch(pool, orgId, input, rows, pathMap, result);
+  }
+}
+
+async function runBulkImportBatch(
+  pool: ReturnType<typeof getPool>,
+  orgId: string,
+  input: BulkElementImportInput,
+  rows: BulkElementRow[],
+  pathMap: Map<string, string>,
+  result: BulkElementImportResult
+): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    for (const row of input.rows) {
+    for (const row of rows) {
       let categoryId: string | null = null;
       if (row.categoryPath && row.categoryPath.length > 0) {
-        const key = row.categoryPath
-          .map((s) => s.trim().toLowerCase())
-          .join(" > ");
+        const key = row.categoryPath.map(normalizeCategorySegment).join(" > ");
         const resolved = pathMap.get(key);
         if (!resolved) {
           result.failed.push({
@@ -3506,6 +3727,10 @@ export async function bulkUpsertElements(
       // outer transaction and doom every subsequent row.
       await client.query("SAVEPOINT bulk_row");
       try {
+        // Advisory lock per (orgId, code) — covers every strategy's SELECT →
+        // INSERT/UPDATE window. Concurrent imports of the same code
+        // serialise here instead of racing to the DB.
+        await lockElementCode(client, orgId, row.code);
         const insertedId = await tryInsertElementRow(
           client,
           orgId,
@@ -3519,11 +3744,14 @@ export async function bulkUpsertElements(
         } else if (input.strategy === "skip") {
           result.skipped++;
         } else if (input.strategy === "overwrite") {
+          // Pass undefined (not null) when no category path in the row — the
+          // overwriteElementRow helper treats undefined as "leave alone",
+          // whereas a null would be misread as an explicit clear.
           const updated = await overwriteElementRow(
             client,
             orgId,
             row,
-            categoryId
+            categoryId ?? undefined
           );
           if (updated) result.updated++;
           else
@@ -3543,28 +3771,44 @@ export async function bulkUpsertElements(
               error: "Version failed — no existing element with this code",
             });
           } else {
+            // Pass undefined (not null) when no category path in the row so
+            // insertElementVersion can inherit from the previous version.
             await insertElementVersion(
               client,
               orgId,
               input.createdBy,
               row,
-              categoryId,
+              categoryId ?? undefined,
               latest.versionGroup,
-              latest.versionNumber + 1
+              latest.versionNumber + 1,
+              latest.id
             );
             result.versioned++;
           }
         }
         await client.query("RELEASE SAVEPOINT bulk_row");
       } catch (err: unknown) {
-        await client.query("ROLLBACK TO SAVEPOINT bulk_row");
+        // Serialization failures propagate to the batch retry wrapper — do
+        // not swallow them into failed[]. Everything else is a per-row bug
+        // (FK violation, check constraint, unique race, …).
         const pgErr = err as { code?: string; message?: string };
+        if (pgErr.code === "40001") throw err;
+
+        await client.query("ROLLBACK TO SAVEPOINT bulk_row");
+        const errorMessage =
+          pgErr.message ??
+          `Database error${pgErr.code ? ` (${pgErr.code})` : ""}`;
+        logger.error("element import row failed", {
+          orgId,
+          rowNumber: row.rowNumber,
+          code: row.code,
+          pgCode: pgErr.code,
+          error: errorMessage,
+        });
         result.failed.push({
           rowNumber: row.rowNumber,
           code: row.code,
-          error:
-            pgErr.message ??
-            `Database error${pgErr.code ? ` (${pgErr.code})` : ""}`,
+          error: errorMessage,
         });
       }
     }
@@ -3576,6 +3820,91 @@ export async function bulkUpsertElements(
   } finally {
     client.release();
   }
+}
 
-  return result;
+// ---------------------------------------------------------------------------
+// Element import idempotency (F3) — cross-replica cache for the confirm route
+// ---------------------------------------------------------------------------
+
+const IMPORT_IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Execute `run` and cache its result under `key` so that a replay of the
+ * same (orgId, userId, strategy, rowsHash) within 10 minutes returns the
+ * original result instead of double-committing.
+ *
+ * Serialisation: a session-level `pg_advisory_lock` around the read-check-
+ * write window means two replicas calling concurrently with the same key
+ * queue on each other; the second call sees the first call's cached result
+ * and skips the import entirely.
+ *
+ * Storage: rows live in `element_import_idempotency` (see
+ * `scripts/migrate-element-import-idempotency.sql`). Entries older than
+ * TTL are opportunistically pruned on every write.
+ */
+export async function withImportIdempotency(
+  key: string,
+  run: () => Promise<BulkElementImportResult>
+): Promise<{ result: BulkElementImportResult; replayed: boolean }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  let locked = false;
+  try {
+    // `hashtext` is int4 and deterministic; perfect match for advisory-lock
+    // serialisation keyed on an arbitrary string.
+    await client.query(`SELECT pg_advisory_lock(hashtext($1::text))`, [key]);
+    locked = true;
+
+    const { rows: cached } = await client.query<{
+      result: BulkElementImportResult;
+    }>(
+      `SELECT result FROM element_import_idempotency
+        WHERE key = $1
+          AND created_at > now() - ($2::bigint || ' milliseconds')::interval
+        LIMIT 1`,
+      [key, IMPORT_IDEMPOTENCY_TTL_MS]
+    );
+    if (cached.length > 0) {
+      return { result: cached[0].result, replayed: true };
+    }
+
+    const result = await run();
+
+    // Persist — ON CONFLICT covers a different replica having written first
+    // while we held the lock (shouldn't happen under advisory-lock, but is
+    // the correct behaviour if it ever does: last write wins, not a crash).
+    await client.query(
+      `INSERT INTO element_import_idempotency (key, result) VALUES ($1, $2::jsonb)
+       ON CONFLICT (key) DO UPDATE SET result = EXCLUDED.result, created_at = now()`,
+      [key, JSON.stringify(result)]
+    );
+
+    // Opportunistic cleanup — LIMIT keeps the DELETE short enough that
+    // the advisory lock hold time stays bounded even with a backlog.
+    await client.query(
+      `DELETE FROM element_import_idempotency
+        WHERE key IN (
+          SELECT key FROM element_import_idempotency
+           WHERE created_at < now() - ($1::bigint || ' milliseconds')::interval
+           LIMIT 100
+        )`,
+      [IMPORT_IDEMPOTENCY_TTL_MS]
+    );
+
+    return { result, replayed: false };
+  } finally {
+    if (locked) {
+      try {
+        await client.query(`SELECT pg_advisory_unlock(hashtext($1::text))`, [
+          key,
+        ]);
+      } catch (err) {
+        logger.warn("failed to release import idempotency advisory lock", {
+          key,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    client.release();
+  }
 }

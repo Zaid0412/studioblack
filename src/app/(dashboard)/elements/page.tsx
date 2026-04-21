@@ -83,14 +83,15 @@ export default function ElementsPage() {
     if (exporting) return;
     setExporting(true);
     try {
-      const { blob, truncated, total } = await elementsApi.downloadExport({
-        search: state.search || undefined,
-        categoryId: state.categoryId || undefined,
-        unit: state.unit || undefined,
-        isActive: state.isActive,
-      });
+      const { blob, truncated, total, filename } =
+        await elementsApi.downloadExport({
+          search: state.search || undefined,
+          categoryId: state.categoryId || undefined,
+          unit: state.unit || undefined,
+          isActive: state.isActive,
+        });
       const stamp = new Date().toISOString().slice(0, 10);
-      saveBlob(blob, `elements-${stamp}.xlsx`);
+      saveBlob(blob, filename ?? `elements-${stamp}.xlsx`);
       if (truncated) {
         toast({
           title: t("exportTruncatedTitle"),

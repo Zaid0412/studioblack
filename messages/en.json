@@ -813,6 +813,8 @@
     "importMissingColumnsTitle": "Missing required columns",
     "importMissingColumnsHint": "The file can't be imported until these columns are added. The preview below shows what was found so you can spot the gap.",
     "importUnknownColumnsTitle": "Unknown columns (ignored)",
+    "importDuplicateColumnsTitle": "Duplicate columns (only the last one is used)",
+    "importTruncatedHint": "Only the first 10,000 rows were previewed. Split the file and import again for the remainder.",
     "importSummary": "{total} rows — {valid} valid, {errors} with errors",
     "importStatus": "Status",
     "importStatusValid": "Valid",
@@ -831,6 +833,9 @@
     "importStatFailed": "Failed",
     "exportTruncatedTitle": "Export truncated",
     "exportTruncatedDesc": "Only the first rows were exported ({total} total match your filters). Narrow the filters to export the remainder.",
-    "exportFailed": "Export failed"
+    "exportFailed": "Export failed",
+    "importTooLarge": "File is too large — max 5 MB.",
+    "importMultipleFiles": "Only the first file will be imported.",
+    "importRemoveFile": "Remove file"
   }
 }

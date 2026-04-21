@@ -315,7 +315,7 @@ const percent = z.number().min(0).max(100).finite();
 export const createElementSchema = z.object({
   code: trimmedString.max(50),
   name: trimmedString.max(255),
-  description: z.string().optional(),
+  description: z.string().trim().optional(),
   categoryId: optionalUuid,
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,
@@ -364,7 +364,10 @@ export const importElementRowSchema = z.object({
   rowNumber: z.number().int().min(1),
   code: trimmedString.max(50),
   name: trimmedString.max(255),
-  description: z.string().optional(),
+  // Cap description to protect the confirm endpoint from OOM: without a
+  // max, a crafted row with a 10 MB description × 10k rows = 100 GB of
+  // JSON, which would blow through the body limit before any handler runs.
+  description: z.string().trim().max(2000).optional(),
   categoryPath: z.array(z.string().trim().min(1)).optional(),
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,

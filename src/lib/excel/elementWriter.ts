@@ -25,6 +25,7 @@ export async function writeElementSheet(
     header: TEMPLATE_COLUMN_LABELS[key],
     key,
     width: pickWidth(key),
+    style: pickStyle(key),
   }));
   ws.getRow(1).font = { bold: true };
 
@@ -54,10 +55,15 @@ export async function writeElementSheet(
   return Buffer.from(buf);
 }
 
-function toNumber(v: string | null | undefined): number | "" {
-  if (v === null || v === undefined || v === "") return "";
+/**
+ * Coerce a numeric db string to a number. Returns null (not "") for missing
+ * values so Excel treats the cell as blank-numeric — preserves Sum/Avg in the
+ * status bar and keeps the round-trip on the fast numeric path.
+ */
+function toNumber(v: string | null | undefined): number | null {
+  if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
-  return Number.isFinite(n) ? n : "";
+  return Number.isFinite(n) ? n : null;
 }
 
 function pickWidth(key: string): number {
@@ -74,5 +80,21 @@ function pickWidth(key: string): number {
       return 22;
     default:
       return 14;
+  }
+}
+
+/** Per-column Excel cell styling — adds money/percent numFmt. */
+function pickStyle(key: string): Partial<ExcelJS.Style> | undefined {
+  switch (key) {
+    case "unitCost":
+    case "materialCost":
+    case "labourCost":
+      return { numFmt: "#,##0.00" };
+    case "overheadPct":
+    case "marginPct":
+      // Stored as 0-100; render with a trailing % symbol without dividing.
+      return { numFmt: "0.00\\%" };
+    default:
+      return undefined;
   }
 }

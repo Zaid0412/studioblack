@@ -160,6 +160,34 @@ describe("POST /api/elements/import", () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects an .xlsx with a wrong MIME type", async () => {
+    // Pins the AND-gate between extension + MIME — the `.txt` test above fails
+    // on both, so this case is needed to catch a regression that relaxes the
+    // MIME check.
+    const buf = await sheetBuffer([["X", "Y", "Finishes", "m2", 1, "USD"]]);
+    const file = new File([buf], "elements.xlsx", {
+      type: "application/pdf",
+    });
+    const res = await POST_IMPORT(buildUploadRequest(file));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/\.xlsx/);
+  });
+
+  it("rejects a renamed non-zip masquerading as .xlsx", async () => {
+    // Magic-byte guard — an arbitrary payload with the .xlsx extension and a
+    // permitted MIME would otherwise reach ExcelJS and risk OOM on a crafted
+    // zip bomb. First 4 bytes must be PK\x03\x04.
+    const bogus = Buffer.from("not a zip file, but looks like one to MIME");
+    const file = new File([bogus], "fake.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const res = await POST_IMPORT(buildUploadRequest(file));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/\.xlsx/);
+  });
+
   it("surfaces unknown and missing columns", async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Elements");
@@ -213,8 +241,53 @@ describe("POST /api/elements/import/confirm", () => {
     expect(body.inserted).toBe(1);
     expect(bulkUpsertElements).toHaveBeenCalledWith(
       "org-test-001",
-      expect.objectContaining({ strategy: "skip", rows: [goodRow] })
+      expect.objectContaining({
+        strategy: "skip",
+        rows: [goodRow],
+        // Route must forward the session user id — dropping it would insert
+        // every imported row with created_by = NULL.
+        createdBy: expect.any(String),
+      })
     );
+  });
+
+  it("propagates per-row failures to the response body", async () => {
+    // Unique row avoids hitting the idempotency cache populated by earlier
+    // tests (cache key = sha256(orgId+userId+strategy+rows)).
+    const failingRow = {
+      rowNumber: 1,
+      code: "FAIL-PATH-001",
+      name: "Bad Category",
+      unit: "m2",
+      unitCost: 5,
+      categoryPath: ["Finishes", "Wall Finishes", "Nonexistent"],
+    };
+    vi.mocked(bulkUpsertElements).mockResolvedValue({
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      versioned: 0,
+      failed: [
+        {
+          rowNumber: 1,
+          code: "FAIL-PATH-001",
+          error: "Category path not found",
+        },
+      ],
+    });
+    const req = buildJsonRequest("/api/elements/import/confirm", {
+      strategy: "skip",
+      rows: [failingRow],
+    });
+    const res = await POST_CONFIRM(req);
+    const { status, body } = await parseResponse<{
+      failed: Array<{ rowNumber: number; code: string; error: string }>;
+    }>(res);
+
+    expect(status).toBe(200);
+    expect(body.failed).toHaveLength(1);
+    expect(body.failed[0].code).toBe("FAIL-PATH-001");
+    expect(body.failed[0].error).toMatch(/Category path/);
   });
 
   it("accepts overwrite strategy", async () => {
@@ -257,7 +330,11 @@ describe("POST /api/elements/import/confirm", () => {
       rows: [goodRow],
     });
     const res = await POST_CONFIRM(req);
-    expect(res.status).toBe(400);
+    const { status, body } = await parseResponse<{ error: string }>(res);
+    expect(status).toBe(400);
+    // Body must identify the offending field — a silent empty 400 would break
+    // the UI's "fix and reupload" flow.
+    expect(body.error).toMatch(/strategy/i);
   });
 
   it("rejects a row missing required fields", async () => {
@@ -266,7 +343,10 @@ describe("POST /api/elements/import/confirm", () => {
       rows: [{ rowNumber: 1, code: "X" }], // missing name/unit/unitCost
     });
     const res = await POST_CONFIRM(req);
-    expect(res.status).toBe(400);
+    const { status, body } = await parseResponse<{ error: string }>(res);
+    expect(status).toBe(400);
+    expect(body.error).toBeTruthy();
+    expect(body.error.length).toBeGreaterThan(0);
   });
 
   it("rejects an empty rows array", async () => {
@@ -275,7 +355,9 @@ describe("POST /api/elements/import/confirm", () => {
       rows: [],
     });
     const res = await POST_CONFIRM(req);
-    expect(res.status).toBe(400);
+    const { status, body } = await parseResponse<{ error: string }>(res);
+    expect(status).toBe(400);
+    expect(body.error).toMatch(/rows/i);
   });
 
   it("denies client role with 403", async () => {

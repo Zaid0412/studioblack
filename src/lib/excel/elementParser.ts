@@ -27,6 +27,8 @@ export interface ParsedElementValues {
 export interface ParsedElementRow {
   /** 1-based index among data rows (header excluded). First data row is 1. */
   rowNumber: number;
+  /** Literal Excel row index (header is row 1). Use this for user-facing messages. */
+  excelRowNumber: number;
   raw: Record<string, unknown>;
   parsed: ParsedElementValues | null;
   status: "valid" | "error";
@@ -37,9 +39,19 @@ export interface ParseResult {
   headers: string[];
   unknownColumns: string[];
   missingColumns: string[];
+  /** Template columns that appeared more than once — latest occurrence wins. */
+  duplicateColumns: string[];
   rows: ParsedElementRow[];
   totalRows: number;
+  /** True when the sheet was truncated by `MAX_DATA_ROWS`. */
+  truncated?: boolean;
 }
+
+// ── Safety caps ──────────────────────────────────────────────────────────
+// Defensive limits against decompression-bomb xlsx files. File-controlled
+// bounds (columnCount, actualRowCount) must never drive tight loops uncapped.
+const MAX_COLS = 64;
+const MAX_DATA_ROWS = 10_000;
 
 // ── Template definition ─────────────────────────────────────────────────────
 
@@ -78,14 +90,31 @@ export const TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
 ) as TemplateKey[];
 
 function normalizeHeader(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, " ");
+  // Strip BOM in addition to whitespace — some locales prepend U+FEFF.
+  return s
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Normalize a category path segment for lookup. Unlike headers, category
+ * names are case-sensitive by design ("PVC" ≠ "Pvc"); we only trim and
+ * collapse inner whitespace.
+ */
+export function normalizeCategorySegment(s: string): string {
+  return s
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 // ── Category resolution ─────────────────────────────────────────────────────
 
 /** Build a `"root > child > leaf"` → categoryId map for path lookup. */
 export function buildCategoryPathMap(
-  categories: ElementCategory[]
+  categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
 ): Map<string, string> {
   const byId = new Map(categories.map((c) => [c.id, c]));
   const map = new Map<string, string>();
@@ -98,7 +127,7 @@ export function buildCategoryPathMap(
       parts.unshift(parent.name);
       parentId = parent.parent_id;
     }
-    const key = parts.map(normalizeHeader).join(" > ");
+    const key = parts.map(normalizeCategorySegment).join(" > ");
     map.set(key, cat.id);
   }
   return map;
@@ -128,19 +157,21 @@ export function buildCategoryPathById(
 
 /**
  * Flatten an exceljs cell value to a primitive. Handles rich text objects,
- * hyperlinks, formula results, and dates by returning their display text.
+ * hyperlinks, formula results, dates, and formula-error cells (`{ error: "#DIV/0!" }`)
+ * by returning their display text or an empty string.
  */
 function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") return value.replace(/^\uFEFF/, "").trim();
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "object") {
     const v = value as Record<string, unknown>;
-    if (typeof v.text === "string") return v.text.trim();
-    if (typeof v.result !== "undefined") return cellText(v.result);
+    // ExcelJS formula-error cells. Treat as empty — caller re-reports as a
+    // typed row error via the required-field check.
+    if (typeof v.error === "string") return "";
     if (Array.isArray(v.richText)) {
       return v.richText
         .map((t) =>
@@ -154,16 +185,58 @@ function cellText(value: unknown): string {
     if (typeof v.hyperlink === "string") {
       return typeof v.text === "string" ? String(v.text).trim() : "";
     }
+    if (typeof v.text === "string") return v.text.trim();
+    if (typeof v.result !== "undefined") return cellText(v.result);
   }
   return String(value).trim();
 }
 
+/**
+ * Parse a cell value to a number, with locale heuristics for TR/EU decimal
+ * formatting. Excel-sourced numbers hit the `typeof number` fast-path; only
+ * text-typed cells exercise the locale branch.
+ *
+ * Rules (text path):
+ *   - `"1.234,56"` → `1234.56` (comma is decimal when it appears last)
+ *   - `"1,234.56"` → `1234.56` (dot is decimal when it appears last)
+ *   - `"1,5"` → `1.5` (single comma, 1–3 trailing digits → decimal)
+ *   - `"1,234"` with 3 trailing digits ambiguous — treated as decimal per
+ *     the Turkey-market default. Excel-native cells avoid this path.
+ */
 function cellNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const text = cellText(value);
   if (text === "") return null;
-  const n = Number(text.replace(/,/g, ""));
+
+  const cleaned = text.replace(/\s/g, "");
+  const hasComma = cleaned.includes(",");
+  const hasDot = cleaned.includes(".");
+  let normalized = cleaned;
+
+  if (hasComma && hasDot) {
+    const lastComma = cleaned.lastIndexOf(",");
+    const lastDot = cleaned.lastIndexOf(".");
+    if (lastComma > lastDot) {
+      // EU: "1.234,56" → "1234.56"
+      normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    } else {
+      // US: "1,234.56" → "1234.56"
+      normalized = cleaned.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    const parts = cleaned.split(",");
+    const onlyOneComma = parts.length === 2;
+    const trailing = onlyOneComma ? parts[1] : "";
+    const leading = onlyOneComma ? parts[0] : "";
+    const looksDecimal =
+      onlyOneComma && /^\d{1,3}$/.test(trailing) && /^-?\d+$/.test(leading);
+    normalized = looksDecimal
+      ? `${leading}.${trailing}`
+      : cleaned.replace(/,/g, "");
+  }
+
+  const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 }
 
@@ -190,6 +263,7 @@ export async function parseElementSheet(
       headers: [],
       unknownColumns: [],
       missingColumns: REQUIRED_COLUMNS.map((k) => TEMPLATE_COLUMNS[k]),
+      duplicateColumns: [],
       rows: [],
       totalRows: 0,
     };
@@ -197,8 +271,11 @@ export async function parseElementSheet(
 
   const headerRow = worksheet.getRow(1);
   const headerValues: string[] = [];
-  // exceljs row.values[0] is always undefined (1-indexed), so iterate getCell.
-  const columnCount = worksheet.columnCount || headerRow.cellCount || 0;
+  // Clamp file-controlled loop bounds to defensive caps.
+  const columnCount = Math.min(
+    worksheet.columnCount || headerRow.cellCount || 0,
+    MAX_COLS
+  );
   for (let c = 1; c <= columnCount; c++) {
     headerValues.push(cellText(headerRow.getCell(c).value));
   }
@@ -208,23 +285,40 @@ export async function parseElementSheet(
     return HEADER_TO_KEY.get(normalizeHeader(h)) ?? null;
   });
 
+  // Track duplicate template-key columns (two "Code" headers → the latter wins).
   const seenKeys = new Set<TemplateKey>();
+  const duplicateKeys = new Set<TemplateKey>();
   headerKeys.forEach((k) => {
-    if (k) seenKeys.add(k);
+    if (!k) return;
+    if (seenKeys.has(k)) duplicateKeys.add(k);
+    else seenKeys.add(k);
   });
 
   const unknownColumns = headerValues.filter(
     (h, i) => h && headerKeys[i] === null
   );
-  const missingColumns = REQUIRED_COLUMNS.filter((k) => !seenKeys.has(k)).map(
-    (k) => TEMPLATE_COLUMNS[k]
-  );
+  const missingColumns = REQUIRED_COLUMNS.filter((k) => !seenKeys.has(k))
+    .sort(
+      (a, b) =>
+        TEMPLATE_COLUMN_ORDER.indexOf(a) - TEMPLATE_COLUMN_ORDER.indexOf(b)
+    )
+    .map((k) => TEMPLATE_COLUMNS[k]);
+  const duplicateColumns = [...duplicateKeys]
+    .sort(
+      (a, b) =>
+        TEMPLATE_COLUMN_ORDER.indexOf(a) - TEMPLATE_COLUMN_ORDER.indexOf(b)
+    )
+    .map((k) => TEMPLATE_COLUMNS[k]);
 
   const pathMap = buildCategoryPathMap(categories);
   const rows: ParsedElementRow[] = [];
-  const seenCodes = new Map<string, number>(); // normalized code → first rowNumber seen
+  // Case-sensitive: the DB `element.code` column is VARCHAR (not CITEXT)
+  // and uniqueness is enforced at the app layer against the exact literal,
+  // so "A-01" and "a-01" are distinct codes end-to-end.
+  const seenCodes = new Map<string, number>();
 
-  const lastRow = worksheet.actualRowCount;
+  const lastRow = Math.min(worksheet.actualRowCount, MAX_DATA_ROWS + 1);
+  const truncated = worksheet.actualRowCount > MAX_DATA_ROWS + 1;
   let dataRowIndex = 0;
   for (let r = 2; r <= lastRow; r++) {
     const excelRow = worksheet.getRow(r);
@@ -244,13 +338,16 @@ export async function parseElementSheet(
       const key = headerKeys[c - 1];
       if (key) byKey[key] = text;
     }
-    if (!anyCell) continue;
+    if (!anyCell) {
+      dataRowIndex -= 1;
+      continue;
+    }
 
     const errors: string[] = [];
     const values: Partial<ParsedElementValues> = { rowNumber: dataRowIndex };
 
     // ── Required strings
-    if (!byKey.code) {
+    if (byKey.code === undefined || byKey.code === "") {
       errors.push("Code is required");
     } else if (byKey.code.length > 50) {
       errors.push("Code must be 50 characters or fewer");
@@ -258,7 +355,7 @@ export async function parseElementSheet(
       values.code = byKey.code;
     }
 
-    if (!byKey.name) {
+    if (byKey.name === undefined || byKey.name === "") {
       errors.push("Name is required");
     } else if (byKey.name.length > 255) {
       errors.push("Name must be 255 characters or fewer");
@@ -294,7 +391,7 @@ export async function parseElementSheet(
       ["labourCost", "Labour Cost"],
     ] as const) {
       const v = byKey[k];
-      if (v) {
+      if (v !== undefined && v !== "") {
         const n = cellNumber(v);
         if (n === null) errors.push(`${label} must be a number`);
         else if (n < 0) errors.push(`${label} must be zero or positive`);
@@ -306,7 +403,7 @@ export async function parseElementSheet(
       ["marginPct", "Margin %"],
     ] as const) {
       const v = byKey[k];
-      if (v) {
+      if (v !== undefined && v !== "") {
         const n = cellNumber(v);
         if (n === null) errors.push(`${label} must be a number`);
         else if (n < 0 || n > 100)
@@ -316,7 +413,11 @@ export async function parseElementSheet(
     }
 
     // ── Optional strings
-    if (byKey.description) values.description = byKey.description;
+    if (byKey.description) {
+      if (byKey.description.length > 2000) {
+        errors.push("Description must be 2000 characters or fewer");
+      } else values.description = byKey.description;
+    }
     if (byKey.specReference) {
       if (byKey.specReference.length > 255) {
         errors.push("Spec Reference must be 255 characters or fewer");
@@ -347,38 +448,38 @@ export async function parseElementSheet(
 
     // ── Category path
     if (byKey.categoryPath) {
-      const segments = byKey.categoryPath
-        .split(">")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-      if (segments.length === 0) {
-        errors.push("Category Path cannot be empty if provided");
+      const rawSegments = byKey.categoryPath.split(">").map((s) => s.trim());
+      const hasEmptySegment = rawSegments.some((s) => s.length === 0);
+      if (rawSegments.length === 0 || hasEmptySegment) {
+        errors.push(
+          "Category Path has empty segments — use 'A > B > C' with non-empty labels"
+        );
       } else {
-        const normalizedKey = segments.map(normalizeHeader).join(" > ");
-        if (!pathMap.has(normalizedKey)) {
+        const lookupKey = rawSegments.map(normalizeCategorySegment).join(" > ");
+        if (!pathMap.has(lookupKey)) {
           errors.push(
-            `Category path "${segments.join(" > ")}" not found in this org`
+            `Category path "${rawSegments.join(" > ")}" not found in this org`
           );
         } else {
-          values.categoryPath = segments;
+          values.categoryPath = rawSegments;
         }
       }
     }
 
     // ── Duplicate code within the sheet
     if (values.code) {
-      const key = values.code.toLowerCase();
-      const firstSeen = seenCodes.get(key);
+      const firstSeen = seenCodes.get(values.code);
       if (firstSeen !== undefined) {
         errors.push(`Duplicate code in sheet — first seen on row ${firstSeen}`);
       } else {
-        seenCodes.set(key, dataRowIndex);
+        seenCodes.set(values.code, dataRowIndex);
       }
     }
 
     const hasErrors = errors.length > 0;
     rows.push({
       rowNumber: dataRowIndex,
+      excelRowNumber: r,
       raw,
       parsed: hasErrors ? null : (values as ParsedElementValues),
       status: hasErrors ? "error" : "valid",
@@ -390,7 +491,9 @@ export async function parseElementSheet(
     headers: headerValues.filter((h) => h),
     unknownColumns,
     missingColumns,
+    duplicateColumns,
     rows,
     totalRows: rows.length,
+    truncated,
   };
 }

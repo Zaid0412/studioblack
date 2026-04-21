@@ -813,6 +813,8 @@
     "importMissingColumnsTitle": "Zorunlu sütunlar eksik",
     "importMissingColumnsHint": "Bu sütunlar eklenene kadar dosya içe aktarılamaz. Aşağıdaki önizleme, eksikliği görmeniz için dosyada bulunanları gösterir.",
     "importUnknownColumnsTitle": "Bilinmeyen sütunlar (yok sayılır)",
+    "importDuplicateColumnsTitle": "Yinelenen sütunlar (yalnızca sonuncusu kullanılır)",
+    "importTruncatedHint": "Yalnızca ilk 10.000 satır önizlendi. Kalanı için dosyayı bölün ve tekrar içe aktarın.",
     "importSummary": "{total} satır — {valid} geçerli, {errors} hatalı",
     "importStatus": "Durum",
     "importStatusValid": "Geçerli",
@@ -831,6 +833,9 @@
     "importStatFailed": "Başarısız",
     "exportTruncatedTitle": "Dışa aktarma kesildi",
     "exportTruncatedDesc": "Yalnızca ilk satırlar dışa aktarıldı (filtreleriniz toplam {total} satırla eşleşiyor). Geri kalanını dışa aktarmak için filtreleri daraltın.",
-    "exportFailed": "Dışa aktarma başarısız oldu"
+    "exportFailed": "Dışa aktarma başarısız oldu",
+    "importTooLarge": "Dosya çok büyük — en fazla 5 MB.",
+    "importMultipleFiles": "Yalnızca ilk dosya içe aktarılacak.",
+    "importRemoveFile": "Dosyayı kaldır"
   }
 }

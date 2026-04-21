@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { useTranslations } from "next-intl";
 import {
   AlertTriangle,
@@ -24,6 +31,7 @@ import { elements as elementsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   DUPLICATE_STRATEGIES,
+  ELEMENT_IMPORT_MAX_BYTES,
   type DuplicateStrategy,
 } from "@/lib/validations";
 import {
@@ -70,8 +78,21 @@ export function ImportDialog({
   const [strategy, setStrategy] = useState<DuplicateStrategy>("skip");
   const [result, setResult] = useState<ImportConfirmResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Abort the in-flight validate/confirm when the dialog closes or the user
+  // re-triggers the flow, so stale resolves don't mutate state.
+  const abortRef = useRef<AbortController | null>(null);
+  // Guard against double-clicks on Confirm: step flips asynchronously so a
+  // second synchronous click can fire a duplicate request.
+  const confirmInFlightRef = useRef(false);
+
+  const abortInFlight = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
 
   const resetState = useCallback(() => {
+    abortInFlight();
+    confirmInFlightRef.current = false;
     setStep("upload");
     setFile(null);
     setDragOver(false);
@@ -80,7 +101,7 @@ export function ImportDialog({
     setSelected(new Set());
     setStrategy("skip");
     setResult(null);
-  }, []);
+  }, [abortInFlight]);
 
   useEffect(() => {
     if (!open) resetState();
@@ -89,19 +110,34 @@ export function ImportDialog({
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (step === "confirming") return;
+      // Closing from the result step still counts as a successful import —
+      // refresh the caller's list even on ESC / overlay / X.
+      if (!next && step === "result") onSuccess();
       onOpenChange(next);
     },
-    [onOpenChange, step]
+    [onOpenChange, onSuccess, step]
   );
 
   // ── Upload step ──────────────────────────────────────────────────────────
 
   const runValidate = useCallback(
     async (f: File) => {
+      if (f.size > ELEMENT_IMPORT_MAX_BYTES) {
+        toast({
+          title: t("importFailed"),
+          description: t("importTooLarge"),
+          variant: "error",
+        });
+        return;
+      }
+      abortInFlight();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setFile(f);
       setValidating(true);
       try {
-        const res = await elementsApi.validateImport(f);
+        const res = await elementsApi.validateImport(f, controller.signal);
+        if (controller.signal.aborted) return;
         setParse(res);
         // Pre-check all valid rows by default.
         const valid = res.rows
@@ -110,22 +146,45 @@ export function ImportDialog({
         setSelected(new Set(valid));
         setStep("preview");
       } catch (err) {
+        if (controller.signal.aborted) return;
         const msg = err instanceof Error ? err.message : t("importFailed");
         toast({ title: t("importFailed"), description: msg, variant: "error" });
         setFile(null);
       } finally {
-        setValidating(false);
+        if (abortRef.current === controller) abortRef.current = null;
+        if (!controller.signal.aborted) setValidating(false);
       }
     },
-    [t]
+    [abortInFlight, t]
   );
 
   const handleFileChosen = useCallback(
     (files: FileList | File[] | null) => {
       if (!files || files.length === 0) return;
-      void runValidate(Array.from(files)[0]);
+      const list = Array.from(files);
+      if (list.length > 1) {
+        toast({
+          title: t("importMultipleFiles"),
+          variant: "default",
+        });
+      }
+      void runValidate(list[0]);
     },
-    [runValidate]
+    [runValidate, t]
+  );
+
+  const openFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleDropzoneKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openFilePicker();
+      }
+    },
+    [openFilePicker]
   );
 
   // ── Preview helpers ──────────────────────────────────────────────────────
@@ -159,24 +218,34 @@ export function ImportDialog({
 
   const handleConfirm = useCallback(async () => {
     if (!parse) return;
+    if (confirmInFlightRef.current) return;
     const rowsToSend = validRows
       .filter((r) => selected.has(r.rowNumber))
       .map((r) => r.parsed!);
     if (rowsToSend.length === 0) return;
+    confirmInFlightRef.current = true;
+    abortInFlight();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setStep("confirming");
     try {
-      const res = await elementsApi.confirmImport({
-        strategy,
-        rows: rowsToSend,
-      });
+      const res = await elementsApi.confirmImport(
+        { strategy, rows: rowsToSend },
+        controller.signal
+      );
+      if (controller.signal.aborted) return;
       setResult(res);
       setStep("result");
     } catch (err) {
+      if (controller.signal.aborted) return;
       const msg = err instanceof Error ? err.message : t("importFailed");
       toast({ title: t("importFailed"), description: msg, variant: "error" });
       setStep("strategy");
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      confirmInFlightRef.current = false;
     }
-  }, [parse, selected, strategy, t, validRows]);
+  }, [abortInFlight, parse, selected, strategy, t, validRows]);
 
   const handleDone = useCallback(() => {
     onSuccess();
@@ -200,6 +269,10 @@ export function ImportDialog({
         {step === "upload" && (
           <div className="flex flex-col gap-4">
             <div
+              role="button"
+              tabIndex={0}
+              aria-label={t("importDropzone")}
+              aria-disabled={validating}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragOver(true);
@@ -210,8 +283,9 @@ export function ImportDialog({
                 setDragOver(false);
                 handleFileChosen(e.dataTransfer.files);
               }}
-              onClick={() => fileInputRef.current?.click()}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors ${
+              onClick={openFilePicker}
+              onKeyDown={handleDropzoneKeyDown}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                 dragOver
                   ? "border-accent bg-accent/10"
                   : "border-border-default hover:border-border-light"
@@ -239,7 +313,9 @@ export function ImportDialog({
                 ref={fileInputRef}
                 type="file"
                 accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                className="hidden"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
                 onChange={(e) => {
                   handleFileChosen(e.target.files);
                   e.target.value = "";
@@ -262,7 +338,7 @@ export function ImportDialog({
                 type="button"
                 onClick={resetState}
                 className="shrink-0 rounded p-1 text-text-secondary hover:text-text-primary"
-                aria-label={tCommon("cancel")}
+                aria-label={t("importRemoveFile")}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -306,6 +382,31 @@ export function ImportDialog({
                     {parse.unknownColumns.join(", ")}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Warning: duplicate columns */}
+            {parse.duplicateColumns.length > 0 && (
+              <div className="flex gap-3 rounded-md border border-warning/40 bg-warning/10 p-3">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium text-warning">
+                    {t("importDuplicateColumnsTitle")}
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    {parse.duplicateColumns.join(", ")}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Warning: truncated */}
+            {parse.truncated && (
+              <div className="flex gap-3 rounded-md border border-warning/40 bg-warning/10 p-3">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
+                <p className="text-sm text-warning">
+                  {t("importTruncatedHint")}
+                </p>
               </div>
             )}
 
@@ -528,6 +629,12 @@ function ColumnHeader({
   );
 }
 
+function rawCell(raw: Record<string, unknown>, key: string): string {
+  const v = raw[key];
+  if (v === null || v === undefined) return "";
+  return String(v);
+}
+
 function PreviewRow({
   row,
   checked,
@@ -542,7 +649,7 @@ function PreviewRow({
   errorLabel: string;
 }) {
   const isValid = row.status === "valid";
-  const raw = row.raw as Record<string, string>;
+  const raw = row.raw;
   return (
     <>
       <tr
@@ -553,16 +660,18 @@ function PreviewRow({
         <td className="px-3 py-1.5">
           {isValid && <Checkbox checked={checked} onCheckedChange={onToggle} />}
         </td>
-        <td className="px-2 py-1.5 text-text-muted">{row.rowNumber}</td>
+        <td className="px-2 py-1.5 text-text-muted">{row.excelRowNumber}</td>
         <td className="px-2 py-1.5 text-text-primary truncate max-w-[120px]">
-          {raw.Code ?? ""}
+          {rawCell(raw, "Code")}
         </td>
         <td className="px-2 py-1.5 text-text-primary truncate max-w-[180px]">
-          {raw.Name ?? ""}
+          {rawCell(raw, "Name")}
         </td>
-        <td className="px-2 py-1.5 text-text-secondary">{raw.Unit ?? ""}</td>
+        <td className="px-2 py-1.5 text-text-secondary">
+          {rawCell(raw, "Unit")}
+        </td>
         <td className="px-2 py-1.5 text-right text-text-secondary">
-          {raw["Unit Cost"] ?? ""}
+          {rawCell(raw, "Unit Cost")}
         </td>
         <td className="px-2 py-1.5">
           {isValid ? (

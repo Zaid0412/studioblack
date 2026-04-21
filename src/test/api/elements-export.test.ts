@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import ExcelJS from "exceljs";
 import { getElementsForExport, getCategoryTree } from "@/lib/queries";
 import { GET as GET_EXPORT } from "@/app/api/elements/export/route";
+import { parseElementSheet } from "@/lib/excel/elementParser";
 import { buildRequest, mockSession, setupAuth } from "../helpers";
 import { mocks } from "../setup";
 import type { Element, ElementCategory } from "@/types";
@@ -42,6 +42,8 @@ function makeElement(overrides: Partial<Element> = {}): Element {
     drawing_ref: null,
     tags: null,
     is_active: true,
+    version_group: "11111111-2222-3333-4444-555555555555",
+    version_number: 1,
     created_by: "user-1",
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
@@ -79,11 +81,25 @@ describe("GET /api/elements/export", () => {
     expect(res.headers.get("x-export-truncated")).toBeNull();
   });
 
-  it("round-trips: export → parse → same codes", async () => {
+  it("round-trips: export → parseElementSheet → same values", async () => {
     vi.mocked(getElementsForExport).mockResolvedValue({
       rows: [
-        makeElement({ id: "e1", code: "A-01", name: "One" }),
-        makeElement({ id: "e2", code: "A-02", name: "Two" }),
+        makeElement({
+          id: "e1",
+          code: "A-01",
+          name: "One",
+          unit: "m2",
+          unit_cost: "12.5",
+          currency: "USD",
+        }),
+        makeElement({
+          id: "e2",
+          code: "A-02",
+          name: "Two",
+          unit: "lm",
+          unit_cost: "99.99",
+          currency: "USD",
+        }),
       ],
       total: 2,
       truncated: false,
@@ -91,17 +107,26 @@ describe("GET /api/elements/export", () => {
     const res = await GET_EXPORT(buildRequest("/api/elements/export"));
     expect(res.status).toBe(200);
 
+    // Feed the exported bytes back through the parser to catch writer/parser
+    // drift (missing template column, wrong label, numFmt changing cell type).
     const arrayBuf = await res.arrayBuffer();
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(arrayBuf);
-    const ws = wb.worksheets[0];
-    const codeCol: string[] = [];
-    ws.eachRow({ includeEmpty: false }, (row) => {
-      const v = row.getCell(1).value;
-      codeCol.push(typeof v === "string" ? v : String(v ?? ""));
-    });
-    expect(codeCol[0]).toBe("Code");
-    expect(codeCol.slice(1)).toEqual(["A-01", "A-02"]);
+    const parse = await parseElementSheet(Buffer.from(arrayBuf), []);
+
+    expect(parse.missingColumns).toEqual([]);
+    expect(parse.duplicateColumns ?? []).toEqual([]);
+    expect(parse.rows).toHaveLength(2);
+
+    const [r1, r2] = parse.rows;
+    expect(r1.status).toBe("valid");
+    expect(r1.parsed?.code).toBe("A-01");
+    expect(r1.parsed?.name).toBe("One");
+    expect(r1.parsed?.unit).toBe("m2");
+    expect(r1.parsed?.unitCost).toBe(12.5);
+    expect(r1.parsed?.currency).toBe("USD");
+    expect(r2.status).toBe("valid");
+    expect(r2.parsed?.code).toBe("A-02");
+    expect(r2.parsed?.unit).toBe("lm");
+    expect(r2.parsed?.unitCost).toBe(99.99);
   });
 
   it("sets truncated header when the export cap is hit", async () => {

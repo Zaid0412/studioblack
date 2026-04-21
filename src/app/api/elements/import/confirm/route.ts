@@ -1,7 +1,64 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { bulkUpsertElements } from "@/lib/queries";
+import {
+  bulkUpsertElements,
+  withImportIdempotency,
+  type BulkElementImportResult,
+} from "@/lib/queries";
 import { parseRequest, importConfirmSchema } from "@/lib/validations";
+
+/**
+ * In-memory LRU fast-path in front of the Postgres-backed idempotency cache.
+ * Covers the common case — double-click on the same replica — without a DB
+ * round-trip. Bounded so a burst of distinct imports cannot grow the Map
+ * unbounded; eviction is strict LRU via Map insertion order.
+ *
+ * Postgres (`element_import_idempotency`) is the cross-replica source of
+ * truth; without it, two replicas could double-commit. See queries.ts
+ * `withImportIdempotency` and `scripts/migrate-element-import-idempotency.sql`.
+ */
+const MEMORY_CACHE_MAX = 256;
+const MEMORY_CACHE_TTL_MS = 10 * 60 * 1000;
+const memoryCache = new Map<
+  string,
+  { at: number; result: BulkElementImportResult }
+>();
+
+function memCacheGet(key: string): BulkElementImportResult | null {
+  const entry = memoryCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.at > MEMORY_CACHE_TTL_MS) {
+    memoryCache.delete(key);
+    return null;
+  }
+  // Mark most-recently-used by re-inserting.
+  memoryCache.delete(key);
+  memoryCache.set(key, entry);
+  return entry.result;
+}
+
+function memCacheSet(key: string, result: BulkElementImportResult): void {
+  if (memoryCache.has(key)) memoryCache.delete(key);
+  while (memoryCache.size >= MEMORY_CACHE_MAX) {
+    const oldest = memoryCache.keys().next().value;
+    if (oldest === undefined) break;
+    memoryCache.delete(oldest);
+  }
+  memoryCache.set(key, { at: Date.now(), result });
+}
+
+function idempotencyKey(
+  orgId: string,
+  userId: string,
+  strategy: string,
+  rows: unknown
+): string {
+  const hash = crypto.createHash("sha256");
+  hash.update(`${orgId}:${userId}:${strategy}:`);
+  hash.update(JSON.stringify(rows));
+  return hash.digest("hex");
+}
 
 /**
  * POST /api/elements/import/confirm
@@ -9,7 +66,12 @@ import { parseRequest, importConfirmSchema } from "@/lib/validations";
  * against importConfirmSchema — we never trust the first-pass parse output.
  */
 export const POST = withAuth(
-  { allowedRoles: ["pm", "architect"] },
+  {
+    allowedRoles: ["pm", "architect"],
+    // Confirm allowance is looser than /import so a PM iterating on sheets
+    // isn't blocked from committing after 5 preview/validate calls.
+    rateLimit: { limit: 10, windowMs: 60_000 },
+  },
   async (req, { orgId, user }) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
@@ -20,12 +82,34 @@ export const POST = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    try {
-      const result = await bulkUpsertElements(orgId, {
-        strategy: parsed.data.strategy,
-        createdBy: user.id,
-        rows: parsed.data.rows,
+    const key = idempotencyKey(
+      orgId,
+      user.id,
+      parsed.data.strategy,
+      parsed.data.rows
+    );
+
+    const memHit = memCacheGet(key);
+    if (memHit) {
+      return NextResponse.json(memHit, {
+        headers: { "X-Idempotent-Replay": "true" },
       });
+    }
+
+    try {
+      const { result, replayed } = await withImportIdempotency(key, () =>
+        bulkUpsertElements(orgId, {
+          strategy: parsed.data.strategy,
+          createdBy: user.id,
+          rows: parsed.data.rows,
+        })
+      );
+      memCacheSet(key, result);
+      if (replayed) {
+        return NextResponse.json(result, {
+          headers: { "X-Idempotent-Replay": "true" },
+        });
+      }
       return NextResponse.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Import failed";

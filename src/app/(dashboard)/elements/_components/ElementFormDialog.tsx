@@ -138,15 +138,25 @@ export function ElementFormDialog({
   const categoryTree = catData?.tree ?? [];
 
   const [showHistory, setShowHistory] = useState(false);
+  // v1 elements have no history — skip the fetch and the toggle entirely.
+  const hasHistory = (editing?.version_number ?? 0) > 1;
   const historyKey =
-    editing && showHistory ? API.elementVersions(editing.id) : null;
-  const { data: historyData } = useSWR<{ versions: Element[] }>(historyKey);
+    editing && showHistory && hasHistory
+      ? API.elementVersions(editing.id)
+      : null;
+  // Suppress the global SWR error toast for this fetch — the UI already
+  // renders an empty/loading state inline.
+  const { data: historyData } = useSWR<{ versions: Element[] }>(historyKey, {
+    onError: () => {},
+  });
   const versions = historyData?.versions ?? [];
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync: hydrate form from the editing element (or reset) when dialog opens
     setValues(editing ? elementToFormValues(editing) : EMPTY_FORM);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- collapse history panel on open/switch; otherwise stale panel auto-fires a fetch for a different element
+    setShowHistory(false);
   }, [editing, open]);
 
   const setField = <K extends keyof ElementFormValues>(
@@ -406,7 +416,7 @@ export function ElementFormDialog({
             ))}
           </div>
 
-          {editing && (
+          {editing && hasHistory && (
             <div className="flex flex-col gap-2 border-t border-border-default pt-3">
               <button
                 type="button"

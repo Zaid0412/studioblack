@@ -281,6 +281,15 @@ vi.mock("@/lib/queries", () => ({
     versioned: 0,
     failed: [],
   }),
+  // Default: pass through to `run()` and report as fresh — idempotency is
+  // a production concern, not a unit-test one. Tests that care about
+  // replay behaviour override this directly.
+  withImportIdempotency: vi.fn(
+    async (_key: string, run: () => Promise<unknown>) => ({
+      result: await run(),
+      replayed: false,
+    })
+  ),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
       super("This email is already in use");
