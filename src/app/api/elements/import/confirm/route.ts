@@ -28,8 +28,7 @@ export const POST = withAuth(
       });
       return NextResponse.json(result);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Import failed";
+      const message = err instanceof Error ? err.message : "Import failed";
       return NextResponse.json({ error: message }, { status: 500 });
     }
   }

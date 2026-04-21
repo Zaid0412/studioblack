@@ -143,7 +143,11 @@ function cellText(value: unknown): string {
     if (typeof v.result !== "undefined") return cellText(v.result);
     if (Array.isArray(v.richText)) {
       return v.richText
-        .map((t) => (typeof t === "object" && t && "text" in t ? (t as { text: string }).text : ""))
+        .map((t) =>
+          typeof t === "object" && t && "text" in t
+            ? (t as { text: string }).text
+            : ""
+        )
         .join("")
         .trim();
     }
@@ -364,9 +368,7 @@ export async function parseElementSheet(
       const key = values.code.toLowerCase();
       const firstSeen = seenCodes.get(key);
       if (firstSeen !== undefined) {
-        errors.push(
-          `Duplicate code in sheet — first seen on row ${firstSeen}`
-        );
+        errors.push(`Duplicate code in sheet — first seen on row ${firstSeen}`);
       } else {
         seenCodes.set(key, r);
       }

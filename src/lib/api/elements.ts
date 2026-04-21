@@ -97,7 +97,9 @@ export function validateImport(file: File): Promise<ParseResult> {
 }
 
 /** Execute a previously-previewed import with the user's chosen strategy. */
-export function confirmImport(body: ConfirmInput): Promise<ImportConfirmResult> {
+export function confirmImport(
+  body: ConfirmInput
+): Promise<ImportConfirmResult> {
   return apiPost<ImportConfirmResult>(API.elementsImportConfirm(), body);
 }
 

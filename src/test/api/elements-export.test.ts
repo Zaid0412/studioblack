@@ -120,9 +120,7 @@ describe("GET /api/elements/export", () => {
       total: 0,
       truncated: false,
     });
-    await GET_EXPORT(
-      buildRequest("/api/elements/export?search=paint&unit=m2")
-    );
+    await GET_EXPORT(buildRequest("/api/elements/export?search=paint&unit=m2"));
     expect(getElementsForExport).toHaveBeenCalledWith(
       "org-test-001",
       expect.objectContaining({ search: "paint", unit: "m2" })
@@ -135,9 +133,7 @@ describe("GET /api/elements/export", () => {
       total: 0,
       truncated: false,
     });
-    await GET_EXPORT(
-      buildRequest("/api/elements/export?page=7&limit=10")
-    );
+    await GET_EXPORT(buildRequest("/api/elements/export?page=7&limit=10"));
     const callArg = vi.mocked(getElementsForExport).mock.calls[0][1] ?? {};
     expect("page" in callArg).toBe(false);
     expect("limit" in callArg).toBe(false);

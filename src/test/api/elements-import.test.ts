@@ -3,12 +3,7 @@ import ExcelJS from "exceljs";
 import { bulkUpsertElements, getCategoryTree } from "@/lib/queries";
 import { POST as POST_IMPORT } from "@/app/api/elements/import/route";
 import { POST as POST_CONFIRM } from "@/app/api/elements/import/confirm/route";
-import {
-  mockSession,
-  setupAuth,
-  parseResponse,
-  BASE_URL,
-} from "../helpers";
+import { mockSession, setupAuth, parseResponse, BASE_URL } from "../helpers";
 import { mocks } from "../setup";
 import { NextRequest } from "next/server";
 import type { ElementCategory } from "@/types";
@@ -99,7 +94,14 @@ beforeEach(() => {
 describe("POST /api/elements/import", () => {
   it("parses a valid sheet and returns rows + template checks", async () => {
     const buf = await sheetBuffer([
-      ["WAL-PNT-001", "White Paint", "Finishes > Wall Finishes", "m2", 10, "USD"],
+      [
+        "WAL-PNT-001",
+        "White Paint",
+        "Finishes > Wall Finishes",
+        "m2",
+        10,
+        "USD",
+      ],
     ]);
     const file = new File([buf], "elements.xlsx", {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -150,9 +152,7 @@ describe("POST /api/elements/import", () => {
 
   it("denies client role with 403", async () => {
     setupAuth(mocks.auth, clientSession);
-    const buf = await sheetBuffer([
-      ["X", "Y", "Finishes", "m2", 1, "USD"],
-    ]);
+    const buf = await sheetBuffer([["X", "Y", "Finishes", "m2", 1, "USD"]]);
     const file = new File([buf], "x.xlsx", {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
