@@ -93,7 +93,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
                     e.stopPropagation();
                     removeAt(i);
                   }}
-                  className="text-accent/70 hover:text-accent"
+                  className="text-accent/70 hover:text-error cursor-pointer"
                   aria-label={`Remove ${tag}`}
                   tabIndex={-1}
                 >
@@ -111,7 +111,8 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
               onBlur={commitDraft}
               placeholder={value.length === 0 ? placeholder : undefined}
               disabled={disabled}
-              className="flex-1 min-w-[80px] border-0 bg-transparent outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0 text-text-primary placeholder:text-text-muted"
+              className="flex-1 min-w-[80px] border-0 bg-transparent ring-0 focus:border-0 focus:ring-0 text-text-primary placeholder:text-text-muted"
+              style={{ outline: "none" }}
             />
           </div>
         </div>
