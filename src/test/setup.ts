@@ -273,6 +273,13 @@ vi.mock("@/lib/queries", () => ({
   getElementsForExport: vi
     .fn()
     .mockResolvedValue({ rows: [], total: 0, truncated: false }),
+  bulkUpsertElements: vi.fn().mockResolvedValue({
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    versioned: 0,
+    failed: [],
+  }),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
       super("This email is already in use");

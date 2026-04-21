@@ -3140,3 +3140,300 @@ export async function getElementsForExport(
   });
   return { rows, total, truncated: total > rows.length };
 }
+
+// ---------------------------------------------------------------------------
+// Element bulk import (F3)
+// ---------------------------------------------------------------------------
+
+export type ElementDuplicateStrategy = "skip" | "overwrite" | "version";
+
+/**
+ * A single row to upsert — matches the shape emitted by the Excel parser.
+ * `categoryPath` is resolved against the org's category tree inside the
+ * transaction; unresolvable paths land in `failed`.
+ */
+export interface BulkElementRow {
+  rowNumber: number;
+  code: string;
+  name: string;
+  description?: string;
+  categoryPath?: string[];
+  unit: string;
+  unitCost: number;
+  currency?: string;
+  materialCost?: number;
+  labourCost?: number;
+  overheadPct?: number;
+  marginPct?: number;
+  specReference?: string;
+  drawingRef?: string;
+  tags?: string[];
+}
+
+export interface BulkElementImportInput {
+  strategy: ElementDuplicateStrategy;
+  createdBy: string;
+  rows: BulkElementRow[];
+}
+
+export interface BulkElementImportResult {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  versioned: number;
+  failed: Array<{ rowNumber: number; code: string; error: string }>;
+}
+
+/** Max version-suffix retries when strategy = "version". */
+const MAX_VERSION_SUFFIX_TRIES = 20;
+
+type PgClientLike = {
+  query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
+};
+
+function buildBulkCategoryPathMap(
+  rows: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
+): Map<string, string> {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const map = new Map<string, string>();
+  for (const cat of rows) {
+    const parts: string[] = [cat.name];
+    let parentId = cat.parent_id;
+    while (parentId) {
+      const parent = byId.get(parentId);
+      if (!parent) break;
+      parts.unshift(parent.name);
+      parentId = parent.parent_id;
+    }
+    const key = parts.map((s) => s.trim().toLowerCase()).join(" > ");
+    map.set(key, cat.id);
+  }
+  return map;
+}
+
+/**
+ * Attempt a non-conflicting insert. Returns the inserted id, or null if a
+ * row with the same (org_id, code) already exists.
+ */
+async function tryInsertElementRow(
+  client: PgClientLike,
+  orgId: string,
+  createdBy: string,
+  code: string,
+  row: BulkElementRow,
+  categoryId: string | null
+): Promise<string | null> {
+  const { rows } = await client.query(
+    `INSERT INTO element
+       (org_id, code, name, description, category_id, unit, unit_cost,
+        currency, material_cost, labour_cost, overhead_pct, margin_pct,
+        spec_reference, drawing_ref, tags, created_by)
+     VALUES
+       ($1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12,
+        $13, $14, $15, $16)
+     ON CONFLICT (org_id, code) DO NOTHING
+     RETURNING id`,
+    [
+      orgId,
+      code,
+      row.name,
+      row.description ?? null,
+      categoryId,
+      row.unit,
+      row.unitCost,
+      row.currency ?? "USD",
+      row.materialCost ?? null,
+      row.labourCost ?? null,
+      row.overheadPct ?? null,
+      row.marginPct ?? null,
+      row.specReference ?? null,
+      row.drawingRef ?? null,
+      row.tags && row.tags.length > 0 ? row.tags : null,
+      createdBy,
+    ]
+  );
+  if (rows.length === 0) return null;
+  return (rows[0] as { id: string }).id;
+}
+
+/** Dynamic UPDATE — only overwrite columns that are present in the row. */
+async function overwriteElementRow(
+  client: PgClientLike,
+  orgId: string,
+  row: BulkElementRow,
+  categoryId: string | null
+): Promise<boolean> {
+  const updates: string[] = [];
+  const params: unknown[] = [];
+  const push = (col: string, value: unknown) => {
+    params.push(value);
+    updates.push(`${col} = $${params.length}`);
+  };
+
+  // Required-always columns (always present in a parsed row).
+  push("name", row.name);
+  push("unit", row.unit);
+  push("unit_cost", row.unitCost);
+
+  // Optional columns — only overwrite when present.
+  if (row.description !== undefined) push("description", row.description);
+  if (categoryId !== null) push("category_id", categoryId);
+  if (row.currency !== undefined) push("currency", row.currency);
+  if (row.materialCost !== undefined) push("material_cost", row.materialCost);
+  if (row.labourCost !== undefined) push("labour_cost", row.labourCost);
+  if (row.overheadPct !== undefined) push("overhead_pct", row.overheadPct);
+  if (row.marginPct !== undefined) push("margin_pct", row.marginPct);
+  if (row.specReference !== undefined)
+    push("spec_reference", row.specReference);
+  if (row.drawingRef !== undefined) push("drawing_ref", row.drawingRef);
+  if (row.tags !== undefined && row.tags.length > 0) push("tags", row.tags);
+
+  updates.push(`updated_at = now()`);
+
+  params.push(orgId, row.code);
+  const orgIdx = params.length - 1;
+  const codeIdx = params.length;
+
+  const { rows } = await client.query(
+    `UPDATE element SET ${updates.join(", ")}
+      WHERE org_id = $${orgIdx} AND code = $${codeIdx}
+      RETURNING id`,
+    params
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Bulk-upsert elements from an import. Runs inside one transaction — per-row
+ * conflicts are handled via `ON CONFLICT DO NOTHING` + strategy-specific
+ * follow-up writes, so a single bad row does not roll back the whole batch.
+ */
+export async function bulkUpsertElements(
+  orgId: string,
+  input: BulkElementImportInput
+): Promise<BulkElementImportResult> {
+  const pool = getPool();
+  const result: BulkElementImportResult = {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    versioned: 0,
+    failed: [],
+  };
+
+  const { rows: catRows } = await pool.query(
+    `SELECT id, name, parent_id
+       FROM element_category
+      WHERE org_id = $1 AND is_active = true`,
+    [orgId]
+  );
+  const pathMap = buildBulkCategoryPathMap(
+    catRows as Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
+  );
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    for (const row of input.rows) {
+      let categoryId: string | null = null;
+      if (row.categoryPath && row.categoryPath.length > 0) {
+        const key = row.categoryPath
+          .map((s) => s.trim().toLowerCase())
+          .join(" > ");
+        const resolved = pathMap.get(key);
+        if (!resolved) {
+          result.failed.push({
+            rowNumber: row.rowNumber,
+            code: row.code,
+            error: `Category path not found: ${row.categoryPath.join(" > ")}`,
+          });
+          continue;
+        }
+        categoryId = resolved;
+      }
+
+      // Per-row savepoint — isolates any unexpected DB error (FK violation,
+      // check constraint, etc.) so a single bad row does not invalidate the
+      // outer transaction and doom every subsequent row.
+      await client.query("SAVEPOINT bulk_row");
+      try {
+        const insertedId = await tryInsertElementRow(
+          client,
+          orgId,
+          input.createdBy,
+          row.code,
+          row,
+          categoryId
+        );
+        if (insertedId) {
+          result.inserted++;
+        } else if (input.strategy === "skip") {
+          result.skipped++;
+        } else if (input.strategy === "overwrite") {
+          const updated = await overwriteElementRow(
+            client,
+            orgId,
+            row,
+            categoryId
+          );
+          if (updated) result.updated++;
+          else
+            result.failed.push({
+              rowNumber: row.rowNumber,
+              code: row.code,
+              error: "Update failed — no matching row",
+            });
+        } else {
+          // strategy === "version": append -v2, -v3, …
+          let versionedCode: string | null = null;
+          for (let n = 2; n <= MAX_VERSION_SUFFIX_TRIES + 1; n++) {
+            const candidate = `${row.code}-v${n}`;
+            const id = await tryInsertElementRow(
+              client,
+              orgId,
+              input.createdBy,
+              candidate,
+              row,
+              categoryId
+            );
+            if (id) {
+              versionedCode = candidate;
+              break;
+            }
+          }
+          if (versionedCode) {
+            result.versioned++;
+          } else {
+            result.failed.push({
+              rowNumber: row.rowNumber,
+              code: row.code,
+              error: `Could not find unique version suffix within ${MAX_VERSION_SUFFIX_TRIES} attempts`,
+            });
+          }
+        }
+        await client.query("RELEASE SAVEPOINT bulk_row");
+      } catch (err: unknown) {
+        await client.query("ROLLBACK TO SAVEPOINT bulk_row");
+        const pgErr = err as { code?: string; message?: string };
+        result.failed.push({
+          rowNumber: row.rowNumber,
+          code: row.code,
+          error:
+            pgErr.message ??
+            `Database error${pgErr.code ? ` (${pgErr.code})` : ""}`,
+        });
+      }
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return result;
+}
