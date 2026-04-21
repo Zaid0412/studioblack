@@ -385,6 +385,8 @@ export interface Element {
   drawing_ref: string | null;
   tags: string[] | null;
   is_active: boolean;
+  version_group: string;
+  version_number: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;

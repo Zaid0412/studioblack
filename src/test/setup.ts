@@ -270,6 +270,7 @@ vi.mock("@/lib/queries", () => ({
   softDeleteElement: vi.fn().mockResolvedValue({ deleted: true }),
   restoreElement: vi.fn().mockResolvedValue({ restored: true }),
   duplicateElement: vi.fn(),
+  getVersionHistory: vi.fn().mockResolvedValue([]),
   getElementsForExport: vi
     .fn()
     .mockResolvedValue({ rows: [], total: 0, truncated: false }),

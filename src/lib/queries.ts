@@ -2724,9 +2724,20 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
   const limitIdx = params.length + 1;
   const offsetIdx = params.length + 2;
 
+  // Collapse versioned rows to the highest version_number per group, then
+  // apply the filter. Elements with is_active=false on their latest version
+  // are treated as archived even if older versions are active.
+  const latestCte = `WITH latest AS (
+    SELECT DISTINCT ON (version_group) e.*
+      FROM element e
+     WHERE e.org_id = $1
+     ORDER BY e.version_group, e.version_number DESC
+  )`;
+
   const { rows } = await pool.query(
-    `SELECT e.*, COUNT(*) OVER() AS total_count
-       FROM element e
+    `${latestCte}
+     SELECT e.*, COUNT(*) OVER() AS total_count
+       FROM latest e
       WHERE ${where}
       ORDER BY e.code ASC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
@@ -2738,7 +2749,8 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
   // Fall back to a dedicated count so pagination still shows the true total.
   if (rows.length === 0 && page > 1) {
     const { rows: countRows } = await pool.query(
-      `SELECT COUNT(*)::int AS total FROM element e WHERE ${where}`,
+      `${latestCte}
+       SELECT COUNT(*)::int AS total FROM latest e WHERE ${where}`,
       params
     );
     total = Number(countRows[0]?.total ?? 0);
@@ -2797,6 +2809,33 @@ export async function getElementById(
   };
 }
 
+/**
+ * Fetch every version of an element's `version_group`, newest first.
+ * Returns an empty array if the element doesn't exist or belongs to another
+ * org — callers should treat empty as "not found".
+ */
+export async function getVersionHistory(
+  orgId: string,
+  elementId: string
+): Promise<Element[]> {
+  const pool = getPool();
+
+  const { rows: anchorRows } = await pool.query(
+    `SELECT version_group FROM element WHERE id = $1 AND org_id = $2`,
+    [elementId, orgId]
+  );
+  if (anchorRows.length === 0) return [];
+  const versionGroup = anchorRows[0].version_group as string;
+
+  const { rows } = await pool.query(
+    `SELECT * FROM element
+      WHERE org_id = $1 AND version_group = $2
+      ORDER BY version_number DESC`,
+    [orgId, versionGroup]
+  );
+  return rows as Element[];
+}
+
 /** Internal: replace the attribute set for an element inside an open tx. */
 async function replaceElementAttributes(
   client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
@@ -2846,6 +2885,16 @@ export async function createElement(
 
   try {
     await client.query("BEGIN");
+
+    // Code uniqueness is enforced at the application layer now that the DB
+    // allows multiple versions per code within a single group.
+    const dup = await client.query(
+      `SELECT id FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
+      [orgId, input.code]
+    );
+    if (dup.rows.length > 0) {
+      throw new Error("Code already exists");
+    }
 
     let elementRow: Element;
     try {
@@ -3048,75 +3097,86 @@ export async function duplicateElement(
 
   const client = await pool.connect();
   try {
+    // Find a free copy-suffix code up front — uniqueness is no longer at
+    // the DB layer, so we SELECT instead of catching 23505.
+    let newCode: string | null = null;
     for (let n = 1; n <= 5; n++) {
       const suffix = n === 1 ? "-copy" : `-copy-${n}`;
-      const newCode = `${src.code}${suffix}`;
-
-      try {
-        await client.query("BEGIN");
-
-        const {
-          rows: [newRow],
-        } = await client.query(
-          `INSERT INTO element
-             (org_id, code, name, description, category_id, unit, unit_cost,
-              currency, material_cost, labour_cost, overhead_pct, margin_pct,
-              spec_reference, drawing_ref, tags, is_active, created_by)
-           VALUES
-             ($1, $2, $3, $4, $5, $6, $7,
-              $8, $9, $10, $11, $12,
-              $13, $14, $15, true, $16)
-           RETURNING *`,
-          [
-            orgId,
-            newCode,
-            src.name,
-            src.description,
-            src.category_id,
-            src.unit,
-            src.unit_cost,
-            src.currency,
-            src.material_cost,
-            src.labour_cost,
-            src.overhead_pct,
-            src.margin_pct,
-            src.spec_reference,
-            src.drawing_ref,
-            src.tags,
-            createdBy,
-          ]
-        );
-
-        await client.query(
-          `INSERT INTO element_attribute
-             (element_id, attribute_key, attribute_value, unit, sort_order)
-           SELECT $1, attribute_key, attribute_value, unit, sort_order
-             FROM element_attribute
-            WHERE element_id = $2`,
-          [newRow.id, src.id]
-        );
-
-        const { rows: attrRows } = await client.query(
-          `SELECT * FROM element_attribute
-            WHERE element_id = $1
-            ORDER BY sort_order, attribute_key`,
-          [newRow.id]
-        );
-
-        await client.query("COMMIT");
-        return {
-          ...(newRow as Element),
-          attributes: attrRows as ElementAttribute[],
-          category_path: null,
-        };
-      } catch (err: unknown) {
-        await client.query("ROLLBACK");
-        const pgErr = err as { code?: string };
-        if (pgErr.code === "23505") continue;
-        throw err;
+      const candidate = `${src.code}${suffix}`;
+      const { rows: existing } = await client.query(
+        `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
+        [orgId, candidate]
+      );
+      if (existing.length === 0) {
+        newCode = candidate;
+        break;
       }
     }
-    throw new Error("Could not generate unique code for duplicate");
+    if (!newCode) {
+      throw new Error("Could not generate unique code for duplicate");
+    }
+
+    try {
+      await client.query("BEGIN");
+
+      const {
+        rows: [newRow],
+      } = await client.query(
+        `INSERT INTO element
+           (org_id, code, name, description, category_id, unit, unit_cost,
+            currency, material_cost, labour_cost, overhead_pct, margin_pct,
+            spec_reference, drawing_ref, tags, is_active, created_by)
+         VALUES
+           ($1, $2, $3, $4, $5, $6, $7,
+            $8, $9, $10, $11, $12,
+            $13, $14, $15, true, $16)
+         RETURNING *`,
+        [
+          orgId,
+          newCode,
+          src.name,
+          src.description,
+          src.category_id,
+          src.unit,
+          src.unit_cost,
+          src.currency,
+          src.material_cost,
+          src.labour_cost,
+          src.overhead_pct,
+          src.margin_pct,
+          src.spec_reference,
+          src.drawing_ref,
+          src.tags,
+          createdBy,
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO element_attribute
+           (element_id, attribute_key, attribute_value, unit, sort_order)
+         SELECT $1, attribute_key, attribute_value, unit, sort_order
+           FROM element_attribute
+          WHERE element_id = $2`,
+        [newRow.id, src.id]
+      );
+
+      const { rows: attrRows } = await client.query(
+        `SELECT * FROM element_attribute
+          WHERE element_id = $1
+          ORDER BY sort_order, attribute_key`,
+        [newRow.id]
+      );
+
+      await client.query("COMMIT");
+      return {
+        ...(newRow as Element),
+        attributes: attrRows as ElementAttribute[],
+        category_path: null,
+      };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    }
   } finally {
     client.release();
   }
@@ -3184,12 +3244,40 @@ export interface BulkElementImportResult {
   failed: Array<{ rowNumber: number; code: string; error: string }>;
 }
 
-/** Max version-suffix retries when strategy = "version". */
-const MAX_VERSION_SUFFIX_TRIES = 20;
-
 type PgClientLike = {
   query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
 };
+
+/** Look up the latest version of an element by code within an org. */
+async function findLatestByCode(
+  client: PgClientLike,
+  orgId: string,
+  code: string
+): Promise<{
+  id: string;
+  versionGroup: string;
+  versionNumber: number;
+} | null> {
+  const { rows } = await client.query(
+    `SELECT id, version_group, version_number
+       FROM element
+      WHERE org_id = $1 AND code = $2
+      ORDER BY version_number DESC
+      LIMIT 1`,
+    [orgId, code]
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0] as {
+    id: string;
+    version_group: string;
+    version_number: number;
+  };
+  return {
+    id: r.id,
+    versionGroup: r.version_group,
+    versionNumber: r.version_number,
+  };
+}
 
 function buildBulkCategoryPathMap(
   rows: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
@@ -3212,8 +3300,9 @@ function buildBulkCategoryPathMap(
 }
 
 /**
- * Attempt a non-conflicting insert. Returns the inserted id, or null if a
- * row with the same (org_id, code) already exists.
+ * Try to insert a brand-new element (version 1 of a fresh group). Returns
+ * null if a row with the same code already exists in the org — the caller
+ * then decides whether to skip, overwrite, or append a new version.
  */
 async function tryInsertElementRow(
   client: PgClientLike,
@@ -3223,6 +3312,9 @@ async function tryInsertElementRow(
   row: BulkElementRow,
   categoryId: string | null
 ): Promise<string | null> {
+  const existing = await findLatestByCode(client, orgId, code);
+  if (existing) return null;
+
   const { rows } = await client.query(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
@@ -3232,7 +3324,6 @@ async function tryInsertElementRow(
        ($1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11, $12,
         $13, $14, $15, $16)
-     ON CONFLICT (org_id, code) DO NOTHING
      RETURNING id`,
     [
       orgId,
@@ -3253,7 +3344,56 @@ async function tryInsertElementRow(
       createdBy,
     ]
   );
-  if (rows.length === 0) return null;
+  return (rows[0] as { id: string }).id;
+}
+
+/**
+ * Insert a new version into an existing group. `versionGroup` + `nextVersion`
+ * come from the previously-found latest row — bulkUpsertElements computes them
+ * together so concurrent callers in the same request share a consistent view.
+ */
+async function insertElementVersion(
+  client: PgClientLike,
+  orgId: string,
+  createdBy: string,
+  row: BulkElementRow,
+  categoryId: string | null,
+  versionGroup: string,
+  nextVersion: number
+): Promise<string> {
+  const { rows } = await client.query(
+    `INSERT INTO element
+       (org_id, code, name, description, category_id, unit, unit_cost,
+        currency, material_cost, labour_cost, overhead_pct, margin_pct,
+        spec_reference, drawing_ref, tags, created_by,
+        version_group, version_number)
+     VALUES
+       ($1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12,
+        $13, $14, $15, $16,
+        $17, $18)
+     RETURNING id`,
+    [
+      orgId,
+      row.code,
+      row.name,
+      row.description ?? null,
+      categoryId,
+      row.unit,
+      row.unitCost,
+      row.currency ?? "USD",
+      row.materialCost ?? null,
+      row.labourCost ?? null,
+      row.overheadPct ?? null,
+      row.marginPct ?? null,
+      row.specReference ?? null,
+      row.drawingRef ?? null,
+      row.tags && row.tags.length > 0 ? row.tags : null,
+      createdBy,
+      versionGroup,
+      nextVersion,
+    ]
+  );
   return (rows[0] as { id: string }).id;
 }
 
@@ -3291,13 +3431,20 @@ async function overwriteElementRow(
 
   updates.push(`updated_at = now()`);
 
+  // Overwrite only the *latest* version of a code group — older versions are
+  // historical and must stay immutable.
   params.push(orgId, row.code);
   const orgIdx = params.length - 1;
   const codeIdx = params.length;
 
   const { rows } = await client.query(
     `UPDATE element SET ${updates.join(", ")}
-      WHERE org_id = $${orgIdx} AND code = $${codeIdx}
+      WHERE id = (
+        SELECT id FROM element
+         WHERE org_id = $${orgIdx} AND code = $${codeIdx}
+         ORDER BY version_number DESC
+         LIMIT 1
+      )
       RETURNING id`,
     params
   );
@@ -3386,31 +3533,26 @@ export async function bulkUpsertElements(
               error: "Update failed — no matching row",
             });
         } else {
-          // strategy === "version": append -v2, -v3, …
-          let versionedCode: string | null = null;
-          for (let n = 2; n <= MAX_VERSION_SUFFIX_TRIES + 1; n++) {
-            const candidate = `${row.code}-v${n}`;
-            const id = await tryInsertElementRow(
-              client,
-              orgId,
-              input.createdBy,
-              candidate,
-              row,
-              categoryId
-            );
-            if (id) {
-              versionedCode = candidate;
-              break;
-            }
-          }
-          if (versionedCode) {
-            result.versioned++;
-          } else {
+          // strategy === "version": append a new version_number onto the
+          // existing group. Code stays identical across versions.
+          const latest = await findLatestByCode(client, orgId, row.code);
+          if (!latest) {
             result.failed.push({
               rowNumber: row.rowNumber,
               code: row.code,
-              error: `Could not find unique version suffix within ${MAX_VERSION_SUFFIX_TRIES} attempts`,
+              error: "Version failed — no existing element with this code",
             });
+          } else {
+            await insertElementVersion(
+              client,
+              orgId,
+              input.createdBy,
+              row,
+              categoryId,
+              latest.versionGroup,
+              latest.versionNumber + 1
+            );
+            result.versioned++;
           }
         }
         await client.query("RELEASE SAVEPOINT bulk_row");

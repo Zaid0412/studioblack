@@ -3,10 +3,18 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Save, Plus, X } from "lucide-react";
+import {
+  Save,
+  Plus,
+  X,
+  History,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/TagInput";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +32,9 @@ import {
 } from "@/components/ui/select";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import { API } from "@/lib/api/routes";
-import type { ElementCategoryNode, ElementWithDetails } from "@/types";
+import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
+import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
   attribute_key: string;
@@ -127,6 +136,12 @@ export function ElementFormDialog({
     API.elementCategories()
   );
   const categoryTree = catData?.tree ?? [];
+
+  const [showHistory, setShowHistory] = useState(false);
+  const historyKey =
+    editing && showHistory ? API.elementVersions(editing.id) : null;
+  const { data: historyData } = useSWR<{ versions: Element[] }>(historyKey);
+  const versions = historyData?.versions ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -390,6 +405,65 @@ export function ElementFormDialog({
               </div>
             ))}
           </div>
+
+          {editing && (
+            <div className="flex flex-col gap-2 border-t border-border-default pt-3">
+              <button
+                type="button"
+                onClick={() => setShowHistory((s) => !s)}
+                className="flex items-center gap-1.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors self-start"
+              >
+                {showHistory ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+                <History className="w-4 h-4" />
+                {t("versionHistory")}
+                {editing.version_number > 1 && (
+                  <Badge
+                    variant="info"
+                    className="ml-1 font-mono text-[10px] px-2 py-0.5"
+                  >
+                    {t("versionN", { n: editing.version_number })}
+                  </Badge>
+                )}
+              </button>
+              {showHistory && (
+                <div className="flex flex-col gap-1 pl-5 text-xs">
+                  {versions.length === 0 ? (
+                    <span className="text-text-muted">
+                      {tCommon("loading")}
+                    </span>
+                  ) : versions.length === 1 ? (
+                    <span className="text-text-muted">
+                      {t("noPreviousVersions")}
+                    </span>
+                  ) : (
+                    versions.map((v) => (
+                      <div
+                        key={v.id}
+                        className="flex items-center gap-3 py-1 border-b border-border-default/50 last:border-b-0"
+                      >
+                        <span className="font-mono text-text-secondary w-10">
+                          {t("versionN", { n: v.version_number })}
+                        </span>
+                        <span className="text-text-muted whitespace-nowrap">
+                          {new Date(v.created_at).toLocaleDateString()}
+                        </span>
+                        <span className="font-mono text-text-primary">
+                          {formatMoney(v.unit_cost, v.currency)}
+                        </span>
+                        <span className="text-text-muted truncate">
+                          {v.name}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <DialogClose asChild>

@@ -7,6 +7,7 @@ import {
   softDeleteElement,
   restoreElement,
   duplicateElement,
+  getVersionHistory,
 } from "@/lib/queries";
 import { GET, POST } from "@/app/api/elements/route";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/app/api/elements/[id]/route";
 import { POST as POST_DUPLICATE } from "@/app/api/elements/[id]/duplicate/route";
 import { POST as POST_RESTORE } from "@/app/api/elements/[id]/restore/route";
+import { GET as GET_VERSIONS } from "@/app/api/elements/[id]/versions/route";
 import {
   buildRequest,
   buildParams,
@@ -49,6 +51,8 @@ const fakeElement: Element = {
   drawing_ref: null,
   tags: null,
   is_active: true,
+  version_group: "11111111-2222-3333-4444-555555555555",
+  version_number: 1,
   created_by: "user-test-001",
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:00Z",
@@ -465,6 +469,50 @@ describe("POST /api/elements/[id]/restore", () => {
       method: "POST",
     });
     const res = await POST_RESTORE(req, buildParams({ id: ELEM_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(403);
+  });
+});
+
+// ── GET /api/elements/[id]/versions ─────────────────────────────────────────
+
+describe("GET /api/elements/[id]/versions", () => {
+  it("returns versions newest first", async () => {
+    const v2: Element = {
+      ...fakeElement,
+      id: "v2-id",
+      version_number: 2,
+      unit_cost: "130.00",
+    };
+    const v1: Element = { ...fakeElement, id: "v1-id", version_number: 1 };
+    vi.mocked(getVersionHistory).mockResolvedValue([v2, v1]);
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/versions`);
+    const res = await GET_VERSIONS(req, buildParams({ id: ELEM_ID }));
+    const { status, body } = await parseResponse<{ versions: Element[] }>(res);
+
+    expect(status).toBe(200);
+    expect(body.versions).toHaveLength(2);
+    expect(body.versions[0].version_number).toBe(2);
+    expect(getVersionHistory).toHaveBeenCalledWith("org-test-001", ELEM_ID);
+  });
+
+  it("returns 404 when element not found", async () => {
+    vi.mocked(getVersionHistory).mockResolvedValue([]);
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/versions`);
+    const res = await GET_VERSIONS(req, buildParams({ id: ELEM_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(404);
+  });
+
+  it("returns 403 for client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+
+    const req = buildRequest(`/api/elements/${ELEM_ID}/versions`);
+    const res = await GET_VERSIONS(req, buildParams({ id: ELEM_ID }));
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);

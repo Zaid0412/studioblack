@@ -79,6 +79,11 @@ export function restore(id: string) {
   return apiPost<{ success: true }>(API.elementRestore(id), {});
 }
 
+/** Fetch every version of an element's version_group, newest first. */
+export function getVersionHistory(id: string) {
+  return apiGet<{ versions: Element[] }>(API.elementVersions(id));
+}
+
 export interface ImportConfirmResult {
   inserted: number;
   updated: number;
