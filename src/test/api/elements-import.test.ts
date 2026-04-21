@@ -187,7 +187,7 @@ describe("POST /api/elements/import", () => {
 
 describe("POST /api/elements/import/confirm", () => {
   const goodRow = {
-    rowNumber: 2,
+    rowNumber: 1,
     code: "WAL-PNT-002",
     name: "Grey Paint",
     unit: "m2",
@@ -263,7 +263,7 @@ describe("POST /api/elements/import/confirm", () => {
   it("rejects a row missing required fields", async () => {
     const req = buildJsonRequest("/api/elements/import/confirm", {
       strategy: "skip",
-      rows: [{ rowNumber: 2, code: "X" }], // missing name/unit/unitCost
+      rows: [{ rowNumber: 1, code: "X" }], // missing name/unit/unitCost
     });
     const res = await POST_CONFIRM(req);
     expect(res.status).toBe(400);

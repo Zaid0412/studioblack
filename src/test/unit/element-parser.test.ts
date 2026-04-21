@@ -107,7 +107,7 @@ describe("parseElementSheet", () => {
     expect(row.status).toBe("valid");
     expect(row.errors).toEqual([]);
     expect(row.parsed).toEqual({
-      rowNumber: 2,
+      rowNumber: 1,
       code: "WAL-PNT-001",
       name: "White Matte Paint",
       categoryPath: ["Finishes", "Wall Finishes", "Paint"],

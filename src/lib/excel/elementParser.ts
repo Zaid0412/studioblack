@@ -25,7 +25,7 @@ export interface ParsedElementValues {
 }
 
 export interface ParsedElementRow {
-  /** 1-based, matches the Excel row number (header = row 1). */
+  /** 1-based index among data rows (header excluded). First data row is 1. */
   rowNumber: number;
   raw: Record<string, unknown>;
   parsed: ParsedElementValues | null;
@@ -225,9 +225,11 @@ export async function parseElementSheet(
   const seenCodes = new Map<string, number>(); // normalized code → first rowNumber seen
 
   const lastRow = worksheet.actualRowCount;
+  let dataRowIndex = 0;
   for (let r = 2; r <= lastRow; r++) {
     const excelRow = worksheet.getRow(r);
     if (!excelRow || excelRow.cellCount === 0) continue;
+    dataRowIndex += 1;
 
     // Collect raw values keyed by header label so the UI can render the preview.
     const raw: Record<string, unknown> = {};
@@ -245,7 +247,7 @@ export async function parseElementSheet(
     if (!anyCell) continue;
 
     const errors: string[] = [];
-    const values: Partial<ParsedElementValues> = { rowNumber: r };
+    const values: Partial<ParsedElementValues> = { rowNumber: dataRowIndex };
 
     // ── Required strings
     if (!byKey.code) {
@@ -370,13 +372,13 @@ export async function parseElementSheet(
       if (firstSeen !== undefined) {
         errors.push(`Duplicate code in sheet — first seen on row ${firstSeen}`);
       } else {
-        seenCodes.set(key, r);
+        seenCodes.set(key, dataRowIndex);
       }
     }
 
     const hasErrors = errors.length > 0;
     rows.push({
-      rowNumber: r,
+      rowNumber: dataRowIndex,
       raw,
       parsed: hasErrors ? null : (values as ParsedElementValues),
       status: hasErrors ? "error" : "valid",
