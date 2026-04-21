@@ -79,8 +79,6 @@ export function restore(id: string) {
   return apiPost<{ success: true }>(API.elementRestore(id), {});
 }
 
-// ── F3: Excel import / export ────────────────────────────────────────────────
-
 export interface ImportConfirmResult {
   inserted: number;
   updated: number;

@@ -19,6 +19,7 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
+import { saveBlob } from "@/lib/download";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { useElementFilters } from "./_hooks/useElementFilters";
 import { useElements } from "./_hooks/useElements";
@@ -88,15 +89,8 @@ export default function ElementsPage() {
         unit: state.unit || undefined,
         isActive: state.isActive,
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
       const stamp = new Date().toISOString().slice(0, 10);
-      a.download = `elements-${stamp}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      saveBlob(blob, `elements-${stamp}.xlsx`);
       if (truncated) {
         toast({
           title: t("exportTruncatedTitle"),
