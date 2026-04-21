@@ -492,35 +492,47 @@ function PreviewRow({
   const isValid = row.status === "valid";
   const raw = row.raw as Record<string, string>;
   return (
-    <tr
-      className={`border-t border-border-default ${
-        isValid ? "" : "bg-error/5"
-      }`}
-    >
-      <td className="px-3 py-1.5">
-        {isValid && <Checkbox checked={checked} onCheckedChange={onToggle} />}
-      </td>
-      <td className="px-2 py-1.5 text-text-muted">{row.rowNumber}</td>
-      <td className="px-2 py-1.5 text-text-primary truncate max-w-[120px]">
-        {raw.Code ?? ""}
-      </td>
-      <td className="px-2 py-1.5 text-text-primary truncate max-w-[180px]">
-        {raw.Name ?? ""}
-      </td>
-      <td className="px-2 py-1.5 text-text-secondary">{raw.Unit ?? ""}</td>
-      <td className="px-2 py-1.5 text-right text-text-secondary">
-        {raw["Unit Cost"] ?? ""}
-      </td>
-      <td className="px-2 py-1.5">
-        {isValid ? (
-          <Badge variant="success">{validLabel}</Badge>
-        ) : (
-          <div className="text-error" title={row.errors.join(" • ")}>
+    <>
+      <tr
+        className={`border-t border-border-default ${
+          isValid ? "" : "bg-error/5"
+        }`}
+      >
+        <td className="px-3 py-1.5">
+          {isValid && <Checkbox checked={checked} onCheckedChange={onToggle} />}
+        </td>
+        <td className="px-2 py-1.5 text-text-muted">{row.rowNumber}</td>
+        <td className="px-2 py-1.5 text-text-primary truncate max-w-[120px]">
+          {raw.Code ?? ""}
+        </td>
+        <td className="px-2 py-1.5 text-text-primary truncate max-w-[180px]">
+          {raw.Name ?? ""}
+        </td>
+        <td className="px-2 py-1.5 text-text-secondary">{raw.Unit ?? ""}</td>
+        <td className="px-2 py-1.5 text-right text-text-secondary">
+          {raw["Unit Cost"] ?? ""}
+        </td>
+        <td className="px-2 py-1.5">
+          {isValid ? (
+            <Badge variant="success">{validLabel}</Badge>
+          ) : (
             <Badge variant="error">{errorLabel}</Badge>
-          </div>
-        )}
-      </td>
-    </tr>
+          )}
+        </td>
+      </tr>
+      {!isValid && row.errors.length > 0 && (
+        <tr className="bg-error/5">
+          <td className="px-3 pb-2" />
+          <td colSpan={6} className="px-2 pb-2">
+            <ul className="list-disc pl-4 text-[11px] text-error space-y-0.5">
+              {row.errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
