@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { Plus, Trash2 } from "lucide-react";
+import { Download, Plus, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
@@ -25,6 +26,7 @@ import { CategoryTreeSidebar } from "./_components/CategoryTreeSidebar";
 import { ElementFilterBar } from "./_components/ElementFilterBar";
 import { ElementTable, buildCategoryMap } from "./_components/ElementTable";
 import { ElementFormDialog } from "./_components/ElementFormDialog";
+import { ImportDialog } from "./_components/ImportDialog";
 
 type SubmitValues = Parameters<
   React.ComponentProps<typeof ElementFormDialog>["onSubmit"]
@@ -73,6 +75,45 @@ export default function ElementsPage() {
   const [editing, setEditing] = useState<ElementWithDetails | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<Element | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { blob, truncated, total } = await elementsApi.downloadExport({
+        search: state.search || undefined,
+        categoryId: state.categoryId || undefined,
+        unit: state.unit || undefined,
+        isActive: state.isActive,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.download = `elements-${stamp}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      if (truncated) {
+        toast({
+          title: t("exportTruncatedTitle"),
+          description: t("exportTruncatedDesc", { total }),
+          variant: "warning",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: t("exportFailed"),
+        description: err instanceof Error ? err.message : "",
+        variant: "error",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -128,6 +169,18 @@ export default function ElementsPage() {
                 mutate();
               }}
             />
+            <Button
+              variant="secondary"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? tCommon("loading") : t("exportBtn")}
+            </Button>
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <Upload className="w-4 h-4" />
+              {t("importBtn")}
+            </Button>
             <Button onClick={openCreate}>
               <Plus className="w-4 h-4" />
               {t("newElement")}
@@ -196,6 +249,12 @@ export default function ElementsPage() {
           if (!open) setEditing(null);
         }}
         onSubmit={handleSubmit}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={() => mutate()}
       />
 
       <Dialog
