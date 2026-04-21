@@ -281,6 +281,72 @@ export const reorderCategoriesSchema = z.object({
   orderedIds: z.array(uuid).min(1),
 });
 
+// ─── Elements (/api/elements) ───────────────────────────────────────────────
+
+export const ALLOWED_UNITS = [
+  "m2",
+  "m3",
+  "lm",
+  "nr",
+  "item",
+  "kg",
+  "tonne",
+  "ls",
+  "set",
+  "pair",
+  "roll",
+  "sheet",
+  "bag",
+  "box",
+  "pallet",
+] as const;
+export type ElementUnit = (typeof ALLOWED_UNITS)[number];
+
+const elementAttributeInput = z.object({
+  attribute_key: z.string().trim().min(1).max(100),
+  attribute_value: z.string().trim().min(1),
+  unit: z.string().trim().max(30).optional(),
+  sort_order: z.number().int().min(0).optional(),
+});
+
+const nonNegativeMoney = z.number().nonnegative().finite();
+const percent = z.number().min(0).max(100).finite();
+
+export const createElementSchema = z.object({
+  code: trimmedString.max(50),
+  name: trimmedString.max(255),
+  description: z.string().optional(),
+  categoryId: optionalUuid,
+  unit: z.enum(ALLOWED_UNITS),
+  unitCost: nonNegativeMoney,
+  currency: z.string().trim().length(3).default("USD"),
+  materialCost: nonNegativeMoney.optional(),
+  labourCost: nonNegativeMoney.optional(),
+  overheadPct: percent.optional(),
+  marginPct: percent.optional(),
+  specReference: z.string().trim().max(255).optional(),
+  drawingRef: z.string().trim().max(255).optional(),
+  tags: z.array(z.string().trim().min(1)).optional(),
+  attributes: z.array(elementAttributeInput).optional(),
+});
+
+export const updateElementSchema = createElementSchema.partial().extend({
+  isActive: z.boolean().optional(),
+});
+
+export const listElementsQuerySchema = z.object({
+  search: z.string().optional(),
+  categoryId: z.string().uuid().optional(),
+  unit: z.enum(ALLOWED_UNITS).optional(),
+  tags: z.array(z.string()).optional(),
+  isActive: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((v) => (typeof v === "boolean" ? v : v === "true"))
+    .optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */

@@ -282,3 +282,36 @@ h6 {
 [data-ready] > .auth-slide-panel {
   transition: left 500ms ease-in-out;
 }
+
+/* Category color picker — constrain react-colorful default sizing */
+.category-color-picker .react-colorful {
+  width: 100%;
+  height: 160px;
+}
+.category-color-picker .react-colorful__saturation {
+  border-radius: 8px 8px 0 0;
+  border-bottom: none;
+}
+.category-color-picker .react-colorful__hue {
+  height: 16px;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Element-category tree — tune the View Transitions crossfade that fires when
+   rows expand/collapse. Each row has its own view-transition-name (set inline),
+   so the browser tweens their positions and crossfades enter/exit. */
+::view-transition-group(*) {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+}
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 140ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

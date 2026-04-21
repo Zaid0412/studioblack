@@ -262,6 +262,17 @@ vi.mock("@/lib/queries", () => ({
   updateCategory: vi.fn(),
   deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
   reorderCategories: vi.fn(),
+  // Elements
+  getElements: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getElementById: vi.fn().mockResolvedValue(null),
+  createElement: vi.fn(),
+  updateElement: vi.fn(),
+  softDeleteElement: vi.fn().mockResolvedValue({ deleted: true }),
+  restoreElement: vi.fn().mockResolvedValue({ restored: true }),
+  duplicateElement: vi.fn(),
+  getElementsForExport: vi
+    .fn()
+    .mockResolvedValue({ rows: [], total: 0, truncated: false }),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
       super("This email is already in use");
