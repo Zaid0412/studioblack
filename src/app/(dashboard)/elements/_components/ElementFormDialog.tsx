@@ -268,7 +268,7 @@ export function ElementFormDialog({
                 value={values.unit}
                 onValueChange={(v) => setField("unit", v as ElementUnit)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-auto px-4 py-3">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
