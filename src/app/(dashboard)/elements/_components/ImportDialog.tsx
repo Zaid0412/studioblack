@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import {
   DUPLICATE_STRATEGIES,
   type DuplicateStrategy,
@@ -33,6 +34,17 @@ import {
 import type { ImportConfirmResult } from "@/lib/api/elements";
 
 type Step = "upload" | "preview" | "strategy" | "confirming" | "result";
+
+const PREVIEW_COLUMNS: ReadonlyArray<{
+  key: keyof typeof TEMPLATE_COLUMN_LABELS;
+  labelKey: "colCode" | "colName" | "colUnit" | "colUnitCost";
+  className?: string;
+}> = [
+  { key: "code", labelKey: "colCode" },
+  { key: "name", labelKey: "colName" },
+  { key: "unit", labelKey: "colUnit" },
+  { key: "unitCost", labelKey: "colUnitCost", className: "w-24 text-right" },
+];
 
 interface ImportDialogProps {
   open: boolean;
@@ -126,11 +138,8 @@ export function ImportDialog({
     () => (parse?.rows ?? []).filter((r) => r.status === "error"),
     [parse]
   );
-  const hasFatal = (parse?.missingColumns.length ?? 0) > 0;
-  const missingLabels = useMemo(
-    () => new Set(parse?.missingColumns ?? []),
-    [parse]
-  );
+  const missingColumns = parse?.missingColumns ?? [];
+  const hasFatal = missingColumns.length > 0;
 
   const toggleRow = (rowNumber: number) => {
     setSelected((prev) => {
@@ -269,12 +278,13 @@ export function ImportDialog({
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {parse.missingColumns.map((col) => (
-                      <span
+                      <Badge
                         key={col}
-                        className="rounded border border-error/40 bg-error/15 px-1.5 py-0.5 font-mono text-[11px] text-error"
+                        variant="error"
+                        className="font-mono text-[11px]"
                       >
                         {col}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                   <p className="text-xs text-text-secondary">
@@ -331,25 +341,16 @@ export function ImportDialog({
                         />
                       </th>
                       <th className="w-12 px-2 py-2">#</th>
-                      <ColumnHeader
-                        label={t("colCode")}
-                        missing={missingLabels.has(TEMPLATE_COLUMN_LABELS.code)}
-                      />
-                      <ColumnHeader
-                        label={t("colName")}
-                        missing={missingLabels.has(TEMPLATE_COLUMN_LABELS.name)}
-                      />
-                      <ColumnHeader
-                        label={t("colUnit")}
-                        missing={missingLabels.has(TEMPLATE_COLUMN_LABELS.unit)}
-                      />
-                      <ColumnHeader
-                        className="w-24 text-right"
-                        label={t("colUnitCost")}
-                        missing={missingLabels.has(
-                          TEMPLATE_COLUMN_LABELS.unitCost
-                        )}
-                      />
+                      {PREVIEW_COLUMNS.map(({ key, labelKey, className }) => (
+                        <ColumnHeader
+                          key={key}
+                          label={t(labelKey)}
+                          missing={missingColumns.includes(
+                            TEMPLATE_COLUMN_LABELS[key]
+                          )}
+                          className={className}
+                        />
+                      ))}
                       <th className="w-24 px-2 py-2">{t("importStatus")}</th>
                     </tr>
                   </thead>
@@ -511,16 +512,14 @@ export function ImportDialog({
 function ColumnHeader({
   label,
   missing,
-  className = "",
+  className,
 }: {
   label: string;
   missing: boolean;
   className?: string;
 }) {
   return (
-    <th
-      className={`px-2 py-2 ${missing ? "text-error" : ""} ${className}`.trim()}
-    >
+    <th className={cn("px-2 py-2", missing && "text-error", className)}>
       <span className="inline-flex items-center gap-1">
         {label}
         {missing && <AlertTriangle className="h-3 w-3" aria-hidden="true" />}
