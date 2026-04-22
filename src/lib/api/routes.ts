@@ -15,7 +15,7 @@
  *   └─ attachments   /api/tasks/:id/attachments
  *
  * notifications    /api/notifications
- * upload           /api/upload, /api/avatar, /api/proxy-file
+ * upload           /api/upload/signed-url, /api/avatar, /api/proxy-file
  * dashboard        /api/dashboard
  * client           /api/client/projects
  * ─────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export const API = {
   notifications:         ()                            => "/api/notifications",
 
   // ── Upload & Files ─────────────────────────────
-  upload:                ()                            => "/api/upload",
+  uploadSignedUrl:       ()                            => "/api/upload/signed-url",
   avatar:                ()                            => "/api/avatar",
   proxyFile:             (url: string)                 => `/api/proxy-file?url=${encodeURIComponent(url)}`,
 

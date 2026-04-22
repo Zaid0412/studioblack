@@ -142,8 +142,8 @@ describe("API route builders", () => {
 
   // ── Upload & Files ────────────────────────────────────────────────────
 
-  it("upload()", () => {
-    expect(API.upload()).toBe("/api/upload");
+  it("uploadSignedUrl()", () => {
+    expect(API.uploadSignedUrl()).toBe("/api/upload/signed-url");
   });
 
   it("avatar()", () => {

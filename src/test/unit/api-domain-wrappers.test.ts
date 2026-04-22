@@ -695,20 +695,44 @@ describe("pinComments", () => {
 // ── upload ──────────────────────────────────────────────────────────────────
 
 describe("upload", () => {
-  it("uploadFile — posts FormData to the upload URL", async () => {
-    mockFetch.mockResolvedValue(
-      okJson({ url: "https://example.com/file.pdf", fileName: "file.pdf" })
-    );
+  it("uploadFile — requests a signed URL, then PUTs the file directly", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        okJson({
+          signedUrl: "https://storage.supabase.co/upload?token=abc",
+          publicUrl: "https://example.com/file.pdf",
+          fileName: "file.pdf",
+          fileSize: 7,
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
 
     const file = new File(["content"], "file.pdf", {
       type: "application/pdf",
     });
-    await upload.uploadFile(file);
+    const result = await upload.uploadFile(file);
 
-    expect(mockFetch).toHaveBeenCalledWith("/api/upload", {
-      method: "POST",
-      body: expect.any(FormData),
+    expect(result).toEqual({
+      url: "https://example.com/file.pdf",
+      fileName: "file.pdf",
     });
+    expect(mockFetch).toHaveBeenNthCalledWith(1, "/api/upload/signed-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: "file.pdf", fileSize: file.size }),
+    });
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "https://storage.supabase.co/upload?token=abc",
+      {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": "application/pdf",
+          "x-upsert": "false",
+        },
+      }
+    );
   });
 
   it("uploadAvatar — posts FormData to the avatar URL", async () => {
