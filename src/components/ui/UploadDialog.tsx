@@ -24,6 +24,9 @@ import {
   UPLOAD_ACCEPTED_TYPES,
 } from "@/lib/fileUtils";
 import { upload, attachments } from "@/lib/api";
+import { runWithConcurrency } from "@/lib/concurrency";
+
+const UPLOAD_CONCURRENCY = 3;
 
 interface UploadDialogProps {
   open: boolean;
@@ -157,10 +160,12 @@ export function UploadDialog({
     setUploading(true);
     setError("");
 
+    const alreadyUploaded = uploadedIndices;
+    const justUploaded = new Set<number>();
+
     try {
-      for (let i = 0; i < files.length; i++) {
-        if (uploadedIndices.has(i)) continue; // skip already-uploaded on retry
-        const file = files[i];
+      await runWithConcurrency(files, UPLOAD_CONCURRENCY, async (file, i) => {
+        if (alreadyUploaded.has(i)) return; // skip already-uploaded on retry
         const { url } = await upload.uploadFile(file);
         const fileName = displayNames[i] || file.name;
         await attachments.create(projectId, {
@@ -170,9 +175,10 @@ export function UploadDialog({
           phaseId: phaseId || null,
           ...(versionGroup ? { versionGroup } : {}),
         });
-        setUploadedIndices((prev) => new Set(prev).add(i));
-      }
+        justUploaded.add(i);
+      });
 
+      setUploadedIndices((prev) => new Set([...prev, ...justUploaded]));
       setSuccess(true);
       setTimeout(() => {
         onSuccess();
@@ -180,7 +186,9 @@ export function UploadDialog({
         onOpenChange(false);
       }, 1000);
     } catch (err) {
-      const uploaded = uploadedIndices.size;
+      const mergedUploaded = new Set([...alreadyUploaded, ...justUploaded]);
+      setUploadedIndices(mergedUploaded);
+      const uploaded = mergedUploaded.size;
       const total = files.length;
       const msg = err instanceof Error ? err.message : "Upload failed";
       setError(

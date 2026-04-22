@@ -4,51 +4,13 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { withAuth } from "@/lib/withAuth";
 import { logger } from "@/lib/logger";
 import { MAX_UPLOAD_SIZE, getFileExtension } from "@/lib/fileUtils";
+import { BUCKETS } from "@/lib/storage/buckets";
+import { ATTACHMENT_EXTENSIONS, sanitizeFilename } from "@/lib/upload/validate";
 
 // Vercel serverless functions cap request bodies at 4.5 MB, so proxying a
 // 50 MB upload through a route handler is not an option. Instead the client
 // asks this endpoint for a short-lived signed URL and PUTs the file straight
 // to Supabase Storage.
-
-const ALLOWED_EXTENSIONS = new Set([
-  "pdf",
-  "doc",
-  "docx",
-  "xls",
-  "xlsx",
-  "ppt",
-  "pptx",
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "webp",
-  "svg",
-  "bmp",
-  "tiff",
-  "tif",
-  "dwg",
-  "dxf",
-  "skp",
-  "3ds",
-  "max",
-  "obj",
-  "fbx",
-  "blend",
-  "psd",
-  "ai",
-  "eps",
-  "indd",
-  "mp4",
-  "mov",
-  "avi",
-  "zip",
-  "rar",
-  "7z",
-  "txt",
-  "csv",
-  "json",
-]);
 
 const BodySchema = z.object({
   fileName: z.string().min(1).max(255),
@@ -67,10 +29,9 @@ export const POST = withAuth(
         { status: 400 }
       );
     }
-    const { fileName } = parsed.data;
 
-    const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-    if (!ALLOWED_EXTENSIONS.has(getFileExtension(safeName))) {
+    const safeName = sanitizeFilename(parsed.data.fileName);
+    if (!ATTACHMENT_EXTENSIONS.has(getFileExtension(safeName))) {
       return NextResponse.json(
         { error: "File type not allowed." },
         { status: 400 }
@@ -81,7 +42,7 @@ export const POST = withAuth(
     const path = `${user.id}/${Date.now()}-${safeName}`;
 
     const { data, error } = await supabase.storage
-      .from("attachments")
+      .from(BUCKETS.attachments)
       .createSignedUploadUrl(path);
 
     if (error || !data) {
@@ -93,7 +54,7 @@ export const POST = withAuth(
     }
 
     const { data: urlData } = supabase.storage
-      .from("attachments")
+      .from(BUCKETS.attachments)
       .getPublicUrl(path);
 
     return NextResponse.json({

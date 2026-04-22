@@ -15,6 +15,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
 import { upload, attachments } from "@/lib/api";
+import { runWithConcurrency } from "@/lib/concurrency";
+
+const UPLOAD_CONCURRENCY = 3;
 
 /** Design file upload page with drag & drop. */
 export default function DesignUploadPage({
@@ -70,7 +73,7 @@ export default function DesignUploadPage({
     setError("");
 
     try {
-      for (const file of files) {
+      await runWithConcurrency(files, UPLOAD_CONCURRENCY, async (file) => {
         const { url, fileName } = await upload.uploadFile(file);
         await attachments.create(id, {
           fileUrl: url,
@@ -79,7 +82,7 @@ export default function DesignUploadPage({
           phaseId: phaseId || null,
           ...(versionGroup ? { versionGroup } : {}),
         });
-      }
+      });
 
       setSuccess(true);
       setFiles([]);
