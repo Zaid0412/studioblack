@@ -111,8 +111,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
               onBlur={commitDraft}
               placeholder={value.length === 0 ? placeholder : undefined}
               disabled={disabled}
-              className="flex-1 min-w-[80px] border-0 bg-transparent ring-0 focus:border-0 focus:ring-0 text-text-primary placeholder:text-text-muted"
-              style={{ outline: "none" }}
+              className="flex-1 min-w-[80px] border-0 bg-transparent outline-none ring-0 focus:border-0 focus:outline-none focus:ring-0 text-text-primary placeholder:text-text-muted"
             />
           </div>
         </div>

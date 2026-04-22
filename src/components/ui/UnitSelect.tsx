@@ -1,13 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { Check, ChevronDown, Search } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Check, ChevronDown } from "lucide-react";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +24,6 @@ export function UnitSelect({
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
 
   const options = useMemo(
     () =>
@@ -39,15 +33,6 @@ export function UnitSelect({
       })),
     [t]
   );
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter(
-      (o) =>
-        o.code.toLowerCase().includes(q) || o.name.toLowerCase().includes(q)
-    );
-  }, [options, query]);
 
   const selectedName = useMemo(
     () => options.find((o) => o.code === value)?.name ?? "",
@@ -62,14 +47,10 @@ export function UnitSelect({
           {required && <span className="text-error ml-0.5">*</span>}
         </label>
       )}
-      <Popover
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o);
-          if (!o) setQuery("");
-        }}
-      >
-        <PopoverTrigger asChild>
+      <SearchableDropdown
+        minContentWidth={260}
+        isEmpty={options.length === 0}
+        trigger={
           <button
             type="button"
             disabled={disabled}
@@ -95,69 +76,48 @@ export function UnitSelect({
             </span>
             <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />
           </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[var(--radix-popover-trigger-width)] min-w-[260px] p-0"
-        >
-          <div className="flex flex-col">
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
-                aria-hidden
-              />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={tCommon("search")}
-                className="w-full bg-transparent pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none border-b border-border-default"
-                style={{ outline: "none" }}
-                autoFocus
-              />
-            </div>
-            <div
-              className="max-h-[280px] overflow-y-auto py-1"
-              onWheel={(e) => {
-                e.currentTarget.scrollTop += e.deltaY;
-              }}
-            >
-              {filtered.length === 0 ? (
-                <p className="px-3 py-4 text-sm text-text-muted text-center">
-                  {tCommon("noResults")}
-                </p>
-              ) : (
-                filtered.map((opt) => {
-                  const selected = value === opt.code;
-                  return (
-                    <button
-                      key={opt.code}
-                      type="button"
-                      onClick={() => {
-                        onChange(opt.code);
-                        setOpen(false);
-                      }}
-                      className={cn(
-                        "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
-                        selected && "text-accent"
-                      )}
-                    >
-                      <span className="w-4 shrink-0">
-                        {selected && <Check className="h-4 w-4" />}
-                      </span>
-                      <span className="font-medium w-14 shrink-0">
-                        {opt.code}
-                      </span>
-                      <span className="truncate text-text-muted">
-                        {opt.name}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+        }
+      >
+        {(query, close) => {
+          const filtered = query
+            ? options.filter(
+                (o) =>
+                  o.code.toLowerCase().includes(query) ||
+                  o.name.toLowerCase().includes(query)
+              )
+            : options;
+          if (filtered.length === 0) {
+            return (
+              <p className="px-3 py-4 text-sm text-text-muted text-center">
+                {tCommon("noResults")}
+              </p>
+            );
+          }
+          return filtered.map((opt) => {
+            const selected = value === opt.code;
+            return (
+              <button
+                key={opt.code}
+                type="button"
+                onClick={() => {
+                  onChange(opt.code);
+                  close();
+                }}
+                className={cn(
+                  "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
+                  selected && "text-accent"
+                )}
+              >
+                <span className="w-4 shrink-0">
+                  {selected && <Check className="h-4 w-4" />}
+                </span>
+                <span className="font-medium w-14 shrink-0">{opt.code}</span>
+                <span className="truncate text-text-muted">{opt.name}</span>
+              </button>
+            );
+          });
+        }}
+      </SearchableDropdown>
     </div>
   );
 }

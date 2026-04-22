@@ -3,12 +3,8 @@
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { mutate as globalMutate } from "swr";
-import { Check, ChevronDown, Plus, Search } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Check, ChevronDown, Plus } from "lucide-react";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { toast } from "@/components/ui/useToast";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
@@ -64,18 +60,10 @@ function flattenWithIcons(tree: ElementCategoryNode[]): FlatOption[] {
  */
 export function CategorySelect({ value, onChange, tree, label }: Props) {
   const t = useTranslations("elements");
-  const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [query, setQuery] = useState("");
 
   const options = useMemo(() => flattenWithIcons(tree), [tree]);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((o) => o.label.toLowerCase().includes(q));
-  }, [options, query]);
-
   const selectedOption = value ? options.find((o) => o.id === value) : null;
 
   const handleCreate = async (values: CategoryFormSubmit) => {
@@ -105,14 +93,24 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
           {label}
         </label>
       )}
-      <Popover
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o);
-          if (!o) setQuery("");
-        }}
-      >
-        <PopoverTrigger asChild>
+      <SearchableDropdown
+        minContentWidth={280}
+        maxListHeight={240}
+        isEmpty={false}
+        headerSlot={(close) => (
+          <button
+            type="button"
+            onClick={() => {
+              close();
+              setCreateOpen(true);
+            }}
+            className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            {t("newCategory")}
+          </button>
+        )}
+        trigger={
           <button
             type="button"
             className={cn(
@@ -138,48 +136,19 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
             </span>
             <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />
           </button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0"
-        >
-          <div className="flex flex-col">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                setCreateOpen(true);
-              }}
-              className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              {t("newCategory")}
-            </button>
-
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted"
-                aria-hidden
-              />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("searchPlaceholder")}
-                className="w-full bg-transparent pl-9 pr-3 py-2 text-sm text-text-primary placeholder:text-text-muted outline-none border-b border-border-default"
-              />
-            </div>
-
-            <div
-              className="max-h-[240px] overflow-y-auto py-1"
-              onWheel={(e) => {
-                e.currentTarget.scrollTop += e.deltaY;
-              }}
-            >
+        }
+      >
+        {(query, close) => {
+          const filtered = query
+            ? options.filter((o) => o.label.toLowerCase().includes(query))
+            : options;
+          return (
+            <>
               <button
                 type="button"
                 onClick={() => {
                   onChange(null);
-                  setOpen(false);
+                  close();
                 }}
                 className={cn(
                   "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
@@ -195,7 +164,7 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
               </button>
               {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-text-muted text-center">
-                  {query.trim() ? t("noResults") : t("categoryEmpty")}
+                  {query ? t("noResults") : t("categoryEmpty")}
                 </p>
               ) : (
                 filtered.map((opt) => {
@@ -206,7 +175,7 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
                       type="button"
                       onClick={() => {
                         onChange(opt.id);
-                        setOpen(false);
+                        close();
                       }}
                       className={cn(
                         "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
@@ -227,10 +196,10 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
                   );
                 })
               )}
-            </div>
-          </div>
-        </PopoverContent>
-      </Popover>
+            </>
+          );
+        }}
+      </SearchableDropdown>
 
       <CategoryEditDialog
         open={createOpen}

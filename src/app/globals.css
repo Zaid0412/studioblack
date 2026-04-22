@@ -216,10 +216,20 @@ h6 {
   display: none;
 }
 
-/* ─── Focus ring ─── */
+/* ─── Focus ring ───
+ * Form fields already paint their own focus via focus:border-accent
+ * or focus-within ring utilities — suppressing the global outline for
+ * them avoids double-border stacking. Everything else (bare buttons,
+ * links, menuitems, etc.) still gets the accent outline for a11y. */
 *:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
 }
 
 /* ─── Selection ─── */
