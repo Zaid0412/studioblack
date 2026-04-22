@@ -57,7 +57,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   };
 
   return (
-    <aside className="w-full lg:w-60 shrink-0 rounded-[10px] bg-bg-secondary border border-border-default p-3 flex flex-col">
+    <aside className="w-full lg:w-60 lg:self-start shrink-0 rounded-[10px] bg-bg-secondary border border-border-default p-3 flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[13px] font-medium text-text-secondary">
           {t("categories")}

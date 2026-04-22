@@ -270,9 +270,26 @@ vi.mock("@/lib/queries", () => ({
   softDeleteElement: vi.fn().mockResolvedValue({ deleted: true }),
   restoreElement: vi.fn().mockResolvedValue({ restored: true }),
   duplicateElement: vi.fn(),
+  getVersionHistory: vi.fn().mockResolvedValue([]),
   getElementsForExport: vi
     .fn()
     .mockResolvedValue({ rows: [], total: 0, truncated: false }),
+  bulkUpsertElements: vi.fn().mockResolvedValue({
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    versioned: 0,
+    failed: [],
+  }),
+  // Default: pass through to `run()` and report as fresh — idempotency is
+  // a production concern, not a unit-test one. Tests that care about
+  // replay behaviour override this directly.
+  withImportIdempotency: vi.fn(
+    async (_key: string, run: () => Promise<unknown>) => ({
+      result: await run(),
+      replayed: false,
+    })
+  ),
   EmailTakenError: class EmailTakenError extends Error {
     constructor() {
       super("This email is already in use");

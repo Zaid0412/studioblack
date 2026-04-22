@@ -93,7 +93,7 @@ export const TagInput = forwardRef<HTMLInputElement, TagInputProps>(
                     e.stopPropagation();
                     removeAt(i);
                   }}
-                  className="text-accent/70 hover:text-accent"
+                  className="text-accent/70 hover:text-error cursor-pointer"
                   aria-label={`Remove ${tag}`}
                   tabIndex={-1}
                 >

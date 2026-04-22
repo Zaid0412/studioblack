@@ -3,10 +3,20 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Save, Plus, X } from "lucide-react";
+import {
+  Save,
+  Plus,
+  X,
+  History,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/TagInput";
+import { CurrencySelect } from "@/components/ui/CurrencySelect";
+import { UnitSelect } from "@/components/ui/UnitSelect";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -15,17 +25,11 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import { type ElementUnit } from "@/lib/validations";
 import { API } from "@/lib/api/routes";
-import type { ElementCategoryNode, ElementWithDetails } from "@/types";
+import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
+import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
   attribute_key: string;
@@ -128,10 +132,26 @@ export function ElementFormDialog({
   );
   const categoryTree = catData?.tree ?? [];
 
+  const [showHistory, setShowHistory] = useState(false);
+  // v1 elements have no history — skip the fetch and the toggle entirely.
+  const hasHistory = (editing?.version_number ?? 0) > 1;
+  const historyKey =
+    editing && showHistory && hasHistory
+      ? API.elementVersions(editing.id)
+      : null;
+  // Suppress the global SWR error toast for this fetch — the UI already
+  // renders an empty/loading state inline.
+  const { data: historyData } = useSWR<{ versions: Element[] }>(historyKey, {
+    onError: () => {},
+  });
+  const versions = historyData?.versions ?? [];
+
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync: hydrate form from the editing element (or reset) when dialog opens
     setValues(editing ? elementToFormValues(editing) : EMPTY_FORM);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- collapse history panel on open/switch; otherwise stale panel auto-fires a fetch for a different element
+    setShowHistory(false);
   }, [editing, open]);
 
   const setField = <K extends keyof ElementFormValues>(
@@ -234,35 +254,17 @@ export function ElementFormDialog({
               tree={categoryTree}
             />
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                {t("fieldUnit")}
-                <span className="text-error ml-0.5">*</span>
-              </label>
-              <Select
-                value={values.unit}
-                onValueChange={(v) => setField("unit", v as ElementUnit)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ALLOWED_UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <UnitSelect
+              label={t("fieldUnit")}
+              value={values.unit}
+              onChange={(u) => setField("unit", u)}
+              required
+            />
 
-            <Input
+            <CurrencySelect
               label={t("fieldCurrency")}
               value={values.currency}
-              onChange={(e) =>
-                setField("currency", e.target.value.toUpperCase())
-              }
-              maxLength={3}
+              onChange={(code) => setField("currency", code)}
               required
             />
           </div>
@@ -390,6 +392,65 @@ export function ElementFormDialog({
               </div>
             ))}
           </div>
+
+          {editing && hasHistory && (
+            <div className="flex flex-col gap-2 border-t border-border-default pt-3">
+              <button
+                type="button"
+                onClick={() => setShowHistory((s) => !s)}
+                className="flex items-center gap-1.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-colors self-start"
+              >
+                {showHistory ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+                <History className="w-4 h-4" />
+                {t("versionHistory")}
+                {editing.version_number > 1 && (
+                  <Badge
+                    variant="info"
+                    className="ml-1 font-mono text-[10px] px-2 py-0.5"
+                  >
+                    {t("versionN", { n: editing.version_number })}
+                  </Badge>
+                )}
+              </button>
+              {showHistory && (
+                <div className="flex flex-col gap-1 pl-5 text-xs">
+                  {versions.length === 0 ? (
+                    <span className="text-text-muted">
+                      {tCommon("loading")}
+                    </span>
+                  ) : versions.length === 1 ? (
+                    <span className="text-text-muted">
+                      {t("noPreviousVersions")}
+                    </span>
+                  ) : (
+                    versions.map((v) => (
+                      <div
+                        key={v.id}
+                        className="flex items-center gap-3 py-1 border-b border-border-default/50 last:border-b-0"
+                      >
+                        <span className="font-mono text-text-secondary w-10">
+                          {t("versionN", { n: v.version_number })}
+                        </span>
+                        <span className="text-text-muted whitespace-nowrap">
+                          {new Date(v.created_at).toLocaleDateString()}
+                        </span>
+                        <span className="font-mono text-text-primary">
+                          {formatMoney(v.unit_cost, v.currency)}
+                        </span>
+                        <span className="text-text-muted truncate">
+                          {v.name}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <DialogClose asChild>

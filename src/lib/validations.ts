@@ -315,7 +315,7 @@ const percent = z.number().min(0).max(100).finite();
 export const createElementSchema = z.object({
   code: trimmedString.max(50),
   name: trimmedString.max(255),
-  description: z.string().optional(),
+  description: z.string().trim().optional(),
   categoryId: optionalUuid,
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,
@@ -345,6 +345,45 @@ export const listElementsQuerySchema = z.object({
     .optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(25),
+});
+
+// ─── Element Excel Import / Export (F3) ────────────────────────────────────
+
+export const DUPLICATE_STRATEGIES = ["skip", "overwrite", "version"] as const;
+export type DuplicateStrategy = (typeof DUPLICATE_STRATEGIES)[number];
+
+/** Max accepted Excel upload size (bytes). */
+export const ELEMENT_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Shape of a single parsed row as sent back from the client to the
+ * confirm endpoint. The server re-validates every field — never trust
+ * the first-pass parse result.
+ */
+export const importElementRowSchema = z.object({
+  rowNumber: z.number().int().min(1),
+  code: trimmedString.max(50),
+  name: trimmedString.max(255),
+  // Cap description to protect the confirm endpoint from OOM: without a
+  // max, a crafted row with a 10 MB description × 10k rows = 100 GB of
+  // JSON, which would blow through the body limit before any handler runs.
+  description: z.string().trim().max(2000).optional(),
+  categoryPath: z.array(z.string().trim().min(1)).optional(),
+  unit: z.enum(ALLOWED_UNITS),
+  unitCost: nonNegativeMoney,
+  currency: z.string().trim().length(3).optional(),
+  materialCost: nonNegativeMoney.optional(),
+  labourCost: nonNegativeMoney.optional(),
+  overheadPct: percent.optional(),
+  marginPct: percent.optional(),
+  specReference: z.string().trim().max(255).optional(),
+  drawingRef: z.string().trim().max(255).optional(),
+  tags: z.array(z.string().trim().min(1)).optional(),
+});
+
+export const importConfirmSchema = z.object({
+  strategy: z.enum(DUPLICATE_STRATEGIES),
+  rows: z.array(importElementRowSchema).min(1).max(10_000),
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────

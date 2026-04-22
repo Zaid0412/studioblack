@@ -115,8 +115,18 @@ function ElementRow({
       onClick={onClick}
       className="grid grid-cols-1 lg:grid-cols-[140px_1fr_160px_80px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >
-      <div className="font-mono text-sm text-text-primary truncate">
-        {element.code}
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="font-mono text-sm text-text-primary truncate">
+          {element.code}
+        </span>
+        {element.version_number > 1 && (
+          <Badge
+            variant="info"
+            className="shrink-0 font-mono text-[10px] px-2 py-0.5"
+          >
+            {t("versionN", { n: element.version_number })}
+          </Badge>
+        )}
       </div>
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-sm text-text-primary truncate">

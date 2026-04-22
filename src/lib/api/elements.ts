@@ -1,4 +1,10 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  apiBlobWithHeaders,
+} from "./client";
 import { API } from "./routes";
 import type { Element, ElementWithDetails } from "@/types";
 import type { z } from "zod";
@@ -6,11 +12,15 @@ import type {
   createElementSchema,
   updateElementSchema,
   listElementsQuerySchema,
+  importConfirmSchema,
+  DuplicateStrategy,
 } from "@/lib/validations";
+import type { ParseResult } from "@/lib/excel/elementParser";
 
 type CreateInput = z.infer<typeof createElementSchema>;
 type UpdateInput = z.infer<typeof updateElementSchema>;
 type ListParams = Partial<z.input<typeof listElementsQuerySchema>>;
+type ConfirmInput = z.infer<typeof importConfirmSchema>;
 
 export interface ListElementsResponse {
   rows: Element[];
@@ -73,4 +83,78 @@ export function duplicate(id: string) {
 /** Restore a previously archived element. */
 export function restore(id: string) {
   return apiPost<{ success: true }>(API.elementRestore(id), {});
+}
+
+/** Fetch every version of an element's version_group, newest first. */
+export function getVersionHistory(id: string) {
+  return apiGet<{ versions: Element[] }>(API.elementVersions(id));
+}
+
+export interface ImportConfirmResult {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  versioned: number;
+  failed: Array<{ rowNumber: number; code: string; error: string }>;
+}
+
+/** Upload an .xlsx file, return per-row parse results for the preview table. */
+export function validateImport(
+  file: File,
+  signal?: AbortSignal
+): Promise<ParseResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPost<ParseResult>(API.elementsImport(), fd, { signal });
+}
+
+/** Execute a previously-previewed import with the user's chosen strategy. */
+export function confirmImport(
+  body: ConfirmInput,
+  signal?: AbortSignal
+): Promise<ImportConfirmResult> {
+  return apiPost<ImportConfirmResult>(API.elementsImportConfirm(), body, {
+    signal,
+  });
+}
+
+export type { DuplicateStrategy };
+
+/** Download the current filtered element library as an .xlsx blob. */
+export async function downloadExport(params: ListParams = {}): Promise<{
+  blob: Blob;
+  truncated: boolean;
+  total: number;
+  filename: string | null;
+}> {
+  const { blob, headers } = await apiBlobWithHeaders(
+    API.elementsExport(buildQuery(params))
+  );
+  return {
+    blob,
+    truncated: headers.get("X-Export-Truncated") === "true",
+    total: Number(headers.get("X-Element-Total") ?? "0"),
+    filename: parseContentDispositionFilename(
+      headers.get("Content-Disposition")
+    ),
+  };
+}
+
+/**
+ * Extract a filename from an RFC 5987 Content-Disposition header.
+ * Prefers the UTF-8 `filename*=UTF-8''…` form, falls back to the ASCII
+ * `filename="…"` form. Returns null when the header is absent or malformed.
+ */
+function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+  const starMatch = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(header);
+  if (starMatch) {
+    try {
+      return decodeURIComponent(starMatch[1].trim());
+    } catch {
+      // fall through to plain filename
+    }
+  }
+  const plainMatch = /filename\s*=\s*"?([^";]+)"?/i.exec(header);
+  return plainMatch ? plainMatch[1].trim() : null;
 }
