@@ -86,15 +86,11 @@ describe("POST /api/upload/signed-url", () => {
     const { status, body } = await parseResponse<{
       signedUrl: string;
       publicUrl: string;
-      fileName: string;
-      fileSize: number;
     }>(res);
 
     expect(status).toBe(200);
     expect(body.signedUrl).toContain("token=signed-token");
     expect(body.publicUrl).toContain("test.supabase.co");
-    expect(body.fileName).toBe("doc.pdf");
-    expect(body.fileSize).toBe(1024);
     expect(mocks.supabase.createSignedUploadUrl).toHaveBeenCalledTimes(1);
   });
 

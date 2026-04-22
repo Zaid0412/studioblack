@@ -3,63 +3,59 @@ import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withAuth } from "@/lib/withAuth";
 import { logger } from "@/lib/logger";
+import { MAX_UPLOAD_SIZE, getFileExtension } from "@/lib/fileUtils";
 
 // Vercel serverless functions cap request bodies at 4.5 MB, so proxying a
 // 50 MB upload through a route handler is not an option. Instead the client
 // asks this endpoint for a short-lived signed URL and PUTs the file straight
 // to Supabase Storage.
-const MAX_SIZE = 50 * 1024 * 1024;
 
-const ALLOWED_EXTENSIONS = [
-  ".pdf",
-  ".doc",
-  ".docx",
-  ".xls",
-  ".xlsx",
-  ".ppt",
-  ".pptx",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".webp",
-  ".svg",
-  ".bmp",
-  ".tiff",
-  ".tif",
-  ".dwg",
-  ".dxf",
-  ".skp",
-  ".3ds",
-  ".max",
-  ".obj",
-  ".fbx",
-  ".blend",
-  ".psd",
-  ".ai",
-  ".eps",
-  ".indd",
-  ".mp4",
-  ".mov",
-  ".avi",
-  ".zip",
-  ".rar",
-  ".7z",
-  ".txt",
-  ".csv",
-  ".json",
-];
+const ALLOWED_EXTENSIONS = new Set([
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "tiff",
+  "tif",
+  "dwg",
+  "dxf",
+  "skp",
+  "3ds",
+  "max",
+  "obj",
+  "fbx",
+  "blend",
+  "psd",
+  "ai",
+  "eps",
+  "indd",
+  "mp4",
+  "mov",
+  "avi",
+  "zip",
+  "rar",
+  "7z",
+  "txt",
+  "csv",
+  "json",
+]);
 
 const BodySchema = z.object({
   fileName: z.string().min(1).max(255),
-  fileSize: z.number().int().positive().max(MAX_SIZE),
+  fileSize: z.number().int().positive().max(MAX_UPLOAD_SIZE),
 });
 
-/**
- * POST /api/upload/signed-url — Issue a short-lived signed URL the browser
- * can PUT the file to directly. Response is tiny JSON, well within Vercel's
- * function body limit regardless of the eventual file size.
- */
+/** POST /api/upload/signed-url — issue a short-lived Supabase upload URL. */
 export const POST = withAuth(
   { rateLimit: { limit: 20, windowMs: 60_000 } },
   async (req, { user }) => {
@@ -71,11 +67,10 @@ export const POST = withAuth(
         { status: 400 }
       );
     }
-    const { fileName, fileSize } = parsed.data;
+    const { fileName } = parsed.data;
 
     const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const ext = "." + (safeName.split(".").pop()?.toLowerCase() ?? "");
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    if (!ALLOWED_EXTENSIONS.has(getFileExtension(safeName))) {
       return NextResponse.json(
         { error: "File type not allowed." },
         { status: 400 }
@@ -104,8 +99,6 @@ export const POST = withAuth(
     return NextResponse.json({
       signedUrl: data.signedUrl,
       publicUrl: urlData.publicUrl,
-      fileName,
-      fileSize,
     });
   }
 );

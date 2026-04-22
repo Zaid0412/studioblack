@@ -701,8 +701,6 @@ describe("upload", () => {
         okJson({
           signedUrl: "https://storage.supabase.co/upload?token=abc",
           publicUrl: "https://example.com/file.pdf",
-          fileName: "file.pdf",
-          fileSize: 7,
         })
       )
       .mockResolvedValueOnce(new Response(null, { status: 200 }));
@@ -729,7 +727,6 @@ describe("upload", () => {
         body: file,
         headers: {
           "Content-Type": "application/pdf",
-          "x-upsert": "false",
         },
       }
     );
