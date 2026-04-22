@@ -466,9 +466,6 @@ export function ImportDialog({
                         row={row}
                         checked={selected.has(row.rowNumber)}
                         onToggle={() => toggleRow(row.rowNumber)}
-                        validLabel={t("importStatusValid")}
-                        errorLabel={t("importStatusError")}
-                        warningLabel={t("importStatusWarning")}
                       />
                     ))}
                   </tbody>
@@ -640,21 +637,39 @@ function rawCell(raw: Record<string, unknown>, key: string): string {
   return String(v);
 }
 
+function IssueRow({
+  tone,
+  items,
+}: {
+  tone: "error" | "warning";
+  items: string[];
+}) {
+  const toneClasses =
+    tone === "error" ? "bg-error/5 text-error" : "bg-warning/5 text-warning";
+  return (
+    <tr className={toneClasses}>
+      <td className="px-3 pb-2" />
+      <td colSpan={6} className="px-2 pb-2">
+        <ul className="list-disc pl-4 text-[11px] space-y-0.5">
+          {items.map((m, i) => (
+            <li key={i}>{m}</li>
+          ))}
+        </ul>
+      </td>
+    </tr>
+  );
+}
+
 function PreviewRow({
   row,
   checked,
   onToggle,
-  validLabel,
-  errorLabel,
-  warningLabel,
 }: {
   row: ParsedElementRow;
   checked: boolean;
   onToggle: () => void;
-  validLabel: string;
-  errorLabel: string;
-  warningLabel: string;
 }) {
+  const t = useTranslations("elements");
   const isValid = row.status === "valid";
   const hasWarnings = row.warnings.length > 0;
   const raw = row.raw;
@@ -685,37 +700,19 @@ function PreviewRow({
         </td>
         <td className="px-2 py-1.5">
           {!isValid ? (
-            <Badge variant="error">{errorLabel}</Badge>
+            <Badge variant="error">{t("importStatusError")}</Badge>
           ) : hasWarnings ? (
-            <Badge variant="warning">{warningLabel}</Badge>
+            <Badge variant="warning">{t("importStatusWarning")}</Badge>
           ) : (
-            <Badge variant="success">{validLabel}</Badge>
+            <Badge variant="success">{t("importStatusValid")}</Badge>
           )}
         </td>
       </tr>
       {!isValid && row.errors.length > 0 && (
-        <tr className="bg-error/5">
-          <td className="px-3 pb-2" />
-          <td colSpan={6} className="px-2 pb-2">
-            <ul className="list-disc pl-4 text-[11px] text-error space-y-0.5">
-              {row.errors.map((err, i) => (
-                <li key={i}>{err}</li>
-              ))}
-            </ul>
-          </td>
-        </tr>
+        <IssueRow tone="error" items={row.errors} />
       )}
       {isValid && hasWarnings && (
-        <tr className="bg-warning/5">
-          <td className="px-3 pb-2" />
-          <td colSpan={6} className="px-2 pb-2">
-            <ul className="list-disc pl-4 text-[11px] text-warning space-y-0.5">
-              {row.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </td>
-        </tr>
+        <IssueRow tone="warning" items={row.warnings} />
       )}
     </>
   );

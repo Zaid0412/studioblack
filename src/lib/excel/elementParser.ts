@@ -197,7 +197,7 @@ function cellText(value: unknown): string {
   return String(value).trim();
 }
 
-export interface CellNumberResult {
+interface CellNumberResult {
   value: number | null;
   /**
    * True when the text-path decimal heuristic fired on a 3-trailing-digit

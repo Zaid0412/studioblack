@@ -3700,9 +3700,10 @@ async function runBulkImportBatchWithRetry(
  * to an end user (and nudge toward info disclosure). The debug flag is for
  * local triage — production should keep the friendly message.
  */
+const IMPORT_PG_DEBUG = process.env.IMPORT_PG_DEBUG === "1";
+
 function mapPgError(err: { code?: string; message?: string }): string {
-  const debug = process.env.IMPORT_PG_DEBUG === "1";
-  const suffix = debug && err.message ? ` [${err.message}]` : "";
+  const suffix = IMPORT_PG_DEBUG && err.message ? ` [${err.message}]` : "";
   switch (err.code) {
     case "23505":
       return `Duplicate key — another row with this code already exists${suffix}`;
@@ -3819,8 +3820,6 @@ async function runBulkImportBatch(
 
         await client.query("ROLLBACK TO SAVEPOINT bulk_row");
         const userMessage = mapPgError(pgErr);
-        // Log the raw message + code for server-side triage; the caller
-        // only ever sees the sanitised `userMessage`.
         logger.error("element import row failed", {
           orgId,
           rowNumber: row.rowNumber,
