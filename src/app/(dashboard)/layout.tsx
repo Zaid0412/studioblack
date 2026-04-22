@@ -7,44 +7,11 @@ import { UserRoleProvider } from "@/contexts/UserRoleContext";
 import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { deriveInitials } from "@/lib/utils";
+import { deriveEffectiveRole } from "@/lib/effectiveRole";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
 import type { User } from "@/types";
-
-/**
- * Derive the effective app role from the user's org membership.
- *
- * better-auth org roles → app roles:
- *   owner / admin → "pm"
- *   member        → "architect"
- *
- * Falls back to user.role for users without an org (e.g. clients).
- */
-async function getEffectiveRole(
-  userId: string,
-  orgId: string | null | undefined,
-  fallbackRole: string | null | undefined
-): Promise<"pm" | "architect" | "client"> {
-  // user.role is authoritative for clients — changing a client's org role
-  // alone won't promote them; their user.role must also be updated in the DB.
-  if (fallbackRole === "client") return "client";
-  if (!orgId) return (fallbackRole as "pm" | "architect") ?? "pm";
-
-  const members = await auth.api.listMembers({
-    headers: await headers(),
-    query: { organizationId: orgId },
-  });
-
-  const me = members?.members?.find(
-    (m: { userId: string }) => m.userId === userId
-  );
-
-  if (me?.role === "owner" || me?.role === "admin") return "pm";
-  if (me?.role === "client") return "client";
-  if (me?.role === "member") return "architect";
-  return (fallbackRole as "pm" | "architect") ?? "pm";
-}
 
 /**
  * Dashboard layout — protected, all authenticated roles.
@@ -83,7 +50,7 @@ export default async function DashboardLayout({
     }
   }
 
-  const effectiveRole = await getEffectiveRole(
+  const effectiveRole = await deriveEffectiveRole(
     session.user.id,
     orgId,
     session.user.role
