@@ -1,4 +1,12 @@
-import type { TaskStatus, TaskPriority, TaskCategory } from "@/lib/validations";
+import type {
+  TaskStatus,
+  TaskPriority,
+  TaskCategory,
+  BoqStatus,
+  BoqItemLifecycleStatus,
+  BoqItemClientApprovalStatus,
+  BoqItemPoStatus,
+} from "@/lib/validations";
 
 /** Roles available to authenticated users. */
 export type UserRole = "pm" | "architect" | "client";
@@ -406,4 +414,114 @@ export interface ElementAttribute {
 export interface ElementWithDetails extends Element {
   attributes: ElementAttribute[];
   category_path: string[] | null;
+}
+
+// ---------------------------------------------------------------------------
+// BOQ (Bill of Quantities) — Feature 4
+// ---------------------------------------------------------------------------
+
+/** A Bill of Quantities header row. One BOQ per project (for now). */
+export interface Boq {
+  id: string;
+  project_id: string;
+  title: string;
+  version: number;
+  status: BoqStatus;
+  currency: string;
+  exchange_rate: string;
+  contingency_pct: string;
+  vat_pct: string;
+  minimum_margin_pct: string;
+  client_id: string | null;
+  architect_id: string | null;
+  issued_date: string | null;
+  approved_date: string | null;
+  notes: string | null;
+  client_notes: string | null;
+  snapshot: unknown | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A section grouping within a BOQ (e.g., "Civil", "Electrical"). */
+export interface BoqSection {
+  id: string;
+  boq_id: string;
+  title: string;
+  sort_order: number;
+  description: string | null;
+  budget_cap: string | null;
+  is_visible_to_client: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A BOQ line item (raw DB row, no computed cost columns). */
+export interface BoqItem {
+  id: string;
+  boq_id: string;
+  section_id: string | null;
+  element_id: string | null;
+  item_code: string;
+  description: string;
+  unit: string;
+  quantity: string;
+  unit_cost: string;
+  material_cost: string | null;
+  labour_cost: string | null;
+  overhead_pct: string;
+  margin_pct: string;
+  lifecycle_status: BoqItemLifecycleStatus;
+  client_approval_status: BoqItemClientApprovalStatus;
+  client_approved_at: string | null;
+  client_approved_by: string | null;
+  requires_reapproval: boolean;
+  element_archived: boolean;
+  installed_qty: string;
+  has_snag: boolean;
+  po_status: BoqItemPoStatus;
+  notes: string | null;
+  client_notes: string | null;
+  sort_order: number;
+  is_provisional: boolean;
+  is_excluded: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** BOQ line item with derived cost columns (computed in SELECT, not stored). */
+export interface BoqItemWithComputed extends BoqItem {
+  total_cost: string;
+  subtotal: string;
+  sell_price: string;
+  progress_pct: string;
+  margin_alert: boolean;
+}
+
+/** Aggregate totals for a BOQ (used by /summary and the full-BOQ response). */
+export interface BoqSummary {
+  total_cost: string;
+  total_sell_price: string;
+  subtotal: string;
+  pre_vat_total: string;
+  client_total: string;
+  average_margin_pct: string;
+  margin_bleed_count: number;
+  pending_approvals: number;
+  item_count: number;
+  section_totals: Array<{
+    section_id: string | null;
+    section_title: string | null;
+    total_cost: string;
+    total_sell_price: string;
+    item_count: number;
+  }>;
+}
+
+/** Full BOQ payload — header + sections + items (with computed) + summary. */
+export interface BoqWithDetails extends Boq {
+  sections: BoqSection[];
+  items: BoqItemWithComputed[];
+  summary: BoqSummary;
 }

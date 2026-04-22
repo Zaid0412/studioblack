@@ -306,6 +306,36 @@ vi.mock("@/lib/queries", () => ({
       this.name = "EmailTakenError";
     }
   },
+  // BOQ (Feature 4)
+  verifyBoqOwnership: vi.fn().mockResolvedValue(true),
+  verifyBoqSectionOwnership: vi.fn().mockResolvedValue(true),
+  verifyBoqItemOwnership: vi.fn().mockResolvedValue(true),
+  createBoq: vi.fn(),
+  getBoq: vi.fn().mockResolvedValue(null),
+  getBoqByProject: vi.fn().mockResolvedValue(null),
+  updateBoq: vi.fn().mockResolvedValue(null),
+  createBoqSection: vi.fn(),
+  updateBoqSection: vi.fn().mockResolvedValue(null),
+  deleteBoqSection: vi.fn().mockResolvedValue(true),
+  reorderBoqSections: vi.fn().mockResolvedValue(undefined),
+  createBoqItem: vi.fn(),
+  updateBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  deleteBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  reorderBoqItems: vi.fn().mockResolvedValue(undefined),
+  addElementToBoq: vi.fn().mockResolvedValue(null),
+  getBoqSummary: vi.fn().mockResolvedValue({
+    total_cost: "0",
+    total_sell_price: "0",
+    subtotal: "0",
+    pre_vat_total: "0",
+    client_total: "0",
+    average_margin_pct: "0",
+    margin_bleed_count: 0,
+    pending_approvals: 0,
+    item_count: 0,
+    section_totals: [],
+  }),
+  getNextSequenceNumber: vi.fn().mockResolvedValue("BOQ-2026-001"),
 }));
 
 // ── Export mock handles for test files ───────────────────────────────────────
