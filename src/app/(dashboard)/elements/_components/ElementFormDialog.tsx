@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/TagInput";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
+import { UnitSelect } from "@/components/ui/UnitSelect";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -24,14 +25,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import { type ElementUnit } from "@/lib/validations";
 import { API } from "@/lib/api/routes";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
@@ -260,27 +254,12 @@ export function ElementFormDialog({
               tree={categoryTree}
             />
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                {t("fieldUnit")}
-                <span className="text-error ml-0.5">*</span>
-              </label>
-              <Select
-                value={values.unit}
-                onValueChange={(v) => setField("unit", v as ElementUnit)}
-              >
-                <SelectTrigger className="h-auto px-4 py-3">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ALLOWED_UNITS.map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <UnitSelect
+              label={t("fieldUnit")}
+              value={values.unit}
+              onChange={(u) => setField("unit", u)}
+              required
+            />
 
             <CurrencySelect
               label={t("fieldCurrency")}
