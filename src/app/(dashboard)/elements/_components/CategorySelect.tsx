@@ -169,7 +169,12 @@ export function CategorySelect({ value, onChange, tree, label }: Props) {
               />
             </div>
 
-            <div className="max-h-[240px] overflow-y-auto py-1">
+            <div
+              className="max-h-[240px] overflow-y-auto py-1"
+              onWheel={(e) => {
+                e.currentTarget.scrollTop += e.deltaY;
+              }}
+            >
               <button
                 type="button"
                 onClick={() => {

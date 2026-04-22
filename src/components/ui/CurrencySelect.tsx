@@ -120,7 +120,12 @@ export function CurrencySelect({
                 autoFocus
               />
             </div>
-            <div className="max-h-[280px] overflow-y-auto py-1">
+            <div
+              className="max-h-[280px] overflow-y-auto py-1"
+              onWheel={(e) => {
+                e.currentTarget.scrollTop += e.deltaY;
+              }}
+            >
               {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-text-muted text-center">
                   {t("noResults")}
