@@ -1,7 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
-vi.unmock("@/lib/queries");
-import { escapeSqlLike } from "@/lib/queries";
+import { escapeSqlLike } from "@/lib/queries/helpers";
 
 describe("escapeSqlLike", () => {
   it("escapes percent wildcard", () => {

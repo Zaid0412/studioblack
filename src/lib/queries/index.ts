@@ -1,8 +1,10 @@
 /**
  * Barrel re-export. Consumers import `from "@/lib/queries"`; query implementations
  * live in the sibling domain files.
+ *
+ * `./helpers` is intentionally NOT re-exported — `escapeSqlLike` and
+ * `generateBetterAuthId` are internal utilities for the query layer itself.
  */
-export * from "./helpers";
 export * from "./roles";
 export * from "./users";
 export * from "./projects";
