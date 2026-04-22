@@ -732,6 +732,31 @@ describe("upload", () => {
     );
   });
 
+  it("uploadFile — throws ApiError when the Supabase PUT fails", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        okJson({
+          signedUrl: "https://storage.supabase.co/upload?token=abc",
+          publicUrl: "https://example.com/file.pdf",
+        })
+      )
+      .mockResolvedValueOnce(new Response("cors blocked", { status: 403 }));
+
+    const { ApiError } = await import("@/lib/api/client");
+    const file = new File(["content"], "file.pdf", {
+      type: "application/pdf",
+    });
+
+    let thrown: unknown;
+    try {
+      await upload.uploadFile(file);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as InstanceType<typeof ApiError>).status).toBe(403);
+  });
+
   it("uploadAvatar — posts FormData to the avatar URL", async () => {
     mockFetch.mockResolvedValue(okJson({ url: "https://example.com/av.jpg" }));
 

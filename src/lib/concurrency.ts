@@ -9,7 +9,11 @@ export async function runWithConcurrency<T>(
   limit: number,
   worker: (item: T, index: number) => Promise<void>
 ): Promise<void> {
+  if (!Number.isFinite(limit) || limit < 1) {
+    throw new Error("runWithConcurrency: limit must be >= 1");
+  }
   if (items.length === 0) return;
+
   let cursor = 0;
   let firstError: unknown = null;
 

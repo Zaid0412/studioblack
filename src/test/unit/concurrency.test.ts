@@ -9,6 +9,38 @@ describe("runWithConcurrency", () => {
     expect(worker).not.toHaveBeenCalled();
   });
 
+  it("throws when limit is less than 1", async () => {
+    await expect(runWithConcurrency([1, 2, 3], 0, vi.fn())).rejects.toThrow(
+      /limit must be >= 1/
+    );
+    await expect(runWithConcurrency([1, 2, 3], -2, vi.fn())).rejects.toThrow(
+      /limit must be >= 1/
+    );
+    await expect(
+      runWithConcurrency([1, 2, 3], Number.NaN, vi.fn())
+    ).rejects.toThrow(/limit must be >= 1/);
+  });
+
+  it("runs items strictly sequentially when limit=1", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    await runWithConcurrency([1, 2, 3, 4], 1, async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 2));
+      inFlight--;
+    });
+    expect(peak).toBe(1);
+  });
+
+  it("processes all items even when limit exceeds items.length", async () => {
+    const seen: number[] = [];
+    await runWithConcurrency([1, 2, 3], 10, async (_item, i) => {
+      seen.push(i);
+    });
+    expect(seen.sort()).toEqual([0, 1, 2]);
+  });
+
   it("processes every item exactly once with its index", async () => {
     const seen: Array<[string, number]> = [];
     await runWithConcurrency(["a", "b", "c", "d"], 2, async (item, i) => {

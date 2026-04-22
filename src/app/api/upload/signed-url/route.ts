@@ -11,6 +11,10 @@ import { ATTACHMENT_EXTENSIONS, sanitizeFilename } from "@/lib/upload/validate";
 // 50 MB upload through a route handler is not an option. Instead the client
 // asks this endpoint for a short-lived signed URL and PUTs the file straight
 // to Supabase Storage.
+//
+// The fileSize check below is advisory — Supabase only enforces the cap on
+// the subsequent PUT if `file_size_limit` is set on the `attachments` bucket
+// row. See scripts/migrate-attachments-bucket.sql; run it once per env.
 
 const BodySchema = z.object({
   fileName: z.string().min(1).max(255),
