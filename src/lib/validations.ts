@@ -52,6 +52,48 @@ export const PHASE_TASK_STATUSES = [
 ] as const;
 export const APPROVAL_DECISIONS = ["approved", "changes_requested"] as const;
 
+// ─── BOQ (Feature 4) ────────────────────────────────────────────────────────
+
+export const BOQ_STATUSES = [
+  "draft",
+  "submitted_to_client",
+  "client_approved",
+  "locked",
+  "superseded",
+] as const;
+export type BoqStatus = (typeof BOQ_STATUSES)[number];
+
+export const BOQ_ITEM_LIFECYCLE_STATUSES = [
+  "draft",
+  "submitted",
+  "approved",
+  "rejected",
+  "queried",
+  "locked",
+  "change_order_pending",
+  "superseded",
+] as const;
+export type BoqItemLifecycleStatus =
+  (typeof BOQ_ITEM_LIFECYCLE_STATUSES)[number];
+
+export const BOQ_ITEM_CLIENT_APPROVAL_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+  "queried",
+] as const;
+export type BoqItemClientApprovalStatus =
+  (typeof BOQ_ITEM_CLIENT_APPROVAL_STATUSES)[number];
+
+export const BOQ_ITEM_PO_STATUSES = [
+  "none",
+  "rfq_issued",
+  "quoted",
+  "po_raised",
+  "delivered",
+] as const;
+export type BoqItemPoStatus = (typeof BOQ_ITEM_PO_STATUSES)[number];
+
 // ─── Reusable primitives ────────────────────────────────────────────────────
 
 const uuid = z.string().uuid();
@@ -384,6 +426,116 @@ export const importElementRowSchema = z.object({
 export const importConfirmSchema = z.object({
   strategy: z.enum(DUPLICATE_STRATEGIES),
   rows: z.array(importElementRowSchema).min(1).max(10_000),
+});
+
+// ─── BOQ (Feature 4) ────────────────────────────────────────────────────────
+
+const money = z.coerce.number().min(0).finite();
+const quantity = z.coerce.number().min(0).finite();
+const boqPercent = z.coerce.number().min(0).max(100).finite();
+/** Optimistic-lock token — clients echo the row's `updated_at` on mutations. */
+const updatedAtToken = z.string().min(1);
+
+export const createBoqSchema = z.object({
+  title: trimmedString.max(255),
+  currency: z.string().length(3).optional(),
+  exchangeRate: z.coerce.number().positive().finite().optional(),
+  contingencyPct: boqPercent.optional(),
+  vatPct: boqPercent.optional(),
+  minimumMarginPct: boqPercent.optional(),
+  clientId: optionalUserId.nullable(),
+  architectId: optionalUserId.nullable(),
+  notes: z.string().optional().nullable(),
+  clientNotes: z.string().optional().nullable(),
+});
+
+export const updateBoqSchema = z.object({
+  title: z.string().trim().min(1).max(255).optional(),
+  currency: z.string().length(3).optional(),
+  exchangeRate: z.coerce.number().positive().finite().optional(),
+  contingencyPct: boqPercent.optional(),
+  vatPct: boqPercent.optional(),
+  minimumMarginPct: boqPercent.optional(),
+  clientId: z.string().min(1).nullable().optional(),
+  architectId: z.string().min(1).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  clientNotes: z.string().nullable().optional(),
+});
+
+export const createBoqSectionSchema = z.object({
+  title: trimmedString.max(255),
+  description: z.string().optional().nullable(),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+  budgetCap: money.optional().nullable(),
+  isVisibleToClient: z.boolean().optional(),
+});
+
+export const updateBoqSectionSchema = z.object({
+  title: z.string().trim().min(1).max(255).optional(),
+  description: z.string().nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+  budgetCap: money.nullable().optional(),
+  isVisibleToClient: z.boolean().optional(),
+});
+
+export const reorderSectionsSchema = z.object({
+  orderedIds: z.array(uuid).min(1),
+});
+
+export const createBoqItemSchema = z.object({
+  sectionId: optionalUuid.nullable(),
+  elementId: optionalUuid.nullable(),
+  itemCode: z.string().trim().max(50).optional(),
+  description: trimmedString,
+  unit: trimmedString.max(30),
+  quantity: quantity.optional(),
+  unitCost: money.optional(),
+  materialCost: money.optional().nullable(),
+  labourCost: money.optional().nullable(),
+  overheadPct: boqPercent.optional(),
+  marginPct: boqPercent.optional(),
+  notes: z.string().optional().nullable(),
+  clientNotes: z.string().optional().nullable(),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+  isProvisional: z.boolean().optional(),
+  isExcluded: z.boolean().optional(),
+});
+
+export const updateBoqItemSchema = z.object({
+  updatedAt: updatedAtToken,
+  sectionId: z.string().uuid().nullable().optional(),
+  itemCode: z.string().trim().max(50).optional(),
+  description: z.string().trim().min(1).optional(),
+  unit: z.string().trim().min(1).max(30).optional(),
+  quantity: quantity.optional(),
+  unitCost: money.optional(),
+  materialCost: money.nullable().optional(),
+  labourCost: money.nullable().optional(),
+  overheadPct: boqPercent.optional(),
+  marginPct: boqPercent.optional(),
+  lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
+  clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
+  installedQty: quantity.optional(),
+  notes: z.string().nullable().optional(),
+  clientNotes: z.string().nullable().optional(),
+  sortOrder: z.coerce.number().int().min(0).optional(),
+  isProvisional: z.boolean().optional(),
+  isExcluded: z.boolean().optional(),
+});
+
+export const deleteBoqItemSchema = z.object({
+  updatedAt: updatedAtToken,
+});
+
+export const reorderItemsSchema = z.object({
+  sectionId: z.string().uuid().nullable(),
+  orderedIds: z.array(uuid).min(1),
+});
+
+export const addElementToBoqSchema = z.object({
+  sectionId: z.string().uuid().nullable(),
+  elementId: uuid,
+  quantity: quantity.default(1),
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────

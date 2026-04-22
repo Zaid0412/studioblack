@@ -93,4 +93,15 @@ export const API = {
 
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",
+
+  // ── BOQ (Feature 4) ─────────────────────────────
+  boq:                   (pid: string)                       => `/api/projects/${pid}/boq`,
+  boqSummary:            (pid: string)                       => `/api/projects/${pid}/boq/summary`,
+  boqSections:           (pid: string)                       => `/api/projects/${pid}/boq/sections`,
+  boqSection:            (pid: string, sid: string)          => `/api/projects/${pid}/boq/sections/${sid}`,
+  boqSectionsReorder:    (pid: string)                       => `/api/projects/${pid}/boq/sections/reorder`,
+  boqItems:              (pid: string)                       => `/api/projects/${pid}/boq/items`,
+  boqItem:               (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}`,
+  boqItemsReorder:       (pid: string)                       => `/api/projects/${pid}/boq/items/reorder`,
+  boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
 } as const;
