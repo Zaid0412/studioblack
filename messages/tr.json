@@ -835,6 +835,7 @@
     "importSummary": "{total} satır — {valid} geçerli, {errors} hatalı",
     "importStatus": "Durum",
     "importStatusValid": "Geçerli",
+    "importStatusWarning": "Kontrol et",
     "importStatusError": "Hata",
     "importStrategyDesc": "Kodu mevcut bir elementle eşleşen satırların nasıl işleneceğini seçin.",
     "importStrategy_skip": "Yinelenenleri atla",

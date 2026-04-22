@@ -835,6 +835,7 @@
     "importSummary": "{total} rows — {valid} valid, {errors} with errors",
     "importStatus": "Status",
     "importStatusValid": "Valid",
+    "importStatusWarning": "Check",
     "importStatusError": "Error",
     "importStrategyDesc": "Choose how to handle rows whose code matches an existing element.",
     "importStrategy_skip": "Skip duplicates",

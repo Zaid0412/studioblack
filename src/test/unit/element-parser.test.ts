@@ -324,6 +324,29 @@ describe("parseElementSheet cell extraction", () => {
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].parsed?.unitCost).toBe(1234.56);
   });
+
+  it("warns on ambiguous single-comma/3-digit values (1,234 → 1.234 + warning)", async () => {
+    // "1,234" could be decimal (1.234) or thousands (1234). Parser picks
+    // decimal to match the Turkey-market default but flags the row so the
+    // preview can surface a "check this" notice.
+    const buf = await buildSheet(HEADERS, [
+      ["A", "B", "Flooring", "m2", "1,234", "TRY", 0, ""],
+    ]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    expect(result.rows[0].status).toBe("valid");
+    expect(result.rows[0].parsed?.unitCost).toBe(1.234);
+    expect(result.rows[0].warnings.length).toBeGreaterThan(0);
+    expect(result.rows[0].warnings[0]).toMatch(/Unit Cost/);
+  });
+
+  it("does not warn on unambiguous single-comma/2-digit values (1,5)", async () => {
+    const buf = await buildSheet(HEADERS, [
+      ["A", "B", "Flooring", "m2", "1,5", "TRY", 0, ""],
+    ]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    expect(result.rows[0].parsed?.unitCost).toBe(1.5);
+    expect(result.rows[0].warnings).toEqual([]);
+  });
 });
 
 // ── Category path edge cases ────────────────────────────────────────────────

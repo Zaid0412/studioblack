@@ -48,6 +48,29 @@ function memCacheSet(key: string, result: BulkElementImportResult): void {
   memoryCache.set(key, { at: Date.now(), result });
 }
 
+/**
+ * Stable, field-sorted JSON. `JSON.stringify` preserves object key insertion
+ * order, so two semantically identical payloads that differ only in key order
+ * (e.g. one client sends `{code, name}`, another sends `{name, code}`) would
+ * hash to different keys and bypass the idempotency cache. Sort recursively
+ * so the hash is a function of content alone.
+ */
+function canonicalStringify(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value))
+    return `[${value.map(canonicalStringify).join(",")}]`;
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const body = keys
+    .map(
+      (k) =>
+        `${JSON.stringify(k)}:${canonicalStringify(
+          (value as Record<string, unknown>)[k]
+        )}`
+    )
+    .join(",");
+  return `{${body}}`;
+}
+
 function idempotencyKey(
   orgId: string,
   userId: string,
@@ -56,7 +79,7 @@ function idempotencyKey(
 ): string {
   const hash = crypto.createHash("sha256");
   hash.update(`${orgId}:${userId}:${strategy}:`);
-  hash.update(JSON.stringify(rows));
+  hash.update(canonicalStringify(rows));
   return hash.digest("hex");
 }
 

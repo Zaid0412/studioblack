@@ -423,6 +423,10 @@ export function ImportDialog({
 
             {/* Row table */}
             {parse.rows.length > 0 && (
+              // No onWheel normalization here: this scroll area lives inside
+              // the Dialog subtree, which react-remove-scroll whitelists. The
+              // SearchableDropdown helper exists for portaled Popovers where
+              // wheel events get cancelled.
               <div className="max-h-[360px] overflow-y-auto rounded-md border border-border-default">
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 bg-bg-elevated">
@@ -464,6 +468,7 @@ export function ImportDialog({
                         onToggle={() => toggleRow(row.rowNumber)}
                         validLabel={t("importStatusValid")}
                         errorLabel={t("importStatusError")}
+                        warningLabel={t("importStatusWarning")}
                       />
                     ))}
                   </tbody>
@@ -641,21 +646,26 @@ function PreviewRow({
   onToggle,
   validLabel,
   errorLabel,
+  warningLabel,
 }: {
   row: ParsedElementRow;
   checked: boolean;
   onToggle: () => void;
   validLabel: string;
   errorLabel: string;
+  warningLabel: string;
 }) {
   const isValid = row.status === "valid";
+  const hasWarnings = row.warnings.length > 0;
   const raw = row.raw;
   return (
     <>
       <tr
-        className={`border-t border-border-default ${
-          isValid ? "" : "bg-error/5"
-        }`}
+        className={cn(
+          "border-t border-border-default",
+          !isValid && "bg-error/5",
+          isValid && hasWarnings && "bg-warning/5"
+        )}
       >
         <td className="px-3 py-1.5">
           {isValid && <Checkbox checked={checked} onCheckedChange={onToggle} />}
@@ -674,10 +684,12 @@ function PreviewRow({
           {rawCell(raw, "Unit Cost")}
         </td>
         <td className="px-2 py-1.5">
-          {isValid ? (
-            <Badge variant="success">{validLabel}</Badge>
-          ) : (
+          {!isValid ? (
             <Badge variant="error">{errorLabel}</Badge>
+          ) : hasWarnings ? (
+            <Badge variant="warning">{warningLabel}</Badge>
+          ) : (
+            <Badge variant="success">{validLabel}</Badge>
           )}
         </td>
       </tr>
@@ -688,6 +700,18 @@ function PreviewRow({
             <ul className="list-disc pl-4 text-[11px] text-error space-y-0.5">
               {row.errors.map((err, i) => (
                 <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </td>
+        </tr>
+      )}
+      {isValid && hasWarnings && (
+        <tr className="bg-warning/5">
+          <td className="px-3 pb-2" />
+          <td colSpan={6} className="px-2 pb-2">
+            <ul className="list-disc pl-4 text-[11px] text-warning space-y-0.5">
+              {row.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
               ))}
             </ul>
           </td>

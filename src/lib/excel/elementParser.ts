@@ -33,6 +33,12 @@ export interface ParsedElementRow {
   parsed: ParsedElementValues | null;
   status: "valid" | "error";
   errors: string[];
+  /**
+   * Non-fatal notes surfaced in the preview. Currently used to flag locale
+   * decimal-comma ambiguity ("1,234" → 1.234 vs 1234) so the user can catch
+   * a misparse before committing.
+   */
+  warnings: string[];
 }
 
 export interface ParseResult {
@@ -191,6 +197,17 @@ function cellText(value: unknown): string {
   return String(value).trim();
 }
 
+export interface CellNumberResult {
+  value: number | null;
+  /**
+   * True when the text-path decimal heuristic fired on a 3-trailing-digit
+   * single-comma input (e.g. `"1,234"`). The value is returned as decimal
+   * (1.234) per the Turkey-market default, but the caller should surface
+   * a row-level warning so the user can sanity-check the parse.
+   */
+  ambiguous: boolean;
+}
+
 /**
  * Parse a cell value to a number, with locale heuristics for TR/EU decimal
  * formatting. Excel-sourced numbers hit the `typeof number` fast-path; only
@@ -201,27 +218,29 @@ function cellText(value: unknown): string {
  *   - `"1,234.56"` → `1234.56` (dot is decimal when it appears last)
  *   - `"1,5"` → `1.5` (single comma, 1–3 trailing digits → decimal)
  *   - `"1,234"` with 3 trailing digits ambiguous — treated as decimal per
- *     the Turkey-market default. Excel-native cells avoid this path.
+ *     the Turkey-market default, and flagged via `ambiguous: true` so the
+ *     caller can emit a preview warning. Excel-native cells avoid this path.
  */
-function cellNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
+function cellNumber(value: unknown): CellNumberResult {
+  if (value === null || value === undefined || value === "")
+    return { value: null, ambiguous: false };
+  if (typeof value === "number" && Number.isFinite(value))
+    return { value, ambiguous: false };
   const text = cellText(value);
-  if (text === "") return null;
+  if (text === "") return { value: null, ambiguous: false };
 
   const cleaned = text.replace(/\s/g, "");
   const hasComma = cleaned.includes(",");
   const hasDot = cleaned.includes(".");
   let normalized = cleaned;
+  let ambiguous = false;
 
   if (hasComma && hasDot) {
     const lastComma = cleaned.lastIndexOf(",");
     const lastDot = cleaned.lastIndexOf(".");
     if (lastComma > lastDot) {
-      // EU: "1.234,56" → "1234.56"
       normalized = cleaned.replace(/\./g, "").replace(",", ".");
     } else {
-      // US: "1,234.56" → "1234.56"
       normalized = cleaned.replace(/,/g, "");
     }
   } else if (hasComma) {
@@ -231,13 +250,18 @@ function cellNumber(value: unknown): number | null {
     const leading = onlyOneComma ? parts[0] : "";
     const looksDecimal =
       onlyOneComma && /^\d{1,3}$/.test(trailing) && /^-?\d+$/.test(leading);
-    normalized = looksDecimal
-      ? `${leading}.${trailing}`
-      : cleaned.replace(/,/g, "");
+    if (looksDecimal) {
+      normalized = `${leading}.${trailing}`;
+      // "1,234" could be thousands-separator (1234) or decimal (1.234);
+      // flag the caller so the preview can ask for confirmation.
+      if (trailing.length === 3) ambiguous = true;
+    } else {
+      normalized = cleaned.replace(/,/g, "");
+    }
   }
 
   const n = Number(normalized);
-  return Number.isFinite(n) ? n : null;
+  return { value: Number.isFinite(n) ? n : null, ambiguous };
 }
 
 // ── Parse ───────────────────────────────────────────────────────────────────
@@ -344,6 +368,7 @@ export async function parseElementSheet(
     }
 
     const errors: string[] = [];
+    const warnings: string[] = [];
     const values: Partial<ParsedElementValues> = { rowNumber: dataRowIndex };
 
     // ── Required strings
@@ -375,14 +400,22 @@ export async function parseElementSheet(
       values.unit = rawUnit as ElementUnit;
     }
 
+    const noteAmbiguous = (label: string, raw: string, parsed: number) => {
+      warnings.push(
+        `${label} "${raw}" is ambiguous — parsed as ${parsed}. Edit the sheet if this is wrong.`
+      );
+    };
+
     // ── Unit cost
-    const unitCost = cellNumber(byKey.unitCost);
-    if (unitCost === null) {
+    const unitCostResult = cellNumber(byKey.unitCost);
+    if (unitCostResult.value === null) {
       errors.push("Unit Cost is required");
-    } else if (unitCost < 0) {
+    } else if (unitCostResult.value < 0) {
       errors.push("Unit Cost must be zero or positive");
     } else {
-      values.unitCost = unitCost;
+      values.unitCost = unitCostResult.value;
+      if (unitCostResult.ambiguous)
+        noteAmbiguous("Unit Cost", byKey.unitCost ?? "", unitCostResult.value);
     }
 
     // ── Optional numerics
@@ -392,10 +425,14 @@ export async function parseElementSheet(
     ] as const) {
       const v = byKey[k];
       if (v !== undefined && v !== "") {
-        const n = cellNumber(v);
-        if (n === null) errors.push(`${label} must be a number`);
-        else if (n < 0) errors.push(`${label} must be zero or positive`);
-        else values[k] = n;
+        const res = cellNumber(v);
+        if (res.value === null) errors.push(`${label} must be a number`);
+        else if (res.value < 0)
+          errors.push(`${label} must be zero or positive`);
+        else {
+          values[k] = res.value;
+          if (res.ambiguous) noteAmbiguous(label, v, res.value);
+        }
       }
     }
     for (const [k, label] of [
@@ -404,11 +441,14 @@ export async function parseElementSheet(
     ] as const) {
       const v = byKey[k];
       if (v !== undefined && v !== "") {
-        const n = cellNumber(v);
-        if (n === null) errors.push(`${label} must be a number`);
-        else if (n < 0 || n > 100)
+        const res = cellNumber(v);
+        if (res.value === null) errors.push(`${label} must be a number`);
+        else if (res.value < 0 || res.value > 100)
           errors.push(`${label} must be between 0 and 100`);
-        else values[k] = n;
+        else {
+          values[k] = res.value;
+          if (res.ambiguous) noteAmbiguous(label, v, res.value);
+        }
       }
     }
 
@@ -484,6 +524,7 @@ export async function parseElementSheet(
       parsed: hasErrors ? null : (values as ParsedElementValues),
       status: hasErrors ? "error" : "valid",
       errors,
+      warnings,
     });
   }
 

@@ -3694,6 +3694,29 @@ async function runBulkImportBatchWithRetry(
   }
 }
 
+/**
+ * Map a pg error to a user-facing message. Raw `err.message` can leak
+ * constraint names, SQL snippets, and column identifiers that mean nothing
+ * to an end user (and nudge toward info disclosure). The debug flag is for
+ * local triage — production should keep the friendly message.
+ */
+function mapPgError(err: { code?: string; message?: string }): string {
+  const debug = process.env.IMPORT_PG_DEBUG === "1";
+  const suffix = debug && err.message ? ` [${err.message}]` : "";
+  switch (err.code) {
+    case "23505":
+      return `Duplicate key — another row with this code already exists${suffix}`;
+    case "23503":
+      return `Referenced record not found (foreign key)${suffix}`;
+    case "23514":
+      return `Value failed a database check constraint${suffix}`;
+    case "23502":
+      return `Required field is missing${suffix}`;
+    default:
+      return `Database error${err.code ? ` (${err.code})` : ""}${suffix}`;
+  }
+}
+
 async function runBulkImportBatch(
   pool: ReturnType<typeof getPool>,
   orgId: string,
@@ -3795,20 +3818,21 @@ async function runBulkImportBatch(
         if (pgErr.code === "40001") throw err;
 
         await client.query("ROLLBACK TO SAVEPOINT bulk_row");
-        const errorMessage =
-          pgErr.message ??
-          `Database error${pgErr.code ? ` (${pgErr.code})` : ""}`;
+        const userMessage = mapPgError(pgErr);
+        // Log the raw message + code for server-side triage; the caller
+        // only ever sees the sanitised `userMessage`.
         logger.error("element import row failed", {
           orgId,
           rowNumber: row.rowNumber,
           code: row.code,
           pgCode: pgErr.code,
-          error: errorMessage,
+          pgMessage: pgErr.message,
+          error: userMessage,
         });
         result.failed.push({
           rowNumber: row.rowNumber,
           code: row.code,
-          error: errorMessage,
+          error: userMessage,
         });
       }
     }
