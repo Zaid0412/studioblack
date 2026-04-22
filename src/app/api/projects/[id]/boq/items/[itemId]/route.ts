@@ -10,13 +10,8 @@ import {
   updateBoqItemSchema,
   deleteBoqItemSchema,
 } from "@/lib/validations";
+import { optimisticFailureResponse } from "../../_helpers";
 
-const CONFLICT_BODY = {
-  error: "This item was updated by another user. Please refresh.",
-  code: "OPTIMISTIC_LOCK_CONFLICT" as const,
-};
-
-/** PATCH /api/projects/[id]/boq/items/[itemId] — update item with optimistic lock. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
@@ -38,14 +33,10 @@ export const PATCH = withAuth(
 
     const outcome = await updateBoqItem(itemId, updatedAt, fields);
     if (outcome.ok) return NextResponse.json(outcome.item);
-    if (outcome.reason === "conflict") {
-      return NextResponse.json(CONFLICT_BODY, { status: 409 });
-    }
-    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    return optimisticFailureResponse(outcome.reason);
   }
 );
 
-/** DELETE /api/projects/[id]/boq/items/[itemId] — delete item with optimistic lock. */
 export const DELETE = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
@@ -66,9 +57,6 @@ export const DELETE = withAuth(
 
     const outcome = await deleteBoqItem(itemId, parsed.data.updatedAt);
     if (outcome.ok) return NextResponse.json({ ok: true });
-    if (outcome.reason === "conflict") {
-      return NextResponse.json(CONFLICT_BODY, { status: 409 });
-    }
-    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    return optimisticFailureResponse(outcome.reason);
   }
 );

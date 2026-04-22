@@ -1,37 +1,20 @@
 import { NextResponse } from "next/server";
-import { createBoqSection, verifyBoqOwnership } from "@/lib/queries";
+import { createBoqSection } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { parseBody, createBoqSectionSchema } from "@/lib/validations";
+import { createBoqSectionSchema } from "@/lib/validations";
+import { parseBoqRequest } from "../_helpers";
 
-/** POST /api/projects/[id]/boq/sections — create a section. Body requires `boqId`. */
 export const POST = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
-    const { id } = params;
+    const result = await parseBoqRequest(
+      req,
+      params.id,
+      createBoqSectionSchema
+    );
+    if (!result.ok) return result.response;
 
-    const raw = await req.json().catch(() => null);
-    if (!raw || typeof raw !== "object" || !("boqId" in raw)) {
-      return NextResponse.json({ error: "boqId is required" }, { status: 400 });
-    }
-    const { boqId, ...rest } = raw as { boqId: string } & Record<
-      string,
-      unknown
-    >;
-
-    const owned = await verifyBoqOwnership(boqId, id);
-    if (!owned) {
-      return NextResponse.json(
-        { error: "BOQ not found in this project" },
-        { status: 404 }
-      );
-    }
-
-    const parsed = parseBody(createBoqSectionSchema, rest);
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
-    }
-
-    const section = await createBoqSection(boqId, parsed.data);
+    const section = await createBoqSection(result.boqId, result.data);
     return NextResponse.json(section, { status: 201 });
   }
 );

@@ -88,7 +88,10 @@ CREATE TABLE IF NOT EXISTS sequence_counter (
 );
 
 CREATE INDEX IF NOT EXISTS idx_boq_project ON boq(project_id);
-CREATE INDEX IF NOT EXISTS idx_boq_section_boq ON boq_section(boq_id);
-CREATE INDEX IF NOT EXISTS idx_boq_item_boq ON boq_item(boq_id);
+CREATE INDEX IF NOT EXISTS idx_boq_project_version ON boq(project_id, version DESC);
+CREATE INDEX IF NOT EXISTS idx_boq_section_boq ON boq_section(boq_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_boq_item_boq ON boq_item(boq_id, section_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_boq_item_section ON boq_item(section_id);
 CREATE INDEX IF NOT EXISTS idx_boq_item_element ON boq_item(element_id);
+CREATE INDEX IF NOT EXISTS idx_boq_item_pending_approval
+  ON boq_item(boq_id) WHERE client_approval_status = 'pending';

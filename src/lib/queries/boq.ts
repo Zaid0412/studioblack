@@ -6,6 +6,10 @@ import type {
   BoqSummary,
   BoqWithDetails,
 } from "@/types";
+import type {
+  BoqItemLifecycleStatus,
+  BoqItemClientApprovalStatus,
+} from "@/lib/validations";
 
 /**
  * Computed cost columns for BOQ items, injected into SELECTs.
@@ -30,11 +34,6 @@ const ITEM_COMPUTED_COLS = `
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id`;
 
-// ---------------------------------------------------------------------------
-// Verification helpers (follow the verify*Ownership pattern in tasks.ts)
-// ---------------------------------------------------------------------------
-
-/** Verify a BOQ belongs to the given project. */
 export async function verifyBoqOwnership(
   boqId: string,
   projectId: string
@@ -47,7 +46,6 @@ export async function verifyBoqOwnership(
   return rows.length > 0;
 }
 
-/** Verify a BOQ section belongs to a BOQ that belongs to the given project. */
 export async function verifyBoqSectionOwnership(
   sectionId: string,
   projectId: string
@@ -62,7 +60,6 @@ export async function verifyBoqSectionOwnership(
   return rows.length > 0;
 }
 
-/** Verify a BOQ item belongs to a BOQ that belongs to the given project. */
 export async function verifyBoqItemOwnership(
   itemId: string,
   projectId: string
@@ -76,10 +73,6 @@ export async function verifyBoqItemOwnership(
   );
   return rows.length > 0;
 }
-
-// ---------------------------------------------------------------------------
-// BOQ header
-// ---------------------------------------------------------------------------
 
 export interface CreateBoqInput {
   title: string;
@@ -95,7 +88,6 @@ export interface CreateBoqInput {
   createdBy?: string | null;
 }
 
-/** Create a BOQ for a project. Returns the new row. */
 export async function createBoq(
   projectId: string,
   input: CreateBoqInput
@@ -126,7 +118,6 @@ export async function createBoq(
   return rows[0];
 }
 
-/** Get the active BOQ row for a project (header only, no sections/items). */
 export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   const pool = getPool();
   const { rows } = await pool.query<Boq>(
@@ -139,17 +130,11 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   return rows[0] ?? null;
 }
 
-/** Fetch full BOQ: header + sections + items (with computed) + summary. */
 export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   const pool = getPool();
 
-  const boqRes = await pool.query<Boq>(`SELECT * FROM boq WHERE id = $1`, [
-    boqId,
-  ]);
-  if (boqRes.rows.length === 0) return null;
-  const boq = boqRes.rows[0];
-
-  const [sectionsRes, itemsRes] = await Promise.all([
+  const [boqRes, sectionsRes, itemsRes, summary] = await Promise.all([
+    pool.query<Boq>(`SELECT * FROM boq WHERE id = $1`, [boqId]),
     pool.query<BoqSection>(
       `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
       [boqId]
@@ -158,12 +143,13 @@ export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
       `${ITEM_SELECT} WHERE bi.boq_id = $1 ORDER BY bi.sort_order, bi.created_at`,
       [boqId]
     ),
+    getBoqSummary(boqId),
   ]);
 
-  const summary = await getBoqSummary(boqId);
+  if (boqRes.rows.length === 0) return null;
 
   return {
-    ...boq,
+    ...boqRes.rows[0],
     sections: sectionsRes.rows,
     items: itemsRes.rows,
     summary,
@@ -185,7 +171,6 @@ const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   clientNotes: "client_notes",
 };
 
-/** Patch BOQ header fields. Returns updated row, or null if not found. */
 export async function updateBoq(
   boqId: string,
   input: UpdateBoqInput
@@ -213,10 +198,6 @@ export async function updateBoq(
   );
   return rows[0] ?? null;
 }
-
-// ---------------------------------------------------------------------------
-// BOQ sections
-// ---------------------------------------------------------------------------
 
 export interface CreateBoqSectionInput {
   title: string;
@@ -303,28 +284,14 @@ export async function reorderBoqSections(
   orderedIds: string[]
 ): Promise<void> {
   const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    for (let i = 0; i < orderedIds.length; i++) {
-      await client.query(
-        `UPDATE boq_section SET sort_order = $1, updated_at = now()
-         WHERE id = $2 AND boq_id = $3`,
-        [i, orderedIds[i], boqId]
-      );
-    }
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  await pool.query(
+    `UPDATE boq_section
+     SET sort_order = data.pos, updated_at = now()
+     FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
+     WHERE boq_section.id = data.id AND boq_section.boq_id = $3`,
+    [orderedIds, orderedIds.length - 1, boqId]
+  );
 }
-
-// ---------------------------------------------------------------------------
-// BOQ items
-// ---------------------------------------------------------------------------
 
 export interface CreateBoqItemInput {
   sectionId?: string | null;
@@ -408,8 +375,8 @@ export interface UpdateBoqItemInput {
   labourCost?: number | null;
   overheadPct?: number;
   marginPct?: number;
-  lifecycleStatus?: string;
-  clientApprovalStatus?: string;
+  lifecycleStatus?: BoqItemLifecycleStatus;
+  clientApprovalStatus?: BoqItemClientApprovalStatus;
   installedQty?: number;
   notes?: string | null;
   clientNotes?: string | null;
@@ -497,14 +464,10 @@ export async function updateBoqItem(
     return { ok: false, reason: "not_found" };
   }
 
-  // Auto-flip re-approval state when a material field changes on an approved item.
-  // Guard with NOT EXISTS-style clause: only apply if the current row is approved.
-  // If the caller ALSO sets client_approval_status explicitly, their value wins
-  // because we push the re-approval clauses first and the caller's clauses last
-  // would override — but easier: only auto-flip when caller didn't set it.
+  // Auto-flip re-approval only when the caller didn't explicitly set approval status;
+  // otherwise the caller's value would be overwritten.
   const callerSetApproval = input.clientApprovalStatus !== undefined;
   if (changedMaterialField && !callerSetApproval) {
-    // These set clauses are conditional on the current row state — use a CASE.
     setClauses.push(
       `requires_reapproval = CASE WHEN client_approval_status = 'approved' THEN true ELSE requires_reapproval END`
     );
@@ -566,42 +529,24 @@ export async function deleteBoqItem(
   };
 }
 
-/** Reorder items within a section. */
+/** Reorder items within a section (or the BOQ root if sectionId is null). */
 export async function reorderBoqItems(
   boqId: string,
   sectionId: string | null,
   orderedIds: string[]
 ): Promise<void> {
   const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    for (let i = 0; i < orderedIds.length; i++) {
-      await client.query(
-        sectionId === null
-          ? `UPDATE boq_item SET sort_order = $1, updated_at = now()
-             WHERE id = $2 AND boq_id = $3 AND section_id IS NULL`
-          : `UPDATE boq_item SET sort_order = $1, updated_at = now()
-             WHERE id = $2 AND boq_id = $3 AND section_id = $4`,
-        sectionId === null
-          ? [i, orderedIds[i], boqId]
-          : [i, orderedIds[i], boqId, sectionId]
-      );
-    }
-    await client.query("COMMIT");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
+  await pool.query(
+    `UPDATE boq_item
+     SET sort_order = data.pos, updated_at = now()
+     FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
+     WHERE boq_item.id = data.id
+       AND boq_item.boq_id = $3
+       AND boq_item.section_id IS NOT DISTINCT FROM $4::uuid`,
+    [orderedIds, orderedIds.length - 1, boqId, sectionId]
+  );
 }
 
-/**
- * Create a BOQ item from an element library entry — copies unit, costs, and
- * description from the element as defaults. `orgId` is used to generate the
- * item code; quantity defaults to 1 if not provided.
- */
 export async function addElementToBoq(
   boqId: string,
   orgId: string,
@@ -636,60 +581,55 @@ export async function addElementToBoq(
   });
 }
 
-// ---------------------------------------------------------------------------
-// BOQ summary
-// ---------------------------------------------------------------------------
-
-/** Totals, section breakdowns, and flags counts for a BOQ. */
 export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   const pool = getPool();
-  const boqRes = await pool.query(
-    `SELECT contingency_pct, vat_pct FROM boq WHERE id = $1`,
-    [boqId]
-  );
+  const [boqRes, aggRes, sectionRes] = await Promise.all([
+    pool.query(`SELECT contingency_pct, vat_pct FROM boq WHERE id = $1`, [
+      boqId,
+    ]),
+    pool.query(
+      `SELECT
+         COALESCE(SUM(bi.quantity * bi.unit_cost), 0) AS total_cost,
+         COALESCE(SUM(
+           bi.quantity * bi.unit_cost
+           * (1 + COALESCE(bi.overhead_pct, 0)/100)
+           * (1 + bi.margin_pct/100)
+         ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
+         COALESCE(AVG(bi.margin_pct), 0) FILTER (WHERE NOT bi.is_excluded) AS average_margin_pct,
+         COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
+         COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
+         COUNT(*) AS item_count
+       FROM boq_item bi
+       JOIN boq b ON b.id = bi.boq_id
+       WHERE bi.boq_id = $1`,
+      [boqId]
+    ),
+    pool.query(
+      `SELECT
+         bi.section_id,
+         s.title AS section_title,
+         COALESCE(SUM(bi.quantity * bi.unit_cost), 0) AS total_cost,
+         COALESCE(SUM(
+           bi.quantity * bi.unit_cost
+           * (1 + COALESCE(bi.overhead_pct, 0)/100)
+           * (1 + bi.margin_pct/100)
+         ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
+         COUNT(*) AS item_count
+       FROM boq_item bi
+       LEFT JOIN boq_section s ON s.id = bi.section_id
+       WHERE bi.boq_id = $1
+       GROUP BY bi.section_id, s.title
+       ORDER BY s.sort_order NULLS LAST, s.title`,
+      [boqId]
+    ),
+  ]);
+
   const contingencyPct = Number(boqRes.rows[0]?.contingency_pct ?? 0);
   const vatPct = Number(boqRes.rows[0]?.vat_pct ?? 0);
-
-  const aggRes = await pool.query(
-    `SELECT
-       COALESCE(SUM(bi.quantity * bi.unit_cost), 0) AS total_cost,
-       COALESCE(SUM(
-         bi.quantity * bi.unit_cost
-         * (1 + COALESCE(bi.overhead_pct, 0)/100)
-         * (1 + bi.margin_pct/100)
-       ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
-       COALESCE(AVG(bi.margin_pct), 0) FILTER (WHERE NOT bi.is_excluded) AS average_margin_pct,
-       COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
-       COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
-       COUNT(*) AS item_count
-     FROM boq_item bi
-     JOIN boq b ON b.id = bi.boq_id
-     WHERE bi.boq_id = $1`,
-    [boqId]
-  );
   const agg = aggRes.rows[0] ?? {};
   const subtotal = Number(agg.total_sell_price ?? 0);
   const preVat = subtotal * (1 + contingencyPct / 100);
   const clientTotal = preVat * (1 + vatPct / 100);
-
-  const sectionRes = await pool.query(
-    `SELECT
-       bi.section_id,
-       s.title AS section_title,
-       COALESCE(SUM(bi.quantity * bi.unit_cost), 0) AS total_cost,
-       COALESCE(SUM(
-         bi.quantity * bi.unit_cost
-         * (1 + COALESCE(bi.overhead_pct, 0)/100)
-         * (1 + bi.margin_pct/100)
-       ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
-       COUNT(*) AS item_count
-     FROM boq_item bi
-     LEFT JOIN boq_section s ON s.id = bi.section_id
-     WHERE bi.boq_id = $1
-     GROUP BY bi.section_id, s.title
-     ORDER BY s.sort_order NULLS LAST, s.title`,
-    [boqId]
-  );
 
   return {
     total_cost: String(agg.total_cost ?? 0),
@@ -711,14 +651,9 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Sequence counter (for RFQ-2026-001, PO-…, BOQ-… auto-numbering)
-// ---------------------------------------------------------------------------
-
 /**
  * Atomically increment (or create) the counter for `(orgId, prefix, year)` and
- * return a formatted sequence string like `BOQ-2026-001`. Used to auto-generate
- * item codes when a caller doesn't supply one.
+ * return a formatted sequence string like `BOQ-2026-001`.
  */
 export async function getNextSequenceNumber(
   orgId: string,

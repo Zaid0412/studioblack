@@ -7,7 +7,6 @@ import {
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateBoqSectionSchema } from "@/lib/validations";
 
-/** PATCH /api/projects/[id]/boq/sections/[sectionId] — update section. */
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
@@ -37,7 +36,6 @@ export const PATCH = withAuth(
   }
 );
 
-/** DELETE /api/projects/[id]/boq/sections/[sectionId] — delete section. Items orphan to null. */
 export const DELETE = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (_req, _ctx, params) => {
