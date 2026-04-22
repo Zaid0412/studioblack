@@ -42,7 +42,7 @@ interface DocumentViewerProps {
 }
 
 /**
- * Renders a PDF (via pdfjs-dist loaded from CDN), image, or download fallback.
+ * Renders a PDF (via pdfjs-dist with a local worker), image, or download fallback.
  * Pin mode allows clicking to place pin comments at percentage coordinates.
  */
 export function DocumentViewer({
