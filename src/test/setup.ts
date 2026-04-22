@@ -95,11 +95,21 @@ const mockGetPublicUrl = vi.fn().mockReturnValue({
       "https://test.supabase.co/storage/v1/object/public/test/file.png",
   },
 });
+const mockCreateSignedUploadUrl = vi.fn().mockResolvedValue({
+  data: {
+    signedUrl:
+      "https://test.supabase.co/storage/v1/upload/sign/attachments/test-path?token=signed-token",
+    path: "user-test-001/1700000000000-file.pdf",
+    token: "signed-token",
+  },
+  error: null,
+});
 
 const mockStorageFrom = vi.fn(() => ({
   upload: mockUpload,
   remove: mockRemove,
   getPublicUrl: mockGetPublicUrl,
+  createSignedUploadUrl: mockCreateSignedUploadUrl,
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -314,5 +324,6 @@ export const mocks = {
     upload: mockUpload,
     remove: mockRemove,
     getPublicUrl: mockGetPublicUrl,
+    createSignedUploadUrl: mockCreateSignedUploadUrl,
   },
 };

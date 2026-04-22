@@ -37,7 +37,7 @@
 | ------------ | ------------------------------------------ |
 | Framework    | Next.js 16 (App Router) + React 19         |
 | Styling      | Tailwind CSS v4                            |
-| PDF          | EmbedPDF + PDFium WASM                     |
+| PDF          | `pdfjs-dist` with local worker             |
 | Auth         | Better Auth (email/password + org plugin)  |
 | DB + Storage | Supabase (Postgres via `pg` pool, Storage) |
 | Email        | Brevo SMTP (nodemailer)                    |
@@ -49,7 +49,6 @@
 
 ## Key Technical Decisions
 
-- **EmbedPDF `Task<T>`** — `saveAsCopy()` returns `Task<ArrayBuffer>`, not `Promise`. Call `.toPromise()`.
 - **ReviewPanel absolutely positioned** — prevents PDF viewer zoom oscillation from flex resizing.
 - **Org role via member table** — never trust `session.user.role`; query via `getOrgRole()`.
 - **Unified routes** — no separate `(client)` group; all pages adapt via `useUserRole` hook.

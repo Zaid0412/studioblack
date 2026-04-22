@@ -1,20 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { POST as uploadPOST } from "@/app/api/upload/route";
+import { POST as signedUrlPOST } from "@/app/api/upload/signed-url/route";
 import { POST as avatarPOST } from "@/app/api/avatar/route";
 import { mocks } from "../setup";
 import {
   mockSession,
   setupAuth,
   parseResponse,
+  buildRequest,
   buildFormDataRequest,
   createTestFile,
 } from "../helpers";
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-describe("POST /api/upload", () => {
+describe("POST /api/upload/signed-url", () => {
   beforeEach(() => {
-    mocks.supabase.upload.mockClear();
+    mocks.supabase.createSignedUploadUrl.mockClear();
     mocks.supabase.getPublicUrl.mockClear();
     mocks.supabase.storageFrom.mockClear();
   });
@@ -22,43 +23,93 @@ describe("POST /api/upload", () => {
   it("returns 401 without session", async () => {
     setupAuth(mocks.auth, null);
 
-    const formData = new FormData();
-    formData.append("file", createTestFile("test.png", "image/png"));
-
-    const req = buildFormDataRequest("/api/upload", formData);
-    const res = await uploadPOST(req);
+    const req = buildRequest("/api/upload/signed-url", {
+      method: "POST",
+      body: { fileName: "doc.pdf", fileSize: 1024 },
+    });
+    const res = await signedUrlPOST(req);
     const { status } = await parseResponse(res);
 
     expect(status).toBe(401);
   });
 
-  it("returns 400 when no file provided", async () => {
+  it("returns 400 for invalid body", async () => {
     setupAuth(mocks.auth, mockSession());
 
-    const formData = new FormData();
-    const req = buildFormDataRequest("/api/upload", formData);
-    const res = await uploadPOST(req);
+    const req = buildRequest("/api/upload/signed-url", {
+      method: "POST",
+      body: { fileName: "" },
+    });
+    const res = await signedUrlPOST(req);
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(body).toMatchObject({ error: "No file provided" });
+    expect(body).toMatchObject({ error: "Invalid request body" });
   });
 
   it("returns 400 for disallowed file type", async () => {
     setupAuth(mocks.auth, mockSession());
 
-    const formData = new FormData();
-    formData.append(
-      "file",
-      createTestFile("malware.exe", "application/x-msdownload")
-    );
-
-    const req = buildFormDataRequest("/api/upload", formData);
-    const res = await uploadPOST(req);
+    const req = buildRequest("/api/upload/signed-url", {
+      method: "POST",
+      body: { fileName: "malware.exe", fileSize: 1024 },
+    });
+    const res = await signedUrlPOST(req);
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(400);
     expect(body).toMatchObject({ error: "File type not allowed." });
+  });
+
+  it("returns 400 when file size exceeds 50MB", async () => {
+    setupAuth(mocks.auth, mockSession());
+
+    const req = buildRequest("/api/upload/signed-url", {
+      method: "POST",
+      body: { fileName: "huge.pdf", fileSize: 60 * 1024 * 1024 },
+    });
+    const res = await signedUrlPOST(req);
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(400);
+    expect(body).toMatchObject({ error: "Invalid request body" });
+  });
+
+  it("returns signedUrl + publicUrl on success", async () => {
+    setupAuth(mocks.auth, mockSession());
+
+    const req = buildRequest("/api/upload/signed-url", {
+      method: "POST",
+      body: { fileName: "doc.pdf", fileSize: 1024 },
+    });
+    const res = await signedUrlPOST(req);
+    const { status, body } = await parseResponse<{
+      signedUrl: string;
+      publicUrl: string;
+    }>(res);
+
+    expect(status).toBe(200);
+    expect(body.signedUrl).toContain("token=signed-token");
+    expect(body.publicUrl).toContain("test.supabase.co");
+    expect(mocks.supabase.createSignedUploadUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 500 when Supabase fails to mint a signed URL", async () => {
+    setupAuth(mocks.auth, mockSession());
+    mocks.supabase.createSignedUploadUrl.mockResolvedValueOnce({
+      data: null,
+      error: new Error("storage offline"),
+    });
+
+    const req = buildRequest("/api/upload/signed-url", {
+      method: "POST",
+      body: { fileName: "doc.pdf", fileSize: 1024 },
+    });
+    const res = await signedUrlPOST(req);
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(500);
+    expect(body).toMatchObject({ error: "Upload URL generation failed." });
   });
 });
 

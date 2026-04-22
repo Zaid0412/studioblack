@@ -695,20 +695,66 @@ describe("pinComments", () => {
 // ── upload ──────────────────────────────────────────────────────────────────
 
 describe("upload", () => {
-  it("uploadFile — posts FormData to the upload URL", async () => {
-    mockFetch.mockResolvedValue(
-      okJson({ url: "https://example.com/file.pdf", fileName: "file.pdf" })
-    );
+  it("uploadFile — requests a signed URL, then PUTs the file directly", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        okJson({
+          signedUrl: "https://storage.supabase.co/upload?token=abc",
+          publicUrl: "https://example.com/file.pdf",
+        })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
 
     const file = new File(["content"], "file.pdf", {
       type: "application/pdf",
     });
-    await upload.uploadFile(file);
+    const result = await upload.uploadFile(file);
 
-    expect(mockFetch).toHaveBeenCalledWith("/api/upload", {
-      method: "POST",
-      body: expect.any(FormData),
+    expect(result).toEqual({
+      url: "https://example.com/file.pdf",
+      fileName: "file.pdf",
     });
+    expect(mockFetch).toHaveBeenNthCalledWith(1, "/api/upload/signed-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: "file.pdf", fileSize: file.size }),
+    });
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "https://storage.supabase.co/upload?token=abc",
+      {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": "application/pdf",
+        },
+      }
+    );
+  });
+
+  it("uploadFile — throws ApiError when the Supabase PUT fails", async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        okJson({
+          signedUrl: "https://storage.supabase.co/upload?token=abc",
+          publicUrl: "https://example.com/file.pdf",
+        })
+      )
+      .mockResolvedValueOnce(new Response("cors blocked", { status: 403 }));
+
+    const { ApiError } = await import("@/lib/api/client");
+    const file = new File(["content"], "file.pdf", {
+      type: "application/pdf",
+    });
+
+    let thrown: unknown;
+    try {
+      await upload.uploadFile(file);
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as InstanceType<typeof ApiError>).status).toBe(403);
   });
 
   it("uploadAvatar — posts FormData to the avatar URL", async () => {

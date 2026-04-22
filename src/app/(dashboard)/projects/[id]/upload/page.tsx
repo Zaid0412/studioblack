@@ -14,7 +14,7 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
-import { upload, attachments } from "@/lib/api";
+import { useBatchUpload } from "@/hooks/useBatchUpload";
 
 /** Design file upload page with drag & drop. */
 export default function DesignUploadPage({
@@ -35,9 +35,10 @@ export default function DesignUploadPage({
 
   const [files, setFiles] = useState<File[]>([]);
   const [description, setDescription] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
+  const [selectionError, setSelectionError] = useState("");
+  const { uploading, error: uploadError, uploadBatch } = useBatchUpload();
+  const error = selectionError || uploadError;
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup redirect timer on unmount
@@ -50,7 +51,7 @@ export default function DesignUploadPage({
   const addFiles = useCallback((newFiles: FileList | File[]) => {
     const arr = Array.from(newFiles);
     setFiles((prev) => [...prev, ...arr]);
-    setError("");
+    setSelectionError("");
   }, []);
 
   const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
@@ -62,39 +63,30 @@ export default function DesignUploadPage({
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      setError("Please select at least one file.");
+      setSelectionError("Please select at least one file.");
       return;
     }
+    setSelectionError("");
 
-    setUploading(true);
-    setError("");
+    const result = await uploadBatch({
+      files,
+      projectId: id,
+      phaseId: phaseId || null,
+      versionGroup,
+      description,
+    });
 
-    try {
-      for (const file of files) {
-        const { url, fileName } = await upload.uploadFile(file);
-        await attachments.create(id, {
-          fileUrl: url,
-          fileName,
-          description,
-          phaseId: phaseId || null,
-          ...(versionGroup ? { versionGroup } : {}),
-        });
-      }
+    if (!result.completed) return;
 
-      setSuccess(true);
-      setFiles([]);
-      setDescription("");
+    setSuccess(true);
+    setFiles([]);
+    setDescription("");
 
-      // Go back after a short delay
-      redirectTimerRef.current = setTimeout(() => {
-        router.push(`/projects/${id}`);
-        router.refresh();
-      }, 1500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
+    // Go back after a short delay
+    redirectTimerRef.current = setTimeout(() => {
+      router.push(`/projects/${id}`);
+      router.refresh();
+    }, 1500);
   };
 
   return (

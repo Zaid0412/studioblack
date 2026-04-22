@@ -1,8 +1,11 @@
 /** Shared file type/extension utilities. */
 
-/** Accepted file types for design uploads (PDF, CAD, images, design tools, spreadsheets). */
-export const UPLOAD_ACCEPTED_TYPES =
-  ".pdf,.dwg,.png,.jpg,.jpeg,.webp,.svg,.ai,.psd,.sketch,.xls,.xlsx,.csv";
+import { ATTACHMENT_EXTENSIONS } from "@/lib/upload/validate";
+
+/** Derived from ATTACHMENT_EXTENSIONS so the UI filter can't drift from server policy. */
+export const UPLOAD_ACCEPTED_TYPES = Array.from(ATTACHMENT_EXTENSIONS)
+  .map((ext) => `.${ext}`)
+  .join(",");
 
 /** Format a byte count as a human-readable string (B / KB / MB). */
 export function formatFileSize(bytes: number | null): string {

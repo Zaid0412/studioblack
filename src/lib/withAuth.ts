@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess, getOrgRole, getMemberRole } from "@/lib/queries";
+import { hasProjectAccess, getOrgRole } from "@/lib/queries";
+import { deriveEffectiveRole } from "@/lib/effectiveRole";
 import { rateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
 import type { UserRole } from "@/types";
@@ -123,11 +124,8 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       if (orgs && orgs.length > 0) orgId = orgs[0].id;
     }
 
-    // Derive the effective role — must match the layout's getEffectiveRole().
-    // user.role is the DB default ("pm"). For org members invited as "client",
-    // the org membership role is authoritative, not user.role.
-    // Only query getMemberRole when the route actually needs role info to avoid
-    // an extra DB round-trip on every request.
+    // Derive the effective role. Only query when the route actually needs
+    // role info — avoids an extra DB round-trip on every request.
     let role: UserRole = (user.role as UserRole) ?? "pm";
     const needsRole =
       options.allowedRoles ||
@@ -135,14 +133,7 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       options.projectAccess ||
       options.fetchOrgRole;
     if (needsRole) {
-      if (role === "client") {
-        // DB role is already client — authoritative
-      } else if (orgId) {
-        const memberRole = await getMemberRole(orgId, user.id);
-        if (memberRole === "client") role = "client";
-        else if (memberRole === "owner" || memberRole === "admin") role = "pm";
-        else if (memberRole === "member") role = "architect";
-      }
+      role = await deriveEffectiveRole(user.id, orgId, user.role);
     }
 
     // Role checks (using effective role)

@@ -23,7 +23,7 @@ import {
   getFileExtension,
   UPLOAD_ACCEPTED_TYPES,
 } from "@/lib/fileUtils";
-import { upload, attachments } from "@/lib/api";
+import { useBatchUpload } from "@/hooks/useBatchUpload";
 
 interface UploadDialogProps {
   open: boolean;
@@ -50,20 +50,23 @@ export function UploadDialog({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
   const [description, setDescription] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  const [uploadedIndices, setUploadedIndices] = useState<Set<number>>(
-    new Set()
-  );
+  const {
+    uploading,
+    error,
+    uploadBatch,
+    reset: resetBatchUpload,
+  } = useBatchUpload();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open && initialFiles && initialFiles.length > 0) {
       const selected = versionGroup ? [initialFiles[0]] : initialFiles;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- seeding local state from prop when dialog opens is intentional
       setFiles(selected);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- seeding local state from prop when dialog opens is intentional
       setDisplayNames(selected.map((f) => f.name));
     }
   }, [open, initialFiles, versionGroup]);
@@ -74,12 +77,10 @@ export function UploadDialog({
     setEditingIndex(null);
     setEditValue("");
     setDescription("");
-    setUploading(false);
     setSuccess(false);
-    setError("");
     setDragOver(false);
-    setUploadedIndices(new Set());
-  }, []);
+    resetBatchUpload();
+  }, [resetBatchUpload]);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
@@ -154,42 +155,23 @@ export function UploadDialog({
 
   const handleUpload = async () => {
     if (files.length === 0) return;
-    setUploading(true);
-    setError("");
 
-    try {
-      for (let i = 0; i < files.length; i++) {
-        if (uploadedIndices.has(i)) continue; // skip already-uploaded on retry
-        const file = files[i];
-        const { url } = await upload.uploadFile(file);
-        const fileName = displayNames[i] || file.name;
-        await attachments.create(projectId, {
-          fileUrl: url,
-          fileName,
-          description,
-          phaseId: phaseId || null,
-          ...(versionGroup ? { versionGroup } : {}),
-        });
-        setUploadedIndices((prev) => new Set(prev).add(i));
-      }
+    const result = await uploadBatch({
+      files,
+      projectId,
+      phaseId: phaseId || null,
+      versionGroup,
+      description,
+      displayNames,
+    });
 
+    if (result.completed) {
       setSuccess(true);
       setTimeout(() => {
         onSuccess();
         resetState();
         onOpenChange(false);
       }, 1000);
-    } catch (err) {
-      const uploaded = uploadedIndices.size;
-      const total = files.length;
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      setError(
-        uploaded > 0
-          ? `${msg} (${uploaded}/${total} files uploaded — click Upload to retry remaining)`
-          : msg
-      );
-    } finally {
-      setUploading(false);
     }
   };
 

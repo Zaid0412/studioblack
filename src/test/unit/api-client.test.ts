@@ -131,9 +131,9 @@ describe("apiPost", () => {
     const formData = new FormData();
     formData.append("file", "data");
 
-    await apiPost("/api/upload", formData);
+    await apiPost("/api/avatar", formData);
 
-    expect(mockFetch).toHaveBeenCalledWith("/api/upload", {
+    expect(mockFetch).toHaveBeenCalledWith("/api/avatar", {
       method: "POST",
       body: formData,
     });

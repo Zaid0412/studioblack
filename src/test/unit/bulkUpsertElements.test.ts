@@ -12,13 +12,21 @@ import type {
 } from "@/lib/queries";
 import { mocks } from "../setup";
 
-// Pull the real implementations out of the globally mocked queries module.
+// The first test resolves `vi.importActual` for the elements submodule; under
+// parallel worker load this can push past the default 5s timeout even though
+// the test completes in ~2s in isolation.
+vi.setConfig({ testTimeout: 20000 });
+
+// Pull the real implementation out of the globally mocked queries barrel.
+// Importing the submodule directly avoids loading all 18 query files via
+// `@/lib/queries`, which can exceed the 5s test timeout under parallel load.
 async function realBulkUpsertElements(
   orgId: string,
   input: BulkElementImportInput
 ): Promise<BulkElementImportResult> {
-  const actual =
-    await vi.importActual<typeof import("@/lib/queries")>("@/lib/queries");
+  const actual = await vi.importActual<typeof import("@/lib/queries/elements")>(
+    "@/lib/queries/elements"
+  );
   return actual.bulkUpsertElements(orgId, input);
 }
 

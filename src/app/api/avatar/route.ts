@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withAuth } from "@/lib/withAuth";
 import { logger } from "@/lib/logger";
+import { BUCKETS } from "@/lib/storage/buckets";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 1 * 1024 * 1024; // 1 MB
@@ -29,7 +30,7 @@ export const POST = withAuth({}, async (req, { user }) => {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error } = await getSupabaseAdmin()
-    .storage.from("avatars")
+    .storage.from(BUCKETS.avatars)
     .upload(path, buffer, {
       contentType: file.type,
       upsert: true,
@@ -45,11 +46,11 @@ export const POST = withAuth({}, async (req, { user }) => {
   const staleFiles = allExts
     .filter((e) => e !== ext)
     .map((e) => `${user.id}/avatar.${e}`);
-  await getSupabaseAdmin().storage.from("avatars").remove(staleFiles);
+  await getSupabaseAdmin().storage.from(BUCKETS.avatars).remove(staleFiles);
 
   // Build public URL with cache buster
   const { data } = getSupabaseAdmin()
-    .storage.from("avatars")
+    .storage.from(BUCKETS.avatars)
     .getPublicUrl(path);
   const url = `${data.publicUrl}?t=${Date.now()}`;
 
