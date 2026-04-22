@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/TagInput";
+import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -281,13 +282,10 @@ export function ElementFormDialog({
               </Select>
             </div>
 
-            <Input
+            <CurrencySelect
               label={t("fieldCurrency")}
               value={values.currency}
-              onChange={(e) =>
-                setField("currency", e.target.value.toUpperCase())
-              }
-              maxLength={3}
+              onChange={(code) => setField("currency", code)}
               required
             />
           </div>
