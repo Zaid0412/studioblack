@@ -14,6 +14,7 @@ import { CommentsSection } from "./_components/CommentsSection";
 import { DesignsTab } from "./_components/DesignsTab";
 import { BoqTab } from "./_components/BoqTab";
 import { ProjectTabs, parseProjectTab } from "./_components/ProjectTabs";
+import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
 
 /** Unified project detail page — adapts to PM, architect, or client role. */
 export default function ProjectDetailPage({
@@ -171,6 +172,8 @@ export default function ProjectDetailPage({
         city={project.city}
         state={project.state}
       />
+
+      <ProjectWorkflowSteps />
 
       {showProjectTabs && <ProjectTabs activeTab={activeTab} />}
 

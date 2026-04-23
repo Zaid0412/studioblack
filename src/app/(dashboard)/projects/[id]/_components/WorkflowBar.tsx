@@ -16,6 +16,9 @@ interface WorkflowBarProps {
  * Action bar for the project detail page. Behaviour branches on `activeTab`:
  * - "designs" (default): Edit Project + Upload Designs buttons
  * - "boq": renders nothing — the BOQ tab has its own action bar (Task 5D)
+ *
+ * Note: the workflow-steps strip lives in `page.tsx` so it can span all
+ * tabs. This component owns the designs-only actions.
  */
 export function WorkflowBar({
   projectId,
