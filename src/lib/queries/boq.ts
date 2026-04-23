@@ -330,10 +330,10 @@ export async function createBoqItem(
          overhead_pct, margin_pct, notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
-         $1, $2, $3, $4, $5, $6,
+         $1, $2::uuid, $3, $4, $5, $6,
          COALESCE($7, 0), COALESCE($8, 0), $9, $10,
          COALESCE($11, 0), COALESCE($12, 0), $13, $14,
-         COALESCE($15, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND COALESCE(section_id::text, '') = COALESCE($2::text, ''))),
+         COALESCE($15, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
          COALESCE($16, false), COALESCE($17, false)
        )
        RETURNING *
