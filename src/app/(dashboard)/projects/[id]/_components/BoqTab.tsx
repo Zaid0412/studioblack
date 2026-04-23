@@ -6,19 +6,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useBoq } from "@/hooks/useBoq";
 import { BoqCreateDialog } from "../boq/_components/BoqCreateDialog";
+import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
+import { BoqTable } from "../boq/_components/BoqTable";
+import { BoqBottomBar } from "../boq/_components/BoqBottomBar";
 
 interface BoqTabProps {
   projectId: string;
   projectName: string;
 }
 
-/**
- * BOQ tab content on the project detail page.
- *
- * Task 5A — infrastructure only: shows empty-state CTA when no BOQ exists,
- * a loading skeleton while fetching, and a raw JSON dump once a BOQ is loaded.
- * Task 5B will replace the JSON dump with the actual summary cards + table.
- */
 export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const { boq, notFound, isLoading, error } = useBoq(projectId);
   const [createOpen, setCreateOpen] = useState(false);
@@ -71,9 +67,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
 
   if (!boq) return null;
 
-  // Placeholder for 5A — 5B replaces this with summary cards + table.
   return (
-    <div className="px-4 lg:px-10 py-6 flex flex-col gap-4">
+    <div className="px-4 lg:px-10 py-6 flex flex-col gap-5">
       <div className="flex items-baseline justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-text-primary">
@@ -85,9 +80,27 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           </p>
         </div>
       </div>
-      <pre className="text-[11px] text-text-muted bg-bg-elevated rounded-lg p-4 overflow-auto max-h-[60vh]">
-        {JSON.stringify(boq, null, 2)}
-      </pre>
+
+      <BoqSummaryCards
+        summary={boq.summary}
+        currency={boq.currency}
+        minimumMarginPct={boq.minimum_margin_pct}
+      />
+
+      <BoqTable
+        sections={boq.sections}
+        items={boq.items}
+        summary={boq.summary}
+        currency={boq.currency}
+        minimumMarginPct={boq.minimum_margin_pct}
+      />
+
+      <BoqBottomBar
+        summary={boq.summary}
+        contingencyPct={boq.contingency_pct}
+        vatPct={boq.vat_pct}
+        currency={boq.currency}
+      />
     </div>
   );
 }
