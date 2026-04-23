@@ -1,12 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { AlertTriangle, FileSpreadsheet, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { FileSpreadsheet } from "lucide-react";
-import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
+import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
+import type { BoqStatus } from "@/lib/validations";
+import {
+  BOQ_NO_SECTION_ID,
   clientApprovalToVariant,
   formatCurrency,
   formatPct,
@@ -16,6 +23,8 @@ import {
   toNum,
 } from "../_lib/formatters";
 import { BoqSectionHeader } from "./BoqSectionHeader";
+import { BoqEditableCell } from "./BoqEditableCell";
+import type { UpdateItemPayload } from "@/lib/api/boq";
 
 interface BoqTableProps {
   sections: BoqSection[];
@@ -23,22 +32,41 @@ interface BoqTableProps {
   summary: BoqSummary;
   currency: string;
   minimumMarginPct: string;
+  boqStatus: BoqStatus;
+  canEdit: boolean;
+  onUpdateItem?: (
+    itemId: string,
+    data: UpdateItemPayload
+  ) => Promise<BoqItemWithComputed | null | undefined>;
+  onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+  onRenameSection?: (section: BoqSection) => void;
+  onToggleSectionVisibility?: (section: BoqSection) => void;
+  onDeleteSection?: (section: BoqSection) => void;
+  onAddItemToSection?: (sectionId: string | null) => void;
 }
 
 interface SectionGroup {
   id: string;
   title: string;
+  section: BoqSection | null;
   visibleToClient?: boolean;
   items: BoqItemWithComputed[];
   total: number;
 }
 
-const UNASSIGNED_ID = "__unassigned__";
-
-// Grid template covering all 10 columns — keeps header + rows aligned.
 // Tuned to fit a ~1100px content area without horizontal scroll.
 const GRID_COLS =
-  "grid-cols-[70px_minmax(160px,1fr)_50px_70px_90px_100px_75px_100px_95px_85px]";
+  "grid-cols-[70px_minmax(160px,1fr)_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
+
+function isBoqLocked(status: BoqStatus): boolean {
+  return status === "locked" || status === "superseded";
+}
+
+function isItemLocked(item: BoqItemWithComputed): boolean {
+  return (
+    item.lifecycle_status === "locked" || item.lifecycle_status === "superseded"
+  );
+}
 
 export function BoqTable({
   sections,
@@ -46,9 +74,20 @@ export function BoqTable({
   summary,
   currency,
   minimumMarginPct,
+  boqStatus,
+  canEdit,
+  onUpdateItem,
+  onDeleteItem,
+  onRenameSection,
+  onToggleSectionVisibility,
+  onDeleteSection,
+  onAddItemToSection,
 }: BoqTableProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const marginFloor = toNum(minimumMarginPct) || undefined;
+  const boqLocked = isBoqLocked(boqStatus);
+  const rowsEditable = canEdit && !boqLocked && !!onUpdateItem;
+  const sectionsEditable = canEdit && !boqLocked;
 
   const groups = useMemo<SectionGroup[]>(() => {
     const bySection = new Map<string, BoqItemWithComputed[]>();
@@ -73,8 +112,9 @@ export function BoqTable({
     const result: SectionGroup[] = [];
     if (unassigned.length > 0) {
       result.push({
-        id: UNASSIGNED_ID,
+        id: BOQ_NO_SECTION_ID,
         title: "(Unassigned)",
+        section: null,
         items: unassigned,
         total: sectionTotalFromSummary(null),
       });
@@ -83,6 +123,7 @@ export function BoqTable({
       result.push({
         id: section.id,
         title: section.title,
+        section,
         visibleToClient: section.is_visible_to_client,
         items: bySection.get(section.id) ?? [],
         total: sectionTotalFromSummary(section.id),
@@ -91,7 +132,7 @@ export function BoqTable({
     return result;
   }, [sections, items, summary.section_totals]);
 
-  if (items.length === 0) {
+  if (items.length === 0 && sections.length === 0) {
     return (
       <EmptyState
         icon={FileSpreadsheet}
@@ -117,11 +158,13 @@ export function BoqTable({
           <div className="text-right">Sell Price</div>
           <div>Lifecycle</div>
           <div>Client</div>
+          <div />
         </div>
 
         <div className="flex flex-col">
           {groups.map((group) => {
             const isCollapsed = collapsed[group.id] ?? false;
+            const section = group.section;
             return (
               <div key={group.id}>
                 <BoqSectionHeader
@@ -137,6 +180,26 @@ export function BoqTable({
                     }))
                   }
                   visibleToClient={group.visibleToClient}
+                  onAddItem={
+                    sectionsEditable && onAddItemToSection
+                      ? () => onAddItemToSection(section?.id ?? null)
+                      : undefined
+                  }
+                  onRename={
+                    sectionsEditable && section && onRenameSection
+                      ? () => onRenameSection(section)
+                      : undefined
+                  }
+                  onToggleVisibility={
+                    sectionsEditable && section && onToggleSectionVisibility
+                      ? () => onToggleSectionVisibility(section)
+                      : undefined
+                  }
+                  onDelete={
+                    sectionsEditable && section && onDeleteSection
+                      ? () => onDeleteSection(section)
+                      : undefined
+                  }
                 />
                 {!isCollapsed &&
                   group.items.map((item) => (
@@ -145,6 +208,9 @@ export function BoqTable({
                       item={item}
                       currency={currency}
                       marginFloor={marginFloor}
+                      editable={rowsEditable && !isItemLocked(item)}
+                      onUpdateItem={onUpdateItem}
+                      onDeleteItem={onDeleteItem}
                     />
                   ))}
               </div>
@@ -156,15 +222,26 @@ export function BoqTable({
   );
 }
 
-function BoqItemRow({
-  item,
-  currency,
-  marginFloor,
-}: {
+interface BoqItemRowProps {
   item: BoqItemWithComputed;
   currency: string;
   marginFloor?: number;
-}) {
+  editable: boolean;
+  onUpdateItem?: (
+    itemId: string,
+    data: UpdateItemPayload
+  ) => Promise<BoqItemWithComputed | null | undefined>;
+  onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+}
+
+const BoqItemRow = memo(function BoqItemRow({
+  item,
+  currency,
+  marginFloor,
+  editable,
+  onUpdateItem,
+  onDeleteItem,
+}: BoqItemRowProps) {
   const tier = marginTier(toNum(item.margin_pct), marginFloor);
   const marginColor =
     tier === "success"
@@ -173,6 +250,19 @@ function BoqItemRow({
         ? "text-warning"
         : "text-error";
 
+  const save = useCallback(
+    async (patch: Partial<UpdateItemPayload>) => {
+      if (!onUpdateItem) return;
+      await onUpdateItem(item.id, {
+        updatedAt: item.updated_at,
+        ...patch,
+      });
+    },
+    [onUpdateItem, item.id, item.updated_at]
+  );
+
+  const showMenu = editable && onDeleteItem;
+
   return (
     <div
       className={`grid ${GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors`}
@@ -180,16 +270,37 @@ function BoqItemRow({
       <span className="text-xs text-text-muted font-mono truncate">
         {item.item_code}
       </span>
-      <span className="text-text-primary truncate" title={item.description}>
-        {item.description}
-      </span>
+      <BoqEditableCell
+        value={item.description}
+        display={item.description}
+        disabled={!editable}
+        onSave={(next) => save({ description: next })}
+        className="text-text-primary"
+        ariaLabel={`Description for ${item.item_code}`}
+      />
       <span className="text-xs text-text-muted">{item.unit}</span>
-      <span className="text-right tabular-nums text-text-primary">
-        {formatQty(item.quantity)}
-      </span>
-      <span className="text-right tabular-nums text-text-primary">
-        {formatCurrency(item.unit_cost, currency)}
-      </span>
+      <BoqEditableCell
+        value={item.quantity}
+        display={formatQty(item.quantity)}
+        mode="number"
+        min={0}
+        align="right"
+        disabled={!editable}
+        onSave={(next) => save({ quantity: parseFloat(next) })}
+        className="tabular-nums text-text-primary"
+        ariaLabel={`Quantity for ${item.item_code}`}
+      />
+      <BoqEditableCell
+        value={item.unit_cost}
+        display={formatCurrency(item.unit_cost, currency)}
+        mode="number"
+        min={0}
+        align="right"
+        disabled={!editable}
+        onSave={(next) => save({ unitCost: parseFloat(next) })}
+        className="tabular-nums text-text-primary"
+        ariaLabel={`Unit cost for ${item.item_code}`}
+      />
       <span className="text-right tabular-nums text-text-primary">
         {formatCurrency(item.total_cost, currency)}
       </span>
@@ -197,7 +308,18 @@ function BoqItemRow({
         className={`text-right tabular-nums font-medium ${marginColor} flex items-center justify-end gap-1`}
       >
         {item.margin_alert && <AlertTriangle className="w-3.5 h-3.5" />}
-        {formatPct(item.margin_pct)}
+        <BoqEditableCell
+          value={item.margin_pct}
+          display={formatPct(item.margin_pct)}
+          mode="number"
+          min={0}
+          max={100}
+          align="right"
+          disabled={!editable}
+          onSave={(next) => save({ marginPct: parseFloat(next) })}
+          className="tabular-nums"
+          ariaLabel={`Margin for ${item.item_code}`}
+        />
       </span>
       <span className="text-right tabular-nums text-text-primary">
         {formatCurrency(item.sell_price, currency)}
@@ -218,6 +340,26 @@ function BoqItemRow({
           {item.client_approval_status}
         </Badge>
       </span>
+      <span className="flex justify-end">
+        {showMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="p-1 rounded hover:bg-bg-elevated text-text-muted hover:text-text-primary cursor-pointer"
+              aria-label={`Actions for ${item.item_code}`}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => void onDeleteItem!(item)}
+                className="text-error focus:text-error"
+              >
+                Delete item
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </span>
     </div>
   );
-}
+});

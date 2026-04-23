@@ -4,6 +4,9 @@ import type {
 } from "@/lib/validations";
 import type { BadgeVariant } from "@/components/ui/badge";
 
+/** Sentinel used in selects/grouping when an item has no section. */
+export const BOQ_NO_SECTION_ID = "__unassigned__";
+
 export type MarginTier = "error" | "warning" | "success";
 
 /**

@@ -1,6 +1,12 @@
 "use client";
 
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 import { formatCurrency } from "../_lib/formatters";
 
 interface BoqSectionHeaderProps {
@@ -11,6 +17,11 @@ interface BoqSectionHeaderProps {
   collapsed: boolean;
   onToggle: () => void;
   visibleToClient?: boolean;
+  /** Omit to hide the actions menu entirely. */
+  onRename?: () => void;
+  onToggleVisibility?: () => void;
+  onDelete?: () => void;
+  onAddItem?: () => void;
 }
 
 export function BoqSectionHeader({
@@ -21,29 +32,70 @@ export function BoqSectionHeader({
   collapsed,
   onToggle,
   visibleToClient,
+  onRename,
+  onToggleVisibility,
+  onDelete,
+  onAddItem,
 }: BoqSectionHeaderProps) {
   const Chevron = collapsed ? ChevronRight : ChevronDown;
+  const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
+
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="w-full flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default text-left hover:bg-bg-elevated/80 transition-colors"
-    >
-      <Chevron className="w-4 h-4 text-text-muted flex-shrink-0" />
-      <span className="text-sm font-semibold text-text-primary flex-1 truncate">
-        {title}
-      </span>
-      <span className="text-xs text-text-muted">
-        {itemCount} item{itemCount === 1 ? "" : "s"}
-      </span>
-      {visibleToClient === false && (
-        <span className="text-[10px] uppercase tracking-wide text-text-muted border border-border-default rounded px-1.5 py-0.5">
-          Internal
+    <div className="w-full flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex-1 flex items-center gap-3 text-left hover:opacity-80 transition-opacity cursor-pointer"
+      >
+        <Chevron className="w-4 h-4 text-text-muted flex-shrink-0" />
+        <span className="text-sm font-semibold text-text-primary flex-1 truncate">
+          {title}
         </span>
+        <span className="text-xs text-text-muted">
+          {itemCount} item{itemCount === 1 ? "" : "s"}
+        </span>
+        {visibleToClient === false && (
+          <span className="text-[10px] uppercase tracking-wide text-text-muted border border-border-default rounded px-1.5 py-0.5">
+            Internal
+          </span>
+        )}
+        <span className="text-sm font-semibold text-text-primary tabular-nums">
+          {formatCurrency(sectionTotal, currency)}
+        </span>
+      </button>
+      {hasMenu && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="p-1 rounded hover:bg-bg-secondary/70 text-text-muted hover:text-text-primary cursor-pointer"
+            aria-label={`Actions for ${title}`}
+          >
+            <MoreVertical className="h-4 w-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {onAddItem && (
+              <DropdownMenuItem onSelect={onAddItem}>
+                Add item here
+              </DropdownMenuItem>
+            )}
+            {onRename && (
+              <DropdownMenuItem onSelect={onRename}>Rename</DropdownMenuItem>
+            )}
+            {onToggleVisibility && (
+              <DropdownMenuItem onSelect={onToggleVisibility}>
+                {visibleToClient === false ? "Show to client" : "Mark internal"}
+              </DropdownMenuItem>
+            )}
+            {onDelete && (
+              <DropdownMenuItem
+                onSelect={onDelete}
+                className="text-error focus:text-error"
+              >
+                Delete section
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
-      <span className="text-sm font-semibold text-text-primary tabular-nums">
-        {formatCurrency(sectionTotal, currency)}
-      </span>
-    </button>
+    </div>
   );
 }
