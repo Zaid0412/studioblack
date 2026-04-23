@@ -25,7 +25,8 @@ import { useElementFilters } from "./_hooks/useElementFilters";
 import { useElements } from "./_hooks/useElements";
 import { CategoryTreeSidebar } from "./_components/CategoryTreeSidebar";
 import { ElementFilterBar } from "./_components/ElementFilterBar";
-import { ElementTable, buildCategoryMap } from "./_components/ElementTable";
+import { ElementTable } from "./_components/ElementTable";
+import { buildCategoryMap } from "@/lib/elementCategories";
 import { ElementFormDialog } from "./_components/ElementFormDialog";
 import { ImportDialog } from "./_components/ImportDialog";
 

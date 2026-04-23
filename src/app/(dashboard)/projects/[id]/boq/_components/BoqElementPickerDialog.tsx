@@ -28,7 +28,7 @@ import { elements as elementsApi, boq as boqApi } from "@/lib/api";
 import type { ListElementsResponse } from "@/lib/api/elements";
 import { API } from "@/lib/api/routes";
 import type { BoqSection, ElementCategoryNode } from "@/types";
-import { buildCategoryMap } from "@/app/(dashboard)/elements/_components/ElementTable";
+import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
 
 interface BoqElementPickerDialogProps {
@@ -78,7 +78,6 @@ export function BoqElementPickerDialog({
     : null;
   const { data, isLoading } = useSWR<ListElementsResponse>(listKey);
 
-  // Category names for display — loaded once while the dialog is open.
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     open ? API.elementCategories() : null
   );

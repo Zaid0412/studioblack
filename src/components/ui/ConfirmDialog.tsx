@@ -62,7 +62,9 @@ export function ConfirmDialog({
           <Button
             type="button"
             variant={destructive ? "danger" : "primary"}
-            onClick={() => void onConfirm()}
+            onClick={async () => {
+              await onConfirm();
+            }}
             disabled={submitting}
           >
             {submitting ? "Working..." : confirmLabel}

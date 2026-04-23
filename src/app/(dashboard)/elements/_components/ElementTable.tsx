@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { Element, ElementCategoryNode } from "@/types";
+import type { Element } from "@/types";
 import { formatMoney } from "../_lib/formatters";
 
 interface Props {
@@ -178,19 +178,4 @@ function ElementRow({
       </div>
     </div>
   );
-}
-
-/** Flatten the category tree into id → name map for table display. */
-export function buildCategoryMap(
-  tree: ElementCategoryNode[]
-): Map<string, string> {
-  const map = new Map<string, string>();
-  const walk = (nodes: ElementCategoryNode[]) => {
-    for (const n of nodes) {
-      map.set(n.id, n.name);
-      if (n.children.length > 0) walk(n.children);
-    }
-  };
-  walk(tree);
-  return map;
 }
