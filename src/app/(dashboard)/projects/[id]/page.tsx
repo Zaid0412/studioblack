@@ -13,7 +13,7 @@ import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
 import { DesignsTab } from "./_components/DesignsTab";
 import { BoqTab } from "./_components/BoqTab";
-import { ProjectTabs, parseProjectTab } from "./_components/ProjectTabs";
+import { parseProjectTab } from "./_components/ProjectTabs";
 import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
 
 /** Unified project detail page — adapts to PM, architect, or client role. */
@@ -173,9 +173,15 @@ export default function ProjectDetailPage({
         state={project.state}
       />
 
-      <ProjectWorkflowSteps />
-
-      {showProjectTabs && <ProjectTabs activeTab={activeTab} />}
+      <ProjectWorkflowSteps
+        projectId={id}
+        activeTab={activeTab}
+        fileCount={Array.from(phaseCounts.values()).reduce(
+          (sum, n) => sum + n,
+          0
+        )}
+        showBoq={showProjectTabs}
+      />
 
       {showProjectTabs && activeTab === "boq" ? (
         <BoqTab projectId={id} projectName={project.name} />
