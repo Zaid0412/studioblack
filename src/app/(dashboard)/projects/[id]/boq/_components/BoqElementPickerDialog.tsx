@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Package, Tag } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -17,12 +16,11 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog";
+import { SubmitFooter } from "@/components/ui/SubmitFooter";
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi, boq as boqApi } from "@/lib/api";
 import type { ListElementsResponse } from "@/lib/api/elements";
@@ -334,20 +332,13 @@ export function BoqElementPickerDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2">
-          <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={submitting}>
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !selectedId}
-          >
-            {submitting ? "Adding..." : "Add to BOQ"}
-          </Button>
-        </DialogFooter>
+        <SubmitFooter
+          submitting={submitting}
+          submitLabel="Add to BOQ"
+          submittingLabel="Adding..."
+          disabled={!selectedId}
+          onSubmit={handleSubmit}
+        />
       </DialogContent>
     </Dialog>
   );

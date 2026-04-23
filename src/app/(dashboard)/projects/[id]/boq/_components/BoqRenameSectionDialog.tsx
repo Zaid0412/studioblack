@@ -1,16 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
+import { SubmitFooter } from "@/components/ui/SubmitFooter";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
@@ -71,16 +69,11 @@ export function BoqRenameSectionDialog({
             required
             autoFocus
           />
-          <DialogFooter className="gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="secondary" disabled={submitting}>
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
+          <SubmitFooter
+            submitting={submitting}
+            submitLabel="Save"
+            submittingLabel="Saving..."
+          />
         </form>
       </DialogContent>
     </Dialog>

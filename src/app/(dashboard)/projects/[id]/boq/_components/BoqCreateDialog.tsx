@@ -1,18 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog";
+import { SubmitFooter } from "@/components/ui/SubmitFooter";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { ApiError } from "@/lib/api";
@@ -122,57 +120,40 @@ export function BoqCreateDialog({
           </label>
 
           <div className="grid grid-cols-3 gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">
-                Contingency %
-              </span>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={contingencyPct}
-                onChange={(e) => setContingencyPct(e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">
-                VAT %
-              </span>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={vatPct}
-                onChange={(e) => setVatPct(e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">
-                Min margin %
-              </span>
-              <Input
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
-                value={minimumMarginPct}
-                onChange={(e) => setMinimumMarginPct(e.target.value)}
-              />
-            </label>
+            {[
+              {
+                label: "Contingency %",
+                value: contingencyPct,
+                onChange: setContingencyPct,
+              },
+              { label: "VAT %", value: vatPct, onChange: setVatPct },
+              {
+                label: "Min margin %",
+                value: minimumMarginPct,
+                onChange: setMinimumMarginPct,
+              },
+            ].map((field) => (
+              <label key={field.label} className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-text-secondary">
+                  {field.label}
+                </span>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value)}
+                />
+              </label>
+            ))}
           </div>
 
-          <DialogFooter className="gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="secondary" disabled={submitting}>
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Creating..." : "Create BOQ"}
-            </Button>
-          </DialogFooter>
+          <SubmitFooter
+            submitting={submitting}
+            submitLabel="Create BOQ"
+            submittingLabel="Creating..."
+          />
         </form>
       </DialogContent>
     </Dialog>

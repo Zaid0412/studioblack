@@ -76,7 +76,8 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     router.push("/login");
   };
 
-  const pmNav = [
+  // Shared members of the PM/architect nav. Clients get a shorter trimmed list.
+  const memberNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
@@ -85,20 +86,13 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       : []),
     { href: "/organisation", label: t("organisation"), icon: Building2 },
     { href: "/settings", label: t("settings"), icon: Settings },
+  ];
+
+  const pmNav = [
+    ...memberNav,
     ...(features.auditHistory
       ? [{ href: "/audit", label: t("audit"), icon: History }]
       : []),
-  ];
-
-  const architectNav = [
-    { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
-    { href: "/projects", label: t("projects"), icon: FolderOpen },
-    { href: "/tasks", label: t("tasks"), icon: CheckSquare },
-    ...(features.elementLibrary
-      ? [{ href: "/elements", label: t("elements"), icon: Layers }]
-      : []),
-    { href: "/organisation", label: t("organisation"), icon: Building2 },
-    { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
   const clientNav = [
@@ -107,7 +101,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
-  const navMap = { pm: pmNav, architect: architectNav, client: clientNav };
+  const navMap = { pm: pmNav, architect: memberNav, client: clientNav };
   const navItems = navMap[variant];
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,12 +12,11 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog";
+import { SubmitFooter } from "@/components/ui/SubmitFooter";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
@@ -211,16 +209,11 @@ export function BoqCreateItemDialog({
             </label>
           </div>
 
-          <DialogFooter className="gap-2">
-            <DialogClose asChild>
-              <Button type="button" variant="secondary" disabled={submitting}>
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Adding..." : "Add item"}
-            </Button>
-          </DialogFooter>
+          <SubmitFooter
+            submitting={submitting}
+            submitLabel="Add item"
+            submittingLabel="Adding..."
+          />
         </form>
       </DialogContent>
     </Dialog>
