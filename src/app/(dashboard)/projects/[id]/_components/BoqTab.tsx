@@ -18,6 +18,7 @@ import { BoqCreateItemDialog } from "../boq/_components/BoqCreateItemDialog";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 
 interface BoqTabProps {
@@ -39,6 +40,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [renameSection, setRenameSection] = useState<BoqSection | null>(null);
+  const [deleteSectionTarget, setDeleteSectionTarget] =
+    useState<BoqSection | null>(null);
+  const [deletingSection, setDeletingSection] = useState(false);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
   );
@@ -109,15 +113,16 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
-  const handleDeleteSection = async (section: BoqSection) => {
-    const confirmed = window.confirm(
-      `Delete section "${section.title}"? Items will be un-assigned, not deleted.`
-    );
-    if (!confirmed) return;
+  const confirmDeleteSection = async () => {
+    if (!deleteSectionTarget) return;
+    setDeletingSection(true);
     try {
-      await deleteSection(section);
+      await deleteSection(deleteSectionTarget);
+      setDeleteSectionTarget(null);
     } catch {
       /* useBoqMutations toasts on error */
+    } finally {
+      setDeletingSection(false);
     }
   };
 
@@ -164,7 +169,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onDeleteItem={deleteItem}
         onRenameSection={setRenameSection}
         onToggleSectionVisibility={handleToggleVisibility}
-        onDeleteSection={handleDeleteSection}
+        onDeleteSection={setDeleteSectionTarget}
         onAddItemToSection={openAddItem}
         onOpenItem={setDrawerItem}
       />
@@ -209,6 +214,30 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqId={boq.id}
         sections={boq.sections}
         currency={boq.currency}
+      />
+
+      <ConfirmDialog
+        open={deleteSectionTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteSectionTarget(null);
+        }}
+        title="Delete section?"
+        description={
+          deleteSectionTarget ? (
+            <>
+              <span className="font-medium text-text-primary">
+                {deleteSectionTarget.title}
+              </span>
+              {
+                " — items stay in the BOQ but become unassigned. This can't be undone."
+              }
+            </>
+          ) : null
+        }
+        confirmLabel="Delete section"
+        destructive
+        submitting={deletingSection}
+        onConfirm={confirmDeleteSection}
       />
 
       <BoqItemDrawer

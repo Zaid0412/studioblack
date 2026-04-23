@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import useSWR from "swr";
-import { Package } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { Package, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -26,9 +26,9 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi, boq as boqApi } from "@/lib/api";
 import type { ListElementsResponse } from "@/lib/api/elements";
-import { mutate as globalMutate } from "swr";
 import { API } from "@/lib/api/routes";
-import type { BoqSection } from "@/types";
+import type { BoqSection, ElementCategoryNode } from "@/types";
+import { buildCategoryMap } from "@/app/(dashboard)/elements/_components/ElementTable";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
 
 interface BoqElementPickerDialogProps {
@@ -76,11 +76,21 @@ export function BoqElementPickerDialog({
         limit: PAGE_LIMIT,
       })
     : null;
-
   const { data, isLoading } = useSWR<ListElementsResponse>(listKey);
+
+  // Category names for display — loaded once while the dialog is open.
+  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
+    open ? API.elementCategories() : null
+  );
+  const categoryMap = useMemo(
+    () => (catData?.tree ? buildCategoryMap(catData.tree) : new Map()),
+    [catData]
+  );
 
   const rows = data?.rows ?? [];
   const selected = rows.find((r) => r.id === selectedId) ?? null;
+  const selectedCategoryName =
+    selected?.category_id && categoryMap.get(selected.category_id);
 
   const handleSubmit = async () => {
     if (!selectedId) return;
@@ -135,11 +145,11 @@ export function BoqElementPickerDialog({
             autoFocus
           />
 
-          <div className="min-h-[240px] max-h-[320px] overflow-y-auto rounded-lg border border-border-default bg-bg-elevated">
+          <div className="min-h-[280px] max-h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-elevated">
             {isLoading && rows.length === 0 ? (
               <div className="flex flex-col gap-1 p-2">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-12 rounded" />
+                  <Skeleton key={i} className="h-14 rounded" />
                 ))}
               </div>
             ) : rows.length === 0 ? (
@@ -151,27 +161,46 @@ export function BoqElementPickerDialog({
               <ul className="flex flex-col">
                 {rows.map((el) => {
                   const active = el.id === selectedId;
+                  const categoryName = el.category_id
+                    ? categoryMap.get(el.category_id)
+                    : null;
                   return (
                     <li key={el.id}>
                       <button
                         type="button"
                         onClick={() => setSelectedId(el.id)}
-                        className={`w-full grid grid-cols-[70px_1fr_70px_90px] gap-2 items-center px-3 py-2 text-left text-sm border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
-                          active
-                            ? "bg-accent/10 text-text-primary"
-                            : "hover:bg-bg-secondary/60"
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
+                          active ? "bg-accent/10" : "hover:bg-bg-secondary/60"
                         }`}
                       >
-                        <span className="text-xs font-mono text-text-muted truncate">
+                        <span className="flex-shrink-0 w-[70px] text-xs font-mono text-text-muted truncate">
                           {el.code}
                         </span>
-                        <span className="text-text-primary truncate">
-                          {el.name}
+                        <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                          <span className="text-text-primary truncate">
+                            {el.name}
+                          </span>
+                          <span className="flex items-center gap-2 text-xs text-text-muted">
+                            {categoryName && (
+                              <span className="inline-flex items-center gap-1 truncate">
+                                <Tag className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{categoryName}</span>
+                              </span>
+                            )}
+                            {el.tags && el.tags.length > 0 && (
+                              <span className="truncate">
+                                · {el.tags.slice(0, 3).join(", ")}
+                                {el.tags.length > 3
+                                  ? ` +${el.tags.length - 3}`
+                                  : ""}
+                              </span>
+                            )}
+                          </span>
                         </span>
-                        <span className="text-xs text-text-muted text-right">
+                        <span className="flex-shrink-0 w-[50px] text-xs text-text-muted text-right">
                           {el.unit}
                         </span>
-                        <span className="text-xs text-text-primary text-right tabular-nums">
+                        <span className="flex-shrink-0 w-[100px] text-xs text-text-primary text-right tabular-nums">
                           {formatCurrency(
                             el.unit_cost,
                             el.currency || currency
@@ -221,11 +250,36 @@ export function BoqElementPickerDialog({
           </div>
 
           {selected && (
-            <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-xs text-text-muted">
-              <span className="font-medium text-text-primary">
-                {selected.name}
-              </span>
-              {selected.description ? ` — ${selected.description}` : ""}
+            <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2.5 text-xs flex flex-col gap-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-text-primary">
+                  {selected.name}
+                </span>
+                {selectedCategoryName && (
+                  <span className="inline-flex items-center gap-1 text-text-muted">
+                    <Tag className="h-3 w-3" />
+                    {selectedCategoryName}
+                  </span>
+                )}
+              </div>
+              {selected.description && (
+                <p className="text-text-secondary">{selected.description}</p>
+              )}
+              <div className="flex gap-3 text-text-muted flex-wrap">
+                <span>
+                  Unit cost{" "}
+                  {formatCurrency(
+                    selected.unit_cost,
+                    selected.currency || currency
+                  )}
+                </span>
+                {selected.margin_pct && (
+                  <span>Margin {selected.margin_pct}%</span>
+                )}
+                {selected.spec_reference && (
+                  <span>Spec {selected.spec_reference}</span>
+                )}
+              </div>
             </div>
           )}
         </div>
