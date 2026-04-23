@@ -8,14 +8,17 @@ import { useBoq } from "@/hooks/useBoq";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { useUserRole } from "@/hooks/useUserRole";
 import { BoqCreateDialog } from "../boq/_components/BoqCreateDialog";
+import { BoqHeader } from "../boq/_components/BoqHeader";
 import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
 import { BoqTable } from "../boq/_components/BoqTable";
 import { BoqBottomBar } from "../boq/_components/BoqBottomBar";
 import { BoqActionBar } from "../boq/_components/BoqActionBar";
 import { BoqCreateSectionDialog } from "../boq/_components/BoqCreateSectionDialog";
 import { BoqCreateItemDialog } from "../boq/_components/BoqCreateItemDialog";
+import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
-import type { BoqSection } from "@/types";
+import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
+import type { BoqItemWithComputed, BoqSection } from "@/types";
 
 interface BoqTabProps {
   projectId: string;
@@ -34,7 +37,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [createItemSection, setCreateItemSection] = useState<string | null>(
     null
   );
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [renameSection, setRenameSection] = useState<BoqSection | null>(null);
+  const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
+    null
+  );
 
   if (isLoading) {
     return (
@@ -114,19 +121,22 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
+  // Keep drawer's item reference fresh after SWR revalidation.
+  const liveDrawerItem = drawerItem
+    ? (boq.items.find((it) => it.id === drawerItem.id) ?? null)
+    : null;
+
   return (
     <div className="px-4 lg:px-10 py-6 flex flex-col gap-5">
-      <div className="flex items-baseline justify-between">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold text-text-primary">
-            {boq.title}
-          </h2>
-          <p className="text-xs text-text-muted">
-            v{boq.version} · {boq.status} · {boq.currency} · {boq.items.length}{" "}
-            item{boq.items.length === 1 ? "" : "s"}
-          </p>
-        </div>
-      </div>
+      <BoqHeader
+        title={boq.title}
+        version={boq.version}
+        status={boq.status}
+        currency={boq.currency}
+        itemCount={boq.items.length}
+        pendingApprovals={boq.summary.pending_approvals}
+        marginBleedCount={boq.summary.margin_bleed_count}
+      />
 
       <BoqSummaryCards
         summary={boq.summary}
@@ -137,6 +147,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       {canEdit && (
         <BoqActionBar
           onAddItem={() => openAddItem(null)}
+          onAddFromLibrary={() => setPickerOpen(true)}
           onAddSection={() => setCreateSectionOpen(true)}
         />
       )}
@@ -155,6 +166,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={handleDeleteSection}
         onAddItemToSection={openAddItem}
+        onOpenItem={setDrawerItem}
       />
 
       <BoqBottomBar
@@ -188,6 +200,28 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         }}
         projectId={projectId}
         section={renameSection}
+      />
+
+      <BoqElementPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        projectId={projectId}
+        boqId={boq.id}
+        sections={boq.sections}
+        currency={boq.currency}
+      />
+
+      <BoqItemDrawer
+        open={drawerItem !== null && liveDrawerItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setDrawerItem(null);
+        }}
+        projectId={projectId}
+        item={liveDrawerItem}
+        sections={boq.sections}
+        currency={boq.currency}
+        minimumMarginPct={boq.minimum_margin_pct}
+        canEdit={canEdit}
       />
     </div>
   );

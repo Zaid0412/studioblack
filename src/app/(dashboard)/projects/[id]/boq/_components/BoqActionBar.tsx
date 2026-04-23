@@ -1,17 +1,19 @@
 "use client";
 
-import { Plus, FolderPlus } from "lucide-react";
+import { Plus, FolderPlus, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BoqActionBarProps {
   onAddItem: () => void;
+  onAddFromLibrary: () => void;
   onAddSection: () => void;
   disabled?: boolean;
 }
 
-/** Right-aligned PM action row above the BOQ table: add section, add item. */
+/** Right-aligned PM action row above the BOQ table. */
 export function BoqActionBar({
   onAddItem,
+  onAddFromLibrary,
   onAddSection,
   disabled,
 }: BoqActionBarProps) {
@@ -27,9 +29,24 @@ export function BoqActionBar({
         <FolderPlus className="h-4 w-4" />
         Add section
       </Button>
-      <Button type="button" size="sm" onClick={onAddItem} disabled={disabled}>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={onAddItem}
+        disabled={disabled}
+      >
         <Plus className="h-4 w-4" />
-        Add item
+        Add manual
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        onClick={onAddFromLibrary}
+        disabled={disabled}
+      >
+        <BookOpen className="h-4 w-4" />
+        Add from library
       </Button>
     </div>
   );

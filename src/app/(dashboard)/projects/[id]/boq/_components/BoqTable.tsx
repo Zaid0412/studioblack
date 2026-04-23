@@ -43,6 +43,7 @@ interface BoqTableProps {
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
   onAddItemToSection?: (sectionId: string | null) => void;
+  onOpenItem?: (item: BoqItemWithComputed) => void;
 }
 
 interface SectionGroup {
@@ -82,6 +83,7 @@ export function BoqTable({
   onToggleSectionVisibility,
   onDeleteSection,
   onAddItemToSection,
+  onOpenItem,
 }: BoqTableProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const marginFloor = toNum(minimumMarginPct) || undefined;
@@ -211,6 +213,7 @@ export function BoqTable({
                       editable={rowsEditable && !isItemLocked(item)}
                       onUpdateItem={onUpdateItem}
                       onDeleteItem={onDeleteItem}
+                      onOpen={onOpenItem}
                     />
                   ))}
               </div>
@@ -232,6 +235,7 @@ interface BoqItemRowProps {
     data: UpdateItemPayload
   ) => Promise<BoqItemWithComputed | null | undefined>;
   onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+  onOpen?: (item: BoqItemWithComputed) => void;
 }
 
 const BoqItemRow = memo(function BoqItemRow({
@@ -241,6 +245,7 @@ const BoqItemRow = memo(function BoqItemRow({
   editable,
   onUpdateItem,
   onDeleteItem,
+  onOpen,
 }: BoqItemRowProps) {
   const tier = marginTier(toNum(item.margin_pct), marginFloor);
   const marginColor =
@@ -267,9 +272,20 @@ const BoqItemRow = memo(function BoqItemRow({
     <div
       className={`grid ${GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors`}
     >
-      <span className="text-xs text-text-muted font-mono truncate">
-        {item.item_code}
-      </span>
+      {onOpen ? (
+        <button
+          type="button"
+          onClick={() => onOpen(item)}
+          className="text-xs text-text-muted font-mono truncate text-left hover:text-accent cursor-pointer focus:outline-none focus-visible:text-accent"
+          aria-label={`Open details for ${item.item_code}`}
+        >
+          {item.item_code}
+        </button>
+      ) : (
+        <span className="text-xs text-text-muted font-mono truncate">
+          {item.item_code}
+        </span>
+      )}
       <BoqEditableCell
         value={item.description}
         display={item.description}

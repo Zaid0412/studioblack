@@ -1,11 +1,36 @@
 import type {
   BoqItemLifecycleStatus,
   BoqItemClientApprovalStatus,
+  BoqStatus,
 } from "@/lib/validations";
 import type { BadgeVariant } from "@/components/ui/badge";
 
 /** Sentinel used in selects/grouping when an item has no section. */
 export const BOQ_NO_SECTION_ID = "__unassigned__";
+
+const BOQ_STATUS_VARIANT: Record<BoqStatus, BadgeVariant> = {
+  draft: "draft",
+  submitted_to_client: "submitted",
+  client_approved: "approved-client",
+  locked: "info",
+  superseded: "archived",
+};
+
+const BOQ_STATUS_LABEL: Record<BoqStatus, string> = {
+  draft: "draft",
+  submitted_to_client: "submitted to client",
+  client_approved: "client approved",
+  locked: "locked",
+  superseded: "superseded",
+};
+
+export function boqStatusToVariant(status: BoqStatus): BadgeVariant {
+  return BOQ_STATUS_VARIANT[status];
+}
+
+export function boqStatusToLabel(status: BoqStatus): string {
+  return BOQ_STATUS_LABEL[status];
+}
 
 export type MarginTier = "error" | "warning" | "success";
 
