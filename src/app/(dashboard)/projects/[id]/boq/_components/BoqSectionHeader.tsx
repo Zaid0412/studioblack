@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronRight, MoreVertical } from "lucide-react";
+import { ChevronDown, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +37,6 @@ export function BoqSectionHeader({
   onDelete,
   onAddItem,
 }: BoqSectionHeaderProps) {
-  const Chevron = collapsed ? ChevronRight : ChevronDown;
   const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
 
   return (
@@ -45,9 +44,14 @@ export function BoqSectionHeader({
       <button
         type="button"
         onClick={onToggle}
+        aria-expanded={!collapsed}
         className="flex-1 flex items-center gap-3 text-left hover:opacity-80 transition-opacity cursor-pointer"
       >
-        <Chevron className="w-4 h-4 text-text-muted flex-shrink-0" />
+        <ChevronDown
+          className={`w-4 h-4 text-text-muted flex-shrink-0 transition-transform duration-300 ${
+            collapsed ? "-rotate-90" : "rotate-0"
+          }`}
+        />
         <span className="text-sm font-semibold text-text-primary flex-1 truncate">
           {title}
         </span>

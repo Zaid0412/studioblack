@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
 import { useBoq } from "@/hooks/useBoq";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -52,17 +52,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   );
 
   if (isLoading) {
-    return (
-      <div className="px-4 lg:px-10 py-6 flex flex-col gap-3">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-5 gap-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-lg" />
-          ))}
-        </div>
-        <Skeleton className="h-64 rounded-lg" />
-      </div>
-    );
+    return <BoqTabSkeleton />;
   }
 
   if (error) {

@@ -27,7 +27,8 @@ import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi, boq as boqApi } from "@/lib/api";
 import type { ListElementsResponse } from "@/lib/api/elements";
 import { API } from "@/lib/api/routes";
-import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import type { ElementUnit } from "@/lib/validations";
+import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
 import type { BoqSection, ElementCategoryNode } from "@/types";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
@@ -79,7 +80,7 @@ export function BoqElementPickerDialog({
 }: BoqElementPickerDialogProps) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>(FILTER_ALL);
-  const [unitFilter, setUnitFilter] = useState<string>(FILTER_ALL);
+  const [unitFilter, setUnitFilter] = useState<ElementUnit | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("1");
   const [sectionId, setSectionId] = useState<string>(BOQ_NO_SECTION_ID);
@@ -89,7 +90,7 @@ export function BoqElementPickerDialog({
     if (!open) return;
     setSearch("");
     setCategoryFilter(FILTER_ALL);
-    setUnitFilter(FILTER_ALL);
+    setUnitFilter(null);
     setSelectedId(null);
     setQuantity("1");
     setSectionId(BOQ_NO_SECTION_ID);
@@ -99,8 +100,7 @@ export function BoqElementPickerDialog({
     ? elementsApi.listKey({
         search: search || undefined,
         categoryId: categoryFilter === FILTER_ALL ? undefined : categoryFilter,
-        unit:
-          unitFilter === FILTER_ALL ? undefined : (unitFilter as ElementUnit),
+        unit: unitFilter ?? undefined,
         isActive: true,
         page: 1,
         limit: PAGE_LIMIT,
@@ -192,19 +192,7 @@ export function BoqElementPickerDialog({
                 ))}
               </SelectContent>
             </Select>
-            <Select value={unitFilter} onValueChange={setUnitFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All units" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={FILTER_ALL}>All units</SelectItem>
-                {ALLOWED_UNITS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <UnitFilterSelect value={unitFilter} onChange={setUnitFilter} />
           </div>
 
           <div className="min-h-[280px] max-h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-elevated">

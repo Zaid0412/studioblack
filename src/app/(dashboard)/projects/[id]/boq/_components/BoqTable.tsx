@@ -203,19 +203,28 @@ export function BoqTable({
                       : undefined
                   }
                 />
-                {!isCollapsed &&
-                  group.items.map((item) => (
-                    <BoqItemRow
-                      key={item.id}
-                      item={item}
-                      currency={currency}
-                      marginFloor={marginFloor}
-                      editable={rowsEditable && !isItemLocked(item)}
-                      onUpdateItem={onUpdateItem}
-                      onDeleteItem={onDeleteItem}
-                      onOpen={onOpenItem}
-                    />
-                  ))}
+                <div
+                  className="grid transition-[grid-template-rows] duration-300 ease-out"
+                  style={{
+                    gridTemplateRows: isCollapsed ? "0fr" : "1fr",
+                  }}
+                  aria-hidden={isCollapsed}
+                >
+                  <div className="overflow-hidden">
+                    {group.items.map((item) => (
+                      <BoqItemRow
+                        key={item.id}
+                        item={item}
+                        currency={currency}
+                        marginFloor={marginFloor}
+                        editable={rowsEditable && !isItemLocked(item)}
+                        onUpdateItem={onUpdateItem}
+                        onDeleteItem={onDeleteItem}
+                        onOpen={onOpenItem}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
             );
           })}
