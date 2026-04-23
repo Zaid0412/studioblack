@@ -56,7 +56,7 @@ interface SectionGroup {
 }
 
 // Tuned to fit a ~1100px content area without horizontal scroll.
-const GRID_COLS =
+export const GRID_COLS =
   "grid-cols-[70px_minmax(160px,1fr)_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
 
 function isBoqLocked(status: BoqStatus): boolean {
@@ -204,10 +204,9 @@ export function BoqTable({
                   }
                 />
                 <div
-                  className="grid transition-[grid-template-rows] duration-300 ease-out"
-                  style={{
-                    gridTemplateRows: isCollapsed ? "0fr" : "1fr",
-                  }}
+                  className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                    isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+                  }`}
                   aria-hidden={isCollapsed}
                 >
                   <div className="overflow-hidden">

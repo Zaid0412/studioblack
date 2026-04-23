@@ -1,10 +1,6 @@
-import {
-  forwardRef,
-  useCallback,
-  useRef,
-  useState,
-  type InputHTMLAttributes,
-} from "react";
+"use client";
+
+import { forwardRef, useRef, useState, type InputHTMLAttributes } from "react";
 import { ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +8,16 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
+
+/**
+ * Native value setter for HTMLInputElement. We bypass React's cached
+ * descriptor so programmatic updates re-fire `onChange` on controlled
+ * inputs. Cached once at module load instead of per-click.
+ */
+const setNativeInputValue =
+  typeof window !== "undefined"
+    ? Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set
+    : undefined;
 
 /**
  * Themed text input with optional label and error message.
@@ -32,18 +38,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const isNumber = type === "number";
 
     const internalRef = useRef<HTMLInputElement | null>(null);
-    const setRefs = useCallback(
-      (el: HTMLInputElement | null) => {
-        internalRef.current = el;
-        if (typeof ref === "function") ref(el);
-        else if (ref) ref.current = el;
-      },
-      [ref]
-    );
 
     const adjustBy = (direction: 1 | -1) => {
       const el = internalRef.current;
-      if (!el || el.disabled || el.readOnly) return;
+      if (!el) return;
 
       const step = parseFloat(String(props.step ?? 1)) || 1;
       const min =
@@ -66,12 +64,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       const decimals = (String(step).split(".")[1] ?? "").length;
       if (decimals > 0) next = Number(next.toFixed(decimals));
 
-      // Bypass React's value descriptor so controlled inputs re-render.
-      const descriptor = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        "value"
-      );
-      descriptor?.set?.call(el, String(next));
+      setNativeInputValue?.call(el, String(next));
       el.dispatchEvent(new Event("input", { bubbles: true }));
       el.focus();
     };
@@ -89,7 +82,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           <input
-            ref={setRefs}
+            ref={(el) => {
+              internalRef.current = el;
+              if (typeof ref === "function") ref(el);
+              else if (ref) ref.current = el;
+            }}
             id={inputId}
             type={isPassword && showPassword ? "text" : type}
             className={cn(

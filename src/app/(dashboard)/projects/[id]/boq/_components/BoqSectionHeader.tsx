@@ -48,6 +48,7 @@ export function BoqSectionHeader({
         className="flex-1 flex items-center gap-3 text-left hover:opacity-80 transition-opacity cursor-pointer"
       >
         <ChevronDown
+          aria-hidden="true"
           className={`w-4 h-4 text-text-muted flex-shrink-0 transition-transform duration-300 ${
             collapsed ? "-rotate-90" : "rotate-0"
           }`}

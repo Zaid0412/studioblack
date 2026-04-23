@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/Skeleton";
+import { GRID_COLS } from "./BoqTable";
 
 /** Loading placeholder that mirrors the real BOQ tab layout. */
 export function BoqTabSkeleton() {
@@ -38,7 +39,9 @@ export function BoqTabSkeleton() {
       {/* Table */}
       <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
         {/* Column header */}
-        <div className="hidden lg:grid grid-cols-[70px_minmax(160px,1fr)_50px_70px_90px_100px_75px_100px_95px_85px_32px] gap-2 px-3 py-3 border-b border-border-default">
+        <div
+          className={`hidden lg:grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default`}
+        >
           {Array.from({ length: 10 }).map((_, i) => (
             <Skeleton key={i} className="h-3 rounded" />
           ))}
@@ -55,7 +58,7 @@ export function BoqTabSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="grid grid-cols-[70px_minmax(160px,1fr)_50px_70px_90px_100px_75px_100px_95px_85px_32px] gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0"
+            className={`grid ${GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0`}
           >
             <Skeleton className="h-3 w-14 rounded" />
             <Skeleton className="h-4 rounded" />
