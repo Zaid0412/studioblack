@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { useBoq } from "@/hooks/useBoq";
-import type { ProjectTab } from "./ProjectTabs";
+import { useProjectTabNav, type ProjectTab } from "./ProjectTabs";
 
 type StepStatus = "pending" | "in_progress" | "completed";
 
@@ -45,23 +43,8 @@ export function ProjectWorkflowSteps({
   fileCount,
   showBoq,
 }: ProjectWorkflowStepsProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
   const { boq, notFound } = useBoq(projectId);
-
-  const setTab = useCallback(
-    (tab: ProjectTab) => {
-      if (tab === activeTab) return;
-      const params = new URLSearchParams(searchParams.toString());
-      if (tab === "designs") params.delete("tab");
-      else params.set("tab", tab);
-      const qs = params.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-    },
-    [activeTab, pathname, router, searchParams]
-  );
+  const { setTab } = useProjectTabNav(activeTab);
 
   // TODO: mark Design as "completed" when all design files across all phases
   // are approved. Needs project-wide attachment status — not on the detail

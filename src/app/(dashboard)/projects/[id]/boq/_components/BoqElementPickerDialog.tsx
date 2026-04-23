@@ -30,6 +30,7 @@ import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
 import type { BoqSection, ElementCategoryNode } from "@/types";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
+import { BoqSectionSelect } from "./BoqSectionSelect";
 
 const FILTER_ALL = "__all__";
 
@@ -263,26 +264,11 @@ export function BoqElementPickerDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">
-                Section
-              </span>
-              <Select value={sectionId} onValueChange={setSectionId}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={BOQ_NO_SECTION_ID}>
-                    (Unassigned)
-                  </SelectItem>
-                  {sections.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
+            <BoqSectionSelect
+              value={sectionId}
+              onChange={setSectionId}
+              sections={sections}
+            />
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-medium text-text-secondary">
                 Quantity

@@ -3,13 +3,6 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -21,6 +14,7 @@ import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
 import { BOQ_NO_SECTION_ID } from "../_lib/formatters";
+import { BoqSectionSelect } from "./BoqSectionSelect";
 
 interface BoqCreateItemDialogProps {
   open: boolean;
@@ -123,24 +117,11 @@ export function BoqCreateItemDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-text-secondary">
-              Section
-            </span>
-            <Select value={sectionId} onValueChange={setSectionId}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={BOQ_NO_SECTION_ID}>(Unassigned)</SelectItem>
-                {sections.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
+          <BoqSectionSelect
+            value={sectionId}
+            onChange={setSectionId}
+            sections={sections}
+          />
 
           <label className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-text-secondary">
