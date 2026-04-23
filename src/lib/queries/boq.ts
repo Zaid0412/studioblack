@@ -594,8 +594,8 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
            bi.quantity * bi.unit_cost
            * (1 + COALESCE(bi.overhead_pct, 0)/100)
            * (1 + bi.margin_pct/100)
-         ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
-         COALESCE(AVG(bi.margin_pct), 0) FILTER (WHERE NOT bi.is_excluded) AS average_margin_pct,
+         ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
+         COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
          COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
          COUNT(*) AS item_count
@@ -613,12 +613,12 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
            bi.quantity * bi.unit_cost
            * (1 + COALESCE(bi.overhead_pct, 0)/100)
            * (1 + bi.margin_pct/100)
-         ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
+         ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COUNT(*) AS item_count
        FROM boq_item bi
        LEFT JOIN boq_section s ON s.id = bi.section_id
        WHERE bi.boq_id = $1
-       GROUP BY bi.section_id, s.title
+       GROUP BY bi.section_id, s.title, s.sort_order
        ORDER BY s.sort_order NULLS LAST, s.title`,
       [boqId]
     ),
