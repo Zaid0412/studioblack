@@ -4,16 +4,28 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Edit, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { ProjectTab } from "./ProjectTabs";
 
 interface WorkflowBarProps {
   projectId: string;
+  activeTab?: ProjectTab;
   onUpload?: () => void;
 }
 
-/** Action bar with edit and upload buttons for the project detail page. */
-export function WorkflowBar({ projectId, onUpload }: WorkflowBarProps) {
+/**
+ * Action bar for the project detail page. Behaviour branches on `activeTab`:
+ * - "designs" (default): Edit Project + Upload Designs buttons
+ * - "boq": renders nothing — the BOQ tab has its own action bar (Task 5D)
+ */
+export function WorkflowBar({
+  projectId,
+  activeTab = "designs",
+  onUpload,
+}: WorkflowBarProps) {
   const router = useRouter();
   const t = useTranslations("projectDetail");
+
+  if (activeTab === "boq") return null;
 
   return (
     <div className="px-4 lg:px-10 py-4">

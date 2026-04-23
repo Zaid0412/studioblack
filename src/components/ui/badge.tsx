@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import type { DesignStatus, ProjectStatus } from "@/types";
 
 /** All supported badge colour variants (maps to design-status + semantic tokens). */
-type BadgeVariant =
+export type BadgeVariant =
   | "draft"
   | "submitted"
   | "in-review"
