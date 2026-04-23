@@ -29,7 +29,7 @@ interface BoqTabProps {
 export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const { boq, notFound, isLoading, error } = useBoq(projectId);
   const { role } = useUserRole();
-  const { updateItem, deleteItem, updateSection, deleteSection } =
+  const { updateBoq, updateItem, deleteItem, updateSection, deleteSection } =
     useBoqMutations(projectId);
 
   const [createBoqOpen, setCreateBoqOpen] = useState(false);
@@ -43,6 +43,10 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [deleteSectionTarget, setDeleteSectionTarget] =
     useState<BoqSection | null>(null);
   const [deletingSection, setDeletingSection] = useState(false);
+  const [deleteItemTarget, setDeleteItemTarget] =
+    useState<BoqItemWithComputed | null>(null);
+  const [deletingItem, setDeletingItem] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
   );
@@ -126,6 +130,19 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
+  const confirmDeleteItem = async () => {
+    if (!deleteItemTarget) return;
+    setDeletingItem(true);
+    try {
+      await deleteItem(deleteItemTarget);
+      setDeleteItemTarget(null);
+    } catch {
+      /* useBoqMutations toasts on error */
+    } finally {
+      setDeletingItem(false);
+    }
+  };
+
   // Keep drawer's item reference fresh after SWR revalidation.
   const liveDrawerItem = drawerItem
     ? (boq.items.find((it) => it.id === drawerItem.id) ?? null)
@@ -141,6 +158,18 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         itemCount={boq.items.length}
         pendingApprovals={boq.summary.pending_approvals}
         marginBleedCount={boq.summary.margin_bleed_count}
+        canEdit={canEdit}
+        transitioning={transitioning}
+        onTransition={async (next) => {
+          setTransitioning(true);
+          try {
+            await updateBoq({ boqId: boq.id, status: next });
+          } catch {
+            /* useBoqMutations toasts on error */
+          } finally {
+            setTransitioning(false);
+          }
+        }}
       />
 
       <BoqSummaryCards
@@ -166,7 +195,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqStatus={boq.status}
         canEdit={canEdit}
         onUpdateItem={updateItem}
-        onDeleteItem={deleteItem}
+        onDeleteItem={async (item) => setDeleteItemTarget(item)}
         onRenameSection={setRenameSection}
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={setDeleteSectionTarget}
@@ -214,6 +243,28 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqId={boq.id}
         sections={boq.sections}
         currency={boq.currency}
+      />
+
+      <ConfirmDialog
+        open={deleteItemTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteItemTarget(null);
+        }}
+        title="Delete item?"
+        description={
+          deleteItemTarget ? (
+            <>
+              <span className="font-medium text-text-primary">
+                {deleteItemTarget.item_code}
+              </span>
+              {` — ${deleteItemTarget.description}. This can't be undone.`}
+            </>
+          ) : null
+        }
+        confirmLabel="Delete item"
+        destructive
+        submitting={deletingItem}
+        onConfirm={confirmDeleteItem}
       />
 
       <ConfirmDialog

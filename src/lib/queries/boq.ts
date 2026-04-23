@@ -9,6 +9,7 @@ import type {
 import type {
   BoqItemLifecycleStatus,
   BoqItemClientApprovalStatus,
+  BoqStatus,
 } from "@/lib/validations";
 
 /**
@@ -44,6 +45,53 @@ export async function verifyBoqOwnership(
     [boqId, projectId]
   );
   return rows.length > 0;
+}
+
+/**
+ * Fetch a BOQ's status, scoped to a project. Returns null if the BOQ does not
+ * belong to the project. Used by route handlers to gate mutating operations
+ * on locked / superseded BOQs.
+ */
+export async function getBoqStatus(
+  boqId: string,
+  projectId: string
+): Promise<BoqStatus | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: BoqStatus }>(
+    `SELECT status FROM boq WHERE id = $1 AND project_id = $2`,
+    [boqId, projectId]
+  );
+  return rows[0]?.status ?? null;
+}
+
+/** Look up the BOQ status for the BOQ that owns a given section. */
+export async function getBoqStatusForSection(
+  sectionId: string,
+  projectId: string
+): Promise<BoqStatus | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: BoqStatus }>(
+    `SELECT b.status FROM boq_section s
+     JOIN boq b ON b.id = s.boq_id
+     WHERE s.id = $1 AND b.project_id = $2`,
+    [sectionId, projectId]
+  );
+  return rows[0]?.status ?? null;
+}
+
+/** Look up the BOQ status for the BOQ that owns a given item. */
+export async function getBoqStatusForItem(
+  itemId: string,
+  projectId: string
+): Promise<BoqStatus | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: BoqStatus }>(
+    `SELECT b.status FROM boq_item bi
+     JOIN boq b ON b.id = bi.boq_id
+     WHERE bi.id = $1 AND b.project_id = $2`,
+    [itemId, projectId]
+  );
+  return rows[0]?.status ?? null;
 }
 
 export async function verifyBoqSectionOwnership(
@@ -156,7 +204,9 @@ export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   };
 }
 
-export type UpdateBoqInput = Partial<Omit<CreateBoqInput, "createdBy">>;
+export type UpdateBoqInput = Partial<Omit<CreateBoqInput, "createdBy">> & {
+  status?: BoqStatus;
+};
 
 const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   title: "title",
@@ -169,6 +219,7 @@ const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   architectId: "architect_id",
   notes: "notes",
   clientNotes: "client_notes",
+  status: "status",
 };
 
 export async function updateBoq(

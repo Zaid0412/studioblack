@@ -7,6 +7,8 @@ import {
   addElementToBoq,
   verifyBoqOwnership,
   verifyBoqItemOwnership,
+  getBoqStatus,
+  getBoqStatusForItem,
   getOrgRole,
   hasProjectAccess,
 } from "@/lib/queries";
@@ -81,6 +83,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
+  vi.mocked(getBoqStatus).mockResolvedValue("draft");
+  vi.mocked(getBoqStatusForItem).mockResolvedValue("draft");
 });
 
 // ── POST /api/projects/[id]/boq/items ───────────────────────────────────────
@@ -129,7 +133,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
-    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
+    vi.mocked(getBoqStatus).mockResolvedValue(null);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
       method: "POST",
@@ -290,7 +294,7 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
   });
 
   it("returns 404 when item is not owned by project", async () => {
-    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(false);
+    vi.mocked(getBoqStatusForItem).mockResolvedValue(null);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
@@ -429,7 +433,7 @@ describe("DELETE /api/projects/[id]/boq/items/[itemId]", () => {
   });
 
   it("returns 404 when item is not owned by project", async () => {
-    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(false);
+    vi.mocked(getBoqStatusForItem).mockResolvedValue(null);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
@@ -459,6 +463,44 @@ describe("DELETE /api/projects/[id]/boq/items/[itemId]", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
+  });
+
+  it("returns 423 when the parent BOQ is locked", async () => {
+    vi.mocked(getBoqStatusForItem).mockResolvedValue("locked");
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
+      { method: "DELETE", body: { updatedAt: UPDATED_AT } }
+    );
+    const res = await DELETE_ITEM(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    const { status, body } = await parseResponse<{ code: string }>(res);
+
+    expect(status).toBe(423);
+    expect(body.code).toBe("BOQ_LOCKED");
+    expect(deleteBoqItem).not.toHaveBeenCalled();
+  });
+
+  it("returns 423 when PATCHing an item on a superseded BOQ", async () => {
+    vi.mocked(getBoqStatusForItem).mockResolvedValue("superseded");
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
+      {
+        method: "PATCH",
+        body: { updatedAt: UPDATED_AT, description: "hacked" },
+      }
+    );
+    const res = await PATCH_ITEM(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(423);
+    expect(updateBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 403 for client role", async () => {
@@ -534,7 +576,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
-    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
+    vi.mocked(getBoqStatus).mockResolvedValue(null);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items/reorder`, {
       method: "PATCH",
@@ -690,7 +732,7 @@ describe("POST /api/projects/[id]/boq/items/from-element", () => {
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
-    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
+    vi.mocked(getBoqStatus).mockResolvedValue(null);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/from-element`,

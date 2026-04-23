@@ -44,6 +44,12 @@ export interface UpdateBoqPayload {
   architectId?: string | null;
   notes?: string | null;
   clientNotes?: string | null;
+  status?:
+    | "draft"
+    | "submitted_to_client"
+    | "client_approved"
+    | "locked"
+    | "superseded";
 }
 
 export function update(projectId: string, data: UpdateBoqPayload) {

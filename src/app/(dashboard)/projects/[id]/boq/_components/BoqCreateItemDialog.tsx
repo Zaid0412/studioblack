@@ -163,6 +163,8 @@ export function BoqCreateItemDialog({
               <span className="text-xs font-medium text-text-secondary">
                 Unit
               </span>
+              {/* Free text (≤30 chars), not UnitSelect: BOQ items accept any
+                  contractor-supplied unit, not just the ElementUnit enum. */}
               <Input
                 value={unit}
                 onChange={(e) => setUnit(e.target.value)}

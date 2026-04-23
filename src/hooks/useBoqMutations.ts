@@ -9,6 +9,7 @@ import type {
   CreateBoqPayload,
   CreateItemPayload,
   CreateSectionPayload,
+  UpdateBoqPayload,
   UpdateItemPayload,
 } from "@/lib/api/boq";
 import type { BoqItemWithComputed, BoqSection, BoqWithDetails } from "@/types";
@@ -39,6 +40,20 @@ export function useBoqMutations(projectId: string) {
       const created = await boqApi.create(projectId, data);
       await globalMutate(key);
       return created;
+    },
+    [projectId, key]
+  );
+
+  const updateBoq = useCallback(
+    async (data: Omit<UpdateBoqPayload, "boqId"> & { boqId: string }) => {
+      try {
+        const updated = await boqApi.update(projectId, data);
+        await globalMutate(key);
+        return updated;
+      } catch (err) {
+        handleError(err, "Could not update BOQ");
+        throw err;
+      }
     },
     [projectId, key]
   );
@@ -197,6 +212,7 @@ export function useBoqMutations(projectId: string) {
 
   return {
     createBoq,
+    updateBoq,
     updateItem,
     deleteItem,
     createItem,
