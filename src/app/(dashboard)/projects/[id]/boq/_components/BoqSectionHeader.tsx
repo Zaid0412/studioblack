@@ -22,6 +22,8 @@ interface BoqSectionHeaderProps {
   onToggleVisibility?: () => void;
   onDelete?: () => void;
   onAddItem?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 export function BoqSectionHeader({
@@ -36,8 +38,16 @@ export function BoqSectionHeader({
   onToggleVisibility,
   onDelete,
   onAddItem,
+  onMoveUp,
+  onMoveDown,
 }: BoqSectionHeaderProps) {
-  const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
+  const hasMenu =
+    onRename ||
+    onToggleVisibility ||
+    onDelete ||
+    onAddItem ||
+    onMoveUp ||
+    onMoveDown;
 
   return (
     <div className="w-full flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
@@ -80,6 +90,14 @@ export function BoqSectionHeader({
             {onAddItem && (
               <DropdownMenuItem onSelect={onAddItem}>
                 Add item here
+              </DropdownMenuItem>
+            )}
+            {onMoveUp && (
+              <DropdownMenuItem onSelect={onMoveUp}>Move up</DropdownMenuItem>
+            )}
+            {onMoveDown && (
+              <DropdownMenuItem onSelect={onMoveDown}>
+                Move down
               </DropdownMenuItem>
             )}
             {onRename && (

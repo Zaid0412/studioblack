@@ -210,6 +210,33 @@ export function useBoqMutations(projectId: string) {
     [projectId, key]
   );
 
+  const reorderSections = useCallback(
+    async (boqId: string, orderedIds: string[]) => {
+      try {
+        // Optimistic: re-sort `sections` by orderedIds so the UI updates instantly.
+        await globalMutate(
+          key,
+          (current: BoqWithDetails | null | undefined) => {
+            if (!current) return current;
+            const byId = new Map(current.sections.map((s) => [s.id, s]));
+            const next = orderedIds
+              .map((id) => byId.get(id))
+              .filter((s): s is (typeof current.sections)[number] => !!s);
+            return { ...current, sections: next };
+          },
+          { revalidate: false }
+        );
+        await boqApi.reorderSections(projectId, boqId, orderedIds);
+        await globalMutate(key);
+      } catch (err) {
+        await globalMutate(key);
+        handleError(err, "Could not reorder sections");
+        throw err;
+      }
+    },
+    [projectId, key]
+  );
+
   return {
     createBoq,
     updateBoq,
@@ -219,5 +246,6 @@ export function useBoqMutations(projectId: string) {
     createSection,
     updateSection,
     deleteSection,
+    reorderSections,
   };
 }

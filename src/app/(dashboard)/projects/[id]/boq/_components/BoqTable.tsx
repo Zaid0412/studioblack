@@ -43,6 +43,7 @@ interface BoqTableProps {
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
   onAddItemToSection?: (sectionId: string | null) => void;
+  onMoveSection?: (section: BoqSection, direction: "up" | "down") => void;
   onOpenItem?: (item: BoqItemWithComputed) => void;
 }
 
@@ -83,6 +84,7 @@ export function BoqTable({
   onToggleSectionVisibility,
   onDeleteSection,
   onAddItemToSection,
+  onMoveSection,
   onOpenItem,
 }: BoqTableProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -202,6 +204,23 @@ export function BoqTable({
                       ? () => onDeleteSection(section)
                       : undefined
                   }
+                  onMoveUp={
+                    sectionsEditable &&
+                    section &&
+                    onMoveSection &&
+                    sections.findIndex((s) => s.id === section.id) > 0
+                      ? () => onMoveSection(section, "up")
+                      : undefined
+                  }
+                  onMoveDown={
+                    sectionsEditable &&
+                    section &&
+                    onMoveSection &&
+                    sections.findIndex((s) => s.id === section.id) <
+                      sections.length - 1
+                      ? () => onMoveSection(section, "down")
+                      : undefined
+                  }
                 />
                 <div
                   className={`grid transition-[grid-template-rows] duration-300 ease-out ${
@@ -294,15 +313,40 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.item_code}
         </span>
       )}
+      <span className="flex items-center gap-1.5 min-w-0">
+        {item.is_provisional && (
+          <span
+            title="Provisional"
+            className="flex-shrink-0 inline-flex items-center rounded bg-warning/20 text-warning text-[9px] font-semibold px-1 py-0.5 leading-none"
+          >
+            PROV
+          </span>
+        )}
+        {item.is_excluded && (
+          <span
+            title="Excluded"
+            className="flex-shrink-0 inline-flex items-center rounded bg-border-default text-text-muted text-[9px] font-semibold px-1 py-0.5 leading-none line-through"
+          >
+            EXCL
+          </span>
+        )}
+        <BoqEditableCell
+          value={item.description}
+          display={item.description}
+          disabled={!editable}
+          onSave={(next) => save({ description: next })}
+          className="text-text-primary min-w-0"
+          ariaLabel={`Description for ${item.item_code}`}
+        />
+      </span>
       <BoqEditableCell
-        value={item.description}
-        display={item.description}
+        value={item.unit}
+        display={item.unit}
         disabled={!editable}
-        onSave={(next) => save({ description: next })}
-        className="text-text-primary"
-        ariaLabel={`Description for ${item.item_code}`}
+        onSave={(next) => save({ unit: next })}
+        className="text-xs text-text-muted"
+        ariaLabel={`Unit for ${item.item_code}`}
       />
-      <span className="text-xs text-text-muted">{item.unit}</span>
       <BoqEditableCell
         value={item.quantity}
         display={formatQty(item.quantity)}

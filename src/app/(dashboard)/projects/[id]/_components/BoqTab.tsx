@@ -29,8 +29,14 @@ interface BoqTabProps {
 export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const { boq, notFound, isLoading, error } = useBoq(projectId);
   const { role } = useUserRole();
-  const { updateBoq, updateItem, deleteItem, updateSection, deleteSection } =
-    useBoqMutations(projectId);
+  const {
+    updateBoq,
+    updateItem,
+    deleteItem,
+    updateSection,
+    deleteSection,
+    reorderSections,
+  } = useBoqMutations(projectId);
 
   const [createBoqOpen, setCreateBoqOpen] = useState(false);
   const [createSectionOpen, setCreateSectionOpen] = useState(false);
@@ -135,6 +141,19 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
+  const handleMoveSection = (section: BoqSection, direction: "up" | "down") => {
+    if (!boq) return;
+    const ids = boq.sections.map((s) => s.id);
+    const idx = ids.indexOf(section.id);
+    if (idx < 0) return;
+    const swapWith = direction === "up" ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= ids.length) return;
+    [ids[idx], ids[swapWith]] = [ids[swapWith], ids[idx]];
+    reorderSections(boq.id, ids).catch(() => {
+      /* useBoqMutations toasts on error */
+    });
+  };
+
   // Keep drawer's item reference fresh after SWR revalidation.
   const liveDrawerItem = drawerItem
     ? (boq.items.find((it) => it.id === drawerItem.id) ?? null)
@@ -192,6 +211,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={setDeleteSectionTarget}
         onAddItemToSection={openAddItem}
+        onMoveSection={handleMoveSection}
         onOpenItem={setDrawerItem}
       />
 
