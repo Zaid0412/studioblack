@@ -339,6 +339,22 @@ vi.mock("@/lib/queries", () => ({
     section_totals: [],
   }),
   getNextSequenceNumber: vi.fn().mockResolvedValue("BOQ-2026-001"),
+  // BOQ Excel import/export (Feature 6)
+  getElementsByCodeMap: vi.fn().mockResolvedValue(new Map()),
+  getBoqForExport: vi.fn().mockResolvedValue(null),
+  bulkInsertBoqItems: vi.fn().mockResolvedValue({
+    inserted: 0,
+    replaced: 0,
+    createdSections: [],
+    failed: [],
+  }),
+  // Pass-through idempotency — tests that care about replay override this.
+  withBoqImportIdempotency: vi.fn(
+    async (_key: string, run: () => Promise<unknown>) => ({
+      result: await run(),
+      replayed: false,
+    })
+  ),
 }));
 
 // ── Export mock handles for test files ───────────────────────────────────────

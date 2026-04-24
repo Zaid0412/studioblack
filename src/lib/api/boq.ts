@@ -1,16 +1,26 @@
 import type { z } from "zod";
-import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  apiBlobWithHeaders,
+} from "./client";
 import { API } from "./routes";
 import type {
+  BoqImportStrategy,
+  boqImportConfirmSchema,
   createBoqItemSchema,
   updateBoqItemSchema,
 } from "@/lib/validations";
 import type {
   Boq,
+  BoqParseResult,
   BoqSection,
   BoqItemWithComputed,
   BoqSummary,
   BoqWithDetails,
+  BulkBoqImportResult,
 } from "@/types";
 
 // ── Header ──────────────────────────────────────────────────────────────────
@@ -155,4 +165,69 @@ export function addElement(
 
 export function getSummary(projectId: string) {
   return apiGet<BoqSummary>(API.boqSummary(projectId));
+}
+
+// ── Excel Import / Export (Feature 6) ───────────────────────────────────────
+
+/** Preview shape returned by the import route — parse result + BOQ id. */
+export type BoqImportPreview = BoqParseResult & { boqId: string };
+
+export type BoqImportConfirmInput = z.infer<typeof boqImportConfirmSchema>;
+
+export { type BoqImportStrategy };
+
+/** Upload an .xlsx file and receive a parsed preview. No DB writes yet. */
+export function validateImport(
+  projectId: string,
+  file: File,
+  signal?: AbortSignal
+): Promise<BoqImportPreview> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiPost<BoqImportPreview>(API.boqImport(projectId), fd, { signal });
+}
+
+/** Execute a previously-previewed import with the chosen strategy. */
+export function confirmImport(
+  projectId: string,
+  body: BoqImportConfirmInput,
+  signal?: AbortSignal
+): Promise<BulkBoqImportResult> {
+  return apiPost<BulkBoqImportResult>(API.boqImportConfirm(projectId), body, {
+    signal,
+  });
+}
+
+/** Download the current BOQ as an .xlsx blob with parsed filename. */
+export async function downloadExport(projectId: string): Promise<{
+  blob: Blob;
+  itemCount: number;
+  filename: string | null;
+}> {
+  const { blob, headers } = await apiBlobWithHeaders(API.boqExport(projectId));
+  return {
+    blob,
+    itemCount: Number(headers.get("X-Boq-Item-Count") ?? "0"),
+    filename: parseContentDispositionFilename(
+      headers.get("Content-Disposition")
+    ),
+  };
+}
+
+/**
+ * Extract a filename from an RFC 5987 Content-Disposition header. Prefers the
+ * UTF-8 `filename*=UTF-8''…` form; falls back to the ASCII `filename="…"`.
+ */
+function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+  const starMatch = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(header);
+  if (starMatch) {
+    try {
+      return decodeURIComponent(starMatch[1].trim());
+    } catch {
+      // fall through
+    }
+  }
+  const plainMatch = /filename\s*=\s*"?([^";]+)"?/i.exec(header);
+  return plainMatch ? plainMatch[1].trim() : null;
 }

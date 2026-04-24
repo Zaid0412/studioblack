@@ -551,6 +551,42 @@ export const addElementToBoqSchema = z.object({
   quantity: quantity.default(1),
 });
 
+// ─── BOQ Excel Import (Feature 6) ───────────────────────────────────────────
+
+/** Max accepted .xlsx size for a BOQ import. Matches the element-library cap. */
+export const BOQ_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+
+export const BOQ_IMPORT_STRATEGIES = ["append", "replace"] as const;
+export type BoqImportStrategy = (typeof BOQ_IMPORT_STRATEGIES)[number];
+
+/**
+ * Wire shape of one parsed row returned to the client during preview and sent
+ * back on confirm. The server re-validates against this schema on confirm —
+ * never trust the first-pass parse output.
+ */
+export const boqImportRowSchema = z.object({
+  rowNumber: z.number().int().min(1),
+  sectionTitle: z.string().trim().max(255).optional(),
+  itemCode: z.string().trim().max(50).optional(),
+  description: z.string().trim().min(1).max(2000),
+  unit: z.enum(ALLOWED_UNITS),
+  quantity: z.coerce.number().min(0).finite(),
+  unitCost: z.coerce.number().min(0).finite(),
+  materialCost: z.coerce.number().min(0).finite().optional(),
+  labourCost: z.coerce.number().min(0).finite().optional(),
+  overheadPct: z.coerce.number().min(0).max(100).optional(),
+  marginPct: z.coerce.number().min(0).max(100).optional(),
+  notes: z.string().max(2000).optional(),
+  clientNotes: z.string().max(2000).optional(),
+  isProvisional: z.boolean().optional(),
+});
+
+export const boqImportConfirmSchema = z.object({
+  boqId: uuid,
+  strategy: z.enum(BOQ_IMPORT_STRATEGIES),
+  rows: z.array(boqImportRowSchema).min(1).max(5_000),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */

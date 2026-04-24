@@ -104,4 +104,9 @@ export const API = {
   boqItem:               (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}`,
   boqItemsReorder:       (pid: string)                       => `/api/projects/${pid}/boq/items/reorder`,
   boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
+
+  // ── BOQ Excel Import / Export (Feature 6) ───────
+  boqImport:             (pid: string)                       => `/api/projects/${pid}/boq/import`,
+  boqImportConfirm:      (pid: string)                       => `/api/projects/${pid}/boq/import/confirm`,
+  boqExport:             (pid: string)                       => `/api/projects/${pid}/boq/export`,
 } as const;

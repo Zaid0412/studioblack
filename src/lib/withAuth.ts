@@ -32,6 +32,12 @@ interface WithAuthOptions {
   rateLimit?: { limit: number; windowMs: number };
 }
 
+/**
+ * Next.js 16 calls route handlers with a non-optional context object, even
+ * for static routes (where `params` resolves to `{}`). Keeping this required
+ * matches the generated `.next/dev/types/…/route.ts` shims — making it
+ * optional trips a `RouteParams | undefined` vs `RouteContext` incompatibility.
+ */
 type RouteParams = { params: Promise<Record<string, string>> };
 
 type AuthHandler = (
@@ -53,7 +59,7 @@ function withRequestId(
 export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
   return async (
     req: NextRequest,
-    routeParams?: RouteParams
+    routeParams: RouteParams = { params: Promise.resolve({}) }
   ): Promise<NextResponse<unknown>> => {
     const requestId = crypto.randomUUID();
     const route = req.nextUrl.pathname;

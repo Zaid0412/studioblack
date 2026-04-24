@@ -18,7 +18,11 @@ import { BoqCreateItemDialog } from "../boq/_components/BoqCreateItemDialog";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
+import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { toast } from "@/components/ui/useToast";
+import { boq as boqApi, ApiError } from "@/lib/api";
+import { saveBlob } from "@/lib/download";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 
 interface BoqTabProps {
@@ -27,7 +31,13 @@ interface BoqTabProps {
 }
 
 export function BoqTab({ projectId, projectName }: BoqTabProps) {
-  const { boq, notFound, isLoading, error } = useBoq(projectId);
+  const {
+    boq,
+    notFound,
+    isLoading,
+    error,
+    mutate: mutateBoq,
+  } = useBoq(projectId);
   const { role } = useUserRole();
   const {
     updateBoq,
@@ -56,6 +66,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
   );
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   if (isLoading) {
     return <BoqTabSkeleton />;
@@ -148,6 +160,29 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     });
   };
 
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const { blob, filename } = await boqApi.downloadExport(projectId);
+      const stamp = new Date().toISOString().slice(0, 10);
+      saveBlob(
+        blob,
+        filename ?? `${projectName || "project"}-BOQ-${stamp}.xlsx`
+      );
+    } catch (err) {
+      const description =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Export failed";
+      toast({ title: "Export failed", description, variant: "error" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Keep drawer's item reference fresh after SWR revalidation.
   const liveDrawerItem = drawerItem
     ? (boq.items.find((it) => it.id === drawerItem.id) ?? null)
@@ -188,6 +223,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           onAddItem={() => openAddItem(null)}
           onAddFromLibrary={() => setPickerOpen(true)}
           onAddSection={() => setCreateSectionOpen(true)}
+          onImport={() => setImportOpen(true)}
+          onExport={handleExport}
+          exporting={exporting}
         />
       )}
 
@@ -308,6 +346,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
         canEdit={canEdit}
+      />
+
+      <BoqImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        projectId={projectId}
+        onImported={() => {
+          void mutateBoq();
+        }}
       />
     </div>
   );
