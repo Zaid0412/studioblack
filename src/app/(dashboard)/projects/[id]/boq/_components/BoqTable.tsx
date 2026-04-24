@@ -299,8 +299,11 @@ function SortableSection({
     transition,
     isDragging,
   } = useSortable({ id });
+  // Use Translate (not Transform) so variable-height siblings don't force a
+  // scaleY onto the dragged node — otherwise hovering an expanded section
+  // would stretch the section being dragged.
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : undefined,
     position: "relative",
