@@ -1,11 +1,13 @@
 # ArchBuild Implementation Plan
 
-> **Source PRD** (Google Docs — 4 tabs):
+> **Source PRD** (Google Docs — 6 tabs):
 >
 > - [Tab 1 — Overview & Architecture](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.0)
 > - [Tab 2 — Database Schema & Permissions](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.kxk5xif02yog)
 > - [Tab 3 — UI Specs & Workflows](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.l1rfcv6wiy3h)
 > - [Tab 4 — Error Handling & Phase 2](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.awk8tpqx406u)
+> - [Tab 5 — Client BOQ Sub-Nav (informal)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.a3ma4anbiwbv)
+> - [Tab 6 — Operational Logic & State Machines](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ts167vyji3xt)
 
 ## Overview
 
@@ -14,6 +16,43 @@ Transform StudioBlack (design review platform) into ArchBuild (BOQ-centric const
 **Current state**: Next.js 16, React 19, better-auth, raw SQL via `pg`, 3 roles (PM/Architect/Client), design review workflow, tasks, notifications.
 
 **Target state**: Everything above PLUS Element Library, BOQ, Vendor Management, RFQ/Quotes, Client Proposals, Purchase Orders, Change Orders, Progress Tracking, and Client BOQ Portal.
+
+---
+
+## Revisions from PRD Tabs 5–6
+
+Tabs 5 (client BOQ sub-nav) and 6 (end-to-end operational logic + state machines) were added after the initial plan. They are additive / refining — nothing below is invalidated. Net changes are folded into the relevant features and summarised here.
+
+### New features
+
+- **F22 — Client Invoices** (new). Org → client billing. Separate from F15, which stays scoped to vendor invoices.
+- **F23 — Client Payments** (new). Payments received from the client against F22 invoices. Tab 5 calls this "Payment from client".
+- **F24 — Client Orders view** (new). Read-only client surface listing approved BOQ items as an order log. No new DB — derived from F12 data.
+
+### Changes to existing features
+
+- **F4** — hard-block edits on items whose `client_approval_status = 'approved'` (tab 6 Rule 3). The current auto-flip to `requires_reapproval = true` is pending review — see Open decisions.
+- **F12** — client BOQ sub-nav becomes **My Scope · Proposals · Orders · Client Invoices · Payments** (tab 5). Change Orders and Progress are no longer top-level client tabs; clients see them via notifications and inline badges on BOQ items.
+- **F13** — CO implementation bumps `boq.version` and writes `boq.snapshot` before applying changes (tab 6 Rule 4). Previously only the lock step snapshotted.
+- **F14** — reject `POST /purchase-orders` if any referenced `boq_item.client_approval_status ≠ 'approved'` (tab 6 Rule 1). Same gate on PATCH when items are swapped in.
+- **F15** — scoped to vendor invoices only. Client-facing invoice routes move to F22. Same approval gate applies: no vendor invoice for unapproved BOQ scope (tab 6 Rule 2).
+
+### Tab 6 rules — enforcement map
+
+| Rule | Enforced in |
+| --- | --- |
+| 1. No PO without approval | F14 server guard |
+| 2. No invoice on unapproved items | F15 (vendor) + F22 (client) server guards |
+| 3. Post-approval changes → CO | F4 block, F13 CO flow (pending decision) |
+| 4. Never overwrite BOQ — always version | F13 bumps `boq.version` + snapshot on CO implement |
+| 5. Vendor cost ≠ client price | F4 schema already separates `unit_cost` from computed `sell_price` |
+| Core: every action references a `boq_item` | Already honoured across F9 / F13 / F14 / F17 / F22 |
+
+### Open decisions (not yet answered)
+
+- **Rule 3 strictness.** F4 today silently re-flags approved items. Tab 6 wants a hard 409 with "raise a change order". Recommended: hard block. Confirm before hardening F4.
+- **Rule 4 frequency.** Snapshot + bump `boq.version` on every CO implement (recommended) vs. on every approval boundary (aggressive) vs. only at lock (status quo).
+- **BOQ item lifecycle breadth.** Tab 6 lists Draft → Priced → Sent → Approved/Rejected → Ordered → In Progress → Completed → Invoiced. Current `lifecycle_status` CHECK omits Priced / Ordered / In Progress / Completed / Invoiced — those are derived from `unit_cost`, `po_status`, `installed_qty`, invoice link. Recommended: keep derived, add `getDisplayStatus()` helper in `queries/boq.ts` for a unified badge.
 
 ---
 
@@ -445,6 +484,9 @@ Feature 18: BOQ Dashboard Widgets (margin bleed, budget alerts, progress overvie
 Feature 19: PDF Export (BOQ, proposals, POs, change orders)
 Feature 20: Custom Tabs (rich text, table, document, timeline, Q&A per project)
 Feature 21: Audit Trail (boq_change_log — full history of all BOQ mutations)
+Feature 22: Client Invoices (DB + API + UI — org → client billing)
+Feature 23: Client Payments (DB + API + UI — payments received from client)
+Feature 24: Client Orders view (UI — approved BOQ items as client order log)
 ```
 
 ---
@@ -864,7 +906,7 @@ pre_vat_total * (1 + vat_pct/100) AS client_total
 
 **Optimistic locking**: All BOQ item update/delete mutations must include `updated_at` in the request body. The query uses `WHERE id = $1 AND updated_at = $2` — if 0 rows affected, another user edited the item. Return 409 Conflict with message "This item was updated by another user. Please refresh to see latest version." The client retries by re-fetching via SWR `mutate()`.
 
-**Re-approval after edit**: If an architect edits a BOQ item that has `client_approval_status = 'approved'`, automatically set `requires_reapproval = true` and `client_approval_status = 'pending'`. The client sees a "Modified after approval — re-approval required" badge. This is enforced in the `updateBoqItem` query.
+**Re-approval after edit** ⚠️ pending review (tab 6 Rule 3): If an architect edits a BOQ item that has `client_approval_status = 'approved'`, the current behaviour auto-flips `requires_reapproval = true` and `client_approval_status = 'pending'` — the client sees a "Modified after approval — re-approval required" badge. Tab 6 Rule 3 wants this replaced by a hard 409 response ("raise a change order"). Final call tracked under Revisions → Open decisions. Either way, `updateBoqItem` is where this is enforced.
 
 **BOQ item lifecycle states** (two-track status):
 
@@ -1381,13 +1423,15 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 
 **What exists**: Client portal already has project list, task review, comments. We extend it.
 
-**New client-facing sections** (per PRD Table 43):
+**Client BOQ sub-nav** (per PRD tab 5 + Table 43):
 
-- **Scope (BOQ)**: Filtered BOQ view — item descriptions, quantities, units, sell prices only (NO costs, margins, overheads). Client can Approve/Reject/Query per item.
+- **My Scope**: Filtered BOQ view — item descriptions, quantities, units, sell prices only (NO costs, margins, overheads). Client can Approve/Reject/Query per item.
 - **Proposals**: List of proposals with status badges. View PDF, approve, reject.
-- **Change Orders**: Pending COs with description, cost impact, justification. Approve/reject.
-- **Progress**: Visual progress per BOQ section.
-- **Invoices**: Client-facing invoice list.
+- **Orders**: Read-only log of approved BOQ items — see F24.
+- **Client Invoices**: Bills the org has issued to the client — see F22.
+- **Payments**: Payments the client has made against those invoices — see F23.
+
+Change Orders and Progress are surfaced via notifications + inline badges on BOQ items, not as dedicated client tabs. The client can drill into a specific item to see its CO history or progress bar.
 
 **Client BOQ approval workflow** (per PRD Table 28):
 
@@ -1476,14 +1520,15 @@ CREATE INDEX idx_co_item_co ON change_order_item(change_order_id);
 - `implemented` → changes applied to BOQ (old items → superseded, new items created)
 - `cancelled` → read-only record
 
-**Implement CO** (critical — per PRD Table 56 row 6):
+**Implement CO** (critical — per PRD Table 56 row 6 + tab 6 Rule 4):
 
 - Atomic transaction: for each CO item, apply changes to BOQ
+- **Before applying**: snapshot the current BOQ state to `boq.snapshot` and bump `boq.version` (tab 6 Rule 4 — never overwrite, always version)
 - Addition → create new boq_item
 - Omission → mark existing item as excluded
 - Substitution → supersede old item, create new item
 - Quantity change → update quantity on existing item
-- If transaction fails → rollback, keep CO in `client_approved` state
+- If transaction fails → rollback (including the version bump), keep CO in `client_approved` state
 
 **API Routes**:
 
@@ -1562,6 +1607,8 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 
 **Auto-create from award**: When a quote is awarded (Feature 10), optionally auto-create a PO draft with items pre-populated from the quote.
 
+**Approval gate** (per PRD tab 6 Rule 1): `POST /purchase-orders` must reject if any referenced `boq_item.client_approval_status ≠ 'approved'`. Return 422 with `{ error, code: "UNAPPROVED_BOQ_ITEMS", itemCodes: [...] }` listing the offending item codes so the UI can highlight them. Same check on PATCH when line items are added or swapped after create.
+
 **API Routes**:
 
 - `GET /api/projects/[id]/purchase-orders` — list POs
@@ -1586,9 +1633,9 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 
 ---
 
-### Feature 15: Invoices
+### Feature 15: Vendor Invoices
 
-**Goal**: Track vendor invoices against POs.
+**Goal**: Track vendor invoices against POs (vendor → org). Client-side invoicing lives in F22.
 
 **Database** — `scripts/migrate-invoices.sql`:
 
@@ -1616,23 +1663,22 @@ CREATE INDEX idx_invoice_vendor ON invoice(vendor_id);
 
 **Invoice overdue check**: The `getInvoices()` query checks `due_date < NOW() AND status = 'received'` and auto-sets `status = 'overdue'` on read (check-on-read pattern, same as quote/proposal expiry).
 
+**Approval gate** (per PRD tab 6 Rule 2): `POST /invoices` must reject if the invoice covers PO line items whose underlying `boq_item.client_approval_status ≠ 'approved'`. Same 422 response shape as F14's guard. The assumption is that F14 already blocks unapproved items from entering a PO — this is a belt-and-braces check in case a CO rollback leaves a PO pointing at a superseded item.
+
 **API Routes**:
 
 - `GET /api/projects/[id]/invoices` — list (architect view — all details)
 - `POST /api/projects/[id]/invoices` — create
 - `PATCH /api/projects/[id]/invoices/[invoiceId]` — update status
 - `GET /api/projects/[id]/invoices/[invoiceId]` — detail
-- `GET /api/client/projects/[id]/invoices` — client-facing list (filtered: no internal notes, shows amount + status + PDF download)
-- `POST /api/client/projects/[id]/invoices/[invoiceId]/mark-paid` — client marks as paid (if configured)
 
-**Client invoice view**: The client portal's Invoices tab shows a simplified list: invoice number, date, amount, status badge, download PDF button. If the org has `allow_client_mark_paid` setting (future), client can mark invoices as paid.
+Client-facing invoice routes are in F22 (client invoices are a distinct entity; the client never sees vendor invoices).
 
 **Files to create/modify**:
 
 - `scripts/migrate-invoices.sql` (new)
 - `src/lib/queries.ts` (add ~120 lines)
 - `src/app/api/projects/[id]/invoices/` (new)
-- `src/app/api/client/projects/[id]/invoices/` (new — client-facing)
 - `src/app/(dashboard)/projects/[id]/invoices/` (new)
 - `src/types/index.ts` (add types)
 - `src/test/api/invoices.test.ts` (new)
@@ -1865,6 +1911,187 @@ CREATE INDEX idx_boq_log_time ON boq_change_log(created_at);
 
 ---
 
+### Feature 22: Client Invoices
+
+**Goal**: Issue invoices from the org to the client against approved + delivered BOQ scope. Distinct from F15 vendor invoices. Introduced by PRD tab 5 ("Client invoices") and tab 6 Phase 9.
+
+**Database** — `scripts/migrate-client-invoices.sql`:
+
+```sql
+CREATE TABLE client_invoice (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  boq_id UUID NOT NULL REFERENCES boq(id) ON DELETE RESTRICT,
+  invoice_number VARCHAR(50) UNIQUE NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','sent','viewed','partially_paid','paid','overdue','cancelled')),
+  issued_date DATE,
+  due_date DATE,
+  subtotal NUMERIC(12,2) NOT NULL DEFAULT 0,
+  contingency_amount NUMERIC(12,2) DEFAULT 0,
+  vat_amount NUMERIC(12,2) DEFAULT 0,
+  total_amount NUMERIC(12,2) NOT NULL,
+  amount_paid NUMERIC(12,2) NOT NULL DEFAULT 0,
+  currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+  notes TEXT,
+  pdf_url TEXT,
+  sent_at TIMESTAMPTZ,
+  viewed_at TIMESTAMPTZ,
+  created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE client_invoice_line (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_invoice_id UUID NOT NULL REFERENCES client_invoice(id) ON DELETE CASCADE,
+  boq_item_id UUID NOT NULL REFERENCES boq_item(id) ON DELETE RESTRICT,
+  description TEXT NOT NULL,
+  unit VARCHAR(30) NOT NULL,
+  quantity NUMERIC(12,3) NOT NULL,
+  unit_price NUMERIC(12,2) NOT NULL,
+  line_total NUMERIC(12,2) NOT NULL,
+  sort_order INTEGER DEFAULT 0
+);
+
+CREATE INDEX idx_client_invoice_project ON client_invoice(project_id);
+CREATE INDEX idx_client_invoice_boq ON client_invoice(boq_id);
+CREATE INDEX idx_client_invoice_status ON client_invoice(status);
+CREATE INDEX idx_client_invoice_line_invoice ON client_invoice_line(client_invoice_id);
+CREATE INDEX idx_client_invoice_line_boq_item ON client_invoice_line(boq_item_id);
+```
+
+**Numbering**: `INV-{YEAR}-{SEQ}` via `getNextSequenceNumber(orgId, "INV")` from F4.
+
+**Approval gate** (tab 6 Rule 2): `POST /client-invoices` must reject if any referenced `boq_item.client_approval_status ≠ 'approved'`. Return 422 with the same `{ error, code: "UNAPPROVED_BOQ_ITEMS", itemCodes: [...] }` shape as F14 / F15.
+
+**Overdue check-on-read**: same pattern as vendor invoice — `due_date < NOW() AND status IN ('sent','viewed','partially_paid')` auto-flips to `overdue` on read.
+
+**Amount reconciliation**: `amount_paid` is maintained by F23 triggers; `status` auto-updates to `partially_paid` / `paid` as payments come in.
+
+**API Routes**:
+
+- `GET /api/projects/[id]/client-invoices` — list (architect view)
+- `POST /api/projects/[id]/client-invoices` — create (with approval gate)
+- `GET /api/projects/[id]/client-invoices/[invoiceId]` — detail
+- `PATCH /api/projects/[id]/client-invoices/[invoiceId]` — update (draft only)
+- `POST /api/projects/[id]/client-invoices/[invoiceId]/send` — issue to client
+- `POST /api/projects/[id]/client-invoices/[invoiceId]/cancel` — cancel
+- `GET /api/client/projects/[id]/invoices` — client-facing list
+- `GET /api/client/projects/[id]/invoices/[invoiceId]` — client-facing detail + PDF
+
+**UI**: New "Client Invoices" tab inside the BOQ tab (architect) + "Client Invoices" sub-page in client portal (F12).
+
+**Auth**: Architect writes, client reads. `allowedRoles: ["pm", "architect"]` for mutation; `allowedRoles: ["client"]` for `/api/client/...`.
+
+**Files to create/modify**:
+
+- `scripts/migrate-client-invoices.sql` (new)
+- `src/lib/queries/clientInvoices.ts` (new, ~150 lines)
+- `src/app/api/projects/[id]/client-invoices/` (new)
+- `src/app/api/client/projects/[id]/invoices/` (new — client-facing)
+- `src/app/(dashboard)/projects/[id]/boq/_components/ClientInvoicesPanel.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/_components/ClientInvoicesTab.tsx` (new — client portal surface)
+- `src/types/index.ts` (add types)
+- `src/lib/validations.ts` (add schemas)
+- `src/lib/api/clientInvoices.ts` (new)
+- `src/lib/api/routes.ts` (add routes)
+- `src/test/api/client-invoices.test.ts` (new)
+
+---
+
+### Feature 23: Client Payments
+
+**Goal**: Track payments received from the client against F22 client invoices. Tab 5 calls this "Payment from client".
+
+**Database** — `scripts/migrate-client-payments.sql`:
+
+```sql
+CREATE TABLE client_payment (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  client_invoice_id UUID REFERENCES client_invoice(id) ON DELETE SET NULL,
+  payment_number VARCHAR(50) UNIQUE NOT NULL,
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+  currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+  payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  method VARCHAR(30) NOT NULL
+    CHECK (method IN ('bank_transfer','cheque','card','cash','other')),
+  reference VARCHAR(255),
+  notes TEXT,
+  attachment_url TEXT,
+  recorded_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_client_payment_project ON client_payment(project_id);
+CREATE INDEX idx_client_payment_invoice ON client_payment(client_invoice_id);
+CREATE INDEX idx_client_payment_date ON client_payment(payment_date);
+```
+
+**Numbering**: `PAY-{YEAR}-{SEQ}` via `getNextSequenceNumber(orgId, "PAY")`.
+
+**Invoice reconciliation**: Inserting / updating / deleting a `client_payment` triggers recomputation of the parent `client_invoice.amount_paid` and a status update: `paid` if fully covered, `partially_paid` if > 0 and < total. Implemented via a DB trigger or (simpler) a single transaction in the query layer — prefer query layer for consistency with existing code style.
+
+**Unallocated payments**: Allow `client_invoice_id` to be NULL for advance / on-account payments. These are visible on the payments list but don't reconcile a specific invoice until an architect links them.
+
+**API Routes**:
+
+- `GET /api/projects/[id]/client-payments` — list
+- `POST /api/projects/[id]/client-payments` — record payment
+- `PATCH /api/projects/[id]/client-payments/[paymentId]` — edit (reason required for audit)
+- `DELETE /api/projects/[id]/client-payments/[paymentId]` — void (with reason)
+- `GET /api/client/projects/[id]/payments` — client-facing list (read-only)
+
+**Auth**: Architect writes; client reads own project's payments. Deletions are never hard-destructive — either mark `voided` or append a negative offsetting row (decide during F23 build).
+
+**UI**: "Payments" sub-page in both architect BOQ tab and client portal.
+
+**Files to create/modify**:
+
+- `scripts/migrate-client-payments.sql` (new)
+- `src/lib/queries/clientPayments.ts` (new, ~120 lines)
+- `src/app/api/projects/[id]/client-payments/` (new)
+- `src/app/api/client/projects/[id]/payments/` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/PaymentsPanel.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/_components/PaymentsTab.tsx` (new)
+- `src/types/index.ts` (add types)
+- `src/lib/validations.ts` (add schemas)
+- `src/lib/api/clientPayments.ts` (new)
+- `src/lib/api/routes.ts` (add routes)
+- `src/test/api/client-payments.test.ts` (new)
+
+---
+
+### Feature 24: Client Orders View
+
+**Goal**: Read-only "order log" for the client — the list of BOQ items they have approved, presented as confirmed orders. Tab 5 calls this "Client orders". No new DB — this is a presentation feature over existing F4/F12 data.
+
+**Behaviour**:
+
+- Shows each BOQ item where `client_approval_status = 'approved'`, grouped by approval date (most recent first)
+- Columns: Item code, description, unit, quantity, sell price, approved-on date, status chip (Ordered / In Progress / Delivered / Invoiced — derived from `po_status`, `installed_qty`, and F22 invoice linkage)
+- Clicking a row deep-links into the BOQ item drawer (same drawer as F12 "My Scope")
+- No mutations — purely a different slice of the same data
+
+**API Routes**:
+
+- `GET /api/client/projects/[id]/orders` — returns approved items with derived status chips, ordered by `client_approved_at DESC`
+
+**UI**: New "Orders" sub-page in client portal, alongside My Scope / Proposals / Client Invoices / Payments.
+
+**Files to create/modify**:
+
+- `src/app/api/client/projects/[id]/orders/route.ts` (new)
+- `src/app/(dashboard)/projects/[id]/_components/OrdersTab.tsx` (new)
+- `src/lib/api/clientOrders.ts` (new)
+- `src/lib/api/routes.ts` (add route)
+- `src/lib/queries/boq.ts` (add `getApprovedItemsForClient(projectId)` query)
+- `src/test/api/client-orders.test.ts` (new)
+
+---
+
 ## Dependency Graph
 
 ```
@@ -1894,6 +2121,9 @@ F18 (Dashboard) — depends on F4, F16, F17
 F19 (PDF Export) — depends on F4, F11, F14, F13
 F20 (Custom Tabs) — standalone, can go anywhere after F4
 F21 (Audit Trail) — depends on F4, best added after F13
+F22 (Client Invoices) — depends on F4, F12 (client portal surface)
+F23 (Client Payments) — depends on F22
+F24 (Client Orders) — depends on F4, F12
 ```
 
 ## Estimated Scope per Feature
@@ -1920,9 +2150,12 @@ F21 (Audit Trail) — depends on F4, best added after F13
 | 18  | Dashboard     | ~5        | ~100             | 1          | Medium     |
 | 19  | PDF Export    | ~8        | 0                | 4          | Medium     |
 | 20  | Custom Tabs   | ~8        | ~100             | 4          | Medium     |
-| 21  | Audit Trail   | ~4        | ~80              | 1          | Low        |
+| 21  | Audit Trail       | ~4    | ~80   | 1  | Low    |
+| 22  | Client Invoices   | ~10   | ~150  | 8  | Medium |
+| 23  | Client Payments   | ~8    | ~120  | 5  | Low    |
+| 24  | Client Orders     | ~6    | ~30   | 1  | Low    |
 
-**Total**: ~21 PRs, ~190 new files, ~2,900 new lines in queries.ts, ~100 new API routes
+**Total**: ~24 PRs, ~214 new files, ~3,200 new lines in queries, ~115 new API routes
 
 ---
 
