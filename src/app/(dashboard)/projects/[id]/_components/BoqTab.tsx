@@ -90,7 +90,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   if (!boq) return null;
 
   const canEdit =
-    role === "pm" && boq.status !== "locked" && boq.status !== "superseded";
+    (role === "pm" || role === "architect") &&
+    boq.status !== "locked" &&
+    boq.status !== "superseded";
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
