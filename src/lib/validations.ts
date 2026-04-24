@@ -460,7 +460,20 @@ export const updateBoqSchema = z.object({
   architectId: z.string().min(1).nullable().optional(),
   notes: z.string().nullable().optional(),
   clientNotes: z.string().nullable().optional(),
+  status: z.enum(BOQ_STATUSES).optional(),
 });
+
+/**
+ * Allowed BOQ status transitions. Any other src→dst pair is rejected at the
+ * route layer. Locked and superseded are terminal — no transitions out.
+ */
+export const BOQ_STATUS_TRANSITIONS: Record<BoqStatus, BoqStatus[]> = {
+  draft: ["submitted_to_client"],
+  submitted_to_client: ["draft", "client_approved"],
+  client_approved: ["locked", "draft"],
+  locked: [],
+  superseded: [],
+};
 
 export const createBoqSectionSchema = z.object({
   title: trimmedString.max(255),

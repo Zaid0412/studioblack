@@ -1,24 +1,16 @@
 import { NextResponse } from "next/server";
-import {
-  deleteBoqSection,
-  updateBoqSection,
-  verifyBoqSectionOwnership,
-} from "@/lib/queries";
+import { deleteBoqSection, updateBoqSection } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateBoqSectionSchema } from "@/lib/validations";
+import { assertSectionEditable } from "../../_helpers";
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
     const { id, sectionId } = params;
 
-    const owned = await verifyBoqSectionOwnership(sectionId, id);
-    if (!owned) {
-      return NextResponse.json(
-        { error: "Section not found in this project" },
-        { status: 404 }
-      );
-    }
+    const gate = await assertSectionEditable(sectionId, id);
+    if (gate) return gate;
 
     const parsed = await parseRequest(req, updateBoqSectionSchema);
     if (!parsed.success) {
@@ -41,13 +33,8 @@ export const DELETE = withAuth(
   async (_req, _ctx, params) => {
     const { id, sectionId } = params;
 
-    const owned = await verifyBoqSectionOwnership(sectionId, id);
-    if (!owned) {
-      return NextResponse.json(
-        { error: "Section not found in this project" },
-        { status: 404 }
-      );
-    }
+    const gate = await assertSectionEditable(sectionId, id);
+    if (gate) return gate;
 
     const ok = await deleteBoqSection(sectionId);
     if (!ok) {

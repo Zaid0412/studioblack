@@ -55,6 +55,26 @@ export interface ElementFormValues {
   attributes: Attribute[];
 }
 
+type CostKey =
+  | "unitCost"
+  | "materialCost"
+  | "labourCost"
+  | "overheadPct"
+  | "marginPct";
+
+const COST_FIELDS: ReadonlyArray<{
+  key: CostKey;
+  labelKey: string;
+  required?: boolean;
+  max?: string;
+}> = [
+  { key: "unitCost", labelKey: "fieldUnitCost", required: true },
+  { key: "materialCost", labelKey: "fieldMaterialCost" },
+  { key: "labourCost", labelKey: "fieldLabourCost" },
+  { key: "overheadPct", labelKey: "fieldOverheadPct", max: "100" },
+  { key: "marginPct", labelKey: "fieldMarginPct", max: "100" },
+];
+
 const EMPTY_FORM: ElementFormValues = {
   code: "",
   name: "",
@@ -271,49 +291,19 @@ export function ElementFormDialog({
 
           {/* Costs */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <Input
-              label={t("fieldUnitCost")}
-              type="number"
-              step="0.01"
-              min="0"
-              value={values.unitCost}
-              onChange={(e) => setField("unitCost", e.target.value)}
-              required
-            />
-            <Input
-              label={t("fieldMaterialCost")}
-              type="number"
-              step="0.01"
-              min="0"
-              value={values.materialCost}
-              onChange={(e) => setField("materialCost", e.target.value)}
-            />
-            <Input
-              label={t("fieldLabourCost")}
-              type="number"
-              step="0.01"
-              min="0"
-              value={values.labourCost}
-              onChange={(e) => setField("labourCost", e.target.value)}
-            />
-            <Input
-              label={t("fieldOverheadPct")}
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={values.overheadPct}
-              onChange={(e) => setField("overheadPct", e.target.value)}
-            />
-            <Input
-              label={t("fieldMarginPct")}
-              type="number"
-              step="0.01"
-              min="0"
-              max="100"
-              value={values.marginPct}
-              onChange={(e) => setField("marginPct", e.target.value)}
-            />
+            {COST_FIELDS.map((f) => (
+              <Input
+                key={f.key}
+                label={t(f.labelKey)}
+                type="number"
+                step="0.01"
+                min="0"
+                max={f.max}
+                value={values[f.key]}
+                onChange={(e) => setField(f.key, e.target.value)}
+                required={f.required}
+              />
+            ))}
           </div>
 
           {/* References + tags */}

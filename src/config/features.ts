@@ -13,4 +13,5 @@ export const features = {
   designUpload: true,
   emailVerification: true,
   elementLibrary: true,
+  boq: true,
 } as const;

@@ -1,29 +1,20 @@
 import { NextResponse } from "next/server";
-import {
-  deleteBoqItem,
-  updateBoqItem,
-  verifyBoqItemOwnership,
-} from "@/lib/queries";
+import { deleteBoqItem, updateBoqItem } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
   updateBoqItemSchema,
   deleteBoqItemSchema,
 } from "@/lib/validations";
-import { optimisticFailureResponse } from "../../_helpers";
+import { assertItemEditable, optimisticFailureResponse } from "../../_helpers";
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
     const { id, itemId } = params;
 
-    const owned = await verifyBoqItemOwnership(itemId, id);
-    if (!owned) {
-      return NextResponse.json(
-        { error: "Item not found in this project" },
-        { status: 404 }
-      );
-    }
+    const gate = await assertItemEditable(itemId, id);
+    if (gate) return gate;
 
     const parsed = await parseRequest(req, updateBoqItemSchema);
     if (!parsed.success) {
@@ -42,13 +33,8 @@ export const DELETE = withAuth(
   async (req, _ctx, params) => {
     const { id, itemId } = params;
 
-    const owned = await verifyBoqItemOwnership(itemId, id);
-    if (!owned) {
-      return NextResponse.json(
-        { error: "Item not found in this project" },
-        { status: 404 }
-      );
-    }
+    const gate = await assertItemEditable(itemId, id);
+    if (gate) return gate;
 
     const parsed = await parseRequest(req, deleteBoqItemSchema);
     if (!parsed.success) {

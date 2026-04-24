@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
-import { createBoq, getBoq, getBoqByProject, updateBoq } from "@/lib/queries";
+import {
+  createBoq,
+  getBoq,
+  getBoqByProject,
+  getBoqStatus,
+  updateBoq,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
   createBoqSchema,
   updateBoqSchema,
+  BOQ_STATUS_TRANSITIONS,
 } from "@/lib/validations";
 import { parseBoqRequest } from "./_helpers";
 
@@ -47,8 +54,54 @@ export const POST = withAuth(
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
-    const result = await parseBoqRequest(req, params.id, updateBoqSchema);
+    // Skip the default editability gate — we enforce it ourselves below so
+    // that status-only transitions out of `client_approved` into `locked`
+    // remain possible once the status-machine check passes.
+    const result = await parseBoqRequest(req, params.id, updateBoqSchema, {
+      requireEditable: false,
+    });
     if (!result.ok) return result.response;
+
+    const currentStatus = await getBoqStatus(result.boqId, params.id);
+    if (currentStatus === null) {
+      return NextResponse.json(
+        { error: "BOQ not found in this project" },
+        { status: 404 }
+      );
+    }
+
+    const { status: nextStatus, ...otherFields } = result.data;
+    const hasOtherFields = Object.values(otherFields).some(
+      (v) => v !== undefined
+    );
+
+    // Non-status edits require the BOQ to be in an editable state.
+    if (
+      hasOtherFields &&
+      (currentStatus === "locked" || currentStatus === "superseded")
+    ) {
+      return NextResponse.json(
+        {
+          error: "This BOQ is locked and can no longer be edited.",
+          code: "BOQ_LOCKED",
+        },
+        { status: 423 }
+      );
+    }
+
+    // Status transitions must follow the state machine.
+    if (nextStatus && nextStatus !== currentStatus) {
+      const allowed = BOQ_STATUS_TRANSITIONS[currentStatus] ?? [];
+      if (!allowed.includes(nextStatus)) {
+        return NextResponse.json(
+          {
+            error: `Cannot transition from ${currentStatus} to ${nextStatus}.`,
+            code: "INVALID_STATUS_TRANSITION",
+          },
+          { status: 422 }
+        );
+      }
+    }
 
     const updated = await updateBoq(result.boqId, result.data);
     if (!updated) {

@@ -9,6 +9,7 @@ import type {
 import type {
   BoqItemLifecycleStatus,
   BoqItemClientApprovalStatus,
+  BoqStatus,
 } from "@/lib/validations";
 
 /**
@@ -44,6 +45,53 @@ export async function verifyBoqOwnership(
     [boqId, projectId]
   );
   return rows.length > 0;
+}
+
+/**
+ * Fetch a BOQ's status, scoped to a project. Returns null if the BOQ does not
+ * belong to the project. Used by route handlers to gate mutating operations
+ * on locked / superseded BOQs.
+ */
+export async function getBoqStatus(
+  boqId: string,
+  projectId: string
+): Promise<BoqStatus | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: BoqStatus }>(
+    `SELECT status FROM boq WHERE id = $1 AND project_id = $2`,
+    [boqId, projectId]
+  );
+  return rows[0]?.status ?? null;
+}
+
+/** Look up the BOQ status for the BOQ that owns a given section. */
+export async function getBoqStatusForSection(
+  sectionId: string,
+  projectId: string
+): Promise<BoqStatus | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: BoqStatus }>(
+    `SELECT b.status FROM boq_section s
+     JOIN boq b ON b.id = s.boq_id
+     WHERE s.id = $1 AND b.project_id = $2`,
+    [sectionId, projectId]
+  );
+  return rows[0]?.status ?? null;
+}
+
+/** Look up the BOQ status for the BOQ that owns a given item. */
+export async function getBoqStatusForItem(
+  itemId: string,
+  projectId: string
+): Promise<BoqStatus | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: BoqStatus }>(
+    `SELECT b.status FROM boq_item bi
+     JOIN boq b ON b.id = bi.boq_id
+     WHERE bi.id = $1 AND b.project_id = $2`,
+    [itemId, projectId]
+  );
+  return rows[0]?.status ?? null;
 }
 
 export async function verifyBoqSectionOwnership(
@@ -156,7 +204,9 @@ export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   };
 }
 
-export type UpdateBoqInput = Partial<Omit<CreateBoqInput, "createdBy">>;
+export type UpdateBoqInput = Partial<Omit<CreateBoqInput, "createdBy">> & {
+  status?: BoqStatus;
+};
 
 const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   title: "title",
@@ -169,6 +219,7 @@ const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   architectId: "architect_id",
   notes: "notes",
   clientNotes: "client_notes",
+  status: "status",
 };
 
 export async function updateBoq(
@@ -330,10 +381,10 @@ export async function createBoqItem(
          overhead_pct, margin_pct, notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
-         $1, $2, $3, $4, $5, $6,
+         $1, $2::uuid, $3, $4, $5, $6,
          COALESCE($7, 0), COALESCE($8, 0), $9, $10,
          COALESCE($11, 0), COALESCE($12, 0), $13, $14,
-         COALESCE($15, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND COALESCE(section_id::text, '') = COALESCE($2::text, ''))),
+         COALESCE($15, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
          COALESCE($16, false), COALESCE($17, false)
        )
        RETURNING *
@@ -594,8 +645,8 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
            bi.quantity * bi.unit_cost
            * (1 + COALESCE(bi.overhead_pct, 0)/100)
            * (1 + bi.margin_pct/100)
-         ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
-         COALESCE(AVG(bi.margin_pct), 0) FILTER (WHERE NOT bi.is_excluded) AS average_margin_pct,
+         ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
+         COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
          COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
          COUNT(*) AS item_count
@@ -613,12 +664,12 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
            bi.quantity * bi.unit_cost
            * (1 + COALESCE(bi.overhead_pct, 0)/100)
            * (1 + bi.margin_pct/100)
-         ), 0) FILTER (WHERE NOT bi.is_excluded) AS total_sell_price,
+         ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COUNT(*) AS item_count
        FROM boq_item bi
        LEFT JOIN boq_section s ON s.id = bi.section_id
        WHERE bi.boq_id = $1
-       GROUP BY bi.section_id, s.title
+       GROUP BY bi.section_id, s.title, s.sort_order
        ORDER BY s.sort_order NULLS LAST, s.title`,
       [boqId]
     ),

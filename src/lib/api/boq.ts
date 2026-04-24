@@ -1,5 +1,10 @@
+import type { z } from "zod";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
+import type {
+  createBoqItemSchema,
+  updateBoqItemSchema,
+} from "@/lib/validations";
 import type {
   Boq,
   BoqSection,
@@ -44,6 +49,12 @@ export interface UpdateBoqPayload {
   architectId?: string | null;
   notes?: string | null;
   clientNotes?: string | null;
+  status?:
+    | "draft"
+    | "submitted_to_client"
+    | "client_approved"
+    | "locked"
+    | "superseded";
 }
 
 export function update(projectId: string, data: UpdateBoqPayload) {
@@ -87,52 +98,17 @@ export function reorderSections(
 
 // ── Items ───────────────────────────────────────────────────────────────────
 
-export interface CreateItemPayload {
+/** Derived from the server Zod schema so the wire contract can't drift. */
+export type CreateItemPayload = z.infer<typeof createBoqItemSchema> & {
   boqId: string;
-  sectionId?: string | null;
-  elementId?: string | null;
-  itemCode?: string;
-  description: string;
-  unit: string;
-  quantity?: number;
-  unitCost?: number;
-  materialCost?: number | null;
-  labourCost?: number | null;
-  overheadPct?: number;
-  marginPct?: number;
-  notes?: string | null;
-  clientNotes?: string | null;
-  sortOrder?: number;
-  isProvisional?: boolean;
-  isExcluded?: boolean;
-}
+};
 
 export function createItem(projectId: string, data: CreateItemPayload) {
   return apiPost<BoqItemWithComputed>(API.boqItems(projectId), data);
 }
 
-export interface UpdateItemPayload {
-  /** Optimistic lock token — the row's current `updated_at`. */
-  updatedAt: string;
-  sectionId?: string | null;
-  itemCode?: string;
-  description?: string;
-  unit?: string;
-  quantity?: number;
-  unitCost?: number;
-  materialCost?: number | null;
-  labourCost?: number | null;
-  overheadPct?: number;
-  marginPct?: number;
-  lifecycleStatus?: string;
-  clientApprovalStatus?: string;
-  installedQty?: number;
-  notes?: string | null;
-  clientNotes?: string | null;
-  sortOrder?: number;
-  isProvisional?: boolean;
-  isExcluded?: boolean;
-}
+/** Derived from the server Zod schema so the wire contract can't drift. */
+export type UpdateItemPayload = z.infer<typeof updateBoqItemSchema>;
 
 export function updateItem(
   projectId: string,

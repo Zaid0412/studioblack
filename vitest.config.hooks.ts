@@ -16,6 +16,7 @@ export default defineConfig({
       "src/test/unit/hooks-ui-components.test.tsx",
       "src/test/unit/TagInput.test.tsx",
       "src/test/unit/SearchableDropdown.test.tsx",
+      "src/test/unit/BoqEditableCell.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

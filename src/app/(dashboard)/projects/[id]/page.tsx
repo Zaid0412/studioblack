@@ -1,22 +1,20 @@
 "use client";
 
-import { use, useEffect, useRef } from "react";
+import { use, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { tasks } from "@/lib/api";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
+import { features } from "@/config/features";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
-import { WorkflowBar } from "./_components/WorkflowBar";
-import { PhaseTabs } from "./_components/PhaseTabs";
-import { FileTable } from "./_components/FileTable";
-import { TaskSection } from "./_components/TaskSection";
 import { CommentsSection } from "./_components/CommentsSection";
-import { PendingTasksBanner } from "./_components/PendingTasksBanner";
-import { CompletedBanner } from "./_components/CompletedBanner";
-import { ApprovalHistory } from "./_components/ApprovalHistory";
+import { DesignsTab } from "./_components/DesignsTab";
+import { BoqTab } from "./_components/BoqTab";
+import { parseProjectTab } from "./_components/ProjectTabs";
+import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
 
 /** Unified project detail page — adapts to PM, architect, or client role. */
 export default function ProjectDetailPage({
@@ -51,11 +49,11 @@ export default function ProjectDetailPage({
     handleTaskReview,
   } = useProjectDetail(id, { includeApprovals: isClient });
 
-  const uploadTriggerRef = useRef<(() => void) | null>(null);
-
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightTaskId = searchParams.get("highlightTask");
+  const activeTab = parseProjectTab(searchParams.get("tab"));
+  const showProjectTabs = !isClient && features.boq;
 
   useEffect(() => {
     if (!highlightTaskId || !project) return;
@@ -66,7 +64,6 @@ export default function ProjectDetailPage({
       })
       .catch(() => {})
       .finally(() => {
-        // Clean up URL param after consuming it
         const params = new URLSearchParams(searchParams.toString());
         params.delete("highlightTask");
         router.replace(
@@ -128,6 +125,27 @@ export default function ProjectDetailPage({
     );
   }
 
+  const designsTab = (
+    <DesignsTab
+      projectId={id}
+      project={project}
+      role={role}
+      currentUserId={session?.user?.id}
+      activeTab={activeTab}
+      activePhaseId={activePhaseId}
+      setActivePhaseId={setActivePhaseId}
+      phaseCounts={phaseCounts}
+      phaseFiles={phaseFiles}
+      pendingTasks={pendingTasks}
+      approvals={approvals}
+      reviewingTaskId={reviewingTaskId}
+      handleTaskReview={handleTaskReview}
+      handleDownload={handleDownload}
+      refreshAttachments={refreshAttachments}
+      highlightTaskId={highlightTaskId}
+    />
+  );
+
   return (
     <div className="flex flex-col h-full">
       <ProjectHeader
@@ -155,65 +173,21 @@ export default function ProjectDetailPage({
         state={project.state}
       />
 
-      {role === "pm" && (
-        <WorkflowBar
-          projectId={id}
-          onUpload={() => uploadTriggerRef.current?.()}
-        />
-      )}
-
-      {isClient && (
-        <PendingTasksBanner
-          pendingTasks={pendingTasks}
-          reviewingTaskId={reviewingTaskId}
-          onTaskReview={handleTaskReview}
-        />
-      )}
-
-      {isClient && project.status === "completed" && <CompletedBanner />}
-
-      <PhaseTabs
-        phases={project.phases}
-        activePhaseId={activePhaseId}
-        phaseCounts={phaseCounts}
-        onPhaseChange={setActivePhaseId}
-        showPhaseStatus
-      />
-
-      <FileTable
+      <ProjectWorkflowSteps
         projectId={id}
-        activePhaseId={activePhaseId}
-        phaseFiles={phaseFiles}
-        onDownload={handleDownload}
-        onRefresh={refreshAttachments}
-        readOnly={isClient}
-        uploadTriggerRef={isClient ? undefined : uploadTriggerRef}
-        userRole={role}
-        currentUserId={session?.user?.id}
+        activeTab={activeTab}
+        fileCount={Array.from(phaseCounts.values()).reduce(
+          (sum, n) => sum + n,
+          0
+        )}
+        showBoq={showProjectTabs}
       />
 
-      {!isClient && activePhaseId && (
-        <div className="px-4 lg:px-6 py-4">
-          <TaskSection
-            projectId={id}
-            activePhaseId={activePhaseId}
-            highlightTaskId={highlightTaskId}
-            phases={project.phases.map((p: { id: string; name: string }) => ({
-              id: p.id,
-              name: p.name,
-            }))}
-            members={project.members.map(
-              (m: { user_id: string; name: string; email: string }) => ({
-                user_id: m.user_id,
-                user_name: m.name,
-                user_email: m.email,
-              })
-            )}
-          />
-        </div>
+      {showProjectTabs && activeTab === "boq" ? (
+        <BoqTab projectId={id} projectName={project.name} />
+      ) : (
+        designsTab
       )}
-
-      {isClient && <ApprovalHistory approvals={approvals} />}
 
       {/* Separator between tasks/files and comments */}
       <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />

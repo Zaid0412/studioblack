@@ -5,6 +5,7 @@ import {
   getBoqByProject,
   updateBoq,
   verifyBoqOwnership,
+  getBoqStatus,
   hasProjectAccess,
   getOrgRole,
 } from "@/lib/queries";
@@ -75,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
+  vi.mocked(getBoqStatus).mockResolvedValue("draft");
 });
 
 // ── GET /api/projects/[id]/boq ──────────────────────────────────────────────
@@ -280,7 +282,7 @@ describe("PATCH /api/projects/[id]/boq", () => {
   });
 
   it("returns 404 when BOQ is not owned by the project", async () => {
-    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
+    vi.mocked(getBoqStatus).mockResolvedValue(null);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
       method: "PATCH",
@@ -331,6 +333,68 @@ describe("PATCH /api/projects/[id]/boq", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);
+  });
+
+  it("returns 423 when editing non-status fields on a locked BOQ", async () => {
+    vi.mocked(getBoqStatus).mockResolvedValue("locked");
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
+      method: "PATCH",
+      body: { boqId: BOQ_ID, title: "Renamed" },
+    });
+    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ code: string }>(res);
+
+    expect(status).toBe(423);
+    expect(body.code).toBe("BOQ_LOCKED");
+    expect(updateBoq).not.toHaveBeenCalled();
+  });
+
+  it("allows the draft → submitted_to_client transition", async () => {
+    vi.mocked(getBoqStatus).mockResolvedValue("draft");
+    vi.mocked(updateBoq).mockResolvedValue({
+      ...fakeBoq,
+      status: "submitted_to_client",
+    });
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
+      method: "PATCH",
+      body: { boqId: BOQ_ID, status: "submitted_to_client" },
+    });
+    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ status: string }>(res);
+
+    expect(status).toBe(200);
+    expect(body.status).toBe("submitted_to_client");
+  });
+
+  it("rejects an invalid status transition with 422", async () => {
+    vi.mocked(getBoqStatus).mockResolvedValue("draft");
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
+      method: "PATCH",
+      body: { boqId: BOQ_ID, status: "locked" },
+    });
+    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ code: string }>(res);
+
+    expect(status).toBe(422);
+    expect(body.code).toBe("INVALID_STATUS_TRANSITION");
+    expect(updateBoq).not.toHaveBeenCalled();
+  });
+
+  it("rejects any transition out of the terminal locked status", async () => {
+    vi.mocked(getBoqStatus).mockResolvedValue("locked");
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
+      method: "PATCH",
+      body: { boqId: BOQ_ID, status: "draft" },
+    });
+    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(422);
+    expect(updateBoq).not.toHaveBeenCalled();
   });
 });
 
