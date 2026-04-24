@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, MoreVertical } from "lucide-react";
+import type { DOMAttributes, HTMLAttributes } from "react";
+import { ChevronDown, GripVertical, MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,8 +23,11 @@ interface BoqSectionHeaderProps {
   onToggleVisibility?: () => void;
   onDelete?: () => void;
   onAddItem?: () => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
+  /** When provided, renders a draggable grip handle wired to dnd-kit sortable. */
+  dragHandleProps?: HTMLAttributes<HTMLButtonElement> &
+    DOMAttributes<HTMLButtonElement> & {
+      ref?: React.Ref<HTMLButtonElement>;
+    };
 }
 
 export function BoqSectionHeader({
@@ -38,19 +42,22 @@ export function BoqSectionHeader({
   onToggleVisibility,
   onDelete,
   onAddItem,
-  onMoveUp,
-  onMoveDown,
+  dragHandleProps,
 }: BoqSectionHeaderProps) {
-  const hasMenu =
-    onRename ||
-    onToggleVisibility ||
-    onDelete ||
-    onAddItem ||
-    onMoveUp ||
-    onMoveDown;
+  const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
 
   return (
-    <div className="w-full flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
+    <div className="w-full flex items-center gap-2 px-4 py-3 bg-bg-elevated border-b border-border-default">
+      {dragHandleProps && (
+        <button
+          type="button"
+          aria-label={`Reorder ${title}`}
+          {...dragHandleProps}
+          className="shrink-0 text-text-muted hover:text-text-primary cursor-grab active:cursor-grabbing touch-none p-0.5 -ml-1"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      )}
       <button
         type="button"
         onClick={onToggle}
@@ -90,14 +97,6 @@ export function BoqSectionHeader({
             {onAddItem && (
               <DropdownMenuItem onSelect={onAddItem}>
                 Add item here
-              </DropdownMenuItem>
-            )}
-            {onMoveUp && (
-              <DropdownMenuItem onSelect={onMoveUp}>Move up</DropdownMenuItem>
-            )}
-            {onMoveDown && (
-              <DropdownMenuItem onSelect={onMoveDown}>
-                Move down
               </DropdownMenuItem>
             )}
             {onRename && (

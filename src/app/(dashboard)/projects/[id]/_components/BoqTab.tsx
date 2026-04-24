@@ -141,15 +141,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
-  const handleMoveSection = (section: BoqSection, direction: "up" | "down") => {
+  const handleReorderSections = (orderedIds: string[]) => {
     if (!boq) return;
-    const ids = boq.sections.map((s) => s.id);
-    const idx = ids.indexOf(section.id);
-    if (idx < 0) return;
-    const swapWith = direction === "up" ? idx - 1 : idx + 1;
-    if (swapWith < 0 || swapWith >= ids.length) return;
-    [ids[idx], ids[swapWith]] = [ids[swapWith], ids[idx]];
-    reorderSections(boq.id, ids).catch(() => {
+    reorderSections(boq.id, orderedIds).catch(() => {
       /* useBoqMutations toasts on error */
     });
   };
@@ -211,7 +205,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={setDeleteSectionTarget}
         onAddItemToSection={openAddItem}
-        onMoveSection={handleMoveSection}
+        onReorderSections={handleReorderSections}
         onOpenItem={setDrawerItem}
       />
 

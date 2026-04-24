@@ -1,7 +1,30 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { AlertTriangle, FileSpreadsheet, MoreVertical } from "lucide-react";
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -43,7 +66,7 @@ interface BoqTableProps {
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
   onAddItemToSection?: (sectionId: string | null) => void;
-  onMoveSection?: (section: BoqSection, direction: "up" | "down") => void;
+  onReorderSections?: (orderedIds: string[]) => void;
   onOpenItem?: (item: BoqItemWithComputed) => void;
 }
 
@@ -84,7 +107,7 @@ export function BoqTable({
   onToggleSectionVisibility,
   onDeleteSection,
   onAddItemToSection,
-  onMoveSection,
+  onReorderSections,
   onOpenItem,
 }: BoqTableProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -165,87 +188,223 @@ export function BoqTable({
           <div />
         </div>
 
-        <div className="flex flex-col">
-          {groups.map((group) => {
-            const isCollapsed = collapsed[group.id] ?? false;
-            const section = group.section;
-            return (
-              <div key={group.id}>
-                <BoqSectionHeader
-                  title={group.title}
-                  itemCount={group.items.length}
-                  sectionTotal={group.total}
-                  currency={currency}
-                  collapsed={isCollapsed}
-                  onToggle={() =>
-                    setCollapsed((prev) => ({
-                      ...prev,
-                      [group.id]: !isCollapsed,
-                    }))
-                  }
-                  visibleToClient={group.visibleToClient}
-                  onAddItem={
-                    sectionsEditable && onAddItemToSection
-                      ? () => onAddItemToSection(section?.id ?? null)
-                      : undefined
-                  }
-                  onRename={
-                    sectionsEditable && section && onRenameSection
-                      ? () => onRenameSection(section)
-                      : undefined
-                  }
-                  onToggleVisibility={
-                    sectionsEditable && section && onToggleSectionVisibility
-                      ? () => onToggleSectionVisibility(section)
-                      : undefined
-                  }
-                  onDelete={
-                    sectionsEditable && section && onDeleteSection
-                      ? () => onDeleteSection(section)
-                      : undefined
-                  }
-                  onMoveUp={
-                    sectionsEditable &&
-                    section &&
-                    onMoveSection &&
-                    sections.findIndex((s) => s.id === section.id) > 0
-                      ? () => onMoveSection(section, "up")
-                      : undefined
-                  }
-                  onMoveDown={
-                    sectionsEditable &&
-                    section &&
-                    onMoveSection &&
-                    sections.findIndex((s) => s.id === section.id) <
-                      sections.length - 1
-                      ? () => onMoveSection(section, "down")
-                      : undefined
-                  }
-                />
-                <div
-                  className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                    isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
-                  }`}
-                  aria-hidden={isCollapsed}
-                >
-                  <div className="overflow-hidden">
-                    {group.items.map((item) => (
-                      <BoqItemRow
-                        key={item.id}
-                        item={item}
-                        currency={currency}
-                        marginFloor={marginFloor}
-                        editable={rowsEditable && !isItemLocked(item)}
-                        onUpdateItem={onUpdateItem}
-                        onDeleteItem={onDeleteItem}
-                        onOpen={onOpenItem}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <SectionList
+          groups={groups}
+          sections={sections}
+          currency={currency}
+          marginFloor={marginFloor}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          rowsEditable={rowsEditable}
+          sectionsEditable={sectionsEditable}
+          onUpdateItem={onUpdateItem}
+          onDeleteItem={onDeleteItem}
+          onOpenItem={onOpenItem}
+          onAddItemToSection={onAddItemToSection}
+          onRenameSection={onRenameSection}
+          onToggleSectionVisibility={onToggleSectionVisibility}
+          onDeleteSection={onDeleteSection}
+          onReorderSections={onReorderSections}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Section list + sortable wrapper ────────────────────────────────────────
+
+interface SectionListProps {
+  groups: SectionGroup[];
+  sections: BoqSection[];
+  currency: string;
+  marginFloor?: number;
+  collapsed: Record<string, boolean>;
+  setCollapsed: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  rowsEditable: boolean;
+  sectionsEditable: boolean;
+  onUpdateItem?: BoqTableProps["onUpdateItem"];
+  onDeleteItem?: BoqTableProps["onDeleteItem"];
+  onOpenItem?: BoqTableProps["onOpenItem"];
+  onAddItemToSection?: BoqTableProps["onAddItemToSection"];
+  onRenameSection?: BoqTableProps["onRenameSection"];
+  onToggleSectionVisibility?: BoqTableProps["onToggleSectionVisibility"];
+  onDeleteSection?: BoqTableProps["onDeleteSection"];
+  onReorderSections?: BoqTableProps["onReorderSections"];
+}
+
+function SectionList(props: SectionListProps) {
+  const { groups, sections, onReorderSections, sectionsEditable } = props;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+
+  const unassigned = groups.find((g) => g.section === null);
+  const realGroups = groups.filter((g) => g.section !== null);
+  const canReorder =
+    sectionsEditable && onReorderSections && realGroups.length > 1;
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sections.map((s) => s.id);
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    onReorderSections?.(arrayMove(ids, oldIndex, newIndex));
+  };
+
+  const renderBody = (group: SectionGroup): ReactNode => (
+    <SectionBody group={group} {...props} />
+  );
+
+  return (
+    <div className="flex flex-col">
+      {unassigned && renderBody(unassigned)}
+      {canReorder ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={realGroups.map((g) => g.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {realGroups.map((group) => (
+              <SortableSection key={group.id} id={group.id}>
+                {renderBody(group)}
+              </SortableSection>
+            ))}
+          </SortableContext>
+        </DndContext>
+      ) : (
+        realGroups.map((group) => <div key={group.id}>{renderBody(group)}</div>)
+      )}
+    </div>
+  );
+}
+
+function SortableSection({
+  id,
+  children,
+}: {
+  id: string;
+  children: ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : undefined,
+    position: "relative",
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {/* Clone children and inject drag handle props into the first child's
+          dragHandleProps. Simpler: re-render section body via context. */}
+      <SortableSectionContext.Provider
+        value={{ attributes, listeners, setNodeRef: null }}
+      >
+        {children}
+      </SortableSectionContext.Provider>
+    </div>
+  );
+}
+
+const SortableSectionContext = createContext<{
+  attributes: React.HTMLAttributes<HTMLButtonElement>;
+  listeners: Record<string, unknown> | undefined;
+  setNodeRef: null;
+} | null>(null);
+
+function SectionBody({
+  group,
+  sections,
+  currency,
+  marginFloor,
+  collapsed,
+  setCollapsed,
+  rowsEditable,
+  sectionsEditable,
+  onUpdateItem,
+  onDeleteItem,
+  onOpenItem,
+  onAddItemToSection,
+  onRenameSection,
+  onToggleSectionVisibility,
+  onDeleteSection,
+}: SectionListProps & { group: SectionGroup }) {
+  const isCollapsed = collapsed[group.id] ?? false;
+  const section = group.section;
+  const sortableCtx = useContext(SortableSectionContext);
+  const dragHandleProps = sortableCtx
+    ? { ...sortableCtx.attributes, ...(sortableCtx.listeners ?? {}) }
+    : undefined;
+
+  return (
+    <div>
+      <BoqSectionHeader
+        title={group.title}
+        itemCount={group.items.length}
+        sectionTotal={group.total}
+        currency={currency}
+        collapsed={isCollapsed}
+        onToggle={() =>
+          setCollapsed((prev) => ({
+            ...prev,
+            [group.id]: !isCollapsed,
+          }))
+        }
+        visibleToClient={group.visibleToClient}
+        dragHandleProps={dragHandleProps}
+        onAddItem={
+          sectionsEditable && onAddItemToSection
+            ? () => onAddItemToSection(section?.id ?? null)
+            : undefined
+        }
+        onRename={
+          sectionsEditable && section && onRenameSection
+            ? () => onRenameSection(section)
+            : undefined
+        }
+        onToggleVisibility={
+          sectionsEditable && section && onToggleSectionVisibility
+            ? () => onToggleSectionVisibility(section)
+            : undefined
+        }
+        onDelete={
+          sectionsEditable && section && onDeleteSection
+            ? () => onDeleteSection(section)
+            : undefined
+        }
+      />
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+          isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+        }`}
+        aria-hidden={isCollapsed}
+      >
+        <div className="overflow-hidden">
+          {group.items.map((item) => (
+            <BoqItemRow
+              key={item.id}
+              item={item}
+              currency={currency}
+              marginFloor={marginFloor}
+              editable={rowsEditable && !isItemLocked(item)}
+              onUpdateItem={onUpdateItem}
+              onDeleteItem={onDeleteItem}
+              onOpen={onOpenItem}
+            />
+          ))}
         </div>
       </div>
     </div>
