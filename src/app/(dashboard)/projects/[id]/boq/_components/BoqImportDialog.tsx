@@ -74,6 +74,18 @@ export function BoqImportDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  /**
+   * Replace the in-flight controller, aborting any prior one. Without this
+   * the user can fire `runPreview` and then click "Continue" → "Import items"
+   * fast enough that `runConfirm` overwrites `abortRef.current` while the
+   * preview is still pending — the preview controller leaks (no longer
+   * abortable) and its late `setPreview` may land on a reset dialog.
+   */
+  const replaceController = useCallback((next: AbortController) => {
+    abortRef.current?.abort();
+    abortRef.current = next;
+  }, []);
+
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -133,7 +145,7 @@ export function BoqImportDialog({
     if (!file) return;
     setValidating(true);
     const controller = new AbortController();
-    abortRef.current = controller;
+    replaceController(controller);
     try {
       const res = await boqApi.validateImport(
         projectId,
@@ -153,9 +165,9 @@ export function BoqImportDialog({
       toast({ title: "Import failed", description: message, variant: "error" });
     } finally {
       setValidating(false);
-      abortRef.current = null;
+      if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [file, projectId]);
+  }, [file, projectId, replaceController]);
 
   const runConfirm = useCallback(async () => {
     if (!preview) return;
@@ -164,7 +176,7 @@ export function BoqImportDialog({
       .filter((r) => r.status === "valid" && r.parsed !== null)
       .map((r) => r.parsed!);
     const controller = new AbortController();
-    abortRef.current = controller;
+    replaceController(controller);
     try {
       const res = await boqApi.confirmImport(
         projectId,
@@ -180,10 +192,16 @@ export function BoqImportDialog({
           variant: "success",
         });
         onImported();
+      } else if (res.rolledBack) {
+        toast({
+          title: "Import rolled back",
+          description: `Row ${res.failed[0]?.rowNumber} failed — nothing was imported.`,
+          variant: "warning",
+        });
       } else {
         toast({
           title: "Import finished with errors",
-          description: `${res.failed.length} row${res.failed.length === 1 ? "" : "s"} failed. No changes applied.`,
+          description: `${res.failed.length} row${res.failed.length === 1 ? "" : "s"} failed.`,
           variant: "warning",
         });
       }
@@ -198,9 +216,9 @@ export function BoqImportDialog({
       toast({ title: "Import failed", description: message, variant: "error" });
       setStep("strategy");
     } finally {
-      abortRef.current = null;
+      if (abortRef.current === controller) abortRef.current = null;
     }
-  }, [preview, projectId, strategy, onImported]);
+  }, [preview, projectId, strategy, onImported, replaceController]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -438,17 +456,25 @@ export function BoqImportDialog({
               )}
               <div>
                 <p className="font-medium text-text-primary">
-                  {result.failed.length === 0
-                    ? "Import complete"
-                    : "Import finished with errors"}
+                  {result.rolledBack
+                    ? "Import rolled back"
+                    : result.failed.length === 0
+                      ? "Import complete"
+                      : "Import finished with errors"}
                 </p>
                 <p className="text-sm text-text-secondary">
-                  {result.inserted} inserted
-                  {result.replaced > 0 && ` · ${result.replaced} replaced`}
-                  {result.createdSections.length > 0 &&
-                    ` · ${result.createdSections.length} new section${result.createdSections.length === 1 ? "" : "s"}`}
-                  {result.failed.length > 0 &&
-                    ` · ${result.failed.length} failed`}
+                  {result.rolledBack ? (
+                    `Row ${result.failed[0]?.rowNumber} failed — no items were imported and any prior items in this BOQ are unchanged.`
+                  ) : (
+                    <>
+                      {result.inserted} inserted
+                      {result.replaced > 0 && ` · ${result.replaced} replaced`}
+                      {result.createdSections.length > 0 &&
+                        ` · ${result.createdSections.length} new section${result.createdSections.length === 1 ? "" : "s"}`}
+                      {result.failed.length > 0 &&
+                        ` · ${result.failed.length} failed`}
+                    </>
+                  )}
                 </p>
               </div>
             </div>

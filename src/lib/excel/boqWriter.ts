@@ -1,17 +1,25 @@
 import ExcelJS from "exceljs";
-import type { BoqWithDetails } from "@/types";
+import type { BoqItemWithComputed, BoqSection } from "@/types";
 import {
   BOQ_TEMPLATE_COLUMN_LABELS,
   BOQ_TEMPLATE_COLUMN_ORDER,
 } from "./boqParser";
+
+export interface BoqExportInput {
+  items: BoqItemWithComputed[];
+  sections: BoqSection[];
+}
 
 /**
  * Write a BOQ to an .xlsx buffer using the same column layout as the import
  * template — round-trips cleanly through parseBoqSheet. Computed cost columns
  * (sell_price, subtotal, total_cost) are intentionally omitted so the export
  * can be edited and re-imported without column mismatch.
+ *
+ * Takes the minimal `{ items, sections }` shape — no need to load BOQ
+ * summary aggregates that the writer doesn't render.
  */
-export async function writeBoqSheet(boq: BoqWithDetails): Promise<Buffer> {
+export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
   const sectionById = new Map(boq.sections.map((s) => [s.id, s]));
 
   const workbook = new ExcelJS.Workbook();

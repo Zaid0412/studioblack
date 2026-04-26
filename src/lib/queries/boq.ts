@@ -1,5 +1,7 @@
+import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { mapPgError } from "./_pgErrors";
 import type {
   Boq,
   BoqElementLite,
@@ -732,16 +734,23 @@ export async function getNextSequenceNumber(
 
 // ── BOQ Excel Import (Feature 6) ────────────────────────────────────────────
 
-/** Bulk-advance the sequence counter and return N formatted codes in order. */
+/**
+ * Bulk-advance the sequence counter and return N formatted codes in order.
+ *
+ * Runs against a transaction `client` (not the pool) so a ROLLBACK in the
+ * surrounding import reverses the sequence advance. Otherwise a partially-
+ * applied import would burn codes permanently and leave gaps that show up on
+ * client-facing invoices.
+ */
 async function nextSequenceNumbers(
+  client: PoolClient,
   orgId: string,
   prefix: string,
   count: number
 ): Promise<string[]> {
   if (count <= 0) return [];
   const year = new Date().getUTCFullYear();
-  const pool = getPool();
-  const { rows } = await pool.query<{ current_value: number }>(
+  const { rows } = await client.query<{ current_value: number }>(
     `INSERT INTO sequence_counter (org_id, prefix, year, current_value)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (org_id, prefix, year)
@@ -782,11 +791,29 @@ export async function getElementsByCodeMap(
   return map;
 }
 
-/** Lightweight read used by the export writer — same shape as `getBoq`. */
-export async function getBoqForExport(
-  boqId: string
-): Promise<BoqWithDetails | null> {
-  return getBoq(boqId);
+/**
+ * Lightweight read for the export writer — items + sections only, no
+ * `getBoqSummary`. The writer doesn't render summary aggregates; computing
+ * them on every export wastes 3 queries (margin avg, totals, group-by).
+ */
+export async function getBoqForExport(boqId: string): Promise<{
+  items: BoqItemWithComputed[];
+  sections: BoqSection[];
+} | null> {
+  const pool = getPool();
+  const [boqRes, itemsRes, sectionsRes] = await Promise.all([
+    pool.query<{ id: string }>(`SELECT id FROM boq WHERE id = $1`, [boqId]),
+    pool.query<BoqItemWithComputed>(
+      `${ITEM_SELECT} WHERE bi.boq_id = $1 ORDER BY bi.sort_order, bi.created_at`,
+      [boqId]
+    ),
+    pool.query<BoqSection>(
+      `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
+      [boqId]
+    ),
+  ]);
+  if (boqRes.rows.length === 0) return null;
+  return { items: itemsRes.rows, sections: sectionsRes.rows };
 }
 
 type BoqImportRow = z.infer<typeof boqImportRowSchema>;
@@ -822,6 +849,14 @@ export async function bulkInsertBoqItems(
 
   try {
     await client.query("BEGIN");
+
+    // Per-BOQ advisory lock — auto-released on COMMIT/ROLLBACK. Serialises
+    // concurrent imports against the same BOQ so two PMs hitting "replace"
+    // (or even "append") can't race the section-upsert window and produce
+    // duplicate rows for the same case-insensitive title.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [
+      `boq:${boqId}`,
+    ]);
 
     if (strategy === "replace") {
       const { rowCount } = await client.query(
@@ -872,7 +907,12 @@ export async function bulkInsertBoqItems(
 
     // Bulk-advance sequence for any rows missing `itemCode`.
     const blankCount = rows.filter((r) => !r.itemCode?.trim()).length;
-    const generatedCodes = await nextSequenceNumbers(orgId, "BOQ", blankCount);
+    const generatedCodes = await nextSequenceNumbers(
+      client,
+      orgId,
+      "BOQ",
+      blankCount
+    );
     let genIdx = 0;
 
     // Prefetch element ids so we don't round-trip per row.
@@ -954,8 +994,21 @@ export async function bulkInsertBoqItems(
         );
         result.inserted += 1;
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        throw new ImportRowError(row.rowNumber, message);
+        // Mask raw pg messages — they leak constraint names and SQL snippets.
+        // Full text is logged server-side for triage; the user gets a friendly
+        // SQLSTATE-mapped string.
+        const pgErr = err as { code?: string; message?: string };
+        const userMessage = mapPgError(pgErr);
+        logger.error("boq import row failed", {
+          orgId,
+          boqId,
+          rowNumber: row.rowNumber,
+          itemCode: row.itemCode,
+          pgCode: pgErr.code,
+          pgMessage: pgErr.message,
+          error: userMessage,
+        });
+        throw new ImportRowError(row.rowNumber, userMessage);
       }
     }
 
@@ -973,6 +1026,7 @@ export async function bulkInsertBoqItems(
         replaced: 0,
         createdSections: [],
         failed: [{ rowNumber: err.rowNumber, error: err.message }],
+        rolledBack: true,
       };
     }
     throw err;

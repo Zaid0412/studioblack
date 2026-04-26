@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import {
-  getBoqByProject,
-  getBoqStatus,
-  getElementsByCodeMap,
-} from "@/lib/queries";
+import { getBoqByProject, getElementsByCodeMap } from "@/lib/queries";
 import { parseBoqSheet } from "@/lib/excel/boqParser";
+import { validateXlsxUpload } from "@/lib/excel/uploadGuard";
 import { BOQ_IMPORT_MAX_BYTES } from "@/lib/validations";
-
-const ALLOWED_EXTENSIONS = [".xlsx"];
-const ALLOWED_MIME_TYPES = [
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-excel",
-  "application/octet-stream",
-];
-
-/** ZIP local-file-header magic ("PK\x03\x04") — xlsx is a zip archive. */
-const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
 /**
  * POST /api/projects/[id]/boq/import
@@ -42,9 +29,9 @@ export const POST = withAuth(
         { status: 404 }
       );
     }
-
-    const status = await getBoqStatus(boq.id, params.id);
-    if (status === "locked" || status === "superseded") {
+    // `getBoqByProject` already filters out 'superseded'; check 'locked'
+    // here so we don't burn an extra round-trip on `getBoqStatus`.
+    if (boq.status === "locked") {
       return NextResponse.json(
         {
           error: "This BOQ is locked and can no longer be edited.",
@@ -61,46 +48,22 @@ export const POST = withAuth(
       return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
     }
 
-    const file = formData.get("file");
-    if (!file || typeof file === "string") {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    const name = file.name?.toLowerCase() ?? "";
-    const hasValidExt = ALLOWED_EXTENSIONS.some((ext) => name.endsWith(ext));
-    const hasValidMime = !file.type || ALLOWED_MIME_TYPES.includes(file.type);
-    if (!hasValidExt || !hasValidMime) {
+    const upload = await validateXlsxUpload(
+      formData,
+      "file",
+      BOQ_IMPORT_MAX_BYTES
+    );
+    if (!upload.ok) {
       return NextResponse.json(
-        { error: "File must be an .xlsx spreadsheet" },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > BOQ_IMPORT_MAX_BYTES) {
-      return NextResponse.json(
-        { error: `File exceeds ${BOQ_IMPORT_MAX_BYTES / 1024 / 1024}MB` },
-        { status: 413 }
-      );
-    }
-
-    const buffer = Buffer.from(await file.arrayBuffer());
-
-    // Magic-byte check — MIME/extension are both client-controlled, so a
-    // renamed zip bomb or arbitrary file would otherwise reach ExcelJS.
-    if (
-      buffer.length < ZIP_MAGIC.length ||
-      !buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)
-    ) {
-      return NextResponse.json(
-        { error: "File must be an .xlsx spreadsheet" },
-        { status: 400 }
+        { error: upload.message },
+        { status: upload.status }
       );
     }
 
     const elementsByCode = await getElementsByCodeMap(orgId);
 
     try {
-      const result = await parseBoqSheet(buffer, elementsByCode);
+      const result = await parseBoqSheet(upload.buffer, elementsByCode);
       return NextResponse.json({ ...result, boqId: boq.id });
     } catch (err) {
       const message =

@@ -8,62 +8,16 @@ import {
   withBoqImportIdempotency,
 } from "@/lib/queries";
 import { parseRequest, boqImportConfirmSchema } from "@/lib/validations";
+import { createImportMemoryCache } from "@/lib/idempotency/memoryCache";
+import { canonicalStringify } from "@/lib/json/canonical";
 import type { BulkBoqImportResult } from "@/types";
 
 /**
  * In-memory LRU fast-path in front of the Postgres-backed idempotency cache.
- * Covers the common case — double-click on the same replica — without a DB
- * round-trip. Postgres is the cross-replica source of truth.
+ * Postgres remains the cross-replica source of truth; without it, two
+ * replicas could double-commit.
  */
-const MEMORY_CACHE_MAX = 256;
-const MEMORY_CACHE_TTL_MS = 10 * 60 * 1000;
-const memoryCache = new Map<
-  string,
-  { at: number; result: BulkBoqImportResult }
->();
-
-function memCacheGet(key: string): BulkBoqImportResult | null {
-  const entry = memoryCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.at > MEMORY_CACHE_TTL_MS) {
-    memoryCache.delete(key);
-    return null;
-  }
-  // Mark most-recently-used by re-inserting.
-  memoryCache.delete(key);
-  memoryCache.set(key, entry);
-  return entry.result;
-}
-
-function memCacheSet(key: string, result: BulkBoqImportResult): void {
-  if (memoryCache.has(key)) memoryCache.delete(key);
-  while (memoryCache.size >= MEMORY_CACHE_MAX) {
-    const oldest = memoryCache.keys().next().value;
-    if (oldest === undefined) break;
-    memoryCache.delete(oldest);
-  }
-  memoryCache.set(key, { at: Date.now(), result });
-}
-
-/**
- * Stable, field-sorted JSON so key order in the request body doesn't bypass
- * the idempotency cache. Copied from the F3 confirm route; keep in sync.
- */
-function canonicalStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value))
-    return `[${value.map(canonicalStringify).join(",")}]`;
-  const keys = Object.keys(value as Record<string, unknown>).sort();
-  const body = keys
-    .map(
-      (k) =>
-        `${JSON.stringify(k)}:${canonicalStringify(
-          (value as Record<string, unknown>)[k]
-        )}`
-    )
-    .join(",");
-  return `{${body}}`;
-}
+const memoryCache = createImportMemoryCache<BulkBoqImportResult>();
 
 function idempotencyKey(
   orgId: string,
@@ -123,7 +77,7 @@ export const POST = withAuth(
 
     const key = idempotencyKey(orgId, user.id, boqId, strategy, rows);
 
-    const memHit = memCacheGet(key);
+    const memHit = memoryCache.get(key);
     if (memHit) {
       return NextResponse.json(memHit, {
         headers: { "X-Idempotent-Replay": "true" },
@@ -134,7 +88,7 @@ export const POST = withAuth(
       const { result, replayed } = await withBoqImportIdempotency(key, () =>
         bulkInsertBoqItems(boqId, orgId, strategy, rows)
       );
-      memCacheSet(key, result);
+      memoryCache.set(key, result);
       return NextResponse.json(result, {
         headers: replayed ? { "X-Idempotent-Replay": "true" } : {},
       });

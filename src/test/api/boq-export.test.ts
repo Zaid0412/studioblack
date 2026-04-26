@@ -14,7 +14,7 @@ import {
 } from "../helpers";
 import { mocks } from "../setup";
 import { NextRequest } from "next/server";
-import type { BoqWithDetails } from "@/types";
+import type { BoqItemWithComputed, BoqSection } from "@/types";
 
 const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
 const BOQ_ID = "22222222-2222-4222-8222-222222222222";
@@ -54,80 +54,50 @@ function stubBoqHeader() {
   });
 }
 
-function stubBoqWithItems(itemCount: number): BoqWithDetails {
-  const items = Array.from({ length: itemCount }, (_, i) => ({
-    id: `item-${i}`,
-    boq_id: BOQ_ID,
-    section_id: null,
-    element_id: null,
-    item_code: `BOQ-2026-${String(i + 1).padStart(3, "0")}`,
-    description: `Item ${i + 1}`,
-    unit: "m2",
-    quantity: "1",
-    unit_cost: "10",
-    material_cost: null,
-    labour_cost: null,
-    overhead_pct: "0",
-    margin_pct: "0",
-    lifecycle_status: "draft" as const,
-    client_approval_status: "pending" as const,
-    client_approved_at: null,
-    client_approved_by: null,
-    requires_reapproval: false,
-    element_archived: false,
-    installed_qty: "0",
-    has_snag: false,
-    po_status: "none" as const,
-    notes: null,
-    client_notes: null,
-    sort_order: i,
-    is_provisional: false,
-    is_excluded: false,
-    created_at: "2026-04-24T00:00:00Z",
-    updated_at: "2026-04-24T00:00:00Z",
-    total_cost: "10",
-    subtotal: "10",
-    sell_price: "10",
-    progress_pct: "0",
-    margin_alert: false,
-  }));
-
-  return {
-    id: BOQ_ID,
-    project_id: PROJECT_ID,
-    title: "Test BOQ",
-    version: 1,
-    status: "draft",
-    currency: "USD",
-    exchange_rate: "1",
-    contingency_pct: "0",
-    vat_pct: "0",
-    minimum_margin_pct: "10",
-    client_id: null,
-    architect_id: null,
-    issued_date: null,
-    approved_date: null,
-    notes: null,
-    client_notes: null,
-    snapshot: null,
-    created_by: null,
-    created_at: "2026-04-24T00:00:00Z",
-    updated_at: "2026-04-24T00:00:00Z",
-    sections: [],
-    items,
-    summary: {
-      total_cost: "0",
-      total_sell_price: "0",
-      subtotal: "0",
-      pre_vat_total: "0",
-      client_total: "0",
-      average_margin_pct: "0",
-      margin_bleed_count: 0,
-      pending_approvals: 0,
-      item_count: itemCount,
-      section_totals: [],
-    },
-  };
+function stubBoqWithItems(itemCount: number): {
+  items: BoqItemWithComputed[];
+  sections: BoqSection[];
+} {
+  const items: BoqItemWithComputed[] = Array.from(
+    { length: itemCount },
+    (_, i) => ({
+      id: `item-${i}`,
+      boq_id: BOQ_ID,
+      section_id: null,
+      element_id: null,
+      item_code: `BOQ-2026-${String(i + 1).padStart(3, "0")}`,
+      description: `Item ${i + 1}`,
+      unit: "m2",
+      quantity: "1",
+      unit_cost: "10",
+      material_cost: null,
+      labour_cost: null,
+      overhead_pct: "0",
+      margin_pct: "0",
+      lifecycle_status: "draft",
+      client_approval_status: "pending",
+      client_approved_at: null,
+      client_approved_by: null,
+      requires_reapproval: false,
+      element_archived: false,
+      installed_qty: "0",
+      has_snag: false,
+      po_status: "none",
+      notes: null,
+      client_notes: null,
+      sort_order: i,
+      is_provisional: false,
+      is_excluded: false,
+      created_at: "2026-04-24T00:00:00Z",
+      updated_at: "2026-04-24T00:00:00Z",
+      total_cost: "10",
+      subtotal: "10",
+      sell_price: "10",
+      progress_pct: "0",
+      margin_alert: false,
+    })
+  );
+  return { items, sections: [] };
 }
 
 beforeEach(() => {

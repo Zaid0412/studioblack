@@ -6,11 +6,19 @@ import type {
   ParsedBoqValues,
 } from "@/types";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import {
+  MAX_COLS,
+  cellBool,
+  cellNumber,
+  cellText,
+  normalizeHeader,
+} from "./_shared";
 
 // ── Safety caps ──────────────────────────────────────────────────────────
-// Defensive limits against decompression-bomb xlsx files. File-controlled
-// bounds (columnCount, actualRowCount) must never drive tight loops uncapped.
-const MAX_COLS = 64;
+// `MAX_COLS` is shared with the element parser via `_shared.ts`. The BOQ
+// row cap is intentionally aligned with `boqImportConfirmSchema.rows.max(5_000)`
+// in validations.ts — bumping one without the other silently truncates at
+// the confirm step.
 const MAX_DATA_ROWS = 5_000;
 
 // ── Template definition ─────────────────────────────────────────────────────
@@ -52,119 +60,6 @@ export const BOQ_TEMPLATE_COLUMN_LABELS: Record<TemplateKey, string> =
 export const BOQ_TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
   TEMPLATE_COLUMNS
 ) as TemplateKey[];
-
-function normalizeHeader(s: string): string {
-  return s
-    .replace(/^\uFEFF/, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-// ── Cell coercion ───────────────────────────────────────────────────────────
-
-/**
- * Flatten an exceljs cell value to a primitive. Handles rich text objects,
- * hyperlinks, formula results, dates, and formula-error cells.
- */
-function cellText(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.replace(/^\uFEFF/, "").trim();
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    if (typeof v.error === "string") return "";
-    if (Array.isArray(v.richText)) {
-      return v.richText
-        .map((t) =>
-          typeof t === "object" && t && "text" in t
-            ? (t as { text: string }).text
-            : ""
-        )
-        .join("")
-        .trim();
-    }
-    if (typeof v.hyperlink === "string") {
-      return typeof v.text === "string" ? String(v.text).trim() : "";
-    }
-    if (typeof v.text === "string") return v.text.trim();
-    if (typeof v.result !== "undefined") return cellText(v.result);
-  }
-  return String(value).trim();
-}
-
-interface CellNumberResult {
-  value: number | null;
-  ambiguous: boolean;
-}
-
-/**
- * Parse a cell value to a number, with locale heuristics for TR/EU decimal
- * formatting. Mirrors `elementParser.cellNumber` — keep the two in sync.
- *
- * Text-path rules:
- *   - "1.234,56" → 1234.56 (comma is decimal when it appears last)
- *   - "1,234.56" → 1234.56 (dot is decimal when it appears last)
- *   - "1,5"     → 1.5 (single comma, 1–3 trailing digits → decimal)
- *   - "1,234"   → 1.234 (ambiguous; flagged)
- */
-function cellNumber(value: unknown): CellNumberResult {
-  if (value === null || value === undefined || value === "")
-    return { value: null, ambiguous: false };
-  if (typeof value === "number" && Number.isFinite(value))
-    return { value, ambiguous: false };
-  const text = cellText(value);
-  if (text === "") return { value: null, ambiguous: false };
-
-  const cleaned = text.replace(/\s/g, "");
-  const hasComma = cleaned.includes(",");
-  const hasDot = cleaned.includes(".");
-  let normalized = cleaned;
-  let ambiguous = false;
-
-  if (hasComma && hasDot) {
-    const lastComma = cleaned.lastIndexOf(",");
-    const lastDot = cleaned.lastIndexOf(".");
-    if (lastComma > lastDot) {
-      normalized = cleaned.replace(/\./g, "").replace(",", ".");
-    } else {
-      normalized = cleaned.replace(/,/g, "");
-    }
-  } else if (hasComma) {
-    const parts = cleaned.split(",");
-    const onlyOneComma = parts.length === 2;
-    const trailing = onlyOneComma ? parts[1] : "";
-    const leading = onlyOneComma ? parts[0] : "";
-    const looksDecimal =
-      onlyOneComma && /^\d{1,3}$/.test(trailing) && /^-?\d+$/.test(leading);
-    if (looksDecimal) {
-      normalized = `${leading}.${trailing}`;
-      if (trailing.length === 3) ambiguous = true;
-    } else {
-      normalized = cleaned.replace(/,/g, "");
-    }
-  }
-
-  const n = Number(normalized);
-  return { value: Number.isFinite(n) ? n : null, ambiguous };
-}
-
-/**
- * Coerce a cell value into a tristate boolean. Accepts true/false/yes/no/y/n/1/0
- * (case-insensitive). Returns undefined for empty/unknown values — caller
- * decides if that's an error.
- */
-function cellBool(value: unknown): boolean | undefined {
-  if (value === undefined || value === null || value === "") return undefined;
-  if (typeof value === "boolean") return value;
-  const text = cellText(value).toLowerCase();
-  if (["true", "yes", "y", "1"].includes(text)) return true;
-  if (["false", "no", "n", "0"].includes(text)) return false;
-  return undefined;
-}
 
 // ── Parse ───────────────────────────────────────────────────────────────────
 

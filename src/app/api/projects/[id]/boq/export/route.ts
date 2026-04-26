@@ -13,7 +13,11 @@ import { writeBoqSheet } from "@/lib/excel/boqWriter";
  * variant here. Columns match the import template so the file round-trips.
  */
 export const GET = withAuth(
-  { blockedRoles: ["client"], projectAccess: true },
+  {
+    blockedRoles: ["client"],
+    projectAccess: true,
+    rateLimit: { limit: 10, windowMs: 60_000 },
+  },
   async (_req, _ctx, params) => {
     const header = await getBoqByProject(params.id);
     if (!header) {

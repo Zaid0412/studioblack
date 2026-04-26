@@ -2,11 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import ExcelJS from "exceljs";
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/projects/[id]/boq/import/route";
-import {
-  getBoqByProject,
-  getBoqStatus,
-  getElementsByCodeMap,
-} from "@/lib/queries";
+import { getBoqByProject, getElementsByCodeMap } from "@/lib/queries";
 import {
   mockSession,
   setupAuth,
@@ -75,7 +71,6 @@ function stubBoq(status: "draft" | "locked" | null = "draft") {
     created_at: "2026-04-24T00:00:00Z",
     updated_at: "2026-04-24T00:00:00Z",
   });
-  vi.mocked(getBoqStatus).mockResolvedValue(status);
 }
 
 beforeEach(() => {

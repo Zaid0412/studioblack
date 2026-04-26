@@ -610,4 +610,11 @@ export interface BulkBoqImportResult {
   createdSections: Array<{ id: string; title: string }>;
   /** Rows that failed — should be rare; any failure triggers a full rollback. */
   failed: Array<{ rowNumber: number; error: string }>;
+  /**
+   * True when the whole transaction was rolled back due to a row-level error.
+   * `failed[]` carries only the offending row's message; everything else was
+   * reverted. UI uses this to show "import rolled back" instead of the
+   * misleading "0 inserted · 1 failed".
+   */
+  rolledBack?: boolean;
 }
