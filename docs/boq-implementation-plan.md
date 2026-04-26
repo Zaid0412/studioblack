@@ -39,14 +39,14 @@ Tabs 5 (client BOQ sub-nav) and 6 (end-to-end operational logic + state machines
 
 ### Tab 6 rules — enforcement map
 
-| Rule | Enforced in |
-| --- | --- |
-| 1. No PO without approval | F14 server guard |
-| 2. No invoice on unapproved items | F15 (vendor) + F22 (client) server guards |
-| 3. Post-approval changes → CO | F4 block, F13 CO flow (pending decision) |
-| 4. Never overwrite BOQ — always version | F13 bumps `boq.version` + snapshot on CO implement |
-| 5. Vendor cost ≠ client price | F4 schema already separates `unit_cost` from computed `sell_price` |
-| Core: every action references a `boq_item` | Already honoured across F9 / F13 / F14 / F17 / F22 |
+| Rule                                       | Enforced in                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| 1. No PO without approval                  | F14 server guard                                                   |
+| 2. No invoice on unapproved items          | F15 (vendor) + F22 (client) server guards                          |
+| 3. Post-approval changes → CO              | F4 block, F13 CO flow (pending decision)                           |
+| 4. Never overwrite BOQ — always version    | F13 bumps `boq.version` + snapshot on CO implement                 |
+| 5. Vendor cost ≠ client price              | F4 schema already separates `unit_cost` from computed `sell_price` |
+| Core: every action references a `boq_item` | Already honoured across F9 / F13 / F14 / F17 / F22                 |
 
 ### Open decisions (not yet answered)
 
@@ -2128,32 +2128,32 @@ F24 (Client Orders) — depends on F4, F12
 
 ## Estimated Scope per Feature
 
-| #   | Feature       | New Files | queries.ts Lines | API Routes | Complexity |
-| --- | ------------- | --------- | ---------------- | ---------- | ---------- |
-| 1   | Categories    | ~10       | ~100             | 5          | Low        |
-| 2   | Elements CRUD | ~15       | ~200             | 6          | Medium     |
-| 3   | Excel Import  | ~8        | ~50              | 3          | Medium     |
-| 4   | BOQ Core      | ~16       | ~450             | 13         | High       |
-| 5   | BOQ UI        | ~12       | 0                | 0          | High       |
-| 6   | BOQ Excel     | ~6        | ~50              | 3          | Medium     |
-| 7   | Vendors       | ~14       | ~220             | 8          | Medium     |
-| 8   | Vendor Role   | ~6        | ~30              | 0          | Low        |
-| 9   | RFQ           | ~12       | ~200             | 7          | High       |
-| 10  | Quotes        | ~10       | ~220             | 7          | High       |
-| 11  | Proposals     | ~10       | ~200             | 11         | Medium     |
-| 12  | Client BOQ    | ~8        | ~100             | 4          | Medium     |
-| 13  | Locking + CO  | ~12       | ~300             | 10         | High       |
-| 14  | POs           | ~10       | ~200             | 7          | Medium     |
-| 15  | Invoices      | ~8        | ~120             | 6          | Low        |
-| 16  | Progress      | ~5        | ~80              | 2          | Low        |
-| 17  | Snags         | ~8        | ~150             | 4          | Medium     |
-| 18  | Dashboard     | ~5        | ~100             | 1          | Medium     |
-| 19  | PDF Export    | ~8        | 0                | 4          | Medium     |
-| 20  | Custom Tabs   | ~8        | ~100             | 4          | Medium     |
-| 21  | Audit Trail       | ~4    | ~80   | 1  | Low    |
-| 22  | Client Invoices   | ~10   | ~150  | 8  | Medium |
-| 23  | Client Payments   | ~8    | ~120  | 5  | Low    |
-| 24  | Client Orders     | ~6    | ~30   | 1  | Low    |
+| #   | Feature         | New Files | queries.ts Lines | API Routes | Complexity |
+| --- | --------------- | --------- | ---------------- | ---------- | ---------- |
+| 1   | Categories      | ~10       | ~100             | 5          | Low        |
+| 2   | Elements CRUD   | ~15       | ~200             | 6          | Medium     |
+| 3   | Excel Import    | ~8        | ~50              | 3          | Medium     |
+| 4   | BOQ Core        | ~16       | ~450             | 13         | High       |
+| 5   | BOQ UI          | ~12       | 0                | 0          | High       |
+| 6   | BOQ Excel       | ~6        | ~50              | 3          | Medium     |
+| 7   | Vendors         | ~14       | ~220             | 8          | Medium     |
+| 8   | Vendor Role     | ~6        | ~30              | 0          | Low        |
+| 9   | RFQ             | ~12       | ~200             | 7          | High       |
+| 10  | Quotes          | ~10       | ~220             | 7          | High       |
+| 11  | Proposals       | ~10       | ~200             | 11         | Medium     |
+| 12  | Client BOQ      | ~8        | ~100             | 4          | Medium     |
+| 13  | Locking + CO    | ~12       | ~300             | 10         | High       |
+| 14  | POs             | ~10       | ~200             | 7          | Medium     |
+| 15  | Invoices        | ~8        | ~120             | 6          | Low        |
+| 16  | Progress        | ~5        | ~80              | 2          | Low        |
+| 17  | Snags           | ~8        | ~150             | 4          | Medium     |
+| 18  | Dashboard       | ~5        | ~100             | 1          | Medium     |
+| 19  | PDF Export      | ~8        | 0                | 4          | Medium     |
+| 20  | Custom Tabs     | ~8        | ~100             | 4          | Medium     |
+| 21  | Audit Trail     | ~4        | ~80              | 1          | Low        |
+| 22  | Client Invoices | ~10       | ~150             | 8          | Medium     |
+| 23  | Client Payments | ~8        | ~120             | 5          | Low        |
+| 24  | Client Orders   | ~6        | ~30              | 1          | Low        |
 
 **Total**: ~24 PRs, ~214 new files, ~3,200 new lines in queries, ~115 new API routes
 
