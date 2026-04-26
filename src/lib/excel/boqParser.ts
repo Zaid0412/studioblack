@@ -134,12 +134,10 @@ export async function parseBoqSheet(
   const rows: ParsedBoqRow[] = [];
   const lastRow = Math.min(worksheet.actualRowCount, MAX_DATA_ROWS + 1);
   const truncated = worksheet.actualRowCount > MAX_DATA_ROWS + 1;
-  let dataRowIndex = 0;
 
   for (let r = 2; r <= lastRow; r++) {
     const excelRow = worksheet.getRow(r);
     if (!excelRow || excelRow.cellCount === 0) continue;
-    dataRowIndex += 1;
 
     const raw: Record<string, unknown> = {};
     const byKey: Partial<Record<TemplateKey, string>> = {};
@@ -153,14 +151,14 @@ export async function parseBoqSheet(
       const key = headerKeys[c - 1];
       if (key) byKey[key] = text;
     }
-    if (!anyCell) {
-      dataRowIndex -= 1;
-      continue;
-    }
+    if (!anyCell) continue;
 
     const errors: string[] = [];
     const warnings: string[] = [];
-    const values: Partial<ParsedBoqValues> = { rowNumber: dataRowIndex };
+    // `rowNumber` carries the literal Excel row index throughout — the
+    // server's `failed[].rowNumber` matches what the user sees in the sheet
+    // and in the preview, regardless of blank rows above.
+    const values: Partial<ParsedBoqValues> = { rowNumber: r };
 
     // ── Description (required)
     if (!byKey.description) {
@@ -284,9 +282,12 @@ export async function parseBoqSheet(
 
     const hasErrors = errors.length > 0;
     rows.push({
-      rowNumber: dataRowIndex,
+      rowNumber: r,
       excelRowNumber: r,
-      raw,
+      // `raw` is only consumed in the dialog as a fallback when `parsed` is
+      // null (error rows). Drop it on clean rows so a 5,000-row sheet
+      // doesn't ship 5,000 × 13-column raw maps back to the client.
+      raw: hasErrors ? raw : {},
       parsed: hasErrors ? null : (values as ParsedBoqValues),
       linkedElement,
       status: hasErrors ? "error" : "valid",

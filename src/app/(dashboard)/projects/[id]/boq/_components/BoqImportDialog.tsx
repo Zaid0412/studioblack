@@ -185,6 +185,10 @@ export function BoqImportDialog({
       );
       setResult(res);
       setStep("result");
+      // `bulkInsertBoqItems` is all-or-nothing today — a per-row failure
+      // throws `ImportRowError` and rolls back the transaction, so any
+      // non-empty `failed[]` arrives with `rolledBack: true`. If a future
+      // strategy ships partial success, branch here.
       if (res.failed.length === 0) {
         toast({
           title: "Import complete",
@@ -192,16 +196,10 @@ export function BoqImportDialog({
           variant: "success",
         });
         onImported();
-      } else if (res.rolledBack) {
+      } else {
         toast({
           title: "Import rolled back",
           description: `Row ${res.failed[0]?.rowNumber} failed — nothing was imported.`,
-          variant: "warning",
-        });
-      } else {
-        toast({
-          title: "Import finished with errors",
-          description: `${res.failed.length} row${res.failed.length === 1 ? "" : "s"} failed.`,
           variant: "warning",
         });
       }
@@ -220,8 +218,28 @@ export function BoqImportDialog({
     }
   }, [preview, projectId, strategy, onImported, replaceController]);
 
+  /**
+   * Guard the close path. Two failure modes if we just delegate to
+   * `onOpenChange`:
+   *   - ESC / overlay-click while `step === "confirming"` aborts the fetch,
+   *     but the server-side COMMIT already happened. The dialog never sees
+   *     the response and `onImported` is never called → user sees stale data.
+   *   - Closing from `result` via the X / overlay (instead of "Done")
+   *     skips the callback that refreshes the parent BOQ table.
+   */
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (step === "confirming") return;
+      if (!next && step === "result" && result && result.failed.length === 0) {
+        onImported();
+      }
+      onOpenChange(next);
+    },
+    [onOpenChange, onImported, step, result]
+  );
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Import BOQ from Excel</DialogTitle>
@@ -463,24 +481,20 @@ export function BoqImportDialog({
               )}
               <div>
                 <p className="font-medium text-text-primary">
-                  {result.rolledBack
-                    ? "Import rolled back"
-                    : result.failed.length === 0
-                      ? "Import complete"
-                      : "Import finished with errors"}
+                  {result.failed.length === 0
+                    ? "Import complete"
+                    : "Import rolled back"}
                 </p>
                 <p className="text-sm text-text-secondary">
-                  {result.rolledBack ? (
-                    `Row ${result.failed[0]?.rowNumber} failed — no items were imported and any prior items in this BOQ are unchanged.`
-                  ) : (
+                  {result.failed.length === 0 ? (
                     <>
                       {result.inserted} inserted
                       {result.replaced > 0 && ` · ${result.replaced} replaced`}
                       {result.createdSections.length > 0 &&
                         ` · ${result.createdSections.length} new section${result.createdSections.length === 1 ? "" : "s"}`}
-                      {result.failed.length > 0 &&
-                        ` · ${result.failed.length} failed`}
                     </>
+                  ) : (
+                    `Row ${result.failed[0]?.rowNumber} failed — no items were imported and any prior items in this BOQ are unchanged.`
                   )}
                 </p>
               </div>

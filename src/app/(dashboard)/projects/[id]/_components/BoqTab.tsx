@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
@@ -159,6 +159,10 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       /* useBoqMutations toasts on error */
     });
   };
+
+  const handleImported = useCallback(() => {
+    void mutateBoq();
+  }, [mutateBoq]);
 
   const handleExport = async () => {
     if (exporting) return;
@@ -352,9 +356,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         open={importOpen}
         onOpenChange={setImportOpen}
         projectId={projectId}
-        onImported={() => {
-          void mutateBoq();
-        }}
+        onImported={handleImported}
       />
     </div>
   );

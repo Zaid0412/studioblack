@@ -4,11 +4,13 @@
  * nothing to an end user (and edge into info disclosure).
  *
  * The `IMPORT_PG_DEBUG` env flag appends the raw text in non-production
- * environments — production should keep the friendly mapped message.
+ * environments — explicitly fail-closed in production even if the flag is
+ * accidentally set, so a deploy-script copy-paste can't undo this guard.
  *
  * Used by both element (F3) and BOQ (F6) bulk import paths.
  */
-const IMPORT_PG_DEBUG = process.env.IMPORT_PG_DEBUG === "1";
+const IMPORT_PG_DEBUG =
+  process.env.IMPORT_PG_DEBUG === "1" && process.env.NODE_ENV !== "production";
 
 export interface PgErrorLike {
   code?: string;
