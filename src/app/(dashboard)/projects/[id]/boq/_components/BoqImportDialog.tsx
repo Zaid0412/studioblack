@@ -247,8 +247,8 @@ export function BoqImportDialog({
               className={cn(
                 "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
                 dragOver
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
+                  ? "border-accent bg-accent/10"
+                  : "border-border-default hover:border-accent/50"
               )}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -274,7 +274,7 @@ export function BoqImportDialog({
             </div>
 
             {file && (
-              <div className="flex items-center justify-between bg-surface-2 rounded-md px-3 py-2">
+              <div className="flex items-center justify-between bg-bg-elevated rounded-md px-3 py-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <FileSpreadsheet className="h-4 w-4 text-text-muted shrink-0" />
                   <span className="text-sm truncate">{file.name}</span>
@@ -321,12 +321,19 @@ export function BoqImportDialog({
               <div className="border rounded-md overflow-hidden">
                 <div className="max-h-80 overflow-y-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-surface-2 sticky top-0">
-                      <tr>
-                        <th className="text-left px-3 py-2 w-10">#</th>
-                        <th className="text-left px-3 py-2">Status</th>
+                    <thead>
+                      <tr className="text-text-secondary text-xs uppercase tracking-wide">
+                        <th className="sticky top-0 z-10 bg-bg-elevated text-left px-3 py-2 w-10 border-b border-border-default">
+                          #
+                        </th>
+                        <th className="sticky top-0 z-10 bg-bg-elevated text-left px-3 py-2 border-b border-border-default">
+                          Status
+                        </th>
                         {PREVIEW_COLUMNS.map((c) => (
-                          <th key={c.key} className="text-left px-3 py-2">
+                          <th
+                            key={c.key}
+                            className="sticky top-0 z-10 bg-bg-elevated text-left px-3 py-2 border-b border-border-default"
+                          >
                             {c.label}
                           </th>
                         ))}
@@ -627,8 +634,8 @@ function StrategyOption({
         selected
           ? destructive
             ? "border-error bg-error/5"
-            : "border-primary bg-primary/5"
-          : "border-border hover:bg-surface-2"
+            : "border-accent bg-accent/10"
+          : "border-border-default hover:bg-bg-elevated"
       )}
     >
       <div className="flex items-start gap-3">
@@ -638,8 +645,8 @@ function StrategyOption({
             selected
               ? destructive
                 ? "border-error bg-error"
-                : "border-primary bg-primary"
-              : "border-border"
+                : "border-accent bg-accent"
+              : "border-border-default"
           )}
         />
         <div>
