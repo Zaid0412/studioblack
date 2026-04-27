@@ -2,11 +2,11 @@ import type { ElementCategory } from "@/types";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import {
   buildParseEnvelope,
-  cellNumber,
   emptyParseEnvelope,
   forEachDataRow,
   loadAndResolveHeaders,
   normalizeHeader,
+  parseRequiredNumericField,
   parseRequiredUnitField,
   parseSharedFinancialFields,
   type TemplateConfig,
@@ -111,6 +111,13 @@ export const TEMPLATE_COLUMN_LABELS: Record<TemplateKey, string> =
 export const TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
   TEMPLATE_COLUMNS
 ) as TemplateKey[];
+
+/** Hoisted out of the parse loop — avoids re-allocating per row × per import. */
+const OPTIONAL_STRING_FIELDS = [
+  ["description", "Description", 2000],
+  ["specReference", "Spec Reference", 255],
+  ["drawingRef", "Drawing Ref", 255],
+] as const;
 
 /**
  * Normalize a category path segment for lookup. Unlike headers, category
@@ -221,40 +228,27 @@ export async function parseElementSheet(
       const unit = parseRequiredUnitField(byKey.unit, ALLOWED_UNITS, errors);
       if (unit) values.unit = unit as ElementUnit;
 
-      // ── Unit cost (required, non-negative). Inline because the
-      // missing-value error is "is required", not "must be a number".
-      const unitCostResult = cellNumber(byKey.unitCost);
-      if (unitCostResult.value === null) {
-        errors.push("Unit Cost is required");
-      } else if (unitCostResult.value < 0) {
-        errors.push("Unit Cost must be zero or positive");
-      } else {
-        values.unitCost = unitCostResult.value;
-        if (unitCostResult.ambiguous) {
-          warnings.push(
-            `Unit Cost "${byKey.unitCost ?? ""}" is ambiguous — parsed as ${unitCostResult.value}. Edit the sheet if this is wrong.`
-          );
-        }
-      }
+      // ── Unit cost (required, non-negative)
+      const unitCost = parseRequiredNumericField(
+        byKey.unitCost,
+        "Unit Cost",
+        { min: 0 },
+        errors,
+        warnings
+      );
+      if (unitCost !== undefined) values.unitCost = unitCost;
 
       // ── Optional cost + percentage fields (shared shape with BOQ)
       parseSharedFinancialFields(byKey, values, errors, warnings);
 
-      // ── Optional strings
-      if (byKey.description) {
-        if (byKey.description.length > 2000) {
-          errors.push("Description must be 2000 characters or fewer");
-        } else values.description = byKey.description;
-      }
-      if (byKey.specReference) {
-        if (byKey.specReference.length > 255) {
-          errors.push("Spec Reference must be 255 characters or fewer");
-        } else values.specReference = byKey.specReference;
-      }
-      if (byKey.drawingRef) {
-        if (byKey.drawingRef.length > 255) {
-          errors.push("Drawing Ref must be 255 characters or fewer");
-        } else values.drawingRef = byKey.drawingRef;
+      // ── Optional strings with length caps
+      for (const [k, label, max] of OPTIONAL_STRING_FIELDS) {
+        const v = byKey[k];
+        if (v) {
+          if (v.length > max)
+            errors.push(`${label} must be ${max} characters or fewer`);
+          else values[k] = v;
+        }
       }
 
       // ── Currency

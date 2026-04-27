@@ -21,6 +21,8 @@ interface FormDialogProps {
   submitting: boolean;
   submitLabel: string;
   submittingLabel?: string;
+  /** Passed through to `DialogContent` — for callers that need a wider modal. */
+  contentClassName?: string;
   children: ReactNode;
 }
 
@@ -38,11 +40,12 @@ export function FormDialog({
   submitting,
   submitLabel,
   submittingLabel,
+  contentClassName,
   children,
 }: FormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className={contentClassName}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

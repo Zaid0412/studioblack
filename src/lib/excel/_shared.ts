@@ -430,16 +430,52 @@ export function parseRequiredUnitField(
   return rawUnit;
 }
 
-/** The four cost/pct fields shared between the element and BOQ templates. */
-export const SHARED_FINANCIAL_FIELDS = [
-  "materialCost",
-  "labourCost",
-  "overheadPct",
-  "marginPct",
-] as const;
-type SharedFinancialKey = (typeof SHARED_FINANCIAL_FIELDS)[number];
+/**
+ * Parse a required numeric field (`Quantity`, `Unit Cost`, etc). Pushes a
+ * tailored "is required" error when missing — distinct from the
+ * "must be a number" wording the optional helper uses. Returns the parsed
+ * value on success.
+ */
+export function parseRequiredNumericField(
+  raw: string | undefined,
+  label: string,
+  range: NumericRange,
+  errors: string[],
+  warnings: string[]
+): number | undefined {
+  const res = cellNumber(raw);
+  if (res.value === null) {
+    errors.push(`${label} is required`);
+    return undefined;
+  }
+  const { min, max } = range;
+  if (res.value < min || (max !== undefined && res.value > max)) {
+    if (max === undefined) {
+      errors.push(
+        min === 0
+          ? `${label} must be zero or positive`
+          : `${label} must be at least ${min}`
+      );
+    } else {
+      errors.push(`${label} must be between ${min} and ${max}`);
+    }
+    return undefined;
+  }
+  if (res.ambiguous) {
+    warnings.push(
+      `${label} "${raw ?? ""}" is ambiguous — parsed as ${res.value}. Edit the sheet if this is wrong.`
+    );
+  }
+  return res.value;
+}
 
-interface SharedFinancialValues {
+type SharedFinancialKey =
+  | "materialCost"
+  | "labourCost"
+  | "overheadPct"
+  | "marginPct";
+
+export interface SharedFinancialValues {
   materialCost?: number;
   labourCost?: number;
   overheadPct?: number;
@@ -447,22 +483,31 @@ interface SharedFinancialValues {
 }
 
 /**
+ * Spec hoisted to module scope — `parseSharedFinancialFields` runs once per
+ * imported row, so re-allocating a 4-tuple array each call adds up to ~80k
+ * needless allocations on a 5,000-row sheet.
+ */
+const SHARED_FINANCIAL_SPEC: ReadonlyArray<
+  readonly [SharedFinancialKey, string, NumericRange]
+> = [
+  ["materialCost", "Material Cost", { min: 0 }],
+  ["labourCost", "Labour Cost", { min: 0 }],
+  ["overheadPct", "Overhead %", { min: 0, max: 100 }],
+  ["marginPct", "Margin %", { min: 0, max: 100 }],
+];
+
+/**
  * Parse the four optional cost/pct fields that both the element and BOQ
  * templates share — non-negative `materialCost`/`labourCost` and 0-100
  * `overheadPct`/`marginPct`. Mutates `values`/`errors`/`warnings` in place.
  */
-export function parseSharedFinancialFields<T extends SharedFinancialValues>(
+export function parseSharedFinancialFields(
   byKey: Partial<Record<SharedFinancialKey, string>>,
-  values: Partial<T>,
+  values: SharedFinancialValues,
   errors: string[],
   warnings: string[]
 ): void {
-  for (const [k, label, range] of [
-    ["materialCost", "Material Cost", { min: 0 }],
-    ["labourCost", "Labour Cost", { min: 0 }],
-    ["overheadPct", "Overhead %", { min: 0, max: 100 }],
-    ["marginPct", "Margin %", { min: 0, max: 100 }],
-  ] as const) {
+  for (const [k, label, range] of SHARED_FINANCIAL_SPEC) {
     const v = parseOptionalNumericField(
       byKey[k],
       label,
@@ -470,8 +515,6 @@ export function parseSharedFinancialFields<T extends SharedFinancialValues>(
       errors,
       warnings
     );
-    if (v !== undefined) {
-      (values as SharedFinancialValues)[k] = v;
-    }
+    if (v !== undefined) values[k] = v;
   }
 }

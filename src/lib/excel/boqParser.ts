@@ -8,10 +8,11 @@ import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import {
   buildParseEnvelope,
   cellBool,
-  cellNumber,
   emptyParseEnvelope,
   forEachDataRow,
   loadAndResolveHeaders,
+  normalizeHeader,
+  parseRequiredNumericField,
   parseRequiredUnitField,
   parseSharedFinancialFields,
   type TemplateConfig,
@@ -54,11 +55,27 @@ const REQUIRED_COLUMNS: readonly TemplateKey[] = [
   "unitCost",
 ];
 
+/** Case-insensitive lookup from normalized header label → template key. */
+const HEADER_TO_KEY: Map<string, TemplateKey> = new Map(
+  (Object.entries(TEMPLATE_COLUMNS) as [TemplateKey, string][]).map(
+    ([k, label]) => [normalizeHeader(label), k]
+  )
+);
+
 const TEMPLATE: TemplateConfig<TemplateKey> = {
   columns: TEMPLATE_COLUMNS,
   required: REQUIRED_COLUMNS,
   order: Object.keys(TEMPLATE_COLUMNS) as TemplateKey[],
+  headerToKey: HEADER_TO_KEY,
 };
+
+/** Hoisted out of the parse loop — avoids re-allocating per row × per import. */
+const OPTIONAL_STRING_FIELDS = [
+  ["sectionTitle", "Section", 255],
+  ["itemCode", "Item Code", 50],
+  ["notes", "Notes", 2000],
+  ["clientNotes", "Client Notes", 2000],
+] as const;
 
 export const BOQ_TEMPLATE_COLUMN_LABELS: Record<TemplateKey, string> =
   TEMPLATE_COLUMNS;
@@ -110,47 +127,30 @@ export async function parseBoqSheet(
       const unit = parseRequiredUnitField(byKey.unit, ALLOWED_UNITS, errors);
       if (unit) values.unit = unit as ElementUnit;
 
-      // ── Quantity (required, non-negative). Inline because the missing-value
-      // error is "Quantity is required", not "Quantity must be a number".
-      const qtyRes = cellNumber(byKey.quantity);
-      if (qtyRes.value === null) {
-        errors.push("Quantity is required");
-      } else if (qtyRes.value < 0) {
-        errors.push("Quantity must be zero or positive");
-      } else {
-        values.quantity = qtyRes.value;
-        if (qtyRes.ambiguous) {
-          warnings.push(
-            `Quantity "${byKey.quantity ?? ""}" is ambiguous — parsed as ${qtyRes.value}. Edit the sheet if this is wrong.`
-          );
-        }
-      }
+      // ── Quantity + Unit Cost (required, non-negative)
+      const qty = parseRequiredNumericField(
+        byKey.quantity,
+        "Quantity",
+        { min: 0 },
+        errors,
+        warnings
+      );
+      if (qty !== undefined) values.quantity = qty;
 
-      // ── Unit Cost (required, non-negative). Same shape as Quantity.
-      const unitCostRes = cellNumber(byKey.unitCost);
-      if (unitCostRes.value === null) {
-        errors.push("Unit Cost is required");
-      } else if (unitCostRes.value < 0) {
-        errors.push("Unit Cost must be zero or positive");
-      } else {
-        values.unitCost = unitCostRes.value;
-        if (unitCostRes.ambiguous) {
-          warnings.push(
-            `Unit Cost "${byKey.unitCost ?? ""}" is ambiguous — parsed as ${unitCostRes.value}. Edit the sheet if this is wrong.`
-          );
-        }
-      }
+      const unitCost = parseRequiredNumericField(
+        byKey.unitCost,
+        "Unit Cost",
+        { min: 0 },
+        errors,
+        warnings
+      );
+      if (unitCost !== undefined) values.unitCost = unitCost;
 
       // ── Optional cost + percentage fields (shared shape with elements)
       parseSharedFinancialFields(byKey, values, errors, warnings);
 
-      // ── Optional strings with caps
-      for (const [k, label, max] of [
-        ["sectionTitle", "Section", 255],
-        ["itemCode", "Item Code", 50],
-        ["notes", "Notes", 2000],
-        ["clientNotes", "Client Notes", 2000],
-      ] as const) {
+      // ── Optional strings with length caps
+      for (const [k, label, max] of OPTIONAL_STRING_FIELDS) {
         const v = byKey[k];
         if (v) {
           if (v.length > max)
