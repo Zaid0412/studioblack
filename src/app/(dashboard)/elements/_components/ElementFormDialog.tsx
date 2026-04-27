@@ -136,6 +136,7 @@ interface Props {
   ) => Promise<void>;
 }
 
+/** Create/edit dialog for an element — handles attributes, costs, tags, and version history. */
 export function ElementFormDialog({
   open,
   editing,
@@ -170,7 +171,7 @@ export function ElementFormDialog({
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time sync: hydrate form from the editing element (or reset) when dialog opens
     setValues(editing ? elementToFormValues(editing) : EMPTY_FORM);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- collapse history panel on open/switch; otherwise stale panel auto-fires a fetch for a different element
+
     setShowHistory(false);
   }, [editing, open]);
 

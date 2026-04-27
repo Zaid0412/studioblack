@@ -1,16 +1,24 @@
+import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
+import { logger } from "@/lib/logger";
+import { mapPgError } from "./_pgErrors";
 import type {
   Boq,
+  BoqElementLite,
   BoqSection,
   BoqItemWithComputed,
   BoqSummary,
   BoqWithDetails,
+  BulkBoqImportResult,
 } from "@/types";
 import type {
+  BoqImportStrategy,
   BoqItemLifecycleStatus,
   BoqItemClientApprovalStatus,
   BoqStatus,
 } from "@/lib/validations";
+import type { z } from "zod";
+import type { boqImportRowSchema } from "@/lib/validations";
 
 /**
  * Computed cost columns for BOQ items, injected into SELECTs.
@@ -35,6 +43,7 @@ const ITEM_COMPUTED_COLS = `
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id`;
 
+/** Confirm a BOQ exists and belongs to the given project. Used for project-scope guards in API routes. */
 export async function verifyBoqOwnership(
   boqId: string,
   projectId: string
@@ -94,6 +103,7 @@ export async function getBoqStatusForItem(
   return rows[0]?.status ?? null;
 }
 
+/** Confirm a BOQ section's parent BOQ belongs to the given project. */
 export async function verifyBoqSectionOwnership(
   sectionId: string,
   projectId: string
@@ -108,6 +118,7 @@ export async function verifyBoqSectionOwnership(
   return rows.length > 0;
 }
 
+/** Confirm a BOQ item's parent BOQ belongs to the given project. */
 export async function verifyBoqItemOwnership(
   itemId: string,
   projectId: string
@@ -136,6 +147,7 @@ export interface CreateBoqInput {
   createdBy?: string | null;
 }
 
+/** Insert a new BOQ row for a project. Defaults: USD, 0% contingency/VAT, 10% minimum margin. */
 export async function createBoq(
   projectId: string,
   input: CreateBoqInput
@@ -166,6 +178,7 @@ export async function createBoq(
   return rows[0];
 }
 
+/** Latest non-superseded BOQ for a project (highest version), or null if none exists. */
 export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   const pool = getPool();
   const { rows } = await pool.query<Boq>(
@@ -178,6 +191,7 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   return rows[0] ?? null;
 }
 
+/** Fetch a BOQ with its sections, items (with computed cost columns), and rolled-up summary in one round-trip. */
 export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   const pool = getPool();
 
@@ -222,6 +236,7 @@ const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   status: "status",
 };
 
+/** Patch any subset of BOQ header fields. Returns null if no fields were provided. */
 export async function updateBoq(
   boqId: string,
   input: UpdateBoqInput
@@ -258,6 +273,7 @@ export interface CreateBoqSectionInput {
   isVisibleToClient?: boolean;
 }
 
+/** Insert a section under a BOQ. `sortOrder` defaults to the next available slot at the end. */
 export async function createBoqSection(
   boqId: string,
   input: CreateBoqSectionInput
@@ -291,6 +307,7 @@ const SECTION_COLS: Record<keyof UpdateBoqSectionInput, string> = {
   isVisibleToClient: "is_visible_to_client",
 };
 
+/** Patch any subset of section fields. Returns null when there's nothing to update. */
 export async function updateBoqSection(
   sectionId: string,
   input: UpdateBoqSectionInput
@@ -363,6 +380,7 @@ export interface CreateBoqItemInput {
   isExcluded?: boolean;
 }
 
+/** Insert a BOQ item, auto-generating its `item_code` from the org sequence when none is supplied. */
 export async function createBoqItem(
   boqId: string,
   orgId: string,
@@ -598,6 +616,7 @@ export async function reorderBoqItems(
   );
 }
 
+/** Snapshot a library element's costs into a new BOQ item. Returns null if the element no longer exists. */
 export async function addElementToBoq(
   boqId: string,
   orgId: string,
@@ -632,6 +651,7 @@ export async function addElementToBoq(
   });
 }
 
+/** Aggregate cost/sell/margin/approval totals plus per-section subtotals for a BOQ in one query batch. */
 export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   const pool = getPool();
   const [boqRes, aggRes, sectionRes] = await Promise.all([
@@ -722,4 +742,390 @@ export async function getNextSequenceNumber(
   );
   const n = rows[0].current_value;
   return `${prefix}-${year}-${String(n).padStart(3, "0")}`;
+}
+
+// ── BOQ Excel Import (Feature 6) ────────────────────────────────────────────
+
+/**
+ * Bulk-advance the sequence counter and return N formatted codes in order.
+ *
+ * Runs against a transaction `client` (not the pool) so a ROLLBACK in the
+ * surrounding import reverses the sequence advance. Otherwise a partially-
+ * applied import would burn codes permanently and leave gaps that show up on
+ * client-facing invoices.
+ */
+async function nextSequenceNumbers(
+  client: PoolClient,
+  orgId: string,
+  prefix: string,
+  count: number
+): Promise<string[]> {
+  if (count <= 0) return [];
+  const year = new Date().getUTCFullYear();
+  const { rows } = await client.query<{ current_value: number }>(
+    `INSERT INTO sequence_counter (org_id, prefix, year, current_value)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (org_id, prefix, year)
+     DO UPDATE SET current_value = sequence_counter.current_value + $4::int
+     RETURNING current_value`,
+    [orgId, prefix, year, count]
+  );
+  const end = rows[0].current_value;
+  const start = end - count + 1;
+  return Array.from(
+    { length: count },
+    (_, i) => `${prefix}-${year}-${String(start + i).padStart(3, "0")}`
+  );
+}
+
+/**
+ * Build a lookup from `element.code` → { id, code, name } for the org,
+ * limited to the latest active version per code group. Used by the import
+ * preview to auto-link incoming rows to existing elements.
+ */
+export async function getElementsByCodeMap(
+  orgId: string
+): Promise<Map<string, BoqElementLite>> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    id: string;
+    code: string;
+    name: string;
+  }>(
+    `SELECT DISTINCT ON (code) id, code, name
+       FROM element
+      WHERE org_id = $1 AND is_active = true
+      ORDER BY code, version_number DESC`,
+    [orgId]
+  );
+  const map = new Map<string, BoqElementLite>();
+  for (const r of rows) map.set(r.code, r);
+  return map;
+}
+
+/**
+ * Lightweight read for the export writer — items + sections only, no
+ * `getBoqSummary`. The writer doesn't render summary aggregates; computing
+ * them on every export wastes 3 queries (margin avg, totals, group-by).
+ */
+export async function getBoqForExport(boqId: string): Promise<{
+  items: BoqItemWithComputed[];
+  sections: BoqSection[];
+} | null> {
+  const pool = getPool();
+  const [boqRes, itemsRes, sectionsRes] = await Promise.all([
+    pool.query<{ id: string }>(`SELECT id FROM boq WHERE id = $1`, [boqId]),
+    pool.query<BoqItemWithComputed>(
+      `${ITEM_SELECT} WHERE bi.boq_id = $1 ORDER BY bi.sort_order, bi.created_at`,
+      [boqId]
+    ),
+    pool.query<BoqSection>(
+      `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
+      [boqId]
+    ),
+  ]);
+  if (boqRes.rows.length === 0) return null;
+  return { items: itemsRes.rows, sections: sectionsRes.rows };
+}
+
+type BoqImportRow = z.infer<typeof boqImportRowSchema>;
+
+/**
+ * Atomically append (or replace) BOQ items from a validated import payload.
+ * All writes happen inside a single transaction; any failure rolls back.
+ *
+ * - `strategy = "append"` keeps existing items; inserts new rows after them.
+ * - `strategy = "replace"` deletes all existing items first, then inserts.
+ *   Does NOT delete sections — a section that no longer has rows stays so
+ *   the PM doesn't lose its `budget_cap` / ordering by accident.
+ *
+ * Missing sections are created on the fly (case-insensitive match on title).
+ * Blank item codes auto-assign via the `BOQ` sequence counter. When the
+ * provided `itemCode` matches an existing `element.code` in the org, the new
+ * row is linked to that element's id.
+ */
+export async function bulkInsertBoqItems(
+  boqId: string,
+  orgId: string,
+  strategy: BoqImportStrategy,
+  rows: BoqImportRow[]
+): Promise<BulkBoqImportResult> {
+  const pool = getPool();
+  const client = await pool.connect();
+  const result: BulkBoqImportResult = {
+    inserted: 0,
+    replaced: 0,
+    createdSections: [],
+    failed: [],
+  };
+
+  try {
+    await client.query("BEGIN");
+
+    // Per-BOQ advisory lock — auto-released on COMMIT/ROLLBACK. Serialises
+    // concurrent imports against the same BOQ so two PMs hitting "replace"
+    // (or even "append") can't race the section-upsert window and produce
+    // duplicate rows for the same case-insensitive title.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [
+      `boq:${boqId}`,
+    ]);
+
+    if (strategy === "replace") {
+      const { rowCount } = await client.query(
+        `DELETE FROM boq_item WHERE boq_id = $1`,
+        [boqId]
+      );
+      result.replaced = rowCount ?? 0;
+    }
+
+    // Pre-fetch existing sections for case-insensitive title matching.
+    const { rows: existingSections } = await client.query<{
+      id: string;
+      title: string;
+    }>(`SELECT id, title FROM boq_section WHERE boq_id = $1`, [boqId]);
+    const sectionIdByLowerTitle = new Map(
+      existingSections.map((s) => [s.title.toLowerCase(), s.id])
+    );
+
+    // Assign a section id (create if missing) for every distinct title in the
+    // import. Done up-front so we don't create the same section twice.
+    const titlesToCreate = new Set<string>();
+    for (const r of rows) {
+      const title = r.sectionTitle?.trim();
+      if (!title) continue;
+      if (!sectionIdByLowerTitle.has(title.toLowerCase())) {
+        titlesToCreate.add(title);
+      }
+    }
+
+    if (titlesToCreate.size > 0) {
+      // Compute starting sort_order once, then increment locally.
+      const { rows: maxRows } = await client.query<{ max: number | null }>(
+        `SELECT MAX(sort_order) AS max FROM boq_section WHERE boq_id = $1`,
+        [boqId]
+      );
+      let nextSort = (maxRows[0]?.max ?? -1) + 1;
+      for (const title of titlesToCreate) {
+        const { rows: created } = await client.query<{ id: string }>(
+          `INSERT INTO boq_section (boq_id, title, sort_order)
+           VALUES ($1, $2, $3)
+           RETURNING id`,
+          [boqId, title, nextSort++]
+        );
+        sectionIdByLowerTitle.set(title.toLowerCase(), created[0].id);
+        result.createdSections.push({ id: created[0].id, title });
+      }
+    }
+
+    // Bulk-advance sequence for any rows missing `itemCode`.
+    const blankCount = rows.filter((r) => !r.itemCode?.trim()).length;
+    const generatedCodes = await nextSequenceNumbers(
+      client,
+      orgId,
+      "BOQ",
+      blankCount
+    );
+    let genIdx = 0;
+
+    // Prefetch element ids so we don't round-trip per row.
+    const codes = Array.from(
+      new Set(
+        rows.map((r) => r.itemCode?.trim()).filter((c): c is string => !!c)
+      )
+    );
+    let elementIdByCode = new Map<string, string>();
+    if (codes.length > 0) {
+      const { rows: elemRows } = await client.query<{
+        id: string;
+        code: string;
+      }>(
+        `SELECT DISTINCT ON (code) id, code FROM element
+          WHERE org_id = $1 AND is_active = true AND code = ANY($2::text[])
+          ORDER BY code, version_number DESC`,
+        [orgId, codes]
+      );
+      elementIdByCode = new Map(elemRows.map((r) => [r.code, r.id]));
+    }
+
+    // Starting sort_order inside each section.
+    const { rows: sortRows } = await client.query<{
+      section_id: string | null;
+      max: number | null;
+    }>(
+      `SELECT section_id, MAX(sort_order) AS max
+         FROM boq_item WHERE boq_id = $1 GROUP BY section_id`,
+      [boqId]
+    );
+    const nextSortBySection = new Map<string | null, number>();
+    for (const row of sortRows) {
+      nextSortBySection.set(row.section_id, (row.max ?? -1) + 1);
+    }
+
+    for (const row of rows) {
+      const title = row.sectionTitle?.trim();
+      const sectionId = title
+        ? (sectionIdByLowerTitle.get(title.toLowerCase()) ?? null)
+        : null;
+
+      const itemCode = row.itemCode?.trim() || generatedCodes[genIdx++];
+      const elementId = elementIdByCode.get(itemCode) ?? null;
+      const sortOrder = nextSortBySection.get(sectionId) ?? 0;
+      nextSortBySection.set(sectionId, sortOrder + 1);
+
+      try {
+        await client.query(
+          `INSERT INTO boq_item (
+             boq_id, section_id, element_id, item_code, description, unit,
+             quantity, unit_cost, material_cost, labour_cost,
+             overhead_pct, margin_pct, notes, client_notes,
+             sort_order, is_provisional
+           ) VALUES (
+             $1, $2::uuid, $3::uuid, $4, $5, $6,
+             $7, $8, $9, $10,
+             COALESCE($11, 0), COALESCE($12, 0), $13, $14,
+             $15, COALESCE($16, false)
+           )`,
+          [
+            boqId,
+            sectionId,
+            elementId,
+            itemCode,
+            row.description,
+            row.unit,
+            row.quantity,
+            row.unitCost,
+            row.materialCost ?? null,
+            row.labourCost ?? null,
+            row.overheadPct ?? null,
+            row.marginPct ?? null,
+            row.notes ?? null,
+            row.clientNotes ?? null,
+            sortOrder,
+            row.isProvisional ?? null,
+          ]
+        );
+        result.inserted += 1;
+      } catch (err) {
+        // Mask raw pg messages — they leak constraint names and SQL snippets.
+        // Full text is logged server-side for triage; the user gets a friendly
+        // SQLSTATE-mapped string.
+        const pgErr = err as { code?: string; message?: string };
+        const userMessage = mapPgError(pgErr);
+        logger.error("boq import row failed", {
+          orgId,
+          boqId,
+          rowNumber: row.rowNumber,
+          itemCode: row.itemCode,
+          pgCode: pgErr.code,
+          pgMessage: pgErr.message,
+          error: userMessage,
+        });
+        throw new ImportRowError(row.rowNumber, userMessage);
+      }
+    }
+
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      /* ignore rollback failures — original error is the one that matters */
+    }
+    if (err instanceof ImportRowError) {
+      return {
+        inserted: 0,
+        replaced: 0,
+        createdSections: [],
+        failed: [{ rowNumber: err.rowNumber, error: err.message }],
+        rolledBack: true,
+      };
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+class ImportRowError extends Error {
+  constructor(
+    public rowNumber: number,
+    message: string
+  ) {
+    super(message);
+    this.name = "ImportRowError";
+  }
+}
+
+/** Idempotency TTL — 10 minutes, mirrors the element-import value. */
+const BOQ_IMPORT_IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Execute `run` and cache its result under `key` so that a replay of the
+ * same (orgId:userId:boqId:strategy:rowsHash) within 10 minutes returns the
+ * original result instead of double-committing.
+ *
+ * Serialisation via session-level `pg_advisory_lock` — two replicas
+ * concurrent with the same key queue on each other, and the second call
+ * reads the first call's cached result.
+ */
+export async function withBoqImportIdempotency(
+  key: string,
+  run: () => Promise<BulkBoqImportResult>
+): Promise<{ result: BulkBoqImportResult; replayed: boolean }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  let locked = false;
+  try {
+    await client.query(`SELECT pg_advisory_lock(hashtext($1::text))`, [key]);
+    locked = true;
+
+    const { rows: cached } = await client.query<{
+      result: BulkBoqImportResult;
+    }>(
+      `SELECT result FROM boq_import_idempotency
+        WHERE key = $1
+          AND created_at > now() - ($2::bigint || ' milliseconds')::interval
+        LIMIT 1`,
+      [key, BOQ_IMPORT_IDEMPOTENCY_TTL_MS]
+    );
+    if (cached.length > 0) {
+      return { result: cached[0].result, replayed: true };
+    }
+
+    const result = await run();
+
+    await client.query(
+      `INSERT INTO boq_import_idempotency (key, result) VALUES ($1, $2::jsonb)
+       ON CONFLICT (key) DO UPDATE SET result = EXCLUDED.result, created_at = now()`,
+      [key, JSON.stringify(result)]
+    );
+
+    // Opportunistic cleanup — LIMIT keeps the advisory-lock hold bounded.
+    await client.query(
+      `DELETE FROM boq_import_idempotency
+        WHERE key IN (
+          SELECT key FROM boq_import_idempotency
+           WHERE created_at < now() - ($1::bigint || ' milliseconds')::interval
+           LIMIT 100
+        )`,
+      [BOQ_IMPORT_IDEMPOTENCY_TTL_MS]
+    );
+
+    return { result, replayed: false };
+  } finally {
+    if (locked) {
+      try {
+        await client.query(`SELECT pg_advisory_unlock(hashtext($1::text))`, [
+          key,
+        ]);
+      } catch (err) {
+        logger.warn("failed to release boq import idempotency advisory lock", {
+          key,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    client.release();
+  }
 }

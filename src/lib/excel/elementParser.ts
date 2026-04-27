@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import type { ElementCategory } from "@/types";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import { MAX_COLS, cellNumber, cellText, normalizeHeader } from "./_shared";
 
 /**
  * Parsed values for one row. Shape aligns with `importElementRowSchema` so the
@@ -54,9 +55,9 @@ export interface ParseResult {
 }
 
 // ── Safety caps ──────────────────────────────────────────────────────────
-// Defensive limits against decompression-bomb xlsx files. File-controlled
-// bounds (columnCount, actualRowCount) must never drive tight loops uncapped.
-const MAX_COLS = 64;
+// `MAX_COLS` is shared with the BOQ parser via `_shared.ts`. The element
+// row cap is higher because element libraries are typically ~10× the size
+// of any individual project's BOQ.
 const MAX_DATA_ROWS = 10_000;
 
 // ── Template definition ─────────────────────────────────────────────────────
@@ -94,15 +95,6 @@ export const TEMPLATE_COLUMN_LABELS: Record<TemplateKey, string> =
 export const TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
   TEMPLATE_COLUMNS
 ) as TemplateKey[];
-
-function normalizeHeader(s: string): string {
-  // Strip BOM in addition to whitespace — some locales prepend U+FEFF.
-  return s
-    .replace(/^\uFEFF/, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
 
 /**
  * Normalize a category path segment for lookup. Unlike headers, category
@@ -157,111 +149,6 @@ export function buildCategoryPathById(
     map.set(cat.id, parts);
   }
   return map;
-}
-
-// ── Cell coercion ───────────────────────────────────────────────────────────
-
-/**
- * Flatten an exceljs cell value to a primitive. Handles rich text objects,
- * hyperlinks, formula results, dates, and formula-error cells (`{ error: "#DIV/0!" }`)
- * by returning their display text or an empty string.
- */
-function cellText(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.replace(/^\uFEFF/, "").trim();
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "object") {
-    const v = value as Record<string, unknown>;
-    // ExcelJS formula-error cells. Treat as empty — caller re-reports as a
-    // typed row error via the required-field check.
-    if (typeof v.error === "string") return "";
-    if (Array.isArray(v.richText)) {
-      return v.richText
-        .map((t) =>
-          typeof t === "object" && t && "text" in t
-            ? (t as { text: string }).text
-            : ""
-        )
-        .join("")
-        .trim();
-    }
-    if (typeof v.hyperlink === "string") {
-      return typeof v.text === "string" ? String(v.text).trim() : "";
-    }
-    if (typeof v.text === "string") return v.text.trim();
-    if (typeof v.result !== "undefined") return cellText(v.result);
-  }
-  return String(value).trim();
-}
-
-interface CellNumberResult {
-  value: number | null;
-  /**
-   * True when the text-path decimal heuristic fired on a 3-trailing-digit
-   * single-comma input (e.g. `"1,234"`). The value is returned as decimal
-   * (1.234) per the Turkey-market default, but the caller should surface
-   * a row-level warning so the user can sanity-check the parse.
-   */
-  ambiguous: boolean;
-}
-
-/**
- * Parse a cell value to a number, with locale heuristics for TR/EU decimal
- * formatting. Excel-sourced numbers hit the `typeof number` fast-path; only
- * text-typed cells exercise the locale branch.
- *
- * Rules (text path):
- *   - `"1.234,56"` → `1234.56` (comma is decimal when it appears last)
- *   - `"1,234.56"` → `1234.56` (dot is decimal when it appears last)
- *   - `"1,5"` → `1.5` (single comma, 1–3 trailing digits → decimal)
- *   - `"1,234"` with 3 trailing digits ambiguous — treated as decimal per
- *     the Turkey-market default, and flagged via `ambiguous: true` so the
- *     caller can emit a preview warning. Excel-native cells avoid this path.
- */
-function cellNumber(value: unknown): CellNumberResult {
-  if (value === null || value === undefined || value === "")
-    return { value: null, ambiguous: false };
-  if (typeof value === "number" && Number.isFinite(value))
-    return { value, ambiguous: false };
-  const text = cellText(value);
-  if (text === "") return { value: null, ambiguous: false };
-
-  const cleaned = text.replace(/\s/g, "");
-  const hasComma = cleaned.includes(",");
-  const hasDot = cleaned.includes(".");
-  let normalized = cleaned;
-  let ambiguous = false;
-
-  if (hasComma && hasDot) {
-    const lastComma = cleaned.lastIndexOf(",");
-    const lastDot = cleaned.lastIndexOf(".");
-    if (lastComma > lastDot) {
-      normalized = cleaned.replace(/\./g, "").replace(",", ".");
-    } else {
-      normalized = cleaned.replace(/,/g, "");
-    }
-  } else if (hasComma) {
-    const parts = cleaned.split(",");
-    const onlyOneComma = parts.length === 2;
-    const trailing = onlyOneComma ? parts[1] : "";
-    const leading = onlyOneComma ? parts[0] : "";
-    const looksDecimal =
-      onlyOneComma && /^\d{1,3}$/.test(trailing) && /^-?\d+$/.test(leading);
-    if (looksDecimal) {
-      normalized = `${leading}.${trailing}`;
-      // "1,234" could be thousands-separator (1234) or decimal (1.234);
-      // flag the caller so the preview can ask for confirmation.
-      if (trailing.length === 3) ambiguous = true;
-    } else {
-      normalized = cleaned.replace(/,/g, "");
-    }
-  }
-
-  const n = Number(normalized);
-  return { value: Number.isFinite(n) ? n : null, ambiguous };
 }
 
 // ── Parse ───────────────────────────────────────────────────────────────────

@@ -33,6 +33,7 @@ interface Props {
   onRestore: (el: Element) => void;
 }
 
+/** Tabular list of elements with per-row action menu (edit, duplicate, archive/restore). */
 export function ElementTable({
   rows,
   isLoading,

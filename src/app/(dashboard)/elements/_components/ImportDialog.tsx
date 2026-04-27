@@ -67,7 +67,6 @@ export function ImportDialog({
   onSuccess,
 }: ImportDialogProps) {
   const t = useTranslations("elements");
-  const tCommon = useTranslations("common");
 
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);

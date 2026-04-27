@@ -66,7 +66,7 @@ export function UploadDialog({
       const selected = versionGroup ? [initialFiles[0]] : initialFiles;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- seeding local state from prop when dialog opens is intentional
       setFiles(selected);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- seeding local state from prop when dialog opens is intentional
+
       setDisplayNames(selected.map((f) => f.name));
     }
   }, [open, initialFiles, versionGroup]);

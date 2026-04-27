@@ -16,6 +16,7 @@ interface BoqSummaryCardsProps {
   minimumMarginPct: string;
 }
 
+/** Top-of-BOQ KPI cards: total cost, total sell, average margin, pending approvals, and margin bleed. */
 export function BoqSummaryCards({
   summary,
   currency,

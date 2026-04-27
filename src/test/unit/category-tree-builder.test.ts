@@ -3,7 +3,7 @@ import type { ElementCategory, ElementCategoryNode } from "@/types";
 
 // Unmock queries so we test the real buildCategoryTree implementation
 vi.unmock("@/lib/queries");
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 const { buildCategoryTree } = await import("@/lib/queries");
 
 const makeCategory = (

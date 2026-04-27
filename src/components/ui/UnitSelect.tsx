@@ -13,6 +13,7 @@ interface Props {
   disabled?: boolean;
 }
 
+/** Searchable dropdown for the allowed element units (m2, lm, no, …) with translated labels. */
 export function UnitSelect({
   value,
   onChange,

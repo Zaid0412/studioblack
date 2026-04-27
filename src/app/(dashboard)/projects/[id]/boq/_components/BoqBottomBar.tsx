@@ -10,6 +10,7 @@ interface BoqBottomBarProps {
   currency: string;
 }
 
+/** Totals strip under the BOQ table: subtotal, contingency, VAT, and the final client total. */
 export function BoqBottomBar({
   summary,
   contingencyPct,

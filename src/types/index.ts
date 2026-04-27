@@ -525,3 +525,97 @@ export interface BoqWithDetails extends Boq {
   items: BoqItemWithComputed[];
   summary: BoqSummary;
 }
+
+// ---------------------------------------------------------------------------
+// BOQ Excel Import (Feature 6)
+// ---------------------------------------------------------------------------
+
+/** Minimal element projection used for preview-time code → element linking. */
+export interface BoqElementLite {
+  id: string;
+  code: string;
+  name: string;
+}
+
+/** Allowed units — narrowed from `ElementUnit` in validations.ts. */
+export type BoqUnit =
+  | "m2"
+  | "m3"
+  | "lm"
+  | "nr"
+  | "item"
+  | "kg"
+  | "tonne"
+  | "ls"
+  | "set"
+  | "pair"
+  | "roll"
+  | "sheet"
+  | "bag"
+  | "box"
+  | "pallet";
+
+/**
+ * One import row after parsing. Shape lines up with `boqImportRowSchema` so
+ * the server re-validates on confirm without remapping.
+ */
+export interface ParsedBoqValues {
+  rowNumber: number;
+  sectionTitle?: string;
+  itemCode?: string;
+  description: string;
+  unit: BoqUnit;
+  quantity: number;
+  unitCost: number;
+  materialCost?: number;
+  labourCost?: number;
+  overheadPct?: number;
+  marginPct?: number;
+  notes?: string;
+  clientNotes?: string;
+  isProvisional?: boolean;
+}
+
+export interface ParsedBoqRow {
+  /**
+   * Literal Excel row index (header is row 1). The value the user sees in
+   * their sheet — also what flows to `failed[].rowNumber` on confirm.
+   */
+  rowNumber: number;
+  raw: Record<string, unknown>;
+  parsed: ParsedBoqValues | null;
+  /** Resolved during preview when `itemCode` matches an org element by code. */
+  linkedElement?: BoqElementLite;
+  status: "valid" | "error";
+  errors: string[];
+  /** Non-fatal notes surfaced in the preview (locale decimal warnings, etc.). */
+  warnings: string[];
+}
+
+export interface BoqParseResult {
+  headers: string[];
+  unknownColumns: string[];
+  missingColumns: string[];
+  /** Template columns that appeared more than once — latest occurrence wins. */
+  duplicateColumns: string[];
+  rows: ParsedBoqRow[];
+  totalRows: number;
+  /** True when the sheet was truncated by `MAX_DATA_ROWS`. */
+  truncated?: boolean;
+}
+
+export interface BulkBoqImportResult {
+  inserted: number;
+  replaced: number;
+  /** Sections created by the import (by title → id). */
+  createdSections: Array<{ id: string; title: string }>;
+  /** Rows that failed — should be rare; any failure triggers a full rollback. */
+  failed: Array<{ rowNumber: number; error: string }>;
+  /**
+   * True when the whole transaction was rolled back due to a row-level error.
+   * `failed[]` carries only the offending row's message; everything else was
+   * reverted. UI uses this to show "import rolled back" instead of the
+   * misleading "0 inserted · 1 failed".
+   */
+  rolledBack?: boolean;
+}
