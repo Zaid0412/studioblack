@@ -11,9 +11,7 @@ export interface SelectOption<T extends string = string> {
   name: string;
 }
 
-interface LabeledSearchableSelectProps<T extends string> {
-  value: T | "";
-  onChange: (code: T | "") => void;
+interface LabeledSearchableSelectBaseProps<T extends string> {
   options: SelectOption<T>[];
   label?: string;
   required?: boolean;
@@ -24,11 +22,6 @@ interface LabeledSearchableSelectProps<T extends string> {
   minContentWidth?: number;
   /** Popover max-height in pixels. Passed through to SearchableDropdown. */
   maxListHeight?: number;
-  /**
-   * When set, prepends a "clear" entry to the dropdown that calls
-   * `onChange("")`. Used by filter-style consumers (e.g. "All units").
-   */
-  allowClear?: { label: string };
   /**
    * Smaller default padding/typography. `"md"` (default) matches form-field
    * sizing; `"sm"` matches inline filter chips.
@@ -43,26 +36,60 @@ interface LabeledSearchableSelectProps<T extends string> {
 }
 
 /**
+ * Form-field shape — onChange only ever fires with a real `T`. Used by
+ * `UnitSelect`, `CurrencySelect`, etc. where the field always has a value
+ * and the user can't reset it from inside the dropdown.
+ */
+type LabeledSearchableSelectStrictProps<T extends string> =
+  LabeledSearchableSelectBaseProps<T> & {
+    value: T | "";
+    onChange: (code: T) => void;
+    allowClear?: undefined;
+  };
+
+/**
+ * Filter-field shape — `allowClear` adds a leading entry that calls
+ * `onChange("")` to reset. Used by `UnitFilterSelect` and similar.
+ */
+type LabeledSearchableSelectClearableProps<T extends string> =
+  LabeledSearchableSelectBaseProps<T> & {
+    value: T | "";
+    onChange: (code: T | "") => void;
+    allowClear: { label: string };
+  };
+
+type LabeledSearchableSelectProps<T extends string> =
+  | LabeledSearchableSelectStrictProps<T>
+  | LabeledSearchableSelectClearableProps<T>;
+
+/**
  * Themed, searchable `<code> · <label>` select. Drives both the form-field
  * pickers (currency, unit) and the inline filter dropdowns (filter-by-unit).
  * The optional `allowClear` adds a leading entry that resets the value.
  */
-export function LabeledSearchableSelect<T extends string>({
-  value,
-  onChange,
-  options,
-  label,
-  required,
-  disabled,
-  codeColumnClassName,
-  minContentWidth = 260,
-  maxListHeight,
-  allowClear,
-  triggerSize = "md",
-  triggerPlaceholder,
-  hideTriggerName,
-  triggerClassName,
-}: LabeledSearchableSelectProps<T>) {
+export function LabeledSearchableSelect<T extends string>(
+  props: LabeledSearchableSelectProps<T>
+) {
+  const {
+    value,
+    options,
+    label,
+    required,
+    disabled,
+    codeColumnClassName,
+    minContentWidth = 260,
+    maxListHeight,
+    allowClear,
+    triggerSize = "md",
+    triggerPlaceholder,
+    hideTriggerName,
+    triggerClassName,
+  } = props;
+  // Union-typed internal handler — `T` is assignable to `T | ""`, and the
+  // clear button (which calls with `""`) only renders when `allowClear` is
+  // set, where the props variant guarantees the wider signature. Discriminated
+  // narrowing across destructured fields is awkward, so cast once here.
+  const onChange = props.onChange as (code: T | "") => void;
   const tCommon = useTranslations("common");
 
   const selectedName = useMemo(

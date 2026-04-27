@@ -411,23 +411,23 @@ export function parseOptionalNumericField(
  * standard "Unit is required" / "Unit \"X\" is not allowed" message to
  * `errors` on failure; returns the lower-cased `ElementUnit` on success.
  */
-export function parseRequiredUnitField(
+export function parseRequiredUnitField<T extends string>(
   raw: string | undefined,
-  allowedUnits: readonly string[],
+  allowedUnits: readonly T[],
   errors: string[]
-): string | undefined {
+): T | undefined {
   const rawUnit = (raw ?? "").toLowerCase();
   if (!rawUnit) {
     errors.push("Unit is required");
     return undefined;
   }
-  if (!allowedUnits.includes(rawUnit)) {
+  if (!(allowedUnits as readonly string[]).includes(rawUnit)) {
     errors.push(
       `Unit "${raw}" is not allowed (must be one of: ${allowedUnits.join(", ")})`
     );
     return undefined;
   }
-  return rawUnit;
+  return rawUnit as T;
 }
 
 /**

@@ -226,7 +226,7 @@ export async function parseElementSheet(
 
       // ── Unit (required, enum)
       const unit = parseRequiredUnitField(byKey.unit, ALLOWED_UNITS, errors);
-      if (unit) values.unit = unit as ElementUnit;
+      if (unit) values.unit = unit;
 
       // ── Unit cost (required, non-negative)
       const unitCost = parseRequiredNumericField(

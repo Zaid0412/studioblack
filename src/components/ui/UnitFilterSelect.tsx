@@ -40,7 +40,7 @@ export function UnitFilterSelect({
   return (
     <LabeledSearchableSelect<ElementUnit>
       value={value ?? ""}
-      onChange={(v) => onChange(v === "" ? null : v)}
+      onChange={(v: ElementUnit | "") => onChange(v === "" ? null : v)}
       options={options}
       minContentWidth={220}
       triggerSize="sm"

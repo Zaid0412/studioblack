@@ -4,7 +4,7 @@ import type {
   ParsedBoqRow,
   ParsedBoqValues,
 } from "@/types";
-import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import { ALLOWED_UNITS } from "@/lib/validations";
 import {
   buildParseEnvelope,
   cellBool,
@@ -125,7 +125,7 @@ export async function parseBoqSheet(
 
       // ── Unit (required, enum)
       const unit = parseRequiredUnitField(byKey.unit, ALLOWED_UNITS, errors);
-      if (unit) values.unit = unit as ElementUnit;
+      if (unit) values.unit = unit;
 
       // ── Quantity + Unit Cost (required, non-negative)
       const qty = parseRequiredNumericField(
