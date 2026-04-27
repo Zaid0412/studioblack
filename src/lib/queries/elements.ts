@@ -121,6 +121,10 @@ function buildElementWhere(
   return { where: conditions.join(" AND "), params };
 }
 
+/**
+ * Paginated list of the latest version of each element in an org. Search runs
+ * across every version of a group, then results collapse to the newest row.
+ */
 export async function getElements(orgId: string, filters: ElementFilters = {}) {
   const pool = getPool();
   const page = filters.page ?? 1;
@@ -178,9 +182,13 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
     total = Number(countRows[0]?.total ?? 0);
   }
 
-  const elements = rows.map(
-    ({ total_count: _ignore, ...rest }) => rest as Element
-  );
+  // `total_count` is the windowed total from the count subquery — peeled off
+  // and discarded; it lives on the response envelope instead.
+  const elements: Element[] = rows.map((r) => {
+    const { total_count, ...rest } = r;
+    void total_count;
+    return rest as Element;
+  });
   return { rows: elements, total };
 }
 
@@ -657,6 +665,7 @@ export async function duplicateElement(
  */
 export const ELEMENT_EXPORT_LIMIT = 10_000;
 
+/** Streamed export source for the element library — capped at `ELEMENT_EXPORT_LIMIT` rows. */
 export async function getElementsForExport(
   orgId: string,
   filters: Omit<ElementFilters, "page" | "limit"> = {}

@@ -21,6 +21,7 @@ function getCurrencyOptions(locale: string) {
   return codes.map((code) => ({ code, name: names.of(code) ?? code }));
 }
 
+/** Searchable dropdown over every ISO 4217 currency, with localised display names. */
 export function CurrencySelect({
   value,
   onChange,

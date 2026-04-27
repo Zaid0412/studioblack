@@ -30,6 +30,7 @@ interface BoqSectionHeaderProps {
     };
 }
 
+/** Collapsible BOQ section row: drag handle, title, item count, section total, and optional actions menu. */
 export function BoqSectionHeader({
   title,
   itemCount,

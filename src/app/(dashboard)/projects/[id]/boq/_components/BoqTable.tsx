@@ -93,6 +93,7 @@ function isItemLocked(item: BoqItemWithComputed): boolean {
   );
 }
 
+/** BOQ line-item grid: groups items under sortable sections, supports inline edits and item-level actions. */
 export function BoqTable({
   sections,
   items,
@@ -330,7 +331,6 @@ const SortableSectionContext = createContext<{
 
 function SectionBody({
   group,
-  sections,
   currency,
   marginFloor,
   collapsed,

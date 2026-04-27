@@ -91,6 +91,7 @@ function nameClassForDepth(depth: number): string {
   return "text-xs text-text-secondary truncate";
 }
 
+/** Single row in the element-category tree: drag handle, indent connector, name, counts, and action buttons. */
 export function CategoryTableRow({
   node,
   depth,

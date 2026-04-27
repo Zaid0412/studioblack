@@ -22,6 +22,7 @@ export interface ImportMemoryCacheOptions {
   ttlMs?: number;
 }
 
+/** Build a per-process LRU+TTL cache for the import-confirm idempotency fast-path. */
 export function createImportMemoryCache<T>(
   options: ImportMemoryCacheOptions = {}
 ): ImportMemoryCache<T> {

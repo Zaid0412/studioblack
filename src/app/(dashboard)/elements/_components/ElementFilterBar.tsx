@@ -17,6 +17,7 @@ interface Props {
   onClear: () => void;
 }
 
+/** Search/unit/archived filter row above the elements table, with a clear-all button when any filter is active. */
 export function ElementFilterBar({
   state,
   onSearchChange,

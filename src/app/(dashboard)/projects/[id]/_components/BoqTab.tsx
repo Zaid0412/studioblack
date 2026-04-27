@@ -30,6 +30,7 @@ interface BoqTabProps {
   projectName: string;
 }
 
+/** Project tab that orchestrates the BOQ feature: empty state, table, dialogs, and item drawer. */
 export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const {
     boq,

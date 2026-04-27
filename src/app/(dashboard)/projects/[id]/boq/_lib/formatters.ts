@@ -24,10 +24,12 @@ const BOQ_STATUS_LABEL: Record<BoqStatus, string> = {
   superseded: "superseded",
 };
 
+/** Map a BOQ header status to the Badge variant used in the UI. */
 export function boqStatusToVariant(status: BoqStatus): BadgeVariant {
   return BOQ_STATUS_VARIANT[status];
 }
 
+/** Human-readable label for a BOQ header status (lower-case, space-separated). */
 export function boqStatusToLabel(status: BoqStatus): string {
   return BOQ_STATUS_LABEL[status];
 }
@@ -69,12 +71,14 @@ const CLIENT_APPROVAL_VARIANT: Record<
   queried: "in-review",
 };
 
+/** Map a BOQ item's lifecycle status (draft, submitted, approved, …) to a Badge variant. */
 export function lifecycleToVariant(
   status: BoqItemLifecycleStatus
 ): BadgeVariant {
   return LIFECYCLE_VARIANT[status];
 }
 
+/** Map a BOQ item's client approval status (pending, approved, …) to a Badge variant. */
 export function clientApprovalToVariant(
   status: BoqItemClientApprovalStatus
 ): BadgeVariant {
@@ -88,6 +92,7 @@ export function toNum(value: string | number | null | undefined): number {
   return isFinite(n) ? n : 0;
 }
 
+/** Format a value as a currency string using `Intl.NumberFormat`, falling back to `<CODE> <amount>` on unknown ISO codes. */
 export function formatCurrency(
   value: string | number,
   currency: string = "USD"
@@ -104,6 +109,7 @@ export function formatCurrency(
   }
 }
 
+/** Format a quantity with up to 3 decimal places and locale-aware thousands separators. */
 export function formatQty(value: string | number): string {
   const n = toNum(value);
   return new Intl.NumberFormat("en-US", {
@@ -111,6 +117,7 @@ export function formatQty(value: string | number): string {
   }).format(n);
 }
 
+/** Format a numeric/string value as a percentage with one decimal (e.g. `12.5%`). */
 export function formatPct(value: string | number): string {
   const n = toNum(value);
   return `${n.toFixed(1)}%`;

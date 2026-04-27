@@ -43,6 +43,7 @@ export interface CreateBoqPayload {
   clientNotes?: string | null;
 }
 
+/** Create the project's BOQ header (currency, contingency, VAT, margin floor, …). */
 export function create(projectId: string, data: CreateBoqPayload) {
   return apiPost<Boq>(API.boq(projectId), data);
 }
@@ -67,6 +68,7 @@ export interface UpdateBoqPayload {
     | "superseded";
 }
 
+/** Patch BOQ header fields or transition its `status` (draft → submitted → approved → locked / superseded). */
 export function update(projectId: string, data: UpdateBoqPayload) {
   return apiPatch<Boq>(API.boq(projectId), data);
 }
@@ -82,10 +84,12 @@ export interface CreateSectionPayload {
   isVisibleToClient?: boolean;
 }
 
+/** Create a new section under a BOQ — inserted at the end of the section list by default. */
 export function createSection(projectId: string, data: CreateSectionPayload) {
   return apiPost<BoqSection>(API.boqSections(projectId), data);
 }
 
+/** Patch a section (title, description, budget cap, client-visibility). */
 export function updateSection(
   projectId: string,
   sectionId: string,
@@ -94,10 +98,12 @@ export function updateSection(
   return apiPatch<BoqSection>(API.boqSection(projectId, sectionId), data);
 }
 
+/** Delete a section. Items keep their data; their `section_id` becomes null via FK. */
 export function deleteSection(projectId: string, sectionId: string) {
   return apiDelete(API.boqSection(projectId, sectionId));
 }
 
+/** Persist a new section ordering for a BOQ in a single bulk update. */
 export function reorderSections(
   projectId: string,
   boqId: string,
@@ -113,6 +119,7 @@ export type CreateItemPayload = z.infer<typeof createBoqItemSchema> & {
   boqId: string;
 };
 
+/** Create a free-form BOQ item (not tied to a library element). */
 export function createItem(projectId: string, data: CreateItemPayload) {
   return apiPost<BoqItemWithComputed>(API.boqItems(projectId), data);
 }
@@ -120,6 +127,7 @@ export function createItem(projectId: string, data: CreateItemPayload) {
 /** Derived from the server Zod schema so the wire contract can't drift. */
 export type UpdateItemPayload = z.infer<typeof updateBoqItemSchema>;
 
+/** Patch a BOQ item with optimistic concurrency — `data.updatedAt` must match the server's row. */
 export function updateItem(
   projectId: string,
   itemId: string,
@@ -128,6 +136,7 @@ export function updateItem(
   return apiPatch<BoqItemWithComputed>(API.boqItem(projectId, itemId), data);
 }
 
+/** Delete a BOQ item with optimistic concurrency — `updatedAt` guards against stale deletes. */
 export function deleteItem(
   projectId: string,
   itemId: string,
@@ -136,6 +145,7 @@ export function deleteItem(
   return apiDelete(API.boqItem(projectId, itemId), { updatedAt });
 }
 
+/** Persist a new ordering of items inside a section (or the unassigned bucket when `sectionId` is null). */
 export function reorderItems(
   projectId: string,
   boqId: string,
@@ -149,6 +159,7 @@ export function reorderItems(
   });
 }
 
+/** Insert a BOQ item by copying the latest version of a library element (cost, unit, margin, …). */
 export function addElement(
   projectId: string,
   data: {
@@ -163,6 +174,7 @@ export function addElement(
 
 // ── Summary ─────────────────────────────────────────────────────────────────
 
+/** Fetch the rolled-up BOQ totals (cost, sell, margins, per-section subtotals). */
 export function getSummary(projectId: string) {
   return apiGet<BoqSummary>(API.boqSummary(projectId));
 }

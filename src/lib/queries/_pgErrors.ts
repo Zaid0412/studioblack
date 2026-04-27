@@ -17,6 +17,7 @@ export interface PgErrorLike {
   message?: string;
 }
 
+/** Translate a pg `SQLSTATE` to a user-safe message; the raw text is logged but never surfaced. */
 export function mapPgError(err: PgErrorLike): string {
   const suffix = IMPORT_PG_DEBUG && err.message ? ` [${err.message}]` : "";
   switch (err.code) {

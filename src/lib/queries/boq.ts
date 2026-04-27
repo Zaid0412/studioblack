@@ -43,6 +43,7 @@ const ITEM_COMPUTED_COLS = `
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id`;
 
+/** Confirm a BOQ exists and belongs to the given project. Used for project-scope guards in API routes. */
 export async function verifyBoqOwnership(
   boqId: string,
   projectId: string
@@ -102,6 +103,7 @@ export async function getBoqStatusForItem(
   return rows[0]?.status ?? null;
 }
 
+/** Confirm a BOQ section's parent BOQ belongs to the given project. */
 export async function verifyBoqSectionOwnership(
   sectionId: string,
   projectId: string
@@ -116,6 +118,7 @@ export async function verifyBoqSectionOwnership(
   return rows.length > 0;
 }
 
+/** Confirm a BOQ item's parent BOQ belongs to the given project. */
 export async function verifyBoqItemOwnership(
   itemId: string,
   projectId: string
@@ -144,6 +147,7 @@ export interface CreateBoqInput {
   createdBy?: string | null;
 }
 
+/** Insert a new BOQ row for a project. Defaults: USD, 0% contingency/VAT, 10% minimum margin. */
 export async function createBoq(
   projectId: string,
   input: CreateBoqInput
@@ -174,6 +178,7 @@ export async function createBoq(
   return rows[0];
 }
 
+/** Latest non-superseded BOQ for a project (highest version), or null if none exists. */
 export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   const pool = getPool();
   const { rows } = await pool.query<Boq>(
@@ -186,6 +191,7 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   return rows[0] ?? null;
 }
 
+/** Fetch a BOQ with its sections, items (with computed cost columns), and rolled-up summary in one round-trip. */
 export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   const pool = getPool();
 
@@ -230,6 +236,7 @@ const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   status: "status",
 };
 
+/** Patch any subset of BOQ header fields. Returns null if no fields were provided. */
 export async function updateBoq(
   boqId: string,
   input: UpdateBoqInput
@@ -266,6 +273,7 @@ export interface CreateBoqSectionInput {
   isVisibleToClient?: boolean;
 }
 
+/** Insert a section under a BOQ. `sortOrder` defaults to the next available slot at the end. */
 export async function createBoqSection(
   boqId: string,
   input: CreateBoqSectionInput
@@ -299,6 +307,7 @@ const SECTION_COLS: Record<keyof UpdateBoqSectionInput, string> = {
   isVisibleToClient: "is_visible_to_client",
 };
 
+/** Patch any subset of section fields. Returns null when there's nothing to update. */
 export async function updateBoqSection(
   sectionId: string,
   input: UpdateBoqSectionInput
@@ -371,6 +380,7 @@ export interface CreateBoqItemInput {
   isExcluded?: boolean;
 }
 
+/** Insert a BOQ item, auto-generating its `item_code` from the org sequence when none is supplied. */
 export async function createBoqItem(
   boqId: string,
   orgId: string,
@@ -606,6 +616,7 @@ export async function reorderBoqItems(
   );
 }
 
+/** Snapshot a library element's costs into a new BOQ item. Returns null if the element no longer exists. */
 export async function addElementToBoq(
   boqId: string,
   orgId: string,
@@ -640,6 +651,7 @@ export async function addElementToBoq(
   });
 }
 
+/** Aggregate cost/sell/margin/approval totals plus per-section subtotals for a BOQ in one query batch. */
 export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   const pool = getPool();
   const [boqRes, aggRes, sectionRes] = await Promise.all([

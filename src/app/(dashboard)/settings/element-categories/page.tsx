@@ -121,6 +121,7 @@ function reorderSiblings(
   return walk(tree);
 }
 
+/** Settings page for managing the element-category tree: CRUD, drag-to-reorder, collapse/expand. */
 export default function ElementCategoriesSettingsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
