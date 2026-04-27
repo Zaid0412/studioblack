@@ -37,6 +37,15 @@ const serverSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+
+  // Vendor management (F7) — 32-byte AES-256-GCM key, hex-encoded (64 chars).
+  // Required only when bank-details endpoints are exercised; optional here so
+  // dev/CI without the feature flag enabled don't fail boot.
+  // Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  VENDOR_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, "VENDOR_ENCRYPTION_KEY must be 64 hex chars (32 bytes)")
+    .optional(),
 });
 
 const clientSchema = z.object({

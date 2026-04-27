@@ -15,6 +15,9 @@ process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 // NODE_ENV is set to "test" via vitest.config.ts — don't assign here
 // because Next.js marks it read-only during builds.
 process.env.LOG_LEVEL = "error"; // suppress noise during tests
+// 32-byte test key for vendor bank-details encryption (F7).
+process.env.VENDOR_ENCRYPTION_KEY =
+  "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 // ── Mock: next/headers ──────────────────────────────────────────────────────
 
@@ -154,6 +157,8 @@ vi.mock("@/env", () => ({
     NODE_ENV: "test",
     SMTP_HOST: "smtp.test.com",
     SMTP_PORT: "587",
+    VENDOR_ENCRYPTION_KEY:
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
   })),
   clientEnv: {
     NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co",
@@ -355,6 +360,21 @@ vi.mock("@/lib/queries", () => ({
       replayed: false,
     })
   ),
+  // Vendors (Feature 7)
+  getVendors: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getVendorById: vi.fn().mockResolvedValue(null),
+  getVendorBankDetailsEnvelope: vi.fn().mockResolvedValue(null),
+  getVendorsByTrade: vi.fn().mockResolvedValue([]),
+  createVendor: vi.fn(),
+  updateVendor: vi.fn().mockResolvedValue(null),
+  updateVendorBankDetails: vi.fn().mockResolvedValue(true),
+  updateVendorRating: vi.fn().mockResolvedValue(null),
+  softDeleteVendor: vi.fn().mockResolvedValue(true),
+  hardDeleteVendor: vi.fn().mockResolvedValue(true),
+  vendorBelongsToOrg: vi.fn().mockResolvedValue(true),
+  // Audit (introduced with F7, reused by F21)
+  logAudit: vi.fn().mockResolvedValue(undefined),
+  getAuditEvents: vi.fn().mockResolvedValue([]),
 }));
 
 // ── Export mock handles for test files ───────────────────────────────────────
