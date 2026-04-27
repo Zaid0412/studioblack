@@ -14,6 +14,9 @@ import {
   normalizeHeader,
 } from "./_shared";
 
+/** Frozen sentinel reused for clean-row `raw` slots — see `parseBoqSheet`. */
+const EMPTY_RAW: Record<string, unknown> = Object.freeze({});
+
 // ── Safety caps ──────────────────────────────────────────────────────────
 // `MAX_COLS` is shared with the element parser via `_shared.ts`. The BOQ
 // row cap is intentionally aligned with `boqImportConfirmSchema.rows.max(5_000)`
@@ -283,11 +286,10 @@ export async function parseBoqSheet(
     const hasErrors = errors.length > 0;
     rows.push({
       rowNumber: r,
-      excelRowNumber: r,
       // `raw` is only consumed in the dialog as a fallback when `parsed` is
-      // null (error rows). Drop it on clean rows so a 5,000-row sheet
-      // doesn't ship 5,000 × 13-column raw maps back to the client.
-      raw: hasErrors ? raw : {},
+      // null. Share a single frozen `{}` across clean rows so a 5,000-row
+      // sheet doesn't allocate 5,000 empty maps just to ship `"raw":{}`.
+      raw: hasErrors ? raw : EMPTY_RAW,
       parsed: hasErrors ? null : (values as ParsedBoqValues),
       linkedElement,
       status: hasErrors ? "error" : "valid",

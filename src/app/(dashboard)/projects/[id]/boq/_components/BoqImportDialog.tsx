@@ -73,6 +73,11 @@ export function BoqImportDialog({
   const [result, setResult] = useState<BulkBoqImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /**
+   * Tracks whether `onImported` already fired for the current commit, so
+   * X/ESC/overlay-close after a successful import doesn't fire it twice.
+   */
+  const notifiedRef = useRef(false);
 
   /**
    * Replace the in-flight controller, aborting any prior one. Without this
@@ -89,6 +94,7 @@ export function BoqImportDialog({
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    notifiedRef.current = false;
     setStep("upload");
     setFile(null);
     setPreview(null);
@@ -185,21 +191,21 @@ export function BoqImportDialog({
       );
       setResult(res);
       setStep("result");
-      // `bulkInsertBoqItems` is all-or-nothing today — a per-row failure
-      // throws `ImportRowError` and rolls back the transaction, so any
-      // non-empty `failed[]` arrives with `rolledBack: true`. If a future
-      // strategy ships partial success, branch here.
       if (res.failed.length === 0) {
         toast({
           title: "Import complete",
           description: `${res.inserted} item${res.inserted === 1 ? "" : "s"} added${res.replaced > 0 ? ` (${res.replaced} replaced)` : ""}.`,
           variant: "success",
         });
+        notifiedRef.current = true;
         onImported();
-      } else {
+      } else if (res.rolledBack) {
+        // `rolledBack === true` ⇒ exactly one entry in failed[] (the row
+        // that threw `ImportRowError`). Server-side invariant set in
+        // `bulkInsertBoqItems`'s catch.
         toast({
           title: "Import rolled back",
-          description: `Row ${res.failed[0]?.rowNumber} failed — nothing was imported.`,
+          description: `Row ${res.failed[0].rowNumber} failed — nothing was imported.`,
           variant: "warning",
         });
       }
@@ -218,19 +224,19 @@ export function BoqImportDialog({
     }
   }, [preview, projectId, strategy, onImported, replaceController]);
 
-  /**
-   * Guard the close path. Two failure modes if we just delegate to
-   * `onOpenChange`:
-   *   - ESC / overlay-click while `step === "confirming"` aborts the fetch,
-   *     but the server-side COMMIT already happened. The dialog never sees
-   *     the response and `onImported` is never called → user sees stale data.
-   *   - Closing from `result` via the X / overlay (instead of "Done")
-   *     skips the callback that refreshes the parent BOQ table.
-   */
+  // Block close while the server is committing — abort would cancel the
+  // fetch but Postgres COMMITs anyway, leaving the parent table stale.
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (step === "confirming") return;
-      if (!next && step === "result" && result && result.failed.length === 0) {
+      if (
+        !next &&
+        step === "result" &&
+        result &&
+        result.failed.length === 0 &&
+        !notifiedRef.current
+      ) {
+        notifiedRef.current = true;
         onImported();
       }
       onOpenChange(next);
@@ -369,7 +375,7 @@ export function BoqImportDialog({
                             )}
                           >
                             <td className="px-3 py-2 text-text-muted">
-                              {row.excelRowNumber}
+                              {row.rowNumber}
                             </td>
                             <td className="px-3 py-2">
                               {row.status === "valid" ? (
@@ -481,20 +487,18 @@ export function BoqImportDialog({
               )}
               <div>
                 <p className="font-medium text-text-primary">
-                  {result.failed.length === 0
-                    ? "Import complete"
-                    : "Import rolled back"}
+                  {result.rolledBack ? "Import rolled back" : "Import complete"}
                 </p>
                 <p className="text-sm text-text-secondary">
-                  {result.failed.length === 0 ? (
+                  {result.rolledBack ? (
+                    `Row ${result.failed[0].rowNumber} failed — no items were imported and any prior items in this BOQ are unchanged.`
+                  ) : (
                     <>
                       {result.inserted} inserted
                       {result.replaced > 0 && ` · ${result.replaced} replaced`}
                       {result.createdSections.length > 0 &&
                         ` · ${result.createdSections.length} new section${result.createdSections.length === 1 ? "" : "s"}`}
                     </>
-                  ) : (
-                    `Row ${result.failed[0]?.rowNumber} failed — no items were imported and any prior items in this BOQ are unchanged.`
                   )}
                 </p>
               </div>
@@ -598,7 +602,7 @@ function RowIssues({
   const items = rows.flatMap((row) => {
     const list = kind === "error" ? row.errors : row.warnings;
     return list.map((msg) => ({
-      rowNumber: row.excelRowNumber,
+      rowNumber: row.rowNumber,
       msg,
     }));
   });

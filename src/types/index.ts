@@ -577,10 +577,11 @@ export interface ParsedBoqValues {
 }
 
 export interface ParsedBoqRow {
-  /** 1-based index among data rows (header excluded). */
+  /**
+   * Literal Excel row index (header is row 1). The value the user sees in
+   * their sheet — also what flows to `failed[].rowNumber` on confirm.
+   */
   rowNumber: number;
-  /** Literal Excel row index (header is row 1). For user-facing messages. */
-  excelRowNumber: number;
   raw: Record<string, unknown>;
   parsed: ParsedBoqValues | null;
   /** Resolved during preview when `itemCode` matches an org element by code. */

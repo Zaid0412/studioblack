@@ -70,7 +70,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [exporting, setExporting] = useState(false);
 
   // Stable so the import dialog's `runConfirm` deps don't churn across SWR
-  // revalidations. Must sit above the early returns to satisfy rules-of-hooks.
+  // revalidations.
   const handleImported = useCallback(() => {
     void mutateBoq();
   }, [mutateBoq]);

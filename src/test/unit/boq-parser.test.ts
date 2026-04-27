@@ -175,14 +175,18 @@ describe("parseBoqSheet", () => {
     expect(res.missingColumns.length).toBeGreaterThan(0);
   });
 
-  it("returns the original excelRowNumber for preview messages", async () => {
+  it("returns the literal Excel row index for preview + result messages", async () => {
     const buf = await sheetBuffer([
       ["", "", "A", "m2", 1, 1],
       ["", "", "B", "m2", 2, 2],
     ]);
     const res = await parseBoqSheet(buf, EMPTY_MAP);
 
-    expect(res.rows[0].excelRowNumber).toBe(2); // header is row 1
-    expect(res.rows[1].excelRowNumber).toBe(3);
+    // Header is Excel row 1, so first data row is 2. `rowNumber` carries
+    // the Excel row everywhere — preview, parsed.rowNumber (sent to confirm),
+    // and the server's failed[].rowNumber that comes back.
+    expect(res.rows[0].rowNumber).toBe(2);
+    expect(res.rows[1].rowNumber).toBe(3);
+    expect(res.rows[0].parsed?.rowNumber).toBe(2);
   });
 });
