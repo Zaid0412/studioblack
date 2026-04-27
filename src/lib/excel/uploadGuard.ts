@@ -29,15 +29,26 @@ export type ValidateXlsxResult =
   | { ok: false; status: number; message: string };
 
 /**
- * Pull the file out of `formData`, run the guard, and return either a parsed
- * buffer or a `{ status, message }` payload the caller forwards to the
- * client as `NextResponse.json({ error: message }, { status })`.
+ * Read the upload from a `Request`, run the guard, and return either a
+ * parsed buffer or a `{ status, message }` payload the caller forwards to
+ * the client as `NextResponse.json({ error: message }, { status })`.
+ *
+ * Centralising the `formData()` parse means `Invalid form data` errors are
+ * mapped to a 400 in one place — both import routes used to repeat the
+ * try/catch around `req.formData()` themselves.
  */
 export async function validateXlsxUpload(
-  formData: FormData,
+  req: Request,
   field: string,
   maxBytes: number
 ): Promise<ValidateXlsxResult> {
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    return { ok: false, status: 400, message: "Invalid form data" };
+  }
+
   const file = formData.get(field);
   if (!file || typeof file === "string") {
     return { ok: false, status: 400, message: "No file provided" };

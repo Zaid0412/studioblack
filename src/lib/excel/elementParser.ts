@@ -1,7 +1,16 @@
-import ExcelJS from "exceljs";
 import type { ElementCategory } from "@/types";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
-import { MAX_COLS, cellNumber, cellText, normalizeHeader } from "./_shared";
+import {
+  buildParseEnvelope,
+  emptyParseEnvelope,
+  forEachDataRow,
+  loadAndResolveHeaders,
+  normalizeHeader,
+  parseRequiredNumericField,
+  parseRequiredUnitField,
+  parseSharedFinancialFields,
+  type TemplateConfig,
+} from "./_shared";
 
 /**
  * Parsed values for one row. Shape aligns with `importElementRowSchema` so the
@@ -90,11 +99,25 @@ const HEADER_TO_KEY: Map<string, TemplateKey> = new Map(
   )
 );
 
+const TEMPLATE: TemplateConfig<TemplateKey> = {
+  columns: TEMPLATE_COLUMNS,
+  required: REQUIRED_COLUMNS,
+  order: Object.keys(TEMPLATE_COLUMNS) as TemplateKey[],
+  headerToKey: HEADER_TO_KEY,
+};
+
 export const TEMPLATE_COLUMN_LABELS: Record<TemplateKey, string> =
   TEMPLATE_COLUMNS;
 export const TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
   TEMPLATE_COLUMNS
 ) as TemplateKey[];
+
+/** Hoisted out of the parse loop — avoids re-allocating per row × per import. */
+const OPTIONAL_STRING_FIELDS = [
+  ["description", "Description", 2000],
+  ["specReference", "Spec Reference", 255],
+  ["drawingRef", "Drawing Ref", 255],
+] as const;
 
 /**
  * Normalize a category path segment for lookup. Unlike headers, category
@@ -162,65 +185,12 @@ export async function parseElementSheet(
   buffer: Buffer,
   categories: ElementCategory[]
 ): Promise<ParseResult> {
-  const workbook = new ExcelJS.Workbook();
-  // Type cast: @types/node v24 made Buffer generic over ArrayBufferLike, but
-  // exceljs's d.ts still declares the legacy Buffer shape. Runtime is fine.
-  await workbook.xlsx.load(
-    buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]
-  );
-  const worksheet = workbook.worksheets[0];
-  if (!worksheet) {
-    return {
-      headers: [],
-      unknownColumns: [],
-      missingColumns: REQUIRED_COLUMNS.map((k) => TEMPLATE_COLUMNS[k]),
-      duplicateColumns: [],
-      rows: [],
-      totalRows: 0,
-    };
+  const loaded = await loadAndResolveHeaders(buffer, TEMPLATE);
+  if (!loaded) {
+    return emptyParseEnvelope<TemplateKey, ParsedElementRow>(TEMPLATE);
   }
 
-  const headerRow = worksheet.getRow(1);
-  const headerValues: string[] = [];
-  // Clamp file-controlled loop bounds to defensive caps.
-  const columnCount = Math.min(
-    worksheet.columnCount || headerRow.cellCount || 0,
-    MAX_COLS
-  );
-  for (let c = 1; c <= columnCount; c++) {
-    headerValues.push(cellText(headerRow.getCell(c).value));
-  }
-
-  const headerKeys: (TemplateKey | null)[] = headerValues.map((h) => {
-    if (!h) return null;
-    return HEADER_TO_KEY.get(normalizeHeader(h)) ?? null;
-  });
-
-  // Track duplicate template-key columns (two "Code" headers → the latter wins).
-  const seenKeys = new Set<TemplateKey>();
-  const duplicateKeys = new Set<TemplateKey>();
-  headerKeys.forEach((k) => {
-    if (!k) return;
-    if (seenKeys.has(k)) duplicateKeys.add(k);
-    else seenKeys.add(k);
-  });
-
-  const unknownColumns = headerValues.filter(
-    (h, i) => h && headerKeys[i] === null
-  );
-  const missingColumns = REQUIRED_COLUMNS.filter((k) => !seenKeys.has(k))
-    .sort(
-      (a, b) =>
-        TEMPLATE_COLUMN_ORDER.indexOf(a) - TEMPLATE_COLUMN_ORDER.indexOf(b)
-    )
-    .map((k) => TEMPLATE_COLUMNS[k]);
-  const duplicateColumns = [...duplicateKeys]
-    .sort(
-      (a, b) =>
-        TEMPLATE_COLUMN_ORDER.indexOf(a) - TEMPLATE_COLUMN_ORDER.indexOf(b)
-    )
-    .map((k) => TEMPLATE_COLUMNS[k]);
-
+  const { worksheet, resolution } = loaded;
   const pathMap = buildCategoryPathMap(categories);
   const rows: ParsedElementRow[] = [];
   // Case-sensitive: the DB `element.code` column is VARCHAR (not CITEXT)
@@ -228,200 +198,122 @@ export async function parseElementSheet(
   // so "A-01" and "a-01" are distinct codes end-to-end.
   const seenCodes = new Map<string, number>();
 
-  const lastRow = Math.min(worksheet.actualRowCount, MAX_DATA_ROWS + 1);
-  const truncated = worksheet.actualRowCount > MAX_DATA_ROWS + 1;
-  let dataRowIndex = 0;
-  for (let r = 2; r <= lastRow; r++) {
-    const excelRow = worksheet.getRow(r);
-    if (!excelRow || excelRow.cellCount === 0) continue;
-    dataRowIndex += 1;
+  const { truncated } = forEachDataRow(
+    worksheet,
+    resolution,
+    MAX_DATA_ROWS,
+    ({ excelRowNumber, dataRowIndex, raw, byKey }) => {
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const values: Partial<ParsedElementValues> = { rowNumber: dataRowIndex };
 
-    // Collect raw values keyed by header label so the UI can render the preview.
-    const raw: Record<string, unknown> = {};
-    const byKey: Partial<Record<TemplateKey, string>> = {};
-    let anyCell = false;
-    for (let c = 1; c <= columnCount; c++) {
-      const label = headerValues[c - 1];
-      if (!label) continue;
-      const text = cellText(excelRow.getCell(c).value);
-      if (text !== "") anyCell = true;
-      raw[label] = text;
-      const key = headerKeys[c - 1];
-      if (key) byKey[key] = text;
-    }
-    if (!anyCell) {
-      dataRowIndex -= 1;
-      continue;
-    }
-
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    const values: Partial<ParsedElementValues> = { rowNumber: dataRowIndex };
-
-    // ── Required strings
-    if (byKey.code === undefined || byKey.code === "") {
-      errors.push("Code is required");
-    } else if (byKey.code.length > 50) {
-      errors.push("Code must be 50 characters or fewer");
-    } else {
-      values.code = byKey.code;
-    }
-
-    if (byKey.name === undefined || byKey.name === "") {
-      errors.push("Name is required");
-    } else if (byKey.name.length > 255) {
-      errors.push("Name must be 255 characters or fewer");
-    } else {
-      values.name = byKey.name;
-    }
-
-    // ── Unit
-    const rawUnit = (byKey.unit ?? "").toLowerCase();
-    if (!rawUnit) {
-      errors.push("Unit is required");
-    } else if (!ALLOWED_UNITS.includes(rawUnit as ElementUnit)) {
-      errors.push(
-        `Unit "${byKey.unit}" is not allowed (must be one of: ${ALLOWED_UNITS.join(", ")})`
-      );
-    } else {
-      values.unit = rawUnit as ElementUnit;
-    }
-
-    const noteAmbiguous = (label: string, raw: string, parsed: number) => {
-      warnings.push(
-        `${label} "${raw}" is ambiguous — parsed as ${parsed}. Edit the sheet if this is wrong.`
-      );
-    };
-
-    // ── Unit cost
-    const unitCostResult = cellNumber(byKey.unitCost);
-    if (unitCostResult.value === null) {
-      errors.push("Unit Cost is required");
-    } else if (unitCostResult.value < 0) {
-      errors.push("Unit Cost must be zero or positive");
-    } else {
-      values.unitCost = unitCostResult.value;
-      if (unitCostResult.ambiguous)
-        noteAmbiguous("Unit Cost", byKey.unitCost ?? "", unitCostResult.value);
-    }
-
-    // ── Optional numerics
-    for (const [k, label] of [
-      ["materialCost", "Material Cost"],
-      ["labourCost", "Labour Cost"],
-    ] as const) {
-      const v = byKey[k];
-      if (v !== undefined && v !== "") {
-        const res = cellNumber(v);
-        if (res.value === null) errors.push(`${label} must be a number`);
-        else if (res.value < 0)
-          errors.push(`${label} must be zero or positive`);
-        else {
-          values[k] = res.value;
-          if (res.ambiguous) noteAmbiguous(label, v, res.value);
-        }
-      }
-    }
-    for (const [k, label] of [
-      ["overheadPct", "Overhead %"],
-      ["marginPct", "Margin %"],
-    ] as const) {
-      const v = byKey[k];
-      if (v !== undefined && v !== "") {
-        const res = cellNumber(v);
-        if (res.value === null) errors.push(`${label} must be a number`);
-        else if (res.value < 0 || res.value > 100)
-          errors.push(`${label} must be between 0 and 100`);
-        else {
-          values[k] = res.value;
-          if (res.ambiguous) noteAmbiguous(label, v, res.value);
-        }
-      }
-    }
-
-    // ── Optional strings
-    if (byKey.description) {
-      if (byKey.description.length > 2000) {
-        errors.push("Description must be 2000 characters or fewer");
-      } else values.description = byKey.description;
-    }
-    if (byKey.specReference) {
-      if (byKey.specReference.length > 255) {
-        errors.push("Spec Reference must be 255 characters or fewer");
-      } else values.specReference = byKey.specReference;
-    }
-    if (byKey.drawingRef) {
-      if (byKey.drawingRef.length > 255) {
-        errors.push("Drawing Ref must be 255 characters or fewer");
-      } else values.drawingRef = byKey.drawingRef;
-    }
-
-    // ── Currency
-    if (byKey.currency) {
-      const cur = byKey.currency.trim().toUpperCase();
-      if (cur.length !== 3) {
-        errors.push("Currency must be a 3-letter code (e.g. USD, EUR, TRY)");
-      } else values.currency = cur;
-    }
-
-    // ── Tags (comma-separated)
-    if (byKey.tags) {
-      const tags = byKey.tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-      if (tags.length > 0) values.tags = tags;
-    }
-
-    // ── Category path
-    if (byKey.categoryPath) {
-      const rawSegments = byKey.categoryPath.split(">").map((s) => s.trim());
-      const hasEmptySegment = rawSegments.some((s) => s.length === 0);
-      if (rawSegments.length === 0 || hasEmptySegment) {
-        errors.push(
-          "Category Path has empty segments — use 'A > B > C' with non-empty labels"
-        );
+      // ── Required strings
+      if (byKey.code === undefined || byKey.code === "") {
+        errors.push("Code is required");
+      } else if (byKey.code.length > 50) {
+        errors.push("Code must be 50 characters or fewer");
       } else {
-        const lookupKey = rawSegments.map(normalizeCategorySegment).join(" > ");
-        if (!pathMap.has(lookupKey)) {
+        values.code = byKey.code;
+      }
+
+      if (byKey.name === undefined || byKey.name === "") {
+        errors.push("Name is required");
+      } else if (byKey.name.length > 255) {
+        errors.push("Name must be 255 characters or fewer");
+      } else {
+        values.name = byKey.name;
+      }
+
+      // ── Unit (required, enum)
+      const unit = parseRequiredUnitField(byKey.unit, ALLOWED_UNITS, errors);
+      if (unit) values.unit = unit;
+
+      // ── Unit cost (required, non-negative)
+      const unitCost = parseRequiredNumericField(
+        byKey.unitCost,
+        "Unit Cost",
+        { min: 0 },
+        errors,
+        warnings
+      );
+      if (unitCost !== undefined) values.unitCost = unitCost;
+
+      // ── Optional cost + percentage fields (shared shape with BOQ)
+      parseSharedFinancialFields(byKey, values, errors, warnings);
+
+      // ── Optional strings with length caps
+      for (const [k, label, max] of OPTIONAL_STRING_FIELDS) {
+        const v = byKey[k];
+        if (v) {
+          if (v.length > max)
+            errors.push(`${label} must be ${max} characters or fewer`);
+          else values[k] = v;
+        }
+      }
+
+      // ── Currency
+      if (byKey.currency) {
+        const cur = byKey.currency.trim().toUpperCase();
+        if (cur.length !== 3) {
+          errors.push("Currency must be a 3-letter code (e.g. USD, EUR, TRY)");
+        } else values.currency = cur;
+      }
+
+      // ── Tags (comma-separated)
+      if (byKey.tags) {
+        const tags = byKey.tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        if (tags.length > 0) values.tags = tags;
+      }
+
+      // ── Category path
+      if (byKey.categoryPath) {
+        const rawSegments = byKey.categoryPath.split(">").map((s) => s.trim());
+        const hasEmptySegment = rawSegments.some((s) => s.length === 0);
+        if (rawSegments.length === 0 || hasEmptySegment) {
           errors.push(
-            `Category path "${rawSegments.join(" > ")}" not found in this org`
+            "Category Path has empty segments — use 'A > B > C' with non-empty labels"
           );
         } else {
-          values.categoryPath = rawSegments;
+          const lookupKey = rawSegments
+            .map(normalizeCategorySegment)
+            .join(" > ");
+          if (!pathMap.has(lookupKey)) {
+            errors.push(
+              `Category path "${rawSegments.join(" > ")}" not found in this org`
+            );
+          } else {
+            values.categoryPath = rawSegments;
+          }
         }
       }
-    }
 
-    // ── Duplicate code within the sheet
-    if (values.code) {
-      const firstSeen = seenCodes.get(values.code);
-      if (firstSeen !== undefined) {
-        errors.push(`Duplicate code in sheet — first seen on row ${firstSeen}`);
-      } else {
-        seenCodes.set(values.code, dataRowIndex);
+      // ── Duplicate code within the sheet
+      if (values.code) {
+        const firstSeen = seenCodes.get(values.code);
+        if (firstSeen !== undefined) {
+          errors.push(
+            `Duplicate code in sheet — first seen on row ${firstSeen}`
+          );
+        } else {
+          seenCodes.set(values.code, dataRowIndex);
+        }
       }
+
+      const hasErrors = errors.length > 0;
+      rows.push({
+        rowNumber: dataRowIndex,
+        excelRowNumber,
+        raw,
+        parsed: hasErrors ? null : (values as ParsedElementValues),
+        status: hasErrors ? "error" : "valid",
+        errors,
+        warnings,
+      });
     }
+  );
 
-    const hasErrors = errors.length > 0;
-    rows.push({
-      rowNumber: dataRowIndex,
-      excelRowNumber: r,
-      raw,
-      parsed: hasErrors ? null : (values as ParsedElementValues),
-      status: hasErrors ? "error" : "valid",
-      errors,
-      warnings,
-    });
-  }
-
-  return {
-    headers: headerValues.filter((h) => h),
-    unknownColumns,
-    missingColumns,
-    duplicateColumns,
-    rows,
-    totalRows: rows.length,
-    truncated,
-  };
+  return buildParseEnvelope(resolution, rows, truncated);
 }

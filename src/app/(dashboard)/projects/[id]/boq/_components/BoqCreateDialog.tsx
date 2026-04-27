@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { SubmitFooter } from "@/components/ui/SubmitFooter";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { ApiError } from "@/lib/api";
@@ -88,74 +81,63 @@ export function BoqCreateDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create BOQ</DialogTitle>
-          <DialogDescription>
-            Bill of Quantities for this project. You can edit these settings
-            later.
-          </DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Create BOQ"
+      description="Bill of Quantities for this project. You can edit these settings later."
+      onSubmit={handleSubmit}
+      submitting={submitting}
+      submitLabel="Create BOQ"
+      submittingLabel="Creating..."
+    >
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">Title</span>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={255}
+          required
+          autoFocus
+        />
+      </label>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">
+          Currency
+        </span>
+        <CurrencySelect value={currency} onChange={setCurrency} />
+      </label>
+
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          {
+            label: "Contingency %",
+            value: contingencyPct,
+            onChange: setContingencyPct,
+          },
+          { label: "VAT %", value: vatPct, onChange: setVatPct },
+          {
+            label: "Min margin %",
+            value: minimumMarginPct,
+            onChange: setMinimumMarginPct,
+          },
+        ].map((field) => (
+          <label key={field.label} className="flex flex-col gap-1.5">
             <span className="text-xs font-medium text-text-secondary">
-              Title
+              {field.label}
             </span>
             <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={255}
-              required
-              autoFocus
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={field.value}
+              onChange={(e) => field.onChange(e.target.value)}
             />
           </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-text-secondary">
-              Currency
-            </span>
-            <CurrencySelect value={currency} onChange={setCurrency} />
-          </label>
-
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              {
-                label: "Contingency %",
-                value: contingencyPct,
-                onChange: setContingencyPct,
-              },
-              { label: "VAT %", value: vatPct, onChange: setVatPct },
-              {
-                label: "Min margin %",
-                value: minimumMarginPct,
-                onChange: setMinimumMarginPct,
-              },
-            ].map((field) => (
-              <label key={field.label} className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-text-secondary">
-                  {field.label}
-                </span>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={field.value}
-                  onChange={(e) => field.onChange(e.target.value)}
-                />
-              </label>
-            ))}
-          </div>
-
-          <SubmitFooter
-            submitting={submitting}
-            submitLabel="Create BOQ"
-            submittingLabel="Creating..."
-          />
-        </form>
-      </DialogContent>
-    </Dialog>
+        ))}
+      </div>
+    </FormDialog>
   );
 }

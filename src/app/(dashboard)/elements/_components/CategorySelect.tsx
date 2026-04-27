@@ -2,16 +2,12 @@
 
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { mutate as globalMutate } from "swr";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
-import { toast } from "@/components/ui/useToast";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
-import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
-import { API } from "@/lib/api/routes";
-import { elementCategories } from "@/lib/api";
-import type { ElementCategory, ElementCategoryNode } from "@/types";
+import { useCreateCategory } from "@/hooks/useCreateCategory";
+import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "../_lib/categoryUtils";
 import { cn } from "@/lib/utils";
 
@@ -61,30 +57,14 @@ function flattenWithIcons(tree: ElementCategoryNode[]): FlatOption[] {
 export function CategorySelect({ value, onChange, tree, label }: Props) {
   const t = useTranslations("elements");
   const [createOpen, setCreateOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const options = useMemo(() => flattenWithIcons(tree), [tree]);
   const selectedOption = value ? options.find((o) => o.id === value) : null;
 
-  const handleCreate = async (values: CategoryFormSubmit) => {
-    setSubmitting(true);
-    try {
-      const created = (await elementCategories.create(
-        values
-      )) as ElementCategory;
-      await globalMutate(API.elementCategories());
-      toast({ title: t("categoryCreatedToast") });
-      onChange(created.id);
-      setCreateOpen(false);
-    } catch (e) {
-      toast({
-        title: e instanceof Error ? e.message : String(e),
-        variant: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { submitting, handleCreate } = useCreateCategory((created) => {
+    onChange(created.id);
+    setCreateOpen(false);
+  });
 
   return (
     <div className="flex flex-col gap-1.5">

@@ -11,9 +11,7 @@ export interface SelectOption<T extends string = string> {
   name: string;
 }
 
-interface LabeledSearchableSelectProps<T extends string> {
-  value: T | "";
-  onChange: (code: T) => void;
+interface LabeledSearchableSelectBaseProps<T extends string> {
   options: SelectOption<T>[];
   label?: string;
   required?: boolean;
@@ -24,30 +22,82 @@ interface LabeledSearchableSelectProps<T extends string> {
   minContentWidth?: number;
   /** Popover max-height in pixels. Passed through to SearchableDropdown. */
   maxListHeight?: number;
+  /**
+   * Smaller default padding/typography. `"md"` (default) matches form-field
+   * sizing; `"sm"` matches inline filter chips.
+   */
+  triggerSize?: "sm" | "md";
+  /** Custom empty-state text in the trigger. Defaults to a muted em-dash. */
+  triggerPlaceholder?: string;
+  /** Hide the selected option's `name` next to its code in the trigger. */
+  hideTriggerName?: boolean;
+  /** Override the trigger's outer className (border/bg/etc). */
+  triggerClassName?: string;
 }
 
 /**
- * Themed, searchable `<code> · <label>`-style select. Used for both the
- * element-unit and currency pickers — differ only by option source and
- * column widths. The empty state + search-filter behaviour is shared.
+ * Form-field shape — onChange only ever fires with a real `T`. Used by
+ * `UnitSelect`, `CurrencySelect`, etc. where the field always has a value
+ * and the user can't reset it from inside the dropdown.
  */
-export function LabeledSearchableSelect<T extends string>({
-  value,
-  onChange,
-  options,
-  label,
-  required,
-  disabled,
-  codeColumnClassName,
-  minContentWidth = 260,
-  maxListHeight,
-}: LabeledSearchableSelectProps<T>) {
+type LabeledSearchableSelectStrictProps<T extends string> =
+  LabeledSearchableSelectBaseProps<T> & {
+    value: T | "";
+    onChange: (code: T) => void;
+    allowClear?: undefined;
+  };
+
+/**
+ * Filter-field shape — `allowClear` adds a leading entry that calls
+ * `onChange("")` to reset. Used by `UnitFilterSelect` and similar.
+ */
+type LabeledSearchableSelectClearableProps<T extends string> =
+  LabeledSearchableSelectBaseProps<T> & {
+    value: T | "";
+    onChange: (code: T | "") => void;
+    allowClear: { label: string };
+  };
+
+type LabeledSearchableSelectProps<T extends string> =
+  | LabeledSearchableSelectStrictProps<T>
+  | LabeledSearchableSelectClearableProps<T>;
+
+/**
+ * Themed, searchable `<code> · <label>` select. Drives both the form-field
+ * pickers (currency, unit) and the inline filter dropdowns (filter-by-unit).
+ * The optional `allowClear` adds a leading entry that resets the value.
+ */
+export function LabeledSearchableSelect<T extends string>(
+  props: LabeledSearchableSelectProps<T>
+) {
+  const {
+    value,
+    options,
+    label,
+    required,
+    disabled,
+    codeColumnClassName,
+    minContentWidth = 260,
+    maxListHeight,
+    allowClear,
+    triggerSize = "md",
+    triggerPlaceholder,
+    hideTriggerName,
+    triggerClassName,
+  } = props;
+  // Union-typed internal handler — `T` is assignable to `T | ""`, and the
+  // clear button (which calls with `""`) only renders when `allowClear` is
+  // set, where the props variant guarantees the wider signature. Discriminated
+  // narrowing across destructured fields is awkward, so cast once here.
+  const onChange = props.onChange as (code: T | "") => void;
   const tCommon = useTranslations("common");
 
   const selectedName = useMemo(
     () => options.find((o) => o.code === value)?.name ?? "",
     [options, value]
   );
+
+  const triggerSizeClass = triggerSize === "sm" ? "px-3 py-2" : "px-4 py-3";
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -66,21 +116,25 @@ export function LabeledSearchableSelect<T extends string>({
             type="button"
             disabled={disabled}
             className={cn(
-              "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary cursor-pointer",
+              "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input text-sm text-text-primary cursor-pointer",
               "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
-              disabled && "opacity-60 pointer-events-none"
+              triggerSizeClass,
+              disabled && "opacity-60 pointer-events-none",
+              triggerClassName
             )}
           >
             <span className="flex items-center gap-2 truncate">
               {value ? (
                 <>
                   <span className="font-medium">{value}</span>
-                  {selectedName && (
+                  {!hideTriggerName && selectedName && (
                     <span className="truncate text-text-muted">
                       {selectedName}
                     </span>
                   )}
                 </>
+              ) : triggerPlaceholder ? (
+                <span className="text-text-muted">{triggerPlaceholder}</span>
               ) : (
                 <span className="italic text-text-muted">—</span>
               )}
@@ -97,43 +151,66 @@ export function LabeledSearchableSelect<T extends string>({
                   o.name.toLowerCase().includes(query)
               )
             : options;
-          if (filtered.length === 0) {
-            return (
-              <p className="px-3 py-4 text-sm text-text-muted text-center">
-                {tCommon("noResults")}
-              </p>
-            );
-          }
-          return filtered.map((opt) => {
-            const selected = value === opt.code;
-            return (
-              <button
-                key={opt.code}
-                type="button"
-                onClick={() => {
-                  onChange(opt.code);
-                  close();
-                }}
-                className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
-                  selected && "text-accent"
-                )}
-              >
-                <span className="w-4 shrink-0">
-                  {selected && <Check className="h-4 w-4" />}
-                </span>
-                <span
+          return (
+            <>
+              {allowClear && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange("");
+                    close();
+                  }}
                   className={cn(
-                    "font-medium shrink-0",
-                    codeColumnClassName ?? "w-12"
+                    "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
+                    value === "" && "text-accent"
                   )}
                 >
-                  {opt.code}
-                </span>
-                <span className="truncate text-text-muted">{opt.name}</span>
-              </button>
-            );
-          });
+                  <span className="w-4 shrink-0">
+                    {value === "" && <Check className="h-4 w-4" />}
+                  </span>
+                  <span>{allowClear.label}</span>
+                </button>
+              )}
+              {filtered.length === 0 ? (
+                <p className="px-3 py-4 text-sm text-text-muted text-center">
+                  {tCommon("noResults")}
+                </p>
+              ) : (
+                filtered.map((opt) => {
+                  const selected = value === opt.code;
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => {
+                        onChange(opt.code);
+                        close();
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated cursor-pointer",
+                        selected && "text-accent"
+                      )}
+                    >
+                      <span className="w-4 shrink-0">
+                        {selected && <Check className="h-4 w-4" />}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-medium shrink-0",
+                          codeColumnClassName ?? "w-12"
+                        )}
+                      >
+                        {opt.code}
+                      </span>
+                      <span className="truncate text-text-muted">
+                        {opt.name}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </>
+          );
         }}
       </SearchableDropdown>
     </div>

@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { SubmitFooter } from "@/components/ui/SubmitFooter";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
@@ -56,26 +50,22 @@ export function BoqRenameSectionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Rename section</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={255}
-            required
-            autoFocus
-          />
-          <SubmitFooter
-            submitting={submitting}
-            submitLabel="Save"
-            submittingLabel="Saving..."
-          />
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Rename section"
+      onSubmit={handleSubmit}
+      submitting={submitting}
+      submitLabel="Save"
+      submittingLabel="Saving..."
+    >
+      <Input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        maxLength={255}
+        required
+        autoFocus
+      />
+    </FormDialog>
   );
 }
