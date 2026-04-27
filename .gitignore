@@ -43,3 +43,13 @@ sqlite.db
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code runtime
+.claude/temp/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks/
+
+# test artifacts
+/test-results/
+/playwright-report/
