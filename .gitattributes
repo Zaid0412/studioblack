@@ -1,0 +1,19 @@
+# Normalize all text files to LF in the repo and on checkout.
+# Prevents Windows core.autocrlf=true from showing every file as modified.
+* text=auto eol=lf
+
+# Binary files — never touch line endings.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.pen binary
