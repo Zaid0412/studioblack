@@ -41,18 +41,7 @@ export const POST = withAuth(
       );
     }
 
-    let formData: FormData;
-    try {
-      formData = await req.formData();
-    } catch {
-      return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
-    }
-
-    const upload = await validateXlsxUpload(
-      formData,
-      "file",
-      BOQ_IMPORT_MAX_BYTES
-    );
+    const upload = await validateXlsxUpload(req, "file", BOQ_IMPORT_MAX_BYTES);
     if (!upload.ok) {
       return NextResponse.json(
         { error: upload.message },

@@ -35,7 +35,7 @@ export function UnitSelect({
   return (
     <LabeledSearchableSelect<ElementUnit>
       value={value}
-      onChange={onChange}
+      onChange={(v) => v && onChange(v)}
       options={options}
       label={label}
       required={required}

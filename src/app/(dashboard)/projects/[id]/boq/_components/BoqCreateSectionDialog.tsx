@@ -3,14 +3,7 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { SubmitFooter } from "@/components/ui/SubmitFooter";
+import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 
@@ -75,65 +68,51 @@ export function BoqCreateSectionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add section</DialogTitle>
-          <DialogDescription>
-            Group items like &ldquo;Civil Works&rdquo; or &ldquo;MEP&rdquo;.
-            Internal sections are hidden from client BOQ exports.
-          </DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Add section"
+      description='Group items like "Civil Works" or "MEP". Internal sections are hidden from client BOQ exports.'
+      onSubmit={handleSubmit}
+      submitting={submitting}
+      submitLabel="Add section"
+      submittingLabel="Adding..."
+    >
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">Title</span>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={255}
+          required
+          autoFocus
+          placeholder="e.g. Civil Works"
+        />
+      </label>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-text-secondary">
-              Title
-            </span>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={255}
-              required
-              autoFocus
-              placeholder="e.g. Civil Works"
-            />
-          </label>
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">
+          Description (optional)
+        </span>
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={500}
+          placeholder="Short summary of what this section covers"
+        />
+      </label>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-text-secondary">
-              Description (optional)
-            </span>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={500}
-              placeholder="Short summary of what this section covers"
-            />
-          </label>
-
-          <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium text-text-primary">
-                Visible to client
-              </span>
-              <span className="text-xs text-text-muted">
-                Off = internal only (excluded from client BOQ).
-              </span>
-            </div>
-            <ToggleSwitch
-              checked={visibleToClient}
-              onChange={setVisibleToClient}
-            />
-          </div>
-
-          <SubmitFooter
-            submitting={submitting}
-            submitLabel="Add section"
-            submittingLabel="Adding..."
-          />
-        </form>
-      </DialogContent>
-    </Dialog>
+      <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-sm font-medium text-text-primary">
+            Visible to client
+          </span>
+          <span className="text-xs text-text-muted">
+            Off = internal only (excluded from client BOQ).
+          </span>
+        </div>
+        <ToggleSwitch checked={visibleToClient} onChange={setVisibleToClient} />
+      </div>
+    </FormDialog>
   );
 }

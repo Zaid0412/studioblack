@@ -3,15 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import useSWR, { mutate as globalMutate } from "swr";
+import useSWR from "swr";
 import { ChevronRight, Plus, Settings, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/api/routes";
-import { elementCategories } from "@/lib/api";
-import { toast } from "@/components/ui/useToast";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
-import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
+import { useCreateCategory } from "@/hooks/useCreateCategory";
 import { useUserRole } from "@/hooks/useUserRole";
 import { features } from "@/config/features";
 import type { ElementCategoryNode } from "@/types";
@@ -34,27 +32,13 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const tree = data?.tree ?? [];
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const canManage =
     features.elementLibrary && (role === "pm" || role === "architect");
 
-  const handleCreate = async (values: CategoryFormSubmit) => {
-    setSubmitting(true);
-    try {
-      await elementCategories.create(values);
-      await globalMutate(API.elementCategories());
-      toast({ title: t("categoryCreatedToast") });
-      setCreateOpen(false);
-    } catch (e) {
-      toast({
-        title: e instanceof Error ? e.message : String(e),
-        variant: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const { submitting, handleCreate } = useCreateCategory(() =>
+    setCreateOpen(false)
+  );
 
   return (
     <aside className="w-full lg:w-60 lg:self-start shrink-0 rounded-[10px] bg-bg-secondary border border-border-default p-3 flex flex-col">

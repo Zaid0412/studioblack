@@ -35,7 +35,7 @@ export function CurrencySelect({
   return (
     <LabeledSearchableSelect
       value={value}
-      onChange={onChange}
+      onChange={(v) => v && onChange(v)}
       options={options}
       label={label}
       required={required}

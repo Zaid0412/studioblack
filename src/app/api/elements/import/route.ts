@@ -20,15 +20,8 @@ export const POST = withAuth(
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
 
-    let formData: FormData;
-    try {
-      formData = await req.formData();
-    } catch {
-      return NextResponse.json({ error: "Invalid form data" }, { status: 400 });
-    }
-
     const upload = await validateXlsxUpload(
-      formData,
+      req,
       "file",
       ELEMENT_IMPORT_MAX_BYTES
     );
