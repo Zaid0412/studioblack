@@ -124,12 +124,12 @@ The header already shows the total, so this row is duplicative on a single-scree
 
 Add a `Source` column between `Description` and `Unit`. Renders a small `Badge` component:
 
-| Source         | Badge label    | Tone    |
-| -------------- | -------------- | ------- |
-| `custom`       | Custom         | neutral |
-| `library`      | Library        | primary |
-| `project`      | Project        | accent  |
-| `rate_contract`| Rate Contract  | success |
+| Source          | Badge label   | Tone    |
+| --------------- | ------------- | ------- |
+| `custom`        | Custom        | neutral |
+| `library`       | Library       | primary |
+| `project`       | Project       | accent  |
+| `rate_contract` | Rate Contract | success |
 
 The `rate_contract` value is reserved — it stays unused until F7.5 (Rate Contracts) ships. No fallback / "Unknown" badge: every row has a non-null source thanks to the migration default + backfill.
 
@@ -174,11 +174,13 @@ Add to `messages/en.json` + `messages/tr.json`:
 ### Files to create / modify
 
 **New:**
+
 - `scripts/migrate-boq-enhancements.sql`
 - `src/app/(dashboard)/projects/[id]/boq/_components/BoqSectionChips.tsx`
 - `src/app/(dashboard)/projects/[id]/boq/_components/BoqSectionFooter.tsx`
 
 **Modify:**
+
 - `src/lib/queries/boq.ts` (cost expressions, `createBoqItem`, `addElementToBoq`, `bulkUpsertBoqItems`, `updateBoqItem` allow-list, `getBoqSummary`)
 - `src/lib/queries/elements.ts` (`service_charge_pct` in INSERT/UPDATE/duplicate)
 - `src/lib/validations.ts` (Zod schema extensions)
@@ -199,15 +201,15 @@ Add to `messages/en.json` + `messages/tr.json`:
 
 ### Estimated scope
 
-| Surface                  | New lines | Modified files |
-| ------------------------ | --------- | -------------- |
-| Migration + queries      | ~80       | 2              |
-| Validations + types      | ~30       | 2              |
-| Excel round-trip         | ~25       | 2              |
-| BOQ table UI             | ~250      | 5              |
-| Element form             | ~15       | 1              |
-| i18n                     | ~30       | 2              |
-| Tests                    | ~120      | 3              |
+| Surface             | New lines | Modified files |
+| ------------------- | --------- | -------------- |
+| Migration + queries | ~80       | 2              |
+| Validations + types | ~30       | 2              |
+| Excel round-trip    | ~25       | 2              |
+| BOQ table UI        | ~250      | 5              |
+| Element form        | ~15       | 1              |
+| i18n                | ~30       | 2              |
+| Tests               | ~120      | 3              |
 
 **Complexity:** Medium. One migration, no new tables, no new endpoints. UI is the biggest piece — the chip strip with sticky-active behaviour is the only genuinely new component.
 
