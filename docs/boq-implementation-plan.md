@@ -1,5 +1,9 @@
 # ArchBuild Implementation Plan
 
+> **Companion plans:**
+>
+> - `docs/boq-enhancements-plan.md` — F6.1 (BOQ table enhancements: section chips, source column, service charge). Lives in a separate file because it touches already-shipped code.
+>
 > **Source PRD** (Google Docs — 6 tabs):
 >
 > - [Tab 1 — Overview & Architecture](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.0)
@@ -1138,6 +1142,130 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 
 ---
 
+### Feature 7.5: Rate Contracts
+
+**Goal**: Vendor-scoped, time-bound element pricing. Lets architects pre-negotiate rates with vendors and import those rates straight into a BOQ without going through the RFQ → quote loop.
+
+**Why slotted here**: Depends on F7 (vendors) and F2 (elements) — both shipped. Independent of F8 (vendor role), F9 (RFQ), F10 (quotes). Gives BOQ a fast pricing path; RFQ remains the way to source new rates.
+
+**Database** — `scripts/migrate-rate-contracts.sql`:
+
+```sql
+CREATE TABLE rate_contract (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id TEXT NOT NULL REFERENCES "organization"(id) ON DELETE CASCADE,
+  vendor_id UUID NOT NULL REFERENCES vendor(id) ON DELETE RESTRICT,
+  contract_number VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','active','expired','cancelled')),
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  agreement_signed_date DATE,
+  currency VARCHAR(3) DEFAULT 'USD',
+  payment_terms VARCHAR(100),
+  agreement_url TEXT,
+  terms_and_conditions TEXT,
+  notes TEXT,
+  created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  CONSTRAINT chk_rate_contract_dates CHECK (end_date >= start_date)
+);
+
+CREATE TABLE rate_contract_item (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rate_contract_id UUID NOT NULL REFERENCES rate_contract(id) ON DELETE CASCADE,
+  element_id UUID NOT NULL REFERENCES element(id) ON DELETE CASCADE,
+  unit VARCHAR(30) NOT NULL,
+  rate NUMERIC(12,2) NOT NULL,
+  notes TEXT,
+  UNIQUE (rate_contract_id, element_id)
+);
+
+CREATE INDEX idx_rate_contract_org ON rate_contract(org_id);
+CREATE INDEX idx_rate_contract_vendor ON rate_contract(vendor_id);
+CREATE INDEX idx_rate_contract_active ON rate_contract(org_id, status)
+  WHERE status = 'active';
+CREATE INDEX idx_rate_contract_item_contract ON rate_contract_item(rate_contract_id);
+CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
+```
+
+**Auto-numbering**: Use the existing `sequence_counter` infra (F4) with prefix `RC` → `RC-2026-001`.
+
+**Auto-expiry**: `getRateContracts()` flips `status = 'active' → 'expired'` on read when `end_date < CURRENT_DATE`. Same check-on-read pattern as quote/proposal expiry.
+
+**Queries** — new file `src/lib/queries/rateContracts.ts`:
+
+- `createRateContract(orgId, input)` — header only; items are added separately
+- `getRateContractById(id, orgId)` — full record with items + vendor + element refs
+- `listRateContracts(orgId, filters)` — list with vendor/status/date filters
+- `updateRateContract(id, orgId, fields)` — header allow-list (cannot mutate after `active` except status)
+- `deleteRateContract(id, orgId)` — soft-delete via `status = 'cancelled'`
+- `addRateContractItems(id, orgId, items)` — bulk insert; ON CONFLICT (contract, element) DO UPDATE rate
+- `removeRateContractItem(itemId, orgId)`
+- `activateRateContract(id, orgId)` — flips `draft → active`; rejects if items list is empty
+- `getActiveRateForElement(orgId, elementId, vendorId?)` — returns the lowest active rate for that element across contracts (or scoped to a vendor); used by the BOQ "Import from Rate Contract" picker
+
+**API Routes**:
+
+- `GET /api/rate-contracts` — list with filters
+- `POST /api/rate-contracts` — create header
+- `GET /api/rate-contracts/[id]` — detail
+- `PATCH /api/rate-contracts/[id]` — update
+- `DELETE /api/rate-contracts/[id]` — cancel
+- `POST /api/rate-contracts/[id]/items` — bulk add items
+- `DELETE /api/rate-contracts/[id]/items/[itemId]` — remove item
+- `POST /api/rate-contracts/[id]/activate` — activate
+- `GET /api/rate-contracts/by-element/[elementId]` — active rates available for an element (for BOQ picker)
+
+**Auth**: `allowedRoles: ["pm", "architect"]` for write; `pm | architect` for read. Vendors do not see rate contracts in their portal — these are internal pricing.
+
+**UI** — extend Element Library with a sibling tab:
+
+- `src/app/(dashboard)/elements/page.tsx` — add a tab/route switcher between `Element Library` and `Rate Contracts`. Cleaner option: lift to a parent layout and split into `/elements/library` and `/elements/rate-contracts`.
+- `src/app/(dashboard)/elements/rate-contracts/page.tsx` — list page with vendor + status filters, "Add Rate Contract" CTA.
+- `src/app/(dashboard)/elements/rate-contracts/[id]/page.tsx` — detail/edit page with header form, vendor link, item table, agreement upload, terms editor, activate/cancel actions.
+- `src/app/(dashboard)/elements/rate-contracts/_components/RateContractItemPicker.tsx` — element-library picker that returns elements + lets the user enter rates inline (mirrors RDash's "Add Elements" flow).
+
+**BOQ integration** — extend the shipped `BoqElementPickerDialog`:
+
+- Add a third tab: `From Rate Contract`. Lists elements available across active rate contracts, with vendor + rate displayed. Selecting a row creates a `boq_item` with `source = 'rate_contract'` (see `docs/boq-enhancements-plan.md` F6.1) and `unit_cost = rate`.
+- Backend: extend `addElementToBoq` to accept an optional `rate_contract_item_id` and copy the rate when present. Persist the link by adding `rate_contract_item_id UUID REFERENCES rate_contract_item(id) ON DELETE SET NULL` to `boq_item` in this feature's migration.
+
+**Zod Schemas**: rate-contract create/update + item-bulk-add schemas in `src/lib/validations.ts`.
+
+**Files to create/modify**:
+
+- `scripts/migrate-rate-contracts.sql` (new)
+- `src/lib/queries/rateContracts.ts` (new ~250 lines)
+- `src/lib/queries/boq.ts` (extend `addElementToBoq` to accept `rate_contract_item_id`)
+- `src/app/api/rate-contracts/route.ts` (new)
+- `src/app/api/rate-contracts/[id]/route.ts` (new)
+- `src/app/api/rate-contracts/[id]/items/route.ts` (new)
+- `src/app/api/rate-contracts/[id]/items/[itemId]/route.ts` (new)
+- `src/app/api/rate-contracts/[id]/activate/route.ts` (new)
+- `src/app/api/rate-contracts/by-element/[elementId]/route.ts` (new)
+- `src/app/(dashboard)/elements/rate-contracts/page.tsx` (new)
+- `src/app/(dashboard)/elements/rate-contracts/[id]/page.tsx` (new)
+- `src/app/(dashboard)/elements/rate-contracts/_components/*.tsx` (new — list, form, item table, picker)
+- `src/app/(dashboard)/projects/[id]/boq/_components/BoqElementPickerDialog.tsx` (modify — add rate-contract tab)
+- `src/lib/api/rateContracts.ts` (new)
+- `src/lib/api/routes.ts` (add routes)
+- `src/lib/validations.ts` (add schemas)
+- `src/types/index.ts` (add types)
+- `src/config/features.ts` (`rateContracts: false` flag)
+- `messages/en.json`, `messages/tr.json` (add namespace)
+- `src/test/api/rate-contracts.test.ts` (new)
+
+**Open decisions**:
+
+1. **Multi-currency**: rate contracts inherit `org` currency. If a vendor's rate is in a different currency, do we store it in the contract currency and convert at BOQ-import time? Defer until F4.5 / F-int-1 — for now, force same currency.
+2. **Rate priority when multiple active contracts cover the same element**: lowest rate wins by default. PM can override by picking a specific contract from the BOQ picker.
+3. **Element archive interaction**: if an element is archived (F2 soft-delete), existing rate-contract items keep working but the picker hides them (existing F2 archive pattern).
+
+---
+
 ### Feature 8: Vendor Role + Portal
 
 **Goal**: Add vendor as a new auth role with its own portal view.
@@ -1633,6 +1761,91 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 
 ---
 
+### Feature 14.5: Compare BOQ vs Order
+
+**Goal**: Internal architect view that surfaces the delta between approved BOQ scope and what was actually ordered via POs. Catches over-orders, under-orders, and price drift before invoicing.
+
+**Why slotted here**: Hard dependency on F14 (no POs → nothing to compare). Sits before F15 (vendor invoices) so the team can reconcile orders against scope before invoices come in.
+
+**No new tables**. Pure presentation over the F4 `boq_item` and F14 `po_item` data. The `po_item.boq_item_id` link added in F14 is the join key.
+
+**Data shape per row** (joined client-side from a single query):
+
+```
+boq_code · description · unit
+boq_qty · po_qty · qty_delta · qty_delta_pct
+boq_unit_price · po_unit_price · price_delta · price_delta_pct
+boq_amount · po_amount · amount_delta
+status: ordered_ok | over_ordered | under_ordered | not_ordered | price_mismatch
+```
+
+**Status derivation**:
+
+- `not_ordered` → `boq_item.client_approval_status = 'approved'` AND no `po_item` linked
+- `over_ordered` → `SUM(po_item.quantity) > boq_item.quantity`
+- `under_ordered` → `SUM(po_item.quantity) < boq_item.quantity`
+- `price_mismatch` → any `po_item.unit_price` differs from `boq_item.unit_cost` by > 1% (configurable threshold)
+- `ordered_ok` → exact qty match AND no price mismatch
+
+A single BOQ row may fan out to multiple PO items (split orders to different vendors); the compare view aggregates them and shows a "View POs (3)" affordance that drills into the breakdown.
+
+**Queries** — extend `src/lib/queries/boq.ts`:
+
+```ts
+getBoqOrderComparison(projectId: string): Promise<BoqOrderComparisonRow[]>
+```
+
+Single query joining `boq_item` with `po_item` (LEFT JOIN, GROUP BY boq_item.id). Includes derived columns for deltas and status. Filters: only items with `client_approval_status = 'approved'` (unapproved items can't legitimately be ordered — F14 already enforces this).
+
+**API Routes**:
+
+- `GET /api/projects/[id]/boq/compare-with-orders` — returns the comparison rows, ordered by section then code
+
+Optional query params: `?status=over_ordered,price_mismatch` to filter to just problematic rows.
+
+**Auth**: `allowedRoles: ["pm", "architect"]`, `projectAccess: true`. Client does not see this view — they have F24 (Client Orders View) which is a different lens.
+
+**UI** — new sub-route under the BOQ surface:
+
+- `src/app/(dashboard)/projects/[id]/boq/compare/page.tsx` — full-page compare table.
+- Top of page: summary cards — `Total approved`, `Total ordered`, `Variance`, `# items with issues`.
+- Table columns: Code, Description, Unit, BOQ Qty, PO Qty, Δ Qty, BOQ Rate, PO Rate, Δ Rate, BOQ Total, PO Total, Δ Total, Status badge.
+- Status badge color tones: green (`ordered_ok`), amber (`under_ordered`, `not_ordered`), red (`over_ordered`, `price_mismatch`).
+- Row click → opens drawer with the breakdown of every PO item linked to that BOQ item (PO #, vendor, qty, unit price, status).
+- Filter bar: status multi-select, section dropdown, search.
+- Export: "Export to Excel" reuses `boqWriter.ts` patterns. PDF export deferred to F19.
+
+**Action affordance**: From a `not_ordered` row → "Create RFQ for this item" (deep-link into F9 with the item pre-selected). From an `over_ordered` row → no automated fix (just surfaces the issue); the user navigates to the offending PO to amend it.
+
+**Entry points**:
+
+- `BoqHeader.tsx` action menu: add "Compare with Orders" item.
+- Project detail page: add a sub-nav badge (e.g. on the BOQ tab) when there are ≥1 issues.
+- F18 (BOQ Dashboard) widget: `Order variance` card showing total variance + count, links here.
+
+**Files to create/modify**:
+
+- `src/lib/queries/boq.ts` (add `getBoqOrderComparison`, ~80 lines)
+- `src/app/api/projects/[id]/boq/compare-with-orders/route.ts` (new)
+- `src/app/(dashboard)/projects/[id]/boq/compare/page.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/BoqCompareTable.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/BoqCompareSummaryCards.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/BoqComparePoBreakdownDrawer.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/BoqHeader.tsx` (modify — action menu entry)
+- `src/lib/api/routes.ts` (add route)
+- `src/lib/api/boq.ts` (add wrapper)
+- `src/types/index.ts` (`BoqOrderComparisonRow`)
+- `messages/en.json`, `messages/tr.json` (add namespace `boq.compare.*`)
+- `src/test/api/boq-compare.test.ts` (new)
+
+**Open decisions**:
+
+1. **Price-mismatch threshold**: 1% default. Make this org-configurable (org-level setting) or per-project? Default plan: per-org setting in F18 dashboard prefs.
+2. **Cancelled POs**: include or exclude? Default plan: exclude — cancelled POs aren't a real order.
+3. **Multi-currency**: if a PO is in a different currency than the BOQ, convert at PO `po_date` exchange rate or at compare-view time? Default plan: convert at PO date (locks the exchange rate to when the order was placed). Requires the FX-rate table from F-int-1.
+
+---
+
 ### Feature 15: Vendor Invoices
 
 **Goal**: Track vendor invoices against POs (vendor → org). Client-side invoicing lives in F22.
@@ -2098,7 +2311,7 @@ CREATE INDEX idx_client_payment_date ON client_payment(payment_date);
 F1 (Categories) ──→ F2 (Elements) ──→ F3 (Excel Import)
                          │
                          ▼
-                    F4 (BOQ Core) ──→ F5 (BOQ UI) ──→ F6 (BOQ Excel)
+                    F4 (BOQ Core) ──→ F5 (BOQ UI) ──→ F6 (BOQ Excel) ──→ F6.1 (Table Enhancements)
                          │                │
                          │                ▼
                          │           F12 (Client BOQ Portal)
@@ -2107,17 +2320,18 @@ F1 (Categories) ──→ F2 (Elements) ──→ F3 (Excel Import)
                          │           F13 (Locking + Change Orders)
                          │
                          ▼
-                    F7 (Vendors) ──→ F8 (Vendor Role) ──→ F9 (RFQ) ──→ F10 (Quotes)
-                                                          │
-                                                          ▼
-                                                     F11 (Proposals)
-                                                          │
-                                                          ▼
-                                                     F14 (POs) ──→ F15 (Invoices)
+                    F7 (Vendors) ──→ F7.5 (Rate Contracts) ──→ F8 (Vendor Role) ──→ F9 (RFQ) ──→ F10 (Quotes)
+                                                                                    │
+                                                                                    ▼
+                                                                               F11 (Proposals)
+                                                                                    │
+                                                                                    ▼
+                                                                               F14 (POs) ──→ F14.5 (Compare BOQ vs Order) ──→ F15 (Invoices)
 
+F6.1 (BOQ Table Enhancements) — see docs/boq-enhancements-plan.md
 F16 (Progress) — depends on F4 (BOQ items exist)
 F17 (Snags) — depends on F4 (BOQ items exist)
-F18 (Dashboard) — depends on F4, F16, F17
+F18 (Dashboard) — depends on F4, F16, F17, F14.5
 F19 (PDF Export) — depends on F4, F11, F14, F13
 F20 (Custom Tabs) — standalone, can go anywhere after F4
 F21 (Audit Trail) — depends on F4, best added after F13
@@ -2136,7 +2350,9 @@ F24 (Client Orders) — depends on F4, F12
 | 4   | BOQ Core        | ~16       | ~450             | 13         | High       |
 | 5   | BOQ UI          | ~12       | 0                | 0          | High       |
 | 6   | BOQ Excel       | ~6        | ~50              | 3          | Medium     |
+| 6.1 | BOQ Table Enh.  | ~3        | ~80              | 0          | Medium     |
 | 7   | Vendors         | ~14       | ~220             | 8          | Medium     |
+| 7.5 | Rate Contracts  | ~16       | ~250             | 8          | Medium     |
 | 8   | Vendor Role     | ~6        | ~30              | 0          | Low        |
 | 9   | RFQ             | ~12       | ~200             | 7          | High       |
 | 10  | Quotes          | ~10       | ~220             | 7          | High       |
@@ -2144,6 +2360,7 @@ F24 (Client Orders) — depends on F4, F12
 | 12  | Client BOQ      | ~8        | ~100             | 4          | Medium     |
 | 13  | Locking + CO    | ~12       | ~300             | 10         | High       |
 | 14  | POs             | ~10       | ~200             | 7          | Medium     |
+| 14.5| BOQ vs Order    | ~7        | ~80              | 1          | Medium     |
 | 15  | Invoices        | ~8        | ~120             | 6          | Low        |
 | 16  | Progress        | ~5        | ~80              | 2          | Low        |
 | 17  | Snags           | ~8        | ~150             | 4          | Medium     |
@@ -2155,7 +2372,7 @@ F24 (Client Orders) — depends on F4, F12
 | 23  | Client Payments | ~8        | ~120             | 5          | Low        |
 | 24  | Client Orders   | ~6        | ~30              | 1          | Low        |
 
-**Total**: ~24 PRs, ~214 new files, ~3,200 new lines in queries, ~115 new API routes
+**Total**: ~27 PRs, ~240 new files, ~3,610 new lines in queries, ~124 new API routes (including F6.1, F7.5, F14.5)
 
 ---
 
