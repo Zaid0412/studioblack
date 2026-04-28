@@ -39,6 +39,7 @@ export function BoqCreateItemDialog({
   const [unit, setUnit] = useState("nos");
   const [quantity, setQuantity] = useState("1");
   const [unitCost, setUnitCost] = useState("0");
+  const [serviceChargePct, setServiceChargePct] = useState("0");
   const [marginPct, setMarginPct] = useState("15");
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,6 +50,7 @@ export function BoqCreateItemDialog({
     setUnit("nos");
     setQuantity("1");
     setUnitCost("0");
+    setServiceChargePct("0");
     setMarginPct("15");
   }, [open, defaultSectionId]);
 
@@ -87,6 +89,7 @@ export function BoqCreateItemDialog({
         unit: trimmedUnit,
         quantity: parseNum(quantity, 1),
         unitCost: parseNum(unitCost, 0),
+        serviceChargePct: parseNum(serviceChargePct, 0),
         marginPct: parseNum(marginPct, 15),
       });
       toast({ title: "Item added", variant: "success" });
@@ -129,7 +132,7 @@ export function BoqCreateItemDialog({
         />
       </label>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-text-secondary">Unit</span>
           {/* Free text (≤30 chars), not UnitSelect: BOQ items accept any
@@ -161,6 +164,22 @@ export function BoqCreateItemDialog({
             step="any"
             value={unitCost}
             onChange={(e) => setUnitCost(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-text-secondary">
+            Service charge %
+          </span>
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            value={serviceChargePct}
+            onChange={(e) => setServiceChargePct(e.target.value)}
           />
         </label>
         <label className="flex flex-col gap-1.5">

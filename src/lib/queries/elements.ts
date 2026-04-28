@@ -35,6 +35,7 @@ export interface CreateElementInput {
   materialCost?: number;
   labourCost?: number;
   overheadPct?: number;
+  serviceChargePct?: number;
   marginPct?: number;
   specReference?: string;
   drawingRef?: string;
@@ -67,6 +68,7 @@ const ELEMENT_COLS: Record<string, string> = {
   materialCost: "material_cost",
   labourCost: "labour_cost",
   overheadPct: "overhead_pct",
+  serviceChargePct: "service_charge_pct",
   marginPct: "margin_pct",
   specReference: "spec_reference",
   drawingRef: "drawing_ref",
@@ -344,15 +346,15 @@ export async function createElement(
       const { rows } = await client.query(
         `INSERT INTO element
            (org_id, code, name, description, category_id, unit, unit_cost,
-            currency, material_cost, labour_cost, overhead_pct, margin_pct,
+            currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
             spec_reference, drawing_ref, tags, created_by,
             image_url, drawing_file_url, drawing_file_name,
             spec_file_url, spec_file_name)
          VALUES
            ($1, $2, $3, $4, $5, $6, $7,
-            $8, $9, $10, $11, $12,
-            $13, $14, $15, $16,
-            $17, $18, $19, $20, $21)
+            $8, $9, $10, $11, $12, $13,
+            $14, $15, $16, $17,
+            $18, $19, $20, $21, $22)
          RETURNING *`,
         [
           orgId,
@@ -366,6 +368,7 @@ export async function createElement(
           input.materialCost ?? null,
           input.labourCost ?? null,
           input.overheadPct ?? null,
+          input.serviceChargePct ?? null,
           input.marginPct ?? null,
           input.specReference ?? null,
           input.drawingRef ?? null,
@@ -618,15 +621,15 @@ export async function duplicateElement(
       } = await client.query(
         `INSERT INTO element
            (org_id, code, name, description, category_id, unit, unit_cost,
-            currency, material_cost, labour_cost, overhead_pct, margin_pct,
+            currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
             spec_reference, drawing_ref, tags, is_active, created_by,
             image_url, drawing_file_url, drawing_file_name,
             spec_file_url, spec_file_name)
          VALUES
            ($1, $2, $3, $4, $5, $6, $7,
-            $8, $9, $10, $11, $12,
-            $13, $14, $15, true, $16,
-            $17, $18, $19, $20, $21)
+            $8, $9, $10, $11, $12, $13,
+            $14, $15, $16, true, $17,
+            $18, $19, $20, $21, $22)
          RETURNING *`,
         [
           orgId,
@@ -640,6 +643,7 @@ export async function duplicateElement(
           src.material_cost,
           src.labour_cost,
           src.overhead_pct,
+          src.service_charge_pct,
           src.margin_pct,
           src.spec_reference,
           src.drawing_ref,
@@ -773,6 +777,7 @@ export interface BulkElementRow {
   materialCost?: number;
   labourCost?: number;
   overheadPct?: number;
+  serviceChargePct?: number;
   marginPct?: number;
   specReference?: string;
   drawingRef?: string;
@@ -873,12 +878,12 @@ async function tryInsertElementRow(
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
-        currency, material_cost, labour_cost, overhead_pct, margin_pct,
+        currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
         spec_reference, drawing_ref, tags, created_by)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11, $12,
-        $13, $14, $15, $16)
+        $8, $9, $10, $11, $12, $13,
+        $14, $15, $16, $17)
      RETURNING id`,
     [
       orgId,
@@ -892,6 +897,7 @@ async function tryInsertElementRow(
       row.materialCost ?? null,
       row.labourCost ?? null,
       row.overheadPct ?? null,
+      row.serviceChargePct ?? null,
       row.marginPct ?? null,
       row.specReference ?? null,
       row.drawingRef ?? null,
@@ -932,13 +938,14 @@ async function insertElementVersion(
     material_cost: string | null;
     labour_cost: string | null;
     overhead_pct: string | null;
+    service_charge_pct: string | null;
     margin_pct: string | null;
     spec_reference: string | null;
     drawing_ref: string | null;
     tags: string[] | null;
   }>(
     `SELECT description, category_id, currency, material_cost, labour_cost,
-            overhead_pct, margin_pct, spec_reference, drawing_ref, tags
+            overhead_pct, service_charge_pct, margin_pct, spec_reference, drawing_ref, tags
        FROM element
       WHERE id = $1 AND org_id = $2`,
     [prevLatestId, orgId]
@@ -951,14 +958,14 @@ async function insertElementVersion(
   const { rows } = await client.query<{ id: string }>(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
-        currency, material_cost, labour_cost, overhead_pct, margin_pct,
+        currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
         spec_reference, drawing_ref, tags, created_by,
         version_group, version_number)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11, $12,
-        $13, $14, $15, $16,
-        $17, $18)
+        $8, $9, $10, $11, $12, $13,
+        $14, $15, $16, $17,
+        $18, $19)
      RETURNING id`,
     [
       orgId,
@@ -972,6 +979,7 @@ async function insertElementVersion(
       row.materialCost ?? prev.material_cost,
       row.labourCost ?? prev.labour_cost,
       row.overheadPct ?? prev.overhead_pct,
+      row.serviceChargePct ?? prev.service_charge_pct,
       row.marginPct ?? prev.margin_pct,
       row.specReference ?? prev.spec_reference,
       row.drawingRef ?? prev.drawing_ref,
@@ -1029,6 +1037,8 @@ async function overwriteElementRow(
   if (row.materialCost !== undefined) push("material_cost", row.materialCost);
   if (row.labourCost !== undefined) push("labour_cost", row.labourCost);
   if (row.overheadPct !== undefined) push("overhead_pct", row.overheadPct);
+  if (row.serviceChargePct !== undefined)
+    push("service_charge_pct", row.serviceChargePct);
   if (row.marginPct !== undefined) push("margin_pct", row.marginPct);
   if (row.specReference !== undefined)
     push("spec_reference", row.specReference);

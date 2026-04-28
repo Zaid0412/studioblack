@@ -747,6 +747,7 @@
     "fieldMaterialCost": "Malzeme Maliyeti",
     "fieldLabourCost": "İşçilik Maliyeti",
     "fieldOverheadPct": "Genel Gider %",
+    "fieldServiceChargePct": "Hizmet Bedeli %",
     "fieldMarginPct": "Kâr Marjı %",
     "fieldSpecReference": "Şartname Referansı",
     "fieldDrawingRef": "Çizim Referansı",
@@ -933,5 +934,18 @@
     "importTooLarge": "Dosya çok büyük — en fazla 5 MB.",
     "importMultipleFiles": "Yalnızca ilk dosya içe aktarılacak.",
     "importRemoveFile": "Dosyayı kaldır"
+  },
+  "boq": {
+    "table": {
+      "columnSource": "Kaynak",
+      "columnServiceCharge": "Hizmet Bedeli %",
+      "sectionTotal": "Bölüm toplamı",
+      "sourceCustom": "Özel",
+      "sourceLibrary": "Kütüphane",
+      "sourceProject": "Proje",
+      "sourceRateContract": "Fiyat Sözleşmesi",
+      "filterBySource": "Kaynağa göre filtrele",
+      "filterAll": "Tümü"
+    }
   }
 }

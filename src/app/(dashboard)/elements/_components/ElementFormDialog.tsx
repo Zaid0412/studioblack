@@ -50,6 +50,7 @@ export interface ElementFormValues {
   materialCost: string;
   labourCost: string;
   overheadPct: string;
+  serviceChargePct: string;
   marginPct: string;
   specReference: string;
   drawingRef: string;
@@ -67,6 +68,7 @@ type CostKey =
   | "materialCost"
   | "labourCost"
   | "overheadPct"
+  | "serviceChargePct"
   | "marginPct";
 
 const COST_FIELDS: ReadonlyArray<{
@@ -79,6 +81,7 @@ const COST_FIELDS: ReadonlyArray<{
   { key: "materialCost", labelKey: "fieldMaterialCost" },
   { key: "labourCost", labelKey: "fieldLabourCost" },
   { key: "overheadPct", labelKey: "fieldOverheadPct", max: "100" },
+  { key: "serviceChargePct", labelKey: "fieldServiceChargePct", max: "100" },
   { key: "marginPct", labelKey: "fieldMarginPct", max: "100" },
 ];
 
@@ -93,6 +96,7 @@ const EMPTY_FORM: ElementFormValues = {
   materialCost: "",
   labourCost: "",
   overheadPct: "",
+  serviceChargePct: "",
   marginPct: "",
   specReference: "",
   drawingRef: "",
@@ -117,6 +121,7 @@ function elementToFormValues(el: ElementWithDetails): ElementFormValues {
     materialCost: el.material_cost ?? "",
     labourCost: el.labour_cost ?? "",
     overheadPct: el.overhead_pct ?? "",
+    serviceChargePct: el.service_charge_pct ?? "",
     marginPct: el.margin_pct ?? "",
     specReference: el.spec_reference ?? "",
     drawingRef: el.drawing_ref ?? "",
@@ -142,12 +147,18 @@ interface Props {
   onSubmit: (
     values: Omit<
       ElementFormValues,
-      "unitCost" | "materialCost" | "labourCost" | "overheadPct" | "marginPct"
+      | "unitCost"
+      | "materialCost"
+      | "labourCost"
+      | "overheadPct"
+      | "serviceChargePct"
+      | "marginPct"
     > & {
       unitCost: number;
       materialCost?: number;
       labourCost?: number;
       overheadPct?: number;
+      serviceChargePct?: number;
       marginPct?: number;
     }
   ) => Promise<void>;
@@ -241,6 +252,7 @@ export function ElementFormDialog({
       materialCost: toNumber(values.materialCost),
       labourCost: toNumber(values.labourCost),
       overheadPct: toNumber(values.overheadPct),
+      serviceChargePct: toNumber(values.serviceChargePct),
       marginPct: toNumber(values.marginPct),
       imageUrl: values.imageUrl,
       drawingFileUrl: values.drawingFileUrl,

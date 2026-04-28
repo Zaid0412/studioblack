@@ -747,6 +747,7 @@
     "fieldMaterialCost": "Material Cost",
     "fieldLabourCost": "Labour Cost",
     "fieldOverheadPct": "Overhead %",
+    "fieldServiceChargePct": "Service Charge %",
     "fieldMarginPct": "Margin %",
     "fieldSpecReference": "Specification Reference",
     "fieldDrawingRef": "Drawing Reference",
@@ -933,5 +934,18 @@
     "importTooLarge": "File is too large — max 5 MB.",
     "importMultipleFiles": "Only the first file will be imported.",
     "importRemoveFile": "Remove file"
+  },
+  "boq": {
+    "table": {
+      "columnSource": "Source",
+      "columnServiceCharge": "Service Charge %",
+      "sectionTotal": "Section total",
+      "sourceCustom": "Custom",
+      "sourceLibrary": "Library",
+      "sourceProject": "Project",
+      "sourceRateContract": "Rate Contract",
+      "filterBySource": "Filter by source",
+      "filterAll": "All"
+    }
   }
 }

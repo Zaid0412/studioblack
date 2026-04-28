@@ -202,6 +202,10 @@ export function BoqItemDrawer({
               label="Overhead"
               value={formatPct(item.overhead_pct)}
             />
+            <DetailField
+              label="Service charge"
+              value={formatPct(item.service_charge_pct)}
+            />
           </section>
 
           {item.element_id && (

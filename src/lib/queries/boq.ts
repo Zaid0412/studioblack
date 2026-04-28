@@ -15,6 +15,7 @@ import type {
   BoqImportStrategy,
   BoqItemLifecycleStatus,
   BoqItemClientApprovalStatus,
+  BoqItemSource,
   BoqStatus,
 } from "@/lib/validations";
 import type { z } from "zod";
@@ -31,8 +32,13 @@ import type { boqImportRowSchema } from "@/lib/validations";
  */
 const ITEM_COMPUTED_COLS = `
   bi.quantity * bi.unit_cost AS total_cost,
-  bi.quantity * bi.unit_cost * (1 + COALESCE(bi.overhead_pct, 0)/100) AS subtotal,
-  bi.quantity * bi.unit_cost * (1 + COALESCE(bi.overhead_pct, 0)/100) * (1 + bi.margin_pct/100) AS sell_price,
+  bi.quantity * bi.unit_cost
+    * (1 + COALESCE(bi.overhead_pct, 0)/100)
+    * (1 + COALESCE(bi.service_charge_pct, 0)/100) AS subtotal,
+  bi.quantity * bi.unit_cost
+    * (1 + COALESCE(bi.overhead_pct, 0)/100)
+    * (1 + COALESCE(bi.service_charge_pct, 0)/100)
+    * (1 + bi.margin_pct/100) AS sell_price,
   CASE
     WHEN bi.installed_qty > 0
     THEN ROUND(bi.installed_qty / NULLIF(bi.quantity, 0) * 100, 1)
@@ -364,6 +370,8 @@ export async function reorderBoqSections(
 export interface CreateBoqItemInput {
   sectionId?: string | null;
   elementId?: string | null;
+  /** Provenance — set by the create flow, not user-editable. Defaults to 'custom'. */
+  source?: BoqItemSource;
   itemCode?: string;
   description: string;
   unit: string;
@@ -372,6 +380,7 @@ export interface CreateBoqItemInput {
   materialCost?: number | null;
   labourCost?: number | null;
   overheadPct?: number;
+  serviceChargePct?: number;
   marginPct?: number;
   notes?: string | null;
   clientNotes?: string | null;
@@ -394,16 +403,16 @@ export async function createBoqItem(
   const { rows } = await pool.query<BoqItemWithComputed>(
     `WITH inserted AS (
        INSERT INTO boq_item (
-         boq_id, section_id, element_id, item_code, description, unit,
+         boq_id, section_id, element_id, source, item_code, description, unit,
          quantity, unit_cost, material_cost, labour_cost,
-         overhead_pct, margin_pct, notes, client_notes,
+         overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
-         $1, $2::uuid, $3, $4, $5, $6,
-         COALESCE($7, 0), COALESCE($8, 0), $9, $10,
-         COALESCE($11, 0), COALESCE($12, 0), $13, $14,
-         COALESCE($15, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($16, false), COALESCE($17, false)
+         $1, $2::uuid, $3, COALESCE($4, 'custom'), $5, $6, $7,
+         COALESCE($8, 0), COALESCE($9, 0), $10, $11,
+         COALESCE($12, 0), COALESCE($13, 0), COALESCE($14, 0), $15, $16,
+         COALESCE($17, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($18, false), COALESCE($19, false)
        )
        RETURNING *
      )
@@ -414,6 +423,7 @@ export async function createBoqItem(
       boqId,
       input.sectionId ?? null,
       input.elementId ?? null,
+      input.source ?? null,
       itemCode,
       input.description,
       input.unit,
@@ -422,6 +432,7 @@ export async function createBoqItem(
       input.materialCost ?? null,
       input.labourCost ?? null,
       input.overheadPct ?? null,
+      input.serviceChargePct ?? null,
       input.marginPct ?? null,
       input.notes ?? null,
       input.clientNotes ?? null,
@@ -443,6 +454,7 @@ export interface UpdateBoqItemInput {
   materialCost?: number | null;
   labourCost?: number | null;
   overheadPct?: number;
+  serviceChargePct?: number;
   marginPct?: number;
   lifecycleStatus?: BoqItemLifecycleStatus;
   clientApprovalStatus?: BoqItemClientApprovalStatus;
@@ -464,6 +476,7 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   materialCost: "material_cost",
   labourCost: "labour_cost",
   overheadPct: "overhead_pct",
+  serviceChargePct: "service_charge_pct",
   marginPct: "margin_pct",
   lifecycleStatus: "lifecycle_status",
   clientApprovalStatus: "client_approval_status",
@@ -488,6 +501,7 @@ const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   "materialCost",
   "labourCost",
   "overheadPct",
+  "serviceChargePct",
   "marginPct",
   "sectionId",
 ]);
@@ -629,7 +643,7 @@ export async function addElementToBoq(
   const pool = getPool();
   const { rows: elementRows } = await pool.query(
     `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
-            overhead_pct, margin_pct
+            overhead_pct, service_charge_pct, margin_pct
      FROM element WHERE id = $1`,
     [params.elementId]
   );
@@ -639,6 +653,7 @@ export async function addElementToBoq(
   return createBoqItem(boqId, orgId, {
     sectionId: params.sectionId,
     elementId: params.elementId,
+    source: "library",
     itemCode: e.code,
     description: e.description || e.name,
     unit: e.unit,
@@ -647,6 +662,8 @@ export async function addElementToBoq(
     materialCost: e.material_cost !== null ? Number(e.material_cost) : null,
     labourCost: e.labour_cost !== null ? Number(e.labour_cost) : null,
     overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,
+    serviceChargePct:
+      e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
     marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
   });
 }
@@ -664,6 +681,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          COALESCE(SUM(
            bi.quantity * bi.unit_cost
            * (1 + COALESCE(bi.overhead_pct, 0)/100)
+           * (1 + COALESCE(bi.service_charge_pct, 0)/100)
            * (1 + bi.margin_pct/100)
          ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
@@ -683,6 +701,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          COALESCE(SUM(
            bi.quantity * bi.unit_cost
            * (1 + COALESCE(bi.overhead_pct, 0)/100)
+           * (1 + COALESCE(bi.service_charge_pct, 0)/100)
            * (1 + bi.margin_pct/100)
          ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COUNT(*) AS item_count
@@ -975,15 +994,17 @@ export async function bulkInsertBoqItems(
       try {
         await client.query(
           `INSERT INTO boq_item (
-             boq_id, section_id, element_id, item_code, description, unit,
+             boq_id, section_id, element_id, source, item_code, description, unit,
              quantity, unit_cost, material_cost, labour_cost,
-             overhead_pct, margin_pct, notes, client_notes,
+             overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
              sort_order, is_provisional
            ) VALUES (
-             $1, $2::uuid, $3::uuid, $4, $5, $6,
+             $1, $2::uuid, $3::uuid,
+             CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
+             $4, $5, $6,
              $7, $8, $9, $10,
-             COALESCE($11, 0), COALESCE($12, 0), $13, $14,
-             $15, COALESCE($16, false)
+             COALESCE($11, 0), COALESCE($12, 0), COALESCE($13, 0), $14, $15,
+             $16, COALESCE($17, false)
            )`,
           [
             boqId,
@@ -997,6 +1018,7 @@ export async function bulkInsertBoqItems(
             row.materialCost ?? null,
             row.labourCost ?? null,
             row.overheadPct ?? null,
+            row.serviceChargePct ?? null,
             row.marginPct ?? null,
             row.notes ?? null,
             row.clientNotes ?? null,

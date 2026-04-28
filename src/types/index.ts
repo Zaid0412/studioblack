@@ -6,6 +6,7 @@ import type {
   BoqItemLifecycleStatus,
   BoqItemClientApprovalStatus,
   BoqItemPoStatus,
+  BoqItemSource,
 } from "@/lib/validations";
 
 /** Roles available to authenticated users. */
@@ -388,6 +389,7 @@ export interface Element {
   material_cost: string | null;
   labour_cost: string | null;
   overhead_pct: string | null;
+  service_charge_pct: string | null;
   margin_pct: string | null;
   spec_reference: string | null;
   drawing_ref: string | null;
@@ -481,7 +483,9 @@ export interface BoqItem {
   material_cost: string | null;
   labour_cost: string | null;
   overhead_pct: string;
+  service_charge_pct: string;
   margin_pct: string;
+  source: BoqItemSource;
   lifecycle_status: BoqItemLifecycleStatus;
   client_approval_status: BoqItemClientApprovalStatus;
   client_approved_at: string | null;
