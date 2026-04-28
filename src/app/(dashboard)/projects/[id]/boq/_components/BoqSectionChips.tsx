@@ -31,12 +31,20 @@ export function BoqSectionChips({
 }: BoqSectionChipsProps) {
   const [activeId, setActiveId] = useState<string | null>(chips[0]?.id ?? null);
   const stripRef = useRef<HTMLDivElement>(null);
+  // Read latest `chips` inside the observer callback without re-depending on
+  // the chips array itself — otherwise every BOQ mutation (item add/edit)
+  // would rebuild N IntersectionObservers even when section IDs haven't moved.
+  const chipsRef = useRef(chips);
+  useEffect(() => {
+    chipsRef.current = chips;
+  });
+  const sectionIdSignature = chips.map((c) => c.id).join("|");
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
     const visible = new Set<string>();
 
-    for (const chip of chips) {
+    for (const chip of chipsRef.current) {
       const el = getSectionEl(chip.id);
       if (!el) continue;
       const obs = new IntersectionObserver(
@@ -45,11 +53,11 @@ export function BoqSectionChips({
             if (entry.isIntersecting) visible.add(chip.id);
             else visible.delete(chip.id);
           }
-          // Pick the first chip in declaration order whose section is visible.
-          const next = chips.find((c) => visible.has(c.id))?.id ?? null;
+          const next =
+            chipsRef.current.find((c) => visible.has(c.id))?.id ?? null;
           if (next) setActiveId(next);
         },
-        // Trigger when the section header crosses the top half of the viewport.
+        // Trigger band: a thin slice in the upper third of the viewport.
         { rootMargin: "-30% 0px -60% 0px", threshold: 0 }
       );
       obs.observe(el);
@@ -59,14 +67,11 @@ export function BoqSectionChips({
     return () => {
       for (const obs of observers) obs.disconnect();
     };
-  }, [chips, getSectionEl]);
+  }, [sectionIdSignature, getSectionEl]);
 
-  // Keep the active chip horizontally in view as the user scrolls between
-  // sections — otherwise long chip strips can leave the highlight off-screen.
-  // Important: only scroll the strip horizontally. `el.scrollIntoView` walks
-  // up scrollable ancestors and can scroll the page vertically when the
-  // sticky strip leaves its sticky range near the end of the table — felt to
-  // the user as a "bounce-back" while reading the last section.
+  // Manual horizontal scroll — `el.scrollIntoView` walks up scrollable
+  // ancestors and yanks the document upward when the sticky strip nears the
+  // end of its sticky range, so we never call it on a chip.
   useEffect(() => {
     if (!activeId || !stripRef.current) return;
     const strip = stripRef.current;

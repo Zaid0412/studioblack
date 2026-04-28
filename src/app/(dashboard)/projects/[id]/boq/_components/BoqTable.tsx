@@ -129,10 +129,11 @@ export function BoqTable({
   const sectionsEditable = canEdit && !boqLocked;
   // One ref per section header — chip strip uses these for IntersectionObserver
   // and smooth-scroll targets without prop-drilling refs through the section body.
-  const sectionRefs = useRef<Map<string, HTMLElement | null>>(new Map());
+  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
   const registerSectionRef = useCallback(
     (id: string, el: HTMLElement | null) => {
-      sectionRefs.current.set(id, el);
+      if (el === null) sectionRefs.current.delete(id);
+      else sectionRefs.current.set(id, el);
     },
     []
   );

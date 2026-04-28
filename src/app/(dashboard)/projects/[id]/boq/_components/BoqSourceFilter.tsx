@@ -2,18 +2,12 @@
 
 import { useTranslations } from "next-intl";
 import { BOQ_ITEM_SOURCES, type BoqItemSource } from "@/lib/validations";
+import { SOURCE_DISPLAY } from "../_lib/sources";
 
 interface BoqSourceFilterProps {
   selected: ReadonlySet<BoqItemSource>;
   onChange: (next: Set<BoqItemSource>) => void;
 }
-
-const I18N_KEY: Record<BoqItemSource, string> = {
-  custom: "sourceCustom",
-  library: "sourceLibrary",
-  project: "sourceProject",
-  rate_contract: "sourceRateContract",
-};
 
 /** Multi-toggle filter chips for the BOQ row provenance column. */
 export function BoqSourceFilter({ selected, onChange }: BoqSourceFilterProps) {
@@ -60,7 +54,7 @@ export function BoqSourceFilter({ selected, onChange }: BoqSourceFilterProps) {
                 : "bg-bg-elevated text-text-primary hover:bg-bg-elevated/80"
             }`}
           >
-            {t(I18N_KEY[src])}
+            {t(SOURCE_DISPLAY[src].i18nKey)}
           </button>
         );
       })}

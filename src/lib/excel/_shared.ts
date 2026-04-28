@@ -486,8 +486,8 @@ export interface SharedFinancialValues {
 
 /**
  * Spec hoisted to module scope — `parseSharedFinancialFields` runs once per
- * imported row, so re-allocating an array each call adds up to many needless
- * allocations on a large sheet.
+ * imported row, so re-allocating a 5-tuple array each call adds up to ~25k
+ * needless allocations on a 5,000-row sheet.
  */
 const SHARED_FINANCIAL_SPEC: ReadonlyArray<
   readonly [SharedFinancialKey, string, NumericRange]

@@ -400,79 +400,50 @@ export async function createBoqItem(
     : await getNextSequenceNumber(orgId, "BOQ");
 
   const pool = getPool();
-  // Numeric/int casts are explicit so pg can't mis-infer parameter types when
-  // some numeric placeholders are NULL — the symptom of getting that wrong is
-  // a confusing "invalid input syntax for type integer" error far from the
-  // actual offending column.
-  const params = [
-    boqId,
-    input.sectionId ?? null,
-    input.elementId ?? null,
-    input.source ?? null,
-    itemCode,
-    input.description,
-    input.unit,
-    input.quantity ?? null,
-    input.unitCost ?? null,
-    input.materialCost ?? null,
-    input.labourCost ?? null,
-    input.overheadPct ?? null,
-    input.serviceChargePct ?? null,
-    input.marginPct ?? null,
-    input.notes ?? null,
-    input.clientNotes ?? null,
-    input.sortOrder ?? null,
-    input.isProvisional ?? null,
-    input.isExcluded ?? null,
-  ];
-  let rows: BoqItemWithComputed[];
-  try {
-    const result = await pool.query<BoqItemWithComputed>(
-      `WITH inserted AS (
-         INSERT INTO boq_item (
-           boq_id, section_id, element_id, source, item_code, description, unit,
-           quantity, unit_cost, material_cost, labour_cost,
-           overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
-           sort_order, is_provisional, is_excluded
-         ) VALUES (
-           $1, $2::uuid, $3, COALESCE($4, 'custom'), $5, $6, $7,
-           COALESCE($8::numeric, 0), COALESCE($9::numeric, 0), $10::numeric, $11::numeric,
-           COALESCE($12::numeric, 0), COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), $15, $16,
-           COALESCE($17::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-           COALESCE($18, false), COALESCE($19, false)
-         )
-         RETURNING *
+  // Explicit ::numeric / ::int casts on numeric placeholders. Without them
+  // pg infers the type from `COALESCE($N, 0)` as INTEGER (because the literal
+  // `0` is INTEGER) and rejects fractional values like "2.5".
+  const { rows } = await pool.query<BoqItemWithComputed>(
+    `WITH inserted AS (
+       INSERT INTO boq_item (
+         boq_id, section_id, element_id, source, item_code, description, unit,
+         quantity, unit_cost, material_cost, labour_cost,
+         overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
+         sort_order, is_provisional, is_excluded
+       ) VALUES (
+         $1, $2::uuid, $3, COALESCE($4, 'custom'), $5, $6, $7,
+         COALESCE($8::numeric, 0), COALESCE($9::numeric, 0), $10::numeric, $11::numeric,
+         COALESCE($12::numeric, 0), COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), $15, $16,
+         COALESCE($17::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($18, false), COALESCE($19, false)
        )
-       SELECT bi.*, ${ITEM_COMPUTED_COLS}
-       FROM inserted bi
-       JOIN boq b ON b.id = bi.boq_id`,
-      params
-    );
-    rows = result.rows;
-  } catch (err) {
-    logger.error("createBoqItem failed", {
-      error: err instanceof Error ? err.message : String(err),
-      params: {
-        boqId,
-        sectionId: input.sectionId ?? null,
-        elementId: input.elementId ?? null,
-        source: input.source ?? null,
-        itemCode,
-        unit: input.unit,
-        quantity: input.quantity ?? null,
-        unitCost: input.unitCost ?? null,
-        materialCost: input.materialCost ?? null,
-        labourCost: input.labourCost ?? null,
-        overheadPct: input.overheadPct ?? null,
-        serviceChargePct: input.serviceChargePct ?? null,
-        marginPct: input.marginPct ?? null,
-        sortOrder: input.sortOrder ?? null,
-        isProvisional: input.isProvisional ?? null,
-        isExcluded: input.isExcluded ?? null,
-      },
-    });
-    throw err;
-  }
+       RETURNING *
+     )
+     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     FROM inserted bi
+     JOIN boq b ON b.id = bi.boq_id`,
+    [
+      boqId,
+      input.sectionId ?? null,
+      input.elementId ?? null,
+      input.source ?? null,
+      itemCode,
+      input.description,
+      input.unit,
+      input.quantity ?? null,
+      input.unitCost ?? null,
+      input.materialCost ?? null,
+      input.labourCost ?? null,
+      input.overheadPct ?? null,
+      input.serviceChargePct ?? null,
+      input.marginPct ?? null,
+      input.notes ?? null,
+      input.clientNotes ?? null,
+      input.sortOrder ?? null,
+      input.isProvisional ?? null,
+      input.isExcluded ?? null,
+    ]
+  );
   return rows[0];
 }
 
