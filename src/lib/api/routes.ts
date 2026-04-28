@@ -109,4 +109,11 @@ export const API = {
   boqImport:             (pid: string)                       => `/api/projects/${pid}/boq/import`,
   boqImportConfirm:      (pid: string)                       => `/api/projects/${pid}/boq/import/confirm`,
   boqExport:             (pid: string)                       => `/api/projects/${pid}/boq/export`,
+
+  // ── Vendors (Feature 7) ─────────────────────────
+  vendors:               ()                            => "/api/vendors",
+  vendor:                (id: string)                  => `/api/vendors/${id}`,
+  vendorBankDetails:     (id: string)                  => `/api/vendors/${id}/bank-details`,
+  vendorRating:          (id: string)                  => `/api/vendors/${id}/rating`,
+  vendorsByTrade:        (categoryId: string)          => `/api/vendors/by-trade/${categoryId}`,
 } as const;

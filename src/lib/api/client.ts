@@ -70,6 +70,21 @@ export function apiPatch<T>(
   return request<T>(url, init);
 }
 
+/** Send a PUT request with an optional JSON body (whole-object replacement). */
+export function apiPut<T>(
+  url: string,
+  body?: unknown,
+  opts?: ApiRequestOptions
+): Promise<T> {
+  const init: RequestInit = {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+  if (opts?.signal) init.signal = opts.signal;
+  return request<T>(url, init);
+}
+
 /** Send a DELETE request with an optional JSON body. */
 export function apiDelete<T = void>(
   url: string,
