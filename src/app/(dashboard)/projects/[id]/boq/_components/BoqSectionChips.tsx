@@ -63,16 +63,31 @@ export function BoqSectionChips({
 
   // Keep the active chip horizontally in view as the user scrolls between
   // sections — otherwise long chip strips can leave the highlight off-screen.
+  // Important: only scroll the strip horizontally. `el.scrollIntoView` walks
+  // up scrollable ancestors and can scroll the page vertically when the
+  // sticky strip leaves its sticky range near the end of the table — felt to
+  // the user as a "bounce-back" while reading the last section.
   useEffect(() => {
     if (!activeId || !stripRef.current) return;
-    const el = stripRef.current.querySelector<HTMLButtonElement>(
+    const strip = stripRef.current;
+    const el = strip.querySelector<HTMLButtonElement>(
       `[data-chip-id="${activeId}"]`
     );
-    el?.scrollIntoView({
-      behavior: "smooth",
-      inline: "nearest",
-      block: "nearest",
-    });
+    if (!el) return;
+    const stripRect = strip.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const PADDING = 16;
+    if (elRect.left < stripRect.left + PADDING) {
+      strip.scrollBy({
+        left: elRect.left - stripRect.left - PADDING,
+        behavior: "smooth",
+      });
+    } else if (elRect.right > stripRect.right - PADDING) {
+      strip.scrollBy({
+        left: elRect.right - stripRect.right + PADDING,
+        behavior: "smooth",
+      });
+    }
   }, [activeId]);
 
   if (chips.length === 0) return null;
