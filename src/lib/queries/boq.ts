@@ -1025,6 +1025,9 @@ export async function bulkInsertBoqItems(
 
       try {
         await client.query(
+          // Same explicit-cast pattern as createBoqItem — without the casts,
+          // pg infers numeric placeholders as INTEGER from `COALESCE($N, 0)`
+          // and rejects fractional values like "2.50".
           `INSERT INTO boq_item (
              boq_id, section_id, element_id, source, item_code, description, unit,
              quantity, unit_cost, material_cost, labour_cost,
@@ -1034,9 +1037,9 @@ export async function bulkInsertBoqItems(
              $1, $2::uuid, $3::uuid,
              CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
              $4, $5, $6,
-             $7, $8, $9, $10,
-             COALESCE($11, 0), COALESCE($12, 0), COALESCE($13, 0), $14, $15,
-             $16, COALESCE($17, false)
+             $7::numeric, $8::numeric, $9::numeric, $10::numeric,
+             COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0), $14, $15,
+             $16::int, COALESCE($17, false)
            )`,
           [
             boqId,
