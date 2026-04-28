@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { mutate as globalMutate } from "swr";
 import { Sparkles, Save } from "lucide-react";
@@ -19,10 +19,8 @@ import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { elementCategories as categoriesApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
-import {
-  STARTER_CATEGORIES,
-  type StarterCategory,
-} from "@/lib/categoryTemplates";
+import { STARTER_CATEGORIES } from "@/lib/categoryTemplates";
+import type { BulkCategoryNode } from "@/lib/validations";
 
 interface Props {
   open: boolean;
@@ -55,6 +53,12 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
   const [checked, setChecked] = useState<Set<string>>(initialChecked);
   const [submitting, setSubmitting] = useState(false);
 
+  // Reset selections each time the dialog opens so a previous cancel doesn't
+  // leak into the next visit.
+  useEffect(() => {
+    if (open) setChecked(new Set(initialChecked));
+  }, [open, initialChecked]);
+
   const toggleParent = (parentKey: string, childKeys: string[]) => {
     setChecked((prev) => {
       const next = new Set(prev);
@@ -83,30 +87,27 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
     });
   };
 
-  const totalSelected = checked.size;
+  const selectedParentCount = STARTER_CATEGORIES.reduce(
+    (n, c) => (checked.has(c.key) ? n + 1 : n),
+    0
+  );
 
   const handleCreate = async () => {
-    const payload = STARTER_CATEGORIES.flatMap<
-      | Parameters<typeof categoriesApi.bulkCreate>[0]["categories"][number]
-      | null
-    >((c: StarterCategory) => {
-      if (!checked.has(c.key)) return [null];
-      const childPayload = c.children
+    const payload: BulkCategoryNode[] = [];
+    for (const c of STARTER_CATEGORIES) {
+      if (!checked.has(c.key)) continue;
+      const children = c.children
         .filter((child) => checked.has(`${c.key}/${child.key}`))
         .map((child) => ({
           name: tStart(`${c.key}.children.${child.key}`),
         }));
-      return [
-        {
-          name: tStart(`${c.key}.name`),
-          icon: c.icon,
-          color: c.color,
-          children: childPayload.length > 0 ? childPayload : undefined,
-        },
-      ];
-    }).filter(Boolean) as Parameters<
-      typeof categoriesApi.bulkCreate
-    >[0]["categories"];
+      payload.push({
+        name: tStart(`${c.key}.name`),
+        icon: c.icon,
+        color: c.color,
+        children: children.length > 0 ? children : undefined,
+      });
+    }
 
     if (payload.length === 0) {
       toast({ title: t("starterNoneSelected"), variant: "warning" });
@@ -124,6 +125,7 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
           created: createdCount,
           skipped: skippedCount,
         }),
+        variant: createdCount > 0 ? "default" : "warning",
       });
       onOpenChange(false);
     } catch (err) {
@@ -200,12 +202,12 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
           <Button
             type="button"
             onClick={handleCreate}
-            disabled={submitting || totalSelected === 0}
+            disabled={submitting || selectedParentCount === 0}
           >
             <Save className="h-4 w-4" />
             {submitting
               ? tCommon("loading")
-              : t("starterCreateBtn", { count: totalSelected })}
+              : t("starterCreateBtn", { count: selectedParentCount })}
           </Button>
         </DialogFooter>
       </DialogContent>

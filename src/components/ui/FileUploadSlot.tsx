@@ -1,12 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { upload as uploadApi } from "@/lib/api";
-import { toast } from "@/components/ui/useToast";
+import { useFileUpload } from "@/hooks/useFileUpload";
 
 interface BaseProps {
   /** Free-form label rendered above the slot. */
@@ -46,103 +45,24 @@ type Props = ImageSlotProps | FileSlotProps;
  */
 export function FileUploadSlot(props: Props) {
   const t = useTranslations("common");
-  const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { uploading, uploadAndAttach } = useFileUpload();
 
   const handleFile = async (file: File | null) => {
     if (!file) return;
-    setUploading(true);
     try {
-      const result = await uploadApi.uploadFile(file);
-      props.onUploaded(result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      toast({ title: msg, variant: "error" });
-    } finally {
-      setUploading(false);
+      await uploadAndAttach(file, async (result) => {
+        props.onUploaded(result);
+      });
+    } catch {
+      /* error already surfaced by the shared hook */
     }
   };
 
   const onPick = () => inputRef.current?.click();
-
-  if (props.variant === "image") {
-    const size = props.size ?? 96;
-    return (
-      <div className={cn("flex flex-col gap-1.5", props.className)}>
-        {props.label && (
-          <label className="text-[13px] font-medium text-text-secondary">
-            {props.label}
-          </label>
-        )}
-        <div
-          className="relative flex items-center justify-center overflow-hidden rounded-lg border border-dashed border-border-default bg-bg-input transition-colors hover:border-accent"
-          style={{ width: size, height: size }}
-        >
-          {props.url ? (
-            <>
-              <Image
-                src={props.url}
-                alt=""
-                width={size}
-                height={size}
-                className="object-cover"
-                style={{ width: size, height: size }}
-                unoptimized
-              />
-              <button
-                type="button"
-                onClick={props.onCleared}
-                aria-label={t("delete")}
-                className="absolute right-1 top-1 rounded-full bg-bg-primary/90 p-1 text-text-muted hover:text-error"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={onPick}
-              disabled={uploading}
-              className="flex h-full w-full flex-col items-center justify-center gap-1 text-text-muted hover:text-accent disabled:opacity-50"
-            >
-              {uploading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  <Upload className="h-5 w-5" />
-                  <span className="text-[10px]">{t("upload")}</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-        {props.url && (
-          <button
-            type="button"
-            onClick={onPick}
-            disabled={uploading}
-            className="self-start text-[11px] text-text-muted hover:text-accent disabled:opacity-50"
-          >
-            {uploading ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              t("replace")
-            )}
-          </button>
-        )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept={props.accept ?? "image/*"}
-          className="hidden"
-          onChange={(e) => {
-            void handleFile(e.target.files?.[0] ?? null);
-            e.target.value = "";
-          }}
-        />
-      </div>
-    );
-  }
+  const accept =
+    props.accept ?? (props.variant === "image" ? "image/*" : undefined);
+  const size = props.variant === "image" ? (props.size ?? 96) : 0;
 
   return (
     <div className={cn("flex flex-col gap-1.5", props.className)}>
@@ -151,7 +71,67 @@ export function FileUploadSlot(props: Props) {
           {props.label}
         </label>
       )}
-      {props.url ? (
+
+      {props.variant === "image" ? (
+        <>
+          <div
+            className="relative flex items-center justify-center overflow-hidden rounded-lg border border-dashed border-border-default bg-bg-input transition-colors hover:border-accent"
+            style={{ width: size, height: size }}
+          >
+            {props.url ? (
+              <>
+                <Image
+                  src={props.url}
+                  alt=""
+                  width={size}
+                  height={size}
+                  className="object-cover"
+                  style={{ width: size, height: size }}
+                  unoptimized
+                />
+                <button
+                  type="button"
+                  onClick={props.onCleared}
+                  aria-label={t("delete")}
+                  className="absolute right-1 top-1 rounded-full bg-bg-primary/90 p-1 text-text-muted hover:text-error"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={onPick}
+                disabled={uploading}
+                className="flex h-full w-full flex-col items-center justify-center gap-1 text-text-muted hover:text-accent disabled:opacity-50"
+              >
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5" />
+                    <span className="text-[10px]">{t("upload")}</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+          {props.url && (
+            <button
+              type="button"
+              onClick={onPick}
+              disabled={uploading}
+              className="self-start text-[11px] text-text-muted hover:text-accent disabled:opacity-50"
+            >
+              {uploading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                t("replace")
+              )}
+            </button>
+          )}
+        </>
+      ) : props.url ? (
         <div className="flex items-center gap-2 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm">
           <FileText className="h-4 w-4 shrink-0 text-text-muted" />
           <a
@@ -198,10 +178,11 @@ export function FileUploadSlot(props: Props) {
           <span>{t("upload")}</span>
         </button>
       )}
+
       <input
         ref={inputRef}
         type="file"
-        accept={props.accept}
+        accept={accept}
         className="hidden"
         onChange={(e) => {
           void handleFile(e.target.files?.[0] ?? null);

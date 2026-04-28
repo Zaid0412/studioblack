@@ -318,7 +318,7 @@ export const updateElementCategorySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const bulkCategoryNode = z.object({
+const bulkCategoryChild = z.object({
   name: trimmedString.max(150),
   codePrefix: z.string().max(10).optional(),
   icon: z.string().max(50).optional(),
@@ -326,25 +326,17 @@ const bulkCategoryNode = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/)
     .optional(),
-  children: z
-    .array(
-      z.object({
-        name: trimmedString.max(150),
-        codePrefix: z.string().max(10).optional(),
-        icon: z.string().max(50).optional(),
-        color: z
-          .string()
-          .regex(/^#[0-9A-Fa-f]{6}$/)
-          .optional(),
-      })
-    )
-    .max(20)
-    .optional(),
+});
+
+const bulkCategoryNode = bulkCategoryChild.extend({
+  children: z.array(bulkCategoryChild).max(20).optional(),
 });
 
 export const bulkCreateCategoriesSchema = z.object({
   categories: z.array(bulkCategoryNode).min(1).max(20),
 });
+
+export type BulkCategoryNode = z.infer<typeof bulkCategoryNode>;
 
 export const reorderCategoriesSchema = z.object({
   parentId: z.string().uuid().nullable(),

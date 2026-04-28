@@ -55,46 +55,50 @@ export function ElementTable({
   const t = useTranslations("elements");
 
   return (
-    <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
-      <div className="hidden lg:grid grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
-        <div></div>
-        <div>{t("colCode")}</div>
-        <div>{t("colName")}</div>
-        <div>{t("colCategory")}</div>
-        <div>{t("colUnit")}</div>
-        <div className="text-right">{t("colUnitCost")}</div>
-        <div className="text-right">{t("colActions")}</div>
-      </div>
+    <TooltipProvider>
+      <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
+        <div className="hidden lg:grid grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
+          <div></div>
+          <div>{t("colCode")}</div>
+          <div>{t("colName")}</div>
+          <div>{t("colCategory")}</div>
+          <div>{t("colUnit")}</div>
+          <div className="text-right">{t("colUnitCost")}</div>
+          <div className="text-right">{t("colActions")}</div>
+        </div>
 
-      <div className="flex flex-col">
-        {isLoading ? (
-          Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonRow key={i} columns={7} />
-          ))
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={Layers}
-            title={t("noResults")}
-            description={t("noResultsHint")}
-          />
-        ) : (
-          rows.map((el) => (
-            <ElementRow
-              key={el.id}
-              element={el}
-              categoryName={
-                el.category_id ? (categoryMap.get(el.category_id) ?? "—") : "—"
-              }
-              onClick={() => onRowClick(el)}
-              onEdit={() => onEdit(el)}
-              onDuplicate={() => onDuplicate(el)}
-              onArchive={() => onArchive(el)}
-              onRestore={() => onRestore(el)}
+        <div className="flex flex-col">
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonRow key={i} columns={7} />
+            ))
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title={t("noResults")}
+              description={t("noResultsHint")}
             />
-          ))
-        )}
+          ) : (
+            rows.map((el) => (
+              <ElementRow
+                key={el.id}
+                element={el}
+                categoryName={
+                  el.category_id
+                    ? (categoryMap.get(el.category_id) ?? "—")
+                    : "—"
+                }
+                onClick={() => onRowClick(el)}
+                onEdit={() => onEdit(el)}
+                onDuplicate={() => onDuplicate(el)}
+                onArchive={() => onArchive(el)}
+                onRestore={() => onRestore(el)}
+              />
+            ))
+          )}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -120,11 +124,11 @@ function ElementRow({
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
 
-  const attachedFileNames: string[] = [];
-  if (element.drawing_file_url)
-    attachedFileNames.push(element.drawing_file_name ?? t("fieldDrawingFile"));
-  if (element.spec_file_url)
-    attachedFileNames.push(element.spec_file_name ?? t("fieldSpecFile"));
+  const attachedFileNames = [
+    element.drawing_file_url &&
+      (element.drawing_file_name ?? t("fieldDrawingFile")),
+    element.spec_file_url && (element.spec_file_name ?? t("fieldSpecFile")),
+  ].filter(Boolean) as string[];
 
   return (
     <div
@@ -170,25 +174,23 @@ function ElementRow({
           </Badge>
         )}
         {attachedFileNames.length > 0 && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className="shrink-0 text-text-muted"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Paperclip className="w-3.5 h-3.5" />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <ul className="text-xs">
-                  {attachedFileNames.map((n) => (
-                    <li key={n}>{n}</li>
-                  ))}
-                </ul>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="shrink-0 text-text-muted"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <ul className="text-xs">
+                {attachedFileNames.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
       <div className="text-sm text-text-secondary truncate">{categoryName}</div>

@@ -1,5 +1,8 @@
 import { getPool } from "@/lib/db";
+import type { BulkCategoryNode } from "@/lib/validations";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
+
+export type { BulkCategoryNode };
 
 /** Build a nested tree from flat category rows. */
 export function buildCategoryTree(
@@ -128,19 +131,6 @@ export async function createCategory(
   return rows[0] as ElementCategory;
 }
 
-export interface BulkCategoryNode {
-  name: string;
-  codePrefix?: string;
-  icon?: string;
-  color?: string;
-  children?: Array<{
-    name: string;
-    codePrefix?: string;
-    icon?: string;
-    color?: string;
-  }>;
-}
-
 /**
  * Create many top-level categories (with optional 1-deep children) in one
  * transaction. Skips any node whose `name` already exists at its target
@@ -162,77 +152,99 @@ export async function bulkCreateCategoriesFromTemplates(
   try {
     await client.query("BEGIN");
 
-    for (const tpl of templates) {
-      const existingTop = await client.query<ElementCategory>(
-        `SELECT * FROM element_category
-          WHERE org_id = $1 AND parent_id IS NULL AND lower(name) = lower($2)
-          LIMIT 1`,
-        [orgId, tpl.name]
-      );
+    // One round-trip up front instead of N existence-check round-trips during
+    // the loop. With the full starter set (8 parents × ~3 children) this
+    // collapses ~32 SELECTs into 1 SELECT.
+    const { rows: existingRows } = await client.query<{
+      id: string;
+      name: string;
+      parent_id: string | null;
+      sort_order: number;
+    }>(
+      `SELECT id, name, parent_id, sort_order
+         FROM element_category
+        WHERE org_id = $1 AND level <= 2`,
+      [orgId]
+    );
 
-      let parent: ElementCategory;
-      if (existingTop.rows.length > 0) {
-        parent = existingTop.rows[0];
+    const topByName = new Map<string, { id: string }>();
+    let topMaxSort = -1;
+    const childrenByParent = new Map<
+      string,
+      { names: Set<string>; maxSort: number }
+    >();
+    for (const row of existingRows) {
+      if (row.parent_id === null) {
+        topByName.set(row.name.toLowerCase(), { id: row.id });
+        if (row.sort_order > topMaxSort) topMaxSort = row.sort_order;
+      } else {
+        const bucket = childrenByParent.get(row.parent_id) ?? {
+          names: new Set<string>(),
+          maxSort: -1,
+        };
+        bucket.names.add(row.name.toLowerCase());
+        if (row.sort_order > bucket.maxSort) bucket.maxSort = row.sort_order;
+        childrenByParent.set(row.parent_id, bucket);
+      }
+    }
+
+    for (const tpl of templates) {
+      const existing = topByName.get(tpl.name.toLowerCase());
+      let parentId: string;
+      if (existing) {
+        parentId = existing.id;
         skipped.push(tpl.name);
       } else {
+        topMaxSort += 1;
         const { rows } = await client.query<ElementCategory>(
           `INSERT INTO element_category
              (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
-           VALUES (
-             $1, $2, NULL, 1, $3,
-             (SELECT COALESCE(MAX(sort_order), -1) + 1
-                FROM element_category
-               WHERE org_id = $1 AND parent_id IS NULL),
-             $4, $5
-           )
+           VALUES ($1, $2, NULL, 1, $3, $4, $5, $6)
            RETURNING *`,
           [
             orgId,
             tpl.name,
             tpl.codePrefix ?? null,
+            topMaxSort,
             tpl.icon ?? null,
             tpl.color ?? null,
           ]
         );
-        parent = rows[0];
-        created.push(parent);
+        parentId = rows[0].id;
+        created.push(rows[0]);
       }
 
       if (!tpl.children || tpl.children.length === 0) continue;
 
+      const bucket = childrenByParent.get(parentId) ?? {
+        names: new Set<string>(),
+        maxSort: -1,
+      };
       for (const child of tpl.children) {
-        const existingChild = await client.query<ElementCategory>(
-          `SELECT 1 FROM element_category
-            WHERE org_id = $1 AND parent_id = $2 AND lower(name) = lower($3)
-            LIMIT 1`,
-          [orgId, parent.id, child.name]
-        );
-        if (existingChild.rows.length > 0) {
+        if (bucket.names.has(child.name.toLowerCase())) {
           skipped.push(`${tpl.name} / ${child.name}`);
           continue;
         }
+        bucket.maxSort += 1;
         const { rows } = await client.query<ElementCategory>(
           `INSERT INTO element_category
              (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
-           VALUES (
-             $1, $2, $3, 2, $4,
-             (SELECT COALESCE(MAX(sort_order), -1) + 1
-                FROM element_category
-               WHERE org_id = $1 AND parent_id = $3),
-             $5, $6
-           )
+           VALUES ($1, $2, $3, 2, $4, $5, $6, $7)
            RETURNING *`,
           [
             orgId,
             child.name,
-            parent.id,
+            parentId,
             child.codePrefix ?? null,
+            bucket.maxSort,
             child.icon ?? null,
             child.color ?? null,
           ]
         );
         created.push(rows[0]);
+        bucket.names.add(child.name.toLowerCase());
       }
+      childrenByParent.set(parentId, bucket);
     }
 
     await client.query("COMMIT");

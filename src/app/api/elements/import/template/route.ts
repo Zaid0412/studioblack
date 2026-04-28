@@ -21,6 +21,8 @@ export const GET = withAuth({ allowedRoles: ["pm", "architect"] }, async () => {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition":
       "attachment; filename=\"elements-template.xlsx\"; filename*=UTF-8''elements-template.xlsx",
+    // Sample template is deterministic — let CDN + browser cache for a day.
+    "Cache-Control": "public, max-age=86400, immutable",
   });
   return new NextResponse(new Uint8Array(buffer), { headers });
 });
