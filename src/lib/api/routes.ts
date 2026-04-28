@@ -80,6 +80,7 @@ export const API = {
   elementCategories:        ()                            => "/api/element-categories",
   elementCategory:          (id: string)                  => `/api/element-categories/${id}`,
   elementCategoriesReorder: ()                            => "/api/element-categories/reorder",
+  elementCategoriesBulk:    ()                            => "/api/element-categories/bulk",
 
   // ── Elements ────────────────────────────────────
   elements:                 ()                            => "/api/elements",
@@ -89,6 +90,7 @@ export const API = {
   elementVersions:          (id: string)                  => `/api/elements/${id}/versions`,
   elementsImport:           ()                            => "/api/elements/import",
   elementsImportConfirm:    ()                            => "/api/elements/import/confirm",
+  elementsImportTemplate:   ()                            => "/api/elements/import/template",
   elementsExport:           (qs: string)                  => `/api/elements/export${qs}`,
 
   // ── Client Portal ──────────────────────────────

@@ -4,11 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { ChevronRight, Plus, Settings, ArrowUpRight } from "lucide-react";
+import {
+  ChevronRight,
+  Plus,
+  Settings,
+  ArrowUpRight,
+  Sparkles,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/api/routes";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
+import { CategoryTemplatesDialog } from "./CategoryTemplatesDialog";
 import { useCreateCategory } from "@/hooks/useCreateCategory";
 import { useUserRole } from "@/hooks/useUserRole";
 import { features } from "@/config/features";
@@ -32,6 +39,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const tree = data?.tree ?? [];
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [starterOpen, setStarterOpen] = useState(false);
 
   const canManage =
     features.elementLibrary && (role === "pm" || role === "architect");
@@ -75,8 +83,20 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
         {isLoading ? (
           <div className="text-xs text-text-muted px-2 py-1">…</div>
         ) : tree.length === 0 ? (
-          <div className="text-xs text-text-muted px-2 py-1">
-            {t("categoryEmpty")}
+          <div className="flex flex-col gap-2 px-2 py-1">
+            <span className="text-xs text-text-muted">
+              {t("categoryEmpty")}
+            </span>
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => setStarterOpen(true)}
+                className="inline-flex items-center gap-1.5 self-start text-xs text-accent hover:underline"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                {t("starterUseSet")}
+              </button>
+            )}
           </div>
         ) : (
           tree.map((node) => (
@@ -114,6 +134,11 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
         submitting={submitting}
         onOpenChange={setCreateOpen}
         onSubmit={handleCreate}
+      />
+
+      <CategoryTemplatesDialog
+        open={starterOpen}
+        onOpenChange={setStarterOpen}
       />
     </aside>
   );

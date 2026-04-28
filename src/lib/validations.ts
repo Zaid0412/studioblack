@@ -318,6 +318,34 @@ export const updateElementCategorySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const bulkCategoryNode = z.object({
+  name: trimmedString.max(150),
+  codePrefix: z.string().max(10).optional(),
+  icon: z.string().max(50).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+  children: z
+    .array(
+      z.object({
+        name: trimmedString.max(150),
+        codePrefix: z.string().max(10).optional(),
+        icon: z.string().max(50).optional(),
+        color: z
+          .string()
+          .regex(/^#[0-9A-Fa-f]{6}$/)
+          .optional(),
+      })
+    )
+    .max(20)
+    .optional(),
+});
+
+export const bulkCreateCategoriesSchema = z.object({
+  categories: z.array(bulkCategoryNode).min(1).max(20),
+});
+
 export const reorderCategoriesSchema = z.object({
   parentId: z.string().uuid().nullable(),
   orderedIds: z.array(uuid).min(1),
@@ -370,6 +398,11 @@ export const createElementSchema = z.object({
   drawingRef: z.string().trim().max(255).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   attributes: z.array(elementAttributeInput).optional(),
+  imageUrl: z.string().url().max(2000).optional().nullable(),
+  drawingFileUrl: z.string().url().max(2000).optional().nullable(),
+  drawingFileName: z.string().trim().max(255).optional().nullable(),
+  specFileUrl: z.string().url().max(2000).optional().nullable(),
+  specFileName: z.string().trim().max(255).optional().nullable(),
 });
 
 export const updateElementSchema = createElementSchema.partial().extend({

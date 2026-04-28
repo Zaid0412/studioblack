@@ -128,6 +128,123 @@ export async function createCategory(
   return rows[0] as ElementCategory;
 }
 
+export interface BulkCategoryNode {
+  name: string;
+  codePrefix?: string;
+  icon?: string;
+  color?: string;
+  children?: Array<{
+    name: string;
+    codePrefix?: string;
+    icon?: string;
+    color?: string;
+  }>;
+}
+
+/**
+ * Create many top-level categories (with optional 1-deep children) in one
+ * transaction. Skips any node whose `name` already exists at its target
+ * level for the org — idempotent so the user can rerun the dialog without
+ * worrying about duplicates.
+ *
+ * Returns the rows that were actually inserted plus a list of skipped
+ * names so the UI can surface "X created, Y skipped (already existed)".
+ */
+export async function bulkCreateCategoriesFromTemplates(
+  orgId: string,
+  templates: BulkCategoryNode[]
+): Promise<{ created: ElementCategory[]; skipped: string[] }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  const created: ElementCategory[] = [];
+  const skipped: string[] = [];
+
+  try {
+    await client.query("BEGIN");
+
+    for (const tpl of templates) {
+      const existingTop = await client.query<ElementCategory>(
+        `SELECT * FROM element_category
+          WHERE org_id = $1 AND parent_id IS NULL AND lower(name) = lower($2)
+          LIMIT 1`,
+        [orgId, tpl.name]
+      );
+
+      let parent: ElementCategory;
+      if (existingTop.rows.length > 0) {
+        parent = existingTop.rows[0];
+        skipped.push(tpl.name);
+      } else {
+        const { rows } = await client.query<ElementCategory>(
+          `INSERT INTO element_category
+             (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
+           VALUES (
+             $1, $2, NULL, 1, $3,
+             (SELECT COALESCE(MAX(sort_order), -1) + 1
+                FROM element_category
+               WHERE org_id = $1 AND parent_id IS NULL),
+             $4, $5
+           )
+           RETURNING *`,
+          [
+            orgId,
+            tpl.name,
+            tpl.codePrefix ?? null,
+            tpl.icon ?? null,
+            tpl.color ?? null,
+          ]
+        );
+        parent = rows[0];
+        created.push(parent);
+      }
+
+      if (!tpl.children || tpl.children.length === 0) continue;
+
+      for (const child of tpl.children) {
+        const existingChild = await client.query<ElementCategory>(
+          `SELECT 1 FROM element_category
+            WHERE org_id = $1 AND parent_id = $2 AND lower(name) = lower($3)
+            LIMIT 1`,
+          [orgId, parent.id, child.name]
+        );
+        if (existingChild.rows.length > 0) {
+          skipped.push(`${tpl.name} / ${child.name}`);
+          continue;
+        }
+        const { rows } = await client.query<ElementCategory>(
+          `INSERT INTO element_category
+             (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
+           VALUES (
+             $1, $2, $3, 2, $4,
+             (SELECT COALESCE(MAX(sort_order), -1) + 1
+                FROM element_category
+               WHERE org_id = $1 AND parent_id = $3),
+             $5, $6
+           )
+           RETURNING *`,
+          [
+            orgId,
+            child.name,
+            parent.id,
+            child.codePrefix ?? null,
+            child.icon ?? null,
+            child.color ?? null,
+          ]
+        );
+        created.push(rows[0]);
+      }
+    }
+
+    await client.query("COMMIT");
+    return { created, skipped };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 const CATEGORY_COLS = new Set([
   "name",
   "code_prefix",

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, Sparkles } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -34,6 +34,7 @@ import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
+import { CategoryTemplatesDialog } from "@/app/(dashboard)/elements/_components/CategoryTemplatesDialog";
 import { DeleteConfirmDialog } from "./_components/DeleteConfirmDialog";
 import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 
@@ -197,6 +198,7 @@ export default function ElementCategoriesSettingsPage() {
   const [deleting, setDeleting] = useState<ElementCategoryNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [starterOpen, setStarterOpen] = useState(false);
 
   const activeDescendantIds = useMemo(() => {
     if (!activeId) return new Set<string>();
@@ -367,10 +369,20 @@ export default function ElementCategoriesSettingsPage() {
         title={t("manageCategories")}
         subtitle={t("subtitle")}
         actions={
-          <Button type="button" onClick={() => openCreate(null)}>
-            <Plus className="w-4 h-4" />
-            {t("newCategory")}
-          </Button>
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setStarterOpen(true)}
+            >
+              <Sparkles className="w-4 h-4" />
+              {t("starterUseSet")}
+            </Button>
+            <Button type="button" onClick={() => openCreate(null)}>
+              <Plus className="w-4 h-4" />
+              {t("newCategory")}
+            </Button>
+          </>
         }
       />
 
@@ -471,6 +483,11 @@ export default function ElementCategoriesSettingsPage() {
           if (!open) setDeleting(null);
         }}
         onConfirm={handleDelete}
+      />
+
+      <CategoryTemplatesDialog
+        open={starterOpen}
+        onOpenChange={setStarterOpen}
       />
     </div>
   );

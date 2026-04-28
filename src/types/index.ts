@@ -393,6 +393,16 @@ export interface Element {
   drawing_ref: string | null;
   tags: string[] | null;
   is_active: boolean;
+  /** Public URL of the element's hero image. Null if none uploaded. */
+  image_url: string | null;
+  /** Public URL of the production drawing file. Null if none uploaded. */
+  drawing_file_url: string | null;
+  /** Original filename of the production drawing for display + download. */
+  drawing_file_name: string | null;
+  /** Public URL of the specification / element guideline file. */
+  spec_file_url: string | null;
+  /** Original filename of the spec file for display + download. */
+  spec_file_name: string | null;
   version_group: string;
   version_number: number;
   created_by: string | null;
