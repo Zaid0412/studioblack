@@ -14,5 +14,5 @@ export const features = {
   emailVerification: true,
   elementLibrary: true,
   boq: true,
-  vendorManagement: false,
+  vendorManagement: true,
 } as const;
