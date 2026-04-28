@@ -3,16 +3,9 @@
 import useSWR from "swr";
 import { useCallback, useState } from "react";
 import { vendors as vendorsApi } from "@/lib/api";
-import type {
-  ListVendorsResponse,
-  VendorListRow,
-} from "@/lib/api/vendors";
+import type { ListVendorsResponse, VendorListRow } from "@/lib/api/vendors";
 import { toast } from "@/components/ui/useToast";
-import type {
-  VendorWithRelations,
-  BankDetails,
-  VendorStatus,
-} from "@/types";
+import type { VendorWithRelations, BankDetails, VendorStatus } from "@/types";
 
 const PAGE_SIZE = 25;
 
@@ -37,8 +30,10 @@ export function useVendors(filters: VendorFilterState) {
   } as const;
 
   const key = vendorsApi.listKey(params);
-  const { data, isLoading, isValidating, mutate } =
-    useSWR<ListVendorsResponse>(key, { keepPreviousData: true });
+  const { data, isLoading, isValidating, mutate } = useSWR<ListVendorsResponse>(
+    key,
+    { keepPreviousData: true }
+  );
 
   const rows: VendorListRow[] = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -119,7 +114,8 @@ export function useVendors(filters: VendorFilterState) {
         toast({ title: "Rating updated" });
         mutate();
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to update rating";
+        const msg =
+          err instanceof Error ? err.message : "Failed to update rating";
         toast({ title: msg, variant: "error" });
       }
     },
@@ -159,7 +155,8 @@ export function useVendorBankDetails(
   vendorId: string | null,
   enabled: boolean = true
 ) {
-  const key = vendorId && enabled ? `/api/vendors/${vendorId}/bank-details` : null;
+  const key =
+    vendorId && enabled ? `/api/vendors/${vendorId}/bank-details` : null;
   const { data, isLoading, error, mutate } = useSWR<{
     data: BankDetails | null;
   }>(key);
@@ -169,7 +166,9 @@ export function useVendorBankDetails(
       if (!vendorId) return;
       try {
         await vendorsApi.updateBankDetails(vendorId, bankDetails);
-        toast({ title: bankDetails ? "Bank details saved" : "Bank details cleared" });
+        toast({
+          title: bankDetails ? "Bank details saved" : "Bank details cleared",
+        });
         mutate();
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to save";

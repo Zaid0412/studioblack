@@ -73,9 +73,9 @@ describe("vendorEncryption", () => {
     expect(isEncryptedField(undefined)).toBe(false);
     expect(isEncryptedField({})).toBe(false);
     expect(isEncryptedField({ version: 1, encrypted: "x" })).toBe(false);
-    expect(isEncryptedField({ version: 2, encrypted: "x", iv: "y", tag: "z" })).toBe(
-      false
-    );
+    expect(
+      isEncryptedField({ version: 2, encrypted: "x", iv: "y", tag: "z" })
+    ).toBe(false);
   });
 
   it("preserves partial bank details (optional fields)", () => {

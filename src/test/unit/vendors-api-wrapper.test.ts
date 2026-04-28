@@ -19,13 +19,17 @@ describe("vendors API client", () => {
   // ── list ──────────────────────────────────────────────────────────────────
 
   it("list — calls bare URL with no options", async () => {
-    mockFetch.mockResolvedValue(okJson({ rows: [], total: 0, page: 1, limit: 25 }));
+    mockFetch.mockResolvedValue(
+      okJson({ rows: [], total: 0, page: 1, limit: 25 })
+    );
     await vendors.list();
     expect(mockFetch).toHaveBeenCalledWith("/api/vendors", undefined);
   });
 
   it("list — appends search/status/trade/page/limit", async () => {
-    mockFetch.mockResolvedValue(okJson({ rows: [], total: 0, page: 1, limit: 25 }));
+    mockFetch.mockResolvedValue(
+      okJson({ rows: [], total: 0, page: 1, limit: 25 })
+    );
     await vendors.list({
       search: "acme",
       status: "active",
@@ -63,7 +67,9 @@ describe("vendors API client", () => {
     const [url, init] = mockFetch.mock.calls[0];
     expect(url).toBe("/api/vendors");
     expect((init as RequestInit).method).toBe("POST");
-    expect((init as RequestInit).body).toBe(JSON.stringify({ companyName: "Acme" }));
+    expect((init as RequestInit).body).toBe(
+      JSON.stringify({ companyName: "Acme" })
+    );
   });
 
   it("update — PATCHes /api/vendors/:id", async () => {
@@ -119,7 +125,9 @@ describe("vendors API client", () => {
   it("updateBankDetails(null) — PUTs { data: null }", async () => {
     mockFetch.mockResolvedValue(okJson({ success: true }));
     await vendors.updateBankDetails(VID, null);
-    expect(mockFetch.mock.calls[0][1].body).toBe(JSON.stringify({ data: null }));
+    expect(mockFetch.mock.calls[0][1].body).toBe(
+      JSON.stringify({ data: null })
+    );
   });
 
   // ── rating ────────────────────────────────────────────────────────────────

@@ -44,7 +44,10 @@ const serverSchema = z.object({
   // Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   VENDOR_ENCRYPTION_KEY: z
     .string()
-    .regex(/^[0-9a-f]{64}$/i, "VENDOR_ENCRYPTION_KEY must be 64 hex chars (32 bytes)")
+    .regex(
+      /^[0-9a-f]{64}$/i,
+      "VENDOR_ENCRYPTION_KEY must be 64 hex chars (32 bytes)"
+    )
     .optional(),
 });
 

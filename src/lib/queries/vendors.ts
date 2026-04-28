@@ -7,10 +7,7 @@ import type {
   EncryptedField,
   BankDetails,
 } from "@/types";
-import type {
-  VendorStatus,
-  VendorProficiency,
-} from "@/lib/validations";
+import type { VendorStatus, VendorProficiency } from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 
@@ -90,7 +87,16 @@ const VENDOR_UPDATE_COLS: Record<string, string> = {
 export async function getVendors(
   orgId: string,
   filters: VendorFilters
-): Promise<{ rows: Array<Vendor & { contact_count: number; primary_contact_email: string | null; trade_count: number }>; total: number }> {
+): Promise<{
+  rows: Array<
+    Vendor & {
+      contact_count: number;
+      primary_contact_email: string | null;
+      trade_count: number;
+    }
+  >;
+  total: number;
+}> {
   const pool = getPool();
   const conditions: string[] = ["v.org_id = $1"];
   const params: unknown[] = [orgId];

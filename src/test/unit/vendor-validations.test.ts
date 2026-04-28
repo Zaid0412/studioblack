@@ -32,9 +32,7 @@ describe("createVendorSchema", () => {
         { name: "Alice", email: "alice@acme.com", isPrimary: true },
         { name: "Bob", email: "bob@acme.com" },
       ],
-      trades: [
-        { categoryId: validUuid, proficiencyLevel: "preferred" },
-      ],
+      trades: [{ categoryId: validUuid, proficiencyLevel: "preferred" }],
     });
     expect(result.success).toBe(true);
   });
@@ -56,8 +54,14 @@ describe("createVendorSchema", () => {
   });
 
   it("enforces 3-letter currency", () => {
-    expect(createVendorSchema.safeParse({ companyName: "X", currency: "USDD" }).success).toBe(false);
-    expect(createVendorSchema.safeParse({ companyName: "X", currency: "USD" }).success).toBe(true);
+    expect(
+      createVendorSchema.safeParse({ companyName: "X", currency: "USDD" })
+        .success
+    ).toBe(false);
+    expect(
+      createVendorSchema.safeParse({ companyName: "X", currency: "USD" })
+        .success
+    ).toBe(true);
   });
 
   it("enforces contact array max", () => {
@@ -65,7 +69,9 @@ describe("createVendorSchema", () => {
       name: `c${i}`,
       email: `c${i}@x.com`,
     }));
-    expect(createVendorSchema.safeParse({ companyName: "X", contacts }).success).toBe(false);
+    expect(
+      createVendorSchema.safeParse({ companyName: "X", contacts }).success
+    ).toBe(false);
   });
 });
 
@@ -98,9 +104,13 @@ describe("updateVendorSchema", () => {
 
 describe("vendorContactSchema", () => {
   it("requires name and email", () => {
-    expect(vendorContactSchema.safeParse({ email: "x@y.com" }).success).toBe(false);
+    expect(vendorContactSchema.safeParse({ email: "x@y.com" }).success).toBe(
+      false
+    );
     expect(vendorContactSchema.safeParse({ name: "X" }).success).toBe(false);
-    expect(vendorContactSchema.safeParse({ name: "X", email: "x@y.com" }).success).toBe(true);
+    expect(
+      vendorContactSchema.safeParse({ name: "X", email: "x@y.com" }).success
+    ).toBe(true);
   });
 });
 
@@ -108,8 +118,12 @@ describe("vendorContactSchema", () => {
 
 describe("vendorTradeSchema", () => {
   it("requires a uuid categoryId", () => {
-    expect(vendorTradeSchema.safeParse({ categoryId: "not-uuid" }).success).toBe(false);
-    expect(vendorTradeSchema.safeParse({ categoryId: validUuid }).success).toBe(true);
+    expect(
+      vendorTradeSchema.safeParse({ categoryId: "not-uuid" }).success
+    ).toBe(false);
+    expect(vendorTradeSchema.safeParse({ categoryId: validUuid }).success).toBe(
+      true
+    );
   });
 
   it("rejects invalid proficiency levels", () => {
@@ -141,7 +155,9 @@ describe("vendorAddressSchema", () => {
 
 describe("bankDetailsSchema", () => {
   it("accepts partial details", () => {
-    expect(bankDetailsSchema.safeParse({ iban: "GB29NWBK..." }).success).toBe(true);
+    expect(bankDetailsSchema.safeParse({ iban: "GB29NWBK..." }).success).toBe(
+      true
+    );
   });
 
   it("rejects unknown keys via .strict()", () => {
@@ -184,10 +200,14 @@ describe("listVendorsQuerySchema", () => {
   });
 
   it("rejects limit > 200", () => {
-    expect(listVendorsQuerySchema.safeParse({ limit: 500 }).success).toBe(false);
+    expect(listVendorsQuerySchema.safeParse({ limit: 500 }).success).toBe(
+      false
+    );
   });
 
   it("rejects unknown status", () => {
-    expect(listVendorsQuerySchema.safeParse({ status: "deleted" }).success).toBe(false);
+    expect(
+      listVendorsQuerySchema.safeParse({ status: "deleted" }).success
+    ).toBe(false);
   });
 });

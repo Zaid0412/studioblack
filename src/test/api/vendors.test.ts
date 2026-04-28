@@ -15,11 +15,7 @@ import {
   getMemberRole,
 } from "@/lib/queries";
 import { GET as LIST, POST as CREATE } from "@/app/api/vendors/route";
-import {
-  GET as DETAIL,
-  PATCH,
-  DELETE,
-} from "@/app/api/vendors/[id]/route";
+import { GET as DETAIL, PATCH, DELETE } from "@/app/api/vendors/[id]/route";
 import {
   GET as GET_BANK,
   PUT as PUT_BANK,
@@ -35,11 +31,7 @@ import {
 } from "../helpers";
 import { mocks } from "../setup";
 import { encryptBankDetails } from "@/lib/vendorEncryption";
-import type {
-  Vendor,
-  VendorWithRelations,
-  BankDetails,
-} from "@/types";
+import type { Vendor, VendorWithRelations, BankDetails } from "@/types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
