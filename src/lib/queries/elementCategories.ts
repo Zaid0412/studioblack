@@ -2,8 +2,6 @@ import { getPool } from "@/lib/db";
 import type { BulkCategoryNode } from "@/lib/validations";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
 
-export type { BulkCategoryNode };
-
 /** Build a nested tree from flat category rows. */
 export function buildCategoryTree(
   rows: ElementCategory[]
@@ -139,6 +137,12 @@ export async function createCategory(
  *
  * Returns the rows that were actually inserted plus a list of skipped
  * names so the UI can surface "X created, Y skipped (already existed)".
+ *
+ * NOTE: the INSERT below intentionally does NOT route through `createCategory`.
+ * The single-row helper opens its own pool connection and would break the
+ * BEGIN/COMMIT we hold here. If you add a guard or audit hook to
+ * `createCategory`, mirror it inside this function so the bulk path doesn't
+ * silently diverge.
  */
 export async function bulkCreateCategoriesFromTemplates(
   orgId: string,

@@ -808,6 +808,7 @@
     "starterChildren": "alt kategori",
     "starterCreateBtn": "{count} kategori oluştur",
     "starterCreatedToast": "{created} oluşturuldu · {skipped} atlandı",
+    "starterAllSkippedToast": "{skipped} kategorinin tümü zaten mevcut",
     "starterNoneSelected": "En az bir kategori seçin",
     "starterCategories": {
       "flooring": {

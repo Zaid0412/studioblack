@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { writeElementSheet } from "@/lib/excel/elementWriter";
-import type { Element } from "@/types";
+import {
+  writeElementSheet,
+  type WritableElement,
+} from "@/lib/excel/elementWriter";
 
 /**
  * GET /api/elements/import/template
@@ -32,27 +34,10 @@ export const GET = withAuth({ allowedRoles: ["pm", "architect"] }, async () => {
  * the user immediately sees both "this is what a complete row looks like"
  * and "these are the bare minimum required fields."
  */
-function buildSampleRows(): Element[] {
-  const base = {
-    org_id: "",
-    category_id: null,
-    is_active: true,
-    image_url: null,
-    drawing_file_url: null,
-    drawing_file_name: null,
-    spec_file_url: null,
-    spec_file_name: null,
-    version_group: "",
-    version_number: 1,
-    created_by: null,
-    created_at: "",
-    updated_at: "",
-  } as const;
-
+function buildSampleRows(): WritableElement[] {
   return [
     {
-      ...base,
-      id: "sample-1",
+      category_id: null,
       code: "SAMPLE-001",
       name: "Porcelain Floor Tile 600x600",
       description: "Glazed porcelain, rectified edges",
@@ -66,10 +51,9 @@ function buildSampleRows(): Element[] {
       spec_reference: "ASTM C648",
       drawing_ref: "FLR-001",
       tags: ["floor", "tile"],
-    } as Element,
+    },
     {
-      ...base,
-      id: "sample-2",
+      category_id: null,
       code: "SAMPLE-002",
       name: "Standard Latex Paint",
       description: null,
@@ -83,6 +67,6 @@ function buildSampleRows(): Element[] {
       spec_reference: null,
       drawing_ref: null,
       tags: null,
-    } as Element,
+    },
   ];
 }

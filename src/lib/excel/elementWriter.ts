@@ -7,11 +7,34 @@ import {
 } from "./elementParser";
 
 /**
+ * Subset of `Element` fields actually emitted to the sheet. Lets callers
+ * that don't have a full DB row (e.g. the import-template route) build a
+ * minimal object without lying to the type-checker via `as Element`.
+ */
+export type WritableElement = Pick<
+  Element,
+  | "category_id"
+  | "code"
+  | "name"
+  | "description"
+  | "unit"
+  | "unit_cost"
+  | "currency"
+  | "material_cost"
+  | "labour_cost"
+  | "overhead_pct"
+  | "margin_pct"
+  | "spec_reference"
+  | "drawing_ref"
+  | "tags"
+>;
+
+/**
  * Write a set of elements to an .xlsx buffer using the same column layout
  * as the import template — round-trips cleanly through parseElementSheet.
  */
 export async function writeElementSheet(
-  elements: Element[],
+  elements: WritableElement[],
   categories: ElementCategory[]
 ): Promise<Buffer> {
   const pathById = buildCategoryPathById(categories);

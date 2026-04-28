@@ -374,6 +374,34 @@ const elementAttributeInput = z.object({
 const nonNegativeMoney = z.number().nonnegative().finite();
 const percent = z.number().min(0).max(100).finite();
 
+/**
+ * URL pointing at a Supabase Storage object — public or signed.
+ *
+ * Refuses arbitrary external URLs so a PM can't paste a tracker pixel,
+ * hotlinked image, or a malicious host as the element's image / drawing
+ * file. The signed-URL upload route is the only path that produces these
+ * URLs server-side, and they always carry the `/storage/v1/object/...`
+ * prefix.
+ */
+const supabaseStorageUrl = z
+  .string()
+  .url()
+  .max(2000)
+  .refine(
+    (u) => {
+      try {
+        const parsed = new URL(u);
+        return (
+          parsed.protocol === "https:" &&
+          parsed.pathname.startsWith("/storage/v1/object/")
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: "must be a Supabase Storage URL" }
+  );
+
 export const createElementSchema = z.object({
   code: trimmedString.max(50),
   name: trimmedString.max(255),
@@ -390,10 +418,10 @@ export const createElementSchema = z.object({
   drawingRef: z.string().trim().max(255).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   attributes: z.array(elementAttributeInput).optional(),
-  imageUrl: z.string().url().max(2000).optional().nullable(),
-  drawingFileUrl: z.string().url().max(2000).optional().nullable(),
+  imageUrl: supabaseStorageUrl.optional().nullable(),
+  drawingFileUrl: supabaseStorageUrl.optional().nullable(),
   drawingFileName: z.string().trim().max(255).optional().nullable(),
-  specFileUrl: z.string().url().max(2000).optional().nullable(),
+  specFileUrl: supabaseStorageUrl.optional().nullable(),
   specFileName: z.string().trim().max(255).optional().nullable(),
 });
 

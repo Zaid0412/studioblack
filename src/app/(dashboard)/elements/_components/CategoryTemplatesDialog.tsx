@@ -120,13 +120,19 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
       await globalMutate(API.elementCategories());
       const createdCount = result.created.length;
       const skippedCount = result.skipped.length;
-      toast({
-        title: t("starterCreatedToast", {
-          created: createdCount,
-          skipped: skippedCount,
-        }),
-        variant: createdCount > 0 ? "default" : "warning",
-      });
+      if (createdCount === 0) {
+        toast({
+          title: t("starterAllSkippedToast", { skipped: skippedCount }),
+          variant: "warning",
+        });
+      } else {
+        toast({
+          title: t("starterCreatedToast", {
+            created: createdCount,
+            skipped: skippedCount,
+          }),
+        });
+      }
       onOpenChange(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed";

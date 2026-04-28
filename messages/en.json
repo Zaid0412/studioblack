@@ -808,6 +808,7 @@
     "starterChildren": "subcategories",
     "starterCreateBtn": "Create {count} categories",
     "starterCreatedToast": "{created} created · {skipped} skipped",
+    "starterAllSkippedToast": "All {skipped} categories already exist",
     "starterNoneSelected": "Pick at least one category",
     "starterCategories": {
       "flooring": {

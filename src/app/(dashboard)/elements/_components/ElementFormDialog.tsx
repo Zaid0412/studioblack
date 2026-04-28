@@ -365,6 +365,7 @@ export function ElementFormDialog({
                 label={t("fieldDrawingFile")}
                 url={values.drawingFileUrl}
                 fileName={values.drawingFileName}
+                accept=".pdf,.dwg,.dxf,.skp,.png,.jpg,.jpeg,.webp"
                 onUploaded={({ url, fileName }) => {
                   setField("drawingFileUrl", url);
                   setField("drawingFileName", fileName);
@@ -379,6 +380,7 @@ export function ElementFormDialog({
                 label={t("fieldSpecFile")}
                 url={values.specFileUrl}
                 fileName={values.specFileName}
+                accept=".pdf,.doc,.docx,.txt"
                 onUploaded={({ url, fileName }) => {
                   setField("specFileUrl", url);
                   setField("specFileName", fileName);
