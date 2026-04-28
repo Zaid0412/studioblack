@@ -5,10 +5,12 @@ import type { z } from "zod";
 import type {
   createElementCategorySchema,
   updateElementCategorySchema,
+  bulkCreateCategoriesSchema,
 } from "@/lib/validations";
 
 type CreateInput = z.infer<typeof createElementCategorySchema>;
 type UpdateInput = z.infer<typeof updateElementCategorySchema>;
+type BulkInput = z.infer<typeof bulkCreateCategoriesSchema>;
 
 /** Fetch the full category tree for the current org. */
 export function getTree() {
@@ -36,4 +38,12 @@ export function reorder(parentId: string | null, orderedIds: string[]) {
     parentId,
     orderedIds,
   });
+}
+
+/** Bulk-create starter categories. Idempotent — skips already-existing names. */
+export function bulkCreate(data: BulkInput) {
+  return apiPost<{ created: ElementCategory[]; skipped: string[] }>(
+    API.elementCategoriesBulk(),
+    data
+  );
 }

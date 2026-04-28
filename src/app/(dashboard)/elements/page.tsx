@@ -306,5 +306,10 @@ function buildMutationPayload(values: SubmitValues) {
       unit: a.unit,
       sort_order: i,
     })),
+    imageUrl: values.imageUrl,
+    drawingFileUrl: values.drawingFileUrl,
+    drawingFileName: values.drawingFileName,
+    specFileUrl: values.specFileUrl,
+    specFileName: values.specFileName,
   };
 }

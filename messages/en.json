@@ -7,6 +7,8 @@
     "delete": "Delete",
     "edit": "Edit",
     "create": "Create",
+    "upload": "Upload",
+    "replace": "Replace",
     "search": "Search",
     "filter": "Filter",
     "noResults": "No results found",
@@ -748,6 +750,9 @@
     "fieldMarginPct": "Margin %",
     "fieldSpecReference": "Specification Reference",
     "fieldDrawingRef": "Drawing Reference",
+    "fieldImage": "Image",
+    "fieldDrawingFile": "Production Drawing",
+    "fieldSpecFile": "Specification File",
     "fieldTags": "Tags",
     "fieldAttributes": "Attributes",
     "addAttribute": "Add attribute",
@@ -797,6 +802,77 @@
     "categoryDeleteBlocked": "Can't delete — {count} elements still use this category (or a sub-category). Move or reassign them first.",
     "categoryInUse": "{count} elements",
     "categoryEmpty": "No categories yet",
+    "starterUseSet": "Use a starter set",
+    "starterDialogTitle": "Get started with a starter taxonomy",
+    "starterDialogDesc": "Pick the categories that match your work. You can edit or delete any of them later.",
+    "starterChildren": "subcategories",
+    "starterCreateBtn": "Create {count} categories",
+    "starterCreatedToast": "{created} created · {skipped} skipped",
+    "starterAllSkippedToast": "All {skipped} categories already exist",
+    "starterNoneSelected": "Pick at least one category",
+    "starterCategories": {
+      "flooring": {
+        "name": "Flooring",
+        "children": {
+          "tiles": "Tiles",
+          "stone": "Stone",
+          "wood": "Wood",
+          "carpet": "Carpet"
+        }
+      },
+      "walls": {
+        "name": "Walls",
+        "children": {
+          "paint": "Paint",
+          "wallpaper": "Wallpaper",
+          "cladding": "Cladding"
+        }
+      },
+      "ceiling": {
+        "name": "Ceiling",
+        "children": {
+          "gypsum": "Gypsum",
+          "acoustic": "Acoustic",
+          "coffered": "Coffered"
+        }
+      },
+      "plumbing": {
+        "name": "Plumbing",
+        "children": {
+          "fixtures": "Fixtures",
+          "pipes": "Pipes",
+          "sanitaryware": "Sanitaryware"
+        }
+      },
+      "electrical": {
+        "name": "Electrical",
+        "children": {
+          "wiring": "Wiring",
+          "lighting": "Lighting",
+          "switches": "Switches"
+        }
+      },
+      "joinery": {
+        "name": "Joinery",
+        "children": {
+          "cabinets": "Cabinets",
+          "doors": "Doors",
+          "windows": "Windows"
+        }
+      },
+      "furniture": {
+        "name": "Furniture",
+        "children": {
+          "seating": "Seating",
+          "tables": "Tables",
+          "storage": "Storage"
+        }
+      },
+      "finishes": {
+        "name": "Finishes",
+        "children": {}
+      }
+    },
     "costBreakdown": "Cost Breakdown",
     "sectionBasic": "Basic",
     "sectionCost": "Cost",
@@ -819,6 +895,8 @@
     "importSubtitle": "Upload an .xlsx file to add or update elements in bulk.",
     "importDropzone": "Drop an .xlsx file here or click to browse",
     "importMaxSize": "Max 5 MB",
+    "importTemplateHint": "Need a starting point?",
+    "importDownloadTemplate": "Download sample template",
     "importValidating": "Validating…",
     "importImporting": "Importing…",
     "importFailed": "Import failed",

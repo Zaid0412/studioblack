@@ -318,6 +318,26 @@ export const updateElementCategorySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const bulkCategoryChild = z.object({
+  name: trimmedString.max(150),
+  codePrefix: z.string().max(10).optional(),
+  icon: z.string().max(50).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+});
+
+const bulkCategoryNode = bulkCategoryChild.extend({
+  children: z.array(bulkCategoryChild).max(20).optional(),
+});
+
+export const bulkCreateCategoriesSchema = z.object({
+  categories: z.array(bulkCategoryNode).min(1).max(20),
+});
+
+export type BulkCategoryNode = z.infer<typeof bulkCategoryNode>;
+
 export const reorderCategoriesSchema = z.object({
   parentId: z.string().uuid().nullable(),
   orderedIds: z.array(uuid).min(1),
@@ -354,6 +374,34 @@ const elementAttributeInput = z.object({
 const nonNegativeMoney = z.number().nonnegative().finite();
 const percent = z.number().min(0).max(100).finite();
 
+/**
+ * URL pointing at a Supabase Storage object — public or signed.
+ *
+ * Refuses arbitrary external URLs so a PM can't paste a tracker pixel,
+ * hotlinked image, or a malicious host as the element's image / drawing
+ * file. The signed-URL upload route is the only path that produces these
+ * URLs server-side, and they always carry the `/storage/v1/object/...`
+ * prefix.
+ */
+const supabaseStorageUrl = z
+  .string()
+  .url()
+  .max(2000)
+  .refine(
+    (u) => {
+      try {
+        const parsed = new URL(u);
+        return (
+          parsed.protocol === "https:" &&
+          parsed.pathname.startsWith("/storage/v1/object/")
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: "must be a Supabase Storage URL" }
+  );
+
 export const createElementSchema = z.object({
   code: trimmedString.max(50),
   name: trimmedString.max(255),
@@ -370,6 +418,11 @@ export const createElementSchema = z.object({
   drawingRef: z.string().trim().max(255).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   attributes: z.array(elementAttributeInput).optional(),
+  imageUrl: supabaseStorageUrl.optional().nullable(),
+  drawingFileUrl: supabaseStorageUrl.optional().nullable(),
+  drawingFileName: z.string().trim().max(255).optional().nullable(),
+  specFileUrl: supabaseStorageUrl.optional().nullable(),
+  specFileName: z.string().trim().max(255).optional().nullable(),
 });
 
 export const updateElementSchema = createElementSchema.partial().extend({

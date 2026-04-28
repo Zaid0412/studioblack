@@ -7,6 +7,8 @@
     "delete": "Sil",
     "edit": "Düzenle",
     "create": "Oluştur",
+    "upload": "Yükle",
+    "replace": "Değiştir",
     "search": "Ara",
     "filter": "Filtrele",
     "noResults": "Sonuç bulunamadı",
@@ -748,6 +750,9 @@
     "fieldMarginPct": "Kâr Marjı %",
     "fieldSpecReference": "Şartname Referansı",
     "fieldDrawingRef": "Çizim Referansı",
+    "fieldImage": "Görsel",
+    "fieldDrawingFile": "Üretim Çizimi",
+    "fieldSpecFile": "Şartname Dosyası",
     "fieldTags": "Etiketler",
     "fieldAttributes": "Özellikler",
     "addAttribute": "Özellik ekle",
@@ -797,6 +802,77 @@
     "categoryDeleteBlocked": "Silinemiyor — bu kategoriyi (veya alt kategorilerini) hâlâ {count} element kullanıyor. Önce onları taşıyın veya yeniden atayın.",
     "categoryInUse": "{count} element",
     "categoryEmpty": "Henüz kategori yok",
+    "starterUseSet": "Başlangıç setini kullan",
+    "starterDialogTitle": "Başlangıç taksonomisi ile başla",
+    "starterDialogDesc": "İşinize uygun kategorileri seçin. Sonradan düzenleyebilir veya silebilirsiniz.",
+    "starterChildren": "alt kategori",
+    "starterCreateBtn": "{count} kategori oluştur",
+    "starterCreatedToast": "{created} oluşturuldu · {skipped} atlandı",
+    "starterAllSkippedToast": "{skipped} kategorinin tümü zaten mevcut",
+    "starterNoneSelected": "En az bir kategori seçin",
+    "starterCategories": {
+      "flooring": {
+        "name": "Zemin",
+        "children": {
+          "tiles": "Karo",
+          "stone": "Taş",
+          "wood": "Ahşap",
+          "carpet": "Halı"
+        }
+      },
+      "walls": {
+        "name": "Duvarlar",
+        "children": {
+          "paint": "Boya",
+          "wallpaper": "Duvar Kağıdı",
+          "cladding": "Kaplama"
+        }
+      },
+      "ceiling": {
+        "name": "Tavan",
+        "children": {
+          "gypsum": "Alçı",
+          "acoustic": "Akustik",
+          "coffered": "Kasetli"
+        }
+      },
+      "plumbing": {
+        "name": "Tesisat",
+        "children": {
+          "fixtures": "Armatürler",
+          "pipes": "Borular",
+          "sanitaryware": "Vitrifiye"
+        }
+      },
+      "electrical": {
+        "name": "Elektrik",
+        "children": {
+          "wiring": "Kablo",
+          "lighting": "Aydınlatma",
+          "switches": "Anahtarlar"
+        }
+      },
+      "joinery": {
+        "name": "Doğrama",
+        "children": {
+          "cabinets": "Dolaplar",
+          "doors": "Kapılar",
+          "windows": "Pencereler"
+        }
+      },
+      "furniture": {
+        "name": "Mobilya",
+        "children": {
+          "seating": "Oturma",
+          "tables": "Masalar",
+          "storage": "Depolama"
+        }
+      },
+      "finishes": {
+        "name": "Son İşler",
+        "children": {}
+      }
+    },
     "costBreakdown": "Maliyet Dökümü",
     "sectionBasic": "Temel",
     "sectionCost": "Maliyet",
@@ -819,6 +895,8 @@
     "importSubtitle": "Toplu olarak element eklemek veya güncellemek için bir .xlsx dosyası yükleyin.",
     "importDropzone": "Buraya bir .xlsx dosyası bırakın veya seçmek için tıklayın",
     "importMaxSize": "En fazla 5 MB",
+    "importTemplateHint": "Bir başlangıç noktasına mı ihtiyacınız var?",
+    "importDownloadTemplate": "Örnek şablonu indir",
     "importValidating": "Doğrulanıyor…",
     "importImporting": "İçe aktarılıyor…",
     "importFailed": "İçe aktarma başarısız oldu",

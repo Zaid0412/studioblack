@@ -45,6 +45,11 @@ export interface CreateElementInput {
     unit?: string;
     sort_order?: number;
   }>;
+  imageUrl?: string | null;
+  drawingFileUrl?: string | null;
+  drawingFileName?: string | null;
+  specFileUrl?: string | null;
+  specFileName?: string | null;
 }
 
 export type UpdateElementInput = Partial<CreateElementInput> & {
@@ -67,6 +72,11 @@ const ELEMENT_COLS: Record<string, string> = {
   drawingRef: "drawing_ref",
   tags: "tags",
   isActive: "is_active",
+  imageUrl: "image_url",
+  drawingFileUrl: "drawing_file_url",
+  drawingFileName: "drawing_file_name",
+  specFileUrl: "spec_file_url",
+  specFileName: "spec_file_name",
 };
 
 /**
@@ -335,11 +345,14 @@ export async function createElement(
         `INSERT INTO element
            (org_id, code, name, description, category_id, unit, unit_cost,
             currency, material_cost, labour_cost, overhead_pct, margin_pct,
-            spec_reference, drawing_ref, tags, created_by)
+            spec_reference, drawing_ref, tags, created_by,
+            image_url, drawing_file_url, drawing_file_name,
+            spec_file_url, spec_file_name)
          VALUES
            ($1, $2, $3, $4, $5, $6, $7,
             $8, $9, $10, $11, $12,
-            $13, $14, $15, $16)
+            $13, $14, $15, $16,
+            $17, $18, $19, $20, $21)
          RETURNING *`,
         [
           orgId,
@@ -358,6 +371,11 @@ export async function createElement(
           input.drawingRef ?? null,
           input.tags ?? null,
           createdBy,
+          input.imageUrl ?? null,
+          input.drawingFileUrl ?? null,
+          input.drawingFileName ?? null,
+          input.specFileUrl ?? null,
+          input.specFileName ?? null,
         ]
       );
       elementRow = rows[0] as Element;
@@ -601,11 +619,14 @@ export async function duplicateElement(
         `INSERT INTO element
            (org_id, code, name, description, category_id, unit, unit_cost,
             currency, material_cost, labour_cost, overhead_pct, margin_pct,
-            spec_reference, drawing_ref, tags, is_active, created_by)
+            spec_reference, drawing_ref, tags, is_active, created_by,
+            image_url, drawing_file_url, drawing_file_name,
+            spec_file_url, spec_file_name)
          VALUES
            ($1, $2, $3, $4, $5, $6, $7,
             $8, $9, $10, $11, $12,
-            $13, $14, $15, true, $16)
+            $13, $14, $15, true, $16,
+            $17, $18, $19, $20, $21)
          RETURNING *`,
         [
           orgId,
@@ -624,6 +645,11 @@ export async function duplicateElement(
           src.drawing_ref,
           src.tags,
           createdBy,
+          src.image_url,
+          src.drawing_file_url,
+          src.drawing_file_name,
+          src.spec_file_url,
+          src.spec_file_name,
         ]
       );
 
