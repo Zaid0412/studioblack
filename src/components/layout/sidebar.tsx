@@ -14,6 +14,7 @@ import {
   ChevronUp,
   CheckSquare,
   Layers,
+  Briefcase,
   Sun,
   Moon,
 } from "lucide-react";
@@ -83,6 +84,9 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     ...(features.elementLibrary
       ? [{ href: "/elements", label: t("elements"), icon: Layers }]
+      : []),
+    ...(features.vendorManagement
+      ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
       : []),
     { href: "/organisation", label: t("organisation"), icon: Building2 },
     { href: "/settings", label: t("settings"), icon: Settings },
