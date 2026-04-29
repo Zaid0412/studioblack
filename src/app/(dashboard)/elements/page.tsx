@@ -296,6 +296,7 @@ function buildMutationPayload(values: SubmitValues) {
     materialCost: values.materialCost,
     labourCost: values.labourCost,
     overheadPct: values.overheadPct,
+    serviceChargePct: values.serviceChargePct,
     marginPct: values.marginPct,
     specReference: values.specReference || undefined,
     drawingRef: values.drawingRef || undefined,
@@ -306,5 +307,10 @@ function buildMutationPayload(values: SubmitValues) {
       unit: a.unit,
       sort_order: i,
     })),
+    imageUrl: values.imageUrl,
+    drawingFileUrl: values.drawingFileUrl,
+    drawingFileName: values.drawingFileName,
+    specFileUrl: values.specFileUrl,
+    specFileName: values.specFileName,
   };
 }

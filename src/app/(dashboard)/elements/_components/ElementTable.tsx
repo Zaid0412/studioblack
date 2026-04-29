@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import {
   MoreHorizontal,
@@ -8,9 +9,16 @@ import {
   Archive,
   ArchiveRestore,
   Layers,
+  Paperclip,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,45 +55,50 @@ export function ElementTable({
   const t = useTranslations("elements");
 
   return (
-    <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
-      <div className="hidden lg:grid grid-cols-[140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
-        <div>{t("colCode")}</div>
-        <div>{t("colName")}</div>
-        <div>{t("colCategory")}</div>
-        <div>{t("colUnit")}</div>
-        <div className="text-right">{t("colUnitCost")}</div>
-        <div className="text-right">{t("colActions")}</div>
-      </div>
+    <TooltipProvider>
+      <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
+        <div className="hidden lg:grid grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
+          <div></div>
+          <div>{t("colCode")}</div>
+          <div>{t("colName")}</div>
+          <div>{t("colCategory")}</div>
+          <div>{t("colUnit")}</div>
+          <div className="text-right">{t("colUnitCost")}</div>
+          <div className="text-right">{t("colActions")}</div>
+        </div>
 
-      <div className="flex flex-col">
-        {isLoading ? (
-          Array.from({ length: 8 }).map((_, i) => (
-            <SkeletonRow key={i} columns={6} />
-          ))
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={Layers}
-            title={t("noResults")}
-            description={t("noResultsHint")}
-          />
-        ) : (
-          rows.map((el) => (
-            <ElementRow
-              key={el.id}
-              element={el}
-              categoryName={
-                el.category_id ? (categoryMap.get(el.category_id) ?? "—") : "—"
-              }
-              onClick={() => onRowClick(el)}
-              onEdit={() => onEdit(el)}
-              onDuplicate={() => onDuplicate(el)}
-              onArchive={() => onArchive(el)}
-              onRestore={() => onRestore(el)}
+        <div className="flex flex-col">
+          {isLoading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <SkeletonRow key={i} columns={7} />
+            ))
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title={t("noResults")}
+              description={t("noResultsHint")}
             />
-          ))
-        )}
+          ) : (
+            rows.map((el) => (
+              <ElementRow
+                key={el.id}
+                element={el}
+                categoryName={
+                  el.category_id
+                    ? (categoryMap.get(el.category_id) ?? "—")
+                    : "—"
+                }
+                onClick={() => onRowClick(el)}
+                onEdit={() => onEdit(el)}
+                onDuplicate={() => onDuplicate(el)}
+                onArchive={() => onArchive(el)}
+                onRestore={() => onRestore(el)}
+              />
+            ))
+          )}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -111,11 +124,33 @@ function ElementRow({
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
 
+  const attachedFileNames = [
+    element.drawing_file_url &&
+      (element.drawing_file_name ?? t("fieldDrawingFile")),
+    element.spec_file_url && (element.spec_file_name ?? t("fieldSpecFile")),
+  ].filter(Boolean) as string[];
+
   return (
     <div
       onClick={onClick}
-      className="grid grid-cols-1 lg:grid-cols-[140px_1fr_160px_80px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
+      className="grid grid-cols-1 lg:grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >
+      <div className="flex items-center justify-center">
+        {element.image_url ? (
+          <Image
+            src={element.image_url}
+            alt=""
+            width={32}
+            height={32}
+            className="rounded-md object-cover h-8 w-8"
+            unoptimized
+          />
+        ) : (
+          <div className="h-8 w-8 rounded-md bg-bg-elevated flex items-center justify-center">
+            <Layers className="w-3.5 h-3.5 text-text-muted" />
+          </div>
+        )}
+      </div>
       <div className="flex items-center gap-2 min-w-0">
         <span className="font-mono text-sm text-text-primary truncate">
           {element.code}
@@ -137,6 +172,25 @@ function ElementRow({
           <Badge variant="archived" className="shrink-0">
             {t("archived")}
           </Badge>
+        )}
+        {attachedFileNames.length > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="shrink-0 text-text-muted"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <ul className="text-xs">
+                {attachedFileNames.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
       <div className="text-sm text-text-secondary truncate">{categoryName}</div>

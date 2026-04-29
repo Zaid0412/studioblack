@@ -40,6 +40,7 @@ const TEMPLATE_COLUMNS = {
   materialCost: "Material Cost",
   labourCost: "Labour Cost",
   overheadPct: "Overhead %",
+  serviceChargePct: "Service Charge %",
   marginPct: "Margin %",
   notes: "Notes",
   clientNotes: "Client Notes",

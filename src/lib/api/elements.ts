@@ -120,6 +120,22 @@ export function confirmImport(
 
 export type { DuplicateStrategy };
 
+/** Download the import-template .xlsx (header row + 2 example rows). */
+export async function downloadImportTemplate(): Promise<{
+  blob: Blob;
+  filename: string | null;
+}> {
+  const { blob, headers } = await apiBlobWithHeaders(
+    API.elementsImportTemplate()
+  );
+  return {
+    blob,
+    filename: parseContentDispositionFilename(
+      headers.get("Content-Disposition")
+    ),
+  };
+}
+
 /** Download the current filtered element library as an .xlsx blob. */
 export async function downloadExport(params: ListParams = {}): Promise<{
   blob: Blob;

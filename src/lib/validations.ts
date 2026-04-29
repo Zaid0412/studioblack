@@ -94,6 +94,14 @@ export const BOQ_ITEM_PO_STATUSES = [
 ] as const;
 export type BoqItemPoStatus = (typeof BOQ_ITEM_PO_STATUSES)[number];
 
+export const BOQ_ITEM_SOURCES = [
+  "custom",
+  "library",
+  "project",
+  "rate_contract",
+] as const;
+export type BoqItemSource = (typeof BOQ_ITEM_SOURCES)[number];
+
 // ─── Reusable primitives ────────────────────────────────────────────────────
 
 const uuid = z.string().uuid();
@@ -318,6 +326,26 @@ export const updateElementCategorySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const bulkCategoryChild = z.object({
+  name: trimmedString.max(150),
+  codePrefix: z.string().max(10).optional(),
+  icon: z.string().max(50).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+});
+
+const bulkCategoryNode = bulkCategoryChild.extend({
+  children: z.array(bulkCategoryChild).max(20).optional(),
+});
+
+export const bulkCreateCategoriesSchema = z.object({
+  categories: z.array(bulkCategoryNode).min(1).max(20),
+});
+
+export type BulkCategoryNode = z.infer<typeof bulkCategoryNode>;
+
 export const reorderCategoriesSchema = z.object({
   parentId: z.string().uuid().nullable(),
   orderedIds: z.array(uuid).min(1),
@@ -354,6 +382,34 @@ const elementAttributeInput = z.object({
 const nonNegativeMoney = z.number().nonnegative().finite();
 const percent = z.number().min(0).max(100).finite();
 
+/**
+ * URL pointing at a Supabase Storage object — public or signed.
+ *
+ * Refuses arbitrary external URLs so a PM can't paste a tracker pixel,
+ * hotlinked image, or a malicious host as the element's image / drawing
+ * file. The signed-URL upload route is the only path that produces these
+ * URLs server-side, and they always carry the `/storage/v1/object/...`
+ * prefix.
+ */
+const supabaseStorageUrl = z
+  .string()
+  .url()
+  .max(2000)
+  .refine(
+    (u) => {
+      try {
+        const parsed = new URL(u);
+        return (
+          parsed.protocol === "https:" &&
+          parsed.pathname.startsWith("/storage/v1/object/")
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: "must be a Supabase Storage URL" }
+  );
+
 export const createElementSchema = z.object({
   code: trimmedString.max(50),
   name: trimmedString.max(255),
@@ -365,11 +421,17 @@ export const createElementSchema = z.object({
   materialCost: nonNegativeMoney.optional(),
   labourCost: nonNegativeMoney.optional(),
   overheadPct: percent.optional(),
+  serviceChargePct: percent.optional(),
   marginPct: percent.optional(),
   specReference: z.string().trim().max(255).optional(),
   drawingRef: z.string().trim().max(255).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
   attributes: z.array(elementAttributeInput).optional(),
+  imageUrl: supabaseStorageUrl.optional().nullable(),
+  drawingFileUrl: supabaseStorageUrl.optional().nullable(),
+  drawingFileName: z.string().trim().max(255).optional().nullable(),
+  specFileUrl: supabaseStorageUrl.optional().nullable(),
+  specFileName: z.string().trim().max(255).optional().nullable(),
 });
 
 export const updateElementSchema = createElementSchema.partial().extend({
@@ -417,6 +479,7 @@ export const importElementRowSchema = z.object({
   materialCost: nonNegativeMoney.optional(),
   labourCost: nonNegativeMoney.optional(),
   overheadPct: percent.optional(),
+  serviceChargePct: percent.optional(),
   marginPct: percent.optional(),
   specReference: z.string().trim().max(255).optional(),
   drawingRef: z.string().trim().max(255).optional(),
@@ -506,6 +569,7 @@ export const createBoqItemSchema = z.object({
   materialCost: money.optional().nullable(),
   labourCost: money.optional().nullable(),
   overheadPct: boqPercent.optional(),
+  serviceChargePct: boqPercent.optional(),
   marginPct: boqPercent.optional(),
   notes: z.string().optional().nullable(),
   clientNotes: z.string().optional().nullable(),
@@ -525,6 +589,7 @@ export const updateBoqItemSchema = z.object({
   materialCost: money.nullable().optional(),
   labourCost: money.nullable().optional(),
   overheadPct: boqPercent.optional(),
+  serviceChargePct: boqPercent.optional(),
   marginPct: boqPercent.optional(),
   lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
   clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
@@ -575,6 +640,7 @@ export const boqImportRowSchema = z.object({
   materialCost: z.coerce.number().min(0).finite().optional(),
   labourCost: z.coerce.number().min(0).finite().optional(),
   overheadPct: z.coerce.number().min(0).max(100).optional(),
+  serviceChargePct: z.coerce.number().min(0).max(100).optional(),
   marginPct: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().max(2000).optional(),
   clientNotes: z.string().max(2000).optional(),

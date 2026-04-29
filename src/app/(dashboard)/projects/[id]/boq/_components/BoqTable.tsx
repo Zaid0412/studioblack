@@ -6,9 +6,11 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, FileSpreadsheet, MoreVertical } from "lucide-react";
 import {
   DndContext,
@@ -46,8 +48,12 @@ import {
   toNum,
 } from "../_lib/formatters";
 import { BoqSectionHeader } from "./BoqSectionHeader";
+import { BoqSectionFooter } from "./BoqSectionFooter";
+import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
 import { BoqEditableCell } from "./BoqEditableCell";
+import { BoqSourceBadge } from "./BoqSourceBadge";
 import type { UpdateItemPayload } from "@/lib/api/boq";
+import type { BoqItemSource } from "@/lib/validations";
 
 interface BoqTableProps {
   sections: BoqSection[];
@@ -57,6 +63,8 @@ interface BoqTableProps {
   minimumMarginPct: string;
   boqStatus: BoqStatus;
   canEdit: boolean;
+  /** When set, only items whose `source` is in the set are rendered. Empty/undefined → no filter. */
+  sourceFilter?: ReadonlySet<BoqItemSource>;
   onUpdateItem?: (
     itemId: string,
     data: UpdateItemPayload
@@ -79,9 +87,10 @@ interface SectionGroup {
   total: number;
 }
 
-// Tuned to fit a ~1100px content area without horizontal scroll.
+// Tuned to fit a ~1100px content area without horizontal scroll. The Source
+// column is narrow on purpose — it carries a single short badge.
 export const GRID_COLS =
-  "grid-cols-[70px_minmax(160px,1fr)_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
+  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
 
 function isBoqLocked(status: BoqStatus): boolean {
   return status === "locked" || status === "superseded";
@@ -102,6 +111,7 @@ export function BoqTable({
   minimumMarginPct,
   boqStatus,
   canEdit,
+  sourceFilter,
   onUpdateItem,
   onDeleteItem,
   onRenameSection,
@@ -111,16 +121,36 @@ export function BoqTable({
   onReorderSections,
   onOpenItem,
 }: BoqTableProps) {
+  const t = useTranslations("boq.table");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const marginFloor = toNum(minimumMarginPct) || undefined;
   const boqLocked = isBoqLocked(boqStatus);
   const rowsEditable = canEdit && !boqLocked && !!onUpdateItem;
   const sectionsEditable = canEdit && !boqLocked;
+  // One ref per section header — chip strip uses these for IntersectionObserver
+  // and smooth-scroll targets without prop-drilling refs through the section body.
+  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const registerSectionRef = useCallback(
+    (id: string, el: HTMLElement | null) => {
+      if (el === null) sectionRefs.current.delete(id);
+      else sectionRefs.current.set(id, el);
+    },
+    []
+  );
+  const getSectionEl = useCallback(
+    (id: string) => sectionRefs.current.get(id) ?? null,
+    []
+  );
+
+  const visibleItems = useMemo(() => {
+    if (!sourceFilter || sourceFilter.size === 0) return items;
+    return items.filter((it) => sourceFilter.has(it.source));
+  }, [items, sourceFilter]);
 
   const groups = useMemo<SectionGroup[]>(() => {
     const bySection = new Map<string, BoqItemWithComputed[]>();
     const unassigned: BoqItemWithComputed[] = [];
-    for (const item of items) {
+    for (const item of visibleItems) {
       if (item.section_id === null) {
         unassigned.push(item);
         continue;
@@ -158,7 +188,23 @@ export function BoqTable({
       });
     }
     return result;
-  }, [sections, items, summary.section_totals]);
+  }, [sections, visibleItems, summary.section_totals]);
+
+  const chips = useMemo<BoqChipDescriptor[]>(
+    () =>
+      groups.map((g) => ({
+        id: g.id,
+        title: g.title,
+        itemCount: g.items.length,
+      })),
+    [groups]
+  );
+
+  const expandSection = useCallback((sectionId: string) => {
+    setCollapsed((prev) =>
+      prev[sectionId] ? { ...prev, [sectionId]: false } : prev
+    );
+  }, []);
 
   if (items.length === 0 && sections.length === 0) {
     return (
@@ -172,12 +218,18 @@ export function BoqTable({
 
   return (
     <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+      <BoqSectionChips
+        chips={chips}
+        getSectionEl={getSectionEl}
+        onActivate={expandSection}
+      />
       <div>
         <div
           className={`hidden lg:grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
         >
           <div>Code</div>
           <div>Description</div>
+          <div>{t("columnSource")}</div>
           <div>Unit</div>
           <div className="text-right">Qty</div>
           <div className="text-right">Unit Cost</div>
@@ -198,6 +250,7 @@ export function BoqTable({
           setCollapsed={setCollapsed}
           rowsEditable={rowsEditable}
           sectionsEditable={sectionsEditable}
+          registerSectionRef={registerSectionRef}
           onUpdateItem={onUpdateItem}
           onDeleteItem={onDeleteItem}
           onOpenItem={onOpenItem}
@@ -223,6 +276,7 @@ interface SectionListProps {
   setCollapsed: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   rowsEditable: boolean;
   sectionsEditable: boolean;
+  registerSectionRef: (id: string, el: HTMLElement | null) => void;
   onUpdateItem?: BoqTableProps["onUpdateItem"];
   onDeleteItem?: BoqTableProps["onDeleteItem"];
   onOpenItem?: BoqTableProps["onOpenItem"];
@@ -337,6 +391,7 @@ function SectionBody({
   setCollapsed,
   rowsEditable,
   sectionsEditable,
+  registerSectionRef,
   onUpdateItem,
   onDeleteItem,
   onOpenItem,
@@ -352,43 +407,50 @@ function SectionBody({
     ? { ...sortableCtx.attributes, ...(sortableCtx.listeners ?? {}) }
     : undefined;
 
+  const headerRefCallback = useCallback(
+    (el: HTMLDivElement | null) => registerSectionRef(group.id, el),
+    [registerSectionRef, group.id]
+  );
+
   return (
     <div>
-      <BoqSectionHeader
-        title={group.title}
-        itemCount={group.items.length}
-        sectionTotal={group.total}
-        currency={currency}
-        collapsed={isCollapsed}
-        onToggle={() =>
-          setCollapsed((prev) => ({
-            ...prev,
-            [group.id]: !isCollapsed,
-          }))
-        }
-        visibleToClient={group.visibleToClient}
-        dragHandleProps={dragHandleProps}
-        onAddItem={
-          sectionsEditable && onAddItemToSection
-            ? () => onAddItemToSection(section?.id ?? null)
-            : undefined
-        }
-        onRename={
-          sectionsEditable && section && onRenameSection
-            ? () => onRenameSection(section)
-            : undefined
-        }
-        onToggleVisibility={
-          sectionsEditable && section && onToggleSectionVisibility
-            ? () => onToggleSectionVisibility(section)
-            : undefined
-        }
-        onDelete={
-          sectionsEditable && section && onDeleteSection
-            ? () => onDeleteSection(section)
-            : undefined
-        }
-      />
+      <div ref={headerRefCallback}>
+        <BoqSectionHeader
+          title={group.title}
+          itemCount={group.items.length}
+          sectionTotal={group.total}
+          currency={currency}
+          collapsed={isCollapsed}
+          onToggle={() =>
+            setCollapsed((prev) => ({
+              ...prev,
+              [group.id]: !isCollapsed,
+            }))
+          }
+          visibleToClient={group.visibleToClient}
+          dragHandleProps={dragHandleProps}
+          onAddItem={
+            sectionsEditable && onAddItemToSection
+              ? () => onAddItemToSection(section?.id ?? null)
+              : undefined
+          }
+          onRename={
+            sectionsEditable && section && onRenameSection
+              ? () => onRenameSection(section)
+              : undefined
+          }
+          onToggleVisibility={
+            sectionsEditable && section && onToggleSectionVisibility
+              ? () => onToggleSectionVisibility(section)
+              : undefined
+          }
+          onDelete={
+            sectionsEditable && section && onDeleteSection
+              ? () => onDeleteSection(section)
+              : undefined
+          }
+        />
+      </div>
       <div
         className={`grid transition-[grid-template-rows] duration-300 ease-out ${
           isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
@@ -408,6 +470,13 @@ function SectionBody({
               onOpen={onOpenItem}
             />
           ))}
+          {group.items.length > 0 && (
+            <BoqSectionFooter
+              itemCount={group.items.length}
+              sectionTotal={group.total}
+              currency={currency}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -500,6 +569,9 @@ const BoqItemRow = memo(function BoqItemRow({
           className="text-text-primary min-w-0"
           ariaLabel={`Description for ${item.item_code}`}
         />
+      </span>
+      <span className="min-w-0">
+        <BoqSourceBadge source={item.source} />
       </span>
       <BoqEditableCell
         value={item.unit}

@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
+import { saveBlob } from "@/lib/download";
 import { cn } from "@/lib/utils";
 import {
   DUPLICATE_STRATEGIES,
@@ -321,6 +322,25 @@ export function ImportDialog({
                 }}
               />
             </div>
+            <p className="text-xs text-text-muted">
+              {t("importTemplateHint")}{" "}
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const { blob, filename } =
+                      await elementsApi.downloadImportTemplate();
+                    saveBlob(blob, filename ?? "elements-template.xlsx");
+                  } catch {
+                    /* toast handled at the API layer */
+                  }
+                }}
+                className="text-accent hover:underline"
+              >
+                {t("importDownloadTemplate")}
+              </button>
+            </p>
           </div>
         )}
 

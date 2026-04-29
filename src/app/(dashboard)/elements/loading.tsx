@@ -19,7 +19,7 @@ export default function ElementsLoading() {
           <Skeleton className="h-10 w-full rounded-lg" />
           <div className="rounded-xl border border-border-default bg-bg-elevated">
             {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonRow key={i} columns={6} />
+              <SkeletonRow key={i} columns={7} />
             ))}
           </div>
         </div>

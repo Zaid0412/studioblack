@@ -7,11 +7,35 @@ import {
 } from "./elementParser";
 
 /**
+ * Subset of `Element` fields actually emitted to the sheet. Lets callers
+ * that don't have a full DB row (e.g. the import-template route) build a
+ * minimal object without lying to the type-checker via `as Element`.
+ */
+export type WritableElement = Pick<
+  Element,
+  | "category_id"
+  | "code"
+  | "name"
+  | "description"
+  | "unit"
+  | "unit_cost"
+  | "currency"
+  | "material_cost"
+  | "labour_cost"
+  | "overhead_pct"
+  | "service_charge_pct"
+  | "margin_pct"
+  | "spec_reference"
+  | "drawing_ref"
+  | "tags"
+>;
+
+/**
  * Write a set of elements to an .xlsx buffer using the same column layout
  * as the import template — round-trips cleanly through parseElementSheet.
  */
 export async function writeElementSheet(
-  elements: Element[],
+  elements: WritableElement[],
   categories: ElementCategory[]
 ): Promise<Buffer> {
   const pathById = buildCategoryPathById(categories);
@@ -44,6 +68,7 @@ export async function writeElementSheet(
       materialCost: toNumber(el.material_cost),
       labourCost: toNumber(el.labour_cost),
       overheadPct: toNumber(el.overhead_pct),
+      serviceChargePct: toNumber(el.service_charge_pct),
       marginPct: toNumber(el.margin_pct),
       specReference: el.spec_reference ?? "",
       drawingRef: el.drawing_ref ?? "",
@@ -91,6 +116,7 @@ function pickStyle(key: string): Partial<ExcelJS.Style> | undefined {
     case "labourCost":
       return { numFmt: "#,##0.00" };
     case "overheadPct":
+    case "serviceChargePct":
     case "marginPct":
       // Stored as 0-100; render with a trailing % symbol without dividing.
       return { numFmt: "0.00\\%" };

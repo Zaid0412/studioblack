@@ -473,18 +473,20 @@ type SharedFinancialKey =
   | "materialCost"
   | "labourCost"
   | "overheadPct"
+  | "serviceChargePct"
   | "marginPct";
 
 export interface SharedFinancialValues {
   materialCost?: number;
   labourCost?: number;
   overheadPct?: number;
+  serviceChargePct?: number;
   marginPct?: number;
 }
 
 /**
  * Spec hoisted to module scope — `parseSharedFinancialFields` runs once per
- * imported row, so re-allocating a 4-tuple array each call adds up to ~80k
+ * imported row, so re-allocating a 5-tuple array each call adds up to ~25k
  * needless allocations on a 5,000-row sheet.
  */
 const SHARED_FINANCIAL_SPEC: ReadonlyArray<
@@ -493,13 +495,15 @@ const SHARED_FINANCIAL_SPEC: ReadonlyArray<
   ["materialCost", "Material Cost", { min: 0 }],
   ["labourCost", "Labour Cost", { min: 0 }],
   ["overheadPct", "Overhead %", { min: 0, max: 100 }],
+  ["serviceChargePct", "Service Charge %", { min: 0, max: 100 }],
   ["marginPct", "Margin %", { min: 0, max: 100 }],
 ];
 
 /**
- * Parse the four optional cost/pct fields that both the element and BOQ
- * templates share — non-negative `materialCost`/`labourCost` and 0-100
- * `overheadPct`/`marginPct`. Mutates `values`/`errors`/`warnings` in place.
+ * Parse the optional cost/pct fields that both the element and BOQ templates
+ * share — non-negative `materialCost`/`labourCost` and 0-100
+ * `overheadPct`/`serviceChargePct`/`marginPct`. Mutates `values`/`errors`/
+ * `warnings` in place.
  */
 export function parseSharedFinancialFields(
   byKey: Partial<Record<SharedFinancialKey, string>>,

@@ -13,6 +13,8 @@ import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
 import { BoqTable } from "../boq/_components/BoqTable";
 import { BoqBottomBar } from "../boq/_components/BoqBottomBar";
 import { BoqActionBar } from "../boq/_components/BoqActionBar";
+import { BoqSourceFilter } from "../boq/_components/BoqSourceFilter";
+import { useBoqSourceFilter } from "../boq/_hooks/useBoqSourceFilter";
 import { BoqCreateSectionDialog } from "../boq/_components/BoqCreateSectionDialog";
 import { BoqCreateItemDialog } from "../boq/_components/BoqCreateItemDialog";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
@@ -69,6 +71,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   );
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const { selected: sourceFilter, setSelected: setSourceFilter } =
+    useBoqSourceFilter();
 
   // Stable so the import dialog's `runConfirm` deps don't churn across SWR
   // revalidations.
@@ -236,6 +240,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         />
       )}
 
+      <BoqSourceFilter selected={sourceFilter} onChange={setSourceFilter} />
+
       <BoqTable
         sections={boq.sections}
         items={boq.items}
@@ -244,6 +250,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         minimumMarginPct={boq.minimum_margin_pct}
         boqStatus={boq.status}
         canEdit={canEdit}
+        sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
         onDeleteItem={async (item) => setDeleteItemTarget(item)}
         onRenameSection={setRenameSection}
