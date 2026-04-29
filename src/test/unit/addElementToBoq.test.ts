@@ -75,13 +75,14 @@ describe("addElementToBoq", () => {
 
     // Second call is the createBoqItem INSERT — verify the params carry
     // source='library' (param $4) and the element's service_charge_pct
-    // (param $13). Param positions match the INSERT column order in
-    // `createBoqItem`.
+    // (param $14). Param positions match the INSERT column order in
+    // `createBoqItem`. F7.5 inserted `rate_contract_item_id` at $5.
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
     expect(insertCall[0]).toContain("INSERT INTO boq_item");
     expect(params[3]).toBe("library"); // $4 source
-    expect(params[12]).toBe(2.5); // $13 service_charge_pct (from element)
+    expect(params[4]).toBe(null); // $5 rate_contract_item_id
+    expect(params[13]).toBe(2.5); // $14 service_charge_pct (from element)
 
     // The trailing SELECT applies the computed-cost columns, which now
     // include the service-charge factor between overhead and margin. Pin
@@ -130,6 +131,6 @@ describe("addElementToBoq", () => {
 
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
-    expect(params[12]).toBe(0); // service_charge_pct defaults to 0
+    expect(params[13]).toBe(0); // service_charge_pct defaults to 0
   });
 });

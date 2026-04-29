@@ -628,6 +628,7 @@ export const addElementToBoqSchema = z.object({
   sectionId: z.string().uuid().nullable(),
   elementId: uuid,
   quantity: quantity.default(1),
+  rateContractItemId: z.string().uuid().optional(),
 });
 
 // ─── BOQ Excel Import (Feature 6) ───────────────────────────────────────────
@@ -815,6 +816,88 @@ export const listVendorsQuerySchema = z.object({
   sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+// ─── Rate Contracts (Feature 7.5) ───────────────────────────────────────────
+
+export const RATE_CONTRACT_STATUSES = [
+  "draft",
+  "active",
+  "expired",
+  "cancelled",
+] as const;
+export type RateContractStatus = (typeof RATE_CONTRACT_STATUSES)[number];
+
+export const RATE_CONTRACT_SORT_FIELDS = [
+  "contract_number",
+  "name",
+  "start_date",
+  "end_date",
+  "status",
+  "updated_at",
+] as const;
+export type RateContractSortField = (typeof RATE_CONTRACT_SORT_FIELDS)[number];
+
+const isoDate = z.string().date();
+
+export const createRateContractSchema = z
+  .object({
+    vendorId: uuid,
+    name: trimmedString.max(255),
+    startDate: isoDate,
+    endDate: isoDate,
+    agreementSignedDate: isoDate.nullable().optional(),
+    currency: z.string().length(3).optional(),
+    paymentTerms: z.string().max(100).optional().nullable(),
+    agreementUrl: z.string().url().max(2048).optional().nullable(),
+    termsAndConditions: z.string().max(10_000).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine((d) => d.endDate >= d.startDate, {
+    message: "endDate must be on or after startDate",
+    path: ["endDate"],
+  });
+
+export const updateRateContractSchema = z
+  .object({
+    name: z.string().trim().min(1).max(255).optional(),
+    startDate: isoDate.optional(),
+    endDate: isoDate.optional(),
+    agreementSignedDate: isoDate.nullable().optional(),
+    currency: z.string().length(3).optional(),
+    paymentTerms: z.string().max(100).optional().nullable(),
+    agreementUrl: z.string().url().max(2048).optional().nullable(),
+    termsAndConditions: z.string().max(10_000).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+    status: z.enum(RATE_CONTRACT_STATUSES).optional(),
+  })
+  .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
+    message: "endDate must be on or after startDate",
+    path: ["endDate"],
+  });
+
+export const addRateContractItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        elementId: uuid,
+        unit: z.enum(ALLOWED_UNITS),
+        rate: z.number().nonnegative(),
+        notes: z.string().max(2000).optional().nullable(),
+      })
+    )
+    .min(1)
+    .max(500),
+});
+
+export const listRateContractsQuerySchema = z.object({
+  search: z.string().optional(),
+  vendorId: optionalUuid,
+  status: z.enum(RATE_CONTRACT_STATUSES).optional(),
+  sortBy: z.enum(RATE_CONTRACT_SORT_FIELDS).optional(),
+  sortOrder: z.enum(SORT_ORDERS).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────

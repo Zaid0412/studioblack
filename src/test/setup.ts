@@ -378,6 +378,21 @@ vi.mock("@/lib/queries", () => ({
   listKycDocuments: vi.fn().mockResolvedValue([]),
   removeKycDocument: vi.fn().mockResolvedValue(true),
   setKycStatus: vi.fn().mockResolvedValue(null),
+  // Rate Contracts (Feature 7.5)
+  listRateContracts: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getRateContractById: vi.fn().mockResolvedValue(null),
+  getActiveRatesForElement: vi.fn().mockResolvedValue([]),
+  getAvailableRatesForBoqPicker: vi.fn().mockResolvedValue([]),
+  createRateContract: vi.fn(),
+  updateRateContract: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
+  cancelRateContract: vi.fn().mockResolvedValue(true),
+  activateRateContract: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
+  addRateContractItems: vi.fn().mockResolvedValue({ ok: true, count: 0 }),
+  removeRateContractItem: vi.fn().mockResolvedValue(true),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
   logAuditSafe: vi.fn().mockResolvedValue(undefined),
@@ -388,6 +403,8 @@ vi.mock("@/lib/queries", () => ({
     VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
     VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
     VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
+    RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
+    RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
   } as const,
   getAuditEvents: vi.fn().mockResolvedValue([]),
 }));

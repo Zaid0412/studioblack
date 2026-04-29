@@ -83,7 +83,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     ...(features.elementLibrary
-      ? [{ href: "/elements", label: t("elements"), icon: Layers }]
+      ? [{ href: "/elements/library", label: t("elements"), icon: Layers }]
       : []),
     ...(features.vendorManagement
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]

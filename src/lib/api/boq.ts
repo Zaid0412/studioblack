@@ -159,7 +159,11 @@ export function reorderItems(
   });
 }
 
-/** Insert a BOQ item by copying the latest version of a library element (cost, unit, margin, …). */
+/**
+ * Insert a BOQ item by copying the latest version of a library element
+ * (cost, unit, margin, …). When `rateContractItemId` is supplied, the unit
+ * cost comes from the rate-contract item instead and `source = 'rate_contract'`.
+ */
 export function addElement(
   projectId: string,
   data: {
@@ -167,6 +171,7 @@ export function addElement(
     sectionId: string | null;
     elementId: string;
     quantity?: number;
+    rateContractItemId?: string;
   }
 ) {
   return apiPost<BoqItemWithComputed>(API.boqItemsFromElement(projectId), data);

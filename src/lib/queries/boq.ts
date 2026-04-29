@@ -372,6 +372,7 @@ export interface CreateBoqItemInput {
   elementId?: string | null;
   /** Provenance — set by the create flow, not user-editable. Defaults to 'custom'. */
   source?: BoqItemSource;
+  rateContractItemId?: string | null;
   itemCode?: string;
   description: string;
   unit: string;
@@ -406,16 +407,18 @@ export async function createBoqItem(
   const { rows } = await pool.query<BoqItemWithComputed>(
     `WITH inserted AS (
        INSERT INTO boq_item (
-         boq_id, section_id, element_id, source, item_code, description, unit,
+         boq_id, section_id, element_id, source, rate_contract_item_id,
+         item_code, description, unit,
          quantity, unit_cost, material_cost, labour_cost,
          overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
-         $1, $2::uuid, $3, COALESCE($4, 'custom'), $5, $6, $7,
-         COALESCE($8::numeric, 0), COALESCE($9::numeric, 0), $10::numeric, $11::numeric,
-         COALESCE($12::numeric, 0), COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), $15, $16,
-         COALESCE($17::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($18, false), COALESCE($19, false)
+         $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
+         $6, $7, $8,
+         COALESCE($9::numeric, 0), COALESCE($10::numeric, 0), $11::numeric, $12::numeric,
+         COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0), $16, $17,
+         COALESCE($18::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($19, false), COALESCE($20, false)
        )
        RETURNING *
      )
@@ -427,6 +430,7 @@ export async function createBoqItem(
       input.sectionId ?? null,
       input.elementId ?? null,
       input.source ?? null,
+      input.rateContractItemId ?? null,
       itemCode,
       input.description,
       input.unit,
@@ -633,7 +637,12 @@ export async function reorderBoqItems(
   );
 }
 
-/** Snapshot a library element's costs into a new BOQ item. Returns null if the element no longer exists. */
+/**
+ * Snapshot a library element's costs into a new BOQ item. Returns null if the
+ * element no longer exists. When `rateContractItemId` is supplied the unit
+ * cost comes from the rate-contract row (rather than the element default) and
+ * the BOQ item's source is `'rate_contract'`.
+ */
 export async function addElementToBoq(
   boqId: string,
   orgId: string,
@@ -641,6 +650,7 @@ export async function addElementToBoq(
     sectionId: string | null;
     elementId: string;
     quantity?: number;
+    rateContractItemId?: string;
   }
 ): Promise<BoqItemWithComputed | null> {
   const pool = getPool();
@@ -653,15 +663,41 @@ export async function addElementToBoq(
   if (elementRows.length === 0) return null;
   const e = elementRows[0];
 
+  let unitCost = Number(e.unit_cost);
+  let unit: string = e.unit;
+  let source: BoqItemSource = "library";
+
+  if (params.rateContractItemId) {
+    const { rows: rcRows } = await pool.query(
+      `SELECT rci.rate, rci.unit
+         FROM rate_contract_item rci
+         JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+        WHERE rci.id = $1
+          AND rc.org_id = $2
+          AND rc.status = 'active'
+          AND rci.element_id = $3`,
+      [params.rateContractItemId, orgId, params.elementId]
+    );
+    if (rcRows.length === 0) {
+      throw new Error(
+        "Rate contract item not active or doesn't match the chosen element"
+      );
+    }
+    unitCost = Number(rcRows[0].rate);
+    unit = rcRows[0].unit;
+    source = "rate_contract";
+  }
+
   return createBoqItem(boqId, orgId, {
     sectionId: params.sectionId,
     elementId: params.elementId,
-    source: "library",
+    source,
+    rateContractItemId: params.rateContractItemId ?? null,
     itemCode: e.code,
     description: e.description || e.name,
-    unit: e.unit,
+    unit,
     quantity: params.quantity ?? 1,
-    unitCost: Number(e.unit_cost),
+    unitCost,
     materialCost: e.material_cost !== null ? Number(e.material_cost) : null,
     labourCost: e.labour_cost !== null ? Number(e.labour_cost) : null,
     overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,

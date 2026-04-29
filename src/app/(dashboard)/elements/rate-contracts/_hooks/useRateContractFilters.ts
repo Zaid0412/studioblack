@@ -2,41 +2,49 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import type {
-  ElementUnit,
-  ElementSortField,
-  SortOrder,
+import {
+  RATE_CONTRACT_STATUSES,
+  RATE_CONTRACT_SORT_FIELDS,
+  SORT_ORDERS,
+  type RateContractStatus,
+  type RateContractSortField,
+  type SortOrder,
 } from "@/lib/validations";
-import { ELEMENT_SORT_FIELDS, SORT_ORDERS } from "@/lib/validations";
 
-const SORT_FIELDS = new Set<string>(ELEMENT_SORT_FIELDS);
+const STATUS_SET = new Set<string>(RATE_CONTRACT_STATUSES);
+const SORT_FIELDS = new Set<string>(RATE_CONTRACT_SORT_FIELDS);
 const ORDERS = new Set<string>(SORT_ORDERS);
 
-export interface ElementFilterState {
+export interface RateContractFilterState {
   search: string;
-  categoryId: string | null;
-  unit: ElementUnit | null;
-  isActive: boolean;
-  sortBy: ElementSortField | null;
+  status: RateContractStatus | null;
+  vendorId: string | null;
+  sortBy: RateContractSortField | null;
   sortOrder: SortOrder | null;
   page: number;
 }
 
-/** Reads filter state from the URL and provides setters that update the URL. */
-export function useElementFilters() {
+const ROUTE = "/elements/rate-contracts";
+
+export function useRateContractFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const state: ElementFilterState = useMemo(() => {
+  const state: RateContractFilterState = useMemo(() => {
+    const status = searchParams.get("status");
     const sortBy = searchParams.get("sortBy");
     const sortOrder = searchParams.get("sortOrder");
     return {
       search: searchParams.get("search") ?? "",
-      categoryId: searchParams.get("categoryId"),
-      unit: (searchParams.get("unit") as ElementUnit | null) ?? null,
-      isActive: searchParams.get("archived") !== "1",
+      status:
+        status && STATUS_SET.has(status)
+          ? (status as RateContractStatus)
+          : null,
+      vendorId: searchParams.get("vendorId"),
       sortBy:
-        sortBy && SORT_FIELDS.has(sortBy) ? (sortBy as ElementSortField) : null,
+        sortBy && SORT_FIELDS.has(sortBy)
+          ? (sortBy as RateContractSortField)
+          : null,
       sortOrder:
         sortOrder && ORDERS.has(sortOrder) ? (sortOrder as SortOrder) : null,
       page: Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1),
@@ -51,17 +59,14 @@ export function useElementFilters() {
       } else {
         params.set(key, value);
       }
-      // Reset page whenever any other filter changes
       if (key !== "page") params.delete("page");
-      router.replace(`/elements/library?${params.toString()}`, {
-        scroll: false,
-      });
+      router.replace(`${ROUTE}?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
 
   const setSort = useCallback(
-    (sortBy: ElementSortField | null, sortOrder: SortOrder | null) => {
+    (sortBy: RateContractSortField | null, sortOrder: SortOrder | null) => {
       const params = new URLSearchParams(searchParams.toString());
       if (sortBy && sortOrder) {
         params.set("sortBy", sortBy);
@@ -71,9 +76,7 @@ export function useElementFilters() {
         params.delete("sortOrder");
       }
       params.delete("page");
-      router.replace(`/elements/library?${params.toString()}`, {
-        scroll: false,
-      });
+      router.replace(`${ROUTE}?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
@@ -81,12 +84,10 @@ export function useElementFilters() {
   return {
     state,
     setSearch: (v: string) => setParam("search", v || null),
-    setCategoryId: (v: string | null) => setParam("categoryId", v),
-    setUnit: (v: ElementUnit | null) => setParam("unit", v),
-    setShowArchived: (archived: boolean) =>
-      setParam("archived", archived ? "1" : null),
+    setStatus: (v: string | null) => setParam("status", v),
+    setVendorId: (v: string | null) => setParam("vendorId", v),
     setSort,
     setPage: (page: number) => setParam("page", String(page)),
-    clear: () => router.replace("/elements/library", { scroll: false }),
+    clear: () => router.replace(ROUTE, { scroll: false }),
   };
 }
