@@ -18,9 +18,11 @@ CREATE TABLE IF NOT EXISTS vendor (
   currency VARCHAR(3) DEFAULT 'USD',
   vat_registered BOOLEAN DEFAULT false,
   vat_number VARCHAR(50),
-  -- AES-256-GCM envelope: { version, encrypted, iv, tag }. Never queried directly.
+  -- AES-256-GCM envelope: { version, encrypted, iv, tag }. Never queried directly;
+  -- written/read via src/lib/vendorEncryption.ts and `bankDetailsSchema` in validations.
   bank_details JSONB,
-  -- { line1, line2, city, region, postal, country }
+  -- Freeform address. Shape pinned by `vendorAddressSchema` in src/lib/validations.ts:
+  -- { line1, line2, city, region, postal, country } — all optional strings.
   address JSONB,
   notes TEXT,
   created_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
@@ -76,6 +78,8 @@ CREATE INDEX IF NOT EXISTS idx_vendor_trade_category ON vendor_trade(category_id
 CREATE TABLE IF NOT EXISTS audit_event (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id TEXT NOT NULL REFERENCES "organization"(id) ON DELETE CASCADE,
+  -- Nullable so the row survives `ON DELETE SET NULL` when a user is removed.
+  -- Writers always pass a real user id; the application never inserts NULL.
   actor_id TEXT REFERENCES "user"(id) ON DELETE SET NULL,
   action VARCHAR(64) NOT NULL,
   target_table VARCHAR(64) NOT NULL,

@@ -200,18 +200,26 @@ export async function getVendorById(
   return (rows[0] as VendorWithRelations) ?? null;
 }
 
-/** Read-only access to the encrypted envelope. Caller decrypts. */
+/**
+ * Fetch the encrypted envelope for a vendor's bank details. Returns
+ * `exists: false` when the vendor row isn't in this org (so the route can
+ * 404 without a separate ownership check), and `envelope: null` when the
+ * row exists but has no bank details set. Caller decrypts the envelope.
+ */
 export async function getVendorBankDetailsEnvelope(
   orgId: string,
   vendorId: string
-): Promise<EncryptedField | null> {
+): Promise<{ exists: boolean; envelope: EncryptedField | null }> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT bank_details FROM vendor WHERE id = $1 AND org_id = $2`,
     [vendorId, orgId]
   );
-  if (rows.length === 0) return null;
-  return (rows[0].bank_details as EncryptedField | null) ?? null;
+  if (rows.length === 0) return { exists: false, envelope: null };
+  return {
+    exists: true,
+    envelope: (rows[0].bank_details as EncryptedField | null) ?? null,
+  };
 }
 
 /** Lightweight list for F9 RFQ vendor suggestion. Active vendors only. */
@@ -480,19 +488,6 @@ export async function hardDeleteVendor(
   const pool = getPool();
   const { rowCount } = await pool.query(
     `DELETE FROM vendor WHERE id = $1 AND org_id = $2`,
-    [vendorId, orgId]
-  );
-  return (rowCount ?? 0) > 0;
-}
-
-/** Helper: confirm a vendor belongs to the org. Used by route guards. */
-export async function vendorBelongsToOrg(
-  orgId: string,
-  vendorId: string
-): Promise<boolean> {
-  const pool = getPool();
-  const { rowCount } = await pool.query(
-    `SELECT 1 FROM vendor WHERE id = $1 AND org_id = $2`,
     [vendorId, orgId]
   );
   return (rowCount ?? 0) > 0;

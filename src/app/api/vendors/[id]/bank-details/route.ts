@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import {
   getVendorBankDetailsEnvelope,
   updateVendorBankDetails,
-  vendorBelongsToOrg,
   logAudit,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
@@ -25,11 +24,13 @@ export const GET = withAuth(
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
 
-    if (!(await vendorBelongsToOrg(orgId, params.id))) {
+    const { exists, envelope } = await getVendorBankDetailsEnvelope(
+      orgId,
+      params.id
+    );
+    if (!exists) {
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
     }
-
-    const envelope = await getVendorBankDetailsEnvelope(orgId, params.id);
 
     // Audit logged whether the row had data or not — both reads are sensitive.
     try {
@@ -79,10 +80,6 @@ export const PUT = withAuth(
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
 
-    if (!(await vendorBelongsToOrg(orgId, params.id))) {
-      return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
-    }
-
     let body: unknown;
     try {
       body = await req.json();
@@ -90,12 +87,16 @@ export const PUT = withAuth(
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    // Body must be `{ data: BankDetails | null }`. Fall back to treating the
-    // whole body as the payload only when there's no `data` key at all.
-    const wrapped =
-      body && typeof body === "object" && "data" in body
-        ? (body as { data: unknown }).data
-        : body;
+    // Strict shape: `{ data: BankDetails | null }`. The client wrapper always
+    // sends this envelope; rejecting anything else keeps a sensitive endpoint
+    // honest and prevents silent shape-drift.
+    if (!body || typeof body !== "object" || !("data" in body)) {
+      return NextResponse.json(
+        { error: "Body must be { data: BankDetails | null }" },
+        { status: 400 }
+      );
+    }
+    const wrapped = (body as { data: unknown }).data;
 
     if (wrapped === null) {
       const ok = await updateVendorBankDetails(orgId, params.id, null);

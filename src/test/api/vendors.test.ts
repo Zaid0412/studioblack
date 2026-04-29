@@ -10,7 +10,6 @@ import {
   getVendorBankDetailsEnvelope,
   updateVendorBankDetails,
   getVendorsByTrade,
-  vendorBelongsToOrg,
   logAudit,
   getMemberRole,
 } from "@/lib/queries";
@@ -326,9 +325,11 @@ describe("Vendor bank-details endpoint", () => {
   const sample: BankDetails = { iban: "GB29NWBK60161331926819" };
 
   it("PM can read bank details — decrypted", async () => {
-    vi.mocked(vendorBelongsToOrg).mockResolvedValue(true);
     const envelope = encryptBankDetails(sample);
-    vi.mocked(getVendorBankDetailsEnvelope).mockResolvedValue(envelope);
+    vi.mocked(getVendorBankDetailsEnvelope).mockResolvedValue({
+      exists: true,
+      envelope,
+    });
 
     const res = await GET_BANK(
       buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`),
@@ -343,8 +344,10 @@ describe("Vendor bank-details endpoint", () => {
   });
 
   it("returns null when no bank details set", async () => {
-    vi.mocked(vendorBelongsToOrg).mockResolvedValue(true);
-    vi.mocked(getVendorBankDetailsEnvelope).mockResolvedValue(null);
+    vi.mocked(getVendorBankDetailsEnvelope).mockResolvedValue({
+      exists: true,
+      envelope: null,
+    });
 
     const res = await GET_BANK(
       buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`),
@@ -355,7 +358,10 @@ describe("Vendor bank-details endpoint", () => {
   });
 
   it("returns 404 when vendor not in org", async () => {
-    vi.mocked(vendorBelongsToOrg).mockResolvedValue(false);
+    vi.mocked(getVendorBankDetailsEnvelope).mockResolvedValue({
+      exists: false,
+      envelope: null,
+    });
 
     const res = await GET_BANK(
       buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`),
@@ -376,7 +382,6 @@ describe("Vendor bank-details endpoint", () => {
   });
 
   it("PM can write bank details — encrypted + audit-logged", async () => {
-    vi.mocked(vendorBelongsToOrg).mockResolvedValue(true);
     vi.mocked(updateVendorBankDetails).mockResolvedValue(true);
 
     const res = await PUT_BANK(
@@ -398,7 +403,6 @@ describe("Vendor bank-details endpoint", () => {
   });
 
   it("PUT { data: null } clears the envelope", async () => {
-    vi.mocked(vendorBelongsToOrg).mockResolvedValue(true);
     vi.mocked(updateVendorBankDetails).mockResolvedValue(true);
 
     const res = await PUT_BANK(
@@ -416,9 +420,31 @@ describe("Vendor bank-details endpoint", () => {
     );
   });
 
-  it("rejects unknown bank-details fields (.strict)", async () => {
-    vi.mocked(vendorBelongsToOrg).mockResolvedValue(true);
+  it("PUT 404s when the vendor isn't in the org", async () => {
+    vi.mocked(updateVendorBankDetails).mockResolvedValue(false);
 
+    const res = await PUT_BANK(
+      buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`, {
+        method: "PUT",
+        body: { data: sample },
+      }),
+      buildParams({ id: VENDOR_ID })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("PUT 400s when the body envelope is missing the `data` key", async () => {
+    const res = await PUT_BANK(
+      buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`, {
+        method: "PUT",
+        body: sample, // raw shape — no { data } wrapper
+      }),
+      buildParams({ id: VENDOR_ID })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects unknown bank-details fields (.strict)", async () => {
     const res = await PUT_BANK(
       buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`, {
         method: "PUT",
@@ -427,6 +453,39 @@ describe("Vendor bank-details endpoint", () => {
       buildParams({ id: VENDOR_ID })
     );
     expect(res.status).toBe(400);
+  });
+
+  // Audit failures must not block the underlying mutation — they're a
+  // best-effort side effect. A future refactor that re-throws here would
+  // silently regress to "audit DB hiccup crashes the request".
+  it("returns 200 on PUT even when logAudit rejects", async () => {
+    vi.mocked(updateVendorBankDetails).mockResolvedValue(true);
+    vi.mocked(logAudit).mockRejectedValueOnce(new Error("audit DB down"));
+
+    const res = await PUT_BANK(
+      buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`, {
+        method: "PUT",
+        body: { data: sample },
+      }),
+      buildParams({ id: VENDOR_ID })
+    );
+    expect(res.status).toBe(200);
+    // The vendor row was still mutated, only the audit log failed.
+    expect(updateVendorBankDetails).toHaveBeenCalled();
+  });
+
+  it("returns 200 on GET even when logAudit rejects", async () => {
+    vi.mocked(getVendorBankDetailsEnvelope).mockResolvedValue({
+      exists: true,
+      envelope: null,
+    });
+    vi.mocked(logAudit).mockRejectedValueOnce(new Error("audit DB down"));
+
+    const res = await GET_BANK(
+      buildRequest(`/api/vendors/${VENDOR_ID}/bank-details`),
+      buildParams({ id: VENDOR_ID })
+    );
+    expect(res.status).toBe(200);
   });
 });
 

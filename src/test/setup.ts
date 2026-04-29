@@ -363,7 +363,9 @@ vi.mock("@/lib/queries", () => ({
   // Vendors (Feature 7)
   getVendors: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getVendorById: vi.fn().mockResolvedValue(null),
-  getVendorBankDetailsEnvelope: vi.fn().mockResolvedValue(null),
+  getVendorBankDetailsEnvelope: vi
+    .fn()
+    .mockResolvedValue({ exists: false, envelope: null }),
   getVendorsByTrade: vi.fn().mockResolvedValue([]),
   createVendor: vi.fn(),
   updateVendor: vi.fn().mockResolvedValue(null),
@@ -371,7 +373,6 @@ vi.mock("@/lib/queries", () => ({
   updateVendorRating: vi.fn().mockResolvedValue(null),
   softDeleteVendor: vi.fn().mockResolvedValue(true),
   hardDeleteVendor: vi.fn().mockResolvedValue(true),
-  vendorBelongsToOrg: vi.fn().mockResolvedValue(true),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
   getAuditEvents: vi.fn().mockResolvedValue([]),
