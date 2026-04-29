@@ -9,7 +9,12 @@ interface BoqSectionFooterProps {
   label?: string;
 }
 
-/** Per-section totals row rendered at the bottom of an expanded section. */
+/**
+ * Per-section totals row rendered at the bottom of an expanded section.
+ * Intentionally duplicates the total shown by `BoqSectionHeader` — once the
+ * user has scrolled past a long section the header is off-screen, so this
+ * keeps the running total in view (matches RDash's BOQ behaviour).
+ */
 export function BoqSectionFooter({
   itemCount,
   sectionTotal,

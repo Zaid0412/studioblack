@@ -34,6 +34,9 @@ export function BoqSectionChips({
   // Read latest `chips` inside the observer callback without re-depending on
   // the chips array itself — otherwise every BOQ mutation (item add/edit)
   // would rebuild N IntersectionObservers even when section IDs haven't moved.
+  // The dep-less effect is intentional: keep `chipsRef.current` in sync with
+  // the latest render so observer callbacks (which fire later, on scroll) see
+  // current data.
   const chipsRef = useRef(chips);
   useEffect(() => {
     chipsRef.current = chips;

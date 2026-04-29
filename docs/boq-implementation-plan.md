@@ -2,7 +2,7 @@
 
 > **Companion plans:**
 >
-> - `docs/boq-enhancements-plan.md` — F6.1 (BOQ table enhancements: section chips, source column, service charge). Lives in a separate file because it touches already-shipped code.
+> - `docs/boq-enhancements-plan.md` — F6.1 (BOQ table enhancements: section chips, source column, service charge). **Status: shipped in PR #81 (2026-04-29).** Lives in a separate file because it touches already-shipped code.
 >
 > **Source PRD** (Google Docs — 6 tabs):
 >

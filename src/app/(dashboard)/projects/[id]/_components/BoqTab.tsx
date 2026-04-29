@@ -14,6 +14,7 @@ import { BoqTable } from "../boq/_components/BoqTable";
 import { BoqBottomBar } from "../boq/_components/BoqBottomBar";
 import { BoqActionBar } from "../boq/_components/BoqActionBar";
 import { BoqSourceFilter } from "../boq/_components/BoqSourceFilter";
+import { useBoqSourceFilter } from "../boq/_hooks/useBoqSourceFilter";
 import { BoqCreateSectionDialog } from "../boq/_components/BoqCreateSectionDialog";
 import { BoqCreateItemDialog } from "../boq/_components/BoqCreateItemDialog";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
@@ -25,7 +26,6 @@ import { toast } from "@/components/ui/useToast";
 import { boq as boqApi, ApiError } from "@/lib/api";
 import { saveBlob } from "@/lib/download";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
-import type { BoqItemSource } from "@/lib/validations";
 
 interface BoqTabProps {
   projectId: string;
@@ -71,9 +71,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   );
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [sourceFilter, setSourceFilter] = useState<Set<BoqItemSource>>(
-    () => new Set()
-  );
+  const { selected: sourceFilter, setSelected: setSourceFilter } =
+    useBoqSourceFilter();
 
   // Stable so the import dialog's `runConfirm` deps don't churn across SWR
   // revalidations.

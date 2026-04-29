@@ -338,7 +338,7 @@ export function ElementFormDialog({
             </div>
 
             {/* Costs */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {COST_FIELDS.map((f) => (
                 <Input
                   key={f.key}
