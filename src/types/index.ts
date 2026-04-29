@@ -9,9 +9,16 @@ import type {
   BoqItemSource,
   VendorStatus,
   VendorProficiency,
+  VendorKycStatus,
+  VendorKycDocumentType,
 } from "@/lib/validations";
 
-export type { VendorStatus, VendorProficiency };
+export type {
+  VendorStatus,
+  VendorProficiency,
+  VendorKycStatus,
+  VendorKycDocumentType,
+};
 
 /** Roles available to authenticated users. */
 export type UserRole = "pm" | "architect" | "client";
@@ -684,11 +691,28 @@ export interface Vendor {
   currency: string;
   vat_registered: boolean;
   vat_number: string | null;
+  tax_id: string | null;
+  kyc_status: VendorKycStatus;
+  kyc_verified_at: string | null;
+  kyc_verified_by: string | null;
+  kyc_notes: string | null;
   address: VendorAddress | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface VendorKycDocument {
+  id: string;
+  vendor_id: string;
+  doc_type: VendorKycDocumentType;
+  file_url: string;
+  file_name: string;
+  expires_at: string | null;
+  uploaded_by: string | null;
+  uploaded_at: string;
+  notes: string | null;
 }
 
 export interface VendorContact {
@@ -720,6 +744,7 @@ export interface VendorTradeWithCategory extends VendorTrade {
 export interface VendorWithRelations extends Vendor {
   contacts: VendorContact[];
   trades: VendorTradeWithCategory[];
+  kyc_expiring_soon_count?: number;
 }
 
 /** Lite shape used in F9 RFQ vendor suggestion lists. */

@@ -18,8 +18,12 @@ import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import { API } from "@/lib/api/routes";
-import { VENDOR_STATUSES } from "@/lib/validations";
-import type { ElementCategoryNode, VendorStatus } from "@/types";
+import { VENDOR_STATUSES, VENDOR_KYC_STATUSES } from "@/lib/validations";
+import type {
+  ElementCategoryNode,
+  VendorStatus,
+  VendorKycStatus,
+} from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { VendorRow } from "./VendorRow";
 import type { VendorFilterState } from "../_hooks/useVendorFilters";
@@ -35,6 +39,7 @@ interface Props {
   canDelete: boolean;
   onSearchChange: (v: string) => void;
   onStatusChange: (v: VendorStatus | null) => void;
+  onKycStatusChange: (v: VendorKycStatus | null) => void;
   onTradeChange: (v: string | null) => void;
   onPageChange: (page: number) => void;
   onClear: () => void;
@@ -58,6 +63,7 @@ export function VendorList({
   canDelete,
   onSearchChange,
   onStatusChange,
+  onKycStatusChange,
   onTradeChange,
   onPageChange,
   onClear,
@@ -73,7 +79,11 @@ export function VendorList({
   const tree = useMemo(() => catData?.tree ?? [], [catData]);
 
   const hasActive =
-    state.search || state.status || state.tradeCategoryId || state.page > 1;
+    state.search ||
+    state.status ||
+    state.kycStatus ||
+    state.tradeCategoryId ||
+    state.page > 1;
 
   const startIdx = (state.page - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, total);
@@ -105,6 +115,29 @@ export function VendorList({
               {VENDOR_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {t(`status_${s}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-full lg:w-44">
+          <Select
+            value={state.kycStatus ?? ALL_STATUS}
+            onValueChange={(v) =>
+              onKycStatusChange(
+                v === ALL_STATUS ? null : (v as VendorKycStatus)
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("filterKyc")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATUS}>{t("allKycStatuses")}</SelectItem>
+              {VENDOR_KYC_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {t(`kycStatus_${s}`)}
                 </SelectItem>
               ))}
             </SelectContent>

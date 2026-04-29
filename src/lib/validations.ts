@@ -670,6 +670,23 @@ export const VENDOR_PROFICIENCIES = [
 ] as const;
 export type VendorProficiency = (typeof VENDOR_PROFICIENCIES)[number];
 
+export const VENDOR_KYC_STATUSES = [
+  "unverified",
+  "pending",
+  "verified",
+  "rejected",
+] as const;
+export type VendorKycStatus = (typeof VENDOR_KYC_STATUSES)[number];
+
+export const VENDOR_KYC_DOCUMENT_TYPES = [
+  "tax_certificate",
+  "trade_licence",
+  "iso_certification",
+  "insurance",
+  "other",
+] as const;
+export type VendorKycDocumentType = (typeof VENDOR_KYC_DOCUMENT_TYPES)[number];
+
 export const vendorAddressSchema = z
   .object({
     line1: z.string().max(255).optional(),
@@ -716,6 +733,7 @@ export const createVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
+  taxId: z.string().max(50).optional(),
   address: vendorAddressSchema.optional(),
   notes: z.string().max(2000).optional(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -735,10 +753,26 @@ export const updateVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional().nullable(),
+  taxId: z.string().max(50).optional().nullable(),
   address: vendorAddressSchema.optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
   trades: z.array(vendorTradeSchema).max(50).optional(),
+});
+
+// ─── Vendor KYC (F7.1) ───────────────────────────────────────────────────────
+
+export const vendorKycDocumentSchema = z.object({
+  docType: z.enum(VENDOR_KYC_DOCUMENT_TYPES),
+  fileUrl: trimmedString.max(2048),
+  fileName: trimmedString.max(255),
+  expiresAt: z.string().date().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export const vendorKycStatusSchema = z.object({
+  kycStatus: z.enum(VENDOR_KYC_STATUSES),
+  kycNotes: z.string().max(2000).optional().nullable(),
 });
 
 export const vendorRatingSchema = z.object({
@@ -752,6 +786,7 @@ export const vendorRatingSchema = z.object({
 export const listVendorsQuerySchema = z.object({
   search: z.string().optional(),
   status: z.enum(VENDOR_STATUSES).optional(),
+  kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),

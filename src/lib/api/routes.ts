@@ -118,4 +118,9 @@ export const API = {
   vendorBankDetails:     (id: string)                  => `/api/vendors/${id}/bank-details`,
   vendorRating:          (id: string)                  => `/api/vendors/${id}/rating`,
   vendorsByTrade:        (categoryId: string)          => `/api/vendors/by-trade/${categoryId}`,
+
+  // ── Vendor KYC (Feature 7.1) ────────────────────
+  vendorKycDocuments:    (id: string)                  => `/api/vendors/${id}/kyc-documents`,
+  vendorKycDocument:     (id: string, docId: string)   => `/api/vendors/${id}/kyc-documents/${docId}`,
+  vendorKycStatus:       (id: string)                  => `/api/vendors/${id}/kyc-status`,
 } as const;

@@ -28,8 +28,10 @@ import { useVendor } from "@/hooks/useVendors";
 import type { VendorWithRelations } from "@/types";
 import { useUserRole } from "@/hooks/useUserRole";
 import { VendorStatusBadge } from "./VendorStatusBadge";
+import { VendorKycStatusDot } from "./VendorKycStatusBadge";
 import { VendorRatingPicker } from "./VendorRatingPicker";
 import { VendorBankDetailsForm } from "./VendorBankDetailsForm";
+import { VendorKycTab } from "./VendorKycTab";
 
 interface Props {
   vendorId: string | null;
@@ -62,7 +64,7 @@ export function VendorDrawer({
   const { role } = useUserRole();
   const isPm = role === "pm";
 
-  const { vendor, isLoading } = useVendor(vendorId);
+  const { vendor, isLoading, mutate: mutateVendor } = useVendor(vendorId);
 
   const [activeTab, setActiveTab] = useState("overview");
   const [confirmSoft, setConfirmSoft] = useState(false);
@@ -120,6 +122,10 @@ export function VendorDrawer({
                     )}
                     <div className="flex items-center gap-2 pt-1 flex-wrap">
                       <VendorStatusBadge status={vendor.status} />
+                      <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
+                        <VendorKycStatusDot status={vendor.kyc_status} />
+                        {t(`kycStatus_${vendor.kyc_status}`)}
+                      </span>
                       {vendor.vendor_code && (
                         <span className="font-mono text-xs text-text-muted">
                           {vendor.vendor_code}
@@ -150,6 +156,7 @@ export function VendorDrawer({
                     <TabsTrigger value="trades">
                       {t("tabTrades")} ({vendor.trades.length})
                     </TabsTrigger>
+                    <TabsTrigger value="kyc">{t("tabKyc")}</TabsTrigger>
                     {isPm && (
                       <TabsTrigger value="bank">{t("tabBank")}</TabsTrigger>
                     )}
@@ -335,6 +342,14 @@ export function VendorDrawer({
                         ))}
                       </ul>
                     )}
+                  </TabsContent>
+
+                  <TabsContent value="kyc">
+                    <VendorKycTab
+                      vendor={vendor}
+                      enabled={activeTab === "kyc"}
+                      onVendorMutate={() => mutateVendor()}
+                    />
                   </TabsContent>
 
                   {isPm && (

@@ -5,13 +5,20 @@ import { useCallback, useState } from "react";
 import { vendors as vendorsApi } from "@/lib/api";
 import type { ListVendorsResponse, VendorListRow } from "@/lib/api/vendors";
 import { toast } from "@/components/ui/useToast";
-import type { VendorWithRelations, BankDetails, VendorStatus } from "@/types";
+import type {
+  VendorWithRelations,
+  BankDetails,
+  VendorStatus,
+  VendorKycStatus,
+  VendorKycDocument,
+} from "@/types";
 
 const PAGE_SIZE = 25;
 
 export interface VendorFilterState {
   search: string;
   status?: VendorStatus;
+  kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
   page: number;
 }
@@ -24,6 +31,7 @@ export function useVendors(filters: VendorFilterState) {
   const params = {
     search: filters.search || undefined,
     status: filters.status,
+    kycStatus: filters.kycStatus,
     tradeCategoryId: filters.tradeCategoryId,
     page: filters.page,
     limit: PAGE_SIZE,
@@ -184,5 +192,84 @@ export function useVendorBankDetails(
     isLoading,
     error,
     save,
+  };
+}
+
+/**
+ * KYC documents — lazy-loaded once the KYC tab opens. Includes upload, remove,
+ * and PM-only status flip. Mutates both the list cache and the parent vendor
+ * fetch so the drawer header and "expiring soon" count stay in sync.
+ */
+export function useVendorKyc(
+  vendorId: string | null,
+  enabled: boolean = true,
+  onVendorMutate?: () => void
+) {
+  const key =
+    vendorId && enabled ? `/api/vendors/${vendorId}/kyc-documents` : null;
+  const { data, isLoading, error, mutate } = useSWR<{
+    documents: VendorKycDocument[];
+  }>(key);
+
+  const addDocument = useCallback(
+    async (input: Parameters<typeof vendorsApi.addKycDocument>[1]) => {
+      if (!vendorId) return;
+      try {
+        const res = await vendorsApi.addKycDocument(vendorId, input);
+        toast({ title: "Document added" });
+        mutate();
+        onVendorMutate?.();
+        return res;
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to add document";
+        toast({ title: msg, variant: "error" });
+        throw err;
+      }
+    },
+    [vendorId, mutate, onVendorMutate]
+  );
+
+  const removeDocument = useCallback(
+    async (docId: string) => {
+      if (!vendorId) return;
+      try {
+        await vendorsApi.removeKycDocument(vendorId, docId);
+        toast({ title: "Document removed" });
+        mutate();
+        onVendorMutate?.();
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to remove document";
+        toast({ title: msg, variant: "error" });
+      }
+    },
+    [vendorId, mutate, onVendorMutate]
+  );
+
+  const setStatus = useCallback(
+    async (kycStatus: VendorKycStatus, kycNotes: string | null) => {
+      if (!vendorId) return;
+      try {
+        await vendorsApi.setKycStatus(vendorId, { kycStatus, kycNotes });
+        toast({ title: "KYC status updated" });
+        onVendorMutate?.();
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to update status";
+        toast({ title: msg, variant: "error" });
+        throw err;
+      }
+    },
+    [vendorId, onVendorMutate]
+  );
+
+  return {
+    documents: data?.documents ?? [],
+    isLoading,
+    error,
+    addDocument,
+    removeDocument,
+    setStatus,
   };
 }
