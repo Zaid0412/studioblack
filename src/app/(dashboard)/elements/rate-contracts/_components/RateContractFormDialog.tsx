@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
@@ -116,6 +117,10 @@ export function RateContractFormDialog({
     setValues((s) => ({ ...s, [key]: value }));
 
   const isEdit = !!editing;
+  // Once a contract is active, the server allow-lists which header fields
+  // can be patched (notes / T&Cs / agreement / payment-terms / status). The
+  // form mirrors that lock here so the user doesn't fight a 409 on save.
+  const isLocked = isEdit && editing?.status === "active";
   const canSubmit =
     values.vendorId &&
     values.name.trim() &&
@@ -126,23 +131,45 @@ export function RateContractFormDialog({
   const handleSubmit = async () => {
     if (!canSubmit) return;
     const opt = (s: string) => (s.trim() ? s.trim() : null);
-    const payload = {
-      vendorId: values.vendorId,
-      name: values.name.trim(),
-      startDate: values.startDate,
-      endDate: values.endDate,
-      agreementSignedDate: values.agreementSignedDate || null,
-      currency: values.currency,
-      paymentTerms: opt(values.paymentTerms),
-      agreementUrl: values.agreementUrl,
-      termsAndConditions: opt(values.termsAndConditions),
-      notes: opt(values.notes),
-    };
+
     setSubmitting(true);
     try {
-      const saved = isEdit
-        ? await rcApi.update(editing!.id, payload)
-        : await rcApi.create(payload);
+      let saved;
+      if (isLocked) {
+        // Send only the active-allowed fields. Including a locked field —
+        // even unchanged — trips the server's allow-list check.
+        saved = await rcApi.update(editing!.id, {
+          paymentTerms: opt(values.paymentTerms),
+          agreementUrl: values.agreementUrl,
+          termsAndConditions: opt(values.termsAndConditions),
+          notes: opt(values.notes),
+        });
+      } else if (isEdit) {
+        saved = await rcApi.update(editing!.id, {
+          name: values.name.trim(),
+          startDate: values.startDate,
+          endDate: values.endDate,
+          agreementSignedDate: values.agreementSignedDate || null,
+          currency: values.currency,
+          paymentTerms: opt(values.paymentTerms),
+          agreementUrl: values.agreementUrl,
+          termsAndConditions: opt(values.termsAndConditions),
+          notes: opt(values.notes),
+        });
+      } else {
+        saved = await rcApi.create({
+          vendorId: values.vendorId,
+          name: values.name.trim(),
+          startDate: values.startDate,
+          endDate: values.endDate,
+          agreementSignedDate: values.agreementSignedDate || null,
+          currency: values.currency,
+          paymentTerms: opt(values.paymentTerms),
+          agreementUrl: values.agreementUrl,
+          termsAndConditions: opt(values.termsAndConditions),
+          notes: opt(values.notes),
+        });
+      }
       toast({ title: isEdit ? t("toastUpdated") : t("toastCreated") });
       onSaved(saved);
       onOpenChange(false);
@@ -164,6 +191,13 @@ export function RateContractFormDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
+          {isLocked && (
+            <div className="flex items-start gap-2 rounded-md bg-info/10 p-3 text-xs text-info">
+              <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>{t("activeLockedNotice")}</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[13px] font-medium text-text-secondary">
@@ -193,6 +227,7 @@ export function RateContractFormDialog({
               onChange={(e) => set("name", e.target.value)}
               required
               maxLength={255}
+              disabled={isLocked}
             />
             <Input
               label={t("startDate")}
@@ -200,6 +235,7 @@ export function RateContractFormDialog({
               value={values.startDate}
               onChange={(e) => set("startDate", e.target.value)}
               required
+              disabled={isLocked}
             />
             <Input
               label={t("endDate")}
@@ -207,18 +243,21 @@ export function RateContractFormDialog({
               value={values.endDate}
               onChange={(e) => set("endDate", e.target.value)}
               required
+              disabled={isLocked}
             />
             <Input
               label={t("agreementSignedDate")}
               type="date"
               value={values.agreementSignedDate}
               onChange={(e) => set("agreementSignedDate", e.target.value)}
+              disabled={isLocked}
             />
             <CurrencySelect
               label={t("currency")}
               value={values.currency}
               onChange={(c) => set("currency", c)}
               required
+              disabled={isLocked}
             />
             <Input
               label={t("paymentTerms")}

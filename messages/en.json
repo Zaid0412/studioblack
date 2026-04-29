@@ -1077,6 +1077,7 @@
     "tabRateContracts": "Rate Contracts",
     "newContract": "New Contract",
     "editContract": "Edit Contract",
+    "activeLockedNotice": "This contract is active and may already be referenced by BOQ items. To keep downstream pricing consistent, only notes / terms / agreement / payment terms can be changed. To revise other fields, cancel this contract and create a new one.",
     "backToList": "Back to rate contracts",
     "featureDisabled": "Rate contracts feature is not yet enabled.",
     "searchPlaceholder": "Search by name, number, or vendor",

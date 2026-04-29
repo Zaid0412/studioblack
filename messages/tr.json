@@ -1077,6 +1077,7 @@
     "tabRateContracts": "Fiyat Sözleşmeleri",
     "newContract": "Yeni Sözleşme",
     "editContract": "Sözleşmeyi Düzenle",
+    "activeLockedNotice": "Bu sözleşme aktif ve BOQ kalemleri tarafından referans alınmış olabilir. Aşağı yöndeki fiyatlandırmanın tutarlılığı için yalnızca notlar / şartlar / sözleşme dosyası / ödeme koşulları değiştirilebilir. Diğer alanları değiştirmek için bu sözleşmeyi iptal edip yeni bir tane oluşturun.",
     "backToList": "Sözleşme listesine dön",
     "featureDisabled": "Fiyat sözleşmesi özelliği henüz açık değil.",
     "searchPlaceholder": "İsim, numara veya tedarikçiye göre ara",
