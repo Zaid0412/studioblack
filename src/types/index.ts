@@ -7,7 +7,11 @@ import type {
   BoqItemClientApprovalStatus,
   BoqItemPoStatus,
   BoqItemSource,
+  VendorStatus,
+  VendorProficiency,
 } from "@/lib/validations";
+
+export type { VendorStatus, VendorProficiency };
 
 /** Roles available to authenticated users. */
 export type UserRole = "pm" | "architect" | "client";
@@ -632,4 +636,111 @@ export interface BulkBoqImportResult {
    * misleading "0 inserted · 1 failed".
    */
   rolledBack?: boolean;
+}
+
+// ── Vendor Management (F7) ───────────────────────────────────────────────────
+
+export interface VendorAddress {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  region?: string;
+  postal?: string;
+  country?: string;
+}
+
+/** Plain (decrypted) bank details. Never serialised to clients except via the
+ *  dedicated bank-details endpoint, and only to PMs. */
+export interface BankDetails {
+  bank_name?: string;
+  account_holder?: string;
+  account_number?: string;
+  iban?: string;
+  swift?: string;
+  branch?: string;
+}
+
+/** AES-256-GCM envelope stored in `vendor.bank_details` JSONB. */
+export interface EncryptedField {
+  /** Reserved for future key rotation — currently always 1. */
+  version: 1;
+  /** base64 ciphertext */
+  encrypted: string;
+  /** base64 IV */
+  iv: string;
+  /** base64 GCM auth tag */
+  tag: string;
+}
+
+export interface Vendor {
+  id: string;
+  org_id: string;
+  company_name: string;
+  trading_name: string | null;
+  vendor_code: string | null;
+  status: VendorStatus;
+  rating: number;
+  payment_terms: string | null;
+  currency: string;
+  vat_registered: boolean;
+  vat_number: string | null;
+  address: VendorAddress | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VendorContact {
+  id: string;
+  vendor_id: string;
+  name: string;
+  title: string | null;
+  email: string;
+  phone: string | null;
+  is_primary: boolean;
+  receives_rfq: boolean;
+  user_id: string | null;
+  created_at: string;
+}
+
+export interface VendorTrade {
+  id: string;
+  vendor_id: string;
+  category_id: string;
+  proficiency_level: VendorProficiency;
+  notes: string | null;
+}
+
+export interface VendorTradeWithCategory extends VendorTrade {
+  category_name: string;
+  category_color: string | null;
+}
+
+export interface VendorWithRelations extends Vendor {
+  contacts: VendorContact[];
+  trades: VendorTradeWithCategory[];
+}
+
+/** Lite shape used in F9 RFQ vendor suggestion lists. */
+export interface VendorLite {
+  id: string;
+  company_name: string;
+  vendor_code: string | null;
+  status: VendorStatus;
+  rating: number;
+  primary_contact_email: string | null;
+}
+
+// ── Audit Infrastructure (F7, reused by F21) ─────────────────────────────────
+
+export interface AuditEvent {
+  id: string;
+  org_id: string;
+  actor_id: string | null;
+  action: string;
+  target_table: string;
+  target_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 }

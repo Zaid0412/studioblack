@@ -1142,6 +1142,100 @@ CREATE INDEX idx_vendor_trade_category ON vendor_trade(category_id);
 
 ---
 
+### Feature 7.1: Vendor Tax ID + KYC Documents
+
+**Goal**: Capture vendor compliance information (tax ID, trade licence, certifications) on the vendor record so PMs can verify a vendor before transacting. F7 only stores `vat_number` + `vat_registered`, which doesn't cover non-EU jurisdictions or supporting documents.
+
+**Why slotted here**: Trivial extension to F7 — additive columns + one new table. Should ship before F8 (Vendor Portal) so vendor users can see their own KYC status in the portal.
+
+**Database** — `scripts/migrate-vendor-kyc.sql`:
+
+```sql
+BEGIN;
+
+ALTER TABLE vendor
+  ADD COLUMN IF NOT EXISTS tax_id VARCHAR(50),
+  ADD COLUMN IF NOT EXISTS kyc_status VARCHAR(20) NOT NULL DEFAULT 'unverified'
+    CHECK (kyc_status IN ('unverified','pending','verified','rejected')),
+  ADD COLUMN IF NOT EXISTS kyc_verified_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS kyc_verified_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS kyc_notes TEXT;
+
+CREATE TABLE vendor_kyc_document (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id UUID NOT NULL REFERENCES vendor(id) ON DELETE CASCADE,
+  doc_type VARCHAR(40) NOT NULL
+    CHECK (doc_type IN ('tax_certificate','trade_licence','iso_certification','insurance','other')),
+  file_url TEXT NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
+  expires_at DATE,
+  uploaded_by TEXT REFERENCES "user"(id) ON DELETE SET NULL,
+  uploaded_at TIMESTAMPTZ DEFAULT now(),
+  notes TEXT
+);
+
+CREATE INDEX idx_vendor_kyc_doc_vendor ON vendor_kyc_document(vendor_id);
+CREATE INDEX idx_vendor_kyc_doc_expiring
+  ON vendor_kyc_document(expires_at)
+  WHERE expires_at IS NOT NULL;
+
+COMMIT;
+```
+
+**Queries** — extend `src/lib/queries/vendors.ts`:
+
+- `addKycDocument(vendorId, input)` — upload + insert
+- `listKycDocuments(vendorId)` — for the vendor drawer KYC tab
+- `removeKycDocument(docId, vendorId)` — soft path: keep file in storage, just delete row
+- `setKycStatus(vendorId, status, notes, verifiedBy)` — PM-only status flip
+- Extend `getVendor(id)` to include `tax_id`, `kyc_status`, and a count of expiring-within-30-days docs
+
+**API Routes**:
+
+- `GET /api/vendors/[id]/kyc-documents` — list
+- `POST /api/vendors/[id]/kyc-documents` — add (multipart / signed-URL flow, same pattern as element media)
+- `DELETE /api/vendors/[id]/kyc-documents/[docId]` — remove
+- `PATCH /api/vendors/[id]/kyc-status` — PM-only status update
+
+**Auth**:
+
+- Read: PM + Architect.
+- Write KYC docs: PM + Architect.
+- Set kyc_status: **PM only** — verification is a financial-control decision, not an operational one.
+
+**UI** — extend the existing `VendorDrawer`:
+
+- New **KYC** tab alongside Overview / Contacts / Trades / Bank.
+- Top: `tax_id` input, `kyc_status` badge with PM-only "Mark verified / pending / rejected" actions.
+- Document list with type, file name, expiry date, "expiring soon" amber badge if within 30 days.
+- "Add document" button reusing `FileUploadSlot` (the component shipped in PR #80).
+- Vendor list page: optional `KYC` filter chip (verified / pending / unverified / rejected) + a small status dot in the table row so PMs can spot unverified vendors at a glance.
+
+**Files to create/modify**:
+
+- `scripts/migrate-vendor-kyc.sql` (new)
+- `src/lib/queries/vendors.ts` (add ~120 lines)
+- `src/app/api/vendors/[id]/kyc-documents/route.ts` (new)
+- `src/app/api/vendors/[id]/kyc-documents/[docId]/route.ts` (new)
+- `src/app/api/vendors/[id]/kyc-status/route.ts` (new)
+- `src/app/(dashboard)/vendors/_components/VendorKycTab.tsx` (new)
+- `src/app/(dashboard)/vendors/_components/VendorDrawer.tsx` (modify — add KYC tab)
+- `src/app/(dashboard)/vendors/_components/VendorList.tsx` (modify — KYC filter + dot)
+- `src/lib/api/vendors.ts` (add KYC methods)
+- `src/lib/api/routes.ts` (add routes)
+- `src/lib/validations.ts` (`vendorKycDocumentSchema`, `vendorKycStatusSchema`)
+- `src/types/index.ts` (add `VendorKycDocument`, `VendorKycStatus`)
+- `messages/en.json`, `messages/tr.json` (add KYC namespace)
+- `src/test/api/vendor-kyc.test.ts` (new)
+
+**Open decisions**:
+
+1. **Auto-flip to `pending` on document upload?** When the first KYC doc is uploaded, should the status auto-move from `unverified` → `pending` (queues it for PM review)? Default: yes — saves a click and signals there's something to review.
+2. **Block POs for unverified vendors?** Tab 6 Rule 1 already blocks POs for unapproved BOQ items. Should we also block them for `kyc_status != 'verified'` vendors? Default: warn, don't block, since some orgs may want to use a vendor before formal verification. Make it an org setting.
+3. **Expiry reminders.** When `expires_at` is within N days, send a notification to the PM. Defer to F18 dashboard widgets.
+
+---
+
 ### Feature 7.5: Rate Contracts
 
 **Goal**: Vendor-scoped, time-bound element pricing. Lets architects pre-negotiate rates with vendors and import those rates straight into a BOQ without going through the RFQ → quote loop.
@@ -1929,6 +2023,212 @@ Client-facing invoice routes are in F22 (client invoices are a distinct entity; 
 
 ---
 
+### Feature 16.5: Vendor-Wise Scope View
+
+**Goal**: Per-project, per-vendor lens over BOQ items + progress. The PM picks a vendor, sees every BOQ item that vendor is responsible for (via PO link), with quantity / order rate / amount / installed quantity / progress %. Mirrors RDash's Orders → Vendor-Wise Scope sub-tab.
+
+**Why slotted here**: Hard dependency on F14 (POs link items to vendors) and F16 (progress data exists). Pure presentation feature — no new tables.
+
+**Behaviour**:
+
+- Each row = one `boq_item` that has at least one `po_item` linked, grouped by `vendor_id`.
+- Columns: Code, Description, Status, Item Type, UOM, Order Qty, Order Rate, Amount, Installed Qty, Progress %.
+- Vendor multi-select at the top; "All Vendors" by default. Filter UI mirrors `BoqSourceFilter` from F6.1 — URL-driven (`?vendor=<id>,<id>`).
+- Summary cards above the table:
+  - **Items**: total POs / total items
+  - **Total Scope Amount**
+  - **Overall Progress** (donut, from `installed_qty / quantity`)
+  - **Today's Progress** (donut, items moved today)
+- Sticky vendor section header with running vendor total; same chip-strip + section-footer pattern from F6.1.
+
+**Queries** — extend `src/lib/queries/boq.ts`:
+
+```ts
+getVendorScopeForProject(
+  projectId: string,
+  vendorIds?: string[]
+): Promise<VendorScopeRow[]>;
+
+getVendorScopeSummary(
+  projectId: string,
+  vendorIds?: string[]
+): Promise<{
+  vendor_count: number;
+  item_count: number;
+  total_scope: string;
+  overall_progress_pct: string;
+  today_progress_pct: string;
+}>;
+```
+
+Single LEFT JOIN of `boq_item ↔ po_item ↔ purchase_order ↔ vendor`, with progress computed as `installed_qty / NULLIF(quantity, 0) * 100`. Filtered to PO items whose `purchase_order.status NOT IN ('cancelled','draft')` so cancelled orders don't pollute the view.
+
+**API Routes**:
+
+- `GET /api/projects/[id]/boq/vendor-scope` — rows
+- `GET /api/projects/[id]/boq/vendor-scope/summary` — cards
+
+Optional query params: `?vendor=<id>` (comma-separated multi-select), `?status=in_progress,delivered`.
+
+**Auth**: `allowedRoles: ["pm", "architect"]`, `projectAccess: true`. Vendor portal sees only their own vendor's scope (filter forced to their own vendor_id) — that's covered in F8.
+
+**UI** — new sub-tab on the project's BOQ surface (sibling of `BoqTable`):
+
+- `src/app/(dashboard)/projects/[id]/boq/vendor-scope/page.tsx` — full page
+- Row click → opens `BoqItemDrawer` (existing component) with the linked PO summary inlined
+- Vendor section header → "View vendor profile" link to F7's vendor detail page
+- "Export to PDF" reuses F19 infra; defer if F19 isn't done yet
+
+**Entry points**:
+
+- `BoqHeader` action menu: "View by vendor"
+- F18 (BOQ Dashboard) widget: "Top vendors by scope" card linking here
+- Vendor detail page (F7): "Active scope on N projects" link to a multi-project version (defer)
+
+**Files to create/modify**:
+
+- `src/lib/queries/boq.ts` (add ~140 lines)
+- `src/app/api/projects/[id]/boq/vendor-scope/route.ts` (new)
+- `src/app/api/projects/[id]/boq/vendor-scope/summary/route.ts` (new)
+- `src/app/(dashboard)/projects/[id]/boq/vendor-scope/page.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/VendorScopeTable.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_components/VendorScopeSummaryCards.tsx` (new)
+- `src/app/(dashboard)/projects/[id]/boq/_hooks/useVendorScopeFilter.ts` (new — mirror of `useBoqSourceFilter`)
+- `src/app/(dashboard)/projects/[id]/boq/_components/BoqHeader.tsx` (modify — add menu entry)
+- `src/lib/api/boq.ts` (add wrappers)
+- `src/lib/api/routes.ts` (add routes)
+- `src/types/index.ts` (`VendorScopeRow`, `VendorScopeSummary`)
+- `messages/en.json`, `messages/tr.json` (`boq.vendorScope.*` namespace)
+- `src/test/api/boq-vendor-scope.test.ts` (new)
+
+**Open decisions**:
+
+1. **Show items with no PO yet?** PM might want to see "approved BOQ items not yet assigned to a vendor". Default: no — the F14.5 Compare BOQ vs Order view already covers that lens. Vendor-Wise Scope is strictly "what the vendor owns".
+2. **Cancelled POs**: exclude (consistent with F14.5 default).
+3. **Multi-vendor PO**: a single PO is one vendor in F14's schema (`purchase_order.vendor_id`). No fan-out concern.
+
+---
+
+### Feature 16.6: Vendor DPR (Daily Progress Reports)
+
+**Goal**: Vendor-side daily updates submitted from the vendor portal (manpower, blockers, tomorrow's plan, photos, projected completion). Architect dashboard surfaces these for project oversight. Mirrors RDash's Vendor-Wise Progress Report sub-tab.
+
+**Why slotted here**: Depends on F8 (vendor role + portal — vendors need a login to submit), F14 (POs exist so vendors are linked to projects), F16 (progress concept). Heavier feature — new entity + new submission flow + new viewer.
+
+**Database** — `scripts/migrate-vendor-dpr.sql`:
+
+```sql
+CREATE TABLE vendor_dpr (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES project(id) ON DELETE CASCADE,
+  vendor_id UUID NOT NULL REFERENCES vendor(id) ON DELETE CASCADE,
+  reported_by TEXT NOT NULL REFERENCES "user"(id) ON DELETE RESTRICT,
+  report_date DATE NOT NULL,
+  reported_progress_pct NUMERIC(5,2),
+  projected_end_date DATE,
+  -- Per-item status moves: [{ boq_item_id, from_status, to_status, qty_delta }, ...]
+  todays_updates JSONB,
+  -- Per-trade headcount: { "carpentry": 4, "electrical": 2, ... }
+  manpower JSONB,
+  blockers TEXT,
+  tomorrows_plan TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  -- Hard-prevent duplicate DPRs for the same vendor on the same day.
+  UNIQUE (project_id, vendor_id, report_date)
+);
+
+CREATE TABLE vendor_dpr_photo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dpr_id UUID NOT NULL REFERENCES vendor_dpr(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  caption VARCHAR(255),
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  uploaded_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_vendor_dpr_project_date ON vendor_dpr(project_id, report_date DESC);
+CREATE INDEX idx_vendor_dpr_vendor_date ON vendor_dpr(vendor_id, report_date DESC);
+CREATE INDEX idx_vendor_dpr_photo_dpr ON vendor_dpr_photo(dpr_id, sort_order);
+```
+
+**Workflow**:
+
+1. Vendor (logged in via F8) opens project from their portal → "Submit today's DPR" CTA.
+2. Form: status moves picker (multi-select BOQ items they own + new status), manpower per trade, blockers, tomorrow's plan, projected end date, photos.
+3. On submit, server validates `vendor_id` matches the user's vendor, validates `boq_item.id` ownership via `po_item`, optionally cascades the status moves into `boq_item.installed_qty` (reuses F16's progress update).
+4. Architect view aggregates DPRs for the project, filterable by vendor + date range.
+
+**Side-effect on submit**: when the DPR includes `todays_updates` with quantity deltas, server updates the linked `boq_item.installed_qty` in the same transaction. Otherwise the DPR is purely textual.
+
+**Queries** — new file `src/lib/queries/vendorDpr.ts`:
+
+- `createVendorDpr(input)` — vendor-only; rejects if `(project, vendor, date)` already exists (use the unique constraint)
+- `getVendorDpr(id)` — single record with photos
+- `listVendorDprs(projectId, filters)` — for architect view
+- `listMyDprs(vendorId, projectId)` — for vendor portal
+- `addDprPhoto(dprId, input)` — photo upload after DPR is created
+- `updateVendorDpr(id, vendorId, fields)` — vendor can edit their own DPR until end-of-day; locked after
+
+**API Routes**:
+
+- `GET /api/projects/[id]/dpr` — architect list (filterable by vendor, date range)
+- `GET /api/projects/[id]/dpr/[dprId]` — detail
+- `POST /api/projects/[id]/dpr` — vendor submits
+- `PATCH /api/projects/[id]/dpr/[dprId]` — vendor edits (until end-of-day)
+- `POST /api/projects/[id]/dpr/[dprId]/photos` — add photo
+- `DELETE /api/projects/[id]/dpr/[dprId]/photos/[photoId]` — remove photo
+- `GET /api/projects/[id]/dpr/export?vendor=<id>&from=<date>&to=<date>&format=pdf` — export
+
+**Auth**:
+
+- POST/PATCH: `vendor` role only, scoped to their `vendor_id`.
+- GET architect list: `pm`, `architect`, `projectAccess: true`.
+- GET vendor's own list: `vendor`, scoped to own `vendor_id`.
+
+**UI**:
+
+- **Vendor portal** — `src/app/(dashboard)/vendor-portal/projects/[id]/dpr/`:
+  - "Today's DPR" form (one per day, edit until midnight)
+  - Past DPRs list (read-only)
+- **Architect view** — new sub-tab in BOQ surface: "Vendor Wise Progress Report":
+  - Vendor multi-select + date range picker
+  - Timeline list of DPRs (one per vendor per day)
+  - Each card shows the four sections: Today's Updates, Manpower, Blockers, Tomorrow's Plan, Photos, Reported Progress %, Projected End Date
+  - "Export Today's Progress" / "Export Complete Report" actions (PDF, reuses F19)
+
+**Notifications**: when a vendor submits a DPR with a `blockers` value, notify the project's PM + Architect immediately. Reuses existing notification infra.
+
+**Files to create/modify**:
+
+- `scripts/migrate-vendor-dpr.sql` (new)
+- `src/lib/queries/vendorDpr.ts` (new ~280 lines)
+- `src/app/api/projects/[id]/dpr/route.ts` (new — list + create)
+- `src/app/api/projects/[id]/dpr/[dprId]/route.ts` (new — get + patch)
+- `src/app/api/projects/[id]/dpr/[dprId]/photos/route.ts` (new)
+- `src/app/api/projects/[id]/dpr/[dprId]/photos/[photoId]/route.ts` (new)
+- `src/app/api/projects/[id]/dpr/export/route.ts` (new)
+- `src/app/(dashboard)/vendor-portal/projects/[id]/dpr/page.tsx` (new)
+- `src/app/(dashboard)/vendor-portal/projects/[id]/dpr/_components/*.tsx` (new — DprForm, DprList, DprCard)
+- `src/app/(dashboard)/projects/[id]/boq/dpr/page.tsx` (new — architect viewer)
+- `src/app/(dashboard)/projects/[id]/boq/_components/VendorDprCard.tsx` (new)
+- `src/lib/api/vendorDpr.ts` (new)
+- `src/lib/api/routes.ts` (add)
+- `src/lib/validations.ts` (add `vendorDprSchema`, `vendorDprPhotoSchema`)
+- `src/types/index.ts` (`VendorDpr`, `VendorDprPhoto`, `Manpower`)
+- `messages/en.json`, `messages/tr.json` (add `dpr.*` namespace)
+- `src/test/api/vendor-dpr.test.ts` (new)
+
+**Open decisions**:
+
+1. **Edit window**. RDash treats DPRs as immutable after submission. We propose vendor-can-edit-until-midnight to handle typo fixes; afterwards locked. Audit log records the original + edits via F21.
+2. **Auto-cascade quantities into `boq_item.installed_qty`?** Default: yes, with a confirmation prompt on the vendor form ("This will update installed quantities by N units"). Vendor sees the impact before submit. Architect can override later via F16.
+3. **Required fields**. Manpower + reported_progress_pct should be required; blockers + tomorrow's plan optional. Bias toward catching missing structured data.
+4. **Photo limits**. Max 20 photos per DPR, 5 MB each — same as F-EL-3 image upload constraints.
+
+---
+
 ### Feature 17: Snag Management
 
 **Goal**: Link quality snags to BOQ items.
@@ -2320,19 +2620,21 @@ F1 (Categories) ──→ F2 (Elements) ──→ F3 (Excel Import)
                          │           F13 (Locking + Change Orders)
                          │
                          ▼
-                    F7 (Vendors) ──→ F7.5 (Rate Contracts) ──→ F8 (Vendor Role) ──→ F9 (RFQ) ──→ F10 (Quotes)
-                                                                                    │
-                                                                                    ▼
-                                                                               F11 (Proposals)
-                                                                                    │
-                                                                                    ▼
-                                                                               F14 (POs) ──→ F14.5 (Compare BOQ vs Order) ──→ F15 (Invoices)
+                    F7 (Vendors) ──→ F7.1 (KYC Docs) ──→ F7.5 (Rate Contracts) ──→ F8 (Vendor Role) ──→ F9 (RFQ) ──→ F10 (Quotes)
+                                                                                                       │
+                                                                                                       ▼
+                                                                                                  F11 (Proposals)
+                                                                                                       │
+                                                                                                       ▼
+                                                                                                  F14 (POs) ──→ F14.5 (Compare BOQ vs Order) ──→ F15 (Invoices)
 
 F6.1 (BOQ Table Enhancements) — see docs/boq-enhancements-plan.md
 F16 (Progress) — depends on F4 (BOQ items exist)
+F16.5 (Vendor-Wise Scope) — depends on F4, F14, F16
+F16.6 (Vendor DPR) — depends on F8 (vendor portal), F14, F16
 F17 (Snags) — depends on F4 (BOQ items exist)
-F18 (Dashboard) — depends on F4, F16, F17, F14.5
-F19 (PDF Export) — depends on F4, F11, F14, F13
+F18 (Dashboard) — depends on F4, F16, F17, F14.5, F16.5
+F19 (PDF Export) — depends on F4, F11, F14, F13, F16.6
 F20 (Custom Tabs) — standalone, can go anywhere after F4
 F21 (Audit Trail) — depends on F4, best added after F13
 F22 (Client Invoices) — depends on F4, F12 (client portal surface)
@@ -2352,6 +2654,7 @@ F24 (Client Orders) — depends on F4, F12
 | 6    | BOQ Excel       | ~6        | ~50              | 3          | Medium     |
 | 6.1  | BOQ Table Enh.  | ~3        | ~80              | 0          | Medium     |
 | 7    | Vendors         | ~14       | ~220             | 8          | Medium     |
+| 7.1  | Vendor KYC      | ~8        | ~120             | 4          | Low        |
 | 7.5  | Rate Contracts  | ~16       | ~250             | 8          | Medium     |
 | 8    | Vendor Role     | ~6        | ~30              | 0          | Low        |
 | 9    | RFQ             | ~12       | ~200             | 7          | High       |
@@ -2363,6 +2666,8 @@ F24 (Client Orders) — depends on F4, F12
 | 14.5 | BOQ vs Order    | ~7        | ~80              | 1          | Medium     |
 | 15   | Invoices        | ~8        | ~120             | 6          | Low        |
 | 16   | Progress        | ~5        | ~80              | 2          | Low        |
+| 16.5 | Vendor Scope    | ~13       | ~140             | 2          | Medium     |
+| 16.6 | Vendor DPR      | ~14       | ~280             | 7          | High       |
 | 17   | Snags           | ~8        | ~150             | 4          | Medium     |
 | 18   | Dashboard       | ~5        | ~100             | 1          | Medium     |
 | 19   | PDF Export      | ~8        | 0                | 4          | Medium     |
@@ -2372,7 +2677,7 @@ F24 (Client Orders) — depends on F4, F12
 | 23   | Client Payments | ~8        | ~120             | 5          | Low        |
 | 24   | Client Orders   | ~6        | ~30              | 1          | Low        |
 
-**Total**: ~27 PRs, ~240 new files, ~3,610 new lines in queries, ~124 new API routes (including F6.1, F7.5, F14.5)
+**Total**: ~30 PRs, ~275 new files, ~4,150 new lines in queries, ~137 new API routes (including F6.1, F7.1, F7.5, F14.5, F16.5, F16.6)
 
 ---
 

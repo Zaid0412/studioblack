@@ -653,6 +653,110 @@ export const boqImportConfirmSchema = z.object({
   rows: z.array(boqImportRowSchema).min(1).max(5_000),
 });
 
+// ─── Vendor Management (Feature 7) ───────────────────────────────────────────
+
+export const VENDOR_STATUSES = [
+  "active",
+  "inactive",
+  "blacklisted",
+  "pending_approval",
+] as const;
+export type VendorStatus = (typeof VENDOR_STATUSES)[number];
+
+export const VENDOR_PROFICIENCIES = [
+  "standard",
+  "specialist",
+  "preferred",
+] as const;
+export type VendorProficiency = (typeof VENDOR_PROFICIENCIES)[number];
+
+export const vendorAddressSchema = z
+  .object({
+    line1: z.string().max(255).optional(),
+    line2: z.string().max(255).optional(),
+    city: z.string().max(100).optional(),
+    region: z.string().max(100).optional(),
+    postal: z.string().max(20).optional(),
+    country: z.string().max(100).optional(),
+  })
+  .strict();
+
+export const vendorContactSchema = z.object({
+  name: trimmedString.max(255),
+  title: z.string().max(100).optional(),
+  email: z.string().email(),
+  phone: z.string().max(50).optional(),
+  isPrimary: z.boolean().optional(),
+  receivesRfq: z.boolean().optional(),
+});
+
+export const vendorTradeSchema = z.object({
+  categoryId: uuid,
+  proficiencyLevel: z.enum(VENDOR_PROFICIENCIES).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+export const bankDetailsSchema = z
+  .object({
+    bank_name: z.string().max(255).optional(),
+    account_holder: z.string().max(255).optional(),
+    account_number: z.string().max(50).optional(),
+    iban: z.string().max(50).optional(),
+    swift: z.string().max(20).optional(),
+    branch: z.string().max(255).optional(),
+  })
+  .strict();
+
+export const createVendorSchema = z.object({
+  companyName: trimmedString.max(255),
+  tradingName: z.string().max(255).optional(),
+  vendorCode: z.string().max(50).optional(),
+  status: z.enum(VENDOR_STATUSES).optional(),
+  paymentTerms: z.string().max(100).optional(),
+  currency: z.string().length(3).optional(),
+  vatRegistered: z.boolean().optional(),
+  vatNumber: z.string().max(50).optional(),
+  address: vendorAddressSchema.optional(),
+  notes: z.string().max(2000).optional(),
+  contacts: z.array(vendorContactSchema).max(20).optional(),
+  trades: z.array(vendorTradeSchema).max(50).optional(),
+});
+
+/**
+ * Bank details, status, and rating are excluded — they have dedicated
+ * endpoints with stricter authorization.
+ */
+export const updateVendorSchema = z.object({
+  companyName: z.string().trim().min(1).max(255).optional(),
+  tradingName: z.string().max(255).optional().nullable(),
+  vendorCode: z.string().max(50).optional().nullable(),
+  status: z.enum(VENDOR_STATUSES).optional(),
+  paymentTerms: z.string().max(100).optional().nullable(),
+  currency: z.string().length(3).optional(),
+  vatRegistered: z.boolean().optional(),
+  vatNumber: z.string().max(50).optional().nullable(),
+  address: vendorAddressSchema.optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+  contacts: z.array(vendorContactSchema).max(20).optional(),
+  trades: z.array(vendorTradeSchema).max(50).optional(),
+});
+
+export const vendorRatingSchema = z.object({
+  rating: z
+    .number()
+    .min(0)
+    .max(5)
+    .multipleOf(0.5, "rating must be in 0.5 increments"),
+});
+
+export const listVendorsQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(VENDOR_STATUSES).optional(),
+  tradeCategoryId: optionalUuid,
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */

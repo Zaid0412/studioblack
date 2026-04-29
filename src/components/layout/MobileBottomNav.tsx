@@ -8,9 +8,11 @@ import {
   FolderOpen,
   CheckSquare,
   History,
+  Briefcase,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
+import { features } from "@/config/features";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,6 +40,16 @@ export function MobileBottomNav() {
         icon: CheckSquare,
         roles: ["pm", "architect"],
       },
+      ...(features.vendorManagement
+        ? [
+            {
+              href: "/vendors",
+              label: t("vendors"),
+              icon: Briefcase,
+              roles: ["pm", "architect"],
+            },
+          ]
+        : []),
       { href: "/audit", label: t("audit"), icon: History },
     ];
     return allTabs.filter(
