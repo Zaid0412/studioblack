@@ -106,6 +106,44 @@ describe("parseBoqSheet", () => {
     );
   });
 
+  it("parses a Service Charge % column when present", async () => {
+    // Header includes the new column; verify it round-trips into the parsed row.
+    const buf = await sheetBuffer(
+      [["", "", "Item", "m2", 1, 10, null, null, null, 7.5, 12]],
+      [
+        "Section",
+        "Item Code",
+        "Description",
+        "Unit",
+        "Quantity",
+        "Unit Cost",
+        "Material Cost",
+        "Labour Cost",
+        "Overhead %",
+        "Service Charge %",
+        "Margin %",
+      ]
+    );
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.serviceChargePct).toBe(7.5);
+    expect(res.rows[0].parsed?.marginPct).toBe(12);
+  });
+
+  it("tolerates an older sheet missing the Service Charge % column", async () => {
+    // Same minimal-row test as the first case, but assert the new field is
+    // simply absent on the parsed row instead of breaking the import.
+    const buf = await sheetBuffer([
+      ["Concrete", "BOQ-001", "100mm slab", "m2", 50, 45],
+    ]);
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.serviceChargePct).toBeUndefined();
+    expect(res.missingColumns).toEqual([]);
+  });
+
   it("records unknown (non-template) header labels", async () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("BOQ");

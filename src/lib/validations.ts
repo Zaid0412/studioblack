@@ -94,6 +94,14 @@ export const BOQ_ITEM_PO_STATUSES = [
 ] as const;
 export type BoqItemPoStatus = (typeof BOQ_ITEM_PO_STATUSES)[number];
 
+export const BOQ_ITEM_SOURCES = [
+  "custom",
+  "library",
+  "project",
+  "rate_contract",
+] as const;
+export type BoqItemSource = (typeof BOQ_ITEM_SOURCES)[number];
+
 // ─── Reusable primitives ────────────────────────────────────────────────────
 
 const uuid = z.string().uuid();
@@ -413,6 +421,7 @@ export const createElementSchema = z.object({
   materialCost: nonNegativeMoney.optional(),
   labourCost: nonNegativeMoney.optional(),
   overheadPct: percent.optional(),
+  serviceChargePct: percent.optional(),
   marginPct: percent.optional(),
   specReference: z.string().trim().max(255).optional(),
   drawingRef: z.string().trim().max(255).optional(),
@@ -470,6 +479,7 @@ export const importElementRowSchema = z.object({
   materialCost: nonNegativeMoney.optional(),
   labourCost: nonNegativeMoney.optional(),
   overheadPct: percent.optional(),
+  serviceChargePct: percent.optional(),
   marginPct: percent.optional(),
   specReference: z.string().trim().max(255).optional(),
   drawingRef: z.string().trim().max(255).optional(),
@@ -559,6 +569,7 @@ export const createBoqItemSchema = z.object({
   materialCost: money.optional().nullable(),
   labourCost: money.optional().nullable(),
   overheadPct: boqPercent.optional(),
+  serviceChargePct: boqPercent.optional(),
   marginPct: boqPercent.optional(),
   notes: z.string().optional().nullable(),
   clientNotes: z.string().optional().nullable(),
@@ -578,6 +589,7 @@ export const updateBoqItemSchema = z.object({
   materialCost: money.nullable().optional(),
   labourCost: money.nullable().optional(),
   overheadPct: boqPercent.optional(),
+  serviceChargePct: boqPercent.optional(),
   marginPct: boqPercent.optional(),
   lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
   clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
@@ -628,6 +640,7 @@ export const boqImportRowSchema = z.object({
   materialCost: z.coerce.number().min(0).finite().optional(),
   labourCost: z.coerce.number().min(0).finite().optional(),
   overheadPct: z.coerce.number().min(0).max(100).optional(),
+  serviceChargePct: z.coerce.number().min(0).max(100).optional(),
   marginPct: z.coerce.number().min(0).max(100).optional(),
   notes: z.string().max(2000).optional(),
   clientNotes: z.string().max(2000).optional(),

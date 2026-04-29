@@ -23,6 +23,7 @@ export type WritableElement = Pick<
   | "material_cost"
   | "labour_cost"
   | "overhead_pct"
+  | "service_charge_pct"
   | "margin_pct"
   | "spec_reference"
   | "drawing_ref"
@@ -67,6 +68,7 @@ export async function writeElementSheet(
       materialCost: toNumber(el.material_cost),
       labourCost: toNumber(el.labour_cost),
       overheadPct: toNumber(el.overhead_pct),
+      serviceChargePct: toNumber(el.service_charge_pct),
       marginPct: toNumber(el.margin_pct),
       specReference: el.spec_reference ?? "",
       drawingRef: el.drawing_ref ?? "",
@@ -114,6 +116,7 @@ function pickStyle(key: string): Partial<ExcelJS.Style> | undefined {
     case "labourCost":
       return { numFmt: "#,##0.00" };
     case "overheadPct":
+    case "serviceChargePct":
     case "marginPct":
       // Stored as 0-100; render with a trailing % symbol without dividing.
       return { numFmt: "0.00\\%" };

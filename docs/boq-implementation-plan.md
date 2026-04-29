@@ -2,7 +2,7 @@
 
 > **Companion plans:**
 >
-> - `docs/boq-enhancements-plan.md` — F6.1 (BOQ table enhancements: section chips, source column, service charge). Lives in a separate file because it touches already-shipped code.
+> - `docs/boq-enhancements-plan.md` — F6.1 (BOQ table enhancements: section chips, source column, service charge). **Status: shipped in PR #81 (2026-04-29).** Lives in a separate file because it touches already-shipped code.
 >
 > **Source PRD** (Google Docs — 6 tabs):
 >
@@ -2342,35 +2342,35 @@ F24 (Client Orders) — depends on F4, F12
 
 ## Estimated Scope per Feature
 
-| #   | Feature         | New Files | queries.ts Lines | API Routes | Complexity |
-| --- | --------------- | --------- | ---------------- | ---------- | ---------- |
-| 1   | Categories      | ~10       | ~100             | 5          | Low        |
-| 2   | Elements CRUD   | ~15       | ~200             | 6          | Medium     |
-| 3   | Excel Import    | ~8        | ~50              | 3          | Medium     |
-| 4   | BOQ Core        | ~16       | ~450             | 13         | High       |
-| 5   | BOQ UI          | ~12       | 0                | 0          | High       |
-| 6   | BOQ Excel       | ~6        | ~50              | 3          | Medium     |
-| 6.1 | BOQ Table Enh.  | ~3        | ~80              | 0          | Medium     |
-| 7   | Vendors         | ~14       | ~220             | 8          | Medium     |
-| 7.5 | Rate Contracts  | ~16       | ~250             | 8          | Medium     |
-| 8   | Vendor Role     | ~6        | ~30              | 0          | Low        |
-| 9   | RFQ             | ~12       | ~200             | 7          | High       |
-| 10  | Quotes          | ~10       | ~220             | 7          | High       |
-| 11  | Proposals       | ~10       | ~200             | 11         | Medium     |
-| 12  | Client BOQ      | ~8        | ~100             | 4          | Medium     |
-| 13  | Locking + CO    | ~12       | ~300             | 10         | High       |
-| 14  | POs             | ~10       | ~200             | 7          | Medium     |
-| 14.5| BOQ vs Order    | ~7        | ~80              | 1          | Medium     |
-| 15  | Invoices        | ~8        | ~120             | 6          | Low        |
-| 16  | Progress        | ~5        | ~80              | 2          | Low        |
-| 17  | Snags           | ~8        | ~150             | 4          | Medium     |
-| 18  | Dashboard       | ~5        | ~100             | 1          | Medium     |
-| 19  | PDF Export      | ~8        | 0                | 4          | Medium     |
-| 20  | Custom Tabs     | ~8        | ~100             | 4          | Medium     |
-| 21  | Audit Trail     | ~4        | ~80              | 1          | Low        |
-| 22  | Client Invoices | ~10       | ~150             | 8          | Medium     |
-| 23  | Client Payments | ~8        | ~120             | 5          | Low        |
-| 24  | Client Orders   | ~6        | ~30              | 1          | Low        |
+| #    | Feature         | New Files | queries.ts Lines | API Routes | Complexity |
+| ---- | --------------- | --------- | ---------------- | ---------- | ---------- |
+| 1    | Categories      | ~10       | ~100             | 5          | Low        |
+| 2    | Elements CRUD   | ~15       | ~200             | 6          | Medium     |
+| 3    | Excel Import    | ~8        | ~50              | 3          | Medium     |
+| 4    | BOQ Core        | ~16       | ~450             | 13         | High       |
+| 5    | BOQ UI          | ~12       | 0                | 0          | High       |
+| 6    | BOQ Excel       | ~6        | ~50              | 3          | Medium     |
+| 6.1  | BOQ Table Enh.  | ~3        | ~80              | 0          | Medium     |
+| 7    | Vendors         | ~14       | ~220             | 8          | Medium     |
+| 7.5  | Rate Contracts  | ~16       | ~250             | 8          | Medium     |
+| 8    | Vendor Role     | ~6        | ~30              | 0          | Low        |
+| 9    | RFQ             | ~12       | ~200             | 7          | High       |
+| 10   | Quotes          | ~10       | ~220             | 7          | High       |
+| 11   | Proposals       | ~10       | ~200             | 11         | Medium     |
+| 12   | Client BOQ      | ~8        | ~100             | 4          | Medium     |
+| 13   | Locking + CO    | ~12       | ~300             | 10         | High       |
+| 14   | POs             | ~10       | ~200             | 7          | Medium     |
+| 14.5 | BOQ vs Order    | ~7        | ~80              | 1          | Medium     |
+| 15   | Invoices        | ~8        | ~120             | 6          | Low        |
+| 16   | Progress        | ~5        | ~80              | 2          | Low        |
+| 17   | Snags           | ~8        | ~150             | 4          | Medium     |
+| 18   | Dashboard       | ~5        | ~100             | 1          | Medium     |
+| 19   | PDF Export      | ~8        | 0                | 4          | Medium     |
+| 20   | Custom Tabs     | ~8        | ~100             | 4          | Medium     |
+| 21   | Audit Trail     | ~4        | ~80              | 1          | Low        |
+| 22   | Client Invoices | ~10       | ~150             | 8          | Medium     |
+| 23   | Client Payments | ~8        | ~120             | 5          | Low        |
+| 24   | Client Orders   | ~6        | ~30              | 1          | Low        |
 
 **Total**: ~27 PRs, ~240 new files, ~3,610 new lines in queries, ~124 new API routes (including F6.1, F7.5, F14.5)
 
