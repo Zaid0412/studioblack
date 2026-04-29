@@ -107,12 +107,10 @@ export default function RateContractDetailPage({ params }: Props) {
   };
 
   const handleAddItems = async (
-    items: { elementId: string; unit: string; rate: number }[]
+    items: { elementId: string; unit: ElementUnit; rate: number }[]
   ) => {
     try {
-      await rcApi.addItems(data.id, {
-        items: items.map((it) => ({ ...it, unit: it.unit as ElementUnit })),
-      });
+      await rcApi.addItems(data.id, { items });
       toast({ title: t("toastItemsAdded", { count: items.length }) });
       mutate();
     } catch (err) {

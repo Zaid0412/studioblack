@@ -63,13 +63,24 @@ const EMPTY: FormState = {
   notes: "",
 };
 
+/**
+ * Trim ISO date / timestamp values to `YYYY-MM-DD`. The DB stores DATE
+ * columns but pg can serialise them as either plain dates or full ISO
+ * timestamps depending on driver state — `<input type="date">` only
+ * accepts the former, so normalise here.
+ */
+function toDateInput(v: string | null | undefined): string {
+  if (!v) return "";
+  return v.slice(0, 10);
+}
+
 function contractToForm(c: RateContract): FormState {
   return {
     vendorId: c.vendor_id,
     name: c.name,
-    startDate: c.start_date,
-    endDate: c.end_date,
-    agreementSignedDate: c.agreement_signed_date ?? "",
+    startDate: toDateInput(c.start_date),
+    endDate: toDateInput(c.end_date),
+    agreementSignedDate: toDateInput(c.agreement_signed_date),
     currency: c.currency,
     paymentTerms: c.payment_terms ?? "",
     agreementUrl: c.agreement_url,

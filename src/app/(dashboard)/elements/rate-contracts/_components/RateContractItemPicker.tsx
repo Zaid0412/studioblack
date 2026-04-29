@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { elements as elementsApi } from "@/lib/api";
 import type { ListElementsResponse } from "@/lib/api/elements";
+import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import type { Element } from "@/types";
+
+const ALLOWED_UNIT_SET = new Set<string>(ALLOWED_UNITS);
 
 interface Props {
   open: boolean;
@@ -26,14 +30,14 @@ interface Props {
   /** Element ids already in the contract — disabled in the picker. */
   existingElementIds: Set<string>;
   onSubmit: (
-    rows: { elementId: string; unit: string; rate: number }[]
+    rows: { elementId: string; unit: ElementUnit; rate: number }[]
   ) => Promise<void>;
 }
 
 interface DraftRow {
   element: Element;
   rate: string;
-  unit: string;
+  unit: ElementUnit | null;
 }
 
 export function RateContractItemPicker({
@@ -61,15 +65,25 @@ export function RateContractItemPicker({
     ? elementsApi.listKey({
         search: search || undefined,
         isActive: true,
-        limit: 25,
+        limit: 100,
       })
     : null;
   const { data } = useSWR<ListElementsResponse>(listKey);
-  const elements = data?.rows ?? [];
+  // Currency match is enforced server-side in addRateContractItems. Filter
+  // here too so the user can't pick a doomed element in the first place.
+  const elements = (data?.rows ?? []).filter(
+    (el) => el.currency === contractCurrency
+  );
 
   const addDraft = (element: Element) => {
     if (drafts.some((d) => d.element.id === element.id)) return;
-    setDrafts((s) => [...s, { element, rate: "", unit: element.unit }]);
+    // The element table accepts any VARCHAR(30) for `unit`, but the rate-
+    // contract API only accepts the strict ALLOWED_UNITS enum. Pre-fill only
+    // when the element's unit is valid; otherwise force the user to pick.
+    const unit = ALLOWED_UNIT_SET.has(element.unit)
+      ? (element.unit as ElementUnit)
+      : null;
+    setDrafts((s) => [...s, { element, rate: "", unit }]);
   };
 
   const updateDraft = (id: string, patch: Partial<DraftRow>) => {
@@ -84,7 +98,9 @@ export function RateContractItemPicker({
 
   const canSubmit =
     drafts.length > 0 &&
-    drafts.every((d) => d.rate.trim() && Number(d.rate) >= 0) &&
+    drafts.every(
+      (d) => d.unit !== null && d.rate.trim() && Number(d.rate) >= 0
+    ) &&
     !submitting;
 
   const handleSubmit = async () => {
@@ -92,11 +108,13 @@ export function RateContractItemPicker({
     setSubmitting(true);
     try {
       await onSubmit(
-        drafts.map((d) => ({
-          elementId: d.element.id,
-          unit: d.unit,
-          rate: Number(d.rate),
-        }))
+        drafts
+          .filter((d): d is DraftRow & { unit: ElementUnit } => d.unit !== null)
+          .map((d) => ({
+            elementId: d.element.id,
+            unit: d.unit,
+            rate: Number(d.rate),
+          }))
       );
       onOpenChange(false);
     } finally {
@@ -112,6 +130,10 @@ export function RateContractItemPicker({
         </DialogHeader>
 
         <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+          <p className="text-xs text-text-muted">
+            {t("itemPickerCurrencyHint", { currency: contractCurrency })}
+          </p>
+
           <SearchInput
             placeholder={t("itemPickerSearchPlaceholder")}
             value={search}
@@ -173,14 +195,14 @@ export function RateContractItemPicker({
                       {d.element.name}
                     </div>
                   </div>
-                  <Input
-                    value={d.unit}
-                    onChange={(e) =>
-                      updateDraft(d.element.id, { unit: e.target.value })
-                    }
-                    className="w-20"
-                    maxLength={30}
-                  />
+                  <div className="w-24 shrink-0">
+                    <UnitFilterSelect
+                      value={d.unit}
+                      onChange={(unit) => updateDraft(d.element.id, { unit })}
+                      placeholder={t("itemPickerUnitPlaceholder")}
+                      allLabel={t("itemPickerUnitClear")}
+                    />
+                  </div>
                   <Input
                     value={d.rate}
                     onChange={(e) =>
