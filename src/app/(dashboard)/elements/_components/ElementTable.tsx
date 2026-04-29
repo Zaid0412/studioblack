@@ -27,13 +27,24 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  SortableHeaderButton,
+  nextSortDirection,
+  type SortConfig,
+} from "@/components/ui/SortableHeader";
 import type { Element } from "@/types";
+import type { ElementSortField, SortOrder } from "@/lib/validations";
 import { formatMoney } from "../_lib/formatters";
+
+type SortKey = ElementSortField;
 
 interface Props {
   rows: Element[];
   isLoading: boolean;
   categoryMap: Map<string, string>;
+  sortBy: SortKey | null;
+  sortOrder: SortOrder | null;
+  onSortChange: (sortBy: SortKey | null, sortOrder: SortOrder | null) => void;
   onRowClick: (el: Element) => void;
   onEdit: (el: Element) => void;
   onDuplicate: (el: Element) => void;
@@ -46,6 +57,9 @@ export function ElementTable({
   rows,
   isLoading,
   categoryMap,
+  sortBy,
+  sortOrder,
+  onSortChange,
   onRowClick,
   onEdit,
   onDuplicate,
@@ -54,16 +68,42 @@ export function ElementTable({
 }: Props) {
   const t = useTranslations("elements");
 
+  const sortConfig: SortConfig<SortKey> =
+    sortBy && sortOrder ? { key: sortBy, direction: sortOrder } : null;
+  const onSort = (key: SortKey) => {
+    const next = nextSortDirection(sortConfig, key);
+    onSortChange(next?.key ?? null, next?.direction ?? null);
+  };
+
   return (
     <TooltipProvider>
       <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
         <div className="hidden lg:grid grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
           <div></div>
-          <div>{t("colCode")}</div>
-          <div>{t("colName")}</div>
+          <SortableHeaderButton
+            sortKey="code"
+            config={sortConfig}
+            onSort={onSort}
+          >
+            {t("colCode")}
+          </SortableHeaderButton>
+          <SortableHeaderButton
+            sortKey="name"
+            config={sortConfig}
+            onSort={onSort}
+          >
+            {t("colName")}
+          </SortableHeaderButton>
           <div>{t("colCategory")}</div>
           <div>{t("colUnit")}</div>
-          <div className="text-right">{t("colUnitCost")}</div>
+          <SortableHeaderButton
+            sortKey="unit_cost"
+            config={sortConfig}
+            onSort={onSort}
+            align="right"
+          >
+            {t("colUnitCost")}
+          </SortableHeaderButton>
           <div className="text-right">{t("colActions")}</div>
         </div>
 

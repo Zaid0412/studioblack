@@ -12,6 +12,7 @@ import type {
   VendorKycStatus,
   VendorKycDocument,
 } from "@/types";
+import type { VendorSortField, SortOrder } from "@/lib/validations";
 
 const PAGE_SIZE = 25;
 
@@ -20,6 +21,8 @@ export interface VendorFilterState {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  sortBy?: VendorSortField;
+  sortOrder?: SortOrder;
   page: number;
 }
 
@@ -33,6 +36,8 @@ export function useVendors(filters: VendorFilterState) {
     status: filters.status,
     kycStatus: filters.kycStatus,
     tradeCategoryId: filters.tradeCategoryId,
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
     page: filters.page,
     limit: PAGE_SIZE,
   } as const;

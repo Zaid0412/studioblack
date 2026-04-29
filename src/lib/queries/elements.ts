@@ -20,9 +20,25 @@ export interface ElementFilters {
   unit?: string;
   tags?: string[];
   isActive?: boolean;
+  sortBy?: "code" | "name" | "unit_cost" | "updated_at";
+  sortOrder?: "asc" | "desc";
   page?: number;
   limit?: number;
 }
+
+/**
+ * Whitelist of sortable columns. Validated values map to literal SQL
+ * fragments — ORDER BY can't take a parameter.
+ */
+const ELEMENT_SORT_SQL: Record<
+  NonNullable<ElementFilters["sortBy"]>,
+  string
+> = {
+  code: "e.code",
+  name: "lower(e.name)",
+  unit_cost: "e.unit_cost",
+  updated_at: "e.updated_at",
+};
 
 export interface CreateElementInput {
   code: string;
@@ -172,12 +188,16 @@ export async function getElements(orgId: string, filters: ElementFilters = {}) {
      ORDER BY e.version_group, e.version_number DESC
   )`;
 
+  const sortKey = filters.sortBy ?? "code";
+  const sortDir = filters.sortOrder === "desc" ? "DESC" : "ASC";
+  const orderBy = `${ELEMENT_SORT_SQL[sortKey]} ${sortDir} NULLS LAST, e.code ASC`;
+
   const { rows } = await pool.query(
     `${latestCte}
      SELECT e.*, COUNT(*) OVER() AS total_count
        FROM latest e
       WHERE ${where}
-      ORDER BY e.code ASC
+      ORDER BY ${orderBy}
       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     [...params, limit, offset]
   );

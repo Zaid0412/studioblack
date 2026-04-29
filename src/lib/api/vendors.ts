@@ -44,6 +44,8 @@ function buildQuery(params: ListParams): string {
   if (params.kycStatus) search.set("kycStatus", params.kycStatus);
   if (params.tradeCategoryId)
     search.set("tradeCategoryId", params.tradeCategoryId);
+  if (params.sortBy) search.set("sortBy", params.sortBy);
+  if (params.sortOrder) search.set("sortOrder", params.sortOrder);
   if (params.page !== undefined) search.set("page", String(params.page));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const qs = search.toString();

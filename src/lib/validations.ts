@@ -438,6 +438,17 @@ export const updateElementSchema = createElementSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
+export const ELEMENT_SORT_FIELDS = [
+  "code",
+  "name",
+  "unit_cost",
+  "updated_at",
+] as const;
+export type ElementSortField = (typeof ELEMENT_SORT_FIELDS)[number];
+
+export const SORT_ORDERS = ["asc", "desc"] as const;
+export type SortOrder = (typeof SORT_ORDERS)[number];
+
 export const listElementsQuerySchema = z.object({
   search: z.string().optional(),
   categoryId: z.string().uuid().optional(),
@@ -447,6 +458,8 @@ export const listElementsQuerySchema = z.object({
     .union([z.boolean(), z.enum(["true", "false"])])
     .transform((v) => (typeof v === "boolean" ? v : v === "true"))
     .optional(),
+  sortBy: z.enum(ELEMENT_SORT_FIELDS).optional(),
+  sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
@@ -783,11 +796,22 @@ export const vendorRatingSchema = z.object({
     .multipleOf(0.5, "rating must be in 0.5 increments"),
 });
 
+export const VENDOR_SORT_FIELDS = [
+  "vendor_code",
+  "company_name",
+  "rating",
+  "kyc_status",
+  "updated_at",
+] as const;
+export type VendorSortField = (typeof VENDOR_SORT_FIELDS)[number];
+
 export const listVendorsQuerySchema = z.object({
   search: z.string().optional(),
   status: z.enum(VENDOR_STATUSES).optional(),
   kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
+  sortBy: z.enum(VENDOR_SORT_FIELDS).optional(),
+  sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });

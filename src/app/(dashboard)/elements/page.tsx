@@ -45,6 +45,7 @@ export default function ElementsPage() {
     setCategoryId,
     setUnit,
     setShowArchived,
+    setSort,
     setPage,
     clear,
   } = useElementFilters();
@@ -209,6 +210,9 @@ export default function ElementsPage() {
               rows={rows}
               isLoading={isLoading}
               categoryMap={categoryMap}
+              sortBy={state.sortBy}
+              sortOrder={state.sortOrder}
+              onSortChange={setSort}
               onRowClick={openEdit}
               onEdit={openEdit}
               onDuplicate={(el) => {

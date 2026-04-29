@@ -22,9 +22,35 @@ export interface VendorFilters {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  sortBy?:
+    | "vendor_code"
+    | "company_name"
+    | "rating"
+    | "kyc_status"
+    | "updated_at";
+  sortOrder?: "asc" | "desc";
   page: number;
   limit: number;
 }
+
+/**
+ * Whitelist of sortable columns. Validated values map to literal SQL
+ * fragments — ORDER BY can't take a parameter. `kyc_status` uses a CASE
+ * expression so the workflow order (unverified → pending → verified →
+ * rejected) is more useful than alphabetical.
+ */
+const VENDOR_SORT_SQL: Record<NonNullable<VendorFilters["sortBy"]>, string> = {
+  vendor_code: "v.vendor_code",
+  company_name: "lower(v.company_name)",
+  rating: "v.rating",
+  kyc_status: `CASE v.kyc_status
+                 WHEN 'unverified' THEN 0
+                 WHEN 'pending'    THEN 1
+                 WHEN 'verified'   THEN 2
+                 WHEN 'rejected'   THEN 3
+               END`,
+  updated_at: "v.updated_at",
+};
 
 export interface CreateVendorInput {
   companyName: string;
@@ -141,6 +167,10 @@ export async function getVendors(
   params.push((filters.page - 1) * filters.limit);
   const offsetIdx = params.length;
 
+  const sortKey = filters.sortBy ?? "company_name";
+  const sortDir = filters.sortOrder === "desc" ? "DESC" : "ASC";
+  const orderBy = `${VENDOR_SORT_SQL[sortKey]} ${sortDir} NULLS LAST, lower(v.company_name) ASC`;
+
   const sql = `
     SELECT
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
@@ -164,7 +194,7 @@ export async function getVendors(
       GROUP BY vendor_id
     ) t ON t.vendor_id = v.id
     WHERE ${conditions.join(" AND ")}
-    ORDER BY lower(v.company_name)
+    ORDER BY ${orderBy}
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
   `;
 

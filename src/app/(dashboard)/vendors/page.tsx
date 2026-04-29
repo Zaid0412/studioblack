@@ -32,6 +32,7 @@ export default function VendorsPage() {
     setStatus,
     setKycStatus,
     setTradeCategoryId,
+    setSort,
     setPage,
     clear,
   } = useVendorFilters();
@@ -55,6 +56,8 @@ export default function VendorsPage() {
     status: state.status ?? undefined,
     kycStatus: state.kycStatus ?? undefined,
     tradeCategoryId: state.tradeCategoryId ?? undefined,
+    sortBy: state.sortBy ?? undefined,
+    sortOrder: state.sortOrder ?? undefined,
     page: state.page,
   });
 
@@ -130,6 +133,7 @@ export default function VendorsPage() {
         onStatusChange={setStatus}
         onKycStatusChange={setKycStatus}
         onTradeChange={setTradeCategoryId}
+        onSortChange={setSort}
         onPageChange={setPage}
         onClear={clear}
         onRowClick={(v) => setDrawerId(v.id)}

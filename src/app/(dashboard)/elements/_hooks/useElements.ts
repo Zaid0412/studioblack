@@ -17,6 +17,8 @@ export function useElements(filters: ElementFilterState) {
     categoryId: filters.categoryId ?? undefined,
     unit: filters.unit ?? undefined,
     isActive: filters.isActive,
+    sortBy: filters.sortBy ?? undefined,
+    sortOrder: filters.sortOrder ?? undefined,
     page: filters.page,
     limit: PAGE_SIZE,
   } as const;

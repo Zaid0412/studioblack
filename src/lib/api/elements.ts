@@ -36,6 +36,8 @@ function buildQuery(params: ListParams): string {
   if (params.unit) search.set("unit", params.unit);
   if (params.isActive !== undefined)
     search.set("isActive", String(params.isActive));
+  if (params.sortBy) search.set("sortBy", params.sortBy);
+  if (params.sortOrder) search.set("sortOrder", params.sortOrder);
   if (params.page !== undefined) search.set("page", String(params.page));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   if (params.tags && Array.isArray(params.tags)) {
