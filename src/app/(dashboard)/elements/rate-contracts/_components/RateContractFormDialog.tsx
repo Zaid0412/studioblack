@@ -15,13 +15,7 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { API } from "@/lib/api/routes";
 import { rateContracts as rcApi } from "@/lib/api";
@@ -189,28 +183,21 @@ export function RateContractFormDialog({
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                {t("vendor")}
-                <span className="text-error ml-0.5">*</span>
-              </label>
-              <Select
-                value={values.vendorId}
-                onValueChange={(v) => set("vendorId", v)}
-                disabled={isEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("vendorPickerPlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <LabeledSearchableSelect
+              label={t("vendor")}
+              required
+              disabled={isEdit}
+              value={values.vendorId}
+              onChange={(id) => set("vendorId", id)}
+              options={vendors.map((v) => ({
+                code: v.id,
+                name: v.company_name,
+              }))}
+              triggerPlaceholder={t("vendorPickerPlaceholder")}
+              hideTriggerCode
+              codeColumnClassName="hidden"
+              minContentWidth={320}
+            />
             <Input
               label={t("contractName")}
               value={values.name}

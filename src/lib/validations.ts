@@ -882,7 +882,7 @@ export const addRateContractItemsSchema = z.object({
       z.object({
         elementId: uuid,
         unit: z.enum(ALLOWED_UNITS),
-        rate: z.number().nonnegative(),
+        rate: z.number().positive(),
         notes: z.string().max(2000).optional().nullable(),
       })
     )

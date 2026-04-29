@@ -65,6 +65,8 @@ interface BoqElementPickerDialogProps {
   boqId: string;
   sections: BoqSection[];
   currency: string;
+  /** Element IDs already in this BOQ; rows for these are disabled. */
+  existingElementIds: Set<string>;
 }
 
 const PAGE_LIMIT = 20;
@@ -80,6 +82,7 @@ export function BoqElementPickerDialog({
   boqId,
   sections,
   currency,
+  existingElementIds,
 }: BoqElementPickerDialogProps) {
   const t = useTranslations("rateContracts");
   const [tab, setTab] = useState<"library" | "rate-contract">("library");
@@ -254,13 +257,20 @@ export function BoqElementPickerDialog({
                     const categoryName = el.category_id
                       ? categoryMap.get(el.category_id)
                       : null;
+                    const inBoq = existingElementIds.has(el.id);
                     return (
                       <li key={el.id}>
                         <button
                           type="button"
-                          onClick={() => setSelectedId(el.id)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm border-b border-border-default last:border-b-0 transition-colors cursor-pointer ${
-                            active ? "bg-accent/10" : "hover:bg-bg-secondary/60"
+                          onClick={() => !inBoq && setSelectedId(el.id)}
+                          disabled={inBoq}
+                          title={inBoq ? "Already in this BOQ" : undefined}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm border-b border-border-default last:border-b-0 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            active
+                              ? "bg-accent/10"
+                              : inBoq
+                                ? ""
+                                : "hover:bg-bg-secondary/60 cursor-pointer"
                           }`}
                         >
                           <span className="flex-shrink-0 w-[70px] text-xs font-mono text-text-muted truncate">
@@ -352,6 +362,7 @@ export function BoqElementPickerDialog({
                 }
                 onSelect={setSelectedRate}
                 enabled={tab === "rate-contract"}
+                existingElementIds={existingElementIds}
               />
               {selectedRate && (
                 <div className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2.5 text-xs flex flex-col gap-1">

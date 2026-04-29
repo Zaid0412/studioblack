@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
@@ -199,6 +199,18 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     ? (boq.items.find((it) => it.id === drawerItem.id) ?? null)
     : null;
 
+  // Element IDs already in the BOQ — used by the picker to disable
+  // already-added rows (prevents accidental duplicates).
+  const existingElementIds = useMemo(
+    () =>
+      new Set(
+        boq.items
+          .map((it) => it.element_id)
+          .filter((id): id is string => id !== null)
+      ),
+    [boq.items]
+  );
+
   return (
     <div className="px-4 lg:px-10 py-6 flex flex-col gap-5">
       <BoqHeader
@@ -301,6 +313,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqId={boq.id}
         sections={boq.sections}
         currency={boq.currency}
+        existingElementIds={existingElementIds}
       />
 
       <ConfirmDialog

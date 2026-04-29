@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import {
   SortableHeaderButton,
   nextSortDirection,
@@ -133,22 +134,19 @@ export function RateContractList({
         </div>
 
         <div className="w-full lg:w-56">
-          <Select
-            value={state.vendorId ?? ALL}
-            onValueChange={(v) => onVendorChange(v === ALL ? null : v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("filterVendor")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t("allVendors")}</SelectItem>
-              {vendors.map((v) => (
-                <SelectItem key={v.id} value={v.id}>
-                  {v.company_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <LabeledSearchableSelect<string>
+            value={state.vendorId ?? ""}
+            onChange={(id) => onVendorChange(id === "" ? null : id)}
+            options={vendors.map((v) => ({
+              code: v.id,
+              name: v.company_name,
+            }))}
+            triggerPlaceholder={t("filterVendor")}
+            hideTriggerCode
+            codeColumnClassName="hidden"
+            triggerSize="sm"
+            allowClear={{ label: t("allVendors") }}
+          />
         </div>
 
         {hasActive && (

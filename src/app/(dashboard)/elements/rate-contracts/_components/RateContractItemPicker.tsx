@@ -100,7 +100,7 @@ export function RateContractItemPicker({
   const canSubmit =
     drafts.length > 0 &&
     drafts.every(
-      (d) => d.unit !== null && d.rate.trim() && Number(d.rate) >= 0
+      (d) => d.unit !== null && d.rate.trim() && Number(d.rate) > 0
     ) &&
     !submitting;
 
@@ -227,7 +227,7 @@ export function RateContractItemPicker({
                       })}
                       type="number"
                       step="0.01"
-                      min="0"
+                      min="0.01"
                       className="w-32 h-9 px-3 py-2"
                     />
                     <Button

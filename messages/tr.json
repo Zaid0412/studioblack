@@ -1145,11 +1145,16 @@
     "boqPickerTab": "Fiyat Sözleşmesinden",
     "boqPickerSearchPlaceholder": "Element / tedarikçi / sözleşme ara",
     "boqPickerEmpty": "Mevcut elementler için aktif sözleşme bulunamadı.",
+    "boqPickerAlreadyInBoq": "Bu BOQ'ta zaten var",
+    "boqPickerLowestBadge": "En düşük",
+    "boqPickerResultCapped": "İlk {count} sonuç gösteriliyor — daha daraltmak için aramayı netleştirin.",
     "toastCreated": "Fiyat sözleşmesi oluşturuldu",
     "toastUpdated": "Fiyat sözleşmesi güncellendi",
     "toastActivated": "Fiyat sözleşmesi aktifleştirildi",
     "toastCancelled": "Fiyat sözleşmesi iptal edildi",
     "toastItemsAdded": "{count} kalem kaydedildi",
-    "toastItemRemoved": "Kalem kaldırıldı"
+    "toastItemRemoved": "Kalem kaldırıldı",
+    "toastRateUpdated": "Fiyat güncellendi",
+    "editRateTooltip": "Fiyatı düzenlemek için tıklayın"
   }
 }

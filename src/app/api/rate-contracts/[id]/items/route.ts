@@ -5,7 +5,10 @@ import { parseRequest, addRateContractItemsSchema } from "@/lib/validations";
 
 /** POST /api/rate-contracts/[id]/items — bulk-add or upsert items. */
 export const POST = withAuth(
-  { allowedRoles: ["pm", "architect"] },
+  {
+    allowedRoles: ["pm", "architect"],
+    rateLimit: { limit: 30, windowMs: 60_000 },
+  },
   async (req, { orgId }, params) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });

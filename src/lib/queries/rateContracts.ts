@@ -83,9 +83,13 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
 };
 
 /**
- * Auto-expire active contracts whose end_date is in the past. Same
- * check-on-read pattern used elsewhere (quote/proposal expiry); idempotent
- * and protected by the partial index on status='active'.
+ * Auto-expire active contracts whose end_date is in the past.
+ *
+ * Called once per detail-view render (`getRateContractById`) — that's the
+ * authoritative place where stale `active` status would mislead the user.
+ * The list / picker reads tolerate up to one render of stale `active` and
+ * resolve themselves the next time someone opens the detail page or the
+ * scheduled job runs. Avoids per-keystroke UPDATEs in the BOQ picker.
  */
 async function expireOverdueContracts(orgId: string): Promise<void> {
   const pool = getPool();
@@ -104,8 +108,6 @@ export async function listRateContracts(
   orgId: string,
   filters: RateContractFilters
 ): Promise<{ rows: RateContractListRow[]; total: number }> {
-  await expireOverdueContracts(orgId);
-
   const pool = getPool();
   const conditions: string[] = ["rc.org_id = $1"];
   const params: unknown[] = [orgId];
@@ -223,8 +225,6 @@ export async function getActiveRatesForElement(
   elementId: string,
   vendorId?: string
 ): Promise<AvailableRate[]> {
-  await expireOverdueContracts(orgId);
-
   const pool = getPool();
   const conditions: string[] = [
     "rc.org_id = $1",
@@ -268,8 +268,6 @@ export async function getAvailableRatesForBoqPicker(
   orgId: string,
   search?: string
 ): Promise<AvailableRate[]> {
-  await expireOverdueContracts(orgId);
-
   const pool = getPool();
   const conditions: string[] = [
     "rc.org_id = $1",

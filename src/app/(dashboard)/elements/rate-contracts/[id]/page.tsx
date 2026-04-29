@@ -131,6 +131,29 @@ export default function RateContractDetailPage({ params }: Props) {
     }
   };
 
+  const handleEditRate = async (
+    item: { element_id: string; unit: string },
+    newRate: number
+  ) => {
+    try {
+      await rcApi.addItems(data.id, {
+        items: [
+          {
+            elementId: item.element_id,
+            unit: item.unit as ElementUnit,
+            rate: newRate,
+          },
+        ],
+      });
+      toast({ title: t("toastRateUpdated") });
+      mutate();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to update rate";
+      toast({ title: msg, variant: "error" });
+      throw err;
+    }
+  };
+
   const isDraft = data.status === "draft";
   const isActive = data.status === "active";
   const isClosed = data.status === "expired" || data.status === "cancelled";
@@ -277,7 +300,9 @@ export default function RateContractDetailPage({ params }: Props) {
           items={data.items}
           currency={data.currency}
           canRemove={canManage && !isClosed}
+          canEditRate={canManage && isDraft}
           onRemove={(it) => handleRemoveItem(it.id)}
+          onEditRate={handleEditRate}
         />
       </section>
 

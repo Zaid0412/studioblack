@@ -1145,11 +1145,16 @@
     "boqPickerTab": "From Rate Contract",
     "boqPickerSearchPlaceholder": "Search element / vendor / contract",
     "boqPickerEmpty": "No active rate contracts cover the available elements.",
+    "boqPickerAlreadyInBoq": "Already in this BOQ",
+    "boqPickerLowestBadge": "Lowest",
+    "boqPickerResultCapped": "Showing the first {count} matches — refine the search to narrow further.",
     "toastCreated": "Rate contract created",
     "toastUpdated": "Rate contract updated",
     "toastActivated": "Rate contract activated",
     "toastCancelled": "Rate contract cancelled",
     "toastItemsAdded": "{count} items saved",
-    "toastItemRemoved": "Item removed"
+    "toastItemRemoved": "Item removed",
+    "toastRateUpdated": "Rate updated",
+    "editRateTooltip": "Click to edit rate"
   }
 }

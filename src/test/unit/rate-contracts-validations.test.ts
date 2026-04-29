@@ -119,6 +119,14 @@ describe("addRateContractItemsSchema", () => {
     ).toBe(false);
   });
 
+  it("rejects zero rate", () => {
+    expect(
+      parseBody(addRateContractItemsSchema, {
+        items: [{ elementId: ELEMENT_ID, unit: "nr", rate: 0 }],
+      }).success
+    ).toBe(false);
+  });
+
   it("rejects unknown unit", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
