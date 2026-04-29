@@ -1132,6 +1132,7 @@
     "itemPickerTitle": "Element ekle",
     "itemPickerSearchPlaceholder": "Element kütüphanesinde ara",
     "itemPickerEmpty": "Eşleşen element yok.",
+    "itemPickerNoMatchingCurrency": "{currency} cinsinden fiyatlandırılmış element yok. Önce kütüphaneye bir element ekleyin veya sözleşme taslakken para birimini değiştirin.",
     "itemPickerInContract": "Zaten eklendi",
     "itemPickerInDraft": "Beklemede",
     "itemPickerDraftHeader": "{count} beklemede",

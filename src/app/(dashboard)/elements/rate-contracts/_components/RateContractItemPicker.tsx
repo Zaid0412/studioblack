@@ -7,6 +7,7 @@ import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
 import {
   Dialog,
@@ -68,12 +69,12 @@ export function RateContractItemPicker({
         limit: 100,
       })
     : null;
-  const { data } = useSWR<ListElementsResponse>(listKey);
+  const { data, isLoading } = useSWR<ListElementsResponse>(listKey);
+  const allElements = data?.rows ?? [];
   // Currency match is enforced server-side in addRateContractItems. Filter
   // here too so the user can't pick a doomed element in the first place.
-  const elements = (data?.rows ?? []).filter(
-    (el) => el.currency === contractCurrency
-  );
+  const elements = allElements.filter((el) => el.currency === contractCurrency);
+  const filteredOutByCurrency = allElements.length > 0 && elements.length === 0;
 
   const addDraft = (element: Element) => {
     if (drafts.some((d) => d.element.id === element.id)) return;
@@ -141,8 +142,20 @@ export function RateContractItemPicker({
             onDebouncedChange={setSearch}
           />
 
-          <div className="border border-border-default rounded-lg max-h-[260px] overflow-y-auto">
-            {elements.length === 0 ? (
+          <div className="border border-border-default rounded-lg max-h-[260px] overflow-y-auto shrink-0">
+            {isLoading ? (
+              <div className="flex flex-col gap-1 p-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-9 rounded" />
+                ))}
+              </div>
+            ) : filteredOutByCurrency ? (
+              <p className="p-4 text-sm text-text-muted italic">
+                {t("itemPickerNoMatchingCurrency", {
+                  currency: contractCurrency,
+                })}
+              </p>
+            ) : elements.length === 0 ? (
               <p className="p-4 text-sm text-text-muted italic">
                 {t("itemPickerEmpty")}
               </p>
@@ -182,50 +195,52 @@ export function RateContractItemPicker({
               <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                 {t("itemPickerDraftHeader", { count: drafts.length })}
               </h4>
-              {drafts.map((d) => (
-                <div
-                  key={d.element.id}
-                  className="flex items-center gap-2 rounded-md border border-border-default p-2"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-xs text-text-muted">
-                      {d.element.code}
-                    </div>
-                    <div className="text-sm text-text-primary truncate">
-                      {d.element.name}
-                    </div>
-                  </div>
-                  <div className="w-24 shrink-0">
-                    <UnitFilterSelect
-                      value={d.unit}
-                      onChange={(unit) => updateDraft(d.element.id, { unit })}
-                      placeholder={t("itemPickerUnitPlaceholder")}
-                      allLabel={t("itemPickerUnitClear")}
-                    />
-                  </div>
-                  <Input
-                    value={d.rate}
-                    onChange={(e) =>
-                      updateDraft(d.element.id, { rate: e.target.value })
-                    }
-                    placeholder={t("itemPickerRatePlaceholder", {
-                      currency: contractCurrency,
-                    })}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-32"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeDraft(d.element.id)}
-                    aria-label={t("removeItem")}
+              <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+                {drafts.map((d) => (
+                  <div
+                    key={d.element.id}
+                    className="flex items-center gap-2 rounded-md border border-border-default p-2"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-xs text-text-muted">
+                        {d.element.code}
+                      </div>
+                      <div className="text-sm text-text-primary truncate">
+                        {d.element.name}
+                      </div>
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <UnitFilterSelect
+                        value={d.unit}
+                        onChange={(unit) => updateDraft(d.element.id, { unit })}
+                        placeholder={t("itemPickerUnitPlaceholder")}
+                        allLabel={t("itemPickerUnitClear")}
+                      />
+                    </div>
+                    <Input
+                      value={d.rate}
+                      onChange={(e) =>
+                        updateDraft(d.element.id, { rate: e.target.value })
+                      }
+                      placeholder={t("itemPickerRatePlaceholder", {
+                        currency: contractCurrency,
+                      })}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="w-32 h-9 px-3 py-2"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeDraft(d.element.id)}
+                      aria-label={t("removeItem")}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -1132,6 +1132,7 @@
     "itemPickerTitle": "Add elements",
     "itemPickerSearchPlaceholder": "Search the element library",
     "itemPickerEmpty": "No matching elements.",
+    "itemPickerNoMatchingCurrency": "No elements priced in {currency}. Add one to the library first, or change the contract currency while it's still draft.",
     "itemPickerInContract": "Already added",
     "itemPickerInDraft": "Pending",
     "itemPickerDraftHeader": "{count} pending",
