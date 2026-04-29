@@ -4,6 +4,8 @@ import type {
   Vendor,
   VendorWithRelations,
   VendorLite,
+  VendorKycDocument,
+  VendorKycStatus,
   BankDetails,
 } from "@/types";
 import type { z } from "zod";
@@ -11,11 +13,15 @@ import type {
   createVendorSchema,
   updateVendorSchema,
   listVendorsQuerySchema,
+  vendorKycDocumentSchema,
+  vendorKycStatusSchema,
 } from "@/lib/validations";
 
 type CreateInput = z.infer<typeof createVendorSchema>;
 type UpdateInput = z.infer<typeof updateVendorSchema>;
 type ListParams = Partial<z.input<typeof listVendorsQuerySchema>>;
+type AddKycDocInput = z.infer<typeof vendorKycDocumentSchema>;
+type SetKycStatusInput = z.infer<typeof vendorKycStatusSchema>;
 
 /** A vendor row in the list view — slimmer than the full detail. */
 export interface VendorListRow extends Vendor {
@@ -35,8 +41,11 @@ function buildQuery(params: ListParams): string {
   const search = new URLSearchParams();
   if (params.search) search.set("search", params.search);
   if (params.status) search.set("status", params.status);
+  if (params.kycStatus) search.set("kycStatus", params.kycStatus);
   if (params.tradeCategoryId)
     search.set("tradeCategoryId", params.tradeCategoryId);
+  if (params.sortBy) search.set("sortBy", params.sortBy);
+  if (params.sortOrder) search.set("sortOrder", params.sortOrder);
   if (params.page !== undefined) search.set("page", String(params.page));
   if (params.limit !== undefined) search.set("limit", String(params.limit));
   const qs = search.toString();
@@ -98,4 +107,29 @@ export function updateRating(id: string, rating: number) {
 /** Vendors that handle the given element category. For F9 RFQ vendor picker. */
 export function listByTrade(categoryId: string) {
   return apiGet<{ rows: VendorLite[] }>(API.vendorsByTrade(categoryId));
+}
+
+// ─── KYC (F7.1) ─────────────────────────────────────────────────────────────
+
+/** List KYC documents for a vendor. */
+export function listKycDocuments(id: string) {
+  return apiGet<{ documents: VendorKycDocument[] }>(API.vendorKycDocuments(id));
+}
+
+/** Add a KYC document. Server may auto-flip vendor status to `pending`. */
+export function addKycDocument(id: string, data: AddKycDocInput) {
+  return apiPost<{
+    document: VendorKycDocument;
+    vendor_kyc_status: VendorKycStatus;
+  }>(API.vendorKycDocuments(id), data);
+}
+
+/** Remove a KYC document (file in storage is preserved). */
+export function removeKycDocument(id: string, docId: string) {
+  return apiDelete<{ success: true }>(API.vendorKycDocument(id, docId));
+}
+
+/** Flip the vendor's KYC verification state. PM only on the server. */
+export function setKycStatus(id: string, data: SetKycStatusInput) {
+  return apiPatch<VendorWithRelations>(API.vendorKycStatus(id), data);
 }

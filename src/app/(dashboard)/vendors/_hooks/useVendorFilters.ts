@@ -2,17 +2,29 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo } from "react";
-import type { VendorStatus } from "@/types";
-import { VENDOR_STATUSES } from "@/lib/validations";
+import type { VendorStatus, VendorKycStatus } from "@/types";
+import type { VendorSortField, SortOrder } from "@/lib/validations";
+import {
+  VENDOR_STATUSES,
+  VENDOR_KYC_STATUSES,
+  VENDOR_SORT_FIELDS,
+  SORT_ORDERS,
+} from "@/lib/validations";
 
 export interface VendorFilterState {
   search: string;
   status: VendorStatus | null;
+  kycStatus: VendorKycStatus | null;
   tradeCategoryId: string | null;
+  sortBy: VendorSortField | null;
+  sortOrder: SortOrder | null;
   page: number;
 }
 
 const STATUS_SET = new Set<string>(VENDOR_STATUSES);
+const KYC_STATUS_SET = new Set<string>(VENDOR_KYC_STATUSES);
+const SORT_FIELDS = new Set<string>(VENDOR_SORT_FIELDS);
+const ORDERS = new Set<string>(SORT_ORDERS);
 
 /** URL-driven filter state for the vendors list, mirrors the elements page pattern. */
 export function useVendorFilters() {
@@ -21,11 +33,22 @@ export function useVendorFilters() {
 
   const state: VendorFilterState = useMemo(() => {
     const status = searchParams.get("status");
+    const kycStatus = searchParams.get("kycStatus");
+    const sortBy = searchParams.get("sortBy");
+    const sortOrder = searchParams.get("sortOrder");
     return {
       search: searchParams.get("search") ?? "",
       status:
         status && STATUS_SET.has(status) ? (status as VendorStatus) : null,
+      kycStatus:
+        kycStatus && KYC_STATUS_SET.has(kycStatus)
+          ? (kycStatus as VendorKycStatus)
+          : null,
       tradeCategoryId: searchParams.get("tradeCategoryId"),
+      sortBy:
+        sortBy && SORT_FIELDS.has(sortBy) ? (sortBy as VendorSortField) : null,
+      sortOrder:
+        sortOrder && ORDERS.has(sortOrder) ? (sortOrder as SortOrder) : null,
       page: Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1),
     };
   }, [searchParams]);
@@ -44,11 +67,29 @@ export function useVendorFilters() {
     [router, searchParams]
   );
 
+  const setSort = useCallback(
+    (sortBy: VendorSortField | null, sortOrder: SortOrder | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (sortBy && sortOrder) {
+        params.set("sortBy", sortBy);
+        params.set("sortOrder", sortOrder);
+      } else {
+        params.delete("sortBy");
+        params.delete("sortOrder");
+      }
+      params.delete("page");
+      router.replace(`/vendors?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
   return {
     state,
     setSearch: (v: string) => setParam("search", v || null),
     setStatus: (v: VendorStatus | null) => setParam("status", v),
+    setKycStatus: (v: VendorKycStatus | null) => setParam("kycStatus", v),
     setTradeCategoryId: (v: string | null) => setParam("tradeCategoryId", v),
+    setSort,
     setPage: (page: number) => setParam("page", String(page)),
     clear: () => router.replace("/vendors", { scroll: false }),
   };

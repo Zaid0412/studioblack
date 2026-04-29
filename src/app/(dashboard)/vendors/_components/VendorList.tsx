@@ -17,12 +17,24 @@ import { Pagination } from "@/components/ui/Pagination";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import {
+  SortableHeaderButton,
+  nextSortDirection,
+  type SortConfig,
+} from "@/components/ui/SortableHeader";
 import { API } from "@/lib/api/routes";
-import { VENDOR_STATUSES } from "@/lib/validations";
-import type { ElementCategoryNode, VendorStatus } from "@/types";
+import { VENDOR_STATUSES, VENDOR_KYC_STATUSES } from "@/lib/validations";
+import type {
+  ElementCategoryNode,
+  VendorStatus,
+  VendorKycStatus,
+} from "@/types";
+import type { VendorSortField, SortOrder } from "@/lib/validations";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { VendorRow } from "./VendorRow";
 import type { VendorFilterState } from "../_hooks/useVendorFilters";
+
+type SortKey = VendorSortField;
 
 interface Props {
   state: VendorFilterState;
@@ -35,7 +47,9 @@ interface Props {
   canDelete: boolean;
   onSearchChange: (v: string) => void;
   onStatusChange: (v: VendorStatus | null) => void;
+  onKycStatusChange: (v: VendorKycStatus | null) => void;
   onTradeChange: (v: string | null) => void;
+  onSortChange: (sortBy: SortKey | null, sortOrder: SortOrder | null) => void;
   onPageChange: (page: number) => void;
   onClear: () => void;
   onRowClick: (vendor: VendorListRow) => void;
@@ -58,7 +72,9 @@ export function VendorList({
   canDelete,
   onSearchChange,
   onStatusChange,
+  onKycStatusChange,
   onTradeChange,
+  onSortChange,
   onPageChange,
   onClear,
   onRowClick,
@@ -73,7 +89,21 @@ export function VendorList({
   const tree = useMemo(() => catData?.tree ?? [], [catData]);
 
   const hasActive =
-    state.search || state.status || state.tradeCategoryId || state.page > 1;
+    state.search ||
+    state.status ||
+    state.kycStatus ||
+    state.tradeCategoryId ||
+    state.sortBy ||
+    state.page > 1;
+
+  const sortConfig: SortConfig<SortKey> =
+    state.sortBy && state.sortOrder
+      ? { key: state.sortBy, direction: state.sortOrder }
+      : null;
+  const onSort = (key: SortKey) => {
+    const next = nextSortDirection(sortConfig, key);
+    onSortChange(next?.key ?? null, next?.direction ?? null);
+  };
 
   const startIdx = (state.page - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, total);
@@ -111,6 +141,29 @@ export function VendorList({
           </Select>
         </div>
 
+        <div className="w-full lg:w-44">
+          <Select
+            value={state.kycStatus ?? ALL_STATUS}
+            onValueChange={(v) =>
+              onKycStatusChange(
+                v === ALL_STATUS ? null : (v as VendorKycStatus)
+              )
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("filterKyc")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATUS}>{t("allKycStatuses")}</SelectItem>
+              {VENDOR_KYC_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {t(`kycStatus_${s}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="w-full lg:w-64">
           <CategorySelect
             value={state.tradeCategoryId}
@@ -134,12 +187,33 @@ export function VendorList({
       >
         <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
           <div className="hidden lg:grid grid-cols-[140px_1fr_120px_220px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
-            <div>{t("colCode")}</div>
-            <div>{t("colCompany")}</div>
+            <SortableHeaderButton
+              sortKey="vendor_code"
+              config={sortConfig}
+              onSort={onSort}
+              className="w-full"
+            >
+              {t("colCode")}
+            </SortableHeaderButton>
+            <SortableHeaderButton
+              sortKey="company_name"
+              config={sortConfig}
+              onSort={onSort}
+              className="w-full"
+            >
+              {t("colCompany")}
+            </SortableHeaderButton>
             <div>{t("colStatus")}</div>
             <div>{t("colPrimaryContact")}</div>
             <div>{t("colTrades")}</div>
-            <div>{t("colRating")}</div>
+            <SortableHeaderButton
+              sortKey="rating"
+              config={sortConfig}
+              onSort={onSort}
+              className="w-full"
+            >
+              {t("colRating")}
+            </SortableHeaderButton>
             <div className="text-right">{t("colActions")}</div>
           </div>
 

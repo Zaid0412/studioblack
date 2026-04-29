@@ -438,6 +438,18 @@ export const updateElementSchema = createElementSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
+/** Shared by every sort-aware list endpoint. */
+export const SORT_ORDERS = ["asc", "desc"] as const;
+export type SortOrder = (typeof SORT_ORDERS)[number];
+
+export const ELEMENT_SORT_FIELDS = [
+  "code",
+  "name",
+  "unit_cost",
+  "updated_at",
+] as const;
+export type ElementSortField = (typeof ELEMENT_SORT_FIELDS)[number];
+
 export const listElementsQuerySchema = z.object({
   search: z.string().optional(),
   categoryId: z.string().uuid().optional(),
@@ -447,6 +459,8 @@ export const listElementsQuerySchema = z.object({
     .union([z.boolean(), z.enum(["true", "false"])])
     .transform((v) => (typeof v === "boolean" ? v : v === "true"))
     .optional(),
+  sortBy: z.enum(ELEMENT_SORT_FIELDS).optional(),
+  sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
@@ -670,6 +684,23 @@ export const VENDOR_PROFICIENCIES = [
 ] as const;
 export type VendorProficiency = (typeof VENDOR_PROFICIENCIES)[number];
 
+export const VENDOR_KYC_STATUSES = [
+  "unverified",
+  "pending",
+  "verified",
+  "rejected",
+] as const;
+export type VendorKycStatus = (typeof VENDOR_KYC_STATUSES)[number];
+
+export const VENDOR_KYC_DOCUMENT_TYPES = [
+  "tax_certificate",
+  "trade_licence",
+  "iso_certification",
+  "insurance",
+  "other",
+] as const;
+export type VendorKycDocumentType = (typeof VENDOR_KYC_DOCUMENT_TYPES)[number];
+
 export const vendorAddressSchema = z
   .object({
     line1: z.string().max(255).optional(),
@@ -716,6 +747,7 @@ export const createVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
+  taxId: z.string().max(50).optional(),
   address: vendorAddressSchema.optional(),
   notes: z.string().max(2000).optional(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -735,10 +767,26 @@ export const updateVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional().nullable(),
+  taxId: z.string().max(50).optional().nullable(),
   address: vendorAddressSchema.optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
   trades: z.array(vendorTradeSchema).max(50).optional(),
+});
+
+// ─── Vendor KYC (F7.1) ───────────────────────────────────────────────────────
+
+export const vendorKycDocumentSchema = z.object({
+  docType: z.enum(VENDOR_KYC_DOCUMENT_TYPES),
+  fileUrl: trimmedString.max(2048),
+  fileName: trimmedString.max(255),
+  expiresAt: z.string().date().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
+export const vendorKycStatusSchema = z.object({
+  kycStatus: z.enum(VENDOR_KYC_STATUSES),
+  kycNotes: z.string().max(2000).optional().nullable(),
 });
 
 export const vendorRatingSchema = z.object({
@@ -749,10 +797,22 @@ export const vendorRatingSchema = z.object({
     .multipleOf(0.5, "rating must be in 0.5 increments"),
 });
 
+export const VENDOR_SORT_FIELDS = [
+  "vendor_code",
+  "company_name",
+  "rating",
+  "kyc_status",
+  "updated_at",
+] as const;
+export type VendorSortField = (typeof VENDOR_SORT_FIELDS)[number];
+
 export const listVendorsQuerySchema = z.object({
   search: z.string().optional(),
   status: z.enum(VENDOR_STATUSES).optional(),
+  kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
+  sortBy: z.enum(VENDOR_SORT_FIELDS).optional(),
+  sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });

@@ -1,5 +1,17 @@
 import { getPool } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import type { AuditEvent } from "@/types";
+
+/** Stable identifiers for audit log entries. Append-only — never rename. */
+export const AUDIT_ACTIONS = {
+  VENDOR_BANK_READ: "vendor.bank_details.read",
+  VENDOR_BANK_WRITE: "vendor.bank_details.write",
+  VENDOR_BANK_CLEAR: "vendor.bank_details.clear",
+  VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
+  VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
+  VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
+} as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 
 /**
  * Append a structured audit event. Used by sensitive endpoints (e.g. vendor
@@ -30,6 +42,20 @@ export async function logAudit(input: {
       input.metadata ? JSON.stringify(input.metadata) : null,
     ]
   );
+}
+
+/**
+ * Fire-and-forget wrapper. Failures are logged via `logger.warn` instead of
+ * propagating, since audit logging must not undo a successful mutation.
+ */
+export async function logAuditSafe(
+  input: Parameters<typeof logAudit>[0]
+): Promise<void> {
+  try {
+    await logAudit(input);
+  } catch (err) {
+    logger.warn("audit log failed", { err: String(err) });
+  }
 }
 
 /** Read recent audit events for an org. Reserved for F21. */

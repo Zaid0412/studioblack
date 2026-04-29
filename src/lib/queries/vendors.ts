@@ -4,20 +4,53 @@ import type {
   VendorContact,
   VendorWithRelations,
   VendorLite,
+  VendorKycDocument,
   EncryptedField,
   BankDetails,
 } from "@/types";
-import type { VendorStatus, VendorProficiency } from "@/lib/validations";
+import type {
+  VendorStatus,
+  VendorProficiency,
+  VendorKycStatus,
+  VendorKycDocumentType,
+} from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 
 export interface VendorFilters {
   search?: string;
   status?: VendorStatus;
+  kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  sortBy?:
+    | "vendor_code"
+    | "company_name"
+    | "rating"
+    | "kyc_status"
+    | "updated_at";
+  sortOrder?: "asc" | "desc";
   page: number;
   limit: number;
 }
+
+/**
+ * Whitelist of sortable columns. Validated values map to literal SQL
+ * fragments — ORDER BY can't take a parameter. `kyc_status` uses a CASE
+ * expression so the workflow order (unverified → pending → verified →
+ * rejected) is more useful than alphabetical.
+ */
+const VENDOR_SORT_SQL: Record<NonNullable<VendorFilters["sortBy"]>, string> = {
+  vendor_code: "v.vendor_code",
+  company_name: "lower(v.company_name)",
+  rating: "v.rating",
+  kyc_status: `CASE v.kyc_status
+                 WHEN 'unverified' THEN 0
+                 WHEN 'pending'    THEN 1
+                 WHEN 'verified'   THEN 2
+                 WHEN 'rejected'   THEN 3
+               END`,
+  updated_at: "v.updated_at",
+};
 
 export interface CreateVendorInput {
   companyName: string;
@@ -28,6 +61,7 @@ export interface CreateVendorInput {
   currency?: string;
   vatRegistered?: boolean;
   vatNumber?: string;
+  taxId?: string;
   address?: Record<string, string | undefined>;
   notes?: string;
   contacts?: Array<{
@@ -58,6 +92,7 @@ export interface UpdateVendorInput {
   currency?: string;
   vatRegistered?: boolean;
   vatNumber?: string | null;
+  taxId?: string | null;
   address?: Record<string, string | undefined> | null;
   notes?: string | null;
   contacts?: CreateVendorInput["contacts"];
@@ -74,6 +109,7 @@ const VENDOR_UPDATE_COLS: Record<string, string> = {
   currency: "currency",
   vatRegistered: "vat_registered",
   vatNumber: "vat_number",
+  taxId: "tax_id",
   notes: "notes",
 };
 
@@ -114,6 +150,11 @@ export async function getVendors(
     conditions.push(`v.status = $${params.length}`);
   }
 
+  if (filters.kycStatus) {
+    params.push(filters.kycStatus);
+    conditions.push(`v.kyc_status = $${params.length}`);
+  }
+
   if (filters.tradeCategoryId) {
     params.push(filters.tradeCategoryId);
     conditions.push(
@@ -126,10 +167,15 @@ export async function getVendors(
   params.push((filters.page - 1) * filters.limit);
   const offsetIdx = params.length;
 
+  const sortKey = filters.sortBy ?? "company_name";
+  const sortDir = filters.sortOrder === "desc" ? "DESC" : "ASC";
+  const orderBy = `${VENDOR_SORT_SQL[sortKey]} ${sortDir} NULLS LAST, lower(v.company_name) ASC`;
+
   const sql = `
     SELECT
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
+      v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
       v.address, v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(c.cnt, 0)::int AS contact_count,
       c.primary_email AS primary_contact_email,
@@ -148,7 +194,7 @@ export async function getVendors(
       GROUP BY vendor_id
     ) t ON t.vendor_id = v.id
     WHERE ${conditions.join(" AND ")}
-    ORDER BY lower(v.company_name)
+    ORDER BY ${orderBy}
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
   `;
 
@@ -169,6 +215,7 @@ export async function getVendorById(
     SELECT
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
+      v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
       v.address, v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(
         (
@@ -192,7 +239,16 @@ export async function getVendorById(
           JOIN element_category ec ON ec.id = t.category_id
           WHERE t.vendor_id = v.id
         ), '[]'::json
-      ) AS trades
+      ) AS trades,
+      COALESCE(
+        (
+          SELECT COUNT(*)
+          FROM vendor_kyc_document d
+          WHERE d.vendor_id = v.id
+            AND d.expires_at IS NOT NULL
+            AND d.expires_at <= CURRENT_DATE + INTERVAL '30 days'
+        ), 0
+      )::int AS kyc_expiring_soon_count
     FROM vendor v
     WHERE v.id = $1 AND v.org_id = $2
   `;
@@ -260,12 +316,12 @@ export async function createVendor(
     const insertVendor = await client.query(
       `INSERT INTO vendor (
          org_id, company_name, trading_name, vendor_code, status,
-         payment_terms, currency, vat_registered, vat_number,
+         payment_terms, currency, vat_registered, vat_number, tax_id,
          address, notes, created_by
        )
        VALUES ($1, $2, $3, $4, COALESCE($5, 'active'),
-               $6, COALESCE($7, 'USD'), COALESCE($8, false), $9,
-               $10, $11, $12)
+               $6, COALESCE($7, 'USD'), COALESCE($8, false), $9, $10,
+               $11, $12, $13)
        RETURNING id`,
       [
         orgId,
@@ -277,6 +333,7 @@ export async function createVendor(
         input.currency ?? null,
         input.vatRegistered ?? null,
         input.vatNumber ?? null,
+        input.taxId ?? null,
         input.address ? JSON.stringify(input.address) : null,
         input.notes ?? null,
         userId,
@@ -456,6 +513,7 @@ export async function updateVendorRating(
      WHERE id = $2 AND org_id = $3
      RETURNING id, org_id, company_name, trading_name, vendor_code, status,
                rating, payment_terms, currency, vat_registered, vat_number,
+               tax_id, kyc_status, kyc_verified_at, kyc_verified_by, kyc_notes,
                address, notes, created_by, created_at, updated_at`,
     [rating, vendorId, orgId]
   );
@@ -491,6 +549,151 @@ export async function hardDeleteVendor(
     [vendorId, orgId]
   );
   return (rowCount ?? 0) > 0;
+}
+
+// ─── KYC (F7.1) ─────────────────────────────────────────────────────────────
+
+/** Inserted alongside a vendor KYC document. Date strings are ISO (YYYY-MM-DD). */
+export interface AddKycDocumentInput {
+  docType: VendorKycDocumentType;
+  fileUrl: string;
+  fileName: string;
+  expiresAt?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * Insert a KYC document for a vendor. If the vendor's current `kyc_status`
+ * is `'unverified'` it auto-flips to `'pending'` in the same transaction so
+ * PMs see something to review. Already-verified or already-rejected vendors
+ * are left alone — those need an explicit status change.
+ */
+export async function addKycDocument(
+  orgId: string,
+  vendorId: string,
+  uploadedBy: string,
+  input: AddKycDocumentInput
+): Promise<{
+  document: VendorKycDocument;
+  vendorKycStatus: VendorKycStatus;
+} | null> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // INSERT...SELECT enforces org isolation in the same statement: the row
+    // is only inserted when the vendor exists under this org. RETURNING also
+    // surfaces the vendor's prior kyc_status so we can decide whether to flip.
+    const insert = await client.query(
+      `WITH v AS (
+         SELECT id, kyc_status FROM vendor WHERE id = $1 AND org_id = $2
+       )
+       INSERT INTO vendor_kyc_document
+         (vendor_id, doc_type, file_url, file_name, expires_at, uploaded_by, notes)
+       SELECT v.id, $3, $4, $5, $6, $7, $8 FROM v
+       RETURNING id, vendor_id, doc_type, file_url, file_name,
+                 expires_at, uploaded_by, uploaded_at, notes,
+                 (SELECT kyc_status FROM v) AS prior_kyc_status`,
+      [
+        vendorId,
+        orgId,
+        input.docType,
+        input.fileUrl,
+        input.fileName,
+        input.expiresAt ?? null,
+        uploadedBy,
+        input.notes ?? null,
+      ]
+    );
+
+    if (insert.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const { prior_kyc_status: priorStatus, ...document } = insert.rows[0] as {
+      prior_kyc_status: VendorKycStatus;
+    } & VendorKycDocument;
+
+    let vendorKycStatus = priorStatus;
+    if (priorStatus === "unverified") {
+      vendorKycStatus = "pending";
+      await client.query(
+        `UPDATE vendor SET kyc_status = 'pending', updated_at = now()
+         WHERE id = $1 AND org_id = $2`,
+        [vendorId, orgId]
+      );
+    }
+
+    await client.query("COMMIT");
+    return {
+      document: document as VendorKycDocument,
+      vendorKycStatus,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+  } finally {
+    client.release();
+  }
+}
+
+export async function listKycDocuments(
+  orgId: string,
+  vendorId: string
+): Promise<VendorKycDocument[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT d.id, d.vendor_id, d.doc_type, d.file_url, d.file_name,
+            d.expires_at, d.uploaded_by, d.uploaded_at, d.notes
+     FROM vendor_kyc_document d
+     JOIN vendor v ON v.id = d.vendor_id
+     WHERE v.org_id = $1 AND d.vendor_id = $2
+     ORDER BY d.uploaded_at DESC`,
+    [orgId, vendorId]
+  );
+  return rows as VendorKycDocument[];
+}
+
+/** Hard-delete the document row. The underlying file in storage is left as-is
+ *  (mirrors element/attachment soft-path). */
+export async function removeKycDocument(
+  orgId: string,
+  vendorId: string,
+  docId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `DELETE FROM vendor_kyc_document
+     WHERE id = $1 AND vendor_id = $2
+       AND vendor_id IN (SELECT id FROM vendor WHERE org_id = $3)`,
+    [docId, vendorId, orgId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** PM-only: flip kyc_status. Stamps verifier + timestamp. */
+export async function setKycStatus(
+  orgId: string,
+  vendorId: string,
+  status: VendorKycStatus,
+  notes: string | null,
+  verifiedBy: string
+): Promise<VendorWithRelations | null> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE vendor
+     SET kyc_status = $1,
+         kyc_verified_at = now(),
+         kyc_verified_by = $2,
+         kyc_notes = $3,
+         updated_at = now()
+     WHERE id = $4 AND org_id = $5`,
+    [status, verifiedBy, notes, vendorId, orgId]
+  );
+  if ((rowCount ?? 0) === 0) return null;
+  return await getVendorById(orgId, vendorId);
 }
 
 // Re-export the type so callers that import from "@/lib/queries" can get it

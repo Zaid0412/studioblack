@@ -29,38 +29,21 @@ import {
   parseResponse,
 } from "../helpers";
 import { mocks } from "../setup";
+import {
+  buildVendor,
+  buildVendorWithRelations,
+  TEST_VENDOR_ID,
+} from "../fixtures/vendor";
 import { encryptBankDetails } from "@/lib/vendorEncryption";
 import type { Vendor, VendorWithRelations, BankDetails } from "@/types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-const VENDOR_ID = "11111111-1111-4111-8111-111111111111";
+const VENDOR_ID = TEST_VENDOR_ID;
 const CATEGORY_ID = "22222222-2222-4222-8222-222222222222";
 
-const fakeVendor: Vendor = {
-  id: VENDOR_ID,
-  org_id: "org-test-001",
-  company_name: "Acme Co",
-  trading_name: null,
-  vendor_code: "V001",
-  status: "active",
-  rating: 0,
-  payment_terms: null,
-  currency: "USD",
-  vat_registered: false,
-  vat_number: null,
-  address: null,
-  notes: null,
-  created_by: "user-test-001",
-  created_at: "2026-04-27T00:00:00Z",
-  updated_at: "2026-04-27T00:00:00Z",
-};
-
-const fakeVendorWithRelations: VendorWithRelations = {
-  ...fakeVendor,
-  contacts: [],
-  trades: [],
-};
+const fakeVendor: Vendor = buildVendor();
+const fakeVendorWithRelations: VendorWithRelations = buildVendorWithRelations();
 
 const pmSession = mockSession();
 const architectSession = mockSession({

@@ -373,8 +373,22 @@ vi.mock("@/lib/queries", () => ({
   updateVendorRating: vi.fn().mockResolvedValue(null),
   softDeleteVendor: vi.fn().mockResolvedValue(true),
   hardDeleteVendor: vi.fn().mockResolvedValue(true),
+  // Vendor KYC (Feature 7.1)
+  addKycDocument: vi.fn().mockResolvedValue(null),
+  listKycDocuments: vi.fn().mockResolvedValue([]),
+  removeKycDocument: vi.fn().mockResolvedValue(true),
+  setKycStatus: vi.fn().mockResolvedValue(null),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
+  logAuditSafe: vi.fn().mockResolvedValue(undefined),
+  AUDIT_ACTIONS: {
+    VENDOR_BANK_READ: "vendor.bank_details.read",
+    VENDOR_BANK_WRITE: "vendor.bank_details.write",
+    VENDOR_BANK_CLEAR: "vendor.bank_details.clear",
+    VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
+    VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
+    VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
+  } as const,
   getAuditEvents: vi.fn().mockResolvedValue([]),
 }));
 

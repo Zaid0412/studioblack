@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { VendorStatusBadge } from "./VendorStatusBadge";
+import { VendorKycStatusDot } from "./VendorKycStatusBadge";
 import { VendorRatingPicker } from "./VendorRatingPicker";
 
 interface Props {
@@ -44,11 +45,12 @@ export function VendorRow({
         {vendor.vendor_code || "—"}
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="text-sm text-text-primary truncate">
-          {vendor.company_name}
+        <span className="inline-flex items-center gap-2 text-sm text-text-primary truncate">
+          <VendorKycStatusDot status={vendor.kyc_status} />
+          <span className="truncate">{vendor.company_name}</span>
         </span>
         {vendor.trading_name && (
-          <span className="text-xs text-text-muted truncate">
+          <span className="text-xs text-text-muted truncate pl-4">
             {vendor.trading_name}
           </span>
         )}

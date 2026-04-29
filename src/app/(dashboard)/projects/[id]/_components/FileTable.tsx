@@ -3,16 +3,14 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  Upload,
-  FileText,
-  Check,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
-} from "lucide-react";
+import { Upload, FileText, Check } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { UploadDialog } from "@/components/ui/UploadDialog";
+import {
+  SortableHeaderButton,
+  nextSortDirection,
+  type SortConfig,
+} from "@/components/ui/SortableHeader";
 import { VersionHistoryDialog } from "./VersionHistoryDialog";
 import { BulkActions } from "./BulkActions";
 import { FileRow } from "./FileRow";
@@ -24,8 +22,6 @@ import { useFileDropzone } from "@/hooks/useFileDropzone";
 import type { DbAttachment } from "@/types";
 
 type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
-type SortDirection = "asc" | "desc";
-type SortConfig = { key: SortKey; direction: SortDirection } | null;
 
 const STATUS_WEIGHT: Record<string, number> = {
   pending: 0,
@@ -34,28 +30,6 @@ const STATUS_WEIGHT: Record<string, number> = {
   changes_requested: 3,
   rejected: 4,
 };
-
-function nextSortDirection(current: SortConfig, key: SortKey): SortConfig {
-  if (!current || current.key !== key) return { key, direction: "asc" };
-  if (current.direction === "asc") return { key, direction: "desc" };
-  return null;
-}
-
-function SortIcon({
-  sortKey,
-  config,
-}: {
-  sortKey: SortKey;
-  config: SortConfig;
-}) {
-  if (!config || config.key !== sortKey)
-    return <ChevronsUpDown className="w-3 h-3 text-text-muted" />;
-  return config.direction === "asc" ? (
-    <ChevronUp className="w-3 h-3 text-text-primary" />
-  ) : (
-    <ChevronDown className="w-3 h-3 text-text-primary" />
-  );
-}
 
 interface FileTableProps {
   projectId: string;
@@ -96,7 +70,7 @@ export function FileTable({
 
   const [sortState, setSortState] = useState<{
     phaseId: string | null;
-    sort: SortConfig;
+    sort: SortConfig<SortKey>;
   }>({ phaseId: activePhaseId, sort: null });
 
   // Auto-reset: if the phase changed, the derived sortConfig becomes null
@@ -618,14 +592,15 @@ export function FileTable({
                   },
                 ] as const
               ).map(({ key, width, label }) => (
-                <button
+                <SortableHeaderButton
                   key={key}
-                  onClick={() => updateSort(key)}
-                  className={`${width} flex items-center gap-1 text-xs font-semibold text-text-primary transition-colors cursor-pointer select-none`}
+                  sortKey={key}
+                  config={sortConfig}
+                  onSort={updateSort}
+                  className={width}
                 >
                   {label}
-                  <SortIcon sortKey={key} config={sortConfig} />
-                </button>
+                </SortableHeaderButton>
               ))}
               <div className="w-[50px]" />
             </>

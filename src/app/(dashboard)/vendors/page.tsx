@@ -26,8 +26,16 @@ export default function VendorsPage() {
   const { role } = useUserRole();
   const isPm = role === "pm";
 
-  const { state, setSearch, setStatus, setTradeCategoryId, setPage, clear } =
-    useVendorFilters();
+  const {
+    state,
+    setSearch,
+    setStatus,
+    setKycStatus,
+    setTradeCategoryId,
+    setSort,
+    setPage,
+    clear,
+  } = useVendorFilters();
 
   const {
     rows,
@@ -46,7 +54,10 @@ export default function VendorsPage() {
   } = useVendors({
     search: state.search,
     status: state.status ?? undefined,
+    kycStatus: state.kycStatus ?? undefined,
     tradeCategoryId: state.tradeCategoryId ?? undefined,
+    sortBy: state.sortBy ?? undefined,
+    sortOrder: state.sortOrder ?? undefined,
     page: state.page,
   });
 
@@ -120,7 +131,9 @@ export default function VendorsPage() {
         canDelete={isPm}
         onSearchChange={setSearch}
         onStatusChange={setStatus}
+        onKycStatusChange={setKycStatus}
         onTradeChange={setTradeCategoryId}
+        onSortChange={setSort}
         onPageChange={setPage}
         onClear={clear}
         onRowClick={(v) => setDrawerId(v.id)}
