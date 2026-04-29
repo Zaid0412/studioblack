@@ -132,45 +132,35 @@ export function RateContractFormDialog({
     if (!canSubmit) return;
     const opt = (s: string) => (s.trim() ? s.trim() : null);
 
+    // Active-allowed subset. Including a locked field — even unchanged —
+    // trips the server's allow-list check, so this is the whole payload
+    // when isLocked.
+    const editableFields = {
+      paymentTerms: opt(values.paymentTerms),
+      agreementUrl: values.agreementUrl,
+      termsAndConditions: opt(values.termsAndConditions),
+      notes: opt(values.notes),
+    };
+
     setSubmitting(true);
     try {
-      let saved;
-      if (isLocked) {
-        // Send only the active-allowed fields. Including a locked field —
-        // even unchanged — trips the server's allow-list check.
-        saved = await rcApi.update(editing!.id, {
-          paymentTerms: opt(values.paymentTerms),
-          agreementUrl: values.agreementUrl,
-          termsAndConditions: opt(values.termsAndConditions),
-          notes: opt(values.notes),
-        });
-      } else if (isEdit) {
-        saved = await rcApi.update(editing!.id, {
-          name: values.name.trim(),
-          startDate: values.startDate,
-          endDate: values.endDate,
-          agreementSignedDate: values.agreementSignedDate || null,
-          currency: values.currency,
-          paymentTerms: opt(values.paymentTerms),
-          agreementUrl: values.agreementUrl,
-          termsAndConditions: opt(values.termsAndConditions),
-          notes: opt(values.notes),
-        });
+      let saved: RateContract;
+      if (isLocked && editing) {
+        saved = await rcApi.update(editing.id, editableFields);
       } else {
-        saved = await rcApi.create({
-          vendorId: values.vendorId,
+        const fullFields = {
+          ...editableFields,
           name: values.name.trim(),
           startDate: values.startDate,
           endDate: values.endDate,
           agreementSignedDate: values.agreementSignedDate || null,
           currency: values.currency,
-          paymentTerms: opt(values.paymentTerms),
-          agreementUrl: values.agreementUrl,
-          termsAndConditions: opt(values.termsAndConditions),
-          notes: opt(values.notes),
-        });
+        };
+        saved = editing
+          ? await rcApi.update(editing.id, fullFields)
+          : await rcApi.create({ ...fullFields, vendorId: values.vendorId });
       }
-      toast({ title: isEdit ? t("toastUpdated") : t("toastCreated") });
+      toast({ title: editing ? t("toastUpdated") : t("toastCreated") });
       onSaved(saved);
       onOpenChange(false);
     } catch (err) {
