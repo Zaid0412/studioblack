@@ -438,6 +438,10 @@ export const updateElementSchema = createElementSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
+/** Shared by every sort-aware list endpoint. */
+export const SORT_ORDERS = ["asc", "desc"] as const;
+export type SortOrder = (typeof SORT_ORDERS)[number];
+
 export const ELEMENT_SORT_FIELDS = [
   "code",
   "name",
@@ -445,9 +449,6 @@ export const ELEMENT_SORT_FIELDS = [
   "updated_at",
 ] as const;
 export type ElementSortField = (typeof ELEMENT_SORT_FIELDS)[number];
-
-export const SORT_ORDERS = ["asc", "desc"] as const;
-export type SortOrder = (typeof SORT_ORDERS)[number];
 
 export const listElementsQuerySchema = z.object({
   search: z.string().optional(),

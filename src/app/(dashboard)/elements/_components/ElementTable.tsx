@@ -84,6 +84,7 @@ export function ElementTable({
             sortKey="code"
             config={sortConfig}
             onSort={onSort}
+            className="w-full"
           >
             {t("colCode")}
           </SortableHeaderButton>
@@ -91,6 +92,7 @@ export function ElementTable({
             sortKey="name"
             config={sortConfig}
             onSort={onSort}
+            className="w-full"
           >
             {t("colName")}
           </SortableHeaderButton>
@@ -101,6 +103,7 @@ export function ElementTable({
             config={sortConfig}
             onSort={onSort}
             align="right"
+            className="w-full"
           >
             {t("colUnitCost")}
           </SortableHeaderButton>

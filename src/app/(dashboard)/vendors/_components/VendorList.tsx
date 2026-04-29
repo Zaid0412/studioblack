@@ -191,6 +191,7 @@ export function VendorList({
               sortKey="vendor_code"
               config={sortConfig}
               onSort={onSort}
+              className="w-full"
             >
               {t("colCode")}
             </SortableHeaderButton>
@@ -198,6 +199,7 @@ export function VendorList({
               sortKey="company_name"
               config={sortConfig}
               onSort={onSort}
+              className="w-full"
             >
               {t("colCompany")}
             </SortableHeaderButton>
@@ -208,6 +210,7 @@ export function VendorList({
               sortKey="rating"
               config={sortConfig}
               onSort={onSort}
+              className="w-full"
             >
               {t("colRating")}
             </SortableHeaderButton>
