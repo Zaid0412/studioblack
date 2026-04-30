@@ -1,10 +1,10 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
+import posthog from "posthog-js";
 import { useEffect } from "react";
 
 /**
- * Global error boundary — captures unhandled errors and reports to Sentry.
+ * Global error boundary — captures unhandled errors and reports to PostHog.
  *
  * NOTE: Strings are intentionally hardcoded here. global-error replaces the
  * entire <html>, so NextIntlClientProvider is not available and useTranslations
@@ -18,7 +18,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    posthog.captureException(error, { digest: error.digest });
   }, [error]);
 
   return (

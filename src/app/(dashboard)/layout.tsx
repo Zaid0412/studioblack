@@ -11,6 +11,7 @@ import { deriveEffectiveRole } from "@/lib/effectiveRole";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
+import { PostHogIdentify } from "@/components/providers/PostHogIdentify";
 import type { User } from "@/types";
 
 /**
@@ -69,6 +70,11 @@ export default async function DashboardLayout({
     <SWRProvider>
       <SidebarProvider>
         <UserRoleProvider role={effectiveRole} userId={user.id}>
+          <PostHogIdentify
+            userId={user.id}
+            email={user.email}
+            name={user.name}
+          />
           <div className="flex h-screen overflow-hidden">
             {/* Desktop sidebar — hidden on mobile */}
             <div className="hidden lg:block">

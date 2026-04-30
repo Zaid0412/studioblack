@@ -32,6 +32,7 @@ import { branding } from "@/config/branding";
 import { useTheme } from "@/components/ThemeProvider";
 import { features } from "@/config/features";
 import { authClient } from "@/lib/authClient";
+import { signOutAndReset } from "@/lib/auth-actions";
 import { cn } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import type { User } from "@/types";
@@ -73,7 +74,7 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
   const orgName = useMemo(() => orgSwr?.data?.name ?? null, [orgSwr]);
 
   const handleLogout = async () => {
-    await authClient.signOut();
+    await signOutAndReset();
     router.push("/login");
   };
 
