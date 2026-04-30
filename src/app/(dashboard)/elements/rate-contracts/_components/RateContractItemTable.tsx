@@ -13,9 +13,11 @@ interface Props {
   items: RateContractItemWithElement[];
   currency: string;
   canRemove: boolean;
-  /** When true, clicking the rate cell turns it into an editable input.
-   *  Disabled on non-draft contracts to prevent silent re-pricing of items
-   *  that may already be referenced by BOQs. */
+  /**
+   * When true, clicking the rate cell turns it into an editable input.
+   * Disabled on non-draft contracts to prevent silent re-pricing of items
+   * that may already be referenced by BOQs.
+   */
   canEditRate: boolean;
   onRemove: (item: RateContractItemWithElement) => void;
   onEditRate?: (
@@ -38,6 +40,7 @@ function formatRate(value: number, currency: string): string {
   return f.format(value);
 }
 
+/** Tabular line-item list for a rate contract with per-row remove + inline rate edit. */
 export function RateContractItemTable({
   items,
   currency,

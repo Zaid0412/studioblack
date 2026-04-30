@@ -102,6 +102,7 @@ export function availableRatesKey(search?: string): string {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
   return `${API.rateContractAvailableRates()}${qs}`;
 }
+/** Fetch the flat list of active rate-contract items used by the BOQ picker. */
 export function getAvailableRates(search?: string) {
   return apiGet<{ rates: AvailableRate[] }>(availableRatesKey(search));
 }

@@ -61,6 +61,7 @@ interface Props {
   onClear: () => void;
 }
 
+/** Rate-contract list table with filters, sortable headers, and pagination. */
 export function RateContractList({
   state,
   rows,

@@ -34,6 +34,7 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+/** Detail page for a rate contract — header summary, status actions, and the line-item table. */
 export default function RateContractDetailPage({ params }: Props) {
   const { id } = use(params);
   const t = useTranslations("rateContracts");

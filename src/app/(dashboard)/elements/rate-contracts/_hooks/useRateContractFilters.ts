@@ -26,6 +26,7 @@ export interface RateContractFilterState {
 
 const ROUTE = "/elements/rate-contracts";
 
+/** URL-driven filter + sort state for the rate-contracts list page. */
 export function useRateContractFilters() {
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -161,7 +161,11 @@ export async function listRateContracts(
 
   const { rows } = await pool.query(sql, params);
   const total = rows[0]?.total ? Number(rows[0].total) : 0;
-  const cleaned = rows.map(({ total: _t, ...rest }) => rest);
+  const cleaned = rows.map((r) => {
+    const copy = { ...r };
+    delete (copy as { total?: unknown }).total;
+    return copy;
+  });
   return { rows: cleaned as RateContractListRow[], total };
 }
 
@@ -311,6 +315,10 @@ export async function getAvailableRatesForBoqPicker(
 
 // ─── Mutations ──────────────────────────────────────────────────────────────
 
+/**
+ * Create a new rate contract in `draft` status. Auto-numbers via the
+ * F4 `sequence_counter` infra (e.g. `RC-2026-001`).
+ */
 export async function createRateContract(
   orgId: string,
   userId: string,
@@ -579,6 +587,7 @@ export async function addRateContractItems(
   }
 }
 
+/** Hard-delete a single rate-contract item. Org-scoped via the parent contract. */
 export async function removeRateContractItem(
   orgId: string,
   contractId: string,

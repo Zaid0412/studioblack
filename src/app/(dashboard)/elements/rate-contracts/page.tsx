@@ -17,6 +17,7 @@ import { RateContractFormDialog } from "./_components/RateContractFormDialog";
 
 const PAGE_SIZE = 25;
 
+/** Rate Contracts list page — vendor / status filters, sortable columns, create CTA. */
 export default function RateContractsPage() {
   const t = useTranslations("rateContracts");
   const { role } = useUserRole();

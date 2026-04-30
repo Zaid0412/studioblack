@@ -659,8 +659,10 @@ export interface VendorAddress {
   country?: string;
 }
 
-/** Plain (decrypted) bank details. Never serialised to clients except via the
- *  dedicated bank-details endpoint, and only to PMs. */
+/**
+ * Plain (decrypted) bank details. Never serialised to clients except via the
+ * dedicated bank-details endpoint, and only to PMs.
+ */
 export interface BankDetails {
   bank_name?: string;
   account_holder?: string;

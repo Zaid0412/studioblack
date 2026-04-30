@@ -31,8 +31,10 @@ interface LabeledSearchableSelectBaseProps<T extends string> {
   triggerPlaceholder?: string;
   /** Hide the selected option's `name` next to its code in the trigger. */
   hideTriggerName?: boolean;
-  /** Hide the selected option's `code` in the trigger. Useful when codes are
-   *  opaque IDs (UUIDs) and only the name is meaningful to the user. */
+  /**
+   * Hide the selected option's `code` in the trigger. Useful when codes are
+   * opaque IDs (UUIDs) and only the name is meaningful to the user.
+   */
   hideTriggerCode?: boolean;
   /** Override the trigger's outer className (border/bg/etc). */
   triggerClassName?: string;

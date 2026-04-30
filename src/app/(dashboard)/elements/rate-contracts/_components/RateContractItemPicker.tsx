@@ -41,6 +41,10 @@ interface DraftRow {
   unit: ElementUnit | null;
 }
 
+/**
+ * Browses the element library and lets the user enter a unit + rate per
+ * element to add to the rate contract. Submits as a bulk insert/upsert.
+ */
 export function RateContractItemPicker({
   open,
   onOpenChange,
