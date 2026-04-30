@@ -39,7 +39,9 @@ export function BoqRateContractPicker({
 
   const key = enabled ? rcApi.availableRatesKey(search || undefined) : null;
   const { data, isLoading } = useSWR<{ rates: AvailableRate[] }>(key);
-  const rates = data?.rates ?? [];
+  // Memoised so the empty-array fallback is stable; otherwise `rates` is a
+  // fresh `[]` on every render and the downstream `useMemo` deps churn.
+  const rates = useMemo(() => data?.rates ?? [], [data?.rates]);
 
   /**
    * Lowest rate per element across all visible contracts. When two

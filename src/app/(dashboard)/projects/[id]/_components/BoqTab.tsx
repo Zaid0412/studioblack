@@ -80,6 +80,19 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     void mutateBoq();
   }, [mutateBoq]);
 
+  // Element IDs already in the BOQ — used by the picker to disable
+  // already-added rows. Computed before any early return so the hook
+  // call order stays stable across renders (rules-of-hooks).
+  const existingElementIds = useMemo(
+    () =>
+      new Set(
+        (boq?.items ?? [])
+          .map((it) => it.element_id)
+          .filter((id): id is string => id !== null)
+      ),
+    [boq?.items]
+  );
+
   if (isLoading) {
     return <BoqTabSkeleton />;
   }
@@ -198,18 +211,6 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const liveDrawerItem = drawerItem
     ? (boq.items.find((it) => it.id === drawerItem.id) ?? null)
     : null;
-
-  // Element IDs already in the BOQ — used by the picker to disable
-  // already-added rows (prevents accidental duplicates).
-  const existingElementIds = useMemo(
-    () =>
-      new Set(
-        boq.items
-          .map((it) => it.element_id)
-          .filter((id): id is string => id !== null)
-      ),
-    [boq.items]
-  );
 
   return (
     <div className="px-4 lg:px-10 py-6 flex flex-col gap-5">
