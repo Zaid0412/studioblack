@@ -29,7 +29,7 @@ import type { ListElementsResponse } from "@/lib/api/elements";
 import { API } from "@/lib/api/routes";
 import type { ElementUnit } from "@/lib/validations";
 import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import type { AvailableRate, BoqSection, ElementCategoryNode } from "@/types";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
@@ -94,7 +94,7 @@ export function BoqElementPickerDialog({
   const [quantity, setQuantity] = useState("1");
   const [sectionId, setSectionId] = useState<string>(BOQ_NO_SECTION_ID);
   const [submitting, setSubmitting] = useState(false);
-  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
+  const rateContractsEnabled = useFlag("rateContracts");
 
   useEffect(() => {
     if (!open) return;

@@ -6,7 +6,7 @@ import { ChevronRight, FolderTree } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/card";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import { useSettings } from "./_hooks/useSettings";
 import { ProfileSection } from "./_components/ProfileSection";
 import { PasswordSection } from "./_components/PasswordSection";
@@ -20,7 +20,7 @@ export default function SettingsPage() {
   const settings = useSettings();
   const { role } = useUserRole();
   const isClient = role === "client";
-  const elementLibraryEnabled = useFeatureFlagEnabled("elementLibrary") ?? true;
+  const elementLibraryEnabled = useFlag("elementLibrary");
 
   if (settings.loading) {
     return (

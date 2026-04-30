@@ -11,7 +11,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { LucideIcon } from "lucide-react";
@@ -29,8 +29,7 @@ export function MobileBottomNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const { role } = useUserRole();
-  const vendorManagementEnabled =
-    useFeatureFlagEnabled("vendorManagement") ?? false;
+  const vendorManagementEnabled = useFlag("vendorManagement");
 
   const tabs = useMemo(() => {
     const allTabs: Tab[] = [

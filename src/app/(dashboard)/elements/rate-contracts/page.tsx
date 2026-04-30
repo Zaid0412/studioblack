@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { rateContracts as rcApi } from "@/lib/api";
 import type { ListRateContractsResponse } from "@/lib/api/rateContracts";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRateContractFilters } from "./_hooks/useRateContractFilters";
 import { RateContractList } from "./_components/RateContractList";
@@ -21,7 +21,7 @@ const PAGE_SIZE = 25;
 export default function RateContractsPage() {
   const t = useTranslations("rateContracts");
   const { role } = useUserRole();
-  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
+  const rateContractsEnabled = useFlag("rateContracts");
 
   const { state, setSearch, setStatus, setVendorId, setSort, setPage, clear } =
     useRateContractFilters();

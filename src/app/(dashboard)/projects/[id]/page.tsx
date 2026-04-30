@@ -7,7 +7,7 @@ import { tasks } from "@/lib/api";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
@@ -26,7 +26,7 @@ export default function ProjectDetailPage({
   const tc = useTranslations("common");
   const { role, session, loading: roleLoading } = useUserRole();
   const isClient = role === "client";
-  const boqEnabled = useFeatureFlagEnabled("boq") ?? true;
+  const boqEnabled = useFlag("boq");
 
   const {
     project,

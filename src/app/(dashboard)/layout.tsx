@@ -28,44 +28,38 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const reqHeaders = await headers();
+  const session = await auth.api.getSession({ headers: reqHeaders });
 
   if (!session) {
     redirect("/login");
   }
 
-  // Auto-set active org if not set
   let orgId = session.session.activeOrganizationId;
+  let orgName: string | null = null;
+
   if (!orgId) {
-    const orgs = await auth.api.listOrganizations({
-      headers: await headers(),
-    });
+    const orgs = await auth.api.listOrganizations({ headers: reqHeaders });
     if (orgs && orgs.length > 0) {
       orgId = orgs[0].id;
+      orgName = orgs[0].name ?? null;
       await auth.api.setActiveOrganization({
-        headers: await headers(),
+        headers: reqHeaders,
         body: { organizationId: orgId },
       });
     }
   }
 
-  const effectiveRole = await deriveEffectiveRole(
-    session.user.id,
-    orgId,
-    session.user.role
-  );
-
-  // Org name for PostHog group analytics. Optional — clients have no org.
-  let orgName: string | null = null;
-  if (orgId) {
-    const fullOrg = await auth.api.getFullOrganization({
-      headers: await headers(),
-      query: { organizationId: orgId },
-    });
-    orgName = fullOrg?.name ?? null;
-  }
+  const [effectiveRole, fullOrg] = await Promise.all([
+    deriveEffectiveRole(session.user.id, orgId, session.user.role),
+    orgId && !orgName
+      ? auth.api.getFullOrganization({
+          headers: reqHeaders,
+          query: { organizationId: orgId },
+        })
+      : null,
+  ]);
+  if (fullOrg) orgName = fullOrg.name ?? null;
 
   const user: User = {
     id: session.user.id,
@@ -90,7 +84,11 @@ export default async function DashboardLayout({
           <div className="flex h-screen overflow-hidden">
             {/* Desktop sidebar — hidden on mobile */}
             <div className="hidden lg:block">
-              <Sidebar variant={effectiveRole} user={user} />
+              <Sidebar
+                variant={effectiveRole}
+                user={user}
+                orgName={orgName}
+              />
             </div>
 
             <div className="flex flex-col flex-1 min-h-0 min-w-0">

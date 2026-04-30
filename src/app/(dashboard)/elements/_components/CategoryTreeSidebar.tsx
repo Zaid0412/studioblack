@@ -18,7 +18,7 @@ import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { CategoryTemplatesDialog } from "./CategoryTemplatesDialog";
 import { useCreateCategory } from "@/hooks/useCreateCategory";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "../_lib/categoryUtils";
 
@@ -41,7 +41,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [starterOpen, setStarterOpen] = useState(false);
 
-  const elementLibraryEnabled = useFeatureFlagEnabled("elementLibrary") ?? true;
+  const elementLibraryEnabled = useFlag("elementLibrary");
   const canManage =
     elementLibraryEnabled && (role === "pm" || role === "architect");
 

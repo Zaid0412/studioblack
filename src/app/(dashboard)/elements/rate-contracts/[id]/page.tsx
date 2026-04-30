@@ -21,7 +21,7 @@ import { toast } from "@/components/ui/useToast";
 import { rateContracts as rcApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import type { RateContractWithDetails } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import { formatDate } from "@/lib/formatDate";
@@ -42,7 +42,7 @@ export default function RateContractDetailPage({ params }: Props) {
   const router = useRouter();
   const { role } = useUserRole();
   const canManage = role === "pm" || role === "architect";
-  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
+  const rateContractsEnabled = useFlag("rateContracts");
 
   const { data, isLoading, mutate } = useSWR<RateContractWithDetails>(
     rateContractsEnabled ? API.rateContract(id) : null

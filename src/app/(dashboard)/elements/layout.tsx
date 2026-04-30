@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -19,7 +19,7 @@ export default function ElementsLayout({ children }: Props) {
   const t = useTranslations("elements");
   const tRc = useTranslations("rateContracts");
   const pathname = usePathname();
-  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
+  const rateContractsEnabled = useFlag("rateContracts");
 
   const tabs: { href: string; label: string; show: boolean }[] = [
     {

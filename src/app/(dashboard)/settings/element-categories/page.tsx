@@ -29,7 +29,7 @@ import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useFeatureFlagEnabled } from "posthog-js/react";
+import { useFlag } from "@/hooks/useFlag";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
@@ -127,7 +127,7 @@ export default function ElementCategoriesSettingsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
   const { role, loading: roleLoading } = useUserRole();
-  const elementLibraryEnabled = useFeatureFlagEnabled("elementLibrary") ?? true;
+  const elementLibraryEnabled = useFlag("elementLibrary");
   const canManage =
     elementLibraryEnabled && (role === "pm" || role === "architect");
 
