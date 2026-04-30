@@ -84,11 +84,7 @@ export default async function DashboardLayout({
           <div className="flex h-screen overflow-hidden">
             {/* Desktop sidebar — hidden on mobile */}
             <div className="hidden lg:block">
-              <Sidebar
-                variant={effectiveRole}
-                user={user}
-                orgName={orgName}
-              />
+              <Sidebar variant={effectiveRole} user={user} orgName={orgName} />
             </div>
 
             <div className="flex flex-col flex-1 min-h-0 min-w-0">

@@ -11,6 +11,7 @@ interface PostHogIdentifyProps {
   organizationName?: string;
 }
 
+/** Identifies the active user with PostHog and links them to their organization for group analytics. */
 export function PostHogIdentify({
   userId,
   email,

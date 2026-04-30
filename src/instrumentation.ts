@@ -1,10 +1,10 @@
 import type { Instrumentation } from "next";
 import { captureServerException } from "@/lib/posthog-server";
 
-// register() is required by Next.js but has nothing to do here — the PostHog
-// server client lazily constructs itself on first capture.
+/** Required by Next.js but a no-op — the PostHog server client lazily constructs on first capture. */
 export async function register() {}
 
+/** Forwards uncaught Next.js server errors (Server Components, Route Handlers, Server Actions) to PostHog. */
 export const onRequestError: Instrumentation.onRequestError = async (
   err,
   request,

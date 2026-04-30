@@ -19,6 +19,7 @@ function getClient(): PostHog | null {
   return client;
 }
 
+/** Reports a server-side error to PostHog Error Tracking. No-op when the SDK isn't configured. */
 export async function captureServerException(
   error: unknown,
   context: {
