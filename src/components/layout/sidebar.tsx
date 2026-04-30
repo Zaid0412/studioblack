@@ -31,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { useTheme } from "@/components/ThemeProvider";
 import { features } from "@/config/features";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { authClient } from "@/lib/authClient";
 import { signOutAndReset } from "@/lib/auth-actions";
 import { cn } from "@/lib/utils";
@@ -78,15 +79,19 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
     router.push("/login");
   };
 
+  const elementLibraryEnabled = useFeatureFlagEnabled("elementLibrary") ?? true;
+  const vendorManagementEnabled =
+    useFeatureFlagEnabled("vendorManagement") ?? false;
+
   // Shared members of the PM/architect nav. Clients get a shorter trimmed list.
   const memberNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
-    ...(features.elementLibrary
+    ...(elementLibraryEnabled
       ? [{ href: "/elements/library", label: t("elements"), icon: Layers }]
       : []),
-    ...(features.vendorManagement
+    ...(vendorManagementEnabled
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
       : []),
     { href: "/organisation", label: t("organisation"), icon: Building2 },

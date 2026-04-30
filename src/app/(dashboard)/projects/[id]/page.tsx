@@ -7,7 +7,7 @@ import { tasks } from "@/lib/api";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
-import { features } from "@/config/features";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
@@ -26,6 +26,7 @@ export default function ProjectDetailPage({
   const tc = useTranslations("common");
   const { role, session, loading: roleLoading } = useUserRole();
   const isClient = role === "client";
+  const boqEnabled = useFeatureFlagEnabled("boq") ?? true;
 
   const {
     project,
@@ -53,7 +54,7 @@ export default function ProjectDetailPage({
   const searchParams = useSearchParams();
   const highlightTaskId = searchParams.get("highlightTask");
   const activeTab = parseProjectTab(searchParams.get("tab"));
-  const showProjectTabs = !isClient && features.boq;
+  const showProjectTabs = !isClient && boqEnabled;
 
   useEffect(() => {
     if (!highlightTaskId || !project) return;

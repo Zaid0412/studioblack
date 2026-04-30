@@ -21,7 +21,7 @@ import { toast } from "@/components/ui/useToast";
 import { rateContracts as rcApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useUserRole } from "@/hooks/useUserRole";
-import { features } from "@/config/features";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import type { RateContractWithDetails } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import { formatDate } from "@/lib/formatDate";
@@ -42,9 +42,10 @@ export default function RateContractDetailPage({ params }: Props) {
   const router = useRouter();
   const { role } = useUserRole();
   const canManage = role === "pm" || role === "architect";
+  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
 
   const { data, isLoading, mutate } = useSWR<RateContractWithDetails>(
-    features.rateContracts ? API.rateContract(id) : null
+    rateContractsEnabled ? API.rateContract(id) : null
   );
 
   const [editOpen, setEditOpen] = useState(false);
@@ -58,7 +59,7 @@ export default function RateContractDetailPage({ params }: Props) {
     [data]
   );
 
-  if (!features.rateContracts) {
+  if (!rateContractsEnabled) {
     return (
       <div className="flex flex-col gap-4">
         <PageHeader title={t("title")} />

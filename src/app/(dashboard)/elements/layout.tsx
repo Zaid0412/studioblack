@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { cn } from "@/lib/utils";
-import { features } from "@/config/features";
 
 interface Props {
   children: React.ReactNode;
@@ -19,6 +19,7 @@ export default function ElementsLayout({ children }: Props) {
   const t = useTranslations("elements");
   const tRc = useTranslations("rateContracts");
   const pathname = usePathname();
+  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
 
   const tabs: { href: string; label: string; show: boolean }[] = [
     {
@@ -29,7 +30,7 @@ export default function ElementsLayout({ children }: Props) {
     {
       href: "/elements/rate-contracts",
       label: tRc("tabRateContracts"),
-      show: features.rateContracts,
+      show: rateContractsEnabled,
     },
   ];
 

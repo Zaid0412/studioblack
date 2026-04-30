@@ -29,7 +29,7 @@ import type { ListElementsResponse } from "@/lib/api/elements";
 import { API } from "@/lib/api/routes";
 import type { ElementUnit } from "@/lib/validations";
 import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
-import { features } from "@/config/features";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import type { AvailableRate, BoqSection, ElementCategoryNode } from "@/types";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
@@ -94,6 +94,7 @@ export function BoqElementPickerDialog({
   const [quantity, setQuantity] = useState("1");
   const [sectionId, setSectionId] = useState<string>(BOQ_NO_SECTION_ID);
   const [submitting, setSubmitting] = useState(false);
+  const rateContractsEnabled = useFeatureFlagEnabled("rateContracts") ?? false;
 
   useEffect(() => {
     if (!open) return;
@@ -206,7 +207,7 @@ export function BoqElementPickerDialog({
         >
           <TabsList>
             <TabsTrigger value="library">Library</TabsTrigger>
-            {features.rateContracts && (
+            {rateContractsEnabled && (
               <TabsTrigger value="rate-contract">
                 {t("boqPickerTab")}
               </TabsTrigger>
@@ -351,7 +352,7 @@ export function BoqElementPickerDialog({
             )}
           </TabsContent>
 
-          {features.rateContracts && (
+          {rateContractsEnabled && (
             <TabsContent
               value="rate-contract"
               className="flex flex-col gap-3 mt-3"

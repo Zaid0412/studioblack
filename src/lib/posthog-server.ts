@@ -47,3 +47,23 @@ export async function captureServerException(
   );
   await ph.flush();
 }
+
+/**
+ * Server-side feature flag check.
+ *
+ * `distinctId` is required for PostHog to bucket the user. For boolean flags
+ * the result is a boolean; for unset / unreachable PostHog the `fallback` is
+ * returned so the app stays in a known-good state when PostHog is down.
+ */
+export async function getServerFeatureFlag(
+  key: string,
+  distinctId: string,
+  fallback: boolean
+): Promise<boolean> {
+  const ph = getClient();
+  if (!ph) return fallback;
+
+  const result = await ph.isFeatureEnabled(key, distinctId);
+  return result ?? fallback;
+}
+

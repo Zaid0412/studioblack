@@ -11,8 +11,8 @@ import {
   Briefcase,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 import { cn } from "@/lib/utils";
-import { features } from "@/config/features";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { LucideIcon } from "lucide-react";
 
@@ -29,6 +29,8 @@ export function MobileBottomNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const { role } = useUserRole();
+  const vendorManagementEnabled =
+    useFeatureFlagEnabled("vendorManagement") ?? false;
 
   const tabs = useMemo(() => {
     const allTabs: Tab[] = [
@@ -40,7 +42,7 @@ export function MobileBottomNav() {
         icon: CheckSquare,
         roles: ["pm", "architect"],
       },
-      ...(features.vendorManagement
+      ...(vendorManagementEnabled
         ? [
             {
               href: "/vendors",
@@ -55,7 +57,7 @@ export function MobileBottomNav() {
     return allTabs.filter(
       (tab) => !tab.roles || (role && tab.roles.includes(role))
     );
-  }, [role, t]);
+  }, [role, t, vendorManagementEnabled]);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 bg-bg-primary border-t border-border-default pb-[env(safe-area-inset-bottom)] lg:hidden">
