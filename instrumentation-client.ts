@@ -4,9 +4,11 @@ import posthog from "posthog-js";
  * PostHog browser init.
  *
  * Captures: errors, pageviews (history-aware for App Router), pageleave,
- * Core Web Vitals, and autocapture clicks/form submits (default-on).
- * Session recording is disabled at the SDK level — toggle from PostHog
- * Project Settings if/when we want session replay on errors.
+ * Core Web Vitals, autocapture clicks/form submits, and session replay.
+ *
+ * Session replay sampling is controlled at the project level in PostHog
+ * (Settings → Session replay). Set "Sample rate" to 0% and add an event
+ * trigger on `$exception` for true errored-only recording.
  *
  * `api_host: "/ingest"` routes SDK traffic through our own domain via the
  * Next.js rewrite in `next.config.ts`, keeping requests from being dropped
@@ -23,7 +25,8 @@ if (key && typeof window !== "undefined") {
     capture_pageleave: true,
     capture_performance: { web_vitals: true },
     person_profiles: "identified_only",
-    disable_session_recording: true,
+    disable_session_recording: false,
+    session_recording: { maskAllInputs: true },
     defaults: "2026-01-30",
   });
 
