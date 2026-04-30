@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { Package, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import { rateContracts as rcApi } from "@/lib/api";
 import type { AvailableRate } from "@/types";
 import { formatCurrency } from "../_lib/formatters";
@@ -70,11 +70,7 @@ export function BoqRateContractPicker({
 
       <div className="min-h-[280px] max-h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-elevated">
         {isLoading && rates.length === 0 ? (
-          <div className="flex flex-col gap-1 p-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 rounded" />
-            ))}
-          </div>
+          <SkeletonList />
         ) : rates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-sm text-text-muted gap-2">
             <Package className="h-5 w-5" />

@@ -6,7 +6,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { Package, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import {
   Select,
   SelectContent,
@@ -241,11 +241,7 @@ export function BoqElementPickerDialog({
 
             <div className="min-h-[280px] max-h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-elevated">
               {isLoading && rows.length === 0 ? (
-                <div className="flex flex-col gap-1 p-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-14 rounded" />
-                  ))}
-                </div>
+                <SkeletonList />
               ) : rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-sm text-text-muted gap-2">
                   <Package className="h-5 w-5" />

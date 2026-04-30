@@ -50,6 +50,25 @@ export function SkeletonRow({
   );
 }
 
+/** Skeleton matching a vertical list of equal-height rows (picker/list loading state). */
+export function SkeletonList({
+  count = 4,
+  rowHeight = "h-14",
+  className,
+}: {
+  count?: number;
+  rowHeight?: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-1 p-2", className)}>
+      {Array.from({ length: count }).map((_, i) => (
+        <Skeleton key={i} className={cn("rounded", rowHeight)} />
+      ))}
+    </div>
+  );
+}
+
 /** Skeleton matching a text paragraph with variable-width lines. */
 export function SkeletonText({
   lines = 3,
