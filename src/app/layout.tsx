@@ -8,6 +8,7 @@ import { branding } from "@/config/branding";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SplashScreen } from "@/components/SplashScreen";
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -48,12 +49,14 @@ export default async function RootLayout({
       <body className="antialiased">
         <SplashScreen />
         <NextIntlClientProvider messages={messages}>
-          <ThemeProvider>
-            <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
-            <Toaster />
-            <Analytics />
-            <SpeedInsights />
-          </ThemeProvider>
+          <PostHogProvider>
+            <ThemeProvider>
+              <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+              <Toaster />
+              <Analytics />
+              <SpeedInsights />
+            </ThemeProvider>
+          </PostHogProvider>
         </NextIntlClientProvider>
       </body>
     </html>
