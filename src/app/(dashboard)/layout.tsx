@@ -57,6 +57,16 @@ export default async function DashboardLayout({
     session.user.role
   );
 
+  // Org name for PostHog group analytics. Optional — clients have no org.
+  let orgName: string | null = null;
+  if (orgId) {
+    const fullOrg = await auth.api.getFullOrganization({
+      headers: await headers(),
+      query: { organizationId: orgId },
+    });
+    orgName = fullOrg?.name ?? null;
+  }
+
   const user: User = {
     id: session.user.id,
     name: session.user.name,
@@ -74,6 +84,8 @@ export default async function DashboardLayout({
             userId={user.id}
             email={user.email}
             name={user.name}
+            organizationId={orgId ?? undefined}
+            organizationName={orgName ?? undefined}
           />
           <div className="flex h-screen overflow-hidden">
             {/* Desktop sidebar — hidden on mobile */}
