@@ -5,11 +5,15 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const POSTHOG_HOST =
   process.env.NEXT_PUBLIC_POSTHOG_HOST || "https://eu.i.posthog.com";
-// PostHog asset host uses a hyphen, not a dot: eu-assets / us-assets.
-const POSTHOG_ASSETS_HOST = POSTHOG_HOST.replace(
-  /https:\/\/(eu|us)\.i\.posthog\.com/,
-  "https://$1-assets.i.posthog.com"
-);
+// PostHog Cloud serves assets from a separate hyphenated subdomain
+// (eu-assets / us-assets). Custom-domain users can override via
+// NEXT_PUBLIC_POSTHOG_ASSETS_HOST.
+const POSTHOG_ASSETS_HOST =
+  process.env.NEXT_PUBLIC_POSTHOG_ASSETS_HOST ||
+  POSTHOG_HOST.replace(
+    /https:\/\/(eu|us)\.i\.posthog\.com/,
+    "https://$1-assets.i.posthog.com"
+  );
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
@@ -25,10 +29,6 @@ const nextConfig: NextConfig = {
       {
         source: "/ingest/:path*",
         destination: `${POSTHOG_HOST}/:path*`,
-      },
-      {
-        source: "/ingest/decide",
-        destination: `${POSTHOG_HOST}/decide`,
       },
     ];
   },

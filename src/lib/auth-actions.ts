@@ -7,7 +7,5 @@ import { authClient } from "@/lib/authClient";
  */
 export async function signOutAndReset(): Promise<void> {
   await authClient.signOut();
-  if (process.env.NEXT_PUBLIC_POSTHOG_KEY) {
-    posthog.reset();
-  }
+  posthog.reset();
 }

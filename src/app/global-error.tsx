@@ -18,6 +18,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_POSTHOG_KEY) return;
     posthog.captureException(error, { digest: error.digest });
   }, [error]);
 
