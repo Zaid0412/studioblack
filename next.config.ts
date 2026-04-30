@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { withPostHogConfig } from "@posthog/nextjs-config";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -83,4 +84,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+const intlConfig = withNextIntl(nextConfig);
+
+// Source map upload runs only when POSTHOG_API_KEY is set (Vercel production
+// builds). Skipping locally keeps `npm run build` fast and avoids requiring
+// a personal API key for development. POSTHOG_PROJECT_ID lives in plain env
+// vars; the personal API key must be a secret.
+export default process.env.POSTHOG_API_KEY && process.env.POSTHOG_PROJECT_ID
+  ? withPostHogConfig(intlConfig, {
+      personalApiKey: process.env.POSTHOG_API_KEY,
+      projectId: process.env.POSTHOG_PROJECT_ID,
+      host: POSTHOG_HOST,
+      sourcemaps: {
+        enabled: true,
+        releaseName: "studioblack",
+        deleteAfterUpload: true,
+      },
+    })
+  : intlConfig;
