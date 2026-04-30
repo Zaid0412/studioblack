@@ -1,7 +1,6 @@
 import { getPool } from "@/lib/db";
 import type {
   Vendor,
-  VendorContact,
   VendorWithRelations,
   VendorLite,
   VendorKycDocument,
@@ -201,7 +200,11 @@ export async function getVendors(
   const { rows } = await pool.query(sql, params);
   const total = rows[0]?.total ? Number(rows[0].total) : 0;
   // Strip the row-level `total` column before returning.
-  const cleaned = rows.map(({ total: _t, ...rest }) => rest);
+  const cleaned = rows.map((r) => {
+    const copy = { ...r };
+    delete (copy as { total?: unknown }).total;
+    return copy;
+  });
   return { rows: cleaned as never, total };
 }
 
@@ -387,8 +390,10 @@ export async function createVendor(
   }
 }
 
-/** Partial update of vendor metadata. Contacts/trades are replaced wholesale
- *  if provided. Bank details and rating use dedicated endpoints. */
+/**
+ * Partial update of vendor metadata. Contacts/trades are replaced wholesale
+ * if provided. Bank details and rating use dedicated endpoints.
+ */
 export async function updateVendor(
   orgId: string,
   vendorId: string,
@@ -639,6 +644,7 @@ export async function addKycDocument(
   }
 }
 
+/** All KYC documents for one vendor, newest first. Org-scoped via the JOIN. */
 export async function listKycDocuments(
   orgId: string,
   vendorId: string
@@ -656,8 +662,10 @@ export async function listKycDocuments(
   return rows as VendorKycDocument[];
 }
 
-/** Hard-delete the document row. The underlying file in storage is left as-is
- *  (mirrors element/attachment soft-path). */
+/**
+ * Hard-delete the document row. The underlying file in storage is left as-is
+ * (mirrors element/attachment soft-path).
+ */
 export async function removeKycDocument(
   orgId: string,
   vendorId: string,

@@ -3,6 +3,7 @@ import { TEST_ORG_ID, TEST_USER_ID } from "../helpers";
 
 export const TEST_VENDOR_ID = "11111111-1111-4111-8111-111111111111";
 
+/** Build a `Vendor` row for tests with sane defaults. Override any field via `overrides`. */
 export function buildVendor(overrides: Partial<Vendor> = {}): Vendor {
   return {
     id: TEST_VENDOR_ID,
@@ -30,6 +31,7 @@ export function buildVendor(overrides: Partial<Vendor> = {}): Vendor {
   };
 }
 
+/** Build a `VendorWithRelations` row for tests with empty contacts/trades. */
 export function buildVendorWithRelations(
   overrides: Partial<VendorWithRelations> = {}
 ): VendorWithRelations {

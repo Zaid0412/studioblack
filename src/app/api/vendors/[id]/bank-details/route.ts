@@ -5,7 +5,7 @@ import {
   logAudit,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { parseRequest, bankDetailsSchema } from "@/lib/validations";
+import { bankDetailsSchema } from "@/lib/validations";
 import {
   encryptBankDetails,
   decryptBankDetails,

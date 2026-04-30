@@ -24,4 +24,5 @@ export * from "./elements";
 export * from "./elementCategories";
 export * from "./boq";
 export * from "./vendors";
+export * from "./rateContracts";
 export * from "./audit";

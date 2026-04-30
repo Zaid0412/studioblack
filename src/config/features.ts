@@ -15,4 +15,5 @@ export const features = {
   elementLibrary: true,
   boq: true,
   vendorManagement: false,
+  rateContracts: false,
 } as const;

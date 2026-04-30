@@ -10,6 +10,8 @@ export const AUDIT_ACTIONS = {
   VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
   VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
   VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
+  RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
+  RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
 } as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
 

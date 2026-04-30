@@ -11,6 +11,7 @@ import type {
   VendorProficiency,
   VendorKycStatus,
   VendorKycDocumentType,
+  RateContractStatus,
 } from "@/lib/validations";
 
 export type {
@@ -18,6 +19,7 @@ export type {
   VendorProficiency,
   VendorKycStatus,
   VendorKycDocumentType,
+  RateContractStatus,
 };
 
 /** Roles available to authenticated users. */
@@ -497,6 +499,7 @@ export interface BoqItem {
   service_charge_pct: string;
   margin_pct: string;
   source: BoqItemSource;
+  rate_contract_item_id: string | null;
   lifecycle_status: BoqItemLifecycleStatus;
   client_approval_status: BoqItemClientApprovalStatus;
   client_approved_at: string | null;
@@ -656,8 +659,10 @@ export interface VendorAddress {
   country?: string;
 }
 
-/** Plain (decrypted) bank details. Never serialised to clients except via the
- *  dedicated bank-details endpoint, and only to PMs. */
+/**
+ * Plain (decrypted) bank details. Never serialised to clients except via the
+ * dedicated bank-details endpoint, and only to PMs.
+ */
 export interface BankDetails {
   bank_name?: string;
   account_holder?: string;
@@ -768,4 +773,69 @@ export interface AuditEvent {
   target_id: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
+}
+
+// ── Rate Contracts (F7.5) ────────────────────────────────────────────────────
+
+export interface RateContract {
+  id: string;
+  org_id: string;
+  vendor_id: string;
+  contract_number: string;
+  name: string;
+  status: RateContractStatus;
+  start_date: string;
+  end_date: string;
+  agreement_signed_date: string | null;
+  currency: string;
+  payment_terms: string | null;
+  agreement_url: string | null;
+  terms_and_conditions: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RateContractItem {
+  id: string;
+  rate_contract_id: string;
+  element_id: string;
+  unit: string;
+  rate: number;
+  notes: string | null;
+}
+
+export interface RateContractItemWithElement extends RateContractItem {
+  element_code: string;
+  element_name: string;
+  element_unit: string;
+  element_archived: boolean;
+}
+
+export interface RateContractListRow extends RateContract {
+  vendor_name: string;
+  vendor_kyc_status: VendorKycStatus;
+  item_count: number;
+}
+
+export interface RateContractWithDetails extends RateContractListRow {
+  items: RateContractItemWithElement[];
+}
+
+/** Flattened across active contracts for one element. Used by the BOQ picker. */
+export interface AvailableRate {
+  rate_contract_item_id: string;
+  rate_contract_id: string;
+  contract_number: string;
+  contract_name: string;
+  vendor_id: string;
+  vendor_name: string;
+  element_id: string;
+  element_code: string;
+  element_name: string;
+  unit: string;
+  rate: number;
+  currency: string;
+  end_date: string;
 }

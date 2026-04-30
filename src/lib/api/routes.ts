@@ -123,4 +123,13 @@ export const API = {
   vendorKycDocuments:    (id: string)                  => `/api/vendors/${id}/kyc-documents`,
   vendorKycDocument:     (id: string, docId: string)   => `/api/vendors/${id}/kyc-documents/${docId}`,
   vendorKycStatus:       (id: string)                  => `/api/vendors/${id}/kyc-status`,
+
+  // ── Rate Contracts (Feature 7.5) ────────────────
+  rateContracts:               ()                                    => "/api/rate-contracts",
+  rateContract:                (id: string)                          => `/api/rate-contracts/${id}`,
+  rateContractItems:           (id: string)                          => `/api/rate-contracts/${id}/items`,
+  rateContractItem:            (id: string, itemId: string)          => `/api/rate-contracts/${id}/items/${itemId}`,
+  rateContractActivate:        (id: string)                          => `/api/rate-contracts/${id}/activate`,
+  rateContractsByElement:      (elementId: string)                   => `/api/rate-contracts/by-element/${elementId}`,
+  rateContractAvailableRates:  ()                                    => "/api/rate-contracts/available-rates",
 } as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
@@ -79,6 +79,19 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const handleImported = useCallback(() => {
     void mutateBoq();
   }, [mutateBoq]);
+
+  // Element IDs already in the BOQ — used by the picker to disable
+  // already-added rows. Computed before any early return so the hook
+  // call order stays stable across renders (rules-of-hooks).
+  const existingElementIds = useMemo(
+    () =>
+      new Set(
+        (boq?.items ?? [])
+          .map((it) => it.element_id)
+          .filter((id): id is string => id !== null)
+      ),
+    [boq?.items]
+  );
 
   if (isLoading) {
     return <BoqTabSkeleton />;
@@ -301,6 +314,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqId={boq.id}
         sections={boq.sections}
         currency={boq.currency}
+        existingElementIds={existingElementIds}
       />
 
       <ConfirmDialog
