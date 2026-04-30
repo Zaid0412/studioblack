@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { PROJECT_PHASES } from "@/lib/constants";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import {
@@ -50,7 +51,7 @@ export default function CreateProjectPage() {
     }
     setIsSubmitting(true);
     try {
-      await projects.create({
+      const created = await projects.create<{ id: string }>({
         name: data.name.trim(),
         clientName: data.clientName?.trim() || undefined,
         clientEmail: data.clientEmail.trim() || undefined,
@@ -72,6 +73,13 @@ export default function CreateProjectPage() {
         architectIds: data.selectedArchitects.length
           ? data.selectedArchitects
           : undefined,
+      });
+      trackEvent("project_created", {
+        project_id: created?.id,
+        category: data.category,
+        has_client: !!data.clientEmail.trim(),
+        architect_count: data.selectedArchitects.length,
+        phase_count: phases.filter((p) => p.name.trim()).length,
       });
       toast({
         title: t("createdToast"),
