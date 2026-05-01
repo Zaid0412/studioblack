@@ -23,7 +23,7 @@ export type {
 };
 
 /** Roles available to authenticated users. */
-export type UserRole = "pm" | "architect" | "client";
+export type UserRole = "pm" | "architect" | "client" | "vendor";
 
 /** A registered user in the platform. */
 export interface User {

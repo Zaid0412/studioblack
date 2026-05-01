@@ -19,7 +19,7 @@ import { fileType, statusBadge } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { useFileDropzone } from "@/hooks/useFileDropzone";
-import type { DbAttachment } from "@/types";
+import type { DbAttachment, UserRole } from "@/types";
 
 type SortKey = "name" | "type" | "uploadedBy" | "uploadedOn" | "status";
 
@@ -44,7 +44,7 @@ interface FileTableProps {
   /** Base path for review navigation. Defaults to "/projects". */
   basePath?: string;
   /** Current user's role — controls which context menu actions appear. */
-  userRole: "pm" | "architect" | "client" | null;
+  userRole: UserRole | null;
   /** Current user's ID — used to check file ownership for remove action. */
   currentUserId?: string;
 }

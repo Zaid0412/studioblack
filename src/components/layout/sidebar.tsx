@@ -13,6 +13,10 @@ import {
   CheckSquare,
   Layers,
   Briefcase,
+  FileText,
+  Receipt,
+  ScrollText,
+  TrendingUp,
   Sun,
   Moon,
 } from "lucide-react";
@@ -36,7 +40,7 @@ import { avatarColor } from "@/lib/avatarUtils";
 import type { User } from "@/types";
 
 interface SidebarProps {
-  variant?: "pm" | "architect" | "client";
+  variant?: "pm" | "architect" | "client" | "vendor";
   user: User;
   orgName?: string | null;
 }
@@ -107,7 +111,33 @@ export function Sidebar({
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
-  const navMap = { pm: pmNav, architect: memberNav, client: clientNav };
+  const vendorNav = [
+    {
+      href: "/vendor-portal",
+      label: t("vendorDashboard"),
+      icon: LayoutDashboard,
+    },
+    { href: "/vendor-portal/rfqs", label: t("rfqs"), icon: FileText },
+    {
+      href: "/vendor-portal/purchase-orders",
+      label: t("purchaseOrders"),
+      icon: ScrollText,
+    },
+    {
+      href: "/vendor-portal/progress",
+      label: t("progress"),
+      icon: TrendingUp,
+    },
+    { href: "/vendor-portal/invoices", label: t("invoices"), icon: Receipt },
+    { href: "/settings", label: t("settings"), icon: Settings },
+  ];
+
+  const navMap = {
+    pm: pmNav,
+    architect: memberNav,
+    client: clientNav,
+    vendor: vendorNav,
+  };
   const navItems = navMap[variant];
 
   return (
@@ -244,7 +274,7 @@ export function Sidebar({
             )}
           </PopoverTrigger>
           <PopoverContent side="top" align="start" className="w-56 p-1.5">
-            {orgName && variant !== "client" && (
+            {orgName && variant !== "client" && variant !== "vendor" && (
               <>
                 <Link
                   href="/organisation"
