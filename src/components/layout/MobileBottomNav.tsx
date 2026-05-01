@@ -9,10 +9,11 @@ import {
   CheckSquare,
   History,
   Briefcase,
+  Layers,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useFlag } from "@/hooks/useFlag";
 import { cn } from "@/lib/utils";
-import { features } from "@/config/features";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { LucideIcon } from "lucide-react";
 
@@ -29,6 +30,8 @@ export function MobileBottomNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const { role } = useUserRole();
+  const vendorManagementEnabled = useFlag("vendorManagement");
+  const elementLibraryEnabled = useFlag("elementLibrary");
 
   const tabs = useMemo(() => {
     const allTabs: Tab[] = [
@@ -40,7 +43,17 @@ export function MobileBottomNav() {
         icon: CheckSquare,
         roles: ["pm", "architect"],
       },
-      ...(features.vendorManagement
+      ...(elementLibraryEnabled
+        ? [
+            {
+              href: "/elements/library",
+              label: t("elements"),
+              icon: Layers,
+              roles: ["pm", "architect"],
+            },
+          ]
+        : []),
+      ...(vendorManagementEnabled
         ? [
             {
               href: "/vendors",
@@ -50,12 +63,12 @@ export function MobileBottomNav() {
             },
           ]
         : []),
-      { href: "/audit", label: t("audit"), icon: History },
+      { href: "/audit", label: t("audit"), icon: History, roles: ["pm"] },
     ];
     return allTabs.filter(
       (tab) => !tab.roles || (role && tab.roles.includes(role))
     );
-  }, [role, t]);
+  }, [role, t, elementLibraryEnabled, vendorManagementEnabled]);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 bg-bg-primary border-t border-border-default pb-[env(safe-area-inset-bottom)] lg:hidden">

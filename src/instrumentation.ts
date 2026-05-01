@@ -1,14 +1,23 @@
-import * as Sentry from "@sentry/nextjs";
+import type { Instrumentation } from "next";
+import { captureServerException } from "@/lib/posthog-server";
 
-/** Register Sentry instrumentation for server and edge runtimes. */
-export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("../sentry.server.config");
-  }
+/** Required by Next.js but a no-op — the PostHog server client lazily constructs on first capture. */
+export async function register() {}
 
-  if (process.env.NEXT_RUNTIME === "edge") {
-    await import("../sentry.edge.config");
-  }
-}
-
-export const onRequestError = Sentry.captureRequestError;
+/** Forwards uncaught Next.js server errors (Server Components, Route Handlers, Server Actions) to PostHog. */
+export const onRequestError: Instrumentation.onRequestError = async (
+  err,
+  request,
+  context
+) => {
+  await captureServerException(err, {
+    properties: {
+      $exception_source: "nextjs.onRequestError",
+      path: request.path,
+      method: request.method,
+      route_path: context.routePath,
+      route_kind: context.routerKind,
+      route_type: context.routeType,
+    },
+  });
+};

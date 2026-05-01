@@ -29,7 +29,7 @@ import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
 import { useUserRole } from "@/hooks/useUserRole";
-import { features } from "@/config/features";
+import { useFlag } from "@/hooks/useFlag";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
@@ -127,8 +127,9 @@ export default function ElementCategoriesSettingsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
   const { role, loading: roleLoading } = useUserRole();
+  const elementLibraryEnabled = useFlag("elementLibrary");
   const canManage =
-    features.elementLibrary && (role === "pm" || role === "architect");
+    elementLibraryEnabled && (role === "pm" || role === "architect");
 
   const { data, isLoading } = useSWR<TreeResponse>(
     canManage ? API.elementCategories() : null

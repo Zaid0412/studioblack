@@ -1,13 +1,33 @@
-import * as Sentry from "@sentry/nextjs";
+import posthog from "posthog-js";
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
-  replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 1.0,
-  environment: process.env.NODE_ENV,
-  enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
-  integrations: [Sentry.replayIntegration()],
-});
+// `api_host: "/ingest"` routes SDK traffic through our own domain via the
+// rewrite in `next.config.ts`, so ad-blockers don't drop ingestion requests.
+// Session replay sample rate is configured at the project level in PostHog
+// (Settings → Session replay), not here.
+const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+if (key && typeof window !== "undefined") {
+  posthog.init(key, {
+    api_host: "/ingest",
+    ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    capture_exceptions: true,
+    capture_pageview: "history_change",
+    capture_pageleave: true,
+    capture_performance: { web_vitals: true },
+    person_profiles: "identified_only",
+    disable_session_recording: false,
+    session_recording: { maskAllInputs: true },
+    defaults: "2026-01-30",
+  });
+
+  // Lets flags target by deploy environment (e.g. preview-only rollout).
+  posthog.setPersonPropertiesForFlags({
+    environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development",
+  });
+
+  if (process.env.NODE_ENV === "development") {
+    (window as unknown as { posthog: typeof posthog }).posthog = posthog;
+  }
+}
+
+export {};

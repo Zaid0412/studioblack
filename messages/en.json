@@ -935,7 +935,8 @@
     "exportFailed": "Export failed",
     "importTooLarge": "File is too large — max 5 MB.",
     "importMultipleFiles": "Only the first file will be imported.",
-    "importRemoveFile": "Remove file"
+    "importRemoveFile": "Remove file",
+    "featureDisabled": "Element library feature is not yet enabled."
   },
   "vendors": {
     "title": "Vendors",
@@ -1056,7 +1057,8 @@
     "kycUploadedAt": "Uploaded",
     "kycRemove": "Remove",
     "kycConfirmRemoveTitle": "Remove this document?",
-    "kycConfirmRemoveDesc": "The record is removed from the vendor. The file in storage is kept."
+    "kycConfirmRemoveDesc": "The record is removed from the vendor. The file in storage is kept.",
+    "featureDisabled": "Vendor management feature is not yet enabled."
   },
   "boq": {
     "table": {

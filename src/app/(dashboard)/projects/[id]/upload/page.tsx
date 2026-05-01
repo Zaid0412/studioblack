@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
 import { useBatchUpload } from "@/hooks/useBatchUpload";
+import { trackEvent } from "@/lib/analytics";
 
 /** Design file upload page with drag & drop. */
 export default function DesignUploadPage({
@@ -78,6 +79,12 @@ export default function DesignUploadPage({
 
     if (!result.completed) return;
 
+    trackEvent("attachment_uploaded", {
+      project_id: id,
+      phase_id: phaseId || null,
+      file_count: files.length,
+      is_new_version: !!versionGroup,
+    });
     setSuccess(true);
     setFiles([]);
     setDescription("");

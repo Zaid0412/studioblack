@@ -6,7 +6,7 @@ import { ChevronRight, FolderTree } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/card";
-import { features } from "@/config/features";
+import { useFlag } from "@/hooks/useFlag";
 import { useSettings } from "./_hooks/useSettings";
 import { ProfileSection } from "./_components/ProfileSection";
 import { PasswordSection } from "./_components/PasswordSection";
@@ -20,8 +20,16 @@ export default function SettingsPage() {
   const settings = useSettings();
   const { role } = useUserRole();
   const isClient = role === "client";
+  const elementLibraryEnabled = useFlag("elementLibrary");
 
   if (settings.loading) {
+    const inputRowsSkeleton = (
+      <div className="flex flex-col gap-4">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
+    );
     return (
       <div className="flex flex-col gap-6 max-w-[700px]">
         <PageHeader title={t("title")} subtitle={t("subtitle")} />
@@ -36,11 +44,7 @@ export default function SettingsPage() {
                 <Skeleton className="h-3 w-20" />
               </div>
             </div>
-            <div className="flex flex-col gap-4">
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-            </div>
+            {inputRowsSkeleton}
           </div>
         </Card>
         {/* Password section skeleton */}
@@ -50,11 +54,7 @@ export default function SettingsPage() {
               <Skeleton className="h-5 w-40 mb-2" />
               <Skeleton className="h-3.5 w-64" />
             </div>
-            <div className="flex flex-col gap-4">
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-            </div>
+            {inputRowsSkeleton}
           </div>
         </Card>
         {/* Preferences section skeleton */}
@@ -117,7 +117,7 @@ export default function SettingsPage() {
 
       <PreferencesSection />
 
-      {!isClient && features.elementLibrary && (
+      {!isClient && elementLibraryEnabled && (
         <Link
           href="/settings/element-categories"
           className="block rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-5 transition-colors hover:border-border-light hover:bg-bg-elevated"

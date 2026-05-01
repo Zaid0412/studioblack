@@ -11,7 +11,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { avatarColor } from "@/lib/avatarUtils";
 import { useUserRole } from "@/hooks/useUserRole";
-import { authClient } from "@/lib/authClient";
+import { signOutAndReset } from "@/lib/auth-actions";
 import type { User } from "@/types";
 
 interface AvatarMenuProps {
@@ -27,7 +27,7 @@ export function AvatarMenu({ user }: AvatarMenuProps) {
   const color = avatarColor(user.id);
 
   const handleLogout = async () => {
-    await authClient.signOut();
+    await signOutAndReset();
     router.push("/login");
   };
 

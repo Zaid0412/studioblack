@@ -16,6 +16,7 @@ import {
 } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { downloadFile } from "@/lib/download";
+import { trackEvent } from "@/lib/analytics";
 
 interface UseProjectDetailOptions {
   /** When true, also fetches approvals and pending tasks (client-specific). */
@@ -82,6 +83,7 @@ export function useProjectDetail(
     setSendingComment(true);
     try {
       await commentsApi.create(id, newComment.trim());
+      trackEvent("comment_added", { project_id: id });
       mutateComments();
       setNewComment("");
     } catch {
@@ -160,6 +162,11 @@ export function useProjectDetail(
         await tasksApi.submitReview(id, taskId, {
           action,
           comment: comment || "",
+        });
+        trackEvent("task_completed", {
+          project_id: id,
+          task_id: taskId,
+          action,
         });
         mutatePendingTasks((prev) => prev?.filter((t) => t.id !== taskId), {
           revalidate: false,

@@ -6,7 +6,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { Package, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import {
   Select,
   SelectContent,
@@ -29,7 +29,7 @@ import type { ListElementsResponse } from "@/lib/api/elements";
 import { API } from "@/lib/api/routes";
 import type { ElementUnit } from "@/lib/validations";
 import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
-import { features } from "@/config/features";
+import { useFlag } from "@/hooks/useFlag";
 import type { AvailableRate, BoqSection, ElementCategoryNode } from "@/types";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
@@ -94,6 +94,7 @@ export function BoqElementPickerDialog({
   const [quantity, setQuantity] = useState("1");
   const [sectionId, setSectionId] = useState<string>(BOQ_NO_SECTION_ID);
   const [submitting, setSubmitting] = useState(false);
+  const rateContractsEnabled = useFlag("rateContracts");
 
   useEffect(() => {
     if (!open) return;
@@ -206,7 +207,7 @@ export function BoqElementPickerDialog({
         >
           <TabsList>
             <TabsTrigger value="library">Library</TabsTrigger>
-            {features.rateContracts && (
+            {rateContractsEnabled && (
               <TabsTrigger value="rate-contract">
                 {t("boqPickerTab")}
               </TabsTrigger>
@@ -240,11 +241,7 @@ export function BoqElementPickerDialog({
 
             <div className="min-h-[280px] max-h-[360px] overflow-y-auto rounded-lg border border-border-default bg-bg-elevated">
               {isLoading && rows.length === 0 ? (
-                <div className="flex flex-col gap-1 p-2">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <Skeleton key={i} className="h-14 rounded" />
-                  ))}
-                </div>
+                <SkeletonList />
               ) : rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 text-sm text-text-muted gap-2">
                   <Package className="h-5 w-5" />
@@ -351,7 +348,7 @@ export function BoqElementPickerDialog({
             )}
           </TabsContent>
 
-          {features.rateContracts && (
+          {rateContractsEnabled && (
             <TabsContent
               value="rate-contract"
               className="flex flex-col gap-3 mt-3"

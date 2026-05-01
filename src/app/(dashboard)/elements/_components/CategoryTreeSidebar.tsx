@@ -18,7 +18,7 @@ import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { CategoryTemplatesDialog } from "./CategoryTemplatesDialog";
 import { useCreateCategory } from "@/hooks/useCreateCategory";
 import { useUserRole } from "@/hooks/useUserRole";
-import { features } from "@/config/features";
+import { useFlag } from "@/hooks/useFlag";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "../_lib/categoryUtils";
 
@@ -41,8 +41,9 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const [createOpen, setCreateOpen] = useState(false);
   const [starterOpen, setStarterOpen] = useState(false);
 
+  const elementLibraryEnabled = useFlag("elementLibrary");
   const canManage =
-    features.elementLibrary && (role === "pm" || role === "architect");
+    elementLibraryEnabled && (role === "pm" || role === "architect");
 
   const { submitting, handleCreate } = useCreateCategory(() =>
     setCreateOpen(false)

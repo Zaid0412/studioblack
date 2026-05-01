@@ -1,7 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
-import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
@@ -31,7 +29,8 @@ import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
 import { useTheme } from "@/components/ThemeProvider";
 import { features } from "@/config/features";
-import { authClient } from "@/lib/authClient";
+import { useFlag } from "@/hooks/useFlag";
+import { signOutAndReset } from "@/lib/auth-actions";
 import { cn } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import type { User } from "@/types";
@@ -39,6 +38,7 @@ import type { User } from "@/types";
 interface SidebarProps {
   variant?: "pm" | "architect" | "client";
   user: User;
+  orgName?: string | null;
 }
 
 /**
@@ -57,7 +57,11 @@ interface SidebarProps {
  * Nav items are conditionally included based on the feature flags in
  * `src/config/features.ts`.
  */
-export function Sidebar({ variant = "pm", user }: SidebarProps) {
+export function Sidebar({
+  variant = "pm",
+  user,
+  orgName = null,
+}: SidebarProps) {
   const t = useTranslations("nav");
   const router = useRouter();
   const { isCollapsed, toggle } = useSidebar();
@@ -67,25 +71,23 @@ export function Sidebar({ variant = "pm", user }: SidebarProps) {
       ? branding.logoUrl
       : (branding.logoUrlDark ?? branding.logoUrl);
 
-  const { data: orgSwr } = useSWR(["organization", "full"], () =>
-    authClient.organization.getFullOrganization()
-  );
-  const orgName = useMemo(() => orgSwr?.data?.name ?? null, [orgSwr]);
-
   const handleLogout = async () => {
-    await authClient.signOut();
+    await signOutAndReset();
     router.push("/login");
   };
+
+  const elementLibraryEnabled = useFlag("elementLibrary");
+  const vendorManagementEnabled = useFlag("vendorManagement");
 
   // Shared members of the PM/architect nav. Clients get a shorter trimmed list.
   const memberNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
-    ...(features.elementLibrary
+    ...(elementLibraryEnabled
       ? [{ href: "/elements/library", label: t("elements"), icon: Layers }]
       : []),
-    ...(features.vendorManagement
+    ...(vendorManagementEnabled
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
       : []),
     { href: "/organisation", label: t("organisation"), icon: Building2 },

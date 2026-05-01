@@ -1,8 +1,10 @@
 /**
- * Feature flags for conditionally enabling UI sections and routes.
+ * Build-time feature flags for conditionally enabling sections and routes.
  *
- * Sidebar nav items, route guards, and UI blocks read these flags so
- * disabling a feature hides it cleanly without breaking anything.
+ * Runtime flags (UI gates that should be flippable without a deploy) live
+ * in PostHog — see `useFlag()` from `@/hooks/useFlag`. The flags below stay
+ * here because they're read at module load (e.g. better-auth config in
+ * `src/lib/auth.ts`) or because we never expect to toggle them at runtime.
  */
 export const features = {
   magicLink: false,
@@ -12,8 +14,4 @@ export const features = {
   notifications: true,
   designUpload: true,
   emailVerification: true,
-  elementLibrary: true,
-  boq: true,
-  vendorManagement: false,
-  rateContracts: false,
 } as const;

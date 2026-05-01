@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { rateContracts as rcApi } from "@/lib/api";
 import type { ListRateContractsResponse } from "@/lib/api/rateContracts";
-import { features } from "@/config/features";
+import { useFlag } from "@/hooks/useFlag";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRateContractFilters } from "./_hooks/useRateContractFilters";
 import { RateContractList } from "./_components/RateContractList";
@@ -21,6 +21,7 @@ const PAGE_SIZE = 25;
 export default function RateContractsPage() {
   const t = useTranslations("rateContracts");
   const { role } = useUserRole();
+  const rateContractsEnabled = useFlag("rateContracts");
 
   const { state, setSearch, setStatus, setVendorId, setSort, setPage, clear } =
     useRateContractFilters();
@@ -37,7 +38,7 @@ export default function RateContractsPage() {
 
   const key = rcApi.listKey(params);
   const { data, isLoading, isValidating, mutate } =
-    useSWR<ListRateContractsResponse>(features.rateContracts ? key : null, {
+    useSWR<ListRateContractsResponse>(rateContractsEnabled ? key : null, {
       keepPreviousData: true,
     });
 
@@ -48,7 +49,7 @@ export default function RateContractsPage() {
 
   const [formOpen, setFormOpen] = useState(false);
 
-  if (!features.rateContracts) {
+  if (!rateContractsEnabled) {
     return (
       <div className="flex flex-col gap-4 max-w-[1400px]">
         <PageHeader title={t("title")} subtitle={t("subtitle")} />

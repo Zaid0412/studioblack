@@ -24,6 +24,7 @@ import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
 import { boq as boqApi, ApiError } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { saveBlob } from "@/lib/download";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 
@@ -77,8 +78,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   // Stable so the import dialog's `runConfirm` deps don't churn across SWR
   // revalidations.
   const handleImported = useCallback(() => {
+    trackEvent("boq_imported", { project_id: projectId });
     void mutateBoq();
-  }, [mutateBoq]);
+  }, [mutateBoq, projectId]);
 
   // Element IDs already in the BOQ — used by the picker to disable
   // already-added rows. Computed before any early return so the hook
@@ -194,6 +196,10 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         blob,
         filename ?? `${projectName || "project"}-BOQ-${stamp}.xlsx`
       );
+      trackEvent("boq_exported", {
+        project_id: projectId,
+        item_count: boq?.items.length ?? 0,
+      });
     } catch (err) {
       const description =
         err instanceof ApiError
