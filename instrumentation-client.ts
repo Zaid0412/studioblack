@@ -20,6 +20,13 @@ if (key && typeof window !== "undefined") {
     defaults: "2026-01-30",
   });
 
+  // Expose deploy environment to PostHog for flag targeting. Vercel auto-sets
+  // NEXT_PUBLIC_VERCEL_ENV to "production" | "preview" | "development", so
+  // flags can be released to preview-only by matching `environment != production`.
+  posthog.setPersonPropertiesForFlags({
+    environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development",
+  });
+
   if (process.env.NODE_ENV === "development") {
     (window as unknown as { posthog: typeof posthog }).posthog = posthog;
   }
