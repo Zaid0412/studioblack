@@ -19,6 +19,7 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
+import { useFlag } from "@/hooks/useFlag";
 import { saveBlob } from "@/lib/download";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { useElementFilters } from "../_hooks/useElementFilters";
@@ -38,6 +39,7 @@ type SubmitValues = Parameters<
 export default function ElementsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
+  const elementLibraryEnabled = useFlag("elementLibrary");
 
   const {
     state,
@@ -153,6 +155,15 @@ export default function ElementsPage() {
 
   const startIdx = (state.page - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, total);
+
+  if (!elementLibraryEnabled) {
+    return (
+      <div className="flex flex-col gap-4 max-w-[1400px]">
+        <PageHeader title={t("title")} subtitle={t("subtitle")} />
+        <p className="text-sm text-text-muted italic">{t("featureDisabled")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">

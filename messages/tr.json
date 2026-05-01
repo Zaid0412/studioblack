@@ -935,7 +935,8 @@
     "exportFailed": "Dışa aktarma başarısız oldu",
     "importTooLarge": "Dosya çok büyük — en fazla 5 MB.",
     "importMultipleFiles": "Yalnızca ilk dosya içe aktarılacak.",
-    "importRemoveFile": "Dosyayı kaldır"
+    "importRemoveFile": "Dosyayı kaldır",
+    "featureDisabled": "Eleman kütüphanesi özelliği henüz açık değil."
   },
   "vendors": {
     "title": "Tedarikçiler",
@@ -1056,7 +1057,8 @@
     "kycUploadedAt": "Yüklendi",
     "kycRemove": "Kaldır",
     "kycConfirmRemoveTitle": "Bu belge kaldırılsın mı?",
-    "kycConfirmRemoveDesc": "Kayıt tedarikçiden kaldırılır. Depolamadaki dosya saklanır."
+    "kycConfirmRemoveDesc": "Kayıt tedarikçiden kaldırılır. Depolamadaki dosya saklanır.",
+    "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil."
   },
   "boq": {
     "table": {

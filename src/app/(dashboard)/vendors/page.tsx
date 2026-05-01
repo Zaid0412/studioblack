@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { vendors as vendorsApi } from "@/lib/api";
+import { useFlag } from "@/hooks/useFlag";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useVendors } from "@/hooks/useVendors";
 import type { VendorWithRelations } from "@/types";
@@ -22,6 +23,7 @@ import {
 /** Vendor management page — gated on the `vendorManagement` feature flag. */
 export default function VendorsPage() {
   const t = useTranslations("vendors");
+  const vendorManagementEnabled = useFlag("vendorManagement");
 
   const { role } = useUserRole();
   const isPm = role === "pm";
@@ -97,6 +99,15 @@ export default function VendorsPage() {
   };
 
   const isRefreshing = isValidating && !isLoading;
+
+  if (!vendorManagementEnabled) {
+    return (
+      <div className="flex flex-col gap-4 max-w-[1400px]">
+        <PageHeader title={t("title")} subtitle={t("subtitle")} />
+        <p className="text-sm text-text-muted italic">{t("featureDisabled")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
