@@ -158,6 +158,39 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    member: {
+      create: {
+        // Catches the existing-user-accepts-vendor-invite path (user.create.after
+        // doesn't fire when no new user is being created). Idempotent — also
+        // safe to run for the new-user path; the vendor_contact.user_id update
+        // is a no-op once linked.
+        after: async (member: { userId: string; role: string }) => {
+          if (member.role !== "vendor") return;
+          const pool = getPool();
+          const { rows } = await pool.query(
+            `SELECT email, role FROM "user" WHERE id = $1`,
+            [member.userId]
+          );
+          if (rows.length === 0) return;
+          const { email, role: currentRole } = rows[0];
+
+          await pool.query(
+            `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
+            [member.userId, email]
+          );
+
+          // Only flip user.role to vendor if the user isn't a PM (admin-class —
+          // never demote) and isn't already vendor. Architects / clients accepting
+          // a vendor invite are explicitly being re-roled.
+          if (currentRole !== "pm" && currentRole !== "vendor") {
+            await pool.query(
+              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
+              [member.userId]
+            );
+          }
+        },
+      },
+    },
     user: {
       create: {
         after: async (user) => {

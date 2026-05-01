@@ -997,7 +997,7 @@
     "primary": "Birincil",
     "receivesRfq": "Teklif e-postaları alır",
     "rfqOptOut": "Teklif almıyor",
-    "inviteToPortal": "Portala davet et",
+    "inviteToPortal": "Tedarikçi portalına davet et",
     "portalLinked": "Bağlı",
     "inviteSent": "Davet gönderildi",
     "inviteSentDescription": "{email} adresine bir davet gönderildi.",

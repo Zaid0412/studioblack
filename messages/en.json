@@ -997,7 +997,7 @@
     "primary": "Primary",
     "receivesRfq": "Receives RFQ emails",
     "rfqOptOut": "RFQ opt-out",
-    "inviteToPortal": "Invite to portal",
+    "inviteToPortal": "Invite to vendor portal",
     "portalLinked": "Linked",
     "inviteSent": "Invitation sent",
     "inviteSentDescription": "An invite has been sent to {email}.",
