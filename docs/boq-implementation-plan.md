@@ -475,6 +475,7 @@ Feature 5:  BOQ UI (page, table with TanStack Table, inline editing, cost calcul
 Feature 6:  BOQ Excel Import/Export
 Feature 7:  Vendor Management (DB + API + UI — vendor CRUD, contacts, trades)
 Feature 8:  Vendor Role + Portal (auth role, sidebar, vendor-facing pages)
+Feature 8.5: Vendor Self-Service Profile (vendor edits own bank/KYC/contacts)
 Feature 9:  RFQ Workflow (DB + API + UI — create RFQ, issue to vendors)
 Feature 10: Vendor Quotes (DB + API + UI — quote submission, comparison table)
 Feature 11: Client Proposals (DB + API + UI — generate from quotes, send to client)
@@ -1391,6 +1392,59 @@ CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
 - `src/components/layout/sidebar.tsx` (add vendorNav)
 - `src/app/(dashboard)/vendor-portal/page.tsx` (new — placeholder for now)
 - `src/lib/auth.ts` (update databaseHooks for vendor role detection)
+
+---
+
+### Feature 8.5: Vendor Self-Service Profile
+
+**Goal**: Let logged-in vendors update their own vendor record from the portal — bank details, KYC docs, and additional contact users — without requiring PM involvement. Mirrors RDash's "Other Details" tab on the vendor side.
+
+**Why slotted here**: Depends on F8 (vendor role + portal exists). Reuses the F7 / F7.1 data layer entirely — no new tables, no new schemas. Removes a manual touchpoint where PMs would otherwise re-enter every bank-detail change a vendor mails them.
+
+**Scope resolution**: a vendor's `vendor_id` is resolved server-side via `SELECT vendor_id FROM vendor_contact WHERE user_id = $current_user LIMIT 1`. Cached on the auth context to avoid the lookup on every request. If a single user is linked to multiple vendor records (rare — multi-company contacts), pick the most recently linked.
+
+**Authz**: every vendor-portal API route uses `withAuth({ allowedRoles: ["vendor"] })` and forces `vendor_id = ctx.vendorId` server-side. Vendors cannot pass a `vendor_id` in the body or query — it's always derived from session. Prevents IDOR even if the client is tampered with.
+
+**API Routes** — under `src/app/api/vendor-portal/`:
+
+- `GET /api/vendor-portal/me` — full vendor record (own vendor only)
+- `PATCH /api/vendor-portal/me` — update top-level fields (company name read-only; vendor cannot rename themselves — needs PM approval)
+- `PATCH /api/vendor-portal/me/bank-details` — encrypted bank details (reuses F7's encrypt/decrypt helpers)
+- `POST /api/vendor-portal/me/kyc-documents` — upload KYC doc (reuses F7.1 upload logic)
+- `DELETE /api/vendor-portal/me/kyc-documents/:id` — remove a doc (only their own)
+- `POST /api/vendor-portal/me/contacts` — add an additional contact user (vendor-internal team)
+- `PATCH /api/vendor-portal/me/contacts/:id` — edit contact (own vendor's contacts only)
+- `DELETE /api/vendor-portal/me/contacts/:id` — remove
+
+**KYC verification status**: vendors can upload / replace KYC docs but **cannot** mark them verified — `kyc_status` stays read-only on this side. PM verifies in F7.1's KYC tab. After a vendor re-uploads, status flips to `pending` automatically (re-verification needed).
+
+**UI** — `src/app/(dashboard)/vendor-portal/profile/`:
+
+- Reuse `VendorBankDetailsForm`, `VendorKycTab`, and a contact-management subset of `VendorContactsEditor` (already built for F7 / F7.1) — pre-loaded with the vendor's own record. Same look as PM-side vendor edit, just no vendor selector.
+- Read-only fields: company name, vendor code, status (set by PM), KYC verification status (set by PM).
+- Editable: trading name, address, primary contact details, bank details, KYC docs, additional contact users.
+
+**Sidebar**: add a "Profile" entry to `vendorNav` (between Invoices and Settings).
+
+**Files to create/modify**:
+
+- `src/lib/queries/vendors.ts` (extend with `getVendorByUserId`, `updateVendorByUserId`, scoped contact CRUD)
+- `src/lib/withAuth.ts` (resolve `ctx.vendorId` when role is `"vendor"`)
+- `src/app/api/vendor-portal/me/route.ts` (GET, PATCH)
+- `src/app/api/vendor-portal/me/bank-details/route.ts`
+- `src/app/api/vendor-portal/me/kyc-documents/route.ts` (POST + per-doc DELETE)
+- `src/app/api/vendor-portal/me/contacts/route.ts` (POST + per-contact PATCH/DELETE)
+- `src/app/(dashboard)/vendor-portal/profile/page.tsx` (new)
+- `src/components/layout/sidebar.tsx` (add Profile nav entry)
+- `src/lib/api/vendor-portal.ts` (typed wrappers — new domain module)
+- `src/lib/api/routes.ts` (add `/vendor-portal/*` routes)
+- `messages/{en,tr}.json` (`vendorPortal.profile.*` namespace)
+- `src/test/api/vendor-portal-me.test.ts` (verifies authz scoping — vendors can only see/modify their own vendor)
+
+**Open decisions**:
+
+1. **Should vendors edit `payment_terms` or `currency`?** PM-set commercial terms — probably read-only on vendor side. Recommend yes-readonly (they can see what was agreed, can't change unilaterally).
+2. **Audit logging**: every vendor self-edit writes to `audit_log` (when F21 ships). Skip for now; reuse F21 infra later.
 
 ---
 
@@ -2631,6 +2685,7 @@ F1 (Categories) ──→ F2 (Elements) ──→ F3 (Excel Import)
 F6.1 (BOQ Table Enhancements) — see docs/boq-enhancements-plan.md
 F16 (Progress) — depends on F4 (BOQ items exist)
 F16.5 (Vendor-Wise Scope) — depends on F4, F14, F16
+F8.5 (Vendor Self-Service Profile) — depends on F8, F7, F7.1
 F16.6 (Vendor DPR) — depends on F8 (vendor portal), F14, F16
 F17 (Snags) — depends on F4 (BOQ items exist)
 F18 (Dashboard) — depends on F4, F16, F17, F14.5, F16.5
@@ -2657,6 +2712,7 @@ F24 (Client Orders) — depends on F4, F12
 | 7.1  | Vendor KYC      | ~8        | ~120             | 4          | Low        |
 | 7.5  | Rate Contracts  | ~16       | ~250             | 8          | Medium     |
 | 8    | Vendor Role     | ~6        | ~30              | 0          | Low        |
+| 8.5  | Vendor Profile  | ~8        | ~90              | 5          | Low        |
 | 9    | RFQ             | ~12       | ~200             | 7          | High       |
 | 10   | Quotes          | ~10       | ~220             | 7          | High       |
 | 11   | Proposals       | ~10       | ~200             | 11         | Medium     |
