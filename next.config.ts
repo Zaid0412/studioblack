@@ -86,10 +86,7 @@ const nextConfig: NextConfig = {
 
 const intlConfig = withNextIntl(nextConfig);
 
-// Source map upload runs only when POSTHOG_API_KEY is set (Vercel production
-// builds). Skipping locally keeps `npm run build` fast and avoids requiring
-// a personal API key for development. POSTHOG_PROJECT_ID lives in plain env
-// vars; the personal API key must be a secret.
+// Source map upload only when both creds are set, so local builds skip it.
 export default process.env.POSTHOG_API_KEY && process.env.POSTHOG_PROJECT_ID
   ? withPostHogConfig(intlConfig, {
       personalApiKey: process.env.POSTHOG_API_KEY,
