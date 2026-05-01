@@ -10,9 +10,13 @@ import {
   Trash2,
   Tag,
   ShieldCheck,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/useToast";
+import { authClient } from "@/lib/authClient";
 import {
   Sheet,
   SheetContent,
@@ -70,6 +74,34 @@ export function VendorDrawer({
   const [confirmSoft, setConfirmSoft] = useState(false);
   const [confirmHard, setConfirmHard] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [invitingContactId, setInvitingContactId] = useState<string | null>(
+    null
+  );
+
+  const handleInviteContact = async (contactId: string, email: string) => {
+    setInvitingContactId(contactId);
+    try {
+      const { error } = await authClient.organization.inviteMember({
+        email,
+        role: "vendor",
+      });
+      if (error) {
+        toast({
+          title: tCommon("error"),
+          description: error.message ?? t("inviteError"),
+          variant: "error",
+        });
+        return;
+      }
+      toast({
+        title: t("inviteSent"),
+        description: t("inviteSentDescription", { email }),
+        variant: "success",
+      });
+    } finally {
+      setInvitingContactId(null);
+    }
+  };
 
   const open = vendorId !== null;
 
@@ -278,12 +310,35 @@ export function VendorDrawer({
                                     {t("primary")}
                                   </Badge>
                                 )}
+                                {c.user_id && (
+                                  <Badge variant="active" className="shrink-0">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    {t("portalLinked")}
+                                  </Badge>
+                                )}
                               </div>
-                              {!c.receives_rfq && (
-                                <Badge variant="archived">
-                                  {t("rfqOptOut")}
-                                </Badge>
-                              )}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {!c.receives_rfq && (
+                                  <Badge variant="archived">
+                                    {t("rfqOptOut")}
+                                  </Badge>
+                                )}
+                                {isPm && !c.user_id && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    disabled={invitingContactId === c.id}
+                                    onClick={() =>
+                                      handleInviteContact(c.id, c.email)
+                                    }
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                    {invitingContactId === c.id
+                                      ? tCommon("loading")
+                                      : t("inviteToPortal")}
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             {c.title && (
                               <p className="text-xs text-text-muted">
