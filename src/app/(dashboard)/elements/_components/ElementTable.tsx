@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { LabelValueList } from "@/components/ui/LabelValueList";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -259,7 +260,6 @@ function ElementRow({
       onClick={onClick}
       className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >
-      {/* Mobile/tablet card */}
       <div className="lg:hidden flex flex-col gap-2 px-4 py-3">
         <div className="flex items-start gap-3">
           <div className="shrink-0 mt-0.5">{thumbnail}</div>
@@ -280,19 +280,23 @@ function ElementRow({
           </div>
           <div onClick={(e) => e.stopPropagation()}>{actionsMenu}</div>
         </div>
-        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 text-sm">
-          <dt className="text-text-muted">{t("colCategory")}</dt>
-          <dd className="text-text-secondary truncate">{categoryName}</dd>
-          <dt className="text-text-muted">{t("colUnit")}</dt>
-          <dd className="text-text-secondary">{element.unit}</dd>
-          <dt className="text-text-muted">{t("colUnitCost")}</dt>
-          <dd className="text-text-primary font-mono">
-            {formatMoney(element.unit_cost, element.currency)}
-          </dd>
-        </dl>
+        <LabelValueList
+          items={[
+            {
+              label: t("colCategory"),
+              value: categoryName,
+              valueClassName: "truncate",
+            },
+            { label: t("colUnit"), value: element.unit },
+            {
+              label: t("colUnitCost"),
+              value: formatMoney(element.unit_cost, element.currency),
+              valueClassName: "text-text-primary font-mono",
+            },
+          ]}
+        />
       </div>
 
-      {/* Desktop grid row */}
       <div className="hidden lg:grid lg:grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3">
         <div className="flex items-center justify-center">{thumbnail}</div>
         <div className="flex items-center gap-2 min-w-0">

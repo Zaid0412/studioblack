@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { LabelValueList } from "@/components/ui/LabelValueList";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { VendorStatusBadge } from "./VendorStatusBadge";
 import { VendorKycStatusDot } from "./VendorKycStatusBadge";
@@ -76,7 +77,6 @@ export function VendorRow({
       onClick={onClick}
       className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >
-      {/* Mobile/tablet card */}
       <div className="lg:hidden flex flex-col gap-2 px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <span className="font-mono text-sm text-text-primary truncate">
@@ -98,26 +98,36 @@ export function VendorRow({
         <div>
           <VendorStatusBadge status={vendor.status} />
         </div>
-        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 text-sm">
-          <dt className="text-text-muted">{t("colPrimaryContact")}</dt>
-          <dd className="text-text-secondary truncate">{contactValue}</dd>
-          <dt className="text-text-muted">{t("colTrades")}</dt>
-          <dd className="flex items-center gap-1 text-text-secondary">
-            <Star className="w-3.5 h-3.5 text-text-muted shrink-0" />
-            {vendor.trade_count}
-          </dd>
-          <dt className="text-text-muted">{t("colRating")}</dt>
-          <dd>
-            <VendorRatingPicker
-              value={Number(vendor.rating ?? 0)}
-              readOnly
-              size="sm"
-            />
-          </dd>
-        </dl>
+        <LabelValueList
+          items={[
+            {
+              label: t("colPrimaryContact"),
+              value: contactValue,
+              valueClassName: "truncate",
+            },
+            {
+              label: t("colTrades"),
+              value: (
+                <span className="flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                  {vendor.trade_count}
+                </span>
+              ),
+            },
+            {
+              label: t("colRating"),
+              value: (
+                <VendorRatingPicker
+                  value={Number(vendor.rating ?? 0)}
+                  readOnly
+                  size="sm"
+                />
+              ),
+            },
+          ]}
+        />
       </div>
 
-      {/* Desktop grid row */}
       <div className="hidden lg:grid lg:grid-cols-[140px_1fr_120px_220px_80px_140px_60px] gap-4 px-4 py-3">
         <div className="font-mono text-sm text-text-primary truncate">
           {vendor.vendor_code || "—"}

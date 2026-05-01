@@ -252,7 +252,7 @@ export default function ElementsPage() {
           <button
             type="button"
             onClick={() => setMobileCategoriesOpen(true)}
-            className="lg:hidden flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-bg-secondary border border-border-default text-sm text-text-primary hover:bg-bg-elevated transition-colors"
+            className="lg:hidden flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary shadow-sm hover:bg-bg-elevated transition-colors"
           >
             <span className="truncate">{selectedCategoryLabel}</span>
             <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
