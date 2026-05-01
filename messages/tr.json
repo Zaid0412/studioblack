@@ -31,7 +31,8 @@
     "tryAgain": "Tekrar dene",
     "pageNotFound": "Sayfa bulunamadı",
     "pageNotFoundDescription": "Aradığınız sayfa mevcut değil veya taşınmış.",
-    "backToDashboard": "Panele Dön"
+    "backToDashboard": "Panele Dön",
+    "more": "Daha fazla"
   },
   "auth": {
     "login": "Giriş Yap",

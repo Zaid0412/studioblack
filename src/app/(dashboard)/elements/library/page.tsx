@@ -3,7 +3,14 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { Download, Plus, Trash2, Upload } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  MoreHorizontal,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -16,6 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
@@ -82,6 +95,11 @@ export default function ElementsPage() {
   const [archiving, setArchiving] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
+
+  const selectedCategoryLabel = state.categoryId
+    ? (categoryMap.get(state.categoryId) ?? t("allCategories"))
+    : t("allCategories");
 
   const handleExport = async () => {
     if (exporting) return;
@@ -177,33 +195,69 @@ export default function ElementsPage() {
                 mutate();
               }}
             />
-            <Button
-              variant="secondary"
-              onClick={handleExport}
-              disabled={exporting}
-            >
-              <Download className="w-4 h-4" />
-              {exporting ? tCommon("loading") : t("exportBtn")}
-            </Button>
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
-              <Upload className="w-4 h-4" />
-              {t("importBtn")}
-            </Button>
-            <Button onClick={openCreate}>
+            <div className="hidden md:flex items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={handleExport}
+                disabled={exporting}
+              >
+                <Download className="w-4 h-4" />
+                {exporting ? tCommon("loading") : t("exportBtn")}
+              </Button>
+              <Button variant="secondary" onClick={() => setImportOpen(true)}>
+                <Upload className="w-4 h-4" />
+                {t("importBtn")}
+              </Button>
+            </div>
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-label={tCommon("more")}
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExport} disabled={exporting}>
+                    <Download className="w-4 h-4" />
+                    {t("exportBtn")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setImportOpen(true)}>
+                    <Upload className="w-4 h-4" />
+                    {t("importBtn")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <Button onClick={openCreate} aria-label={t("newElement")}>
               <Plus className="w-4 h-4" />
-              {t("newElement")}
+              <span className="hidden sm:inline">{t("newElement")}</span>
             </Button>
           </>
         }
       />
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-        <CategoryTreeSidebar
-          selectedId={state.categoryId}
-          onSelect={setCategoryId}
-        />
+        <div className="hidden lg:block">
+          <CategoryTreeSidebar
+            selectedId={state.categoryId}
+            onSelect={setCategoryId}
+          />
+        </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-4">
+          <button
+            type="button"
+            onClick={() => setMobileCategoriesOpen(true)}
+            className="lg:hidden flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary shadow-sm hover:bg-bg-elevated transition-colors"
+          >
+            <span className="truncate">{selectedCategoryLabel}</span>
+            <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+          </button>
+
           <ElementFilterBar
             state={state}
             onSearchChange={setSearch}
@@ -267,6 +321,24 @@ export default function ElementsPage() {
         onOpenChange={setImportOpen}
         onSuccess={() => mutate()}
       />
+
+      <Dialog
+        open={mobileCategoriesOpen}
+        onOpenChange={setMobileCategoriesOpen}
+      >
+        <DialogContent className="lg:hidden p-0">
+          <DialogHeader className="px-4 pt-4">
+            <DialogTitle>{t("categories")}</DialogTitle>
+          </DialogHeader>
+          <CategoryTreeSidebar
+            selectedId={state.categoryId}
+            onSelect={(id) => {
+              setCategoryId(id);
+              setMobileCategoriesOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={!!archiveTarget}

@@ -31,7 +31,8 @@
     "tryAgain": "Try again",
     "pageNotFound": "Page not found",
     "pageNotFoundDescription": "The page you're looking for doesn't exist or has been moved.",
-    "backToDashboard": "Back to Dashboard"
+    "backToDashboard": "Back to Dashboard",
+    "more": "More"
   },
   "auth": {
     "login": "Login",

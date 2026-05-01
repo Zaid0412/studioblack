@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { LabelValueList } from "@/components/ui/LabelValueList";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -173,106 +174,157 @@ function ElementRow({
     element.spec_file_url && (element.spec_file_name ?? t("fieldSpecFile")),
   ].filter(Boolean) as string[];
 
+  const thumbnail = element.image_url ? (
+    <Image
+      src={element.image_url}
+      alt=""
+      width={32}
+      height={32}
+      className="rounded-md object-cover h-8 w-8"
+      unoptimized
+    />
+  ) : (
+    <div className="h-8 w-8 rounded-md bg-bg-elevated flex items-center justify-center">
+      <Layers className="w-3.5 h-3.5 text-text-muted" />
+    </div>
+  );
+
+  const attachmentIcon = attachedFileNames.length > 0 && (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className="shrink-0 text-text-muted"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Paperclip className="w-3.5 h-3.5" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <ul className="text-xs">
+          {attachedFileNames.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      </TooltipContent>
+    </Tooltip>
+  );
+
+  const versionBadge = element.version_number > 1 && (
+    <Badge
+      variant="info"
+      className="shrink-0 font-mono text-[10px] px-2 py-0.5"
+    >
+      {t("versionN", { n: element.version_number })}
+    </Badge>
+  );
+
+  const archivedBadge = !element.is_active && (
+    <Badge variant="archived" className="shrink-0">
+      {t("archived")}
+    </Badge>
+  );
+
+  const actionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" aria-label="Actions">
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>
+          <Edit3 className="w-4 h-4" />
+          {tCommon("edit")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={onDuplicate}>
+          <Copy className="w-4 h-4" />
+          {t("duplicate")}
+        </DropdownMenuItem>
+        {element.is_active ? (
+          <DropdownMenuItem onClick={onArchive}>
+            <Archive className="w-4 h-4" />
+            {t("archive")}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={onRestore}>
+            <ArchiveRestore className="w-4 h-4" />
+            {t("restore")}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   return (
     <div
       onClick={onClick}
-      className="grid grid-cols-1 lg:grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
+      className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >
-      <div className="flex items-center justify-center">
-        {element.image_url ? (
-          <Image
-            src={element.image_url}
-            alt=""
-            width={32}
-            height={32}
-            className="rounded-md object-cover h-8 w-8"
-            unoptimized
-          />
-        ) : (
-          <div className="h-8 w-8 rounded-md bg-bg-elevated flex items-center justify-center">
-            <Layers className="w-3.5 h-3.5 text-text-muted" />
-          </div>
-        )}
-      </div>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="font-mono text-sm text-text-primary truncate">
-          {element.code}
-        </span>
-        {element.version_number > 1 && (
-          <Badge
-            variant="info"
-            className="shrink-0 font-mono text-[10px] px-2 py-0.5"
-          >
-            {t("versionN", { n: element.version_number })}
-          </Badge>
-        )}
-      </div>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm text-text-primary truncate">
-          {element.name}
-        </span>
-        {!element.is_active && (
-          <Badge variant="archived" className="shrink-0">
-            {t("archived")}
-          </Badge>
-        )}
-        {attachedFileNames.length > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="shrink-0 text-text-muted"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <Paperclip className="w-3.5 h-3.5" />
+      <div className="lg:hidden flex flex-col gap-2 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="shrink-0 mt-0.5">{thumbnail}</div>
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-sm text-text-primary truncate">
+                {element.code}
               </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              <ul className="text-xs">
-                {attachedFileNames.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-            </TooltipContent>
-          </Tooltip>
-        )}
+              {versionBadge}
+            </div>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm text-text-primary truncate">
+                {element.name}
+              </span>
+              {archivedBadge}
+              {attachmentIcon}
+            </div>
+          </div>
+          <div onClick={(e) => e.stopPropagation()}>{actionsMenu}</div>
+        </div>
+        <LabelValueList
+          items={[
+            {
+              label: t("colCategory"),
+              value: categoryName,
+              valueClassName: "truncate",
+            },
+            { label: t("colUnit"), value: element.unit },
+            {
+              label: t("colUnitCost"),
+              value: formatMoney(element.unit_cost, element.currency),
+              valueClassName: "text-text-primary font-mono",
+            },
+          ]}
+        />
       </div>
-      <div className="text-sm text-text-secondary truncate">{categoryName}</div>
-      <div className="text-sm text-text-secondary">{element.unit}</div>
-      <div className="text-sm text-text-primary lg:text-right font-mono">
-        {formatMoney(element.unit_cost, element.currency)}
-      </div>
-      <div
-        className="flex items-center lg:justify-end"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label="Actions">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>
-              <Edit3 className="w-4 h-4" />
-              {tCommon("edit")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDuplicate}>
-              <Copy className="w-4 h-4" />
-              {t("duplicate")}
-            </DropdownMenuItem>
-            {element.is_active ? (
-              <DropdownMenuItem onClick={onArchive}>
-                <Archive className="w-4 h-4" />
-                {t("archive")}
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={onRestore}>
-                <ArchiveRestore className="w-4 h-4" />
-                {t("restore")}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+
+      <div className="hidden lg:grid lg:grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3">
+        <div className="flex items-center justify-center">{thumbnail}</div>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="font-mono text-sm text-text-primary truncate">
+            {element.code}
+          </span>
+          {versionBadge}
+        </div>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm text-text-primary truncate">
+            {element.name}
+          </span>
+          {archivedBadge}
+          {attachmentIcon}
+        </div>
+        <div className="text-sm text-text-secondary truncate">
+          {categoryName}
+        </div>
+        <div className="text-sm text-text-secondary">{element.unit}</div>
+        <div className="text-sm text-text-primary text-right font-mono">
+          {formatMoney(element.unit_cost, element.currency)}
+        </div>
+        <div
+          className="flex items-center justify-end"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {actionsMenu}
+        </div>
       </div>
     </div>
   );
