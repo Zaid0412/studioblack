@@ -36,76 +36,126 @@ export function VendorRow({
   const t = useTranslations("vendors");
   const tCommon = useTranslations("common");
 
+  const actionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" aria-label="Actions">
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>
+          <Edit3 className="w-4 h-4" />
+          {tCommon("edit")}
+        </DropdownMenuItem>
+        {canDelete && (
+          <>
+            <DropdownMenuSeparator />
+            {vendor.status !== "inactive" && (
+              <DropdownMenuItem onClick={onSoftDelete}>
+                <Trash2 className="w-4 h-4" />
+                {t("markInactive")}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem destructive onClick={onHardDelete}>
+              <Trash2 className="w-4 h-4" />
+              {t("deletePermanent")}
+            </DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const contactValue = vendor.primary_contact_email ?? (
+    <span className="text-text-muted italic">{t("noPrimary")}</span>
+  );
+
   return (
     <div
       onClick={onClick}
-      className="grid grid-cols-1 lg:grid-cols-[140px_1fr_120px_220px_80px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
+      className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >
-      <div className="font-mono text-sm text-text-primary truncate">
-        {vendor.vendor_code || "—"}
-      </div>
-      <div className="flex flex-col min-w-0">
-        <span className="inline-flex items-center gap-2 text-sm text-text-primary truncate">
-          <VendorKycStatusDot status={vendor.kyc_status} />
-          <span className="truncate">{vendor.company_name}</span>
-        </span>
-        {vendor.trading_name && (
-          <span className="text-xs text-text-muted truncate pl-4">
-            {vendor.trading_name}
+      {/* Mobile/tablet card */}
+      <div className="lg:hidden flex flex-col gap-2 px-4 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-mono text-sm text-text-primary truncate">
+            {vendor.vendor_code || "—"}
           </span>
-        )}
+          <div onClick={(e) => e.stopPropagation()}>{actionsMenu}</div>
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="inline-flex items-center gap-2 text-sm text-text-primary">
+            <VendorKycStatusDot status={vendor.kyc_status} />
+            <span className="truncate">{vendor.company_name}</span>
+          </span>
+          {vendor.trading_name && (
+            <span className="text-xs text-text-muted truncate pl-4">
+              {vendor.trading_name}
+            </span>
+          )}
+        </div>
+        <div>
+          <VendorStatusBadge status={vendor.status} />
+        </div>
+        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 text-sm">
+          <dt className="text-text-muted">{t("colPrimaryContact")}</dt>
+          <dd className="text-text-secondary truncate">{contactValue}</dd>
+          <dt className="text-text-muted">{t("colTrades")}</dt>
+          <dd className="flex items-center gap-1 text-text-secondary">
+            <Star className="w-3.5 h-3.5 text-text-muted shrink-0" />
+            {vendor.trade_count}
+          </dd>
+          <dt className="text-text-muted">{t("colRating")}</dt>
+          <dd>
+            <VendorRatingPicker
+              value={Number(vendor.rating ?? 0)}
+              readOnly
+              size="sm"
+            />
+          </dd>
+        </dl>
       </div>
-      <div>
-        <VendorStatusBadge status={vendor.status} />
-      </div>
-      <div className="text-sm text-text-secondary truncate">
-        {vendor.primary_contact_email ?? (
-          <span className="text-text-muted italic">{t("noPrimary")}</span>
-        )}
-      </div>
-      <div className="flex items-center gap-1 text-sm text-text-secondary">
-        <Star className="w-3.5 h-3.5 text-text-muted shrink-0" />
-        {vendor.trade_count}
-      </div>
-      <div>
-        <VendorRatingPicker
-          value={Number(vendor.rating ?? 0)}
-          readOnly
-          size="sm"
-        />
-      </div>
-      <div
-        className="flex items-center lg:justify-end"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label="Actions">
-              <MoreHorizontal className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>
-              <Edit3 className="w-4 h-4" />
-              {tCommon("edit")}
-            </DropdownMenuItem>
-            {canDelete && (
-              <>
-                <DropdownMenuSeparator />
-                {vendor.status !== "inactive" && (
-                  <DropdownMenuItem onClick={onSoftDelete}>
-                    <Trash2 className="w-4 h-4" />
-                    {t("markInactive")}
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem destructive onClick={onHardDelete}>
-                  <Trash2 className="w-4 h-4" />
-                  {t("deletePermanent")}
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+
+      {/* Desktop grid row */}
+      <div className="hidden lg:grid lg:grid-cols-[140px_1fr_120px_220px_80px_140px_60px] gap-4 px-4 py-3">
+        <div className="font-mono text-sm text-text-primary truncate">
+          {vendor.vendor_code || "—"}
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="inline-flex items-center gap-2 text-sm text-text-primary truncate">
+            <VendorKycStatusDot status={vendor.kyc_status} />
+            <span className="truncate">{vendor.company_name}</span>
+          </span>
+          {vendor.trading_name && (
+            <span className="text-xs text-text-muted truncate pl-4">
+              {vendor.trading_name}
+            </span>
+          )}
+        </div>
+        <div>
+          <VendorStatusBadge status={vendor.status} />
+        </div>
+        <div className="text-sm text-text-secondary truncate">
+          {contactValue}
+        </div>
+        <div className="flex items-center gap-1 text-sm text-text-secondary">
+          <Star className="w-3.5 h-3.5 text-text-muted shrink-0" />
+          {vendor.trade_count}
+        </div>
+        <div>
+          <VendorRatingPicker
+            value={Number(vendor.rating ?? 0)}
+            readOnly
+            size="sm"
+          />
+        </div>
+        <div
+          className="flex items-center justify-end"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {actionsMenu}
+        </div>
       </div>
     </div>
   );
