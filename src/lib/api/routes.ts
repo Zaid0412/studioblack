@@ -117,6 +117,7 @@ export const API = {
   vendor:                (id: string)                  => `/api/vendors/${id}`,
   vendorBankDetails:     (id: string)                  => `/api/vendors/${id}/bank-details`,
   vendorRating:          (id: string)                  => `/api/vendors/${id}/rating`,
+  vendorContactInvite:   (id: string, contactId: string) => `/api/vendors/${id}/contacts/${contactId}/invite`,
   vendorsByTrade:        (categoryId: string)          => `/api/vendors/by-trade/${categoryId}`,
 
   // ── Vendor KYC (Feature 7.1) ────────────────────

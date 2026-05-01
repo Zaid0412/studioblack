@@ -999,6 +999,7 @@
     "rfqOptOut": "RFQ opt-out",
     "inviteToPortal": "Invite to vendor portal",
     "portalLinked": "Linked",
+    "portalLinkedDescription": "{email} is already in the organisation — linked to this contact.",
     "inviteSent": "Invitation sent",
     "inviteSentDescription": "An invite has been sent to {email}.",
     "inviteError": "Couldn't send the invitation. Please try again.",

@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/useToast";
-import { authClient } from "@/lib/authClient";
+import { vendors as vendorsApi } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -81,22 +81,26 @@ export function VendorDrawer({
   const handleInviteContact = async (contactId: string, email: string) => {
     setInvitingContactId(contactId);
     try {
-      const { error } = await authClient.organization.inviteMember({
-        email,
-        role: "vendor",
-      });
-      if (error) {
+      const result = await vendorsApi.inviteContact(vendorId!, contactId);
+      if (result.status === "linked") {
         toast({
-          title: tCommon("error"),
-          description: error.message ?? t("inviteError"),
-          variant: "error",
+          title: t("portalLinked"),
+          description: t("portalLinkedDescription", { email }),
+          variant: "success",
         });
-        return;
+      } else {
+        toast({
+          title: t("inviteSent"),
+          description: t("inviteSentDescription", { email }),
+          variant: "success",
+        });
       }
+      await mutateVendor();
+    } catch (err) {
       toast({
-        title: t("inviteSent"),
-        description: t("inviteSentDescription", { email }),
-        variant: "success",
+        title: tCommon("error"),
+        description: err instanceof Error ? err.message : t("inviteError"),
+        variant: "error",
       });
     } finally {
       setInvitingContactId(null);

@@ -109,6 +109,18 @@ export function listByTrade(categoryId: string) {
   return apiGet<{ rows: VendorLite[] }>(API.vendorsByTrade(categoryId));
 }
 
+/**
+ * Invite a vendor contact to the vendor portal. Server returns:
+ * - `{ status: "linked" }` — user already in org, vendor_contact.user_id was backfilled
+ * - `{ status: "invited" }` — invitation email sent (or resent for existing pending invites)
+ */
+export function inviteContact(vendorId: string, contactId: string) {
+  return apiPost<{ status: "linked" | "invited" }>(
+    API.vendorContactInvite(vendorId, contactId),
+    {}
+  );
+}
+
 // ─── KYC (F7.1) ─────────────────────────────────────────────────────────────
 
 /** List KYC documents for a vendor. */

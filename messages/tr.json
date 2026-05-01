@@ -999,6 +999,7 @@
     "rfqOptOut": "Teklif almıyor",
     "inviteToPortal": "Tedarikçi portalına davet et",
     "portalLinked": "Bağlı",
+    "portalLinkedDescription": "{email} zaten organizasyonda — bu kişiyle ilişkilendirildi.",
     "inviteSent": "Davet gönderildi",
     "inviteSentDescription": "{email} adresine bir davet gönderildi.",
     "inviteError": "Davet gönderilemedi. Lütfen tekrar deneyin.",
