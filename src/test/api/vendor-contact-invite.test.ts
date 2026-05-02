@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { getVendorById } from "@/lib/queries";
+import {
+  getUserByEmail,
+  getVendorContactEmail,
+  linkVendorContactByEmail,
+  validateOrgMembership,
+} from "@/lib/queries";
 import { POST as INVITE } from "@/app/api/vendors/[id]/contacts/[contactId]/invite/route";
 import { auth } from "@/lib/auth";
 import { getServerFeatureFlag } from "@/lib/posthog-server";
@@ -11,8 +16,7 @@ import {
   parseResponse,
 } from "../helpers";
 import { mocks } from "../setup";
-import { buildVendorWithRelations, TEST_VENDOR_ID } from "../fixtures/vendor";
-import type { VendorContact } from "@/types";
+import { TEST_VENDOR_ID } from "../fixtures/vendor";
 
 vi.mock("@/lib/posthog-server", () => ({
   getServerFeatureFlag: vi.fn(),
@@ -22,19 +26,7 @@ vi.mock("@/lib/posthog-server", () => ({
 const VENDOR_ID = TEST_VENDOR_ID;
 const CONTACT_ID = "33333333-3333-4333-8333-333333333333";
 const ORG_ID = "org-test-001";
-
-const fakeContact: VendorContact = {
-  id: CONTACT_ID,
-  vendor_id: VENDOR_ID,
-  name: "Bob Builder",
-  title: null,
-  email: "bob@test.com",
-  phone: null,
-  is_primary: true,
-  receives_rfq: true,
-  user_id: null,
-  created_at: "2024-01-01T00:00:00Z",
-};
+const CONTACT_EMAIL = "bob@test.com";
 
 const pmSession = mockSession();
 
@@ -42,18 +34,19 @@ const path = `/api/vendors/${VENDOR_ID}/contacts/${CONTACT_ID}/invite`;
 const params = buildParams({ id: VENDOR_ID, contactId: CONTACT_ID });
 
 const mockedFlag = vi.mocked(getServerFeatureFlag);
-const mockedGetVendor = vi.mocked(getVendorById);
+const mockedGetContactEmail = vi.mocked(getVendorContactEmail);
+const mockedGetUser = vi.mocked(getUserByEmail);
+const mockedIsMember = vi.mocked(validateOrgMembership);
+const mockedLink = vi.mocked(linkVendorContactByEmail);
 
 beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   mockedFlag.mockResolvedValue(true);
-  mockedGetVendor.mockResolvedValue(
-    buildVendorWithRelations({ contacts: [fakeContact] })
-  );
-  // Default: no existing user, no member
-  mocks.db.query.mockResolvedValue({ rows: [], rowCount: 0 });
-  // Stub createInvitation so the "invite" path doesn't blow up.
+  mockedGetContactEmail.mockResolvedValue(CONTACT_EMAIL);
+  mockedGetUser.mockResolvedValue(null);
+  mockedIsMember.mockResolvedValue(false);
+  mockedLink.mockResolvedValue(undefined);
   // @ts-expect-error — augmenting the mock auth.api shape
   auth.api.createInvitation = vi.fn().mockResolvedValue(undefined);
 });
@@ -67,28 +60,15 @@ describe("POST /api/vendors/[id]/contacts/[contactId]/invite", () => {
     expect(auth.api.createInvitation).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when vendor doesn't exist", async () => {
-    mockedGetVendor.mockResolvedValue(null);
-    const res = await INVITE(buildRequest(path, { method: "POST" }), params);
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 when contact isn't on the vendor", async () => {
-    mockedGetVendor.mockResolvedValue(
-      buildVendorWithRelations({ contacts: [] })
-    );
+  it("returns 404 when the contact isn't found in this org's vendor", async () => {
+    mockedGetContactEmail.mockResolvedValue(null);
     const res = await INVITE(buildRequest(path, { method: "POST" }), params);
     expect(res.status).toBe(404);
   });
 
   it("links to existing org member without sending an invite", async () => {
-    // 1st query: user lookup → returns existing user
-    // 2nd query: member lookup → returns membership row
-    // 3rd query: UPDATE vendor_contact (no rows returned)
-    mocks.db.query
-      .mockResolvedValueOnce({ rows: [{ id: "user-existing" }], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [{ "?column?": 1 }], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    mockedGetUser.mockResolvedValue({ id: "user-existing" });
+    mockedIsMember.mockResolvedValue(true);
 
     const res = await INVITE(buildRequest(path, { method: "POST" }), params);
     const { status, body } = await parseResponse<{ status: string }>(res);
@@ -96,33 +76,18 @@ describe("POST /api/vendors/[id]/contacts/[contactId]/invite", () => {
     expect(status).toBe(200);
     expect(body.status).toBe("linked");
     expect(auth.api.createInvitation).not.toHaveBeenCalled();
-
-    // Verify the backfill UPDATE ran with the right ids
-    const updateCall = mocks.db.query.mock.calls.find(
-      ([sql]) =>
-        typeof sql === "string" && sql.includes("UPDATE vendor_contact")
-    );
-    expect(updateCall).toBeDefined();
-    expect(updateCall![1]).toEqual(["user-existing", CONTACT_ID]);
+    expect(mockedLink).toHaveBeenCalledWith("user-existing", CONTACT_EMAIL);
   });
 
-  it("matches user email case-insensitively", async () => {
-    const upperContact = { ...fakeContact, email: "BOB@Test.com" };
-    mockedGetVendor.mockResolvedValue(
-      buildVendorWithRelations({ contacts: [upperContact] })
-    );
-    mocks.db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+  it("looks up the user with a lowercased email", async () => {
+    mockedGetContactEmail.mockResolvedValue("BOB@Test.com");
 
     await INVITE(buildRequest(path, { method: "POST" }), params);
 
-    const userLookup = mocks.db.query.mock.calls[0];
-    expect(userLookup[0]).toMatch(/LOWER\(email\)/);
-    expect(userLookup[1]).toEqual(["bob@test.com"]);
+    expect(mockedGetUser).toHaveBeenCalledWith("bob@test.com");
   });
 
   it("sends a new invitation when no existing org member", async () => {
-    mocks.db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-
     const res = await INVITE(buildRequest(path, { method: "POST" }), params);
     const { status, body } = await parseResponse<{ status: string }>(res);
 
@@ -131,17 +96,30 @@ describe("POST /api/vendors/[id]/contacts/[contactId]/invite", () => {
     expect(auth.api.createInvitation).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({
-          email: "bob@test.com",
+          email: CONTACT_EMAIL,
           role: "vendor",
           organizationId: ORG_ID,
           resend: true,
         }),
       })
     );
+    expect(mockedLink).not.toHaveBeenCalled();
+  });
+
+  it("sends an invitation when the user exists but isn't an org member", async () => {
+    mockedGetUser.mockResolvedValue({ id: "user-elsewhere" });
+    mockedIsMember.mockResolvedValue(false);
+
+    const res = await INVITE(buildRequest(path, { method: "POST" }), params);
+    const { status, body } = await parseResponse<{ status: string }>(res);
+
+    expect(status).toBe(200);
+    expect(body.status).toBe("invited");
+    expect(auth.api.createInvitation).toHaveBeenCalled();
+    expect(mockedLink).not.toHaveBeenCalled();
   });
 
   it("returns 400 when createInvitation throws", async () => {
-    mocks.db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
     // @ts-expect-error — augmenting the mock auth.api shape
     auth.api.createInvitation = vi
       .fn()

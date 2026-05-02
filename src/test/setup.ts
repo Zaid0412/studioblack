@@ -378,6 +378,9 @@ vi.mock("@/lib/queries", () => ({
   listKycDocuments: vi.fn().mockResolvedValue([]),
   removeKycDocument: vi.fn().mockResolvedValue(true),
   setKycStatus: vi.fn().mockResolvedValue(null),
+  // Vendor invite / linking (Feature 8)
+  getVendorContactEmail: vi.fn().mockResolvedValue(null),
+  linkVendorContactByEmail: vi.fn().mockResolvedValue(undefined),
   // Vendor Portal — Self-Service (Feature 8.5)
   getVendorIdByUserId: vi.fn().mockResolvedValue(null),
   getVendorSelfById: vi.fn().mockResolvedValue(null),
