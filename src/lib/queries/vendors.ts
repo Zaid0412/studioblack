@@ -807,6 +807,7 @@ export interface UpdateVendorSelfInput {
   address?: Record<string, string | undefined> | null;
 }
 
+/** Apply the vendor-side patch to a vendor row by id (no org guard). */
 export async function updateVendorSelf(
   vendorId: string,
   patch: UpdateVendorSelfInput
