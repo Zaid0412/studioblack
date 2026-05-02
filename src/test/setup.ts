@@ -378,6 +378,22 @@ vi.mock("@/lib/queries", () => ({
   listKycDocuments: vi.fn().mockResolvedValue([]),
   removeKycDocument: vi.fn().mockResolvedValue(true),
   setKycStatus: vi.fn().mockResolvedValue(null),
+  // Vendor Portal — Self-Service (Feature 8.5)
+  getVendorIdByUserId: vi.fn().mockResolvedValue(null),
+  getVendorSelfById: vi.fn().mockResolvedValue(null),
+  getVendorBankDetailsEnvelopeById: vi
+    .fn()
+    .mockResolvedValue({ exists: false, envelope: null }),
+  updateVendorSelf: vi.fn().mockResolvedValue(null),
+  updateVendorBankDetailsById: vi.fn().mockResolvedValue(true),
+  listKycDocumentsByVendorId: vi.fn().mockResolvedValue([]),
+  addKycDocumentBySelf: vi.fn().mockResolvedValue(null),
+  removeKycDocumentBySelf: vi.fn().mockResolvedValue(true),
+  addVendorContactSelf: vi
+    .fn()
+    .mockResolvedValue({ id: "contact-test-001" }),
+  updateVendorContactSelf: vi.fn().mockResolvedValue(true),
+  deleteVendorContactSelf: vi.fn().mockResolvedValue({ ok: true }),
   // Rate Contracts (Feature 7.5)
   listRateContracts: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRateContractById: vi.fn().mockResolvedValue(null),

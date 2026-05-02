@@ -125,6 +125,14 @@ export const API = {
   vendorKycDocument:     (id: string, docId: string)   => `/api/vendors/${id}/kyc-documents/${docId}`,
   vendorKycStatus:       (id: string)                  => `/api/vendors/${id}/kyc-status`,
 
+  // ── Vendor Portal — Self-Service (Feature 8.5) ─
+  vendorPortalMe:              ()                       => "/api/vendor-portal/me",
+  vendorPortalBankDetails:     ()                       => "/api/vendor-portal/me/bank-details",
+  vendorPortalKycDocuments:    ()                       => "/api/vendor-portal/me/kyc-documents",
+  vendorPortalKycDocument:     (docId: string)          => `/api/vendor-portal/me/kyc-documents/${docId}`,
+  vendorPortalContacts:        ()                       => "/api/vendor-portal/me/contacts",
+  vendorPortalContact:         (contactId: string)      => `/api/vendor-portal/me/contacts/${contactId}`,
+
   // ── Rate Contracts (Feature 7.5) ────────────────
   rateContracts:               ()                                    => "/api/rate-contracts",
   rateContract:                (id: string)                          => `/api/rate-contracts/${id}`,

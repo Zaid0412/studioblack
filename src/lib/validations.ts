@@ -775,6 +775,33 @@ export const updateVendorSchema = z.object({
   trades: z.array(vendorTradeSchema).max(50).optional(),
 });
 
+// ─── Vendor Portal — Self-Service (F8.5) ─────────────────────────────────────
+//
+// Vendors edit a strict subset of their own vendor record. PM-controlled
+// fields (companyName, vendorCode, status, payment terms, currency, VAT,
+// taxId, kyc_status, notes) are intentionally omitted — they're not in the
+// schema, so a tampering client can't sneak them through.
+
+export const vendorPortalUpdateSchema = z.object({
+  tradingName: z.string().max(255).optional().nullable(),
+  address: vendorAddressSchema.optional().nullable(),
+});
+
+export const vendorPortalContactCreateSchema = vendorContactSchema;
+
+/**
+ * Patch shape — every field is optional, and string fields accept `null` so
+ * the vendor can clear an existing value (e.g. removing a phone number).
+ */
+export const vendorPortalContactPatchSchema = z.object({
+  name: trimmedString.max(255).optional(),
+  title: z.string().max(100).optional().nullable(),
+  email: z.string().email().optional(),
+  phone: z.string().max(50).optional().nullable(),
+  isPrimary: z.boolean().optional(),
+  receivesRfq: z.boolean().optional(),
+});
+
 // ─── Vendor KYC (F7.1) ───────────────────────────────────────────────────────
 
 export const vendorKycDocumentSchema = z.object({

@@ -17,6 +17,7 @@ import {
   Receipt,
   ScrollText,
   TrendingUp,
+  UserCog,
   Sun,
   Moon,
 } from "lucide-react";
@@ -129,6 +130,7 @@ export function Sidebar({
       icon: TrendingUp,
     },
     { href: "/vendor-portal/invoices", label: t("invoices"), icon: Receipt },
+    { href: "/vendor-portal/profile", label: t("profile"), icon: UserCog },
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
