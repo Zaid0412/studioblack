@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useVendor } from "@/hooks/useVendors";
 import type { VendorWithRelations } from "@/types";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFlag } from "@/hooks/useFlag";
 import { VendorStatusBadge } from "./VendorStatusBadge";
 import { VendorKycStatusDot } from "./VendorKycStatusBadge";
 import { VendorRatingPicker } from "./VendorRatingPicker";
@@ -67,6 +68,7 @@ export function VendorDrawer({
   const tCommon = useTranslations("common");
   const { role } = useUserRole();
   const isPm = role === "pm";
+  const vendorPortalEnabled = useFlag("vendorPortal");
 
   const { vendor, isLoading, mutate: mutateVendor } = useVendor(vendorId);
 
@@ -327,7 +329,7 @@ export function VendorDrawer({
                                     {t("rfqOptOut")}
                                   </Badge>
                                 )}
-                                {isPm && !c.user_id && (
+                                {isPm && vendorPortalEnabled && !c.user_id && (
                                   <Button
                                     variant="secondary"
                                     size="sm"

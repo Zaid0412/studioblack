@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/withAuth";
 import { getVendorById } from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { getServerFeatureFlag } from "@/lib/posthog-server";
 
 /**
  * POST /api/vendors/[id]/contacts/[contactId]/invite
@@ -22,9 +23,19 @@ import { logger } from "@/lib/logger";
  */
 export const POST = withAuth(
   { allowedRoles: ["pm"] },
-  async (_req, { orgId, requestId }, params) => {
+  async (_req, { orgId, user, requestId }, params) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
+    }
+
+    // Gate vendor invites until F9/F14/F15/F16.6 ship — flag off in production,
+    // on in preview/development. Defence-in-depth: the UI button is also flagged.
+    const enabled = await getServerFeatureFlag("vendorPortal", user.id, false);
+    if (!enabled) {
+      return NextResponse.json(
+        { error: "Vendor portal is not enabled" },
+        { status: 403 }
+      );
     }
 
     const vendorId = params.id;

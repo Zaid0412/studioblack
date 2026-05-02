@@ -12,6 +12,7 @@ const FLAG_FALLBACKS = {
   boq: true,
   vendorManagement: false,
   rateContracts: false,
+  vendorPortal: false,
 } as const;
 
 export type FlagKey = keyof typeof FLAG_FALLBACKS;
