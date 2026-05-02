@@ -1114,3 +1114,46 @@ export async function deleteVendorContactSelf(
     client.release();
   }
 }
+
+/**
+ * Slim lookup for the invite endpoint — fetches just the contact email and
+ * verifies the contact belongs to a vendor in the given org. Avoids the
+ * heavy joins in `getVendorById` when only the email is needed.
+ */
+export async function getVendorContactEmail(
+  orgId: string,
+  vendorId: string,
+  contactId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT vc.email
+     FROM vendor_contact vc
+     JOIN vendor v ON v.id = vc.vendor_id
+     WHERE vc.id = $1 AND v.id = $2 AND v.org_id = $3`,
+    [contactId, vendorId, orgId]
+  );
+  return row?.email ?? null;
+}
+
+/**
+ * Backfill `vendor_contact.user_id` for any unlinked contact whose email
+ * matches the given user. Case-insensitive (better-auth stores emails
+ * lowercased; older contact rows may not be).
+ *
+ * Idempotent — only updates rows where `user_id IS NULL`.
+ */
+export async function linkVendorContactByEmail(
+  userId: string,
+  email: string
+): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE vendor_contact
+     SET user_id = $1
+     WHERE LOWER(email) = LOWER($2) AND user_id IS NULL`,
+    [userId, email]
+  );
+}

@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
+import type { Member } from "better-auth/plugins/organization";
 
 import { ac, owner, admin, member, client, vendor } from "@/lib/permissions";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/lib/email";
 import { features } from "@/config/features";
 import { getPool } from "@/lib/db";
+import { linkVendorContactByEmail } from "@/lib/queries";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
 
@@ -160,11 +162,10 @@ export const auth = betterAuth({
   databaseHooks: {
     member: {
       create: {
-        // Catches the existing-user-accepts-vendor-invite path (user.create.after
-        // doesn't fire when no new user is being created). Idempotent — also
-        // safe to run for the new-user path; the vendor_contact.user_id update
-        // is a no-op once linked.
-        after: async (member: { userId: string; role: string }) => {
+        // Catches the existing-user-accepts-vendor-invite path; user.create.after
+        // doesn't fire when better-auth reuses an existing user account.
+        // Idempotent with the new-user path (user.create.after also links).
+        after: async (member: Member) => {
           if (member.role !== "vendor") return;
           const pool = getPool();
           const { rows } = await pool.query(
@@ -174,20 +175,18 @@ export const auth = betterAuth({
           if (rows.length === 0) return;
           const { email, role: currentRole } = rows[0];
 
-          await pool.query(
-            `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
-            [member.userId, email]
-          );
+          // Never demote a PM. Architects / clients accepting a vendor invite
+          // are explicitly being re-roled.
+          const shouldRerole = currentRole !== "pm" && currentRole !== "vendor";
 
-          // Only flip user.role to vendor if the user isn't a PM (admin-class —
-          // never demote) and isn't already vendor. Architects / clients accepting
-          // a vendor invite are explicitly being re-roled.
-          if (currentRole !== "pm" && currentRole !== "vendor") {
-            await pool.query(
-              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
-              [member.userId]
-            );
-          }
+          await Promise.all([
+            linkVendorContactByEmail(member.userId, email),
+            shouldRerole
+              ? pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                  member.userId,
+                ])
+              : Promise.resolve(),
+          ]);
         },
       },
     },
@@ -196,7 +195,6 @@ export const auth = betterAuth({
         after: async (user) => {
           const pool = getPool();
 
-          // Check if there's a pending org invitation with role "client"
           const { rows: invRows } = await pool.query(
             `SELECT 1 FROM "invitation" WHERE email = $1 AND role = 'client' AND status = 'pending' LIMIT 1`,
             [user.email]
@@ -209,20 +207,17 @@ export const auth = betterAuth({
             return;
           }
 
-          // Pending org invitation with role "vendor" — same flow as client.
           const { rows: vendorInvRows } = await pool.query(
             `SELECT 1 FROM "invitation" WHERE email = $1 AND role = 'vendor' AND status = 'pending' LIMIT 1`,
             [user.email]
           );
           if (vendorInvRows.length > 0) {
-            await pool.query(
-              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
-              [user.id]
-            );
-            await pool.query(
-              `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
-              [user.id, user.email]
-            );
+            await Promise.all([
+              pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                user.id,
+              ]),
+              linkVendorContactByEmail(user.id, user.email),
+            ]);
             return;
           }
 
@@ -241,18 +236,16 @@ export const auth = betterAuth({
 
           // Backward compat: email matches an unlinked vendor_contact → vendor role.
           const { rows: vcRows } = await pool.query(
-            `SELECT 1 FROM vendor_contact WHERE email = $1 AND user_id IS NULL LIMIT 1`,
+            `SELECT 1 FROM vendor_contact WHERE LOWER(email) = LOWER($1) AND user_id IS NULL LIMIT 1`,
             [user.email]
           );
           if (vcRows.length > 0) {
-            await pool.query(
-              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
-              [user.id]
-            );
-            await pool.query(
-              `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
-              [user.id, user.email]
-            );
+            await Promise.all([
+              pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                user.id,
+              ]),
+              linkVendorContactByEmail(user.id, user.email),
+            ]);
           }
         },
       },
