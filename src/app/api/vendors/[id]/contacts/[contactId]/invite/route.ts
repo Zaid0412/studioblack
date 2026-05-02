@@ -41,15 +41,17 @@ export const POST = withAuth(
 
     const pool = getPool();
 
-    // Look up an existing user with this email.
+    // better-auth normalises emails to lowercase before storing — match the
+    // same way to avoid casing mismatches falling through to createInvitation
+    // (which does its own normalisation and errors with "already a member").
+    const normalisedEmail = contact.email.toLowerCase();
     const { rows: userRows } = await pool.query(
-      `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
-      [contact.email]
+      `SELECT id FROM "user" WHERE LOWER(email) = $1 LIMIT 1`,
+      [normalisedEmail]
     );
     const existingUserId = userRows[0]?.id as string | undefined;
 
     if (existingUserId) {
-      // Is the existing user already a member of this org?
       const { rows: memberRows } = await pool.query(
         `SELECT 1 FROM "member" WHERE "userId" = $1 AND "organizationId" = $2 LIMIT 1`,
         [existingUserId, orgId]

@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const settings = useSettings();
   const { role } = useUserRole();
   const isClient = role === "client";
+  const isVendor = role === "vendor";
   const elementLibraryEnabled = useFlag("elementLibrary");
 
   if (settings.loading) {
@@ -117,7 +118,7 @@ export default function SettingsPage() {
 
       <PreferencesSection />
 
-      {!isClient && elementLibraryEnabled && (
+      {!isClient && !isVendor && elementLibraryEnabled && (
         <Link
           href="/settings/element-categories"
           className="block rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-5 transition-colors hover:border-border-light hover:bg-bg-elevated"
