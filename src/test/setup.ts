@@ -389,9 +389,7 @@ vi.mock("@/lib/queries", () => ({
   listKycDocumentsByVendorId: vi.fn().mockResolvedValue([]),
   addKycDocumentBySelf: vi.fn().mockResolvedValue(null),
   removeKycDocumentBySelf: vi.fn().mockResolvedValue(true),
-  addVendorContactSelf: vi
-    .fn()
-    .mockResolvedValue({ id: "contact-test-001" }),
+  addVendorContactSelf: vi.fn().mockResolvedValue({ id: "contact-test-001" }),
   updateVendorContactSelf: vi.fn().mockResolvedValue(true),
   deleteVendorContactSelf: vi.fn().mockResolvedValue({ ok: true }),
   // Rate Contracts (Feature 7.5)

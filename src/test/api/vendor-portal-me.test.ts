@@ -9,7 +9,10 @@ import {
   updateVendorContactSelf,
   deleteVendorContactSelf,
 } from "@/lib/queries";
-import { GET as GET_ME, PATCH as PATCH_ME } from "@/app/api/vendor-portal/me/route";
+import {
+  GET as GET_ME,
+  PATCH as PATCH_ME,
+} from "@/app/api/vendor-portal/me/route";
 import { POST as POST_KYC } from "@/app/api/vendor-portal/me/kyc-documents/route";
 import { DELETE as DELETE_KYC } from "@/app/api/vendor-portal/me/kyc-documents/[docId]/route";
 import { POST as POST_CONTACT } from "@/app/api/vendor-portal/me/contacts/route";
@@ -56,7 +59,10 @@ beforeEach(() => {
   mockedGetVendorId.mockResolvedValue(TEST_VENDOR_ID);
   mockedGetVendorSelf.mockResolvedValue(buildVendorWithRelations());
   // ensureVendorActive() reads vendor.status via raw SQL
-  mocks.db.query.mockResolvedValue({ rows: [{ status: "active" }], rowCount: 1 });
+  mocks.db.query.mockResolvedValue({
+    rows: [{ status: "active" }],
+    rowCount: 1,
+  });
 });
 
 describe("GET /api/vendor-portal/me", () => {
