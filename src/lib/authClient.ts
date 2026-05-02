@@ -5,7 +5,7 @@ import {
   magicLinkClient,
 } from "better-auth/client/plugins";
 import type { auth } from "@/lib/auth";
-import { ac, owner, admin, member, client } from "@/lib/permissions";
+import { ac, owner, admin, member, client, vendor } from "@/lib/permissions";
 
 /**
  * Client-side Better Auth instance for React components.
@@ -19,7 +19,7 @@ import { ac, owner, admin, member, client } from "@/lib/permissions";
 export const authClient = createAuthClient({
   plugins: [
     inferAdditionalFields<typeof auth>(),
-    organizationClient({ ac, roles: { owner, admin, member, client } }),
+    organizationClient({ ac, roles: { owner, admin, member, client, vendor } }),
     magicLinkClient(),
   ],
 });

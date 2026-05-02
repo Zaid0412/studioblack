@@ -61,6 +61,18 @@ export default async function DashboardLayout({
   ]);
   if (fullOrg) orgName = fullOrg.name ?? null;
 
+  // Vendors are scoped to /vendor-portal/* and /settings/*. Block them from
+  // PM/architect/client surfaces — they would only see empty states anyway.
+  if (effectiveRole === "vendor") {
+    const pathname = reqHeaders.get("x-pathname") ?? "";
+    if (
+      !pathname.startsWith("/vendor-portal") &&
+      !pathname.startsWith("/settings")
+    ) {
+      redirect("/vendor-portal");
+    }
+  }
+
   const user: User = {
     id: session.user.id,
     name: session.user.name,

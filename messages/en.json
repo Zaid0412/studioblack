@@ -131,7 +131,12 @@
     "audit": "Audit History",
     "logout": "Log Out",
     "collapseSidebar": "Collapse sidebar",
-    "expandSidebar": "Expand sidebar"
+    "expandSidebar": "Expand sidebar",
+    "vendorDashboard": "Dashboard",
+    "rfqs": "RFQs",
+    "purchaseOrders": "Purchase Orders",
+    "progress": "Progress",
+    "invoices": "Invoices"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -992,6 +997,12 @@
     "primary": "Primary",
     "receivesRfq": "Receives RFQ emails",
     "rfqOptOut": "RFQ opt-out",
+    "inviteToPortal": "Invite to vendor portal",
+    "portalLinked": "Linked",
+    "portalLinkedDescription": "{email} is already in the organisation — linked to this contact.",
+    "inviteSent": "Invitation sent",
+    "inviteSentDescription": "An invite has been sent to {email}.",
+    "inviteError": "Couldn't send the invitation. Please try again.",
     "tradesLabel": "Trades",
     "addTrade": "Add trade",
     "removeTrade": "Remove trade",
@@ -1159,5 +1170,23 @@
     "toastItemRemoved": "Item removed",
     "toastRateUpdated": "Rate updated",
     "editRateTooltip": "Click to edit rate"
+  },
+  "vendorPortal": {
+    "title": "Vendor Dashboard",
+    "subtitle": "Welcome to your portal — RFQs, purchase orders, and progress reports in one place.",
+    "openRfqs": "Open RFQs",
+    "activePOs": "Active POs",
+    "pendingInvoices": "Pending Invoices",
+    "overallCompletion": "Overall Completion",
+    "noRfqs": "No open RFQs",
+    "noRfqsHint": "RFQs assigned to your company will appear here.",
+    "noPOs": "No active purchase orders",
+    "noPOsHint": "POs issued to your company will appear here.",
+    "noProgress": "Nothing to report",
+    "noProgressHint": "Once you have active POs, daily progress entries will appear here.",
+    "noInvoices": "No invoices",
+    "noInvoicesHint": "Invoices you raise against POs will appear here.",
+    "comingSoon": "Coming soon",
+    "comingSoonHint": "This section is part of an upcoming release."
   }
 }

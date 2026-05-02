@@ -131,7 +131,12 @@
     "audit": "Denetim Geçmişi",
     "logout": "Çıkış Yap",
     "collapseSidebar": "Kenar çubuğunu daralt",
-    "expandSidebar": "Kenar çubuğunu genişlet"
+    "expandSidebar": "Kenar çubuğunu genişlet",
+    "vendorDashboard": "Kontrol Paneli",
+    "rfqs": "Teklif Talepleri",
+    "purchaseOrders": "Satın Alma Siparişleri",
+    "progress": "İlerleme",
+    "invoices": "Faturalar"
   },
   "dashboard": {
     "title": "Kontrol Paneli",
@@ -992,6 +997,12 @@
     "primary": "Birincil",
     "receivesRfq": "Teklif e-postaları alır",
     "rfqOptOut": "Teklif almıyor",
+    "inviteToPortal": "Tedarikçi portalına davet et",
+    "portalLinked": "Bağlı",
+    "portalLinkedDescription": "{email} zaten organizasyonda — bu kişiyle ilişkilendirildi.",
+    "inviteSent": "Davet gönderildi",
+    "inviteSentDescription": "{email} adresine bir davet gönderildi.",
+    "inviteError": "Davet gönderilemedi. Lütfen tekrar deneyin.",
     "tradesLabel": "Esnaflık dalları",
     "addTrade": "Dal ekle",
     "removeTrade": "Dalı kaldır",
@@ -1159,5 +1170,23 @@
     "toastItemRemoved": "Kalem kaldırıldı",
     "toastRateUpdated": "Fiyat güncellendi",
     "editRateTooltip": "Fiyatı düzenlemek için tıklayın"
+  },
+  "vendorPortal": {
+    "title": "Tedarikçi Paneli",
+    "subtitle": "Portalınıza hoş geldiniz — teklif talepleri, siparişler ve ilerleme raporları tek yerde.",
+    "openRfqs": "Açık Teklif Talepleri",
+    "activePOs": "Aktif Siparişler",
+    "pendingInvoices": "Bekleyen Faturalar",
+    "overallCompletion": "Genel Tamamlanma",
+    "noRfqs": "Açık teklif talebi yok",
+    "noRfqsHint": "Şirketinize atanan teklif talepleri burada görünecek.",
+    "noPOs": "Aktif satın alma siparişi yok",
+    "noPOsHint": "Şirketinize gönderilen siparişler burada görünecek.",
+    "noProgress": "Raporlanacak bir şey yok",
+    "noProgressHint": "Aktif siparişleriniz olduğunda günlük ilerleme kayıtları burada görünecek.",
+    "noInvoices": "Fatura yok",
+    "noInvoicesHint": "Siparişlere karşı kestiğiniz faturalar burada görünecek.",
+    "comingSoon": "Yakında",
+    "comingSoonHint": "Bu bölüm yakında çıkacak bir sürümde yer alacak."
   }
 }

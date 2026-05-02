@@ -56,3 +56,15 @@ export const client = ac.newRole({
   member: [],
   invitation: [],
 });
+
+/**
+ * vendor — External suppliers invited via vendor_contact. No project or
+ *          org management permissions. Access is scoped to their own
+ *          vendor record (and downstream RFQs/POs in F9/F14).
+ */
+export const vendor = ac.newRole({
+  project: [],
+  organization: [],
+  member: [],
+  invitation: [],
+});

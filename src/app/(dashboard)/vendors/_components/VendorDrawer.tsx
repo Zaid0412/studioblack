@@ -10,9 +10,13 @@ import {
   Trash2,
   Tag,
   ShieldCheck,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/useToast";
+import { vendors as vendorsApi } from "@/lib/api";
 import {
   Sheet,
   SheetContent,
@@ -27,6 +31,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useVendor } from "@/hooks/useVendors";
 import type { VendorWithRelations } from "@/types";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFlag } from "@/hooks/useFlag";
 import { VendorStatusBadge } from "./VendorStatusBadge";
 import { VendorKycStatusDot } from "./VendorKycStatusBadge";
 import { VendorRatingPicker } from "./VendorRatingPicker";
@@ -63,6 +68,7 @@ export function VendorDrawer({
   const tCommon = useTranslations("common");
   const { role } = useUserRole();
   const isPm = role === "pm";
+  const vendorPortalEnabled = useFlag("vendorPortal");
 
   const { vendor, isLoading, mutate: mutateVendor } = useVendor(vendorId);
 
@@ -70,6 +76,38 @@ export function VendorDrawer({
   const [confirmSoft, setConfirmSoft] = useState(false);
   const [confirmHard, setConfirmHard] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [invitingContactId, setInvitingContactId] = useState<string | null>(
+    null
+  );
+
+  const handleInviteContact = async (contactId: string, email: string) => {
+    setInvitingContactId(contactId);
+    try {
+      const result = await vendorsApi.inviteContact(vendorId!, contactId);
+      if (result.status === "linked") {
+        toast({
+          title: t("portalLinked"),
+          description: t("portalLinkedDescription", { email }),
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: t("inviteSent"),
+          description: t("inviteSentDescription", { email }),
+          variant: "success",
+        });
+      }
+      await mutateVendor();
+    } catch (err) {
+      toast({
+        title: tCommon("error"),
+        description: err instanceof Error ? err.message : t("inviteError"),
+        variant: "error",
+      });
+    } finally {
+      setInvitingContactId(null);
+    }
+  };
 
   const open = vendorId !== null;
 
@@ -278,12 +316,35 @@ export function VendorDrawer({
                                     {t("primary")}
                                   </Badge>
                                 )}
+                                {c.user_id && (
+                                  <Badge variant="active" className="shrink-0">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    {t("portalLinked")}
+                                  </Badge>
+                                )}
                               </div>
-                              {!c.receives_rfq && (
-                                <Badge variant="archived">
-                                  {t("rfqOptOut")}
-                                </Badge>
-                              )}
+                              <div className="flex items-center gap-2 shrink-0">
+                                {!c.receives_rfq && (
+                                  <Badge variant="archived">
+                                    {t("rfqOptOut")}
+                                  </Badge>
+                                )}
+                                {isPm && vendorPortalEnabled && !c.user_id && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    disabled={invitingContactId === c.id}
+                                    onClick={() =>
+                                      handleInviteContact(c.id, c.email)
+                                    }
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
+                                    {invitingContactId === c.id
+                                      ? tCommon("loading")
+                                      : t("inviteToPortal")}
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             {c.title && (
                               <p className="text-xs text-text-muted">

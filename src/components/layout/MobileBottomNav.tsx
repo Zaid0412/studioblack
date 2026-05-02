@@ -10,6 +10,9 @@ import {
   History,
   Briefcase,
   Layers,
+  FileText,
+  Receipt,
+  ScrollText,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFlag } from "@/hooks/useFlag";
@@ -34,6 +37,27 @@ export function MobileBottomNav() {
   const elementLibraryEnabled = useFlag("elementLibrary");
 
   const tabs = useMemo(() => {
+    if (role === "vendor") {
+      return [
+        {
+          href: "/vendor-portal",
+          label: t("vendorDashboard"),
+          icon: LayoutDashboard,
+        },
+        { href: "/vendor-portal/rfqs", label: t("rfqs"), icon: FileText },
+        {
+          href: "/vendor-portal/purchase-orders",
+          label: t("purchaseOrders"),
+          icon: ScrollText,
+        },
+        {
+          href: "/vendor-portal/invoices",
+          label: t("invoices"),
+          icon: Receipt,
+        },
+      ] satisfies Tab[];
+    }
+
     const allTabs: Tab[] = [
       { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
       { href: "/projects", label: t("projects"), icon: FolderOpen },

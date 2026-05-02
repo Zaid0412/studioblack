@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
 
-import { ac, owner, admin, member, client } from "@/lib/permissions";
+import { ac, owner, admin, member, client, vendor } from "@/lib/permissions";
 import {
   sendMagicLinkEmail,
   sendInvitationEmail,
@@ -158,6 +158,39 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    member: {
+      create: {
+        // Catches the existing-user-accepts-vendor-invite path (user.create.after
+        // doesn't fire when no new user is being created). Idempotent — also
+        // safe to run for the new-user path; the vendor_contact.user_id update
+        // is a no-op once linked.
+        after: async (member: { userId: string; role: string }) => {
+          if (member.role !== "vendor") return;
+          const pool = getPool();
+          const { rows } = await pool.query(
+            `SELECT email, role FROM "user" WHERE id = $1`,
+            [member.userId]
+          );
+          if (rows.length === 0) return;
+          const { email, role: currentRole } = rows[0];
+
+          await pool.query(
+            `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
+            [member.userId, email]
+          );
+
+          // Only flip user.role to vendor if the user isn't a PM (admin-class —
+          // never demote) and isn't already vendor. Architects / clients accepting
+          // a vendor invite are explicitly being re-roled.
+          if (currentRole !== "pm" && currentRole !== "vendor") {
+            await pool.query(
+              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
+              [member.userId]
+            );
+          }
+        },
+      },
+    },
     user: {
       create: {
         after: async (user) => {
@@ -176,7 +209,24 @@ export const auth = betterAuth({
             return;
           }
 
-          // Backward compat: if the email matches a project's client_email, set role to "client"
+          // Pending org invitation with role "vendor" — same flow as client.
+          const { rows: vendorInvRows } = await pool.query(
+            `SELECT 1 FROM "invitation" WHERE email = $1 AND role = 'vendor' AND status = 'pending' LIMIT 1`,
+            [user.email]
+          );
+          if (vendorInvRows.length > 0) {
+            await pool.query(
+              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
+              [user.id]
+            );
+            await pool.query(
+              `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
+              [user.id, user.email]
+            );
+            return;
+          }
+
+          // Backward compat: email matches a project's client_email → client role.
           const { rows } = await pool.query(
             `SELECT 1 FROM project WHERE client_email = $1 LIMIT 1`,
             [user.email]
@@ -186,6 +236,23 @@ export const auth = betterAuth({
               `UPDATE "user" SET role = 'client' WHERE id = $1`,
               [user.id]
             );
+            return;
+          }
+
+          // Backward compat: email matches an unlinked vendor_contact → vendor role.
+          const { rows: vcRows } = await pool.query(
+            `SELECT 1 FROM vendor_contact WHERE email = $1 AND user_id IS NULL LIMIT 1`,
+            [user.email]
+          );
+          if (vcRows.length > 0) {
+            await pool.query(
+              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
+              [user.id]
+            );
+            await pool.query(
+              `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
+              [user.id, user.email]
+            );
           }
         },
       },
@@ -194,7 +261,7 @@ export const auth = betterAuth({
   plugins: [
     organization({
       ac,
-      roles: { owner, admin, member, client },
+      roles: { owner, admin, member, client, vendor },
       async sendInvitationEmail({ id, email, organization: org, inviter }) {
         const baseUrl = getBaseURL();
         const inviteLink = `${baseUrl}/register?invitationId=${id}&email=${encodeURIComponent(email)}`;
