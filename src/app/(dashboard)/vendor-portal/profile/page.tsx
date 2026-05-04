@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { useResyncFromProp } from "@/hooks/useResyncFromProp";
 import { AlertTriangle, Save, Star, X, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -189,21 +190,13 @@ function OverviewTab({
   );
   const [submitting, setSubmitting] = useState(false);
 
-  // Resync local state when the parent refetches the vendor record. Stringify
-  // the server payload so an SWR-returned new-but-equivalent reference doesn't
-  // clobber in-flight edits — only re-seed when the server data actually changed.
-  const lastSeedRef = useRef<string>("");
-  useEffect(() => {
-    const seed = JSON.stringify({
-      tradingName: vendor.trading_name ?? "",
-      address: vendor.address ?? null,
-    });
-    if (seed === lastSeedRef.current) return;
-    lastSeedRef.current = seed;
-    setTradingName(vendor.trading_name ?? "");
-    setAddress(buildAddress(vendor.address));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAddress is stable
-  }, [vendor.trading_name, vendor.address]);
+  useResyncFromProp(
+    { trading_name: vendor.trading_name, address: vendor.address },
+    (next) => {
+      setTradingName(next.trading_name ?? "");
+      setAddress(buildAddress(next.address));
+    }
+  );
 
   const setAddressField = (k: AddressField, v: string) =>
     setAddress((s) => ({ ...s, [k]: v }));
@@ -427,24 +420,12 @@ function ContactRow({
   const [phone, setPhone] = useState(contact.phone ?? "");
   const [submitting, setSubmitting] = useState(false);
 
-  // Resync local state when the parent refetches contacts. Without this the
-  // dirty check below compares against stale baseline values after a save
-  // round-trip.
-  const lastSeedRef = useRef<string>("");
-  useEffect(() => {
-    const seed = JSON.stringify({
-      name: contact.name,
-      title: contact.title ?? "",
-      email: contact.email,
-      phone: contact.phone ?? "",
-    });
-    if (seed === lastSeedRef.current) return;
-    lastSeedRef.current = seed;
-    setName(contact.name);
-    setTitle(contact.title ?? "");
-    setEmail(contact.email);
-    setPhone(contact.phone ?? "");
-  }, [contact.name, contact.title, contact.email, contact.phone]);
+  useResyncFromProp(contact, (next) => {
+    setName(next.name);
+    setTitle(next.title ?? "");
+    setEmail(next.email);
+    setPhone(next.phone ?? "");
+  });
 
   const dirty =
     name !== contact.name ||

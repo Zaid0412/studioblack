@@ -5,6 +5,7 @@ import {
   updateVendorSelf,
   logAuditSafe,
   AUDIT_ACTIONS,
+  AUDIT_SOURCES,
 } from "@/lib/queries";
 import { parseRequest, vendorPortalUpdateSchema } from "@/lib/validations";
 import {
@@ -58,13 +59,16 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
     }
     if (orgId) {
-      await logAuditSafe({
+      void logAuditSafe({
         orgId,
         actorId: user.id,
         action: AUDIT_ACTIONS.VENDOR_PROFILE_UPDATED,
         targetTable: "vendor",
         targetId: vendorId!,
-        metadata: { fields: Object.keys(parsed.data) },
+        metadata: {
+          fields: Object.keys(parsed.data),
+          source: AUDIT_SOURCES.SELF_SERVICE,
+        },
       });
     }
     return NextResponse.json({ vendor: updated });

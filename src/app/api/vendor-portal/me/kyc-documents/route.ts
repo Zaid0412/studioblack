@@ -5,6 +5,7 @@ import {
   listKycDocumentsByVendorId,
   logAuditSafe,
   AUDIT_ACTIONS,
+  AUDIT_SOURCES,
 } from "@/lib/queries";
 import { parseRequest, vendorKycDocumentSchema } from "@/lib/validations";
 import {
@@ -70,7 +71,7 @@ export const POST = withAuth(
         );
       }
       if (orgId) {
-        await logAuditSafe({
+        void logAuditSafe({
           orgId,
           actorId: user.id,
           action: AUDIT_ACTIONS.VENDOR_KYC_DOCUMENT_ADDED,
@@ -79,7 +80,7 @@ export const POST = withAuth(
           metadata: {
             doc_type: parsed.data.docType,
             kyc_status: result.vendorKycStatus,
-            source: "self_service",
+            source: AUDIT_SOURCES.SELF_SERVICE,
           },
         });
       }

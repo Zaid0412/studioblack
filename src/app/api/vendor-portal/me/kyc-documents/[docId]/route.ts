@@ -4,6 +4,7 @@ import {
   removeKycDocumentBySelf,
   logAuditSafe,
   AUDIT_ACTIONS,
+  AUDIT_SOURCES,
 } from "@/lib/queries";
 import {
   ensureVendorPortalEnabled,
@@ -36,13 +37,16 @@ export const DELETE = withAuth(
       );
     }
     if (orgId) {
-      await logAuditSafe({
+      void logAuditSafe({
         orgId,
         actorId: user.id,
         action: AUDIT_ACTIONS.VENDOR_KYC_DOCUMENT_REMOVED,
         targetTable: "vendor",
         targetId: vendorId!,
-        metadata: { doc_id: params.docId, source: "self_service" },
+        metadata: {
+          doc_id: params.docId,
+          source: AUDIT_SOURCES.SELF_SERVICE,
+        },
       });
     }
     return NextResponse.json({ success: true });

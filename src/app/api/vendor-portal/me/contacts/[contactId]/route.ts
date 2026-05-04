@@ -5,6 +5,7 @@ import {
   deleteVendorContactSelf,
   logAuditSafe,
   AUDIT_ACTIONS,
+  AUDIT_SOURCES,
 } from "@/lib/queries";
 import {
   parseRequest,
@@ -47,7 +48,7 @@ export const PATCH = withAuth(
         );
       }
       if (orgId) {
-        await logAuditSafe({
+        void logAuditSafe({
           orgId,
           actorId: user.id,
           action: AUDIT_ACTIONS.VENDOR_CONTACT_UPDATED,
@@ -56,7 +57,7 @@ export const PATCH = withAuth(
           metadata: {
             contact_id: params.contactId,
             fields: Object.keys(parsed.data),
-            source: "self_service",
+            source: AUDIT_SOURCES.SELF_SERVICE,
           },
         });
       }
@@ -91,13 +92,16 @@ export const DELETE = withAuth(
     const result = await deleteVendorContactSelf(vendorId!, params.contactId);
     if (result.ok) {
       if (orgId) {
-        await logAuditSafe({
+        void logAuditSafe({
           orgId,
           actorId: user.id,
           action: AUDIT_ACTIONS.VENDOR_CONTACT_REMOVED,
           targetTable: "vendor",
           targetId: vendorId!,
-          metadata: { contact_id: params.contactId, source: "self_service" },
+          metadata: {
+            contact_id: params.contactId,
+            source: AUDIT_SOURCES.SELF_SERVICE,
+          },
         });
       }
       return NextResponse.json({ success: true });

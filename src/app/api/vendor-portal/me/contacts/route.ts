@@ -4,6 +4,7 @@ import {
   addVendorContactSelf,
   logAuditSafe,
   AUDIT_ACTIONS,
+  AUDIT_SOURCES,
 } from "@/lib/queries";
 import {
   parseRequest,
@@ -36,7 +37,7 @@ export const POST = withAuth(
     try {
       const created = await addVendorContactSelf(vendorId!, parsed.data);
       if (orgId) {
-        await logAuditSafe({
+        void logAuditSafe({
           orgId,
           actorId: user.id,
           action: AUDIT_ACTIONS.VENDOR_CONTACT_ADDED,
@@ -45,7 +46,7 @@ export const POST = withAuth(
           metadata: {
             contact_id: created.id,
             email: parsed.data.email,
-            source: "self_service",
+            source: AUDIT_SOURCES.SELF_SERVICE,
           },
         });
       }

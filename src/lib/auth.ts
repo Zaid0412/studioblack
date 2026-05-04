@@ -271,9 +271,12 @@ export const auth = betterAuth({
             [user.id]
           );
           const currentRole = rows[0]?.role as string | undefined;
+          // New-user signups are already handled by user.create.after — bail
+          // here to avoid a redundant no-op UPDATE on vendor_contact.
+          if (currentRole === "vendor") return;
           // Never demote a PM. Architects / clients accepting a vendor invite
           // are explicitly being re-roled.
-          const shouldRerole = currentRole !== "pm" && currentRole !== "vendor";
+          const shouldRerole = currentRole !== "pm";
           await Promise.all([
             linkVendorContactByEmail(user.id, user.email),
             shouldRerole

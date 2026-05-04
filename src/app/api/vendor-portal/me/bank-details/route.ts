@@ -5,6 +5,7 @@ import {
   updateVendorBankDetailsById,
   logAuditSafe,
   AUDIT_ACTIONS,
+  AUDIT_SOURCES,
 } from "@/lib/queries";
 import { bankDetailsSchema } from "@/lib/validations";
 import {
@@ -92,13 +93,13 @@ export const PUT = withAuth(
         );
       }
       if (orgId) {
-        await logAuditSafe({
+        void logAuditSafe({
           orgId,
           actorId: user.id,
           action: AUDIT_ACTIONS.VENDOR_BANK_CLEAR,
           targetTable: "vendor",
           targetId: vendorId!,
-          metadata: { source: "self_service" },
+          metadata: { source: AUDIT_SOURCES.SELF_SERVICE },
         });
       }
       return NextResponse.json({ success: true });
@@ -128,13 +129,13 @@ export const PUT = withAuth(
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
     }
     if (orgId) {
-      await logAuditSafe({
+      void logAuditSafe({
         orgId,
         actorId: user.id,
         action: AUDIT_ACTIONS.VENDOR_BANK_WRITE,
         targetTable: "vendor",
         targetId: vendorId!,
-        metadata: { source: "self_service" },
+        metadata: { source: AUDIT_SOURCES.SELF_SERVICE },
       });
     }
     return NextResponse.json({ success: true });

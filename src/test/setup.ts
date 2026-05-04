@@ -420,8 +420,15 @@ vi.mock("@/lib/queries", () => ({
     VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
     VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
     VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
+    VENDOR_PROFILE_UPDATED: "vendor.profile.updated",
+    VENDOR_CONTACT_ADDED: "vendor.contact.added",
+    VENDOR_CONTACT_UPDATED: "vendor.contact.updated",
+    VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
     RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
     RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
+  } as const,
+  AUDIT_SOURCES: {
+    SELF_SERVICE: "self_service",
   } as const,
   getAuditEvents: vi.fn().mockResolvedValue([]),
 }));

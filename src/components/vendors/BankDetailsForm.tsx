@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Save, Trash2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useResyncFromProp } from "@/hooks/useResyncFromProp";
 import type { BankDetails } from "@/types";
 
 const EMPTY: Required<BankDetails> = {
@@ -47,16 +48,7 @@ export function BankDetailsForm({
   const [submitting, setSubmitting] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  // Re-seed only when the server payload actually changed — SWR returns a new
-  // reference on every revalidation, which would otherwise wipe in-flight edits
-  // when `revalidateOnFocus` fires while the user is typing.
-  const lastSeedRef = useRef<string>("");
-  useEffect(() => {
-    const seed = JSON.stringify(value ?? null);
-    if (seed === lastSeedRef.current) return;
-    lastSeedRef.current = seed;
-    setValues({ ...EMPTY, ...(value ?? {}) });
-  }, [value]);
+  useResyncFromProp(value, (next) => setValues({ ...EMPTY, ...(next ?? {}) }));
 
   const setField = (key: keyof BankDetails, v: string) =>
     setValues((s) => ({ ...s, [key]: v }));
