@@ -3,6 +3,8 @@ import { withAuth } from "@/lib/withAuth";
 import {
   updateVendorContactSelf,
   deleteVendorContactSelf,
+  logAuditSafe,
+  AUDIT_ACTIONS,
 } from "@/lib/queries";
 import {
   parseRequest,
@@ -15,8 +17,12 @@ import {
 
 /** PATCH /api/vendor-portal/me/contacts/[contactId] — edit one contact row. */
 export const PATCH = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (req, { user, vendorId }, params) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 30, windowMs: 60_000 },
+  },
+  async (req, { user, orgId, vendorId }, params) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -40,11 +46,26 @@ export const PATCH = withAuth(
           { status: 404 }
         );
       }
+      if (orgId) {
+        await logAuditSafe({
+          orgId,
+          actorId: user.id,
+          action: AUDIT_ACTIONS.VENDOR_CONTACT_UPDATED,
+          targetTable: "vendor",
+          targetId: vendorId!,
+          metadata: {
+            contact_id: params.contactId,
+            fields: Object.keys(parsed.data),
+            source: "self_service",
+          },
+        });
+      }
       return NextResponse.json({ success: true });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to update contact";
-      return NextResponse.json({ error: message }, { status: 400 });
+      const status = /duplicate|already exists/i.test(message) ? 409 : 400;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 );
@@ -55,8 +76,12 @@ export const PATCH = withAuth(
  * has to handle that case to avoid orphaning the link.
  */
 export const DELETE = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (_req, { user, vendorId }, params) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 30, windowMs: 60_000 },
+  },
+  async (_req, { user, orgId, vendorId }, params) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -64,7 +89,19 @@ export const DELETE = withAuth(
     if (suspended) return suspended;
 
     const result = await deleteVendorContactSelf(vendorId!, params.contactId);
-    if (result.ok) return NextResponse.json({ success: true });
+    if (result.ok) {
+      if (orgId) {
+        await logAuditSafe({
+          orgId,
+          actorId: user.id,
+          action: AUDIT_ACTIONS.VENDOR_CONTACT_REMOVED,
+          targetTable: "vendor",
+          targetId: vendorId!,
+          metadata: { contact_id: params.contactId, source: "self_service" },
+        });
+      }
+      return NextResponse.json({ success: true });
+    }
     if (result.reason === "linked") {
       return NextResponse.json(
         {

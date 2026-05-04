@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { getVendorSelfById, updateVendorSelf } from "@/lib/queries";
+import {
+  getVendorSelfById,
+  updateVendorSelf,
+  logAuditSafe,
+  AUDIT_ACTIONS,
+} from "@/lib/queries";
 import { parseRequest, vendorPortalUpdateSchema } from "@/lib/validations";
 import {
   ensureVendorPortalEnabled,
@@ -24,15 +29,19 @@ export const GET = withAuth(
     }
     return NextResponse.json({
       vendor,
-      suspended: vendor.status === "inactive",
+      suspended: vendor.status !== "active",
     });
   }
 );
 
 /** PATCH /api/vendor-portal/me — update the whitelisted self-editable fields. */
 export const PATCH = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (req, { user, vendorId }) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 20, windowMs: 60_000 },
+  },
+  async (req, { user, orgId, vendorId }) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -47,6 +56,16 @@ export const PATCH = withAuth(
     const updated = await updateVendorSelf(vendorId!, parsed.data);
     if (!updated) {
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+    }
+    if (orgId) {
+      await logAuditSafe({
+        orgId,
+        actorId: user.id,
+        action: AUDIT_ACTIONS.VENDOR_PROFILE_UPDATED,
+        targetTable: "vendor",
+        targetId: vendorId!,
+        metadata: { fields: Object.keys(parsed.data) },
+      });
     }
     return NextResponse.json({ vendor: updated });
   }

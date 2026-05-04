@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { addVendorContactSelf } from "@/lib/queries";
+import {
+  addVendorContactSelf,
+  logAuditSafe,
+  AUDIT_ACTIONS,
+} from "@/lib/queries";
 import {
   parseRequest,
   vendorPortalContactCreateSchema,
@@ -12,8 +16,12 @@ import {
 
 /** POST /api/vendor-portal/me/contacts — append a contact row. */
 export const POST = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (req, { user, vendorId }) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 20, windowMs: 60_000 },
+  },
+  async (req, { user, orgId, vendorId }) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -27,11 +35,27 @@ export const POST = withAuth(
 
     try {
       const created = await addVendorContactSelf(vendorId!, parsed.data);
+      if (orgId) {
+        await logAuditSafe({
+          orgId,
+          actorId: user.id,
+          action: AUDIT_ACTIONS.VENDOR_CONTACT_ADDED,
+          targetTable: "vendor",
+          targetId: vendorId!,
+          metadata: {
+            contact_id: created.id,
+            email: parsed.data.email,
+            source: "self_service",
+          },
+        });
+      }
       return NextResponse.json(created, { status: 201 });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to add contact";
-      return NextResponse.json({ error: message }, { status: 400 });
+      // Duplicate-email conflicts surface as a 409, anything else is a 400.
+      const status = /duplicate|already exists/i.test(message) ? 409 : 400;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 );

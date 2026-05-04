@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Save, Trash2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,14 @@ export function BankDetailsForm({
   const [submitting, setSubmitting] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
 
+  // Re-seed only when the server payload actually changed — SWR returns a new
+  // reference on every revalidation, which would otherwise wipe in-flight edits
+  // when `revalidateOnFocus` fires while the user is typing.
+  const lastSeedRef = useRef<string>("");
   useEffect(() => {
+    const seed = JSON.stringify(value ?? null);
+    if (seed === lastSeedRef.current) return;
+    lastSeedRef.current = seed;
     setValues({ ...EMPTY, ...(value ?? {}) });
   }, [value]);
 

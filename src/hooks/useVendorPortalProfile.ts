@@ -128,6 +128,7 @@ export function useVendorMeKyc(
         const msg =
           err instanceof Error ? err.message : "Failed to remove document";
         toast({ title: msg, variant: "error" });
+        throw err;
       }
     },
     [mutate, onVendorMutate]

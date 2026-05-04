@@ -3,12 +3,15 @@ import { withAuth } from "@/lib/withAuth";
 import {
   addKycDocumentBySelf,
   listKycDocumentsByVendorId,
+  logAuditSafe,
+  AUDIT_ACTIONS,
 } from "@/lib/queries";
 import { parseRequest, vendorKycDocumentSchema } from "@/lib/validations";
 import {
   ensureVendorPortalEnabled,
   ensureVendorActive,
 } from "@/lib/vendorPortalGuards";
+import { isAttachmentOwnedByUser } from "@/lib/upload/validate";
 
 /** GET /api/vendor-portal/me/kyc-documents — list vendor's own KYC documents. */
 export const GET = withAuth(
@@ -28,8 +31,12 @@ export const GET = withAuth(
  * something to re-verify after the upload.
  */
 export const POST = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (req, { user, vendorId }) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 10, windowMs: 60_000 },
+  },
+  async (req, { user, orgId, vendorId }) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -39,6 +46,13 @@ export const POST = withAuth(
     const parsed = await parseRequest(req, vendorKycDocumentSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    if (!isAttachmentOwnedByUser(parsed.data.fileUrl, user.id)) {
+      return NextResponse.json(
+        { error: "fileUrl must point to a path you uploaded" },
+        { status: 400 }
+      );
     }
 
     try {
@@ -54,6 +68,20 @@ export const POST = withAuth(
           { error: "Vendor not found" },
           { status: 404 }
         );
+      }
+      if (orgId) {
+        await logAuditSafe({
+          orgId,
+          actorId: user.id,
+          action: AUDIT_ACTIONS.VENDOR_KYC_DOCUMENT_ADDED,
+          targetTable: "vendor",
+          targetId: vendorId!,
+          metadata: {
+            doc_type: parsed.data.docType,
+            kyc_status: result.vendorKycStatus,
+            source: "self_service",
+          },
+        });
       }
       return NextResponse.json(
         {

@@ -59,3 +59,28 @@ export function sanitizeFilename(name: string): string {
   const cleaned = name.replace(/[^a-zA-Z0-9._-]/g, "_");
   return /[a-zA-Z0-9]/.test(cleaned) ? cleaned : "file";
 }
+
+/**
+ * Verify a Supabase public URL points to an object the given user uploaded.
+ *
+ * The signed-URL route stores files at `${userId}/${timestamp}-${name}`
+ * inside the attachments bucket, so a legit publicUrl ends with
+ * `…/attachments/<userId>/…`. Anything else (including a URL pointing into
+ * another user's prefix) is rejected.
+ *
+ * Used by KYC POST endpoints to prevent vendors from "uploading" by
+ * referencing someone else's already-stored object.
+ */
+export function isAttachmentOwnedByUser(url: string, userId: string): boolean {
+  if (!url || typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    // Path looks like: /storage/v1/object/public/<bucket>/<userId>/<rest>
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const bucketIdx = segments.indexOf("public");
+    if (bucketIdx === -1 || segments.length < bucketIdx + 3) return false;
+    return segments[bucketIdx + 2] === userId;
+  } catch {
+    return false;
+  }
+}

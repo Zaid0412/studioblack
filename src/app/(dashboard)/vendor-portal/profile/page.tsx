@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Save, Star, X, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -29,7 +29,8 @@ export default function VendorPortalProfilePage() {
   const tProfile = useTranslations("vendorPortal.profile");
   const tVendors = useTranslations("vendors");
 
-  const { vendor, suspended, isLoading, error, mutate } = useVendorMe();
+  const { vendor, suspended, isLoading, error, mutate, save } = useVendorMe();
+  const [activeTab, setActiveTab] = useState("overview");
 
   if (isLoading) {
     return (
@@ -109,7 +110,11 @@ export default function VendorPortalProfilePage() {
         </dl>
       </section>
 
-      <Tabs defaultValue="overview" className="flex flex-col gap-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-col gap-4"
+      >
         <TabsList className="self-start">
           <TabsTrigger value="overview">{tProfile("tabOverview")}</TabsTrigger>
           <TabsTrigger value="contacts">{tProfile("tabContacts")}</TabsTrigger>
@@ -118,7 +123,7 @@ export default function VendorPortalProfilePage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-0">
-          <OverviewTab vendor={vendor} suspended={suspended} mutate={mutate} />
+          <OverviewTab vendor={vendor} suspended={suspended} save={save} />
         </TabsContent>
 
         <TabsContent value="contacts" className="mt-0">
@@ -130,11 +135,15 @@ export default function VendorPortalProfilePage() {
         </TabsContent>
 
         <TabsContent value="bank" className="mt-0">
-          <BankTab suspended={suspended} />
+          <BankTab suspended={suspended} active={activeTab === "bank"} />
         </TabsContent>
 
         <TabsContent value="kyc" className="mt-0">
-          <KycTab suspended={suspended} onVendorMutate={mutate} />
+          <KycTab
+            suspended={suspended}
+            active={activeTab === "kyc"}
+            onVendorMutate={mutate}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -154,30 +163,47 @@ type AddressField =
 function OverviewTab({
   vendor,
   suspended,
-  mutate,
+  save,
 }: {
   vendor: NonNullable<ReturnType<typeof useVendorMe>["vendor"]>;
   suspended: boolean;
-  mutate: ReturnType<typeof useVendorMe>["mutate"];
+  save: ReturnType<typeof useVendorMe>["save"];
 }) {
   const tProfile = useTranslations("vendorPortal.profile");
   const tCommon = useTranslations("common");
-  const { save } = useVendorMe();
+
+  const buildAddress = (
+    a: NonNullable<typeof vendor>["address"]
+  ): Record<AddressField, string> => ({
+    line1: (a?.line1 ?? "") as string,
+    line2: (a?.line2 ?? "") as string,
+    city: (a?.city ?? "") as string,
+    region: (a?.region ?? "") as string,
+    postal: (a?.postal ?? "") as string,
+    country: (a?.country ?? "") as string,
+  });
 
   const [tradingName, setTradingName] = useState(vendor.trading_name ?? "");
-  const [address, setAddress] = useState<Record<AddressField, string>>(() => ({
-    line1: (vendor.address?.line1 ?? "") as string,
-    line2: (vendor.address?.line2 ?? "") as string,
-    city: (vendor.address?.city ?? "") as string,
-    region: (vendor.address?.region ?? "") as string,
-    postal: (vendor.address?.postal ?? "") as string,
-    country: (vendor.address?.country ?? "") as string,
-  }));
+  const [address, setAddress] = useState<Record<AddressField, string>>(() =>
+    buildAddress(vendor.address)
+  );
   const [submitting, setSubmitting] = useState(false);
 
+  // Resync local state when the parent refetches the vendor record. Stringify
+  // the server payload so an SWR-returned new-but-equivalent reference doesn't
+  // clobber in-flight edits — only re-seed when the server data actually changed.
+  const lastSeedRef = useRef<string>("");
   useEffect(() => {
+    const seed = JSON.stringify({
+      tradingName: vendor.trading_name ?? "",
+      address: vendor.address ?? null,
+    });
+    if (seed === lastSeedRef.current) return;
+    lastSeedRef.current = seed;
     setTradingName(vendor.trading_name ?? "");
-  }, [vendor.trading_name]);
+    setAddress(buildAddress(vendor.address));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAddress is stable
+  }, [vendor.trading_name, vendor.address]);
 
   const setAddressField = (k: AddressField, v: string) =>
     setAddress((s) => ({ ...s, [k]: v }));
@@ -193,7 +219,6 @@ function OverviewTab({
         tradingName: tradingName.trim() || null,
         address: Object.keys(cleanedAddress).length > 0 ? cleanedAddress : null,
       });
-      await mutate();
     } finally {
       setSubmitting(false);
     }
@@ -401,6 +426,26 @@ function ContactRow({
   const [email, setEmail] = useState(contact.email);
   const [phone, setPhone] = useState(contact.phone ?? "");
   const [submitting, setSubmitting] = useState(false);
+
+  // Resync local state when the parent refetches contacts. Without this the
+  // dirty check below compares against stale baseline values after a save
+  // round-trip.
+  const lastSeedRef = useRef<string>("");
+  useEffect(() => {
+    const seed = JSON.stringify({
+      name: contact.name,
+      title: contact.title ?? "",
+      email: contact.email,
+      phone: contact.phone ?? "",
+    });
+    if (seed === lastSeedRef.current) return;
+    lastSeedRef.current = seed;
+    setName(contact.name);
+    setTitle(contact.title ?? "");
+    setEmail(contact.email);
+    setPhone(contact.phone ?? "");
+  }, [contact.name, contact.title, contact.email, contact.phone]);
+
   const dirty =
     name !== contact.name ||
     title !== (contact.title ?? "") ||
@@ -605,8 +650,16 @@ function NewContactForm({
 
 // ─── Bank ───────────────────────────────────────────────────────────────────
 
-function BankTab({ suspended }: { suspended: boolean }) {
-  const { bankDetails, isLoading, error, save } = useVendorMeBankDetails(true);
+function BankTab({
+  suspended,
+  active,
+}: {
+  suspended: boolean;
+  active: boolean;
+}) {
+  // Only fetch (and decrypt) bank details when the tab is open.
+  const { bankDetails, isLoading, error, save } =
+    useVendorMeBankDetails(active);
 
   return (
     <BankDetailsForm
@@ -623,13 +676,15 @@ function BankTab({ suspended }: { suspended: boolean }) {
 
 function KycTab({
   suspended,
+  active,
   onVendorMutate,
 }: {
   suspended: boolean;
+  active: boolean;
   onVendorMutate: () => Promise<unknown>;
 }) {
   const { documents, isLoading, addDocument, removeDocument } = useVendorMeKyc(
-    true,
+    active,
     () => {
       void onVendorMutate();
     }

@@ -21,9 +21,11 @@ export async function ensureVendorPortalEnabled(
 }
 
 /**
- * Suspended vendor (`status = 'inactive'`) — `/me` GET still works, but every
- * write endpoint refuses. Returns 403 with a stable error code so the client
- * can render the suspension banner.
+ * Non-active vendor — `/me` GET still works (so the portal can render the
+ * suspension banner), but every write endpoint refuses. Active is the ONLY
+ * status that may write: `inactive`, `blacklisted`, and `pending_approval`
+ * all block (pending_approval especially — vendors shouldn't update their
+ * own bank account before PM approval).
  */
 export async function ensureVendorActive(
   vendorId: string
@@ -35,7 +37,7 @@ export async function ensureVendorActive(
   if (rows.length === 0) {
     return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
   }
-  if (rows[0].status === "inactive") {
+  if (rows[0].status !== "active") {
     return NextResponse.json(
       { error: "Vendor account is suspended", code: "vendor_suspended" },
       { status: 403 }

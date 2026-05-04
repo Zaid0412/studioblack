@@ -1150,10 +1150,12 @@ export async function linkVendorContactByEmail(
   email: string
 ): Promise<void> {
   const pool = getPool();
+  // TRIM both sides so legacy / CSV-imported rows with stray whitespace still
+  // link. better-auth normalises emails to lowercase but doesn't trim.
   await pool.query(
     `UPDATE vendor_contact
      SET user_id = $1
-     WHERE LOWER(email) = LOWER($2) AND user_id IS NULL`,
+     WHERE TRIM(LOWER(email)) = TRIM(LOWER($2)) AND user_id IS NULL`,
     [userId, email]
   );
 }

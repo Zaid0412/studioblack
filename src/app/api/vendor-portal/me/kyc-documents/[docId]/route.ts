@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { removeKycDocumentBySelf } from "@/lib/queries";
+import {
+  removeKycDocumentBySelf,
+  logAuditSafe,
+  AUDIT_ACTIONS,
+} from "@/lib/queries";
 import {
   ensureVendorPortalEnabled,
   ensureVendorActive,
@@ -12,8 +16,12 @@ import {
  * cross-tenant doc id 404s.
  */
 export const DELETE = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (_req, { user, vendorId }, params) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 20, windowMs: 60_000 },
+  },
+  async (_req, { user, orgId, vendorId }, params) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -26,6 +34,16 @@ export const DELETE = withAuth(
         { error: "Document not found" },
         { status: 404 }
       );
+    }
+    if (orgId) {
+      await logAuditSafe({
+        orgId,
+        actorId: user.id,
+        action: AUDIT_ACTIONS.VENDOR_KYC_DOCUMENT_REMOVED,
+        targetTable: "vendor",
+        targetId: vendorId!,
+        metadata: { doc_id: params.docId, source: "self_service" },
+      });
     }
     return NextResponse.json({ success: true });
   }

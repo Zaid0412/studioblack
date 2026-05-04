@@ -7,6 +7,7 @@ import {
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, vendorKycDocumentSchema } from "@/lib/validations";
+import { isAttachmentOwnedByUser } from "@/lib/upload/validate";
 
 /** GET /api/vendors/[id]/kyc-documents — list KYC documents for a vendor. */
 export const GET = withAuth(
@@ -36,6 +37,13 @@ export const POST = withAuth(
     const parsed = await parseRequest(req, vendorKycDocumentSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    if (!isAttachmentOwnedByUser(parsed.data.fileUrl, user.id)) {
+      return NextResponse.json(
+        { error: "fileUrl must point to a path you uploaded" },
+        { status: 400 }
+      );
     }
 
     try {

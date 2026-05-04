@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { organization, magicLink } from "better-auth/plugins";
-import type { Member } from "better-auth/plugins/organization";
 
 import { ac, owner, admin, member, client, vendor } from "@/lib/permissions";
 import {
@@ -181,36 +180,6 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
-    member: {
-      create: {
-        // Catches the existing-user-accepts-vendor-invite path; user.create.after
-        // doesn't fire when better-auth reuses an existing user account.
-        // Idempotent with the new-user path (user.create.after also links).
-        after: async (member: Member) => {
-          if (member.role !== "vendor") return;
-          const pool = getPool();
-          const { rows } = await pool.query(
-            `SELECT email, role FROM "user" WHERE id = $1`,
-            [member.userId]
-          );
-          if (rows.length === 0) return;
-          const { email, role: currentRole } = rows[0];
-
-          // Never demote a PM. Architects / clients accepting a vendor invite
-          // are explicitly being re-roled.
-          const shouldRerole = currentRole !== "pm" && currentRole !== "vendor";
-
-          await Promise.all([
-            linkVendorContactByEmail(member.userId, email),
-            shouldRerole
-              ? pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
-                  member.userId,
-                ])
-              : Promise.resolve(),
-          ]);
-        },
-      },
-    },
     user: {
       create: {
         after: async (user) => {
@@ -257,7 +226,7 @@ export const auth = betterAuth({
 
           // Backward compat: email matches an unlinked vendor_contact → vendor role.
           const { rows: vcRows } = await pool.query(
-            `SELECT 1 FROM vendor_contact WHERE LOWER(email) = LOWER($1) AND user_id IS NULL LIMIT 1`,
+            `SELECT 1 FROM vendor_contact WHERE TRIM(LOWER(email)) = TRIM(LOWER($1)) AND user_id IS NULL LIMIT 1`,
             [user.email]
           );
           if (vcRows.length > 0) {
@@ -285,6 +254,35 @@ export const auth = betterAuth({
           org.name,
           inviteLink
         );
+      },
+      organizationHooks: {
+        // Catches the existing-user-accepts-vendor-invite path. The user-table
+        // databaseHook only fires for new signups; once the user already exists,
+        // the org plugin's `acceptInvitation` calls `adapter.create` for the
+        // member row directly (no `createWithHooks`), so the only reliable place
+        // to react is the org plugin's own hook.
+        afterAcceptInvitation: async ({ member, user }) => {
+          if (member.role !== "vendor") return;
+          const pool = getPool();
+          // Re-read the user's current role; the `user` argument may be stale
+          // if the user.create.after hook just promoted this account.
+          const { rows } = await pool.query(
+            `SELECT role FROM "user" WHERE id = $1`,
+            [user.id]
+          );
+          const currentRole = rows[0]?.role as string | undefined;
+          // Never demote a PM. Architects / clients accepting a vendor invite
+          // are explicitly being re-roled.
+          const shouldRerole = currentRole !== "pm" && currentRole !== "vendor";
+          await Promise.all([
+            linkVendorContactByEmail(user.id, user.email),
+            shouldRerole
+              ? pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                  user.id,
+                ])
+              : Promise.resolve(),
+          ]);
+        },
       },
     }),
     magicLink({

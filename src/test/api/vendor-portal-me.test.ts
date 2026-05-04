@@ -176,12 +176,13 @@ describe("PATCH /api/vendor-portal/me", () => {
 
 describe("POST /api/vendor-portal/me/kyc-documents", () => {
   it("uploads and returns the new document + flipped vendor_kyc_status", async () => {
+    const ownedFileUrl = `https://example.supabase.co/storage/v1/object/public/attachments/${vendorSession.user.id}/123-licence.pdf`;
     mockedAddKyc.mockResolvedValue({
       document: {
         id: DOC_ID,
         vendor_id: TEST_VENDOR_ID,
         doc_type: "trade_licence",
-        file_url: "https://example.com/file.pdf",
+        file_url: ownedFileUrl,
         file_name: "licence.pdf",
         expires_at: null,
         uploaded_by: vendorSession.user.id,
@@ -196,7 +197,7 @@ describe("POST /api/vendor-portal/me/kyc-documents", () => {
         method: "POST",
         body: {
           docType: "trade_licence",
-          fileUrl: "https://example.com/file.pdf",
+          fileUrl: ownedFileUrl,
           fileName: "licence.pdf",
         },
       }),

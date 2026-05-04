@@ -3,6 +3,8 @@ import { withAuth } from "@/lib/withAuth";
 import {
   getVendorBankDetailsEnvelopeById,
   updateVendorBankDetailsById,
+  logAuditSafe,
+  AUDIT_ACTIONS,
 } from "@/lib/queries";
 import { bankDetailsSchema } from "@/lib/validations";
 import {
@@ -55,8 +57,12 @@ export const GET = withAuth(
  * Body shape is `{ data: BankDetails | null }` to match the PM-side endpoint.
  */
 export const PUT = withAuth(
-  { allowedRoles: ["vendor"], fetchVendorId: true },
-  async (req, { user, vendorId }) => {
+  {
+    allowedRoles: ["vendor"],
+    fetchVendorId: true,
+    rateLimit: { limit: 10, windowMs: 60_000 },
+  },
+  async (req, { user, orgId, vendorId }) => {
     const blocked = await ensureVendorPortalEnabled(user.id);
     if (blocked) return blocked;
 
@@ -85,6 +91,16 @@ export const PUT = withAuth(
           { status: 404 }
         );
       }
+      if (orgId) {
+        await logAuditSafe({
+          orgId,
+          actorId: user.id,
+          action: AUDIT_ACTIONS.VENDOR_BANK_CLEAR,
+          targetTable: "vendor",
+          targetId: vendorId!,
+          metadata: { source: "self_service" },
+        });
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -110,6 +126,16 @@ export const PUT = withAuth(
     const ok = await updateVendorBankDetailsById(vendorId!, envelope);
     if (!ok) {
       return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+    }
+    if (orgId) {
+      await logAuditSafe({
+        orgId,
+        actorId: user.id,
+        action: AUDIT_ACTIONS.VENDOR_BANK_WRITE,
+        targetTable: "vendor",
+        targetId: vendorId!,
+        metadata: { source: "self_service" },
+      });
     }
     return NextResponse.json({ success: true });
   }
