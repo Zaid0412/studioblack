@@ -18,14 +18,35 @@ import { logger } from "@/lib/logger";
 /**
  * Resolve the base URL for better-auth.
  *
- * Priority: BETTER_AUTH_URL (explicit) → VERCEL_URL (auto-set by Vercel on
- * preview + production deployments) → localhost fallback.
+ * Priority: BETTER_AUTH_URL (explicit) → VERCEL_BRANCH_URL (stable per branch,
+ * matches what users typically share) → VERCEL_URL (deployment-specific) →
+ * localhost fallback.
  */
 function getBaseURL(): string {
   const e = env();
   if (e.BETTER_AUTH_URL) return e.BETTER_AUTH_URL;
+  if (e.VERCEL_BRANCH_URL) return `https://${e.VERCEL_BRANCH_URL}`;
   if (e.VERCEL_URL) return `https://${e.VERCEL_URL}`;
   return "http://localhost:3000";
+}
+
+/**
+ * Build the trusted-origins allowlist for better-auth's CSRF check. Vercel
+ * exposes three URL variants per deployment (deployment-specific, branch,
+ * production) and the user can hit any of them; rejecting non-canonical
+ * variants returns INVALID_ORIGIN on sign-in. We trust all available variants.
+ */
+function getTrustedOrigins(): string[] {
+  const e = env();
+  const origins = new Set<string>();
+  if (e.BETTER_AUTH_URL) origins.add(e.BETTER_AUTH_URL);
+  if (e.VERCEL_URL) origins.add(`https://${e.VERCEL_URL}`);
+  if (e.VERCEL_BRANCH_URL) origins.add(`https://${e.VERCEL_BRANCH_URL}`);
+  if (e.VERCEL_PROJECT_PRODUCTION_URL) {
+    origins.add(`https://${e.VERCEL_PROJECT_PRODUCTION_URL}`);
+  }
+  if (origins.size === 0) origins.add("http://localhost:3000");
+  return Array.from(origins);
 }
 
 /**
@@ -46,7 +67,7 @@ function getBaseURL(): string {
  */
 export const auth = betterAuth({
   baseURL: getBaseURL(),
-  trustedOrigins: [getBaseURL()],
+  trustedOrigins: getTrustedOrigins(),
   database: getPool(),
   emailAndPassword: {
     enabled: true,

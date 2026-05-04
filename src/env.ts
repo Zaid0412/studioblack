@@ -23,7 +23,12 @@ const serverSchema = z.object({
   // Auth
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
   BETTER_AUTH_URL: z.string().url().optional(),
+  // Vercel auto-populates these on every deployment. We trust all of them so
+  // login + CSRF works whether the user hits the deployment-specific URL,
+  // the branch-stable URL, or the production domain.
   VERCEL_URL: z.string().optional(),
+  VERCEL_BRANCH_URL: z.string().optional(),
+  VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
