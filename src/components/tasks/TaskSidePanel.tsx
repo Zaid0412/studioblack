@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ExternalLink, X } from "lucide-react";
 import useSWR from "swr";
 import { Badge } from "@/components/ui/badge";
@@ -115,10 +117,10 @@ function PanelContent({
       {/* Body — description + comments */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
         {task.description ? (
-          <div className="rounded-lg border border-border-default bg-bg-primary p-4">
-            <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+          <div className="markdown-preview rounded-lg border border-border-default bg-bg-primary p-4 text-sm text-text-primary leading-relaxed">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {task.description}
-            </p>
+            </ReactMarkdown>
           </div>
         ) : (
           <p className="text-sm italic text-text-muted">

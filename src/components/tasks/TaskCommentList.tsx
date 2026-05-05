@@ -1,5 +1,7 @@
 "use client";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
@@ -41,10 +43,10 @@ function CommentCard({ comment }: { comment: TaskComment }) {
           <span className="text-xs italic text-text-muted ml-1">(edited)</span>
         )}
       </header>
-      <div className="px-4 py-3">
-        <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+      <div className="markdown-preview px-4 py-3 text-sm text-text-primary leading-relaxed">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {comment.body}
-        </p>
+        </ReactMarkdown>
         {comment.attachments.length > 0 && (
           <ul className="mt-3 space-y-1">
             {comment.attachments.map((att, i) => (

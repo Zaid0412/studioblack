@@ -253,6 +253,106 @@ select:focus-visible {
   animation: task-highlight-glow 2s ease-out forwards;
 }
 
+/* ─── Markdown preview (Write/Preview tab in TaskMarkdownEditor + comment
+ *     bodies in TaskCommentList) ─── */
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+}
+.markdown-preview h1 {
+  font-size: 1.5rem;
+}
+.markdown-preview h2 {
+  font-size: 1.25rem;
+}
+.markdown-preview h3 {
+  font-size: 1.1rem;
+}
+.markdown-preview p {
+  margin: 0.6em 0;
+}
+.markdown-preview ul,
+.markdown-preview ol {
+  margin: 0.6em 0;
+  padding-left: 1.5em;
+}
+.markdown-preview ul {
+  list-style: disc;
+}
+.markdown-preview ol {
+  list-style: decimal;
+}
+.markdown-preview ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.5em;
+}
+.markdown-preview li {
+  margin: 0.2em 0;
+}
+.markdown-preview .task-list-item input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+.markdown-preview blockquote {
+  border-left: 3px solid var(--border-light);
+  padding-left: 1em;
+  color: var(--text-secondary);
+  margin: 0.6em 0;
+}
+.markdown-preview code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  background: var(--bg-elevated);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+.markdown-preview pre {
+  background: var(--bg-elevated);
+  padding: 0.75em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.6em 0;
+}
+.markdown-preview pre code {
+  background: transparent;
+  padding: 0;
+}
+.markdown-preview a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-preview img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.6em 0;
+  border: 1px solid var(--border);
+}
+.markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  font-size: 0.95em;
+}
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.7em;
+}
+.markdown-preview th {
+  background: var(--bg-elevated);
+  font-weight: 600;
+}
+.markdown-preview hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1.2em 0;
+}
+
 /* Skeleton shimmer */
 @keyframes skeleton-shimmer {
   0% {

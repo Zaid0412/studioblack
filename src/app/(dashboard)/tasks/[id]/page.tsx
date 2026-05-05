@@ -2,6 +2,8 @@
 
 import { use } from "react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChevronRight } from "lucide-react";
 import useSWR from "swr";
 import { Badge } from "@/components/ui/badge";
@@ -121,10 +123,10 @@ export default function TaskDetailPage({
                   {formatDate(task.created_at)}
                 </span>
               </header>
-              <div className="px-5 py-4">
-                <p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+              <div className="markdown-preview px-5 py-4 text-sm text-text-primary leading-relaxed">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {task.description}
-                </p>
+                </ReactMarkdown>
               </div>
             </article>
           ) : (

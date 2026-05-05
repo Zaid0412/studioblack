@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import {
+  useState,
+  useCallback,
+  useMemo,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -8,34 +15,34 @@ import { useTranslations } from "next-intl";
 import {
   ChevronRight,
   Loader2,
-  ListChecks,
-  Paperclip,
-  X,
-  CloudUpload,
+  Settings,
+  Folder,
+  Layers,
+  Calendar as CalendarIcon,
+  Flag,
+  Tag,
+  User,
+  Search,
   Check,
 } from "lucide-react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Avatar } from "@/components/ui/avatar";
+import { Calendar } from "@/components/ui/calendar";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { useFileDropzone } from "@/hooks/useFileDropzone";
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { authClient } from "@/lib/authClient";
-import { tasks as tasksApi, upload, projects as projectsApi } from "@/lib/api";
+import { tasks as tasksApi, projects as projectsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { PRIORITIES, CATEGORIES, capitalize } from "@/lib/taskUtils";
-import {
-  getFileExtension,
-  fileTypeBadge,
-  formatFileSize,
-  MAX_UPLOAD_SIZE,
-} from "@/lib/fileUtils";
+import { avatarColor } from "@/lib/avatarUtils";
+import { deriveInitials } from "@/lib/utils";
+import { TaskMarkdownEditor } from "@/components/tasks/TaskMarkdownEditor";
+import type { OrgMember } from "@/types";
 
 interface ProjectOption {
   id: string;
@@ -46,6 +53,8 @@ interface PhaseOption {
   id: string;
   name: string;
 }
+
+const TITLE_MAX = 256;
 
 /**
  * GitHub-issue-style task creation page. Replaces the create flow of
@@ -73,16 +82,18 @@ export default function NewTaskPage() {
   const [category, setCategory] = useState<string>("general");
   const [assignedTo, setAssignedTo] = useState<string>("");
   const [dueDate, setDueDate] = useState<string>("");
-  const [checklistItems, setChecklistItems] = useState<string[]>([]);
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   // Default the assignee to the current user once the session resolves.
+  // Guarded so that explicitly unassigning doesn't snap back to "yourself".
+  const assigneeInitRef = useRef(false);
   useEffect(() => {
-    if (!assignedTo && session?.user?.id) {
+    if (assigneeInitRef.current) return;
+    if (session?.user?.id) {
+      assigneeInitRef.current = true;
       setAssignedTo(session.user.id);
     }
-  }, [assignedTo, session?.user?.id]);
+  }, [session?.user?.id]);
 
   // Project list
   const { data: projectsRaw } = useSWR<ProjectOption[]>("/api/projects");
@@ -111,57 +122,14 @@ export default function NewTaskPage() {
       setLoadingPhases(false);
     }
   }, []);
-
-  // Fire phase fetch on initial project (from query param) or when it changes.
   useEffect(() => {
-    if (projectId) {
-      fetchPhases(projectId);
-    } else {
-      setPhases([]);
-    }
+    if (projectId) fetchPhases(projectId);
+    else setPhases([]);
   }, [projectId, fetchPhases]);
 
-  // Checklist
-  const [newChecklistItem, setNewChecklistItem] = useState("");
-  const addChecklistItem = useCallback(() => {
-    const trimmed = newChecklistItem.trim();
-    if (!trimmed) return;
-    setChecklistItems((items) => [...items, trimmed]);
-    setNewChecklistItem("");
-  }, [newChecklistItem]);
-  const removeChecklistItem = useCallback((index: number) => {
-    setChecklistItems((items) => items.filter((_, i) => i !== index));
-  }, []);
-
-  // File attachments
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const addFiles = useCallback((files: FileList | File[]) => {
-    const incoming = Array.from(files);
-    if (incoming.length === 0) return;
-
-    const tooLarge = incoming.filter((f) => f.size > MAX_UPLOAD_SIZE);
-    if (tooLarge.length > 0) {
-      toast({
-        title: "File too large",
-        description: `${tooLarge.map((f) => f.name).join(", ")} exceed${
-          tooLarge.length === 1 ? "s" : ""
-        } the 50 MB limit.`,
-        variant: "error",
-      });
-    }
-    const valid = incoming.filter((f) => f.size <= MAX_UPLOAD_SIZE);
-    if (valid.length === 0) return;
-    setPendingFiles((prev) => [...prev, ...valid]);
-  }, []);
-
-  const { dragOver, handleDrop, handleDragOver, handleDragLeave } =
-    useFileDropzone(addFiles);
-
-  const removeFile = useCallback((index: number) => {
-    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const canSubmit = title.trim().length > 0 && !submitting;
+  const titleLength = title.length;
+  const titleOver = titleLength > TITLE_MAX;
+  const canSubmit = title.trim().length > 0 && !titleOver && !submitting;
 
   const submit = useCallback(async () => {
     if (!canSubmit) return;
@@ -177,43 +145,6 @@ export default function NewTaskPage() {
         assignedTo: assignedTo || undefined,
         dueDate: dueDate || null,
       });
-
-      // Post-create: checklist items + file uploads (parallel where safe).
-      const postCreate: Promise<unknown>[] = [];
-      if (checklistItems.length > 0) {
-        postCreate.push(
-          (async () => {
-            for (const itemTitle of checklistItems) {
-              await tasksApi.addChecklistItem(created.id, itemTitle);
-            }
-          })()
-        );
-      }
-      for (const file of pendingFiles) {
-        postCreate.push(
-          upload.uploadFile(file).then((result) =>
-            tasksApi.addAttachment(created.id, {
-              fileUrl: result.url,
-              fileName: result.fileName,
-              fileSize: file.size,
-            })
-          )
-        );
-      }
-      if (postCreate.length > 0) {
-        try {
-          await Promise.all(postCreate);
-        } catch (err) {
-          console.error("Post-create attachment error:", err);
-          toast({
-            title: "Task created with issues",
-            description:
-              "Some checklist items or attachments failed to save. You can add them from the task detail view.",
-            variant: "warning",
-          });
-        }
-      }
-
       toast({
         title: "Task created",
         description: `"${title.trim()}" has been created.`,
@@ -239,8 +170,6 @@ export default function NewTaskPage() {
     category,
     assignedTo,
     dueDate,
-    checklistItems,
-    pendingFiles,
     router,
   ]);
 
@@ -248,10 +177,14 @@ export default function NewTaskPage() {
     ? `/projects/${initialProjectId}`
     : "/tasks";
 
+  const selectedAssignee = members.find((m) => m.userId === assignedTo);
+  const selectedProject = projects.find((p) => p.id === projectId);
+  const selectedPhase = phases.find((p) => p.id === phaseId);
+
   return (
     <div className="max-w-5xl mx-auto">
       {/* Breadcrumb + heading */}
-      <header className="border-b border-border-default pb-5 mb-5">
+      <header className="border-b border-border-default pb-5 mb-6">
         <nav
           aria-label="Breadcrumb"
           className="flex items-center gap-1.5 text-xs text-text-muted mb-3"
@@ -260,389 +193,525 @@ export default function NewTaskPage() {
             {t("pageTitle")}
           </Link>
           <ChevronRight className="w-3 h-3" />
-          <span>{t("newTask")}</span>
+          <span className="text-text-secondary font-medium">New</span>
         </nav>
         <h1 className="text-2xl font-bold text-text-primary leading-tight">
-          {t("newTask")}
+          Open a new task
         </h1>
-        <p className="mt-2 text-sm text-text-muted">{t("pageSubtitle")}</p>
+        <p className="mt-2 text-sm text-text-muted">
+          Tasks track action items.
+        </p>
       </header>
+
+      {/*
+       * TODO(Phase 4): Re-enable once the multi-domain Request entity ships.
+       * Until then, only Tasks are supported and the segmented control is
+       * commented out per Zaid's request.
+       *
+       * <div className="inline-flex items-center gap-1 p-1 rounded-lg ...">
+       *   <SegmentButton active={type === "task"} icon={Check}>Task</SegmentButton>
+       *   <SegmentButton active={type === "request"} icon={Send}>
+       *     Request approval
+       *   </SegmentButton>
+       * </div>
+       */}
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
-        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
+        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] items-start"
       >
         {/* Main column */}
         <div className="space-y-4 min-w-0">
-          <Input
-            label={t("title")}
-            placeholder={t("titlePlaceholder")}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-            autoFocus
-          />
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("description")}
-            </label>
-            <textarea
-              placeholder={t("descriptionPlaceholder")}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={6}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y"
+          {/* Title input */}
+          <div className="rounded-lg bg-bg-secondary border border-border-default focus-within:border-accent transition-colors px-4 py-2.5 flex items-center gap-3">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Task title"
+              required
+              autoFocus
+              className="flex-1 bg-transparent text-base font-medium text-text-primary placeholder:text-text-muted outline-none"
             />
+            <span
+              className={`text-[11px] tabular-nums shrink-0 ${
+                titleOver ? "text-red-500" : "text-text-muted"
+              }`}
+            >
+              {titleLength} / {TITLE_MAX}
+            </span>
           </div>
 
-          {/* Checklist */}
-          <ChecklistField
-            items={checklistItems}
-            newItem={newChecklistItem}
-            setNewItem={setNewChecklistItem}
-            onAdd={addChecklistItem}
-            onRemove={removeChecklistItem}
-          />
-
-          {/* Attachments */}
-          <AttachmentsField
-            files={pendingFiles}
-            dragOver={dragOver}
-            fileInputRef={fileInputRef}
-            onAddFiles={addFiles}
-            onRemove={removeFile}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          />
+          {/* Markdown editor */}
+          <TaskMarkdownEditor value={description} onChange={setDescription} />
 
           {/* Submit row */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-default">
             <Link
               href={cancelHref}
-              className="text-sm text-text-secondary hover:text-text-primary transition-colors"
+              className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              {t("cancel") ?? "Cancel"}
+              Cancel
             </Link>
             <Button type="submit" disabled={!canSubmit}>
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              {submitting ? "Creating…" : t("createTask")}
+              {submitting ? "Creating…" : "Submit task"}
             </Button>
           </div>
         </div>
 
-        {/* Sidebar — metadata pickers */}
-        <aside className="space-y-3">
-          <SidebarField label={t("project")}>
-            <Select
-              value={projectId || "none"}
-              onValueChange={(v) => {
-                setProjectId(v === "none" ? "" : v);
-                setPhaseId("");
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("noProject")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t("noProject")}</SelectItem>
-                {projects.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SidebarField>
-
-          <SidebarField label={t("phase")}>
-            <Select
-              value={phaseId || "none"}
-              onValueChange={(v) => setPhaseId(v === "none" ? "" : v)}
-              disabled={!projectId || loadingPhases}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={loadingPhases ? t("loading") : t("noPhase")}
+        {/* Sidebar — single card with sections, offset to align with title input */}
+        <aside style={{ marginTop: 12 }}>
+          <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+            {/* Assignees */}
+            <FieldCard
+              icon={User}
+              label="Assignees"
+              divider
+              picker={() => (
+                <PickerPanel
+                  title="Assign up to 1 person to this task"
+                  searchPlaceholder="Type or choose a user"
+                  searchKeys={(m: OrgMember) => [m.user.name, m.user.email]}
+                  options={members}
+                  getKey={(m) => m.userId}
+                  isSelected={(m) => m.userId === assignedTo}
+                  onSelect={(m) => {
+                    // Stay open — user can toggle multiple times. Clicking
+                    // outside closes (Radix Popover default behaviour).
+                    setAssignedTo(m.userId === assignedTo ? "" : m.userId);
+                  }}
+                  renderOption={(m) => (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar
+                        initials={deriveInitials(m.user.name || m.user.email)}
+                        color={avatarColor(m.userId)}
+                        size="sm"
+                      />
+                      <span className="text-sm text-text-primary truncate">
+                        {m.user.name || m.user.email}
+                      </span>
+                      {m.user.name && (
+                        <span className="text-xs text-text-muted truncate">
+                          {m.user.email}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t("noPhase")}</SelectItem>
-                {phases.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SidebarField>
-
-          <SidebarField label={t("assignedTo")}>
-            <Select
-              value={assignedTo || "none"}
-              onValueChange={(v) => setAssignedTo(v === "none" ? "" : v)}
+              )}
             >
-              <SelectTrigger>
-                <SelectValue placeholder={t("unassigned")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t("unassigned")}</SelectItem>
-                {members.map((m) => (
-                  <SelectItem key={m.userId} value={m.userId}>
-                    {m.user.name || m.user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SidebarField>
+              {selectedAssignee ? (
+                <div className="flex items-center gap-2">
+                  <Avatar
+                    initials={deriveInitials(
+                      selectedAssignee.user.name || selectedAssignee.user.email
+                    )}
+                    color={avatarColor(selectedAssignee.userId)}
+                    size="sm"
+                  />
+                  <span className="text-sm font-medium text-text-primary truncate">
+                    {selectedAssignee.user.name || selectedAssignee.user.email}
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <span className="text-sm text-text-muted">
+                    No one assigned
+                  </span>
+                  {session?.user?.id && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAssignedTo(session.user.id);
+                      }}
+                      className="block text-xs text-accent hover:underline"
+                    >
+                      Assign yourself
+                    </button>
+                  )}
+                </div>
+              )}
+            </FieldCard>
 
-          <SidebarField label={t("priority")}>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PRIORITIES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {capitalize(p)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SidebarField>
+            {/* Project */}
+            <FieldCard
+              icon={Folder}
+              label="Project"
+              divider
+              picker={(close) => (
+                <PickerPanel
+                  title="Pick a project"
+                  searchPlaceholder="Filter projects"
+                  searchKeys={(p: ProjectOption) => [p.name]}
+                  options={projects}
+                  getKey={(p) => p.id}
+                  isSelected={(p) => p.id === projectId}
+                  onSelect={(p) => {
+                    setProjectId(p.id === projectId ? "" : p.id);
+                    setPhaseId("");
+                    close();
+                  }}
+                  renderOption={(p) => (
+                    <span className="text-sm text-text-primary">{p.name}</span>
+                  )}
+                  emptyHint="No projects in this org yet."
+                />
+              )}
+            >
+              {selectedProject ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
+                  <Folder className="w-3 h-3" />
+                  {selectedProject.name}
+                </span>
+              ) : (
+                <span className="text-sm text-text-muted">No project</span>
+              )}
+            </FieldCard>
 
-          <SidebarField label={t("category")}>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {capitalize(c)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SidebarField>
+            {/* Phase */}
+            <FieldCard
+              icon={Layers}
+              label="Phase"
+              divider
+              picker={(close) => (
+                <PickerPanel
+                  title="Pick a phase"
+                  searchPlaceholder="Filter phases"
+                  searchKeys={(p: PhaseOption) => [p.name]}
+                  options={phases}
+                  getKey={(p) => p.id}
+                  isSelected={(p) => p.id === phaseId}
+                  onSelect={(p) => {
+                    setPhaseId(p.id === phaseId ? "" : p.id);
+                    close();
+                  }}
+                  renderOption={(p) => (
+                    <span className="text-sm text-text-primary">{p.name}</span>
+                  )}
+                  emptyHint={
+                    !projectId
+                      ? "Select a project first to choose a phase."
+                      : loadingPhases
+                        ? "Loading phases…"
+                        : "This project has no phases."
+                  }
+                />
+              )}
+            >
+              <span className="text-sm text-text-primary">
+                {selectedPhase
+                  ? selectedPhase.name
+                  : !projectId
+                    ? "—"
+                    : loadingPhases
+                      ? "Loading…"
+                      : "No phase"}
+              </span>
+            </FieldCard>
 
-          <SidebarField label={t("dueDate")}>
-            <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </SidebarField>
+            {/* Due date */}
+            <FieldCard
+              icon={CalendarIcon}
+              label="Due date"
+              divider
+              popoverWidth="w-auto"
+              picker={(close) => (
+                <div className="p-2">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      dueDate ? new Date(dueDate + "T00:00:00") : undefined
+                    }
+                    onSelect={(date) => {
+                      setDueDate(date ? format(date, "yyyy-MM-dd") : "");
+                      close();
+                    }}
+                    defaultMonth={
+                      dueDate ? new Date(dueDate + "T00:00:00") : undefined
+                    }
+                  />
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDueDate("");
+                        close();
+                      }}
+                      className="mt-2 w-full text-xs text-text-muted hover:text-text-primary py-1.5 hover:bg-bg-elevated/60 rounded-md transition-colors cursor-pointer"
+                    >
+                      Clear date
+                    </button>
+                  )}
+                </div>
+              )}
+            >
+              {dueDate ? (
+                <span className="text-sm text-text-primary">
+                  {format(new Date(dueDate + "T00:00:00"), "MMM d, yyyy")}
+                </span>
+              ) : (
+                <span className="text-sm text-text-muted">No due date</span>
+              )}
+            </FieldCard>
+
+            {/* Priority */}
+            <FieldCard
+              icon={Flag}
+              label="Priority"
+              divider
+              picker={(close) => (
+                <PickerPanel
+                  title="Set priority"
+                  options={PRIORITIES as readonly string[]}
+                  getKey={(p) => p}
+                  isSelected={(p) => p === priority}
+                  onSelect={(p) => {
+                    setPriority(p);
+                    close();
+                  }}
+                  renderOption={(p) => (
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(p)}`}
+                    >
+                      <Flag className="w-3 h-3" />
+                      {capitalize(p)}
+                    </span>
+                  )}
+                />
+              )}
+            >
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(priority)}`}
+              >
+                <Flag className="w-3 h-3" />
+                {capitalize(priority)}
+              </span>
+            </FieldCard>
+
+            {/* Category */}
+            <FieldCard
+              icon={Tag}
+              label="Category"
+              picker={(close) => (
+                <PickerPanel
+                  title="Pick a category"
+                  options={CATEGORIES as readonly string[]}
+                  getKey={(c) => c}
+                  isSelected={(c) => c === category}
+                  onSelect={(c) => {
+                    setCategory(c);
+                    close();
+                  }}
+                  renderOption={(c) => (
+                    <span className="text-sm text-text-primary">
+                      {capitalize(c)}
+                    </span>
+                  )}
+                />
+              )}
+            >
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
+                <Tag className="w-3 h-3" />
+                {capitalize(category)}
+              </span>
+            </FieldCard>
+          </div>
         </aside>
       </form>
-
-      {!projectsRaw && (
-        <div className="mt-4 space-y-2">
-          <Skeleton className="h-4 w-32" />
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Sub-components ─────────────────────────────────────────────────────────
+// ─── Field card + picker primitives ────────────────────────────────────────
 
-interface SidebarFieldProps {
+interface FieldCardProps {
+  icon: React.ElementType;
   label: string;
-  children: React.ReactNode;
+  /** Trailing children render the displayed value (button-style, opens picker on click). */
+  children?: ReactNode;
+  /**
+   * Picker content shown in the popover. Receives a `close` callback so the
+   * picker can dismiss itself after a selection.
+   */
+  picker?: (close: () => void) => ReactNode;
+  /** Override the popover width class. Default `w-72`. */
+  popoverWidth?: string;
+  /** Hide the gear icon (useful when there's no popover). */
+  gearless?: boolean;
+  divider?: boolean;
 }
 
-function SidebarField({ label, children }: SidebarFieldProps) {
+function FieldCard({
+  icon: Icon,
+  label,
+  children,
+  picker,
+  popoverWidth = "w-72",
+  gearless,
+  divider,
+}: FieldCardProps) {
+  const [headerOpen, setHeaderOpen] = useState(false);
+  const [bodyOpen, setBodyOpen] = useState(false);
   return (
-    <div className="rounded-lg border border-border-default bg-bg-secondary px-4 py-3">
-      <h3 className="text-[10px] font-semibold tracking-widest text-text-muted uppercase mb-2">
-        {label}
-      </h3>
-      {children}
-    </div>
-  );
-}
-
-interface ChecklistFieldProps {
-  items: string[];
-  newItem: string;
-  setNewItem: (v: string) => void;
-  onAdd: () => void;
-  onRemove: (index: number) => void;
-}
-
-function ChecklistField({
-  items,
-  newItem,
-  setNewItem,
-  onAdd,
-  onRemove,
-}: ChecklistFieldProps) {
-  return (
-    <div className="rounded-lg border border-border-default bg-bg-secondary p-4 space-y-2.5">
-      <div className="flex items-center justify-between">
+    <section
+      className={`px-4 py-3.5 ${divider ? "border-b border-border-default" : ""}`}
+    >
+      <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5">
-          <ListChecks className="w-3.5 h-3.5 text-text-muted" />
-          <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
-            Checklist
+          <Icon className="w-3.5 h-3.5 text-text-muted" />
+          <span className="text-[12px] font-semibold text-text-primary">
+            {label}
           </span>
         </div>
-        <span className="text-[11px] text-text-muted">Optional</span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              onAdd();
-            }
-          }}
-          placeholder="Add item..."
-          className="flex-1 text-[13px] bg-transparent border border-border-default rounded-md px-2.5 py-1.5 text-text-primary placeholder:text-text-muted outline-none focus:border-accent transition-colors"
-        />
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={!newItem.trim()}
-          className="px-3 py-1.5 rounded-md bg-accent text-text-on-accent text-xs font-semibold disabled:opacity-30 hover:bg-accent/90 transition-colors cursor-pointer disabled:cursor-not-allowed"
-        >
-          Add
-        </button>
-      </div>
-
-      {items.length > 0 && (
-        <div className="flex flex-col gap-0.5">
-          {items.map((item, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 py-1.5 px-2 rounded group hover:bg-bg-elevated/50"
-            >
-              <div className="w-4 h-4 rounded-[3px] border-[1.5px] border-text-muted shrink-0 flex items-center justify-center">
-                <Check className="w-2.5 h-2.5 text-transparent" />
-              </div>
-              <span className="flex-1 text-[13px] text-text-primary truncate">
-                {item}
-              </span>
+        {!gearless && picker && (
+          <Popover open={headerOpen} onOpenChange={setHeaderOpen}>
+            <PopoverTrigger asChild>
               <button
                 type="button"
-                onClick={() => onRemove(i)}
-                className="opacity-0 group-hover:opacity-100 p-0.5 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer"
-                aria-label="Remove item"
+                aria-label={`Edit ${label}`}
+                className="p-0.5 rounded hover:bg-bg-elevated/60 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
               >
-                <X className="w-3 h-3" />
+                <Settings className="w-3.5 h-3.5" />
               </button>
-            </div>
-          ))}
-        </div>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className={`${popoverWidth} p-0 overflow-hidden`}
+            >
+              {picker(() => setHeaderOpen(false))}
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+      {picker ? (
+        <Popover open={bodyOpen} onOpenChange={setBodyOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="w-full text-left rounded-md px-1 -mx-1 py-0.5 hover:bg-bg-elevated/40 transition-colors cursor-pointer"
+            >
+              {children}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className={`${popoverWidth} p-0 overflow-hidden`}
+          >
+            {picker(() => setBodyOpen(false))}
+          </PopoverContent>
+        </Popover>
+      ) : (
+        children
       )}
-    </div>
+    </section>
   );
 }
 
-interface AttachmentsFieldProps {
-  files: File[];
-  dragOver: boolean;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
-  onAddFiles: (files: FileList | File[]) => void;
-  onRemove: (index: number) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
+interface PickerPanelProps<T> {
+  title?: string;
+  searchPlaceholder?: string;
+  searchKeys?: (option: T) => (string | undefined | null)[];
+  options: readonly T[];
+  getKey: (option: T) => string;
+  isSelected: (option: T) => boolean;
+  onSelect: (option: T) => void;
+  renderOption: (option: T) => ReactNode;
+  emptyHint?: string;
 }
 
-function AttachmentsField({
-  files,
-  dragOver,
-  fileInputRef,
-  onAddFiles,
-  onRemove,
-  onDragOver,
-  onDragLeave,
-  onDrop,
-}: AttachmentsFieldProps) {
+function PickerPanel<T>({
+  title,
+  searchPlaceholder,
+  searchKeys,
+  options,
+  getKey,
+  isSelected,
+  onSelect,
+  renderOption,
+  emptyHint,
+}: PickerPanelProps<T>) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    if (!query.trim() || !searchKeys) return options;
+    const q = query.trim().toLowerCase();
+    return options.filter((o) =>
+      searchKeys(o).some((s) => s?.toLowerCase().includes(q))
+    );
+  }, [options, query, searchKeys]);
+
   return (
-    <div className="rounded-lg border border-border-default bg-bg-secondary p-4 space-y-2.5">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Paperclip className="w-3.5 h-3.5 text-text-muted" />
-          <span className="text-[11px] font-medium text-text-muted uppercase tracking-wider">
-            Attachments
-          </span>
+    <div className="flex flex-col">
+      {title && (
+        <div className="px-3 pt-3 pb-2 border-b border-border-default text-[11px] font-semibold text-text-muted uppercase tracking-wider">
+          {title}
         </div>
-        <span className="text-[11px] text-text-muted">Optional</span>
-      </div>
-
-      <div
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`flex flex-col items-center justify-center gap-1.5 py-5 rounded-lg border border-dashed cursor-pointer transition-colors ${
-          dragOver
-            ? "border-accent bg-accent/5"
-            : "border-border-default hover:border-text-muted"
-        }`}
-      >
-        <CloudUpload className="w-5 h-5 text-text-muted" />
-        <p className="text-[13px] text-text-muted">
-          Drop files here or{" "}
-          <span className="font-medium text-accent">browse</span>
-        </p>
-      </div>
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files) onAddFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-
-      {files.length > 0 && (
-        <div className="flex flex-col gap-1">
-          {files.map((file, i) => {
-            const ext = getFileExtension(file.name);
-            const badge = fileTypeBadge(ext);
+      )}
+      {searchKeys && (
+        <div className="px-2 py-2 border-b border-border-default">
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-bg-input border border-border-default focus-within:border-accent transition-colors">
+            <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              autoFocus
+              className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-muted outline-none"
+            />
+          </div>
+        </div>
+      )}
+      <ul className="max-h-72 overflow-y-auto py-1">
+        {filtered.length === 0 ? (
+          <li className="px-3 py-3 text-xs text-text-muted">
+            {query ? `No matches for "${query}"` : (emptyHint ?? "No options")}
+          </li>
+        ) : (
+          filtered.map((option) => {
+            const selected = isSelected(option);
             return (
-              <div
-                key={i}
-                className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-md bg-bg-elevated/50 group"
-              >
-                <span
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
-                  style={{ backgroundColor: badge.bg, color: badge.text }}
-                >
-                  {badge.label}
-                </span>
-                <span className="flex-1 text-[13px] text-text-primary truncate">
-                  {file.name}
-                </span>
-                <span className="text-[11px] text-text-muted shrink-0">
-                  {formatFileSize(file.size)}
-                </span>
+              <li key={getKey(option)}>
                 <button
                   type="button"
-                  onClick={() => onRemove(i)}
-                  className="p-0.5 rounded text-text-muted hover:text-red-400 transition-colors cursor-pointer"
-                  aria-label="Remove file"
+                  onClick={() => onSelect(option)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                    selected
+                      ? "bg-accent/10"
+                      : "hover:bg-bg-elevated/60 cursor-pointer"
+                  }`}
                 >
-                  <X className="w-3 h-3" />
+                  <Check
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      selected ? "text-accent" : "text-transparent"
+                    }`}
+                  />
+                  <div className="flex-1 min-w-0">{renderOption(option)}</div>
                 </button>
-              </div>
+              </li>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </ul>
     </div>
   );
+}
+
+function priorityClass(priority: string): string {
+  switch (priority) {
+    case "urgent":
+      return "bg-red-500/10 text-red-500";
+    case "high":
+      return "bg-warning/10 text-warning";
+    case "medium":
+      return "bg-info/10 text-info";
+    case "low":
+      return "bg-text-muted/15 text-text-muted";
+    default:
+      return "bg-info/10 text-info";
+  }
 }

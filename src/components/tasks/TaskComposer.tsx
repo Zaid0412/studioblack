@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/useToast";
 import { taskComments } from "@/lib/api";
 import { ApiError } from "@/lib/api";
+import { TaskMarkdownEditor } from "./TaskMarkdownEditor";
 
 interface TaskComposerProps {
   taskId: string;
@@ -13,11 +14,10 @@ interface TaskComposerProps {
 }
 
 /**
- * Sticky composer pinned to the bottom of the side panel. Plain textarea for
- * Phase 1 — markdown rendering, inline image paste, drag-drop attachments,
- * and the toolbar shown in the mockup land in a follow-up commit alongside
- * the `/tasks/[id]` and `/tasks/new` pages so the same composer can drive
- * all three surfaces.
+ * Composer pinned to the bottom of the side panel and embedded inline on
+ * `/tasks/[id]`. Uses the shared markdown editor so the comment body picks up
+ * the same toolbar, paste-to-upload, and Write/Preview tabs as the create
+ * page.
  */
 export function TaskComposer({ taskId, onSubmitted }: TaskComposerProps) {
   const [body, setBody] = useState("");
@@ -40,28 +40,15 @@ export function TaskComposer({ taskId, onSubmitted }: TaskComposerProps) {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Ctrl/Cmd+Enter submits — matches GH/Linear convention.
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      submit();
-    }
-  };
-
   return (
-    <div className="border-t border-border-default px-4 py-3 bg-bg-primary">
-      <textarea
+    <div className="border-t border-border-default px-4 py-3 bg-bg-primary space-y-2">
+      <TaskMarkdownEditor
         value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="Leave a comment, paste an image, or @-mention…"
-        rows={3}
-        className="w-full text-sm bg-bg-input border border-border-default rounded-lg px-3 py-2 placeholder:text-text-muted focus:outline-none focus:border-accent resize-none"
+        onChange={setBody}
+        placeholder="Leave a comment, paste an image, or drop a file…"
+        minHeight={120}
       />
-      <div className="flex items-center justify-between gap-2 mt-2">
-        <span className="text-[11px] text-text-muted">
-          Markdown support coming soon
-        </span>
+      <div className="flex items-center justify-end gap-2">
         <Button
           size="sm"
           onClick={submit}
