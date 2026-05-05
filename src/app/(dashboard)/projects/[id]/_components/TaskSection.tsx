@@ -14,10 +14,7 @@ import type { Task, TaskFormData } from "@/types";
 import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
-import {
-  TaskRow,
-  TaskRowHeader,
-} from "@/app/(dashboard)/tasks/_components/TaskRow";
+import { TaskRow } from "@/app/(dashboard)/tasks/_components/TaskRow";
 import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
 import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
@@ -192,8 +189,6 @@ export function TaskSection({
           />
         ) : (
           <>
-            <TaskRowHeader showProject={false} />
-
             {/* Table body */}
             {allTasks.map((task) => (
               <TaskRow

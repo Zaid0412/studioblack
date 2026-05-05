@@ -25,7 +25,7 @@ import {
   type BucketCounts,
 } from "./_components/TaskBucketSidebar";
 import { TaskFilterBar } from "./_components/TaskFilterBar";
-import { TaskRow, TaskRowHeader } from "./_components/TaskRow";
+import { TaskRow } from "./_components/TaskRow";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // ---------------------------------------------------------------------------
@@ -282,8 +282,6 @@ export default function TasksPage() {
 
           {/* Task list */}
           <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
-            <TaskRowHeader showGoToProject />
-
             {/* Table body */}
             <div
               className={`flex-1 transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
