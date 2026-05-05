@@ -288,38 +288,128 @@ async function getApprovalRows(opts: {
   limit?: number;
 }) {
   const pool = getPool();
-  const conditions: string[] = ["p.org_id = $1"];
+  const limit = opts.limit ?? DEFAULT_PAGE_LIMIT;
+  const offset = ((opts.page ?? 1) - 1) * limit;
+
+  // pin_comment subquery — varies per bucket
+  const pinConds: string[] = ["p.org_id = $1"];
   const values: unknown[] = [opts.orgId];
   let idx = 2;
 
   switch (opts.bucket) {
     case "my_requests":
-      conditions.push(
+      pinConds.push(
         `pc.user_id = $${idx} AND (pc.request_approval OR pc.request_changes) AND NOT pc.resolved`
       );
       values.push(opts.userId);
       idx++;
       break;
     case "my_comments":
-      conditions.push(`pc.user_id = $${idx}`);
+      pinConds.push(`pc.user_id = $${idx}`);
       values.push(opts.userId);
       idx++;
       break;
     case "all_requests":
-      conditions.push(`pc.request_approval AND NOT pc.resolved`);
+      pinConds.push(`pc.request_approval AND NOT pc.resolved`);
       break;
     default:
       return { tasks: [], total: 0 };
   }
 
   if (opts.projectId) {
-    conditions.push(`a.project_id = $${idx}`);
+    pinConds.push(`a.project_id = $${idx}`);
     values.push(opts.projectId);
     idx++;
   }
 
-  const limit = opts.limit ?? DEFAULT_PAGE_LIMIT;
-  const offset = ((opts.page ?? 1) - 1) * limit;
+  const pinSelect = `
+    SELECT
+      pc.id,
+      p.org_id,
+      a.project_id,
+      a.phase_id,
+      SUBSTRING(pc.content FROM 1 FOR 80) AS title,
+      pc.content AS description,
+      CASE
+        WHEN pc.resolved THEN 'completed'
+        WHEN pc.request_approval OR pc.request_changes THEN 'in_progress'
+        ELSE 'todo'
+      END AS status,
+      'medium'::text AS priority,
+      CASE
+        WHEN pc.request_changes THEN 'revision'
+        WHEN pc.request_approval THEN 'review'
+        ELSE 'general'
+      END AS category,
+      pc.user_id AS created_by,
+      u.name AS created_by_name,
+      NULL::text AS assigned_to,
+      NULL::text AS assigned_to_name,
+      NULL::date AS due_date,
+      NULL::timestamptz AS reminder_at,
+      NULL::timestamptz AS completed_at,
+      pc.created_at,
+      COALESCE(pc.updated_at, pc.created_at) AS updated_at,
+      p.name AS project_name,
+      pp.name AS phase_name,
+      pc.id AS pin_comment_id,
+      pc.attachment_id AS pin_attachment_id,
+      false AS is_starred,
+      0::int AS checklist_total,
+      0::int AS checklist_done,
+      'pin_comment'::text AS _source
+    FROM pin_comment pc
+    JOIN attachment a ON a.id = pc.attachment_id
+    JOIN project p ON p.id = a.project_id
+    LEFT JOIN project_phase pp ON pp.id = a.phase_id
+    LEFT JOIN "user" u ON u.id = pc.user_id
+    WHERE ${pinConds.join(" AND ")}`;
+
+  // For my_comments, also UNION project/phase/task-level comments from the
+  // `comment` table. Other buckets are pin_comment-only because `comment`
+  // doesn't carry the request_approval / request_changes flags.
+  let unionSql = pinSelect;
+  if (opts.bucket === "my_comments") {
+    const cmtConds: string[] = ["p.org_id = $1", `c.user_id = $2`];
+    if (opts.projectId) {
+      cmtConds.push(`c.project_id = $3`);
+    }
+    unionSql = `${pinSelect}
+      UNION ALL
+      SELECT
+        c.id,
+        p.org_id,
+        c.project_id,
+        c.phase_id,
+        SUBSTRING(c.content FROM 1 FOR 80) AS title,
+        c.content AS description,
+        'todo'::text AS status,
+        'medium'::text AS priority,
+        'general'::text AS category,
+        c.user_id AS created_by,
+        u.name AS created_by_name,
+        NULL::text AS assigned_to,
+        NULL::text AS assigned_to_name,
+        NULL::date AS due_date,
+        NULL::timestamptz AS reminder_at,
+        NULL::timestamptz AS completed_at,
+        c.created_at,
+        c.created_at AS updated_at,
+        p.name AS project_name,
+        pp.name AS phase_name,
+        NULL::uuid AS pin_comment_id,
+        NULL::uuid AS pin_attachment_id,
+        false AS is_starred,
+        0::int AS checklist_total,
+        0::int AS checklist_done,
+        'comment'::text AS _source
+      FROM comment c
+      JOIN project p ON p.id = c.project_id
+      LEFT JOIN project_phase pp ON pp.id = c.phase_id
+      LEFT JOIN "user" u ON u.id = c.user_id
+      WHERE ${cmtConds.join(" AND ")}`;
+  }
+
   values.push(limit);
   const limitIdx = idx;
   idx++;
@@ -327,49 +417,9 @@ async function getApprovalRows(opts: {
   const offsetIdx = idx;
 
   const { rows } = await pool.query(
-    `SELECT
-       pc.id,
-       p.org_id,
-       a.project_id,
-       a.phase_id,
-       SUBSTRING(pc.content FROM 1 FOR 80) AS title,
-       pc.content AS description,
-       CASE
-         WHEN pc.resolved THEN 'completed'
-         WHEN pc.request_approval OR pc.request_changes THEN 'in_progress'
-         ELSE 'todo'
-       END AS status,
-       'medium'::text AS priority,
-       CASE
-         WHEN pc.request_changes THEN 'revision'
-         WHEN pc.request_approval THEN 'review'
-         ELSE 'general'
-       END AS category,
-       pc.user_id AS created_by,
-       u.name AS created_by_name,
-       NULL::text AS assigned_to,
-       NULL::text AS assigned_to_name,
-       NULL::date AS due_date,
-       NULL::timestamptz AS reminder_at,
-       NULL::timestamptz AS completed_at,
-       pc.created_at,
-       COALESCE(pc.updated_at, pc.created_at) AS updated_at,
-       p.name AS project_name,
-       pp.name AS phase_name,
-       pc.id AS pin_comment_id,
-       pc.attachment_id AS pin_attachment_id,
-       false AS is_starred,
-       0::int AS checklist_total,
-       0::int AS checklist_done,
-       'pin_comment'::text AS _source,
-       COUNT(*) OVER()::int AS _total_count
-     FROM pin_comment pc
-     JOIN attachment a ON a.id = pc.attachment_id
-     JOIN project p ON p.id = a.project_id
-     LEFT JOIN project_phase pp ON pp.id = a.phase_id
-     LEFT JOIN "user" u ON u.id = pc.user_id
-     WHERE ${conditions.join(" AND ")}
-     ORDER BY pc.created_at DESC
+    `SELECT *, COUNT(*) OVER()::int AS _total_count
+     FROM (${unionSql}) combined
+     ORDER BY created_at DESC
      LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     values
   );
@@ -461,7 +511,7 @@ export async function getTaskBucketCounts(
   const pool = getPool();
   const assigneeFilter = assigneeOnly ? " AND t.assigned_to = $2" : "";
 
-  const [taskRow, approvalRow] = await Promise.all([
+  const [taskRow, approvalRow, projectCommentRow] = await Promise.all([
     pool
       .query(
         `SELECT
@@ -493,6 +543,15 @@ export async function getTaskBucketCounts(
         [orgId, userId]
       )
       .then((r) => r.rows[0]),
+    pool
+      .query(
+        `SELECT COUNT(*)::int AS my_project_comments
+         FROM comment c
+         JOIN project p ON p.id = c.project_id
+         WHERE p.org_id = $1 AND c.user_id = $2`,
+        [orgId, userId]
+      )
+      .then((r) => r.rows[0]),
   ]);
 
   return {
@@ -503,7 +562,9 @@ export async function getTaskBucketCounts(
     tasks_by_me: taskRow.tasks_by_me ?? 0,
     my_requests: approvalRow.my_requests ?? 0,
     my_approvals: 0,
-    my_comments: approvalRow.my_comments ?? 0,
+    my_comments:
+      (approvalRow.my_comments ?? 0) +
+      (projectCommentRow.my_project_comments ?? 0),
     all_tasks: taskRow.all_tasks ?? 0,
     all_requests: approvalRow.all_requests ?? 0,
   };

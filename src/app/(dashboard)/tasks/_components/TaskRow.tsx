@@ -111,7 +111,9 @@ export function TaskRow({
 }: TaskRowProps) {
   const t = useTranslations("tasks");
   const isClickable = !!onClick;
-  const isApproval = task._source === "pin_comment";
+  const isPinComment = task._source === "pin_comment";
+  const isProjectComment = task._source === "comment";
+  const isApproval = isPinComment || isProjectComment;
   const { icon: CategoryIcon, classes: categoryClasses } = getCategoryStyle(
     task.category
   );
@@ -156,19 +158,22 @@ export function TaskRow({
         )}
       </div>
 
-      {/* Status pill — clickable to toggle */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleStatus(task);
-        }}
-        className="cursor-pointer shrink-0"
-        aria-label={t("clickToChangeStatus")}
-      >
-        <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
-          {t(STATUS_TKEY[task.status] ?? task.status)}
-        </Badge>
-      </button>
+      {/* Status pill — only meaningful for real tasks; pin/comment rows
+       * don't have task-style status semantics, so the pill is hidden. */}
+      {isApproval ? null : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleStatus(task);
+          }}
+          className="cursor-pointer shrink-0"
+          aria-label={t("clickToChangeStatus")}
+        >
+          <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
+            {t(STATUS_TKEY[task.status] ?? task.status)}
+          </Badge>
+        </button>
+      )}
 
       {/* Assignee */}
       <div className="shrink-0 hidden sm:block">
@@ -201,34 +206,11 @@ export function TaskRow({
         )}
       </div>
 
-      {/* Open the underlying record. Real tasks → /tasks/[id]; approval rows
-       * (synthesized from pin_comment) → the original review comment. Both
-       * stop propagation so they don't also trigger the row's open-panel
-       * click. */}
-      {isApproval &&
-      task.project_id &&
-      task.pin_attachment_id &&
-      task.pin_comment_id ? (
-        <Link
-          href={`/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-          aria-label="Open review comment"
-          title="Open review comment"
-        >
-          <ExternalLink className="w-4 h-4" />
-        </Link>
-      ) : (
-        <Link
-          href={`/tasks/${task.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-          aria-label="Open task page"
-          title="Open task page"
-        >
-          <ExternalLink className="w-4 h-4" />
-        </Link>
-      )}
+      {/* Open the underlying record. Real tasks → /tasks/[id]; pin-comment
+       * rows → the file review with the pin expanded; project-comment rows
+       * → the project page. Click stops propagation so it doesn't also
+       * trigger the row's open-panel click. */}
+      <OpenLink task={task} />
 
       {/* Actions menu — only meaningful for real tasks. Approval rows show a
        * spacer so the row layout doesn't reflow between buckets. */}
@@ -271,5 +253,37 @@ export function TaskRow({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Picks the right `Link` href for the small external-link icon based on the
+ * row's `_source` discriminator. Falls back to `/tasks/[id]` for real tasks.
+ */
+function OpenLink({ task }: { task: Task }) {
+  let href = `/tasks/${task.id}`;
+  let label = "Open task page";
+  if (
+    task._source === "pin_comment" &&
+    task.project_id &&
+    task.pin_attachment_id &&
+    task.pin_comment_id
+  ) {
+    href = `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`;
+    label = "Open review comment";
+  } else if (task._source === "comment" && task.project_id) {
+    href = `/projects/${task.project_id}`;
+    label = "Open project";
+  }
+  return (
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+      aria-label={label}
+      title={label}
+    >
+      <ExternalLink className="w-4 h-4" />
+    </Link>
   );
 }

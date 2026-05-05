@@ -150,6 +150,10 @@ export default function TasksPage() {
         );
         return;
       }
+      if (task._source === "comment" && task.project_id) {
+        router.push(`/projects/${task.project_id}`);
+        return;
+      }
       const params = new URLSearchParams(searchParams.toString());
       params.set("task", task.id);
       router.replace(`/tasks?${params.toString()}`, { scroll: false });
