@@ -17,12 +17,11 @@ import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import type { Task, TaskFormData } from "@/types";
-import { TaskDetailModal } from "./_components/TaskDetailModal";
+import { TASK_BUCKETS, type TaskBucket } from "@/lib/validations";
 import { TaskFormDialog } from "./_components/TaskFormDialog";
 import { TaskDeleteDialog } from "./_components/TaskDeleteDialog";
 import {
   TaskBucketSidebar,
-  type Bucket,
   type BucketCounts,
 } from "./_components/TaskBucketSidebar";
 import { TaskFilterBar } from "./_components/TaskFilterBar";
@@ -62,14 +61,17 @@ const EMPTY_FORM: TaskFormData = {
   dueDate: "",
 };
 
-const DEFAULT_COUNTS: BucketCounts = {
-  all: 0,
-  my_tasks: 0,
-  created_by_me: 0,
-  starred: 0,
-  upcoming: 0,
-  completed: 0,
-};
+const DEFAULT_COUNTS: BucketCounts = TASK_BUCKETS.reduce(
+  (acc, key) => ({ ...acc, [key]: 0 }),
+  {} as BucketCounts
+);
+
+const VALID_BUCKETS_SET = new Set<string>(TASK_BUCKETS);
+function asBucket(value: string | null): TaskBucket {
+  return value && VALID_BUCKETS_SET.has(value)
+    ? (value as TaskBucket)
+    : "all_tasks";
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -84,7 +86,7 @@ export default function TasksPage() {
   const { members } = useOrgMembers({ assignableOnly: false });
 
   // -- Filter state (from URL) --
-  const activeBucket = (searchParams.get("bucket") as Bucket) || "all";
+  const activeBucket = asBucket(searchParams.get("bucket"));
   const searchValue = searchParams.get("search") || "";
   const statusFilter = searchParams.get("status") || "all";
   const priorityFilter = searchParams.get("priority") || "all";
@@ -169,9 +171,6 @@ export default function TasksPage() {
     }
   }, []);
 
-  // -- Detail modal --
-  const [detailTask, setDetailTask] = useState<Task | null>(null);
-
   // -- URL helpers --
   const setParam = useCallback(
     (key: string, value: string) => {
@@ -183,6 +182,20 @@ export default function TasksPage() {
       }
       // Reset page when filters change
       if (key !== "page") params.delete("page");
+      router.replace(`/tasks?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, router]
+  );
+
+  /**
+   * Open the global side panel for a task by pushing `?task=<id>` to the URL.
+   * `TaskSidePanelHost` (mounted in the dashboard layout) reads the param and
+   * renders the overlay — so the page itself doesn't manage detail-view state.
+   */
+  const openTask = useCallback(
+    (task: Task) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("task", task.id);
       router.replace(`/tasks?${params.toString()}`, { scroll: false });
     },
     [searchParams, router]
@@ -253,7 +266,7 @@ export default function TasksPage() {
           counts={counts}
           role={taskRole}
           onSelect={(bucket) =>
-            setParam("bucket", bucket === "all" ? "" : bucket)
+            setParam("bucket", bucket === "all_tasks" ? "" : bucket)
           }
         />
 
@@ -297,7 +310,7 @@ export default function TasksPage() {
                     onToggleStatus={toggleStatus}
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
-                    onClick={setDetailTask}
+                    onClick={openTask}
                     onGoToProject={(t) => {
                       if (t.pin_comment_id && t.pin_attachment_id) {
                         router.push(
@@ -331,36 +344,9 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Task Detail Modal */}
-      <TaskDetailModal
-        task={detailTask}
-        open={!!detailTask}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetailTask(null);
-            mutate();
-          }
-        }}
-        onEdit={(task) => {
-          setDetailTask(null);
-          openEdit(task);
-        }}
-        onToggleStatus={(task) => {
-          toggleStatus(task);
-          setDetailTask(null);
-        }}
-        onToggleStar={(task) => {
-          toggleStar(task);
-          setDetailTask({ ...task, is_starred: !task.is_starred });
-        }}
-        onDelete={(task) => {
-          setDetailTask(null);
-          setDeleteTarget(task);
-        }}
-        onChecklistChange={() => {
-          mutate();
-        }}
-      />
+      {/* Detail view is the global TaskSidePanelHost mounted in the dashboard
+       * layout — it opens whenever ?task=<id> is in the URL, so a row click
+       * just calls openTask above. */}
 
       {/* Create / Edit Task Dialog */}
       <TaskFormDialog
