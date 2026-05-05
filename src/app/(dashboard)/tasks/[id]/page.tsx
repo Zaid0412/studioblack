@@ -139,7 +139,10 @@ export default function TaskDetailPage({
           aria-label="Breadcrumb"
           className="flex items-center gap-1.5 text-xs text-text-muted mb-3"
         >
-          <Link href="/tasks" className="hover:text-text-primary">
+          <Link
+            href="/tasks"
+            className="text-accent underline underline-offset-2 hover:text-accent-hover"
+          >
             Tasks
           </Link>
           {task.project_name && (
@@ -147,7 +150,7 @@ export default function TaskDetailPage({
               <ChevronRight className="w-3 h-3" />
               <Link
                 href={`/projects/${task.project_id}`}
-                className="hover:text-text-primary"
+                className="text-accent underline underline-offset-2 hover:text-accent-hover"
               >
                 {task.project_name}
               </Link>

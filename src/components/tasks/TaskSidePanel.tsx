@@ -110,7 +110,7 @@ function PanelContent({
               <Link
                 href={`/projects/${task.project_id}`}
                 onClick={onClose}
-                className="hover:text-text-primary hover:underline"
+                className="text-accent underline underline-offset-2 hover:text-accent-hover"
               >
                 {task.project_name}
               </Link>
