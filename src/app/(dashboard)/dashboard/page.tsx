@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { StatCard } from "@/components/ui/StatCard";
 import { activityIcons, activityColors } from "@/lib/activityConstants";
 import { formatTimeAgo } from "@/lib/formatTime";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -321,20 +322,13 @@ export default function DashboardPage() {
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <div
+          <StatCard
             key={stat.label}
-            className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-5"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-text-muted">{stat.label}</span>
-              <stat.icon className="w-4 h-4 text-text-muted" />
-            </div>
-            <span
-              className={`text-[32px] font-bold ${stat.valueColor || "text-text-primary"}`}
-            >
-              {stat.value}
-            </span>
-          </div>
+            label={stat.label}
+            value={stat.value}
+            icon={stat.icon}
+            valueColor={stat.valueColor}
+          />
         ))}
       </div>
 

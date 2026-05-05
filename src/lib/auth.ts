@@ -10,20 +10,42 @@ import {
 } from "@/lib/email";
 import { features } from "@/config/features";
 import { getPool } from "@/lib/db";
+import { linkVendorContactByEmail } from "@/lib/queries";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
 
 /**
  * Resolve the base URL for better-auth.
  *
- * Priority: BETTER_AUTH_URL (explicit) → VERCEL_URL (auto-set by Vercel on
- * preview + production deployments) → localhost fallback.
+ * Priority: BETTER_AUTH_URL (explicit) → VERCEL_BRANCH_URL (stable per branch,
+ * matches what users typically share) → VERCEL_URL (deployment-specific) →
+ * localhost fallback.
  */
 function getBaseURL(): string {
   const e = env();
   if (e.BETTER_AUTH_URL) return e.BETTER_AUTH_URL;
+  if (e.VERCEL_BRANCH_URL) return `https://${e.VERCEL_BRANCH_URL}`;
   if (e.VERCEL_URL) return `https://${e.VERCEL_URL}`;
   return "http://localhost:3000";
+}
+
+/**
+ * Build the trusted-origins allowlist for better-auth's CSRF check. Vercel
+ * exposes three URL variants per deployment (deployment-specific, branch,
+ * production) and the user can hit any of them; rejecting non-canonical
+ * variants returns INVALID_ORIGIN on sign-in. We trust all available variants.
+ */
+function getTrustedOrigins(): string[] {
+  const e = env();
+  const origins = new Set<string>();
+  if (e.BETTER_AUTH_URL) origins.add(e.BETTER_AUTH_URL);
+  if (e.VERCEL_URL) origins.add(`https://${e.VERCEL_URL}`);
+  if (e.VERCEL_BRANCH_URL) origins.add(`https://${e.VERCEL_BRANCH_URL}`);
+  if (e.VERCEL_PROJECT_PRODUCTION_URL) {
+    origins.add(`https://${e.VERCEL_PROJECT_PRODUCTION_URL}`);
+  }
+  if (origins.size === 0) origins.add("http://localhost:3000");
+  return Array.from(origins);
 }
 
 /**
@@ -44,7 +66,7 @@ function getBaseURL(): string {
  */
 export const auth = betterAuth({
   baseURL: getBaseURL(),
-  trustedOrigins: [getBaseURL()],
+  trustedOrigins: getTrustedOrigins(),
   database: getPool(),
   emailAndPassword: {
     enabled: true,
@@ -158,45 +180,11 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
-    member: {
-      create: {
-        // Catches the existing-user-accepts-vendor-invite path (user.create.after
-        // doesn't fire when no new user is being created). Idempotent — also
-        // safe to run for the new-user path; the vendor_contact.user_id update
-        // is a no-op once linked.
-        after: async (member: { userId: string; role: string }) => {
-          if (member.role !== "vendor") return;
-          const pool = getPool();
-          const { rows } = await pool.query(
-            `SELECT email, role FROM "user" WHERE id = $1`,
-            [member.userId]
-          );
-          if (rows.length === 0) return;
-          const { email, role: currentRole } = rows[0];
-
-          await pool.query(
-            `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
-            [member.userId, email]
-          );
-
-          // Only flip user.role to vendor if the user isn't a PM (admin-class —
-          // never demote) and isn't already vendor. Architects / clients accepting
-          // a vendor invite are explicitly being re-roled.
-          if (currentRole !== "pm" && currentRole !== "vendor") {
-            await pool.query(
-              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
-              [member.userId]
-            );
-          }
-        },
-      },
-    },
     user: {
       create: {
         after: async (user) => {
           const pool = getPool();
 
-          // Check if there's a pending org invitation with role "client"
           const { rows: invRows } = await pool.query(
             `SELECT 1 FROM "invitation" WHERE email = $1 AND role = 'client' AND status = 'pending' LIMIT 1`,
             [user.email]
@@ -209,20 +197,17 @@ export const auth = betterAuth({
             return;
           }
 
-          // Pending org invitation with role "vendor" — same flow as client.
           const { rows: vendorInvRows } = await pool.query(
             `SELECT 1 FROM "invitation" WHERE email = $1 AND role = 'vendor' AND status = 'pending' LIMIT 1`,
             [user.email]
           );
           if (vendorInvRows.length > 0) {
-            await pool.query(
-              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
-              [user.id]
-            );
-            await pool.query(
-              `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
-              [user.id, user.email]
-            );
+            await Promise.all([
+              pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                user.id,
+              ]),
+              linkVendorContactByEmail(user.id, user.email),
+            ]);
             return;
           }
 
@@ -241,18 +226,16 @@ export const auth = betterAuth({
 
           // Backward compat: email matches an unlinked vendor_contact → vendor role.
           const { rows: vcRows } = await pool.query(
-            `SELECT 1 FROM vendor_contact WHERE email = $1 AND user_id IS NULL LIMIT 1`,
+            `SELECT 1 FROM vendor_contact WHERE TRIM(LOWER(email)) = TRIM(LOWER($1)) AND user_id IS NULL LIMIT 1`,
             [user.email]
           );
           if (vcRows.length > 0) {
-            await pool.query(
-              `UPDATE "user" SET role = 'vendor' WHERE id = $1`,
-              [user.id]
-            );
-            await pool.query(
-              `UPDATE vendor_contact SET user_id = $1 WHERE email = $2 AND user_id IS NULL`,
-              [user.id, user.email]
-            );
+            await Promise.all([
+              pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                user.id,
+              ]),
+              linkVendorContactByEmail(user.id, user.email),
+            ]);
           }
         },
       },
@@ -271,6 +254,38 @@ export const auth = betterAuth({
           org.name,
           inviteLink
         );
+      },
+      organizationHooks: {
+        // Catches the existing-user-accepts-vendor-invite path. The user-table
+        // databaseHook only fires for new signups; once the user already exists,
+        // the org plugin's `acceptInvitation` calls `adapter.create` for the
+        // member row directly (no `createWithHooks`), so the only reliable place
+        // to react is the org plugin's own hook.
+        afterAcceptInvitation: async ({ member, user }) => {
+          if (member.role !== "vendor") return;
+          const pool = getPool();
+          // Re-read the user's current role; the `user` argument may be stale
+          // if the user.create.after hook just promoted this account.
+          const { rows } = await pool.query(
+            `SELECT role FROM "user" WHERE id = $1`,
+            [user.id]
+          );
+          const currentRole = rows[0]?.role as string | undefined;
+          // New-user signups are already handled by user.create.after — bail
+          // here to avoid a redundant no-op UPDATE on vendor_contact.
+          if (currentRole === "vendor") return;
+          // Never demote a PM. Architects / clients accepting a vendor invite
+          // are explicitly being re-roled.
+          const shouldRerole = currentRole !== "pm";
+          await Promise.all([
+            linkVendorContactByEmail(user.id, user.email),
+            shouldRerole
+              ? pool.query(`UPDATE "user" SET role = 'vendor' WHERE id = $1`, [
+                  user.id,
+                ])
+              : Promise.resolve(),
+          ]);
+        },
       },
     }),
     magicLink({

@@ -81,9 +81,10 @@ export function VendorDrawer({
   );
 
   const handleInviteContact = async (contactId: string, email: string) => {
+    if (!vendorId) return;
     setInvitingContactId(contactId);
     try {
-      const result = await vendorsApi.inviteContact(vendorId!, contactId);
+      const result = await vendorsApi.inviteContact(vendorId, contactId);
       if (result.status === "linked") {
         toast({
           title: t("portalLinked"),

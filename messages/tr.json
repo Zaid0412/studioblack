@@ -136,7 +136,8 @@
     "rfqs": "Teklif Talepleri",
     "purchaseOrders": "Satın Alma Siparişleri",
     "progress": "İlerleme",
-    "invoices": "Faturalar"
+    "invoices": "Faturalar",
+    "profile": "Profil"
   },
   "dashboard": {
     "title": "Kontrol Paneli",
@@ -1187,6 +1188,30 @@
     "noInvoices": "Fatura yok",
     "noInvoicesHint": "Siparişlere karşı kestiğiniz faturalar burada görünecek.",
     "comingSoon": "Yakında",
-    "comingSoonHint": "Bu bölüm yakında çıkacak bir sürümde yer alacak."
+    "comingSoonHint": "Bu bölüm yakında çıkacak bir sürümde yer alacak.",
+    "profile": {
+      "title": "Profil",
+      "subtitle": "Şirket bilgileriniz, kişiler, banka bilgileri ve KYC belgelerini yönetin.",
+      "loadError": "Profil yüklenemedi.",
+      "tabOverview": "Genel Bakış",
+      "tabContacts": "Kişiler",
+      "tabBank": "Banka Bilgileri",
+      "tabKyc": "KYC",
+      "tradingName": "Ticari isim",
+      "address": "Adres",
+      "addressLine1": "Adres satırı 1",
+      "addressLine2": "Adres satırı 2",
+      "city": "Şehir",
+      "region": "Bölge / İl",
+      "postal": "Posta kodu",
+      "country": "Ülke",
+      "contactLinked": "Bağlı",
+      "removeContactTitle": "Kişiyi kaldır",
+      "removeContactDesc": "Bu kişiyi tedarikçi kaydınızdan kaldırmak istiyor musunuz? Bu işlem geri alınamaz.",
+      "contactLinkedTitle": "Kişi kaldırılamıyor",
+      "contactLinkedDesc": "Bu kişi bir portal kullanıcısına bağlı. Önce proje yöneticinizden bağlantıyı iptal etmesini isteyin.",
+      "suspendedTitle": "Hesap askıya alındı",
+      "suspendedDesc": "Tedarikçi hesabınız askıya alındı. Ayrıntılar için proje yöneticinizle iletişime geçin. Bilgilerinizi görüntüleyebilirsiniz ancak değişiklik yapamazsınız."
+    }
   }
 }

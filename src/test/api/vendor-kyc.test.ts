@@ -108,7 +108,8 @@ describe("GET /api/vendors/[id]/kyc-documents", () => {
 describe("POST /api/vendors/[id]/kyc-documents", () => {
   const validBody = {
     docType: "trade_licence",
-    fileUrl: "https://example.com/files/licence.pdf",
+    // Mirrors what the signed-URL route returns: includes the uploader's id.
+    fileUrl: `https://example.supabase.co/storage/v1/object/public/attachments/${pmSession.user.id}/123-licence.pdf`,
     fileName: "licence.pdf",
   } as const;
 

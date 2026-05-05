@@ -136,7 +136,8 @@
     "rfqs": "RFQs",
     "purchaseOrders": "Purchase Orders",
     "progress": "Progress",
-    "invoices": "Invoices"
+    "invoices": "Invoices",
+    "profile": "Profile"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1187,6 +1188,30 @@
     "noInvoices": "No invoices",
     "noInvoicesHint": "Invoices you raise against POs will appear here.",
     "comingSoon": "Coming soon",
-    "comingSoonHint": "This section is part of an upcoming release."
+    "comingSoonHint": "This section is part of an upcoming release.",
+    "profile": {
+      "title": "Profile",
+      "subtitle": "Manage your company details, contacts, bank info, and KYC documents.",
+      "loadError": "Failed to load profile.",
+      "tabOverview": "Overview",
+      "tabContacts": "Contacts",
+      "tabBank": "Bank Details",
+      "tabKyc": "KYC",
+      "tradingName": "Trading name",
+      "address": "Address",
+      "addressLine1": "Address line 1",
+      "addressLine2": "Address line 2",
+      "city": "City",
+      "region": "Region / State",
+      "postal": "Postal code",
+      "country": "Country",
+      "contactLinked": "Linked",
+      "removeContactTitle": "Remove contact",
+      "removeContactDesc": "Remove this contact from your vendor record? This action cannot be undone.",
+      "contactLinkedTitle": "Cannot remove contact",
+      "contactLinkedDesc": "This contact is linked to a portal user. Ask your project manager to revoke the link first.",
+      "suspendedTitle": "Account suspended",
+      "suspendedDesc": "Your vendor account has been suspended. Contact your project manager for details. You can review your information but cannot make changes."
+    }
   }
 }

@@ -707,3 +707,455 @@ export async function setKycStatus(
 // Re-export the type so callers that import from "@/lib/queries" can get it
 // without pulling from "@/types" too. Mirrors the elements module.
 export type { BankDetails };
+
+// ─── Vendor Portal — Self-Service (F8.5) ────────────────────────────────────
+//
+// Vendor users edit their own vendor record from /vendor-portal/profile.
+// These helpers skip the org-id check that PM-side queries use because
+// authorization is established up-front via vendor_contact.user_id; the
+// `withAuth({ fetchVendorId: true })` option resolves the caller's vendor_id
+// from session, so callers here never see a vendor_id they don't own.
+
+/**
+ * Resolve the vendor_id linked to a user via `vendor_contact.user_id`. A user
+ * can in theory be a contact on multiple vendors (rare); we pick the most
+ * recent link to match the invite-resolution behaviour elsewhere.
+ */
+export async function getVendorIdByUserId(
+  userId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT vendor_id FROM vendor_contact
+       WHERE user_id = $1
+       ORDER BY created_at DESC NULLS LAST, id DESC
+       LIMIT 1`,
+    [userId]
+  );
+  return (rows[0]?.vendor_id as string) ?? null;
+}
+
+/** Vendor + contacts + trades, fetched by vendor_id without org guard. */
+export async function getVendorSelfById(
+  vendorId: string
+): Promise<VendorWithRelations | null> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
+       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
+       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
+       v.address, v.created_by, v.created_at, v.updated_at,
+       COALESCE(
+         (
+           SELECT json_agg(c ORDER BY c.is_primary DESC, c.created_at)
+           FROM vendor_contact c
+           WHERE c.vendor_id = v.id
+         ), '[]'::json
+       ) AS contacts,
+       COALESCE(
+         (
+           SELECT json_agg(json_build_object(
+             'id', t.id,
+             'vendor_id', t.vendor_id,
+             'category_id', t.category_id,
+             'proficiency_level', t.proficiency_level,
+             'notes', t.notes,
+             'category_name', ec.name,
+             'category_color', ec.color
+           ) ORDER BY ec.name)
+           FROM vendor_trade t
+           JOIN element_category ec ON ec.id = t.category_id
+           WHERE t.vendor_id = v.id
+         ), '[]'::json
+       ) AS trades,
+       COALESCE(
+         (
+           SELECT COUNT(*)
+           FROM vendor_kyc_document d
+           WHERE d.vendor_id = v.id
+             AND d.expires_at IS NOT NULL
+             AND d.expires_at <= CURRENT_DATE + INTERVAL '30 days'
+         ), 0
+       )::int AS kyc_expiring_soon_count
+     FROM vendor v
+     WHERE v.id = $1`,
+    [vendorId]
+  );
+  return (rows[0] as VendorWithRelations) ?? null;
+}
+
+/** Bank-details envelope for a vendor by id (no org guard). */
+export async function getVendorBankDetailsEnvelopeById(
+  vendorId: string
+): Promise<{ exists: boolean; envelope: EncryptedField | null }> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT bank_details FROM vendor WHERE id = $1`,
+    [vendorId]
+  );
+  if (rows.length === 0) return { exists: false, envelope: null };
+  return {
+    exists: true,
+    envelope: (rows[0].bank_details as EncryptedField | null) ?? null,
+  };
+}
+
+/** Vendor-side update: only `tradingName` + `address` are settable. */
+export interface UpdateVendorSelfInput {
+  tradingName?: string | null;
+  address?: Record<string, string | undefined> | null;
+}
+
+/** Apply the vendor-side patch to a vendor row by id (no org guard). */
+export async function updateVendorSelf(
+  vendorId: string,
+  patch: UpdateVendorSelfInput
+): Promise<VendorWithRelations | null> {
+  const pool = getPool();
+  const setClauses: string[] = [];
+  const params: unknown[] = [vendorId];
+
+  if ("tradingName" in patch) {
+    params.push(patch.tradingName);
+    setClauses.push(`trading_name = $${params.length}`);
+  }
+  if ("address" in patch) {
+    params.push(patch.address ? JSON.stringify(patch.address) : null);
+    setClauses.push(`address = $${params.length}`);
+  }
+  if (setClauses.length === 0) return await getVendorSelfById(vendorId);
+
+  setClauses.push(`updated_at = now()`);
+  const { rowCount } = await pool.query(
+    `UPDATE vendor SET ${setClauses.join(", ")} WHERE id = $1`,
+    params
+  );
+  if ((rowCount ?? 0) === 0) return null;
+  return await getVendorSelfById(vendorId);
+}
+
+/** Bank-details write by vendor_id (no org guard). */
+export async function updateVendorBankDetailsById(
+  vendorId: string,
+  envelope: EncryptedField | null
+): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `UPDATE vendor
+       SET bank_details = $1, updated_at = now()
+     WHERE id = $2`,
+    [envelope ? JSON.stringify(envelope) : null, vendorId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+/** KYC docs for one vendor (no org guard). */
+export async function listKycDocumentsByVendorId(
+  vendorId: string
+): Promise<VendorKycDocument[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT id, vendor_id, doc_type, file_url, file_name,
+            expires_at, uploaded_by, uploaded_at, notes
+       FROM vendor_kyc_document
+      WHERE vendor_id = $1
+      ORDER BY uploaded_at DESC`,
+    [vendorId]
+  );
+  return rows as VendorKycDocument[];
+}
+
+/**
+ * Vendor-side KYC upload. Auto-flips `kyc_status` to `pending` unless it's
+ * already `pending` — re-uploads after PM verified should trigger re-review.
+ */
+export async function addKycDocumentBySelf(
+  vendorId: string,
+  uploadedBy: string,
+  input: AddKycDocumentInput
+): Promise<{
+  document: VendorKycDocument;
+  vendorKycStatus: VendorKycStatus;
+} | null> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const insert = await client.query(
+      `WITH v AS (SELECT id, kyc_status FROM vendor WHERE id = $1)
+       INSERT INTO vendor_kyc_document
+         (vendor_id, doc_type, file_url, file_name, expires_at, uploaded_by, notes)
+       SELECT v.id, $2, $3, $4, $5, $6, $7 FROM v
+       RETURNING id, vendor_id, doc_type, file_url, file_name,
+                 expires_at, uploaded_by, uploaded_at, notes,
+                 (SELECT kyc_status FROM v) AS prior_kyc_status`,
+      [
+        vendorId,
+        input.docType,
+        input.fileUrl,
+        input.fileName,
+        input.expiresAt ?? null,
+        uploadedBy,
+        input.notes ?? null,
+      ]
+    );
+
+    if (insert.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    const { prior_kyc_status: priorStatus, ...document } = insert.rows[0] as {
+      prior_kyc_status: VendorKycStatus;
+    } & VendorKycDocument;
+
+    let vendorKycStatus = priorStatus;
+    if (priorStatus !== "pending") {
+      vendorKycStatus = "pending";
+      await client.query(
+        `UPDATE vendor SET kyc_status = 'pending', updated_at = now()
+           WHERE id = $1`,
+        [vendorId]
+      );
+    }
+
+    await client.query("COMMIT");
+    return { document: document as VendorKycDocument, vendorKycStatus };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+  } finally {
+    client.release();
+  }
+}
+
+/** Remove a KYC doc, scoped to a vendor's own docs. */
+export async function removeKycDocumentBySelf(
+  vendorId: string,
+  docId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `DELETE FROM vendor_kyc_document
+       WHERE id = $1 AND vendor_id = $2`,
+    [docId, vendorId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
+// ─── Vendor self-service contact CRUD ───────────────────────────────────────
+
+export interface VendorContactInput {
+  name: string;
+  title?: string | null;
+  email: string;
+  phone?: string | null;
+  isPrimary?: boolean;
+  receivesRfq?: boolean;
+}
+
+export interface VendorContactPatch {
+  name?: string;
+  title?: string | null;
+  email?: string;
+  phone?: string | null;
+  isPrimary?: boolean;
+  receivesRfq?: boolean;
+}
+
+/**
+ * Append a contact row. When `isPrimary: true`, clears `is_primary` from
+ * every other contact in the same vendor to keep the invariant.
+ */
+export async function addVendorContactSelf(
+  vendorId: string,
+  input: VendorContactInput
+): Promise<{ id: string }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (input.isPrimary) {
+      await client.query(
+        `UPDATE vendor_contact SET is_primary = false WHERE vendor_id = $1`,
+        [vendorId]
+      );
+    }
+
+    const { rows } = await client.query(
+      `INSERT INTO vendor_contact
+         (vendor_id, name, title, email, phone, is_primary, receives_rfq)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true))
+       RETURNING id`,
+      [
+        vendorId,
+        input.name,
+        input.title ?? null,
+        input.email,
+        input.phone ?? null,
+        !!input.isPrimary,
+        input.receivesRfq ?? null,
+      ]
+    );
+
+    await client.query("COMMIT");
+    return { id: rows[0].id as string };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+  } finally {
+    client.release();
+  }
+}
+
+const CONTACT_PATCH_COLS: Record<keyof VendorContactPatch, string> = {
+  name: "name",
+  title: "title",
+  email: "email",
+  phone: "phone",
+  isPrimary: "is_primary",
+  receivesRfq: "receives_rfq",
+};
+
+/** Patch a single contact row, scoped to a specific vendor. */
+export async function updateVendorContactSelf(
+  vendorId: string,
+  contactId: string,
+  patch: VendorContactPatch
+): Promise<boolean> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    if (patch.isPrimary === true) {
+      await client.query(
+        `UPDATE vendor_contact SET is_primary = false
+           WHERE vendor_id = $1 AND id <> $2`,
+        [vendorId, contactId]
+      );
+    }
+
+    const setClauses: string[] = [];
+    const params: unknown[] = [contactId, vendorId];
+    for (const [key, col] of Object.entries(CONTACT_PATCH_COLS)) {
+      const k = key as keyof VendorContactPatch;
+      if (k in patch) {
+        params.push((patch as Record<string, unknown>)[k]);
+        setClauses.push(`${col} = $${params.length}`);
+      }
+    }
+
+    if (setClauses.length === 0) {
+      await client.query("ROLLBACK");
+      return true;
+    }
+
+    const { rowCount } = await client.query(
+      `UPDATE vendor_contact SET ${setClauses.join(", ")}
+         WHERE id = $1 AND vendor_id = $2`,
+      params
+    );
+
+    await client.query("COMMIT");
+    return (rowCount ?? 0) > 0;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete a contact, scoped to a vendor's own. Refuses to delete a row that
+ * has `user_id` set — that contact is linked to a portal user and removing
+ * it would orphan the link. Caller surfaces this as a 409.
+ */
+export async function deleteVendorContactSelf(
+  vendorId: string,
+  contactId: string
+): Promise<{ ok: true } | { ok: false; reason: "linked" | "not_found" }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      `SELECT user_id FROM vendor_contact
+         WHERE id = $1 AND vendor_id = $2`,
+      [contactId, vendorId]
+    );
+
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+
+    if (rows[0].user_id) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "linked" };
+    }
+
+    await client.query(
+      `DELETE FROM vendor_contact WHERE id = $1 AND vendor_id = $2`,
+      [contactId, vendorId]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Slim lookup for the invite endpoint — fetches just the contact email and
+ * verifies the contact belongs to a vendor in the given org. Avoids the
+ * heavy joins in `getVendorById` when only the email is needed.
+ */
+export async function getVendorContactEmail(
+  orgId: string,
+  vendorId: string,
+  contactId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const {
+    rows: [row],
+  } = await pool.query(
+    `SELECT vc.email
+     FROM vendor_contact vc
+     JOIN vendor v ON v.id = vc.vendor_id
+     WHERE vc.id = $1 AND v.id = $2 AND v.org_id = $3`,
+    [contactId, vendorId, orgId]
+  );
+  return row?.email ?? null;
+}
+
+/**
+ * Backfill `vendor_contact.user_id` for any unlinked contact whose email
+ * matches the given user. Case-insensitive (better-auth stores emails
+ * lowercased; older contact rows may not be).
+ *
+ * Idempotent — only updates rows where `user_id IS NULL`.
+ */
+export async function linkVendorContactByEmail(
+  userId: string,
+  email: string
+): Promise<void> {
+  const pool = getPool();
+  // TRIM both sides so legacy / CSV-imported rows with stray whitespace still
+  // link. better-auth normalises emails to lowercase but doesn't trim.
+  await pool.query(
+    `UPDATE vendor_contact
+     SET user_id = $1
+     WHERE TRIM(LOWER(email)) = TRIM(LOWER($2)) AND user_id IS NULL`,
+    [userId, email]
+  );
+}

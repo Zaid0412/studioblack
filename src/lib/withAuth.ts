@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { hasProjectAccess, getOrgRole } from "@/lib/queries";
+import {
+  hasProjectAccess,
+  getOrgRole,
+  getVendorIdByUserId,
+} from "@/lib/queries";
 import { deriveEffectiveRole } from "@/lib/effectiveRole";
 import { rateLimit } from "@/lib/rateLimit";
 import { logger } from "@/lib/logger";
@@ -17,6 +21,8 @@ export interface AuthContext {
   orgRole?: string | null;
   effectiveRole: UserRole;
   requestId: string;
+  /** Resolved vendor_id when the route opts in via `fetchVendorId`. */
+  vendorId?: string | null;
 }
 
 interface WithAuthOptions {
@@ -28,6 +34,13 @@ interface WithAuthOptions {
   projectAccess?: boolean;
   /** If true, fetches getOrgRole() and includes it in context. */
   fetchOrgRole?: boolean;
+  /**
+   * If true, resolves `vendor_id` from `vendor_contact.user_id` and exposes it
+   * as `ctx.vendorId`. Returns 404 when the caller has no linked vendor record
+   * (a vendor user without a `vendor_contact` row shouldn't exist, but fail
+   * closed). Only meaningful for vendor-role routes.
+   */
+  fetchVendorId?: boolean;
   /** Rate limit configuration. If provided, applies rate limiting before the handler runs. */
   rateLimit?: { limit: number; windowMs: number };
 }
@@ -223,10 +236,38 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       }
     }
 
+    // Vendor id
+    let vendorId: string | null | undefined;
+    if (options.fetchVendorId) {
+      vendorId = await getVendorIdByUserId(user.id);
+      if (!vendorId) {
+        logger.warn("Vendor record not found for vendor user", {
+          requestId,
+          route,
+          userId: user.id,
+        });
+        return withRequestId(
+          NextResponse.json(
+            { error: "Vendor record not found" },
+            { status: 404 }
+          ),
+          requestId
+        );
+      }
+    }
+
     try {
       const response = await handler(
         req,
-        { session, user, orgId, orgRole, effectiveRole: role, requestId },
+        {
+          session,
+          user,
+          orgId,
+          orgRole,
+          effectiveRole: role,
+          requestId,
+          vendorId,
+        },
         resolvedParams
       );
       return withRequestId(response, requestId);

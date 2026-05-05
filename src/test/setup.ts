@@ -378,6 +378,23 @@ vi.mock("@/lib/queries", () => ({
   listKycDocuments: vi.fn().mockResolvedValue([]),
   removeKycDocument: vi.fn().mockResolvedValue(true),
   setKycStatus: vi.fn().mockResolvedValue(null),
+  // Vendor invite / linking (Feature 8)
+  getVendorContactEmail: vi.fn().mockResolvedValue(null),
+  linkVendorContactByEmail: vi.fn().mockResolvedValue(undefined),
+  // Vendor Portal — Self-Service (Feature 8.5)
+  getVendorIdByUserId: vi.fn().mockResolvedValue(null),
+  getVendorSelfById: vi.fn().mockResolvedValue(null),
+  getVendorBankDetailsEnvelopeById: vi
+    .fn()
+    .mockResolvedValue({ exists: false, envelope: null }),
+  updateVendorSelf: vi.fn().mockResolvedValue(null),
+  updateVendorBankDetailsById: vi.fn().mockResolvedValue(true),
+  listKycDocumentsByVendorId: vi.fn().mockResolvedValue([]),
+  addKycDocumentBySelf: vi.fn().mockResolvedValue(null),
+  removeKycDocumentBySelf: vi.fn().mockResolvedValue(true),
+  addVendorContactSelf: vi.fn().mockResolvedValue({ id: "contact-test-001" }),
+  updateVendorContactSelf: vi.fn().mockResolvedValue(true),
+  deleteVendorContactSelf: vi.fn().mockResolvedValue({ ok: true }),
   // Rate Contracts (Feature 7.5)
   listRateContracts: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRateContractById: vi.fn().mockResolvedValue(null),
@@ -403,8 +420,15 @@ vi.mock("@/lib/queries", () => ({
     VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
     VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
     VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
+    VENDOR_PROFILE_UPDATED: "vendor.profile.updated",
+    VENDOR_CONTACT_ADDED: "vendor.contact.added",
+    VENDOR_CONTACT_UPDATED: "vendor.contact.updated",
+    VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
     RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
     RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
+  } as const,
+  AUDIT_SOURCES: {
+    SELF_SERVICE: "self_service",
   } as const,
   getAuditEvents: vi.fn().mockResolvedValue([]),
 }));

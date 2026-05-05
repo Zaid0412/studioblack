@@ -38,7 +38,13 @@ export async function captureServerException(
   await ph.flush();
 }
 
-/** Returns the flag value, or `fallback` when PostHog has no answer or is disabled. */
+/**
+ * Returns the flag value, or `fallback` when PostHog has no answer or is disabled.
+ *
+ * Forwards the runtime `environment` as a person property so flags gated on
+ * deploy environment (preview / production) evaluate the same way they do
+ * client-side, where `setPersonPropertiesForFlags` already sets it.
+ */
 export async function getServerFeatureFlag(
   key: string,
   distinctId: string,
@@ -47,6 +53,13 @@ export async function getServerFeatureFlag(
   const ph = getClient();
   if (!ph) return fallback;
 
-  const result = await ph.isFeatureEnabled(key, distinctId);
+  const environment =
+    process.env.NEXT_PUBLIC_VERCEL_ENV ??
+    process.env.VERCEL_ENV ??
+    "development";
+
+  const result = await ph.isFeatureEnabled(key, distinctId, {
+    personProperties: { environment },
+  });
   return result ?? fallback;
 }
