@@ -208,7 +208,7 @@ function BucketRow({ bucket, label, count, isActive, onSelect }: RowProps) {
     <button
       type="button"
       onClick={() => onSelect(bucket)}
-      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg border-l-4 text-sm transition-colors cursor-pointer ${
+      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg border-l-[3px] text-sm transition-colors cursor-pointer ${
         isActive
           ? "bg-accent/10 text-accent font-semibold border-accent"
           : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated/50 border-transparent"
