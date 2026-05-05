@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { Avatar } from "@/components/ui/avatar";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
+import { timeAgo } from "@/lib/formatTime";
 import type { TaskComment } from "@/types";
 
 interface TaskCommentListProps {
@@ -37,7 +38,7 @@ function CommentCard({ comment }: { comment: TaskComment }) {
         </span>
         <span className="text-xs text-text-muted">·</span>
         <span className="text-xs text-text-muted">
-          {formatRelativeTime(comment.created_at)}
+          {timeAgo(comment.created_at)}
         </span>
         {comment.updated_at && (
           <span className="text-xs italic text-text-muted ml-1">(edited)</span>
@@ -71,20 +72,6 @@ function CommentCard({ comment }: { comment: TaskComment }) {
       </div>
     </li>
   );
-}
-
-function formatRelativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return iso;
-  const diff = Date.now() - then;
-  const min = Math.round(diff / 60_000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Date(iso).toLocaleDateString();
 }
 
 function formatBytes(bytes: number): string {

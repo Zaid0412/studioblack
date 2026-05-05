@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Calendar,
   MoreVertical,
@@ -13,6 +14,7 @@ import {
   RefreshCw,
   Hammer,
   Send,
+  ExternalLink,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -197,6 +199,19 @@ export function TaskRow({
           <span className="text-xs text-text-muted">—</span>
         )}
       </div>
+
+      {/* Open task page directly — bypasses the side panel for users who
+       * want the full GH-style view. Click target stops propagation so it
+       * doesn't trigger the row's panel-opening click. */}
+      <Link
+        href={`/tasks/${task.id}`}
+        onClick={(e) => e.stopPropagation()}
+        className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+        aria-label="Open task page"
+        title="Open task page"
+      >
+        <ExternalLink className="w-4 h-4" />
+      </Link>
 
       {/* Actions — kept on the row until edit/delete land in the side panel. */}
       <div className="shrink-0">

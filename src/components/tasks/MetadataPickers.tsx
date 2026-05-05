@@ -190,20 +190,6 @@ export function PickerPanel<T>({
   );
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/** Tailwind classes for a priority pill. */
-export function priorityClass(priority: string): string {
-  switch (priority) {
-    case "urgent":
-      return "bg-red-500/10 text-red-500";
-    case "high":
-      return "bg-warning/10 text-warning";
-    case "medium":
-      return "bg-info/10 text-info";
-    case "low":
-      return "bg-text-muted/15 text-text-muted";
-    default:
-      return "bg-info/10 text-info";
-  }
-}
+// `priorityClass` lives in src/lib/taskUtils.ts alongside the other priority
+// styling tables — re-exported here for backwards compat.
+export { priorityClass } from "@/lib/taskUtils";

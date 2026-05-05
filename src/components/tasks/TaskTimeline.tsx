@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { Pencil, Trash2, MoreVertical } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ import { TaskMarkdownEditor } from "./TaskMarkdownEditor";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import { formatDate } from "@/lib/taskUtils";
+import { timeAgo } from "@/lib/formatTime";
 import type { Task, TaskComment } from "@/types";
 
 interface TaskTimelineProps {
@@ -184,6 +186,7 @@ function CommentCard({
   const [draft, setDraft] = useState(comment.body);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const startEdit = () => {
     setDraft(comment.body);
@@ -215,7 +218,6 @@ function CommentCard({
   };
 
   const remove = async () => {
-    if (!confirm("Delete this comment? This can't be undone.")) return;
     setDeleting(true);
     try {
       await taskComments.remove(taskId, comment.id);
@@ -248,7 +250,7 @@ function CommentCard({
           </span>
           <span className="text-xs text-text-muted">·</span>
           <span className="text-xs text-text-muted">
-            commented {formatRelativeTime(comment.created_at)}
+            commented {timeAgo(comment.created_at)}
           </span>
           {comment.updated_at && (
             <span className="text-xs italic text-text-muted">(edited)</span>
@@ -271,7 +273,10 @@ function CommentCard({
                   <Pencil className="w-4 h-4" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem destructive onClick={remove}>
+                <DropdownMenuItem
+                  destructive
+                  onClick={() => setConfirmDelete(true)}
+                >
                   <Trash2 className="w-4 h-4" />
                   Delete
                 </DropdownMenuItem>
@@ -324,20 +329,16 @@ function CommentCard({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Delete comment?"
+        description="This can't be undone."
+        confirmLabel={deleting ? "Deleting…" : "Delete"}
+        destructive
+        onConfirm={remove}
+      />
     </article>
   );
-}
-
-function formatRelativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return iso;
-  const diff = Date.now() - then;
-  const min = Math.round(diff / 60_000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Date(iso).toLocaleDateString();
 }

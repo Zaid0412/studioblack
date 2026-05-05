@@ -2,13 +2,10 @@
 
 import { use, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ChevronRight,
   CheckSquare,
   Pencil,
-  X as XIcon,
   Folder,
   Layers,
   Calendar as CalendarIcon,
@@ -27,7 +24,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { authClient } from "@/lib/authClient";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
-import { tasks as tasksApi, projects as projectsApi } from "@/lib/api";
+import { tasks as tasksApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskTimeline } from "@/components/tasks/TaskTimeline";
@@ -37,8 +34,14 @@ import {
   priorityClass,
 } from "@/components/tasks/MetadataPickers";
 import { avatarColor } from "@/lib/avatarUtils";
-import { STATUS_BADGE_VARIANT, formatDate } from "@/lib/taskUtils";
-import { PRIORITIES, CATEGORIES, capitalize } from "@/lib/taskUtils";
+import {
+  STATUS_BADGE_VARIANT,
+  STATUS_LABEL,
+  formatDate,
+  PRIORITIES,
+  CATEGORIES,
+  capitalize,
+} from "@/lib/taskUtils";
 import { deriveInitials } from "@/lib/utils";
 import type { Task, TaskComment, OrgMember } from "@/types";
 
@@ -73,10 +76,7 @@ export default function TaskDetailPage({
   const { data: commentsData, mutate: mutateComments } = useSWR<{
     comments: TaskComment[];
   }>(`/api/tasks/${id}/comments`);
-  const comments = useMemo(
-    () => commentsData?.comments ?? [],
-    [commentsData?.comments]
-  );
+  const comments = commentsData?.comments ?? [];
 
   const isCreator = !!task && session?.user?.id === task.created_by;
   const isPm = role === "pm" || role === "architect";
@@ -84,12 +84,15 @@ export default function TaskDetailPage({
 
   // ─── Update task patch ──────────────────────────────────────────────────
 
+  // PATCH the task and revalidate. Skips an optimistic merge — the API
+  // sends camelCase params (assignedTo, dueDate) but the cached `Task` is
+  // snake_case (assigned_to, due_date), so a naive `{...task, ...patch}`
+  // would diverge from the server shape. The revalidation latency is small
+  // enough that the brief flicker is acceptable; pass `mutateTask(updated)`
+  // with a key map if a follow-up wants true optimism.
   const onUpdate = useCallback(
     async (patch: Record<string, unknown>) => {
       if (!task) return;
-      // Optimistic — strip the fields we know about, leave the rest as-is.
-      const optimistic = { ...task, ...patch };
-      mutateTask(optimistic as Task, false);
       try {
         await tasksApi.update(task.id, patch);
         mutateTask();
@@ -100,7 +103,6 @@ export default function TaskDetailPage({
             err instanceof Error ? err.message : "Try again in a moment.",
           variant: "error",
         });
-        mutateTask(); // rollback to server truth
       }
     },
     [task, mutateTask]
@@ -165,7 +167,9 @@ export default function TaskDetailPage({
         />
 
         <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
-          <Badge variant={statusVariant}>{prettyStatus(task.status)}</Badge>
+          <Badge variant={statusVariant}>
+            {STATUS_LABEL[task.status] ?? task.status}
+          </Badge>
           <span>·</span>
           <span>opened by {task.created_by_name}</span>
           <span>·</span>
@@ -312,40 +316,54 @@ function TaskSidebarCard({
   currentUserId,
   onUpdate,
 }: TaskSidebarCardProps) {
-  const { members } = useOrgMembers({ assignableOnly: false });
-  const { data: projectsRaw } = useSWR<ProjectOption[]>("/api/projects");
-  const projects = useMemo<ProjectOption[]>(
-    () => (projectsRaw ?? []).map((p) => ({ id: p.id, name: p.name })),
-    [projectsRaw]
-  );
-
-  // Phases for the currently selected project — fetched via SWR so the cache
-  // shares with other surfaces and the loading state stays declarative.
-  const { data: projectDetail, isLoading: loadingPhases } = useSWR<{
-    phases?: { id: string; name: string }[];
-  }>(
-    task.project_id ? `/api/projects/${task.project_id}` : null,
-    task.project_id
-      ? () =>
-          projectsApi.get<{ phases?: { id: string; name: string }[] }>(
-            task.project_id as string
-          )
-      : null
-  );
-  const phases = useMemo<PhaseOption[]>(
-    () =>
-      (projectDetail?.phases ?? []).map((p) => ({ id: p.id, name: p.name })),
-    [projectDetail?.phases]
-  );
-
-  const selectedAssignee = members.find((m) => m.userId === task.assigned_to);
-  const selectedProject = projects.find((p) => p.id === task.project_id);
-  const selectedPhase = phases.find((p) => p.id === task.phase_id);
-
-  // Render-only fallback when the user isn't allowed to edit anything.
+  // Render-only fallback for clients/viewers — short-circuits the
+  // members/projects/phases fetches that the picker version triggers.
   if (!canEdit) {
     return <ReadOnlySidebar task={task} />;
   }
+  return (
+    <EditableSidebarCard
+      task={task}
+      currentUserId={currentUserId}
+      onUpdate={onUpdate}
+    />
+  );
+}
+
+interface EditableSidebarCardProps {
+  task: Task;
+  currentUserId: string | null;
+  onUpdate: (patch: Record<string, unknown>) => Promise<void>;
+}
+
+function EditableSidebarCard({
+  task,
+  currentUserId,
+  onUpdate,
+}: EditableSidebarCardProps) {
+  const { members } = useOrgMembers({ assignableOnly: false });
+  const { data: projects = [] } = useSWR<ProjectOption[]>("/api/projects");
+
+  const { data: projectDetail, isLoading: loadingPhases } = useSWR<{
+    phases?: PhaseOption[];
+  }>(task.project_id ? `/api/projects/${task.project_id}` : null);
+  const phases = useMemo(
+    () => projectDetail?.phases ?? [],
+    [projectDetail?.phases]
+  );
+
+  const selectedAssignee = useMemo(
+    () => members.find((m) => m.userId === task.assigned_to),
+    [members, task.assigned_to]
+  );
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === task.project_id),
+    [projects, task.project_id]
+  );
+  const selectedPhase = useMemo(
+    () => phases.find((p) => p.id === task.phase_id),
+    [phases, task.phase_id]
+  );
 
   return (
     <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
@@ -710,23 +728,3 @@ function PageSkeleton() {
     </div>
   );
 }
-
-function prettyStatus(status: Task["status"]): string {
-  switch (status) {
-    case "in_progress":
-      return "In Progress";
-    case "todo":
-      return "To Do";
-    case "completed":
-      return "Completed";
-    case "archived":
-      return "Archived";
-    default:
-      return status;
-  }
-}
-
-// Suppress no-unused-vars on imports kept for prop typing.
-void XIcon;
-void ReactMarkdown;
-void remarkGfm;

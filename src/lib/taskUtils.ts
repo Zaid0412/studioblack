@@ -40,6 +40,19 @@ export const PRIORITY_DOT: Record<TaskPriority, string> = {
   low: "bg-gray-400",
 };
 
+/** Tailwind classes for a priority pill — used in the task sidebar pickers. */
+export const PRIORITY_PILL: Record<TaskPriority, string> = {
+  urgent: "bg-red-500/10 text-red-500",
+  high: "bg-warning/10 text-warning",
+  medium: "bg-info/10 text-info",
+  low: "bg-text-muted/15 text-text-muted",
+};
+
+/** Same lookup as `PRIORITY_PILL` but tolerates an unknown string. */
+export function priorityClass(priority: string): string {
+  return PRIORITY_PILL[priority as TaskPriority] ?? "bg-info/10 text-info";
+}
+
 export const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Low",
   medium: "Medium",

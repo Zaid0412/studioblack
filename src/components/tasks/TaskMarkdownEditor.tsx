@@ -23,6 +23,7 @@ import {
   ListChecks,
   Image as ImageIcon,
   Paperclip,
+  Loader2,
 } from "lucide-react";
 import { upload } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
@@ -378,7 +379,11 @@ export function TaskMarkdownEditor({
             : "bg-bg-primary/40 text-text-muted"
         }`}
       >
-        {uploading > 0 ? <Loader2Spinner /> : <Paperclip className="w-3 h-3" />}
+        {uploading > 0 ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <Paperclip className="w-3 h-3" />
+        )}
         <span className="flex-1">
           {uploading > 0
             ? `Uploading ${uploading} file${uploading === 1 ? "" : "s"}…`
@@ -455,19 +460,4 @@ function ToolbarButton({
 
 function Divider() {
   return <span className="w-px h-4 bg-border-default mx-0.5" />;
-}
-
-function Loader2Spinner() {
-  return (
-    <svg
-      className="w-3 h-3 animate-spin"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-    >
-      <path d="M12 2a10 10 0 0 1 10 10" />
-    </svg>
-  );
 }
