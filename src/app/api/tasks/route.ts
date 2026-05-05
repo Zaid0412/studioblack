@@ -14,17 +14,15 @@ import {
 } from "@/lib/notifications";
 import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
-import { parseRequest, createTaskSchema } from "@/lib/validations";
+import {
+  parseRequest,
+  createTaskSchema,
+  TASK_BUCKETS,
+  type TaskBucket,
+} from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
-const VALID_BUCKETS = [
-  "all",
-  "my_tasks",
-  "created_by_me",
-  "starred",
-  "upcoming",
-  "completed",
-];
+const VALID_BUCKETS: ReadonlySet<string> = new Set(TASK_BUCKETS);
 
 /** GET /api/tasks — list tasks with smart bucket filters. */
 export const GET = withAuth(
@@ -35,7 +33,7 @@ export const GET = withAuth(
     }
 
     const { searchParams } = req.nextUrl;
-    const bucket = searchParams.get("bucket") || "all";
+    const bucket = searchParams.get("bucket") || "all_tasks";
     const projectId = searchParams.get("projectId") || undefined;
     const status = searchParams.get("status") || undefined;
     const priority = searchParams.get("priority") || undefined;
@@ -55,18 +53,14 @@ export const GET = withAuth(
     }
     const isArchitect = memberRole === "member";
 
+    const resolvedBucket: TaskBucket = VALID_BUCKETS.has(bucket)
+      ? (bucket as TaskBucket)
+      : "all_tasks";
+
     const [taskResult, counts] = await Promise.all([
       getTasks({
         orgId,
-        bucket: VALID_BUCKETS.includes(bucket)
-          ? (bucket as
-              | "all"
-              | "my_tasks"
-              | "created_by_me"
-              | "starred"
-              | "upcoming"
-              | "completed")
-          : "all",
+        bucket: resolvedBucket,
         userId: user.id,
         assigneeOnly: isArchitect,
         projectId,

@@ -2,6 +2,7 @@ import { getPool } from "@/lib/db";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
 import { escapeSqlLike } from "./helpers";
 import { verifyPhaseOwnership } from "./phaseTasks";
+import type { TaskBucket } from "@/lib/validations";
 
 /** Verify a task belongs to a project (via its phase). */
 export async function verifyTaskOwnership(
@@ -79,13 +80,7 @@ export async function verifyTaskAccess(
 
 interface TaskFilters {
   orgId: string;
-  bucket?:
-    | "all"
-    | "my_tasks"
-    | "created_by_me"
-    | "starred"
-    | "upcoming"
-    | "completed";
+  bucket?: TaskBucket;
   userId: string;
   /** When true, all buckets are scoped to tasks assigned to the user. */
   assigneeOnly?: boolean;
@@ -99,44 +94,61 @@ interface TaskFilters {
   limit?: number;
 }
 
+/**
+ * Buckets whose data lives outside the `task` table — currently approval
+ * reviews, pin/task comments, reminders, and mentions. The `getTasks` query
+ * short-circuits to an empty result for these (the `task_comment` queries
+ * and the future approval/reminder/mention work supply the actual rows).
+ */
+const NON_TASK_BUCKETS = new Set<TaskBucket>([
+  "reminders",
+  "mentions",
+  "my_requests",
+  "my_approvals",
+  "my_comments",
+  "all_requests",
+]);
+
 /** Fetch tasks with bucket-based filtering and optional search/status/priority/category filters. */
 export async function getTasks(filters: TaskFilters) {
   const pool = getPool();
+
+  // Approval/comment/reminder/mention buckets aren't sourced from the `task`
+  // table; return an empty page so the caller can substitute the correct
+  // dataset (or render an empty state until the data layer lands).
+  if (filters.bucket && NON_TASK_BUCKETS.has(filters.bucket)) {
+    return { tasks: [], total: 0 };
+  }
+
   const conditions: string[] = ["t.org_id = $1"];
   const values: unknown[] = [filters.orgId];
   let idx = 2;
 
   // Bucket filters
   switch (filters.bucket) {
-    case "my_tasks":
+    case "important":
+      // Open tasks assigned to me, sorted later by priority + due date.
+      conditions.push(
+        `t.assigned_to = $${idx} AND t.status NOT IN ('completed', 'archived')`
+      );
+      values.push(filters.userId);
+      idx++;
+      break;
+    case "tasks_for_me":
       conditions.push(`t.assigned_to = $${idx}`);
       values.push(filters.userId);
       idx++;
       break;
-    case "created_by_me":
+    case "tasks_by_me":
       conditions.push(
         `t.created_by = $${idx} AND (t.assigned_to IS NULL OR t.assigned_to != $${idx})`
       );
       values.push(filters.userId);
       idx++;
       break;
-    case "starred":
-      conditions.push(
-        `EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${idx})`
-      );
-      values.push(filters.userId);
-      idx++;
-      break;
-    case "upcoming":
-      conditions.push(
-        `t.due_date IS NOT NULL AND t.status != 'completed' AND t.status != 'archived'`
-      );
-      break;
-    case "completed":
-      conditions.push(`t.status = 'completed'`);
-      break;
+    case "all_tasks":
     default:
-      // "all" — exclude archived
+      // Org-wide list — exclude archived.
       conditions.push(`t.status != 'archived'`);
   }
 
@@ -224,6 +236,14 @@ export async function getTasks(filters: TaskFilters) {
      ) pc ON true
      WHERE ${conditions.join(" AND ")}
      ORDER BY
+       ${
+         filters.bucket === "important"
+           ? `CASE t.priority
+              WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
+              WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
+            t.due_date NULLS LAST,`
+           : ""
+       }
        t.created_at DESC
      LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     values
@@ -293,28 +313,44 @@ export async function getTaskById(
   return rows[0] || null;
 }
 
-/** Get task counts for each smart bucket in a single query. */
+/**
+ * Get task counts for each bucket in the redesigned sidebar.
+ *
+ * The `task`-sourced buckets (`important`, `tasks_for_me`, `tasks_by_me`,
+ * `all_tasks`) are computed in a single query. The remaining buckets — which
+ * draw from approval reviews, comments, reminders, and mentions — return 0
+ * until those data layers ship; the keys are still emitted so the sidebar
+ * can render their badges without conditional checks.
+ */
 export async function getTaskBucketCounts(
   orgId: string,
   userId: string,
   assigneeOnly?: boolean
-) {
+): Promise<Record<string, number>> {
   const pool = getPool();
   const assigneeFilter = assigneeOnly ? " AND t.assigned_to = $2" : "";
   const { rows } = await pool.query(
     `SELECT
-       COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all,
-       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS my_tasks,
-       COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS created_by_me,
-       COUNT(*) FILTER (WHERE ts.task_id IS NOT NULL AND t.status != 'archived'${assigneeFilter})::int AS starred,
-       COUNT(*) FILTER (WHERE t.due_date IS NOT NULL AND t.status NOT IN ('completed', 'archived')${assigneeFilter})::int AS upcoming,
-       COUNT(*) FILTER (WHERE t.status = 'completed'${assigneeFilter})::int AS completed
+       COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all_tasks,
+       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status NOT IN ('completed', 'archived'))::int AS important,
+       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS tasks_for_me,
+       COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS tasks_by_me
      FROM task t
-     LEFT JOIN task_star ts ON ts.task_id = t.id AND ts.user_id = $2
      WHERE t.org_id = $1${assigneeFilter}`,
     [orgId, userId]
   );
-  return rows[0];
+  return {
+    important: rows[0].important ?? 0,
+    reminders: 0,
+    mentions: 0,
+    tasks_for_me: rows[0].tasks_for_me ?? 0,
+    tasks_by_me: rows[0].tasks_by_me ?? 0,
+    my_requests: 0,
+    my_approvals: 0,
+    my_comments: 0,
+    all_tasks: rows[0].all_tasks ?? 0,
+    all_requests: 0,
+  };
 }
 
 // ---------------------------------------------------------------------------

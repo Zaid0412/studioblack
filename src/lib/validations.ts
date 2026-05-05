@@ -14,6 +14,38 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+/**
+ * Bucket keys for the redesigned task page sidebar. Grouped by section in the
+ * UI (`PERSONAL`, `TASKS`, `APPROVALS`, `ALL`).
+ *
+ * `reminders` and `mentions` are intentionally part of the union but commented
+ * out in the sidebar's render list — they require the `task_reminder` table
+ * (Phase 2) and `@`-mention parser (Phase 3). Keeping them in the type means
+ * uncommenting one line is enough to enable them.
+ *
+ * The approval-related buckets (`my_requests`, `my_approvals`, `my_comments`,
+ * `all_requests`) are wired through the API but currently return empty
+ * results — full data joins land with the multi-domain Request entity work
+ * (Phase 4 in the redesign plan).
+ */
+export const TASK_BUCKETS = [
+  // PERSONAL
+  "important",
+  "reminders",
+  "mentions",
+  // TASKS
+  "tasks_for_me",
+  "tasks_by_me",
+  // APPROVALS
+  "my_requests",
+  "my_approvals",
+  "my_comments",
+  // ALL
+  "all_tasks",
+  "all_requests",
+] as const;
+export type TaskBucket = (typeof TASK_BUCKETS)[number];
+
 export const TASK_CATEGORIES = [
   "general",
   "design",

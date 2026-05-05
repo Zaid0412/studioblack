@@ -96,16 +96,20 @@ describe("GET /api/tasks", () => {
     const tasks = [fakeTask];
     vi.mocked(getTasks).mockResolvedValue({ tasks, total: 1 });
     vi.mocked(getTaskBucketCounts).mockResolvedValue({
-      all: 1,
-      my_tasks: 1,
-      created_by_me: 1,
-      starred: 0,
-      upcoming: 0,
-      completed: 0,
+      important: 1,
+      reminders: 0,
+      mentions: 0,
+      tasks_for_me: 1,
+      tasks_by_me: 0,
+      my_requests: 0,
+      my_approvals: 0,
+      my_comments: 0,
+      all_tasks: 1,
+      all_requests: 0,
     });
 
     const req = buildRequest("/api/tasks", {
-      searchParams: { bucket: "all", status: "todo" },
+      searchParams: { bucket: "all_tasks", status: "todo" },
     });
     const res = await GET(req);
     const { status, body } = await parseResponse<{
