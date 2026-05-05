@@ -163,13 +163,13 @@ export function TaskBucketSidebar({
 
       {/* ── Desktop: vertical sidebar with section headers ── */}
       <aside className="hidden lg:block w-56 shrink-0 rounded-xl bg-bg-secondary border border-border-default overflow-hidden self-start">
-        <div className="flex flex-col py-2">
+        <div className="flex flex-col py-2 px-2">
           {visibleGroups.map((group, gi) => (
             <div key={group.labelKey}>
               {gi > 0 && (
-                <div className="my-2 mx-3 border-t border-border-default" />
+                <div className="my-2 mx-1 border-t border-border-default" />
               )}
-              <div className="px-4 pt-2 pb-1">
+              <div className="px-3 pt-2 pb-1">
                 <span className="text-[10px] font-semibold tracking-widest text-text-muted uppercase">
                   {t(group.labelKey)}
                 </span>
@@ -208,10 +208,10 @@ function BucketRow({ bucket, label, count, isActive, onSelect }: RowProps) {
     <button
       type="button"
       onClick={() => onSelect(bucket)}
-      className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer ${
+      className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer ${
         isActive
-          ? "bg-accent/10 text-accent border-l-2 border-accent font-semibold"
-          : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated/50 border-l-2 border-transparent"
+          ? "bg-accent/10 text-accent font-semibold"
+          : "text-text-secondary hover:text-text-primary hover:bg-bg-elevated/50"
       }`}
     >
       <Icon className="w-4 h-4 shrink-0" />
