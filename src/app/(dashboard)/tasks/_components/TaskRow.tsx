@@ -15,6 +15,7 @@ import {
   Hammer,
   Send,
   ExternalLink,
+  MessageSquare,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -114,9 +115,19 @@ export function TaskRow({
   const isPinComment = task._source === "pin_comment";
   const isProjectComment = task._source === "comment";
   const isApproval = isPinComment || isProjectComment;
-  const { icon: CategoryIcon, classes: categoryClasses } = getCategoryStyle(
-    task.category
-  );
+  // Comment-like rows (general comments, not request-flagged pins) get a
+  // dedicated message-square icon — signals "this is a discussion item"
+  // rather than reusing the category encoding designed for tasks. Pinned
+  // approval requests keep their category icon (review / revision) since
+  // those carry meaning.
+  const isCommentLike =
+    isProjectComment || (isPinComment && task.category === "general");
+  const { icon: CategoryIcon, classes: categoryClasses } = isCommentLike
+    ? {
+        icon: MessageSquare,
+        classes: "bg-info/15 text-info",
+      }
+    : getCategoryStyle(task.category);
 
   const metaParts: string[] = [];
   if (task.project_name) metaParts.push(task.project_name);
