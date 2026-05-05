@@ -3,7 +3,7 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, X, MessageSquare } from "lucide-react";
 import useSWR from "swr";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -106,8 +106,30 @@ function PanelContent({
         </h2>
         {(task.project_name || task.phase_name) && (
           <p className="mt-1 text-xs text-text-muted">
-            {[task.project_name, task.phase_name].filter(Boolean).join(" · ")}
+            {task.project_id && task.project_name ? (
+              <Link
+                href={`/projects/${task.project_id}`}
+                onClick={onClose}
+                className="hover:text-text-primary hover:underline"
+              >
+                {task.project_name}
+              </Link>
+            ) : (
+              task.project_name
+            )}
+            {task.project_name && task.phase_name && <span> · </span>}
+            {task.phase_name}
           </p>
+        )}
+        {task.pin_comment_id && task.pin_attachment_id && task.project_id && (
+          <Link
+            href={`/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`}
+            onClick={onClose}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs text-info hover:underline"
+          >
+            <MessageSquare className="w-3 h-3" />
+            Linked from review comment
+          </Link>
         )}
       </div>
 

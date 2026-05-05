@@ -12,6 +12,7 @@ import {
   Flag,
   Tag,
   User,
+  MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 import useSWR from "swr";
@@ -166,7 +167,7 @@ export default function TaskDetailPage({
           onSave={(t) => onUpdate({ title: t })}
         />
 
-        <div className="mt-2 flex items-center gap-2 text-xs text-text-muted">
+        <div className="mt-2 flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-text-muted">
           <Badge variant={statusVariant}>
             {STATUS_LABEL[task.status] ?? task.status}
           </Badge>
@@ -178,6 +179,18 @@ export default function TaskDetailPage({
           <span>
             {comments.length} comment{comments.length === 1 ? "" : "s"}
           </span>
+          {task.pin_comment_id && task.pin_attachment_id && task.project_id && (
+            <>
+              <span>·</span>
+              <Link
+                href={`/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`}
+                className="inline-flex items-center gap-1 text-info hover:underline"
+              >
+                <MessageSquare className="w-3 h-3" />
+                Linked from review comment
+              </Link>
+            </>
+          )}
         </div>
       </header>
 
