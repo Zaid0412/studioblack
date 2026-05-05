@@ -97,7 +97,13 @@ const BUCKET_GROUPS: BucketGroup[] = [
   },
   {
     labelKey: "groupApprovals",
-    keys: ["my_requests", "my_approvals", "my_comments"],
+    keys: [
+      "my_requests",
+      // "my_approvals",  // TODO: Phase 4 — needs a reviewer concept on
+      //                  // pin_comment (or the polymorphic Request entity)
+      //                  // to count "comments waiting on my decision".
+      "my_comments",
+    ],
   },
   {
     labelKey: "groupAll",
