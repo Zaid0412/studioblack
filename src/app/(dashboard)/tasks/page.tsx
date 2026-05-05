@@ -218,7 +218,6 @@ export default function TasksPage() {
     handleSubmit,
     handleDelete,
     openEdit,
-    openCreate,
   } = useTaskCrud({
     fetchTasks: () => {
       mutate();
@@ -251,7 +250,7 @@ export default function TasksPage() {
                 mutate();
               }}
             />
-            <Button onClick={openCreate}>
+            <Button onClick={() => router.push("/tasks/new")}>
               <Plus className="w-4 h-4" />
               {t("newTask")}
             </Button>
@@ -297,7 +296,10 @@ export default function TasksPage() {
                   icon={CheckSquare}
                   title={t("noTasksTitle")}
                   description={t("noTasksDescription")}
-                  action={{ label: t("createTask"), onClick: openCreate }}
+                  action={{
+                    label: t("createTask"),
+                    onClick: () => router.push("/tasks/new"),
+                  }}
                 />
               ) : (
                 tasks.map((task) => (

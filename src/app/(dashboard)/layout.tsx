@@ -62,13 +62,14 @@ export default async function DashboardLayout({
   ]);
   if (fullOrg) orgName = fullOrg.name ?? null;
 
-  // Vendors are scoped to /vendor-portal/* and /settings/*. Block them from
-  // PM/architect/client surfaces — they would only see empty states anyway.
+  // Vendors are scoped to /vendor-portal/*, /settings/*, and /tasks/* (their
+  // assigned tasks live in the same task system as everyone else's).
   if (effectiveRole === "vendor") {
     const pathname = reqHeaders.get("x-pathname") ?? "";
     if (
       !pathname.startsWith("/vendor-portal") &&
-      !pathname.startsWith("/settings")
+      !pathname.startsWith("/settings") &&
+      !pathname.startsWith("/tasks")
     ) {
       redirect("/vendor-portal");
     }

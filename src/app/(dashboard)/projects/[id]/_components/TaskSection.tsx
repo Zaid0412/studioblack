@@ -107,7 +107,6 @@ export function TaskSection({
     handleSubmit,
     handleDelete,
     openEdit,
-    openCreate,
   } = useTaskCrud({
     fetchTasks: () => {
       mutate();
@@ -147,7 +146,10 @@ export function TaskSection({
             {allTasks.length}
           </Badge>
         </div>
-        <Button size="sm" onClick={openCreate}>
+        <Button
+          size="sm"
+          onClick={() => router.push(`/tasks/new?projectId=${projectId}`)}
+        >
           <Plus className="w-4 h-4" />
           New Task
         </Button>
@@ -185,7 +187,10 @@ export function TaskSection({
             icon={CheckSquare}
             title="No tasks yet"
             description="Create a task to get started."
-            action={{ label: "Create Task", onClick: openCreate }}
+            action={{
+              label: "Create Task",
+              onClick: () => router.push(`/tasks/new?projectId=${projectId}`),
+            }}
           />
         ) : (
           <>
