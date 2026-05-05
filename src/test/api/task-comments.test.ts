@@ -160,11 +160,13 @@ describe("POST /api/tasks/[id]/comments", () => {
 
   it("creates a comment with inline attachments", async () => {
     vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+    const storageUrl =
+      "https://example.supabase.co/storage/v1/object/public/task-files/file.png";
     const withAttachments: TaskComment = {
       ...fakeComment,
       attachments: [
         {
-          url: "https://example.com/file.png",
+          url: storageUrl,
           name: "file.png",
           contentType: "image/png",
           size: 12345,
@@ -180,7 +182,7 @@ describe("POST /api/tasks/[id]/comments", () => {
           body: "See file",
           attachments: [
             {
-              url: "https://example.com/file.png",
+              url: storageUrl,
               name: "file.png",
               contentType: "image/png",
               size: 12345,
@@ -198,6 +200,54 @@ describe("POST /api/tasks/[id]/comments", () => {
         ]),
       })
     );
+  });
+
+  it("rejects javascript: scheme in attachment URLs (XSS guard)", async () => {
+    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+
+    const res = await CREATE(
+      buildRequest(`/api/tasks/${TASK_ID}/comments`, {
+        method: "POST",
+        body: {
+          body: "Click me",
+          attachments: [
+            {
+              url: "javascript:alert(1)",
+              name: "evil",
+              contentType: "text/html",
+              size: 1,
+            },
+          ],
+        },
+      }),
+      buildParams({ id: TASK_ID })
+    );
+    expect(res.status).toBe(400);
+    expect(createTaskComment).not.toHaveBeenCalled();
+  });
+
+  it("rejects non-Supabase https URLs in attachments", async () => {
+    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+
+    const res = await CREATE(
+      buildRequest(`/api/tasks/${TASK_ID}/comments`, {
+        method: "POST",
+        body: {
+          body: "external",
+          attachments: [
+            {
+              url: "https://evil.example.com/payload.html",
+              name: "x",
+              contentType: "text/html",
+              size: 1,
+            },
+          ],
+        },
+      }),
+      buildParams({ id: TASK_ID })
+    );
+    expect(res.status).toBe(400);
+    expect(createTaskComment).not.toHaveBeenCalled();
   });
 
   it("returns 400 when body is empty", async () => {

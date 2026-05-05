@@ -230,7 +230,9 @@ function CommentCard({
         description: message,
         variant: "error",
       });
+    } finally {
       setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 

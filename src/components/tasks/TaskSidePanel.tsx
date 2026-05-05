@@ -10,6 +10,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { avatarColor } from "@/lib/avatarUtils";
 import { STATUS_BADGE_VARIANT, formatDate } from "@/lib/taskUtils";
+import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { deriveInitials } from "@/lib/utils";
 import { TaskComposer } from "./TaskComposer";
 import { TaskCommentList } from "./TaskCommentList";
@@ -45,10 +46,11 @@ export function TaskSidePanel({
 
   return (
     <>
-      {/* Scrim — clicking dismisses the panel. */}
-      <button
-        type="button"
-        aria-label="Close task panel"
+      {/* Scrim — clicking dismisses the panel. The dialog itself is keyboard-
+       * dismissable via Esc (handled by `TaskSidePanelHost`) and has its own
+       * close button in the header, so the scrim is presentational. */}
+      <div
+        aria-hidden="true"
         onClick={onClose}
         className="fixed inset-0 z-40 bg-black/55 transition-opacity duration-150"
       />
@@ -121,16 +123,20 @@ function PanelContent({
             {task.phase_name}
           </p>
         )}
-        {task.pin_comment_id && task.pin_attachment_id && task.project_id && (
-          <Link
-            href={`/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`}
-            onClick={onClose}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs text-info hover:underline"
-          >
-            <MessageSquare className="w-3 h-3" />
-            Linked from review comment
-          </Link>
-        )}
+        {(() => {
+          const reviewHref = pinCommentReviewHref(task);
+          if (!reviewHref) return null;
+          return (
+            <Link
+              href={reviewHref}
+              onClick={onClose}
+              className="mt-2 inline-flex items-center gap-1.5 text-xs text-info hover:underline"
+            >
+              <MessageSquare className="w-3 h-3" />
+              Linked from review comment
+            </Link>
+          );
+        })()}
       </div>
 
       {/* Compact metadata strip */}

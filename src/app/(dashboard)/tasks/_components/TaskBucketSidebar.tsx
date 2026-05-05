@@ -15,7 +15,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { TASK_BUCKETS, type TaskBucket } from "@/lib/validations";
+import type { TaskBucket } from "@/lib/validations";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,64 +65,30 @@ const BUCKET_LABEL_KEYS: Record<TaskBucket, string> = {
 interface BucketGroup {
   /** i18n key for the section header. */
   labelKey: string;
-  /**
-   * Buckets in render order. Use `null` to indicate a deferred bucket that's
-   * still part of the type but not rendered yet.
-   */
-  keys: (TaskBucket | null)[];
+  keys: TaskBucket[];
 }
 
-/**
- * Render order for the redesigned sidebar.
- *
- * `reminders` and `mentions` live in the type union (so the icons/labels are
- * defined and ready) but are not listed here — flipping them on once
- * Phase 2/3 ships is just an inline edit.
- *
- * | Phase 2 — `reminders` | needs `task_reminder` table             |
- * | Phase 3 — `mentions`  | needs @-mention parser + `mention` table |
- */
+// `reminders`, `mentions`, `my_approvals` are part of `TaskBucket` but not
+// rendered yet — see queries/tasks.ts for the data-source gaps that block them.
 const BUCKET_GROUPS: BucketGroup[] = [
-  {
-    labelKey: "groupPersonal",
-    keys: [
-      "important",
-      // "reminders",  // TODO: Phase 2
-      // "mentions",   // TODO: Phase 3
-    ],
-  },
-  {
-    labelKey: "groupTasks",
-    keys: ["tasks_for_me", "tasks_by_me"],
-  },
-  {
-    labelKey: "groupApprovals",
-    keys: [
-      "my_requests",
-      // "my_approvals",  // TODO: Phase 4 — needs a reviewer concept on
-      //                  // pin_comment (or the polymorphic Request entity)
-      //                  // to count "comments waiting on my decision".
-      "my_comments",
-    ],
-  },
-  {
-    labelKey: "groupAll",
-    keys: ["all_tasks", "all_requests"],
-  },
+  { labelKey: "groupPersonal", keys: ["important"] },
+  { labelKey: "groupTasks", keys: ["tasks_for_me", "tasks_by_me"] },
+  { labelKey: "groupApprovals", keys: ["my_requests", "my_comments"] },
+  { labelKey: "groupAll", keys: ["all_tasks", "all_requests"] },
 ];
 
-/** Buckets architects don't see — org-wide views are PM-only for now. */
+/**
+ * Buckets architects don't see. `all_tasks` / `all_requests` are PM-only
+ * org-wide views. `tasks_by_me` is hidden because architect list queries
+ * are forced through `assigneeOnly` (assigned_to = me), which contradicts
+ * the bucket's "created by me, not assigned to me" predicate — so the
+ * bucket would always show 0.
+ */
 const ARCHITECT_HIDDEN: ReadonlySet<TaskBucket> = new Set([
+  "tasks_by_me",
   "all_tasks",
   "all_requests",
 ]);
-
-const ALL_BUCKET_KEYS_SET = new Set<TaskBucket>(TASK_BUCKETS);
-function isBucketKey(value: unknown): value is TaskBucket {
-  return (
-    typeof value === "string" && ALL_BUCKET_KEYS_SET.has(value as TaskBucket)
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -139,9 +105,9 @@ export function TaskBucketSidebar({
   const visibleGroups = useMemo(() => {
     return BUCKET_GROUPS.map((group) => ({
       ...group,
-      keys: group.keys
-        .filter(isBucketKey)
-        .filter((k) => role !== "architect" || !ARCHITECT_HIDDEN.has(k)),
+      keys: group.keys.filter(
+        (k) => role !== "architect" || !ARCHITECT_HIDDEN.has(k)
+      ),
     })).filter((group) => group.keys.length > 0);
   }, [role]);
 

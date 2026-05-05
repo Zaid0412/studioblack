@@ -163,7 +163,6 @@ export function TaskSection({
               <TaskRow
                 key={task.id}
                 task={task}
-                showProject={false}
                 onToggleStar={toggleStar}
                 onToggleStatus={toggleStatus}
                 onEdit={openEdit}

@@ -3,12 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import React from "react";
 import { SWRConfig } from "swr";
-import type {
-  Task,
-  ChecklistItem,
-  TaskAttachment,
-  TaskFormData,
-} from "@/types";
+import type { Task, ChecklistItem, TaskAttachment } from "@/types";
 
 // ── Mock fns ────────────────────────────────────────────────────────────────
 
@@ -52,6 +47,11 @@ vi.mock("@/lib/api", () => ({
 
 vi.mock("@/components/ui/useToast", () => ({
   toast: (...a: unknown[]) => mockToast(...a),
+}));
+
+const mockPush = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: vi.fn(), refresh: vi.fn() }),
 }));
 
 vi.mock("@/lib/download", () => ({
@@ -126,19 +126,6 @@ function makeAttachment(
   };
 }
 
-const DEFAULT_FORM: TaskFormData = {
-  title: "",
-  description: "",
-  projectId: "",
-  phaseId: "",
-  priority: "medium",
-  category: "general",
-  assignedTo: "",
-  dueDate: "",
-  checklistItems: [],
-  pendingFiles: [],
-};
-
 // ══════════════════════════════════════════════════════════════════════════════
 // useTaskCrud
 // ══════════════════════════════════════════════════════════════════════════════
@@ -148,16 +135,12 @@ import { useTaskCrud } from "@/hooks/useTaskCrud";
 describe("useTaskCrud", () => {
   const fetchTasks = vi.fn();
   const setTasks = vi.fn();
-  const setCounts = vi.fn();
 
   function setup(overrides = {}) {
     return renderHook(() =>
       useTaskCrud({
         fetchTasks,
         setTasks,
-        setCounts,
-        defaultForm: DEFAULT_FORM,
-        projectId: "p1",
         ...overrides,
       })
     );
@@ -188,19 +171,14 @@ describe("useTaskCrud", () => {
 
   // ── toggleStar ────────────────────────────────────────────────────────
 
-  it("toggleStar optimistically updates tasks and counts", async () => {
+  it("toggleStar optimistically updates tasks", async () => {
     mockToggleStar.mockResolvedValue(undefined);
     const { result } = setup();
 
     await act(() => result.current.toggleStar(makeTask({ is_starred: false })));
 
-    // setTasks called with updater fn
     expect(setTasks).toHaveBeenCalledTimes(1);
-    expect(setCounts).toHaveBeenCalledTimes(1);
-
-    // Verify optimistic count updater increments starred
-    const countUpdater = setCounts.mock.calls[0][0];
-    expect(countUpdater({ starred: 5 })).toEqual({ starred: 6 });
+    expect(mockToggleStar).toHaveBeenCalledWith("t1");
   });
 
   it("toggleStar rolls back on API failure", async () => {
@@ -211,158 +189,29 @@ describe("useTaskCrud", () => {
 
     // Called twice: optimistic + rollback
     expect(setTasks).toHaveBeenCalledTimes(2);
-    expect(setCounts).toHaveBeenCalledTimes(2);
-
-    // Optimistic: un-starring decrements
-    const optimisticUpdater = setCounts.mock.calls[0][0];
-    expect(optimisticUpdater({ starred: 5 })).toEqual({ starred: 4 });
-
-    // Rollback: re-increments back
-    const rollbackUpdater = setCounts.mock.calls[1][0];
-    expect(rollbackUpdater({ starred: 4 })).toEqual({ starred: 5 });
   });
 
-  // ── handleSubmit ──────────────────────────────────────────────────────
+  // ── openEdit ──────────────────────────────────────────────────────────
 
-  it("handleSubmit does nothing when title is empty", async () => {
+  it("openEdit routes to /tasks/[id]", () => {
     const { result } = setup();
+    const task = makeTask({ id: "abc" });
 
-    await act(() => result.current.handleSubmit());
-
-    expect(mockCreate).not.toHaveBeenCalled();
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
-  it("handleSubmit creates a task and shows success toast", async () => {
-    mockCreate.mockResolvedValue({ id: "new1" });
-    const { result } = setup();
-
-    act(() => {
-      result.current.setFormData({ ...DEFAULT_FORM, title: "New task" });
-    });
-
-    await act(() => result.current.handleSubmit());
-
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "New task", projectId: "p1" })
-    );
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ variant: "success", title: "Task created" })
-    );
-    expect(fetchTasks).toHaveBeenCalled();
-    expect(result.current.dialogOpen).toBe(false);
-  });
-
-  it("handleSubmit updates an existing task when editingTask is set", async () => {
-    mockUpdate.mockResolvedValue(undefined);
-    const { result } = setup();
-    const task = makeTask();
-
-    // Open edit to set editingTask
     act(() => result.current.openEdit(task));
-    act(() => {
-      result.current.setFormData({
-        ...result.current.formData,
-        title: "Updated",
-      });
-    });
 
-    await act(() => result.current.handleSubmit());
-
-    expect(mockUpdate).toHaveBeenCalledWith(
-      "t1",
-      expect.objectContaining({ title: "Updated" })
-    );
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ variant: "success", title: "Task updated" })
-    );
+    expect(mockPush).toHaveBeenCalledWith("/tasks/abc");
   });
 
-  it("handleSubmit creates checklist items after task creation", async () => {
-    mockCreate.mockResolvedValue({ id: "new1" });
-    mockAddChecklistItem.mockResolvedValue(undefined);
+  // ── handleDelete (kept below) ─────────────────────────────────────────
+  // Old form-driven `handleSubmit` / `openCreate` tests are gone — task
+  // create + edit live at /tasks/new and /tasks/[id] in the new design.
+  // The placeholder block keeps the original line range stable.
+
+  it("legacy create/edit hook surface removed", () => {
     const { result } = setup();
-
-    act(() => {
-      result.current.setFormData({
-        ...DEFAULT_FORM,
-        title: "With checklist",
-        checklistItems: ["Item A", "Item B"],
-      });
-    });
-
-    await act(() => result.current.handleSubmit());
-
-    expect(mockAddChecklistItem).toHaveBeenCalledWith("new1", "Item A");
-    expect(mockAddChecklistItem).toHaveBeenCalledWith("new1", "Item B");
-  });
-
-  it("handleSubmit uploads files after task creation", async () => {
-    mockCreate.mockResolvedValue({ id: "new1" });
-    mockUploadFile.mockResolvedValue({
-      url: "https://cdn/f.pdf",
-      fileName: "f.pdf",
-    });
-    mockAddAttachment.mockResolvedValue(undefined);
-    const file = new File(["data"], "f.pdf");
-    const { result } = setup();
-
-    act(() => {
-      result.current.setFormData({
-        ...DEFAULT_FORM,
-        title: "With files",
-        pendingFiles: [file],
-      });
-    });
-
-    await act(() => result.current.handleSubmit());
-
-    expect(mockUploadFile).toHaveBeenCalledWith(file);
-    expect(mockAddAttachment).toHaveBeenCalledWith("new1", {
-      fileUrl: "https://cdn/f.pdf",
-      fileName: "f.pdf",
-      fileSize: file.size,
-    });
-  });
-
-  it("handleSubmit shows warning toast when post-create work fails", async () => {
-    mockCreate.mockResolvedValue({ id: "new1" });
-    mockAddChecklistItem.mockRejectedValue(new Error("fail"));
-    const { result } = setup();
-
-    act(() => {
-      result.current.setFormData({
-        ...DEFAULT_FORM,
-        title: "With failing checklist",
-        checklistItems: ["Item A"],
-      });
-    });
-
-    await act(() => result.current.handleSubmit());
-
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ variant: "warning" })
-    );
-    // Should still show the success toast too
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ variant: "success" })
-    );
-  });
-
-  it("handleSubmit shows error toast on create failure", async () => {
-    mockCreate.mockRejectedValue(new Error("Server error"));
-    const { result } = setup();
-
-    act(() => {
-      result.current.setFormData({ ...DEFAULT_FORM, title: "Fail" });
-    });
-
-    await act(() => result.current.handleSubmit());
-
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ variant: "error", description: "Server error" })
-    );
-    expect(result.current.submitting).toBe(false);
+    expect("handleSubmit" in result.current).toBe(false);
+    expect("openCreate" in result.current).toBe(false);
+    expect("formData" in result.current).toBe(false);
   });
 
   // ── handleDelete ──────────────────────────────────────────────────────
@@ -395,37 +244,6 @@ describe("useTaskCrud", () => {
       expect.objectContaining({ variant: "error" })
     );
     expect(result.current.deleting).toBe(false);
-  });
-
-  // ── openEdit / openCreate ─────────────────────────────────────────────
-
-  it("openEdit sets editingTask, populates form, and opens dialog", () => {
-    const onFetchPhases = vi.fn();
-    const { result } = setup({ onFetchPhases });
-    const task = makeTask({
-      title: "Existing",
-      priority: "high",
-      due_date: "2024-06-15T00:00:00Z",
-    });
-
-    act(() => result.current.openEdit(task));
-
-    expect(result.current.editingTask).toEqual(task);
-    expect(result.current.formData.title).toBe("Existing");
-    expect(result.current.formData.priority).toBe("high");
-    expect(result.current.formData.dueDate).toBe("2024-06-15");
-    expect(result.current.dialogOpen).toBe(true);
-    expect(onFetchPhases).toHaveBeenCalledWith("p1");
-  });
-
-  it("openCreate sets default form with currentUserId and opens dialog", () => {
-    const { result } = setup({ currentUserId: "me123" });
-
-    act(() => result.current.openCreate());
-
-    expect(result.current.editingTask).toBeNull();
-    expect(result.current.formData.assignedTo).toBe("me123");
-    expect(result.current.dialogOpen).toBe(true);
   });
 });
 

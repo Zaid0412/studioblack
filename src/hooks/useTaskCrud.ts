@@ -9,8 +9,6 @@ interface UseTaskCrudOptions {
   /** Called after a write to revalidate the list. */
   fetchTasks: () => void;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  /** Optional bucket-counts setter for optimistic star toggle. */
-  setCounts?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
 }
 
 /**
@@ -19,11 +17,7 @@ interface UseTaskCrudOptions {
  * status toggle + star toggle, plus an `openEdit` that routes to the full
  * page rather than opening a dialog.
  */
-export function useTaskCrud({
-  fetchTasks,
-  setTasks,
-  setCounts,
-}: UseTaskCrudOptions) {
+export function useTaskCrud({ fetchTasks, setTasks }: UseTaskCrudOptions) {
   const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -52,10 +46,6 @@ export function useTaskCrud({
           t.id === task.id ? { ...t, is_starred: !t.is_starred } : t
         )
       );
-      setCounts?.((prev) => ({
-        ...prev,
-        starred: (prev.starred ?? 0) + (task.is_starred ? -1 : 1),
-      }));
       try {
         await tasksApi.toggleStar(task.id);
       } catch {
@@ -64,13 +54,9 @@ export function useTaskCrud({
             t.id === task.id ? { ...t, is_starred: task.is_starred } : t
           )
         );
-        setCounts?.((prev) => ({
-          ...prev,
-          starred: (prev.starred ?? 0) + (task.is_starred ? 1 : -1),
-        }));
       }
     },
-    [setTasks, setCounts]
+    [setTasks]
   );
 
   const handleDelete = useCallback(async () => {

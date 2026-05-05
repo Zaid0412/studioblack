@@ -34,15 +34,11 @@ import {
   isOverdue,
   formatDate,
 } from "@/lib/taskUtils";
+import { pinCommentReviewHref } from "@/lib/pinUtils";
 import type { Task, TaskCategory } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Category icon + color encoding (per the redesign rule: type-icon = category)
-// ---------------------------------------------------------------------------
 
 interface CategoryStyle {
   icon: React.ElementType;
-  /** Tailwind classes for the 32x32 leading icon square. */
   classes: string;
 }
 
@@ -59,20 +55,12 @@ function getCategoryStyle(category: string): CategoryStyle {
   return CATEGORY_STYLES[category as TaskCategory] ?? CATEGORY_STYLES.general;
 }
 
-// ---------------------------------------------------------------------------
-// i18n key maps
-// ---------------------------------------------------------------------------
-
 const STATUS_TKEY: Record<string, string> = {
   todo: "statusTodo",
   in_progress: "statusInProgress",
   completed: "statusCompleted",
   archived: "statusArchived",
 };
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 interface TaskRowProps {
   task: Task;
@@ -82,16 +70,6 @@ interface TaskRowProps {
   onDelete: (task: Task) => void;
   /** When undefined, the row is not clickable. */
   onClick?: (task: Task) => void;
-  /**
-   * Reserved — the new design opens the side panel on click; deep-link to
-   * the project page lives in the action menu. Prop kept for back-compat.
-   */
-  onGoToProject?: (task: Task) => void;
-  /**
-   * Reserved — kept so existing callers don't break. The new layout doesn't
-   * use a project column; project is shown in the row meta line.
-   */
-  showProject?: boolean;
 }
 
 /**
@@ -115,11 +93,8 @@ export function TaskRow({
   const isPinComment = task._source === "pin_comment";
   const isProjectComment = task._source === "comment";
   const isApproval = isPinComment || isProjectComment;
-  // Comment-like rows (general comments, not request-flagged pins) get a
-  // dedicated message-square icon — signals "this is a discussion item"
-  // rather than reusing the category encoding designed for tasks. Pinned
-  // approval requests keep their category icon (review / revision) since
-  // those carry meaning.
+  // Generic discussion rows use the chat-bubble icon; request-flagged pins
+  // keep their category encoding (review / revision) since those carry meaning.
   const isCommentLike =
     isProjectComment || (isPinComment && task.category === "general");
   const { icon: CategoryIcon, classes: categoryClasses } = isCommentLike
@@ -267,20 +242,12 @@ export function TaskRow({
   );
 }
 
-/**
- * Picks the right `Link` href for the small external-link icon based on the
- * row's `_source` discriminator. Falls back to `/tasks/[id]` for real tasks.
- */
 function OpenLink({ task }: { task: Task }) {
+  const reviewHref = pinCommentReviewHref(task);
   let href = `/tasks/${task.id}`;
   let label = "Open task page";
-  if (
-    task._source === "pin_comment" &&
-    task.project_id &&
-    task.pin_attachment_id &&
-    task.pin_comment_id
-  ) {
-    href = `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`;
+  if (task._source === "pin_comment" && reviewHref) {
+    href = reviewHref;
     label = "Open review comment";
   } else if (task._source === "comment" && task.project_id) {
     href = `/projects/${task.project_id}`;

@@ -14,7 +14,12 @@ import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import type { Task } from "@/types";
-import { TASK_BUCKETS, type TaskBucket } from "@/lib/validations";
+import {
+  TASK_BUCKETS,
+  isApprovalBucket,
+  type TaskBucket,
+} from "@/lib/validations";
+import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { TaskDeleteDialog } from "./_components/TaskDeleteDialog";
 import {
   TaskBucketSidebar,
@@ -40,16 +45,6 @@ function asBucket(value: string | null): TaskBucket {
   return value && VALID_BUCKETS_SET.has(value)
     ? (value as TaskBucket)
     : "all_tasks";
-}
-
-const APPROVAL_BUCKETS = new Set<TaskBucket>([
-  "my_requests",
-  "my_approvals",
-  "my_comments",
-  "all_requests",
-]);
-function isApprovalBucket(bucket: TaskBucket): boolean {
-  return APPROVAL_BUCKETS.has(bucket);
 }
 
 // ---------------------------------------------------------------------------
@@ -104,15 +99,11 @@ export default function TasksPage() {
   const taskRole = data?.role;
   const isRefreshing = isValidating && !isLoading;
 
-  // Adapters: translate SWR mutate into setTasks/setCounts for useTaskCrud
+  // Adapter: translate SWR mutate into setTasks for useTaskCrud
   const setTasks = useSwrFieldAdapter<TaskListResponse, Task[]>(
     mutate,
     "tasks"
   );
-  const setCounts = useSwrFieldAdapter<
-    TaskListResponse,
-    Record<string, number>
-  >(mutate, "counts");
 
   // -- URL helpers --
   const setParam = useCallback(
@@ -130,24 +121,13 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
-  /**
-   * Open the right thing for a row click — for normal task rows this is the
-   * global side panel (push `?task=<id>` and the host overlay takes over);
-   * for approval-bucket rows (synthesized from pin_comment, marked with
-   * `_source = "pin_comment"`) we navigate to the original review comment
-   * inside the project, since pin_comments don't have task-style detail.
-   */
+  // Real tasks open the global side panel (`?task=<id>`); approval-bucket
+  // rows (synthesized from pin_comment / comment) deep-link to the source.
   const openTask = useCallback(
     (task: Task) => {
-      if (
-        task._source === "pin_comment" &&
-        task.project_id &&
-        task.pin_attachment_id &&
-        task.pin_comment_id
-      ) {
-        router.push(
-          `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`
-        );
+      const reviewHref = pinCommentReviewHref(task);
+      if (task._source === "pin_comment" && reviewHref) {
+        router.push(reviewHref);
         return;
       }
       if (task._source === "comment" && task.project_id) {
@@ -175,7 +155,6 @@ export default function TasksPage() {
       mutate();
     },
     setTasks,
-    setCounts,
   });
 
   // -- Pagination (server-side) --
@@ -268,17 +247,6 @@ export default function TasksPage() {
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
                     onClick={openTask}
-                    onGoToProject={(t) => {
-                      if (t.pin_comment_id && t.pin_attachment_id) {
-                        router.push(
-                          `/projects/${t.project_id}/review/${t.pin_attachment_id}?comments=open&pinId=${t.pin_comment_id}`
-                        );
-                      } else {
-                        router.push(
-                          `/projects/${t.project_id}?highlightTask=${t.id}`
-                        );
-                      }
-                    }}
                   />
                 ))
               )}

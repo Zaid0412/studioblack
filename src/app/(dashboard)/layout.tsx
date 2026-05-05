@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -114,7 +115,11 @@ export default async function DashboardLayout({
               </main>
             </div>
           </div>
-          <TaskSidePanelHost />
+          {/* Suspense boundary so `useSearchParams()` inside the host doesn't
+           * opt every dashboard route out of static prerendering. */}
+          <Suspense fallback={null}>
+            <TaskSidePanelHost />
+          </Suspense>
         </UserRoleProvider>
       </SidebarProvider>
     </SWRProvider>

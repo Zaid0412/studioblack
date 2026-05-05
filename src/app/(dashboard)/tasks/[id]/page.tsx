@@ -43,6 +43,7 @@ import {
   CATEGORIES,
   capitalize,
 } from "@/lib/taskUtils";
+import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { deriveInitials } from "@/lib/utils";
 import type { Task, TaskComment, OrgMember } from "@/types";
 
@@ -182,18 +183,22 @@ export default function TaskDetailPage({
           <span>
             {comments.length} comment{comments.length === 1 ? "" : "s"}
           </span>
-          {task.pin_comment_id && task.pin_attachment_id && task.project_id && (
-            <>
-              <span>·</span>
-              <Link
-                href={`/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`}
-                className="inline-flex items-center gap-1 text-info hover:underline"
-              >
-                <MessageSquare className="w-3 h-3" />
-                Linked from review comment
-              </Link>
-            </>
-          )}
+          {(() => {
+            const reviewHref = pinCommentReviewHref(task);
+            if (!reviewHref) return null;
+            return (
+              <>
+                <span>·</span>
+                <Link
+                  href={reviewHref}
+                  className="inline-flex items-center gap-1 text-info hover:underline"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  Linked from review comment
+                </Link>
+              </>
+            );
+          })()}
         </div>
       </header>
 

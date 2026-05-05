@@ -2,7 +2,7 @@ import { getPool } from "@/lib/db";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
 import { escapeSqlLike } from "./helpers";
 import { verifyPhaseOwnership } from "./phaseTasks";
-import type { TaskBucket } from "@/lib/validations";
+import { isApprovalBucket, type TaskBucket } from "@/lib/validations";
 
 /** Verify a task belongs to a project (via its phase). */
 export async function verifyTaskOwnership(
@@ -95,18 +95,10 @@ interface TaskFilters {
 }
 
 /**
- * Buckets whose data lives outside the `task` table. `reminders`/`mentions`
- * still return empty (Phase 2/3); the approval-flavoured buckets are
- * sourced from `pin_comment` via `getApprovalRows` below — synthesized
- * into a Task-shaped row with `_source = "pin_comment"` so the existing
- * row UI can render them. `my_approvals` stays empty until pin_comment
- * has a reviewer field.
+ * Buckets that always return empty for now — they're in the type union but
+ * their data sources (`task_reminder` table, `@`-mention parser, pin_comment
+ * reviewer field) don't exist yet.
  */
-const APPROVAL_BUCKETS = new Set<TaskBucket>([
-  "my_requests",
-  "my_comments",
-  "all_requests",
-]);
 const EMPTY_BUCKETS = new Set<TaskBucket>([
   "reminders",
   "mentions",
@@ -120,7 +112,7 @@ export async function getTasks(filters: TaskFilters) {
   if (filters.bucket && EMPTY_BUCKETS.has(filters.bucket)) {
     return { tasks: [], total: 0 };
   }
-  if (filters.bucket && APPROVAL_BUCKETS.has(filters.bucket)) {
+  if (filters.bucket && isApprovalBucket(filters.bucket)) {
     return getApprovalRows({
       orgId: filters.orgId,
       userId: filters.userId,
@@ -293,7 +285,10 @@ async function getApprovalRows(opts: {
 
   // pin_comment subquery — varies per bucket
   const pinConds: string[] = ["p.org_id = $1"];
-  const values: unknown[] = [opts.orgId];
+  // `whereValues` carries just the params needed by the WHERE clauses (used
+  // by the count query). `values` extends it with branch + outer LIMIT/OFFSET
+  // for the row query.
+  const whereValues: unknown[] = [opts.orgId];
   let idx = 2;
 
   switch (opts.bucket) {
@@ -301,12 +296,12 @@ async function getApprovalRows(opts: {
       pinConds.push(
         `pc.user_id = $${idx} AND (pc.request_approval OR pc.request_changes) AND NOT pc.resolved`
       );
-      values.push(opts.userId);
+      whereValues.push(opts.userId);
       idx++;
       break;
     case "my_comments":
       pinConds.push(`pc.user_id = $${idx}`);
-      values.push(opts.userId);
+      whereValues.push(opts.userId);
       idx++;
       break;
     case "all_requests":
@@ -316,12 +311,29 @@ async function getApprovalRows(opts: {
       return { tasks: [], total: 0 };
   }
 
+  const pinProjectIdx = opts.projectId ? idx : null;
   if (opts.projectId) {
     pinConds.push(`a.project_id = $${idx}`);
-    values.push(opts.projectId);
+    whereValues.push(opts.projectId);
     idx++;
   }
 
+  const values: unknown[] = [...whereValues];
+
+  const pinFrom = `FROM pin_comment pc
+    JOIN attachment a ON a.id = pc.attachment_id
+    JOIN project p ON p.id = a.project_id`;
+  const pinWhere = pinConds.join(" AND ");
+
+  // Per-branch cap. The outer query trims to `limit` after UNION, so any
+  // branch row beyond `limit + offset` is unreachable — but Postgres would
+  // still materialize the entire matching set without this pushdown.
+  const branchCap = limit + offset;
+
+  // Pin branch — pre-trimmed.
+  values.push(branchCap);
+  const pinLimitIdx = idx;
+  idx++;
   const pinSelect = `
     SELECT
       pc.id,
@@ -358,22 +370,30 @@ async function getApprovalRows(opts: {
       0::int AS checklist_total,
       0::int AS checklist_done,
       'pin_comment'::text AS _source
-    FROM pin_comment pc
-    JOIN attachment a ON a.id = pc.attachment_id
-    JOIN project p ON p.id = a.project_id
+    ${pinFrom}
     LEFT JOIN project_phase pp ON pp.id = a.phase_id
     LEFT JOIN "user" u ON u.id = pc.user_id
-    WHERE ${pinConds.join(" AND ")}`;
+    WHERE ${pinWhere}
+    ORDER BY pc.created_at DESC
+    LIMIT $${pinLimitIdx}`;
 
-  // For my_comments, also UNION project/phase/task-level comments from the
-  // `comment` table. Other buckets are pin_comment-only because `comment`
-  // doesn't carry the request_approval / request_changes flags.
+  // Comment branch — only for `my_comments`. Other buckets are pin_comment-
+  // only because `comment` doesn't carry request_approval / request_changes.
+  let cmtFrom = "";
+  let cmtWhere = "";
   let unionSql = pinSelect;
   if (opts.bucket === "my_comments") {
     const cmtConds: string[] = ["p.org_id = $1", `c.user_id = $2`];
-    if (opts.projectId) {
-      cmtConds.push(`c.project_id = $3`);
+    if (pinProjectIdx !== null) {
+      cmtConds.push(`c.project_id = $${pinProjectIdx}`);
     }
+    cmtFrom = `FROM comment c
+      JOIN project p ON p.id = c.project_id`;
+    cmtWhere = cmtConds.join(" AND ");
+
+    values.push(branchCap);
+    const cmtLimitIdx = idx;
+    idx++;
     unionSql = `${pinSelect}
       UNION ALL
       SELECT
@@ -403,32 +423,46 @@ async function getApprovalRows(opts: {
         0::int AS checklist_total,
         0::int AS checklist_done,
         'comment'::text AS _source
-      FROM comment c
-      JOIN project p ON p.id = c.project_id
+      ${cmtFrom}
       LEFT JOIN project_phase pp ON pp.id = c.phase_id
       LEFT JOIN "user" u ON u.id = c.user_id
-      WHERE ${cmtConds.join(" AND ")}`;
+      WHERE ${cmtWhere}
+      ORDER BY c.created_at DESC
+      LIMIT $${cmtLimitIdx}`;
   }
 
   values.push(limit);
-  const limitIdx = idx;
+  const outerLimitIdx = idx;
   idx++;
   values.push(offset);
-  const offsetIdx = idx;
+  const outerOffsetIdx = idx;
 
-  const { rows } = await pool.query(
-    `SELECT *, COUNT(*) OVER()::int AS _total_count
-     FROM (${unionSql}) combined
-     ORDER BY created_at DESC
-     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-    values
-  );
+  // Count query — runs in parallel, reuses the WHERE clauses but skips the
+  // joins/columns the row select needs (we only care about row counts).
+  // Since branch caps trim the row set, COUNT(*) OVER() in the row query
+  // would under-report once the user has more than `branchCap` matches.
+  const countSql =
+    opts.bucket === "my_comments"
+      ? `SELECT
+           (SELECT COUNT(*) ${pinFrom} WHERE ${pinWhere})::int
+           + (SELECT COUNT(*) ${cmtFrom} WHERE ${cmtWhere})::int AS total`
+      : `SELECT COUNT(*)::int AS total ${pinFrom} WHERE ${pinWhere}`;
 
-  const total = rows.length > 0 ? rows[0]._total_count : 0;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const tasks = rows.map(({ _total_count, ...rest }) => rest);
+  const [rowsRes, countRes] = await Promise.all([
+    pool.query(
+      `SELECT *
+       FROM (${unionSql}) combined
+       ORDER BY created_at DESC
+       LIMIT $${outerLimitIdx} OFFSET $${outerOffsetIdx}`,
+      values
+    ),
+    pool.query(countSql, whereValues),
+  ]);
 
-  return { tasks, total };
+  return {
+    tasks: rowsRes.rows,
+    total: countRes.rows[0]?.total ?? 0,
+  };
 }
 
 /** Fetch a single task by ID with joined user, project, and phase names. */
