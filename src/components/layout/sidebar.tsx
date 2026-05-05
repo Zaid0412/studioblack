@@ -109,6 +109,7 @@ export function Sidebar({
   const clientNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
+    { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 

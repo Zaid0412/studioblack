@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Plus, CheckSquare, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import useSWR from "swr";
@@ -41,6 +42,9 @@ export function TaskSection({
   members,
 }: TaskSectionProps) {
   const { data: session } = authClient.useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const emptyForm: TaskFormData = useMemo(
     () => ({
       title: "",
@@ -54,6 +58,19 @@ export function TaskSection({
       pendingFiles: [],
     }),
     [activePhaseId]
+  );
+
+  /**
+   * Open the global task side panel for a task — same overlay as `/tasks`.
+   * The host listens for `?task=<id>` and renders on top of this page.
+   */
+  const openTask = useCallback(
+    (task: Task) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("task", task.id);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
   );
 
   // -- Task data (SWR, filtered by phase on the server) --
@@ -187,6 +204,7 @@ export function TaskSection({
                 onToggleStatus={toggleStatus}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
+                onClick={openTask}
               />
             ))}
           </>
