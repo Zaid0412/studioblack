@@ -56,6 +56,14 @@ export function TaskMarkdownEditor({
   const [uploading, setUploading] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Mirror `value` so async uploads can replace placeholders against the
+  // latest text without going stale through closures.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const placeholderCounterRef = useRef(0);
+
   // ─── Selection helpers ────────────────────────────────────────────────────
 
   const surroundSelection = useCallback(
@@ -118,6 +126,17 @@ export function TaskMarkdownEditor({
 
   // ─── File upload (drag-drop / paste / click paperclip) ────────────────────
 
+  /**
+   * Drop/paste/click upload flow. For each file we:
+   *  1. Insert a unique placeholder at the cursor (`[Uploading file.png…](#upload-N)`).
+   *  2. Kick off the upload.
+   *  3. On success, swap the placeholder for the final markdown image/link.
+   *  4. On error, swap it for a `[Upload failed: file.png]()` marker and toast.
+   *
+   * The placeholder counter + ref to the latest value mean we don't lose
+   * track of which slot belongs to which upload, even when the user types
+   * around them mid-upload.
+   */
   const uploadAndInsert = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
@@ -134,27 +153,48 @@ export function TaskMarkdownEditor({
       });
       if (valid.length === 0) return;
 
+      // Build unique placeholders + insert all at once at the current cursor.
+      const tasks = valid.map((file) => {
+        placeholderCounterRef.current += 1;
+        const id = placeholderCounterRef.current;
+        return {
+          file,
+          placeholder: `[Uploading ${file.name}…](#upload-${id})`,
+        };
+      });
+      const insertion = tasks.map((t) => t.placeholder).join("\n") + "\n";
+      insertAtCursor(insertion);
+
+      const replaceInValue = (from: string, to: string) => {
+        const current = valueRef.current;
+        if (!current.includes(from)) return; // user removed it — give up
+        onChangeRef.current(current.replace(from, to));
+      };
+
       setUploading((n) => n + valid.length);
       try {
-        for (const file of valid) {
-          try {
-            const result = await upload.uploadFile(file);
-            const isImage = file.type.startsWith("image/");
-            const snippet = isImage
-              ? `![${file.name}](${result.url})`
-              : `[${file.name}](${result.url})`;
-            insertAtCursor(snippet + "\n");
-          } catch (err) {
-            toast({
-              title: "Upload failed",
-              description:
-                err instanceof Error
-                  ? err.message
-                  : `Couldn't upload ${file.name}`,
-              variant: "error",
-            });
-          }
-        }
+        await Promise.all(
+          tasks.map(async ({ file, placeholder }) => {
+            try {
+              const result = await upload.uploadFile(file);
+              const isImage = file.type.startsWith("image/");
+              const finalSnippet = isImage
+                ? `![${file.name}](${result.url})`
+                : `[${file.name}](${result.url})`;
+              replaceInValue(placeholder, finalSnippet);
+            } catch (err) {
+              replaceInValue(placeholder, `[Upload failed: ${file.name}]()`);
+              toast({
+                title: "Upload failed",
+                description:
+                  err instanceof Error
+                    ? err.message
+                    : `Couldn't upload ${file.name}`,
+                variant: "error",
+              });
+            }
+          })
+        );
       } finally {
         setUploading((n) => Math.max(0, n - valid.length));
       }
@@ -331,16 +371,20 @@ export function TaskMarkdownEditor({
       )}
 
       {/* Footer hint */}
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border-default bg-bg-primary/40 text-[11px] text-text-muted">
-        <Paperclip className="w-3 h-3" />
+      <div
+        className={`flex items-center gap-2 px-3 py-2 border-t border-border-default text-[11px] transition-colors ${
+          uploading > 0
+            ? "bg-accent/10 text-accent"
+            : "bg-bg-primary/40 text-text-muted"
+        }`}
+      >
+        {uploading > 0 ? <Loader2Spinner /> : <Paperclip className="w-3 h-3" />}
         <span className="flex-1">
-          Attach files by dragging here, pasting, or selecting.
+          {uploading > 0
+            ? `Uploading ${uploading} file${uploading === 1 ? "" : "s"}…`
+            : "Attach files by dragging here, pasting, or selecting."}
         </span>
-        {uploading > 0 ? (
-          <span className="text-accent">Uploading {uploading}…</span>
-        ) : (
-          <span>Markdown supported</span>
-        )}
+        <span className="text-text-muted">Markdown supported</span>
       </div>
 
       <input
@@ -411,4 +455,19 @@ function ToolbarButton({
 
 function Divider() {
   return <span className="w-px h-4 bg-border-default mx-0.5" />;
+}
+
+function Loader2Spinner() {
+  return (
+    <svg
+      className="w-3 h-3 animate-spin"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+    >
+      <path d="M12 2a10 10 0 0 1 10 10" />
+    </svg>
+  );
 }
