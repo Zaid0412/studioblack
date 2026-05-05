@@ -358,6 +358,32 @@ export interface TaskFormData {
   pendingFiles: globalThis.File[];
 }
 
+/** Inline attachment reference stored on a task comment (GH-style). */
+export interface TaskCommentAttachment {
+  /** Storage URL of the uploaded file. */
+  url: string;
+  /** Original file name. */
+  name: string;
+  /** MIME type — used by the renderer to inline images vs link files. */
+  contentType: string;
+  /** Size in bytes; null when unknown. */
+  size: number | null;
+}
+
+/** A comment on a standalone task. Inline attachments live in `attachments`. */
+export interface TaskComment {
+  id: string;
+  org_id: string;
+  task_id: string;
+  author_id: string;
+  body: string;
+  attachments: TaskCommentAttachment[];
+  created_at: string;
+  updated_at: string | null;
+  /** Joined display name from the user table. */
+  author_name: string;
+}
+
 // ---------------------------------------------------------------------------
 // Element Library types
 // ---------------------------------------------------------------------------

@@ -256,6 +256,29 @@ export const createCommentSchema = z.object({
   taskId: optionalUuid,
 });
 
+// ─── Task Comments (/api/tasks/[id]/comments) ───────────────────────────────
+
+const taskCommentAttachmentSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+  name: z.string().trim().min(1).max(255),
+  contentType: z.string().trim().min(1).max(127),
+  size: z.number().int().nonnegative().nullable(),
+});
+
+export const createTaskCommentSchema = z.object({
+  body: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
+  attachments: z.array(taskCommentAttachmentSchema).max(20).optional(),
+});
+
+export const updateTaskCommentSchema = z
+  .object({
+    body: z.string().trim().min(1).max(MAX_CONTENT_LENGTH).optional(),
+    attachments: z.array(taskCommentAttachmentSchema).max(20).optional(),
+  })
+  .refine((v) => v.body !== undefined || v.attachments !== undefined, {
+    message: "Provide body or attachments",
+  });
+
 // ─── Phase Tasks (/api/projects/[id]/tasks) ─────────────────────────────────
 
 export const createPhaseTaskSchema = z.object({

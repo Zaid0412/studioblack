@@ -262,6 +262,12 @@ vi.mock("@/lib/queries", () => ({
   getStandaloneTaskAttachment: vi.fn().mockResolvedValue(null),
   deleteAttachmentById: vi.fn(),
   getTasksByAssignee: vi.fn().mockResolvedValue([]),
+  // Task comments
+  listTaskComments: vi.fn().mockResolvedValue([]),
+  getTaskComment: vi.fn().mockResolvedValue(null),
+  createTaskComment: vi.fn(),
+  updateTaskComment: vi.fn().mockResolvedValue(null),
+  deleteTaskComment: vi.fn().mockResolvedValue(false),
   getProjectForSendToClient: vi.fn().mockResolvedValue(null),
   getUserByEmail: vi.fn().mockResolvedValue(null),
   createClientUser: vi.fn(),
