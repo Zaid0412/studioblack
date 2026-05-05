@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS task_comment (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID NOT NULL REFERENCES organization(id) ON DELETE CASCADE,
+  org_id TEXT NOT NULL REFERENCES "organization"(id) ON DELETE CASCADE,
   task_id UUID NOT NULL REFERENCES task(id) ON DELETE CASCADE,
   author_id TEXT NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
   body TEXT NOT NULL,
