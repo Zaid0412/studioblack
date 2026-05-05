@@ -320,6 +320,15 @@ export interface Task {
   pin_comment_id: string | null;
   /** The attachment the pin comment belongs to. */
   pin_attachment_id: string | null;
+  /**
+   * Discriminator for rows returned in the approval/comment buckets — set
+   * to `pin_comment` when the row is a synthesized view of a pin_comment
+   * rather than an actual `task` row. Drives the row's click target (file
+   * review vs side panel) and hides task-specific affordances. Absent or
+   * `task` for real task rows. Will go away when the polymorphic Request
+   * entity ships in Phase 4.
+   */
+  _source?: "task" | "pin_comment";
 }
 
 /** A single checklist item on a task. */

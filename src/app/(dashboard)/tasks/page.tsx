@@ -131,12 +131,25 @@ export default function TasksPage() {
   );
 
   /**
-   * Open the global side panel for a task by pushing `?task=<id>` to the URL.
-   * `TaskSidePanelHost` (mounted in the dashboard layout) reads the param and
-   * renders the overlay — so the page itself doesn't manage detail-view state.
+   * Open the right thing for a row click — for normal task rows this is the
+   * global side panel (push `?task=<id>` and the host overlay takes over);
+   * for approval-bucket rows (synthesized from pin_comment, marked with
+   * `_source = "pin_comment"`) we navigate to the original review comment
+   * inside the project, since pin_comments don't have task-style detail.
    */
   const openTask = useCallback(
     (task: Task) => {
+      if (
+        task._source === "pin_comment" &&
+        task.project_id &&
+        task.pin_attachment_id &&
+        task.pin_comment_id
+      ) {
+        router.push(
+          `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`
+        );
+        return;
+      }
       const params = new URLSearchParams(searchParams.toString());
       params.set("task", task.id);
       router.replace(`/tasks?${params.toString()}`, { scroll: false });
@@ -228,11 +241,7 @@ export default function TasksPage() {
                   <EmptyState
                     icon={CheckSquare}
                     title={t("noTasksTitle")}
-                    description={
-                      counts[activeBucket] > 0
-                        ? "Approval-bucket rows live in your file reviews — open the project to see them. The unified list view ships with Phase 4."
-                        : t("noTasksDescription")
-                    }
+                    description={t("noTasksDescription")}
                   />
                 ) : (
                   <EmptyState

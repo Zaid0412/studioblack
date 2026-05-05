@@ -111,6 +111,7 @@ export function TaskRow({
 }: TaskRowProps) {
   const t = useTranslations("tasks");
   const isClickable = !!onClick;
+  const isApproval = task._source === "pin_comment";
   const { icon: CategoryIcon, classes: categoryClasses } = getCategoryStyle(
     task.category
   );
@@ -200,54 +201,75 @@ export function TaskRow({
         )}
       </div>
 
-      {/* Open task page directly — bypasses the side panel for users who
-       * want the full GH-style view. Click target stops propagation so it
-       * doesn't trigger the row's panel-opening click. */}
-      <Link
-        href={`/tasks/${task.id}`}
-        onClick={(e) => e.stopPropagation()}
-        className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-        aria-label="Open task page"
-        title="Open task page"
-      >
-        <ExternalLink className="w-4 h-4" />
-      </Link>
+      {/* Open the underlying record. Real tasks → /tasks/[id]; approval rows
+       * (synthesized from pin_comment) → the original review comment. Both
+       * stop propagation so they don't also trigger the row's open-panel
+       * click. */}
+      {isApproval &&
+      task.project_id &&
+      task.pin_attachment_id &&
+      task.pin_comment_id ? (
+        <Link
+          href={`/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+          aria-label="Open review comment"
+          title="Open review comment"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </Link>
+      ) : (
+        <Link
+          href={`/tasks/${task.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+          aria-label="Open task page"
+          title="Open task page"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </Link>
+      )}
 
-      {/* Actions — kept on the row until edit/delete land in the side panel. */}
-      <div className="shrink-0">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-              aria-label="Task actions"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onToggleStar(task)}>
-              <Star
-                className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent" : ""}`}
-              />
-              {task.is_starred ? t("unstar") : t("star")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEdit(task)}>
-              <Edit className="w-4 h-4" />
-              {t("editTask")}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onToggleStatus(task)}>
-              <CheckCircle2 className="w-4 h-4" />
-              {task.status === "completed" ? t("reopen") : t("complete")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem destructive onClick={() => onDelete(task)}>
-              <Trash2 className="w-4 h-4" />
-              {t("deleteTask")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {/* Actions menu — only meaningful for real tasks. Approval rows show a
+       * spacer so the row layout doesn't reflow between buckets. */}
+      {isApproval ? (
+        <div className="shrink-0 w-7" />
+      ) : (
+        <div className="shrink-0">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
+                aria-label="Task actions"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onToggleStar(task)}>
+                <Star
+                  className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent" : ""}`}
+                />
+                {task.is_starred ? t("unstar") : t("star")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onEdit(task)}>
+                <Edit className="w-4 h-4" />
+                {t("editTask")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onToggleStatus(task)}>
+                <CheckCircle2 className="w-4 h-4" />
+                {task.status === "completed" ? t("reopen") : t("complete")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem destructive onClick={() => onDelete(task)}>
+                <Trash2 className="w-4 h-4" />
+                {t("deleteTask")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 }
