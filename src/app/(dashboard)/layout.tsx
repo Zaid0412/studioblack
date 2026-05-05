@@ -12,6 +12,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
 import { PostHogIdentify } from "@/components/providers/PostHogIdentify";
+import { TaskSidePanelHost } from "@/components/tasks/TaskSidePanelHost";
 import type { User } from "@/types";
 
 /**
@@ -112,6 +113,7 @@ export default async function DashboardLayout({
               </main>
             </div>
           </div>
+          <TaskSidePanelHost />
         </UserRoleProvider>
       </SidebarProvider>
     </SWRProvider>

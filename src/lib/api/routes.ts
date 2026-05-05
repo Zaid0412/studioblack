@@ -61,6 +61,10 @@ export const API = {
   taskAttachments:       (tid: string)                 => `/api/tasks/${tid}/attachments`,
   taskAttachment:        (tid: string, aid: string)    => `/api/tasks/${tid}/attachments/${aid}`,
 
+  // ── Task → Comments ────────────────────────────
+  taskComments:          (tid: string)                 => `/api/tasks/${tid}/comments`,
+  taskComment:           (tid: string, cid: string)    => `/api/tasks/${tid}/comments/${cid}`,
+
   // ── Notifications ──────────────────────────────
   notifications:         ()                            => "/api/notifications",
 
