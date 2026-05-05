@@ -47,9 +47,8 @@ interface PhaseOption {
 const TITLE_MAX = 256;
 
 /**
- * GitHub-issue-style task creation page. Replaces the create flow of
- * `TaskFormDialog`. Edits still go through the dialog until inline editing
- * lands on `/tasks/[id]`.
+ * GitHub-issue-style task creation page. Edits happen inline on
+ * `/tasks/[id]`.
  *
  * Optional `?projectId=<id>` query param pre-selects the project — the
  * project `TaskSection` deep-links to this page with that param so the

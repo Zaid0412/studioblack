@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Plus, CheckSquare, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -9,53 +9,28 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import Link from "next/link";
-import { authClient } from "@/lib/authClient";
-import type { Task, TaskFormData } from "@/types";
+import type { Task } from "@/types";
 import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import { TaskRow } from "@/app/(dashboard)/tasks/_components/TaskRow";
-import { TaskFormDialog } from "@/app/(dashboard)/tasks/_components/TaskFormDialog";
 import { TaskDeleteDialog } from "@/app/(dashboard)/tasks/_components/TaskDeleteDialog";
 
 interface TaskSectionProps {
   projectId: string;
   activePhaseId: string;
   highlightTaskId?: string | null;
-  phases: { id: string; name: string }[];
-  members: { user_id: string; user_name: string; user_email: string }[];
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-/** Task list section for a project detail page with inline CRUD. */
+/** Task list section for a project detail page. */
 export function TaskSection({
   projectId,
   activePhaseId,
   highlightTaskId,
-  phases,
-  members,
 }: TaskSectionProps) {
-  const { data: session } = authClient.useSession();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const emptyForm: TaskFormData = useMemo(
-    () => ({
-      title: "",
-      description: "",
-      phaseId: activePhaseId,
-      priority: "medium",
-      category: "general",
-      assignedTo: "",
-      dueDate: "",
-      checklistItems: [],
-      pendingFiles: [],
-    }),
-    [activePhaseId]
-  );
 
   /**
    * Open the global task side panel for a task — same overlay as `/tasks`.
@@ -90,21 +65,13 @@ export function TaskSection({
     "tasks"
   );
 
-  // -- CRUD hook --
+  // -- Row CRUD (delete, toggle, edit-routes-to-page) --
   const {
-    dialogOpen,
-    setDialogOpen,
-    editingTask,
-    setEditingTask,
-    formData,
-    setFormData,
-    submitting,
     deleteTarget,
     setDeleteTarget,
     deleting,
     toggleStatus,
     toggleStar,
-    handleSubmit,
     handleDelete,
     openEdit,
   } = useTaskCrud({
@@ -112,9 +79,6 @@ export function TaskSection({
       mutate();
     },
     setTasks: setAllTasks,
-    defaultForm: emptyForm,
-    projectId,
-    currentUserId: session?.user?.id,
   });
 
   // -- Highlight task from URL --
@@ -221,29 +185,6 @@ export function TaskSection({
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-
-      {/* Create / Edit Task Dialog */}
-      <TaskFormDialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDialogOpen(false);
-            setEditingTask(null);
-            setFormData(emptyForm);
-          }
-        }}
-        editingTask={editingTask}
-        formData={formData}
-        setFormData={setFormData}
-        submitting={submitting}
-        onSubmit={handleSubmit}
-        phases={phases}
-        members={members.map((m) => ({
-          id: m.user_id,
-          name: m.user_name,
-          email: m.user_email,
-        }))}
-      />
 
       {/* Delete Confirmation Dialog */}
       <TaskDeleteDialog

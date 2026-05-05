@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
@@ -10,15 +10,11 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { authClient } from "@/lib/authClient";
-import { projects as projectsApi } from "@/lib/api";
-import { useOrgMembers } from "@/hooks/useOrgMembers";
 import type { TaskListResponse } from "@/lib/api/tasks";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
-import type { Task, TaskFormData } from "@/types";
+import type { Task } from "@/types";
 import { TASK_BUCKETS, type TaskBucket } from "@/lib/validations";
-import { TaskFormDialog } from "./_components/TaskFormDialog";
 import { TaskDeleteDialog } from "./_components/TaskDeleteDialog";
 import {
   TaskBucketSidebar,
@@ -29,37 +25,10 @@ import { TaskRow } from "./_components/TaskRow";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface ProjectOption {
-  id: string;
-  name: string;
-}
-
-interface PhaseOption {
-  id: string;
-  name: string;
-}
-
-// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const PAGE_SIZE = 15;
-
-const EMPTY_FORM: TaskFormData = {
-  title: "",
-  description: "",
-  projectId: "",
-  phaseId: "",
-  priority: "medium",
-  checklistItems: [],
-  pendingFiles: [],
-  category: "general",
-  assignedTo: "",
-  dueDate: "",
-};
 
 const DEFAULT_COUNTS: BucketCounts = TASK_BUCKETS.reduce(
   (acc, key) => ({ ...acc, [key]: 0 }),
@@ -82,8 +51,6 @@ export default function TasksPage() {
   const t = useTranslations("tasks");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = authClient.useSession();
-  const { members } = useOrgMembers({ assignableOnly: false });
 
   // -- Filter state (from URL) --
   const activeBucket = asBucket(searchParams.get("bucket"));
@@ -137,40 +104,6 @@ export default function TasksPage() {
     Record<string, number>
   >(mutate, "counts");
 
-  // -- Side data --
-  const { data: projectsRaw } =
-    useSWR<{ id: string; name: string }[]>("/api/projects");
-  const projects: ProjectOption[] = useMemo(
-    () => (projectsRaw ?? []).map((p) => ({ id: p.id, name: p.name })),
-    [projectsRaw]
-  );
-  const [phases, setPhases] = useState<PhaseOption[]>([]);
-  const [loadingPhases, setLoadingPhases] = useState(false);
-
-  // -- Fetch phases for a project --
-  const fetchPhases = useCallback(async (projectId: string) => {
-    if (!projectId) {
-      setPhases([]);
-      return;
-    }
-    setLoadingPhases(true);
-    try {
-      const data = await projectsApi.get<{
-        phases?: { id: string; name: string }[];
-      }>(projectId);
-      setPhases(
-        (data.phases ?? []).map((p) => ({
-          id: p.id,
-          name: p.name,
-        }))
-      );
-    } catch {
-      setPhases([]);
-    } finally {
-      setLoadingPhases(false);
-    }
-  }, []);
-
   // -- URL helpers --
   const setParam = useCallback(
     (key: string, value: string) => {
@@ -201,21 +134,13 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
-  // -- Task CRUD (dialog, delete, toggle, submit) --
+  // -- Task CRUD (delete, toggle, edit-routes-to-page) --
   const {
-    dialogOpen,
-    setDialogOpen,
-    editingTask,
-    setEditingTask,
-    formData,
-    setFormData,
-    submitting,
     deleteTarget,
     setDeleteTarget,
     deleting,
     toggleStatus,
     toggleStar,
-    handleSubmit,
     handleDelete,
     openEdit,
   } = useTaskCrud({
@@ -224,9 +149,6 @@ export default function TasksPage() {
     },
     setTasks,
     setCounts,
-    defaultForm: EMPTY_FORM,
-    onFetchPhases: fetchPhases,
-    currentUserId: session?.user?.id,
   });
 
   // -- Pagination (server-side) --
@@ -346,33 +268,8 @@ export default function TasksPage() {
 
       {/* Detail view is the global TaskSidePanelHost mounted in the dashboard
        * layout — it opens whenever ?task=<id> is in the URL, so a row click
-       * just calls openTask above. */}
-
-      {/* Create / Edit Task Dialog */}
-      <TaskFormDialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDialogOpen(false);
-            setEditingTask(null);
-            setFormData(EMPTY_FORM);
-          }
-        }}
-        editingTask={editingTask}
-        formData={formData}
-        setFormData={setFormData}
-        submitting={submitting}
-        onSubmit={handleSubmit}
-        projects={projects}
-        phases={phases}
-        loadingPhases={loadingPhases}
-        onProjectChange={fetchPhases}
-        members={members.map((m) => ({
-          id: m.userId,
-          name: m.user.name,
-          email: m.user.email,
-        }))}
-      />
+       * just calls openTask above. Create + edit live at /tasks/new and
+       * /tasks/[id] respectively. */}
 
       {/* Delete Confirmation Dialog */}
       <TaskDeleteDialog
