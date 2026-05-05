@@ -316,11 +316,18 @@ export async function getTaskById(
 /**
  * Get task counts for each bucket in the redesigned sidebar.
  *
- * The `task`-sourced buckets (`important`, `tasks_for_me`, `tasks_by_me`,
- * `all_tasks`) are computed in a single query. The remaining buckets — which
- * draw from approval reviews, comments, reminders, and mentions — return 0
- * until those data layers ship; the keys are still emitted so the sidebar
- * can render their badges without conditional checks.
+ * Two parallel queries: one over `task` for the action-item buckets and one
+ * over `pin_comment` (joined through `attachment` → `project`) for the
+ * approval-flavoured buckets. The list endpoints for the approval buckets
+ * still return empty rows for now — the row-level UI lands with the
+ * polymorphic Request entity work in Phase 4 — but the badges are real.
+ *
+ * `reminders` and `mentions` are still 0 (Phase 2/3).
+ *
+ * `my_approvals` is 0 because pin_comment has no reviewer_id; without a
+ * concept of "this comment is waiting on user X's decision" we can't count
+ * it accurately, and a global "everyone's pending requests" would be the
+ * `all_requests` bucket instead.
  */
 export async function getTaskBucketCounts(
   orgId: string,
@@ -329,27 +336,52 @@ export async function getTaskBucketCounts(
 ): Promise<Record<string, number>> {
   const pool = getPool();
   const assigneeFilter = assigneeOnly ? " AND t.assigned_to = $2" : "";
-  const { rows } = await pool.query(
-    `SELECT
-       COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all_tasks,
-       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status NOT IN ('completed', 'archived'))::int AS important,
-       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS tasks_for_me,
-       COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS tasks_by_me
-     FROM task t
-     WHERE t.org_id = $1${assigneeFilter}`,
-    [orgId, userId]
-  );
+
+  const [taskRow, approvalRow] = await Promise.all([
+    pool
+      .query(
+        `SELECT
+           COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all_tasks,
+           COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status NOT IN ('completed', 'archived'))::int AS important,
+           COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS tasks_for_me,
+           COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS tasks_by_me
+         FROM task t
+         WHERE t.org_id = $1${assigneeFilter}`,
+        [orgId, userId]
+      )
+      .then((r) => r.rows[0]),
+    pool
+      .query(
+        `SELECT
+           COUNT(*) FILTER (
+             WHERE pc.user_id = $2
+               AND (pc.request_approval OR pc.request_changes)
+               AND NOT pc.resolved
+           )::int AS my_requests,
+           COUNT(*) FILTER (WHERE pc.user_id = $2)::int AS my_comments,
+           COUNT(*) FILTER (
+             WHERE pc.request_approval AND NOT pc.resolved
+           )::int AS all_requests
+         FROM pin_comment pc
+         JOIN attachment a ON a.id = pc.attachment_id
+         JOIN project p ON p.id = a.project_id
+         WHERE p.org_id = $1`,
+        [orgId, userId]
+      )
+      .then((r) => r.rows[0]),
+  ]);
+
   return {
-    important: rows[0].important ?? 0,
+    important: taskRow.important ?? 0,
     reminders: 0,
     mentions: 0,
-    tasks_for_me: rows[0].tasks_for_me ?? 0,
-    tasks_by_me: rows[0].tasks_by_me ?? 0,
-    my_requests: 0,
+    tasks_for_me: taskRow.tasks_for_me ?? 0,
+    tasks_by_me: taskRow.tasks_by_me ?? 0,
+    my_requests: approvalRow.my_requests ?? 0,
     my_approvals: 0,
-    my_comments: 0,
-    all_tasks: rows[0].all_tasks ?? 0,
-    all_requests: 0,
+    my_comments: approvalRow.my_comments ?? 0,
+    all_tasks: taskRow.all_tasks ?? 0,
+    all_requests: approvalRow.all_requests ?? 0,
   };
 }
 

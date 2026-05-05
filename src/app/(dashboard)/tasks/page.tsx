@@ -42,6 +42,16 @@ function asBucket(value: string | null): TaskBucket {
     : "all_tasks";
 }
 
+const APPROVAL_BUCKETS = new Set<TaskBucket>([
+  "my_requests",
+  "my_approvals",
+  "my_comments",
+  "all_requests",
+]);
+function isApprovalBucket(bucket: TaskBucket): boolean {
+  return APPROVAL_BUCKETS.has(bucket);
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -214,15 +224,27 @@ export default function TasksPage() {
                   ))}
                 </div>
               ) : tasks.length === 0 ? (
-                <EmptyState
-                  icon={CheckSquare}
-                  title={t("noTasksTitle")}
-                  description={t("noTasksDescription")}
-                  action={{
-                    label: t("createTask"),
-                    onClick: () => router.push("/tasks/new"),
-                  }}
-                />
+                isApprovalBucket(activeBucket) ? (
+                  <EmptyState
+                    icon={CheckSquare}
+                    title={t("noTasksTitle")}
+                    description={
+                      counts[activeBucket] > 0
+                        ? "Approval-bucket rows live in your file reviews — open the project to see them. The unified list view ships with Phase 4."
+                        : t("noTasksDescription")
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    icon={CheckSquare}
+                    title={t("noTasksTitle")}
+                    description={t("noTasksDescription")}
+                    action={{
+                      label: t("createTask"),
+                      onClick: () => router.push("/tasks/new"),
+                    }}
+                  />
+                )
               ) : (
                 tasks.map((task) => (
                   <TaskRow
