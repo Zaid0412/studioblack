@@ -96,7 +96,9 @@ describe("parseElementSheet — client_rate / budget_rate", () => {
       TEMPLATE_COLUMN_LABELS.clientRate,
       TEMPLATE_COLUMN_LABELS.budgetRate,
     ];
-    const buf = await buildSheet(headers, [["X-1", "Item", "m2", 100, 175, 85]]);
+    const buf = await buildSheet(headers, [
+      ["X-1", "Item", "m2", 100, 175, 85],
+    ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("valid");
     expect(result.rows[0].parsed?.clientRate).toBe(175);
