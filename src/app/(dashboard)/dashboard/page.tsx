@@ -317,15 +317,17 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats row — Pending Reviews is interactive (opens a popover with
-        * the actual queue); the others are plain. Order matches the original
-        * layout: Active · Pending Reviews · Approved · Team. */}
+      {/* Stats row. Pending Reviews opens a popover with the queue;
+        * Active Projects + Team Members deep-link to /projects and
+        * /organisation respectively. Approved Designs stays static —
+        * there's no equivalent landing surface for it yet. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label={plainStats[0]?.label ?? t("activeProjects")}
           value={plainStats[0]?.value ?? "0"}
           icon={plainStats[0]?.icon ?? FolderOpen}
           valueColor={plainStats[0]?.valueColor}
+          href="/projects"
         />
         <PendingReviewsPopover
           label={t("pendingReviews")}
@@ -342,6 +344,7 @@ export default function DashboardPage() {
           value={plainStats[2]?.value ?? "0"}
           icon={plainStats[2]?.icon ?? Users}
           valueColor={plainStats[2]?.valueColor}
+          href="/organisation"
         />
       </div>
 
