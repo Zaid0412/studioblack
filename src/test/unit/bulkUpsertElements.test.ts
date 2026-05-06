@@ -176,6 +176,8 @@ describe("bulkUpsertElements — version strategy", () => {
             labour_cost: null,
             overhead_pct: null,
             margin_pct: null,
+            client_rate: null,
+            budget_rate: null,
             spec_reference: "SPEC-1",
             drawing_ref: null,
             tags: ["legacy"],
@@ -213,15 +215,15 @@ describe("bulkUpsertElements — version strategy", () => {
     const params = insertCall?.[1] as unknown[];
     // Param order per INSERT SQL: orgId, code, name, description, category_id,
     // unit, unit_cost, currency, material_cost, labour_cost, overhead_pct,
-    // service_charge_pct, margin_pct, spec_reference, drawing_ref, tags,
-    // created_by, version_group, version_number
+    // service_charge_pct, margin_pct, client_rate, budget_rate,
+    // spec_reference, drawing_ref, tags, created_by, version_group, version_number
     expect(params[2]).toBe("Updated name"); // required, taken
     expect(params[3]).toBe("Inherit me"); // description inherited
     expect(params[4]).toBe("cat-42"); // category inherited
     expect(params[7]).toBe("EUR"); // currency inherited
     expect(params[8]).toBe("5.50"); // material_cost inherited
-    expect(params[13]).toBe("SPEC-1"); // spec_reference inherited
-    expect(params[15]).toEqual(["legacy"]); // tags inherited
+    expect(params[15]).toBe("SPEC-1"); // spec_reference inherited
+    expect(params[17]).toEqual(["legacy"]); // tags inherited
   });
 });
 

@@ -289,6 +289,42 @@ export function BoqItemDrawer({
                 saveField({ serviceChargePct: parseFloat(next) })
               }
             />
+            <EditableField
+              label="Client rate"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.client_rate ?? ""}
+              display={
+                item.client_rate !== null
+                  ? formatCurrency(item.client_rate, currency)
+                  : "—"
+              }
+              onSave={(next) =>
+                saveField({
+                  clientRate: next === "" ? null : parseFloat(next),
+                })
+              }
+            />
+            <EditableField
+              label="Budget rate"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.budget_rate ?? ""}
+              display={
+                item.budget_rate !== null
+                  ? formatCurrency(item.budget_rate, currency)
+                  : "—"
+              }
+              onSave={(next) =>
+                saveField({
+                  budgetRate: next === "" ? null : parseFloat(next),
+                })
+              }
+            />
           </section>
 
           {item.element_id && (

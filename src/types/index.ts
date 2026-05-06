@@ -404,6 +404,10 @@ export interface Element {
   overhead_pct: string | null;
   service_charge_pct: string | null;
   margin_pct: string | null;
+  /** Client-facing per-unit price; independent of computed sell_price. */
+  client_rate: string | null;
+  /** Internal cost target for variance tracking; never shown to clients. */
+  budget_rate: string | null;
   spec_reference: string | null;
   drawing_ref: string | null;
   tags: string[] | null;
@@ -498,6 +502,10 @@ export interface BoqItem {
   overhead_pct: string;
   service_charge_pct: string;
   margin_pct: string;
+  /** Client-facing per-unit price; independent of computed sell_price. */
+  client_rate: string | null;
+  /** Internal cost target for variance tracking; never shown to clients. */
+  budget_rate: string | null;
   source: BoqItemSource;
   rate_contract_item_id: string | null;
   lifecycle_status: BoqItemLifecycleStatus;

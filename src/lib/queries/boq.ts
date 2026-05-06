@@ -383,6 +383,8 @@ export interface CreateBoqItemInput {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   notes?: string | null;
   clientNotes?: string | null;
   sortOrder?: number;
@@ -410,15 +412,19 @@ export async function createBoqItem(
          boq_id, section_id, element_id, source, rate_contract_item_id,
          item_code, description, unit,
          quantity, unit_cost, material_cost, labour_cost,
-         overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
+         overhead_pct, service_charge_pct, margin_pct,
+         client_rate, budget_rate,
+         notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
          $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
          $6, $7, $8,
          COALESCE($9::numeric, 0), COALESCE($10::numeric, 0), $11::numeric, $12::numeric,
-         COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0), $16, $17,
-         COALESCE($18::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($19, false), COALESCE($20, false)
+         COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0),
+         $16::numeric, $17::numeric,
+         $18, $19,
+         COALESCE($20::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($21, false), COALESCE($22, false)
        )
        RETURNING *
      )
@@ -441,6 +447,8 @@ export async function createBoqItem(
       input.overheadPct ?? null,
       input.serviceChargePct ?? null,
       input.marginPct ?? null,
+      input.clientRate ?? null,
+      input.budgetRate ?? null,
       input.notes ?? null,
       input.clientNotes ?? null,
       input.sortOrder ?? null,
@@ -463,6 +471,8 @@ export interface UpdateBoqItemInput {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   lifecycleStatus?: BoqItemLifecycleStatus;
   clientApprovalStatus?: BoqItemClientApprovalStatus;
   installedQty?: number;
@@ -485,6 +495,8 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   overheadPct: "overhead_pct",
   serviceChargePct: "service_charge_pct",
   marginPct: "margin_pct",
+  clientRate: "client_rate",
+  budgetRate: "budget_rate",
   lifecycleStatus: "lifecycle_status",
   clientApprovalStatus: "client_approval_status",
   installedQty: "installed_qty",
@@ -510,6 +522,9 @@ const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   "overheadPct",
   "serviceChargePct",
   "marginPct",
+  // The client signs off on `clientRate` directly — re-approval if it
+  // changes. `budgetRate` is internal-only and does NOT trigger re-approval.
+  "clientRate",
   "sectionId",
 ]);
 
@@ -664,7 +679,7 @@ export async function addElementToBoq(
   const pool = getPool();
   const { rows: elementRows } = await pool.query(
     `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
-            overhead_pct, service_charge_pct, margin_pct
+            overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate
      FROM element WHERE id = $1`,
     [params.elementId]
   );
@@ -712,6 +727,11 @@ export async function addElementToBoq(
     serviceChargePct:
       e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
     marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
+    // Library default-flow: copy rates onto the line. The line can be
+    // edited independently after — changing one doesn't ripple to the
+    // library element or vice versa.
+    clientRate: e.client_rate !== null ? Number(e.client_rate) : null,
+    budgetRate: e.budget_rate !== null ? Number(e.budget_rate) : null,
   });
 }
 

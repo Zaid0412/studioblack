@@ -423,6 +423,11 @@ export const createElementSchema = z.object({
   overheadPct: percent.optional(),
   serviceChargePct: percent.optional(),
   marginPct: percent.optional(),
+  // Independent of `unit_cost` and `sell_price`. `clientRate` is the
+  // client-facing price (used at markup ladders / project-tier discounts);
+  // `budgetRate` is the internal cost target for variance tracking.
+  clientRate: nonNegativeMoney.optional().nullable(),
+  budgetRate: nonNegativeMoney.optional().nullable(),
   specReference: z.string().trim().max(255).optional(),
   drawingRef: z.string().trim().max(255).optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
@@ -598,6 +603,9 @@ export const createBoqItemSchema = z.object({
   overheadPct: boqPercent.optional(),
   serviceChargePct: boqPercent.optional(),
   marginPct: boqPercent.optional(),
+  // See `createElementSchema` for the rationale on these two fields.
+  clientRate: money.optional().nullable(),
+  budgetRate: money.optional().nullable(),
   notes: z.string().optional().nullable(),
   clientNotes: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).optional(),
@@ -618,6 +626,8 @@ export const updateBoqItemSchema = z.object({
   overheadPct: boqPercent.optional(),
   serviceChargePct: boqPercent.optional(),
   marginPct: boqPercent.optional(),
+  clientRate: money.nullable().optional(),
+  budgetRate: money.nullable().optional(),
   lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
   clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
   installedQty: quantity.optional(),

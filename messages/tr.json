@@ -758,6 +758,8 @@
     "fieldOverheadPct": "Genel Gider %",
     "fieldServiceChargePct": "Hizmet Bedeli %",
     "fieldMarginPct": "Kâr Marjı %",
+    "fieldClientRate": "Müşteri Fiyatı",
+    "fieldBudgetRate": "Bütçe Fiyatı",
     "fieldSpecReference": "Şartname Referansı",
     "fieldDrawingRef": "Çizim Referansı",
     "fieldImage": "Görsel",
