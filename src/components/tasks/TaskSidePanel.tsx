@@ -1,11 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ExternalLink, X, MessageSquare, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { API } from "@/lib/api/routes";
+import { authClient } from "@/lib/authClient";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -18,8 +20,12 @@ import {
 import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { deriveInitials } from "@/lib/utils";
 import { TaskComposer } from "./TaskComposer";
-import { TaskCommentList } from "./TaskCommentList";
-import type { Task, TaskComment } from "@/types";
+import {
+  CommentCard,
+  CommentCardSkeleton,
+  type CommentEntry,
+} from "./TaskTimeline";
+import type { Task, TaskActivityEntry } from "@/types";
 
 interface TaskSidePanelProps {
   taskId: string;
@@ -34,9 +40,9 @@ interface TaskSidePanelProps {
  * `?task=<id>` is present in the URL. Renders task header + description +
  * comment thread + composer.
  *
- * The panel is purely presentational; the host owns URL state and Esc
- * handling so this component can be re-used by `/tasks/[id]/page.tsx` later
- * if we want to share rendering between the side panel and the full page.
+ * Comments come from the merged `/activity` feed (filtered to `kind:
+ * "comment"`) so the panel and the full `/tasks/[id]` page share the same
+ * SWR cache key — posting a comment in either place updates both.
  */
 export function TaskSidePanel({
   taskId,
@@ -44,17 +50,23 @@ export function TaskSidePanel({
   missing,
   onClose,
 }: TaskSidePanelProps) {
-  const { data: commentsData, mutate: mutateComments } = useSWR<{
-    comments: TaskComment[];
-  }>(task ? API.taskComments(taskId) : null);
-  const comments = commentsData?.comments ?? [];
-  const isLoadingComments = !!task && commentsData === undefined;
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? null;
+
+  const { data: activityData, mutate: mutateActivity } = useSWR<{
+    events: TaskActivityEntry[];
+  }>(task ? API.taskActivity(taskId) : null);
+  const comments = useMemo<CommentEntry[]>(
+    () =>
+      (activityData?.events ?? []).filter(
+        (e): e is CommentEntry => e.kind === "comment"
+      ),
+    [activityData?.events]
+  );
+  const isLoadingActivity = !!task && activityData === undefined;
 
   return (
     <>
-      {/* Scrim — clicking dismisses the panel. The dialog itself is keyboard-
-       * dismissable via Esc (handled by `TaskSidePanelHost`) and has its own
-       * close button in the header, so the scrim is presentational. */}
       <div
         aria-hidden="true"
         onClick={onClose}
@@ -72,9 +84,10 @@ export function TaskSidePanel({
           <PanelContent
             task={task}
             comments={comments}
-            isLoadingComments={isLoadingComments}
+            isLoadingComments={isLoadingActivity}
+            currentUserId={currentUserId}
             onClose={onClose}
-            onCommentPosted={() => mutateComments()}
+            onActivityChanged={() => mutateActivity()}
           />
         ) : (
           <PanelLoading onClose={onClose} />
@@ -88,18 +101,20 @@ export function TaskSidePanel({
 
 interface PanelContentProps {
   task: Task;
-  comments: TaskComment[];
+  comments: CommentEntry[];
   isLoadingComments: boolean;
+  currentUserId: string | null;
   onClose: () => void;
-  onCommentPosted: () => void;
+  onActivityChanged: () => void;
 }
 
 function PanelContent({
   task,
   comments,
   isLoadingComments,
+  currentUserId,
   onClose,
-  onCommentPosted,
+  onActivityChanged,
 }: PanelContentProps) {
   return (
     <>
@@ -110,7 +125,6 @@ function PanelContent({
         onClose={onClose}
       />
 
-      {/* Title + breadcrumb */}
       <div className="px-5 py-4 border-b border-border-default">
         <h2 className="text-lg font-semibold text-text-primary leading-snug">
           {task.title || "Untitled task"}
@@ -148,7 +162,6 @@ function PanelContent({
         })()}
       </div>
 
-      {/* Compact metadata strip */}
       <MetaStrip task={task} />
 
       {/* Body — description + comments */}
@@ -164,10 +177,29 @@ function PanelContent({
             No description provided.
           </p>
         )}
-        <TaskCommentList comments={comments} isLoading={isLoadingComments} />
+        {isLoadingComments ? (
+          <ul className="space-y-3">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <CommentCardSkeleton key={i} />
+            ))}
+          </ul>
+        ) : comments.length > 0 ? (
+          <ul className="space-y-3">
+            {comments.map((c) => (
+              <li key={c.id}>
+                <CommentCard
+                  comment={c}
+                  taskId={task.id}
+                  isAuthor={currentUserId === c.author_id}
+                  onChanged={onActivityChanged}
+                />
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
-      <TaskComposer taskId={task.id} onSubmitted={onCommentPosted} />
+      <TaskComposer taskId={task.id} onSubmitted={onActivityChanged} />
     </>
   );
 }

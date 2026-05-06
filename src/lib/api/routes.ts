@@ -49,6 +49,7 @@ export const API = {
 
   // ── Tasks ───────────────────────────────────────
   tasks:                 ()                            => "/api/tasks",
+  taskCounts:            ()                            => "/api/tasks/counts",
   task:                  (id: string)                  => `/api/tasks/${id}`,
   taskStar:              (id: string)                  => `/api/tasks/${id}/star`,
 

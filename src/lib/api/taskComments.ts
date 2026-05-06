@@ -1,10 +1,6 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
+import { apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
 import type { TaskComment, TaskCommentAttachment } from "@/types";
-
-interface ListResponse {
-  comments: TaskComment[];
-}
 
 export interface CreateTaskCommentInput {
   body: string;
@@ -16,12 +12,11 @@ export interface UpdateTaskCommentInput {
   attachments?: TaskCommentAttachment[];
 }
 
-/** List comments on a task. */
-export function list(taskId: string) {
-  return apiGet<ListResponse>(API.taskComments(taskId));
-}
-
-/** Post a new comment. */
+/**
+ * Post a new comment. Comments are read via the `/activity` endpoint
+ * (which merges comments + audit events), so there's no `.list` here —
+ * surfaces fetch activity directly via SWR.
+ */
 export function create(taskId: string, input: CreateTaskCommentInput) {
   return apiPost<TaskComment>(API.taskComments(taskId), input);
 }

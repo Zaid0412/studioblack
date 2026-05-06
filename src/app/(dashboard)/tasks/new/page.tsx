@@ -1,50 +1,19 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import {
-  ChevronRight,
-  Loader2,
-  Folder,
-  Layers,
-  Calendar as CalendarIcon,
-  Flag,
-  Tag,
-  User,
-} from "lucide-react";
-import { format } from "date-fns";
+import { ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar } from "@/components/ui/avatar";
-import { Calendar } from "@/components/ui/calendar";
-import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { authClient } from "@/lib/authClient";
 import { tasks as tasksApi } from "@/lib/api";
-import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
-import {
-  PRIORITIES,
-  CATEGORIES,
-  capitalize,
-  priorityClass,
-} from "@/lib/taskUtils";
-import { avatarColor } from "@/lib/avatarUtils";
-import { deriveInitials } from "@/lib/utils";
 import { TaskMarkdownEditor } from "@/components/tasks/TaskMarkdownEditor";
-import { FieldCard, PickerPanel } from "@/components/tasks/MetadataPickers";
-import type { OrgMember } from "@/types";
-
-interface ProjectOption {
-  id: string;
-  name: string;
-}
-
-interface PhaseOption {
-  id: string;
-  name: string;
-}
+import {
+  TaskMetadataSidebar,
+  type TaskMetadataValues,
+} from "@/components/tasks/TaskMetadataSidebar";
 
 const TITLE_MAX = 256;
 
@@ -61,37 +30,45 @@ export default function NewTaskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = authClient.useSession();
-  const { members } = useOrgMembers({ assignableOnly: false });
 
-  const initialProjectId = searchParams.get("projectId") ?? "";
+  const initialProjectId = searchParams.get("projectId") || null;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [projectId, setProjectId] = useState<string>(initialProjectId);
-  const [phaseId, setPhaseId] = useState<string>("");
-  const [priority, setPriority] = useState<string>("medium");
-  const [category, setCategory] = useState<string>("general");
-  // Assignee defaults to the current session user. `null` = not yet
-  // customised (still tracking the session); once the user picks anything
-  // (including "" for unassigned), the override sticks.
-  const [assignedToOverride, setAssignedTo] = useState<string | null>(null);
-  const assignedTo =
-    assignedToOverride !== null
-      ? assignedToOverride
-      : (session?.user?.id ?? "");
-  const [dueDate, setDueDate] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: projects = [] } = useSWR<ProjectOption[]>(API.projects());
+  // Assignee defaults to the current session user. `null` = not yet
+  // customised (still tracking the session); once the user picks anything
+  // the override sticks (including null for explicit unassign).
+  const [assignedToOverride, setAssignedToOverride] = useState<{
+    value: string | null;
+  } | null>(null);
+  const sessionUserId = session?.user?.id ?? null;
+  const assignedTo =
+    assignedToOverride !== null ? assignedToOverride.value : sessionUserId;
 
-  // Phases for the selected project — same SWR pattern as /tasks/[id].
-  const { data: projectDetail, isLoading: loadingPhases } = useSWR<{
-    phases?: PhaseOption[];
-  }>(projectId ? API.project(projectId) : null);
-  const phases = useMemo(
-    () => projectDetail?.phases ?? [],
-    [projectDetail?.phases]
-  );
+  const [metadata, setMetadata] = useState<
+    Omit<TaskMetadataValues, "assignedTo">
+  >({
+    projectId: initialProjectId,
+    phaseId: null,
+    dueDate: null,
+    priority: "medium",
+    category: "general",
+  });
+
+  const values: TaskMetadataValues = { ...metadata, assignedTo };
+
+  const onMetadataChange = useCallback((patch: Partial<TaskMetadataValues>) => {
+    if (Object.prototype.hasOwnProperty.call(patch, "assignedTo")) {
+      setAssignedToOverride({ value: patch.assignedTo ?? null });
+    }
+    const { assignedTo: _ignored, ...rest } = patch;
+    void _ignored;
+    if (Object.keys(rest).length > 0) {
+      setMetadata((prev) => ({ ...prev, ...rest }));
+    }
+  }, []);
 
   const titleLength = title.length;
   const titleOver = titleLength > TITLE_MAX;
@@ -104,12 +81,12 @@ export default function NewTaskPage() {
       const created = await tasksApi.create({
         title: title.trim(),
         description: description || undefined,
-        projectId: projectId || undefined,
-        phaseId: phaseId || undefined,
-        priority,
-        category,
-        assignedTo: assignedTo || undefined,
-        dueDate: dueDate || null,
+        projectId: values.projectId || undefined,
+        phaseId: values.phaseId || undefined,
+        priority: values.priority,
+        category: values.category,
+        assignedTo: values.assignedTo || undefined,
+        dueDate: values.dueDate || null,
       });
       toast({
         title: "Task created",
@@ -130,22 +107,18 @@ export default function NewTaskPage() {
     canSubmit,
     title,
     description,
-    projectId,
-    phaseId,
-    priority,
-    category,
-    assignedTo,
-    dueDate,
+    values.projectId,
+    values.phaseId,
+    values.priority,
+    values.category,
+    values.assignedTo,
+    values.dueDate,
     router,
   ]);
 
   const cancelHref = initialProjectId
     ? `/projects/${initialProjectId}`
     : "/tasks";
-
-  const selectedAssignee = members.find((m) => m.userId === assignedTo);
-  const selectedProject = projects.find((p) => p.id === projectId);
-  const selectedPhase = phases.find((p) => p.id === phaseId);
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -169,19 +142,6 @@ export default function NewTaskPage() {
         </p>
       </header>
 
-      {/*
-       * TODO(Phase 4): Re-enable once the multi-domain Request entity ships.
-       * Until then, only Tasks are supported and the segmented control is
-       * commented out per Zaid's request.
-       *
-       * <div className="inline-flex items-center gap-1 p-1 rounded-lg ...">
-       *   <SegmentButton active={type === "task"} icon={Check}>Task</SegmentButton>
-       *   <SegmentButton active={type === "request"} icon={Send}>
-       *     Request approval
-       *   </SegmentButton>
-       * </div>
-       */}
-
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -191,7 +151,6 @@ export default function NewTaskPage() {
       >
         {/* Main column */}
         <div className="space-y-4 min-w-0">
-          {/* Title input */}
           <div className="rounded-lg bg-bg-secondary border border-border-default focus-within:border-accent transition-colors px-4 py-2.5 flex items-center gap-3">
             <input
               type="text"
@@ -211,10 +170,8 @@ export default function NewTaskPage() {
             </span>
           </div>
 
-          {/* Markdown editor */}
           <TaskMarkdownEditor value={description} onChange={setDescription} />
 
-          {/* Submit row */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border-default">
             <Link
               href={cancelHref}
@@ -229,264 +186,12 @@ export default function NewTaskPage() {
           </div>
         </div>
 
-        {/* Sidebar — single card with sections, offset to align with title input */}
         <aside className="mt-3">
-          <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-            {/* Assignees */}
-            <FieldCard
-              icon={User}
-              label="Assignees"
-              divider
-              picker={() => (
-                <PickerPanel
-                  title="Assign up to 1 person to this task"
-                  searchPlaceholder="Type or choose a user"
-                  searchKeys={(m: OrgMember) => [m.user.name, m.user.email]}
-                  options={members}
-                  getKey={(m) => m.userId}
-                  isSelected={(m) => m.userId === assignedTo}
-                  onSelect={(m) => {
-                    // Stay open — user can toggle multiple times. Clicking
-                    // outside closes (Radix Popover default behaviour).
-                    setAssignedTo(m.userId === assignedTo ? "" : m.userId);
-                  }}
-                  renderOption={(m) => (
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar
-                        initials={deriveInitials(m.user.name || m.user.email)}
-                        color={avatarColor(m.userId)}
-                        size="sm"
-                      />
-                      <span className="text-sm text-text-primary truncate">
-                        {m.user.name || m.user.email}
-                      </span>
-                      {m.user.name && (
-                        <span className="text-xs text-text-muted truncate">
-                          {m.user.email}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                />
-              )}
-            >
-              {selectedAssignee ? (
-                <div className="flex items-center gap-2">
-                  <Avatar
-                    initials={deriveInitials(
-                      selectedAssignee.user.name || selectedAssignee.user.email
-                    )}
-                    color={avatarColor(selectedAssignee.userId)}
-                    size="sm"
-                  />
-                  <span className="text-sm font-medium text-text-primary truncate">
-                    {selectedAssignee.user.name || selectedAssignee.user.email}
-                  </span>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <span className="text-sm text-text-muted">
-                    No one assigned
-                  </span>
-                  {session?.user?.id && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAssignedTo(session.user.id);
-                      }}
-                      className="block text-xs text-accent hover:underline"
-                    >
-                      Assign yourself
-                    </button>
-                  )}
-                </div>
-              )}
-            </FieldCard>
-
-            {/* Project */}
-            <FieldCard
-              icon={Folder}
-              label="Project"
-              divider
-              picker={(close) => (
-                <PickerPanel
-                  title="Pick a project"
-                  searchPlaceholder="Filter projects"
-                  searchKeys={(p: ProjectOption) => [p.name]}
-                  options={projects}
-                  getKey={(p) => p.id}
-                  isSelected={(p) => p.id === projectId}
-                  onSelect={(p) => {
-                    setProjectId(p.id === projectId ? "" : p.id);
-                    setPhaseId("");
-                    close();
-                  }}
-                  renderOption={(p) => (
-                    <span className="text-sm text-text-primary">{p.name}</span>
-                  )}
-                  emptyHint="No projects in this org yet."
-                />
-              )}
-            >
-              {selectedProject ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
-                  <Folder className="w-3 h-3" />
-                  {selectedProject.name}
-                </span>
-              ) : (
-                <span className="text-sm text-text-muted">No project</span>
-              )}
-            </FieldCard>
-
-            {/* Phase */}
-            <FieldCard
-              icon={Layers}
-              label="Phase"
-              divider
-              picker={(close) => (
-                <PickerPanel
-                  title="Pick a phase"
-                  searchPlaceholder="Filter phases"
-                  searchKeys={(p: PhaseOption) => [p.name]}
-                  options={phases}
-                  getKey={(p) => p.id}
-                  isSelected={(p) => p.id === phaseId}
-                  onSelect={(p) => {
-                    setPhaseId(p.id === phaseId ? "" : p.id);
-                    close();
-                  }}
-                  renderOption={(p) => (
-                    <span className="text-sm text-text-primary">{p.name}</span>
-                  )}
-                  emptyHint={
-                    !projectId
-                      ? "Select a project first to choose a phase."
-                      : loadingPhases
-                        ? "Loading phases…"
-                        : "This project has no phases."
-                  }
-                />
-              )}
-            >
-              <span className="text-sm text-text-primary">
-                {selectedPhase
-                  ? selectedPhase.name
-                  : !projectId
-                    ? "—"
-                    : loadingPhases
-                      ? "Loading…"
-                      : "No phase"}
-              </span>
-            </FieldCard>
-
-            {/* Due date */}
-            <FieldCard
-              icon={CalendarIcon}
-              label="Due date"
-              divider
-              popoverWidth="w-auto"
-              picker={(close) => (
-                <div className="p-2">
-                  <Calendar
-                    mode="single"
-                    selected={
-                      dueDate ? new Date(dueDate + "T00:00:00") : undefined
-                    }
-                    onSelect={(date) => {
-                      setDueDate(date ? format(date, "yyyy-MM-dd") : "");
-                      close();
-                    }}
-                    defaultMonth={
-                      dueDate ? new Date(dueDate + "T00:00:00") : undefined
-                    }
-                  />
-                  {dueDate && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDueDate("");
-                        close();
-                      }}
-                      className="mt-2 w-full text-xs text-text-muted hover:text-text-primary py-1.5 hover:bg-bg-elevated/60 rounded-md transition-colors cursor-pointer"
-                    >
-                      Clear date
-                    </button>
-                  )}
-                </div>
-              )}
-            >
-              {dueDate ? (
-                <span className="text-sm text-text-primary">
-                  {format(new Date(dueDate + "T00:00:00"), "MMM d, yyyy")}
-                </span>
-              ) : (
-                <span className="text-sm text-text-muted">No due date</span>
-              )}
-            </FieldCard>
-
-            {/* Priority */}
-            <FieldCard
-              icon={Flag}
-              label="Priority"
-              divider
-              picker={(close) => (
-                <PickerPanel
-                  title="Set priority"
-                  options={PRIORITIES as readonly string[]}
-                  getKey={(p) => p}
-                  isSelected={(p) => p === priority}
-                  onSelect={(p) => {
-                    setPriority(p);
-                    close();
-                  }}
-                  renderOption={(p) => (
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(p)}`}
-                    >
-                      <Flag className="w-3 h-3" />
-                      {capitalize(p)}
-                    </span>
-                  )}
-                />
-              )}
-            >
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(priority)}`}
-              >
-                <Flag className="w-3 h-3" />
-                {capitalize(priority)}
-              </span>
-            </FieldCard>
-
-            {/* Category */}
-            <FieldCard
-              icon={Tag}
-              label="Category"
-              picker={(close) => (
-                <PickerPanel
-                  title="Pick a category"
-                  options={CATEGORIES as readonly string[]}
-                  getKey={(c) => c}
-                  isSelected={(c) => c === category}
-                  onSelect={(c) => {
-                    setCategory(c);
-                    close();
-                  }}
-                  renderOption={(c) => (
-                    <span className="text-sm text-text-primary">
-                      {capitalize(c)}
-                    </span>
-                  )}
-                />
-              )}
-            >
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
-                <Tag className="w-3 h-3" />
-                {capitalize(category)}
-              </span>
-            </FieldCard>
-          </div>
+          <TaskMetadataSidebar
+            values={values}
+            onChange={onMetadataChange}
+            currentUserId={sessionUserId}
+          />
         </aside>
       </form>
     </div>

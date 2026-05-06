@@ -38,7 +38,7 @@ import { formatDate, STATUS_LABEL, capitalize } from "@/lib/taskUtils";
 import { timeAgo } from "@/lib/formatTime";
 import type { Task, TaskActivityEntry, TaskStatus } from "@/types";
 
-type CommentEntry = Extract<TaskActivityEntry, { kind: "comment" }>;
+export type CommentEntry = Extract<TaskActivityEntry, { kind: "comment" }>;
 type EventEntry = Extract<TaskActivityEntry, { kind: "event" }>;
 
 interface TaskTimelineProps {
@@ -230,7 +230,7 @@ function ValuePill({ children }: { children: React.ReactNode }) {
 }
 
 /** Placeholder rail bullet + card while comments are loading. */
-function CommentCardSkeleton() {
+export function CommentCardSkeleton() {
   return (
     <article className="relative pl-9">
       <Skeleton className="absolute left-0 top-2 w-6 h-6 rounded-full ring-2 ring-bg-primary" />
@@ -351,7 +351,12 @@ interface CommentCardProps {
   onChanged: () => void;
 }
 
-function CommentCard({
+/**
+ * Single comment card with rail bullet, edit/delete dropdown for the
+ * author, and inline markdown editor when editing. Exported so the side
+ * panel can reuse it for a consistent comment renderer across surfaces.
+ */
+export function CommentCard({
   comment,
   taskId,
   isAuthor,

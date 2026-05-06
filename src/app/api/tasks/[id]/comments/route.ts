@@ -1,30 +1,19 @@
 import { NextResponse } from "next/server";
-import {
-  getTaskById,
-  listTaskComments,
-  createTaskComment,
-} from "@/lib/queries";
+import { createTaskComment } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, createTaskCommentSchema } from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
-/** GET /api/tasks/[id]/comments — list comments on a task. */
-export const GET = withAuth(
-  { blockedRoles: ["client"] },
-  async (_req, { orgId }, params) => {
-    if (!orgId) {
-      return NextResponse.json({ error: "No organisation" }, { status: 403 });
-    }
-    const task = await getTaskById(params.id, { orgId });
-    if (!task) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    const comments = await listTaskComments(orgId, params.id);
-    return NextResponse.json({ comments });
-  }
-);
-
-/** POST /api/tasks/[id]/comments — post a new comment. */
+/**
+ * POST /api/tasks/[id]/comments — post a new comment.
+ *
+ * GET was removed: comments are now read via `/api/tasks/[id]/activity`,
+ * which already returns the merged comment + audit-event feed used by
+ * both the side panel and `/tasks/[id]`. The activity endpoint filters
+ * by org_id + task_id, so the side panel's comment thread comes from
+ * the same SWR cache key as the timeline rail — keeping them in sync
+ * across surfaces with no duplicate fetch.
+ */
 export const POST = withAuth(
   {
     blockedRoles: ["client"],
@@ -33,10 +22,6 @@ export const POST = withAuth(
   async (req, { user, orgId }, params) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 403 });
-    }
-    const task = await getTaskById(params.id, { orgId });
-    if (!task) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
     const parsed = await parseRequest(req, createTaskCommentSchema);
@@ -52,6 +37,12 @@ export const POST = withAuth(
         body: parsed.data.body,
         attachments: parsed.data.attachments,
       });
+      // `createTaskComment` returns null when the task doesn't exist in
+      // the caller's org — the existence check is folded into the INSERT
+      // CTE so this is the same SQL round trip as the create.
+      if (!comment) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
       return NextResponse.json(comment, { status: 201 });
     } catch (err) {
       logger.error("Task comment create failed", {

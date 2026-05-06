@@ -34,8 +34,8 @@ import {
   initials,
   isOverdue,
   formatDate,
+  getTaskOpenTarget,
 } from "@/lib/taskUtils";
-import { pinCommentReviewHref } from "@/lib/pinUtils";
 import type { Task, TaskCategory } from "@/types";
 
 interface CategoryStyle {
@@ -256,30 +256,19 @@ export function TaskRow({
 }
 
 function OpenLink({ task }: { task: Task }) {
-  // Synthetic rows (pin_comment / comment) with broken refs render no link
-  // rather than falling through to /tasks/<id> for an id that doesn't exist
-  // in the task table.
-  let href: string | null = null;
-  let label = "Open task page";
-  if (task._source === "pin_comment") {
-    const reviewHref = pinCommentReviewHref(task);
-    if (!reviewHref) return null;
-    href = reviewHref;
-    label = "Open review comment";
-  } else if (task._source === "comment") {
-    if (!task.project_id) return null;
-    href = `/projects/${task.project_id}`;
-    label = "Open project";
-  } else {
-    href = `/tasks/${task.id}`;
-  }
+  const target = getTaskOpenTarget(task);
+  if (target.kind === "none") return null;
+  // Real tasks deep-link to the full /tasks/[id] page from the row icon.
+  // Approval-bucket rows go to the underlying record (review pin / project).
+  const href =
+    target.kind === "panel" ? `/tasks/${target.taskId}` : target.href;
   return (
     <Link
       href={href}
       onClick={(e) => e.stopPropagation()}
       className="shrink-0 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-      aria-label={label}
-      title={label}
+      aria-label={target.label}
+      title={target.label}
     >
       <ExternalLink className="w-4 h-4" />
     </Link>

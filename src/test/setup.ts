@@ -263,7 +263,6 @@ vi.mock("@/lib/queries", () => ({
   deleteAttachmentById: vi.fn(),
   getTasksByAssignee: vi.fn().mockResolvedValue([]),
   // Task comments
-  listTaskComments: vi.fn().mockResolvedValue([]),
   getTaskComment: vi.fn().mockResolvedValue(null),
   createTaskComment: vi.fn(),
   updateTaskComment: vi.fn().mockResolvedValue(null),

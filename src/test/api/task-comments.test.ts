@@ -1,17 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
-  getTaskById,
-  listTaskComments,
   createTaskComment,
   getTaskComment,
   updateTaskComment,
   deleteTaskComment,
 } from "@/lib/queries";
 import { auth } from "@/lib/auth";
-import {
-  GET as LIST,
-  POST as CREATE,
-} from "@/app/api/tasks/[id]/comments/route";
+import { POST as CREATE } from "@/app/api/tasks/[id]/comments/route";
 import {
   PATCH as EDIT,
   DELETE as REMOVE,
@@ -32,24 +27,6 @@ import type { TaskComment } from "@/types";
 const TASK_ID = "task-test-001";
 const COMMENT_ID = "comment-test-001";
 const OTHER_USER_ID = "user-test-other";
-
-const fakeTask = {
-  id: TASK_ID,
-  org_id: TEST_ORG_ID,
-  project_id: null,
-  phase_id: null,
-  title: "Test task",
-  description: "",
-  status: "todo",
-  priority: "medium",
-  category: "general",
-  created_by: TEST_USER_ID,
-  assigned_to: TEST_USER_ID,
-  due_date: null,
-  completed_at: null,
-  created_at: "2024-01-01T00:00:00Z",
-  updated_at: "2024-01-01T00:00:00Z",
-};
 
 const fakeComment: TaskComment = {
   id: COMMENT_ID,
@@ -93,49 +70,14 @@ beforeEach(() => {
   authAsPm();
 });
 
-// ── GET /api/tasks/[id]/comments ────────────────────────────────────────────
-
-describe("GET /api/tasks/[id]/comments", () => {
-  it("returns the comment list", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
-    vi.mocked(listTaskComments).mockResolvedValue([fakeComment]);
-
-    const res = await LIST(
-      buildRequest(`/api/tasks/${TASK_ID}/comments`),
-      buildParams({ id: TASK_ID })
-    );
-    const { status, body } = await parseResponse<{ comments: TaskComment[] }>(
-      res
-    );
-    expect(status).toBe(200);
-    expect(body.comments).toHaveLength(1);
-    expect(body.comments[0].body).toBe("Hello world");
-  });
-
-  it("returns 404 when task missing", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(null);
-    const res = await LIST(
-      buildRequest(`/api/tasks/${TASK_ID}/comments`),
-      buildParams({ id: TASK_ID })
-    );
-    expect(res.status).toBe(404);
-  });
-
-  it("rejects client role", async () => {
-    authAsClient();
-    const res = await LIST(
-      buildRequest(`/api/tasks/${TASK_ID}/comments`),
-      buildParams({ id: TASK_ID })
-    );
-    expect(res.status).toBe(403);
-  });
-});
+// GET /api/tasks/[id]/comments was removed — comments now flow through
+// the /activity endpoint (merged with audit events). Coverage for the
+// activity endpoint lives in `task-activity.test.ts`.
 
 // ── POST /api/tasks/[id]/comments ───────────────────────────────────────────
 
 describe("POST /api/tasks/[id]/comments", () => {
   it("creates a comment", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
     vi.mocked(createTaskComment).mockResolvedValue(fakeComment);
 
     const res = await CREATE(
@@ -159,7 +101,6 @@ describe("POST /api/tasks/[id]/comments", () => {
   });
 
   it("creates a comment with inline attachments", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
     const storageUrl =
       "https://example.supabase.co/storage/v1/object/public/task-files/file.png";
     const withAttachments: TaskComment = {
@@ -203,8 +144,6 @@ describe("POST /api/tasks/[id]/comments", () => {
   });
 
   it("rejects javascript: scheme in attachment URLs (XSS guard)", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
-
     const res = await CREATE(
       buildRequest(`/api/tasks/${TASK_ID}/comments`, {
         method: "POST",
@@ -227,8 +166,6 @@ describe("POST /api/tasks/[id]/comments", () => {
   });
 
   it("rejects non-Supabase https URLs in attachments", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
-
     const res = await CREATE(
       buildRequest(`/api/tasks/${TASK_ID}/comments`, {
         method: "POST",
@@ -251,7 +188,6 @@ describe("POST /api/tasks/[id]/comments", () => {
   });
 
   it("returns 400 when body is empty", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
     const res = await CREATE(
       buildRequest(`/api/tasks/${TASK_ID}/comments`, {
         method: "POST",
@@ -262,8 +198,10 @@ describe("POST /api/tasks/[id]/comments", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 404 when task missing", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(null);
+  it("returns 404 when task missing or out of org", async () => {
+    // `createTaskComment` returns null when its CTE existence check fails
+    // (task doesn't exist or belongs to another org).
+    vi.mocked(createTaskComment).mockResolvedValue(null);
     const res = await CREATE(
       buildRequest(`/api/tasks/${TASK_ID}/comments`, {
         method: "POST",
@@ -290,9 +228,7 @@ describe("POST /api/tasks/[id]/comments", () => {
 // ── PATCH /api/tasks/[id]/comments/[commentId] ──────────────────────────────
 
 describe("PATCH /api/tasks/[id]/comments/[commentId]", () => {
-  it("edits the author's own comment", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
-    vi.mocked(getTaskComment).mockResolvedValue(fakeComment);
+  it("edits the author's own comment (single SQL round trip)", async () => {
     vi.mocked(updateTaskComment).mockResolvedValue({
       ...fakeComment,
       body: "Edited",
@@ -309,10 +245,23 @@ describe("PATCH /api/tasks/[id]/comments/[commentId]", () => {
     const { status, body } = await parseResponse<TaskComment>(res);
     expect(status).toBe(200);
     expect(body.body).toBe("Edited");
+    // The org+task+author scoping is folded into the UPDATE itself.
+    expect(updateTaskComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: TEST_ORG_ID,
+        commentId: COMMENT_ID,
+        taskId: TASK_ID,
+        authorId: TEST_USER_ID,
+      })
+    );
+    // Disambiguation `getTaskComment` is only run on the failure path.
+    expect(getTaskComment).not.toHaveBeenCalled();
   });
 
-  it("rejects edits from a different user", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+  it("returns 403 when caller isn't the author (one disambiguation lookup)", async () => {
+    // The UPDATE returns null (filter excluded the row); the route then
+    // does ONE follow-up `getTaskComment` to distinguish 404 from 403.
+    vi.mocked(updateTaskComment).mockResolvedValue(null);
     vi.mocked(getTaskComment).mockResolvedValue({
       ...fakeComment,
       author_id: OTHER_USER_ID,
@@ -326,14 +275,28 @@ describe("PATCH /api/tasks/[id]/comments/[commentId]", () => {
       buildParams({ id: TASK_ID, commentId: COMMENT_ID })
     );
     expect(res.status).toBe(403);
+    expect(getTaskComment).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 404 when comment doesn't belong to task", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+  it("returns 404 when the comment belongs to a different task", async () => {
+    vi.mocked(updateTaskComment).mockResolvedValue(null);
     vi.mocked(getTaskComment).mockResolvedValue({
       ...fakeComment,
       task_id: "task-other-001",
     });
+    const res = await EDIT(
+      buildRequest(`/api/tasks/${TASK_ID}/comments/${COMMENT_ID}`, {
+        method: "PATCH",
+        body: { body: "Edit" },
+      }),
+      buildParams({ id: TASK_ID, commentId: COMMENT_ID })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when the comment doesn't exist at all", async () => {
+    vi.mocked(updateTaskComment).mockResolvedValue(null);
+    vi.mocked(getTaskComment).mockResolvedValue(null);
     const res = await EDIT(
       buildRequest(`/api/tasks/${TASK_ID}/comments/${COMMENT_ID}`, {
         method: "PATCH",
@@ -348,9 +311,7 @@ describe("PATCH /api/tasks/[id]/comments/[commentId]", () => {
 // ── DELETE /api/tasks/[id]/comments/[commentId] ─────────────────────────────
 
 describe("DELETE /api/tasks/[id]/comments/[commentId]", () => {
-  it("deletes the author's own comment", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
-    vi.mocked(getTaskComment).mockResolvedValue(fakeComment);
+  it("deletes the author's own comment (single SQL round trip)", async () => {
     vi.mocked(deleteTaskComment).mockResolvedValue(true);
 
     const res = await REMOVE(
@@ -360,10 +321,19 @@ describe("DELETE /api/tasks/[id]/comments/[commentId]", () => {
       buildParams({ id: TASK_ID, commentId: COMMENT_ID })
     );
     expect(res.status).toBe(200);
+    expect(deleteTaskComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: TEST_ORG_ID,
+        commentId: COMMENT_ID,
+        taskId: TASK_ID,
+        authorId: TEST_USER_ID,
+      })
+    );
+    expect(getTaskComment).not.toHaveBeenCalled();
   });
 
-  it("rejects deletion from a different user", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+  it("returns 403 when caller isn't the author", async () => {
+    vi.mocked(deleteTaskComment).mockResolvedValue(false);
     vi.mocked(getTaskComment).mockResolvedValue({
       ...fakeComment,
       author_id: OTHER_USER_ID,
@@ -378,7 +348,7 @@ describe("DELETE /api/tasks/[id]/comments/[commentId]", () => {
   });
 
   it("returns 404 when comment missing", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
+    vi.mocked(deleteTaskComment).mockResolvedValue(false);
     vi.mocked(getTaskComment).mockResolvedValue(null);
     const res = await REMOVE(
       buildRequest(`/api/tasks/${TASK_ID}/comments/${COMMENT_ID}`, {

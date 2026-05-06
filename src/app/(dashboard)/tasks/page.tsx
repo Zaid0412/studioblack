@@ -10,7 +10,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import type { TaskListResponse } from "@/lib/api/tasks";
+import type { TaskListResponse, TaskCountsResponse } from "@/lib/api/tasks";
+import { API } from "@/lib/api/routes";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
 import type { Task } from "@/types";
@@ -19,7 +20,7 @@ import {
   isApprovalBucket,
   type TaskBucket,
 } from "@/lib/validations";
-import { pinCommentReviewHref } from "@/lib/pinUtils";
+import { getTaskOpenTarget } from "@/lib/taskUtils";
 import { TaskDeleteDialog } from "./_components/TaskDeleteDialog";
 import {
   TaskBucketSidebar,
@@ -93,10 +94,20 @@ export default function TasksPage() {
     { keepPreviousData: true }
   );
 
+  // Counts run on a separate cache key so paginated list requests don't
+  // refire the 3-query count bundle. 60s dedupe is safe because counts
+  // change only on writes (create/delete/star/status), all of which call
+  // `mutateCounts()` explicitly below via `useTaskCrud`.
+  const { data: countsData, mutate: mutateCounts } = useSWR<TaskCountsResponse>(
+    API.taskCounts(),
+    { dedupingInterval: 60_000 }
+  );
+
   const tasks = data?.tasks ?? [];
-  const counts = (data?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
+  const counts =
+    (countsData?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
   const totalTasks = data?.total ?? 0;
-  const taskRole = data?.role;
+  const taskRole = data?.role ?? countsData?.role;
   const isRefreshing = isValidating && !isLoading;
 
   // Adapter: translate SWR mutate into setTasks for useTaskCrud
@@ -121,26 +132,19 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
-  // Real tasks open the global side panel (`?task=<id>`); approval-bucket
-  // rows (synthesized from pin_comment / comment) deep-link to the source.
-  // Synthetic rows with broken refs (e.g. pin_comment without an attachment)
-  // get no-op'd — the side-panel branch would push a phantom id and 404.
+  // Routing decision lives in `getTaskOpenTarget` (taskUtils) so the row
+  // click here, the OpenLink anchor in TaskRow, and any future surface
+  // stay in lockstep.
   const openTask = useCallback(
     (task: Task) => {
-      if (task._source && task._source !== "task") {
-        if (task._source === "pin_comment") {
-          const reviewHref = pinCommentReviewHref(task);
-          if (reviewHref) router.push(reviewHref);
-          return;
-        }
-        if (task._source === "comment") {
-          if (task.project_id) router.push(`/projects/${task.project_id}`);
-          return;
-        }
+      const target = getTaskOpenTarget(task);
+      if (target.kind === "none") return;
+      if (target.kind === "link") {
+        router.push(target.href);
         return;
       }
       const params = new URLSearchParams(searchParams.toString());
-      params.set("task", task.id);
+      params.set("task", target.taskId);
       router.replace(`/tasks?${params.toString()}`, { scroll: false });
     },
     [searchParams, router]
@@ -158,6 +162,7 @@ export default function TasksPage() {
   } = useTaskCrud({
     fetchTasks: () => {
       mutate();
+      mutateCounts();
     },
     setTasks,
   });
@@ -181,6 +186,7 @@ export default function TasksPage() {
             <RefreshButton
               onRefresh={() => {
                 mutate();
+                mutateCounts();
               }}
             />
             <Button onClick={() => router.push("/tasks/new")}>

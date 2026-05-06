@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { getTaskById, getTaskActivity } from "@/lib/queries";
+import { getTaskActivity } from "@/lib/queries";
 import { auth } from "@/lib/auth";
 import { GET as ACTIVITY } from "@/app/api/tasks/[id]/activity/route";
 import {
@@ -14,24 +14,6 @@ import {
 import type { TaskActivityEntry } from "@/types";
 
 const TASK_ID = "task-test-001";
-
-const fakeTask = {
-  id: TASK_ID,
-  org_id: TEST_ORG_ID,
-  project_id: null,
-  phase_id: null,
-  title: "Test task",
-  description: "",
-  status: "todo",
-  priority: "medium",
-  category: "general",
-  created_by: TEST_USER_ID,
-  assigned_to: TEST_USER_ID,
-  due_date: null,
-  completed_at: null,
-  created_at: "2024-01-01T00:00:00Z",
-  updated_at: "2024-01-01T00:00:00Z",
-};
 
 const fakeActivity: TaskActivityEntry[] = [
   {
@@ -87,7 +69,6 @@ beforeEach(() => {
 
 describe("GET /api/tasks/[id]/activity", () => {
   it("returns the merged comment + event feed", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(fakeTask);
     vi.mocked(getTaskActivity).mockResolvedValue(fakeActivity);
 
     const res = await ACTIVITY(
@@ -104,14 +85,19 @@ describe("GET /api/tasks/[id]/activity", () => {
     expect(getTaskActivity).toHaveBeenCalledWith(TASK_ID, TEST_ORG_ID);
   });
 
-  it("returns 404 when task missing", async () => {
-    vi.mocked(getTaskById).mockResolvedValue(null);
+  it("returns an empty list when the task is missing or out of org", async () => {
+    // No `getTaskById` pre-check anymore — `getTaskActivity` filters by
+    // `org_id`, so a missing task naturally produces `[]`.
+    vi.mocked(getTaskActivity).mockResolvedValue([]);
     const res = await ACTIVITY(
       buildRequest(`/api/tasks/${TASK_ID}/activity`),
       buildParams({ id: TASK_ID })
     );
-    expect(res.status).toBe(404);
-    expect(getTaskActivity).not.toHaveBeenCalled();
+    const { status, body } = await parseResponse<{
+      events: TaskActivityEntry[];
+    }>(res);
+    expect(status).toBe(200);
+    expect(body.events).toEqual([]);
   });
 
   it("rejects client role", async () => {
