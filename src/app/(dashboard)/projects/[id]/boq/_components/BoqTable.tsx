@@ -657,23 +657,35 @@ const BoqItemRow = memo(function BoqItemRow({
         className="tabular-nums text-text-primary"
         ariaLabel={`Client rate for ${item.item_code}`}
       />
-      <BoqEditableCell
-        value={item.budget_rate ?? ""}
-        display={
-          item.budget_rate !== null
-            ? formatCurrency(item.budget_rate, currency)
-            : "—"
+      <span
+        className={`text-right tabular-nums flex items-center justify-end gap-1 ${
+          item.over_budget ? "text-error font-medium" : "text-text-primary"
+        }`}
+        title={
+          item.over_budget && item.budget_variance_pct !== null
+            ? `Cost is ${item.budget_variance_pct}% over the budget rate.`
+            : undefined
         }
-        mode="number"
-        min={0}
-        align="right"
-        disabled={!editable}
-        onSave={(next) =>
-          save({ budgetRate: next === "" ? null : parseFloat(next) })
-        }
-        className="tabular-nums text-text-primary"
-        ariaLabel={`Budget rate for ${item.item_code}`}
-      />
+      >
+        {item.over_budget && <AlertTriangle className="w-3.5 h-3.5" />}
+        <BoqEditableCell
+          value={item.budget_rate ?? ""}
+          display={
+            item.budget_rate !== null
+              ? formatCurrency(item.budget_rate, currency)
+              : "—"
+          }
+          mode="number"
+          min={0}
+          align="right"
+          disabled={!editable}
+          onSave={(next) =>
+            save({ budgetRate: next === "" ? null : parseFloat(next) })
+          }
+          className="tabular-nums"
+          ariaLabel={`Budget rate for ${item.item_code}`}
+        />
+      </span>
       <span className="min-w-0">
         <Badge
           variant={lifecycleToVariant(item.lifecycle_status)}

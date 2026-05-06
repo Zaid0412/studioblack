@@ -193,6 +193,14 @@ export function BoqItemDrawer({
                 <AlertTriangle className="h-3 w-3" /> margin below floor
               </Badge>
             )}
+            {item.over_budget && (
+              <Badge variant="error" className="gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {item.budget_variance_pct !== null
+                  ? `${item.budget_variance_pct}% over budget`
+                  : "over budget"}
+              </Badge>
+            )}
           </div>
         </SheetHeader>
 

@@ -533,6 +533,10 @@ export interface BoqItemWithComputed extends BoqItem {
   sell_price: string;
   progress_pct: string;
   margin_alert: boolean;
+  /** True when budget_rate is set and unit_cost exceeds it. */
+  over_budget: boolean;
+  /** ((unit_cost − budget_rate) / budget_rate × 100), null when no budget set. */
+  budget_variance_pct: string | null;
 }
 
 /** Aggregate totals for a BOQ (used by /summary and the full-BOQ response). */
@@ -545,6 +549,8 @@ export interface BoqSummary {
   average_margin_pct: string;
   margin_bleed_count: number;
   pending_approvals: number;
+  /** Count of non-excluded lines with `unit_cost > budget_rate`. */
+  over_budget_count: number;
   item_count: number;
   section_totals: Array<{
     section_id: string | null;

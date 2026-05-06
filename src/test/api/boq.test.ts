@@ -58,6 +58,7 @@ const fakeSummary: BoqSummary = {
   average_margin_pct: "33.33",
   margin_bleed_count: 0,
   pending_approvals: 0,
+  over_budget_count: 0,
   item_count: 3,
   section_totals: [],
 };

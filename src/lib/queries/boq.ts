@@ -44,7 +44,12 @@ const ITEM_COMPUTED_COLS = `
     THEN ROUND(bi.installed_qty / NULLIF(bi.quantity, 0) * 100, 1)
     ELSE 0
   END AS progress_pct,
-  (bi.margin_pct < b.minimum_margin_pct) AS margin_alert
+  (bi.margin_pct < b.minimum_margin_pct) AS margin_alert,
+  (bi.budget_rate IS NOT NULL AND bi.unit_cost > bi.budget_rate) AS over_budget,
+  CASE
+    WHEN bi.budget_rate IS NULL OR bi.budget_rate = 0 THEN NULL
+    ELSE ROUND((bi.unit_cost - bi.budget_rate) / bi.budget_rate * 100, 1)
+  END AS budget_variance_pct
 `;
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id`;
@@ -754,6 +759,11 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
          COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
+         COUNT(*) FILTER (
+           WHERE bi.budget_rate IS NOT NULL
+             AND bi.unit_cost > bi.budget_rate
+             AND NOT bi.is_excluded
+         ) AS over_budget_count,
          COUNT(*) AS item_count
        FROM boq_item bi
        JOIN boq b ON b.id = bi.boq_id
@@ -797,6 +807,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
     average_margin_pct: String(agg.average_margin_pct ?? 0),
     margin_bleed_count: Number(agg.margin_bleed_count ?? 0),
     pending_approvals: Number(agg.pending_approvals ?? 0),
+    over_budget_count: Number(agg.over_budget_count ?? 0),
     item_count: Number(agg.item_count ?? 0),
     section_totals: sectionRes.rows.map((r) => ({
       section_id: r.section_id,
