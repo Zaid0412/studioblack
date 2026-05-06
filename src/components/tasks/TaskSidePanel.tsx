@@ -3,7 +3,7 @@
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ExternalLink, X, MessageSquare } from "lucide-react";
+import { ExternalLink, X, MessageSquare, Pencil } from "lucide-react";
 import useSWR from "swr";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -188,11 +188,20 @@ function PanelHeader({
       <div className="flex items-center gap-1">
         <Link
           href={`/tasks/${taskId}`}
-          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium text-text-secondary hover:bg-bg-elevated transition-colors"
+          className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
           onClick={onClose}
         >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Open page
+          <Pencil className="w-3.5 h-3.5" />
+          Edit
+        </Link>
+        <Link
+          href={`/tasks/${taskId}`}
+          aria-label="Open full page"
+          title="Open full page"
+          className="w-8 h-8 inline-flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors"
+          onClick={onClose}
+        >
+          <ExternalLink className="w-4 h-4" />
         </Link>
         <button
           type="button"
