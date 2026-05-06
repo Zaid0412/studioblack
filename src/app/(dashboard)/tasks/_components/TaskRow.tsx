@@ -16,6 +16,7 @@ import {
   Send,
   ExternalLink,
   MessageSquare,
+  Pencil,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
@@ -145,20 +146,32 @@ export function TaskRow({
       </div>
 
       {/* Status pill — only meaningful for real tasks; pin/comment rows
-       * don't have task-style status semantics, so the pill is hidden. */}
+       * don't have task-style status semantics, so the pill is hidden.
+       * The pencil inside the pill + brightness/scale on hover signal
+       * editability without an external icon next to it. Badges are
+       * centered in a fixed 100px slot so they stack cleanly regardless
+       * of label width (To Do / In Progress / Completed). */}
       {isApproval ? null : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleStatus(task);
-          }}
-          className="cursor-pointer shrink-0"
-          aria-label={t("clickToChangeStatus")}
-        >
-          <Badge variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}>
-            {t(STATUS_TKEY[task.status] ?? task.status)}
-          </Badge>
-        </button>
+        <div className="w-[100px] shrink-0 flex justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStatus(task);
+            }}
+            className="group/status cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full hover:scale-[1.06] active:scale-100 transition-transform duration-200 ease-out will-change-transform"
+            aria-label={t("clickToChangeStatus")}
+          >
+            <Badge
+              variant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}
+              className="group-hover/status:brightness-125 transition-[filter]"
+            >
+              <span className="inline-flex items-center gap-1">
+                {t(STATUS_TKEY[task.status] ?? task.status)}
+                <Pencil className="w-2.5 h-2.5 opacity-70 group-hover/status:opacity-100 transition-opacity" />
+              </span>
+            </Badge>
+          </button>
+        </div>
       )}
 
       {/* Assignee */}
