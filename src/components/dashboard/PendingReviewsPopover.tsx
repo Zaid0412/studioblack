@@ -58,7 +58,7 @@ export function PendingReviewsPopover({
           <span className="text-[32px] font-bold text-accent leading-none">
             {count}
           </span>
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent group-hover:gap-1.5 transition-all">
+          <span className="self-end inline-flex items-center gap-1 text-[11px] font-semibold text-accent group-hover:gap-1.5 transition-all">
             View list
             <ChevronDown className="w-3 h-3" />
           </span>
