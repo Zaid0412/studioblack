@@ -570,7 +570,7 @@ export type BoqUnit =
   | "m2"
   | "m3"
   | "lm"
-  | "nr"
+  | "no"
   | "item"
   | "kg"
   | "tonne"

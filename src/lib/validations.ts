@@ -357,7 +357,7 @@ export const ALLOWED_UNITS = [
   "m2",
   "m3",
   "lm",
-  "nr",
+  "no",
   "item",
   "kg",
   "tonne",

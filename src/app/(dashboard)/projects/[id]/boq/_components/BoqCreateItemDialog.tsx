@@ -11,7 +11,7 @@ import type { ElementUnit } from "@/lib/validations";
 import { BOQ_NO_SECTION_ID } from "../_lib/formatters";
 import { BoqSectionSelect } from "./BoqSectionSelect";
 
-const DEFAULT_UNIT: ElementUnit = "nr";
+const DEFAULT_UNIT: ElementUnit = "no";
 
 interface BoqCreateItemDialogProps {
   open: boolean;
