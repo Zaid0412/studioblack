@@ -17,6 +17,8 @@ import { toast } from "@/components/ui/useToast";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 import type { BoqItemLifecycleStatus } from "@/lib/validations";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
+import { BoqEditableCell } from "./BoqEditableCell";
+import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   clientApprovalToVariant,
   formatCurrency,
@@ -142,6 +144,15 @@ export function BoqItemDrawer({
     }
   };
 
+  // Single-field save used by every inline editor below. Each cell fires its
+  // own PATCH on blur with the current `item.updated_at`; SWR replaces the row
+  // on success so the next field's save sees a fresh token.
+  const saveField = async (patch: Partial<UpdateItemPayload>) => {
+    await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
+  };
+
+  const fieldsDisabled = !canEdit || rowLocked;
+
   const allowedNext = LIFECYCLE_TRANSITIONS[item.lifecycle_status] ?? [];
 
   return (
@@ -179,11 +190,55 @@ export function BoqItemDrawer({
         </SheetHeader>
 
         <SheetBody className="flex flex-col gap-5">
+          {/* Description + identifier — separate from the metrics grid because
+            * description is multi-line and the others sit on a tabular grid. */}
+          <section className="flex flex-col gap-3">
+            <EditableField
+              label="Description"
+              disabled={fieldsDisabled}
+              value={item.description}
+              display={item.description}
+              onSave={(next) => saveField({ description: next })}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <EditableField
+                label="Item code"
+                disabled={fieldsDisabled}
+                value={item.item_code}
+                display={item.item_code}
+                onSave={(next) => saveField({ itemCode: next })}
+                inputClassName="font-mono"
+              />
+              <EditableField
+                label="Unit"
+                disabled={fieldsDisabled}
+                value={item.unit}
+                display={item.unit}
+                onSave={(next) => saveField({ unit: next })}
+              />
+            </div>
+          </section>
+
           <section className="grid grid-cols-2 gap-3 text-sm">
-            <DetailField label="Quantity" value={formatQty(item.quantity)} />
-            <DetailField
+            <EditableField
+              label="Quantity"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.quantity}
+              display={formatQty(item.quantity)}
+              onSave={(next) => saveField({ quantity: parseFloat(next) })}
+            />
+            <EditableField
               label="Unit cost"
-              value={formatCurrency(item.unit_cost, currency)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.unit_cost}
+              display={formatCurrency(item.unit_cost, currency)}
+              onSave={(next) => saveField({ unitCost: parseFloat(next) })}
             />
             <DetailField
               label="Total cost"
@@ -193,18 +248,41 @@ export function BoqItemDrawer({
               label="Sell price"
               value={formatCurrency(item.sell_price, currency)}
             />
-            <DetailField
+            <EditableField
               label="Margin"
-              value={formatPct(item.margin_pct)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              max={100}
+              value={item.margin_pct}
+              display={formatPct(item.margin_pct)}
               valueClassName={marginColor}
+              onSave={(next) => saveField({ marginPct: parseFloat(next) })}
             />
-            <DetailField
+            <EditableField
               label="Overhead"
-              value={formatPct(item.overhead_pct)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              max={100}
+              value={item.overhead_pct}
+              display={formatPct(item.overhead_pct)}
+              onSave={(next) => saveField({ overheadPct: parseFloat(next) })}
             />
-            <DetailField
+            <EditableField
               label="Service charge"
-              value={formatPct(item.service_charge_pct)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              max={100}
+              value={item.service_charge_pct}
+              display={formatPct(item.service_charge_pct)}
+              onSave={(next) =>
+                saveField({ serviceChargePct: parseFloat(next) })
+              }
             />
           </section>
 
@@ -314,6 +392,61 @@ function DetailField({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+interface EditableFieldProps {
+  label: string;
+  /** Underlying value seeded into the input. */
+  value: string | number;
+  /** Formatted value rendered when not editing. */
+  display: string;
+  onSave: (next: string) => Promise<void> | void;
+  disabled?: boolean;
+  mode?: "text" | "number";
+  align?: "left" | "right";
+  min?: number;
+  max?: number;
+  valueClassName?: string;
+  inputClassName?: string;
+}
+
+/**
+ * Drawer wrapper around `BoqEditableCell` — adds a label above the cell and
+ * lets the calling site stay declarative. Each save fires an independent
+ * PATCH using the current `item.updated_at`; SWR replaces the row before the
+ * next field's save runs.
+ */
+function EditableField({
+  label,
+  value,
+  display,
+  onSave,
+  disabled,
+  mode = "text",
+  align = "left",
+  min,
+  max,
+  valueClassName,
+  inputClassName,
+}: EditableFieldProps) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs text-text-muted">{label}</span>
+      <BoqEditableCell
+        value={value}
+        display={display}
+        mode={mode}
+        align={align}
+        min={min}
+        max={max}
+        disabled={disabled}
+        onSave={onSave}
+        ariaLabel={label}
+        className={`text-sm tabular-nums text-text-primary ${valueClassName ?? ""}`}
+        inputClassName={inputClassName}
+      />
     </div>
   );
 }
