@@ -330,11 +330,14 @@ async function getApprovalRows(opts: {
   // still materialize the entire matching set without this pushdown.
   const branchCap = limit + offset;
 
-  // Pin branch — pre-trimmed.
+  // Pin branch — pre-trimmed. Wrapped in parens because Postgres binds a
+  // trailing `ORDER BY` / `LIMIT` to the UNION result unless each branch
+  // is parenthesised — without the parens you get
+  // `syntax error at or near "UNION"`.
   values.push(branchCap);
   const pinLimitIdx = idx;
   idx++;
-  const pinSelect = `
+  const pinSelect = `(
     SELECT
       pc.id,
       p.org_id,
@@ -375,7 +378,8 @@ async function getApprovalRows(opts: {
     LEFT JOIN "user" u ON u.id = pc.user_id
     WHERE ${pinWhere}
     ORDER BY pc.created_at DESC
-    LIMIT $${pinLimitIdx}`;
+    LIMIT $${pinLimitIdx}
+  )`;
 
   // Comment branch — only for `my_comments`. Other buckets are pin_comment-
   // only because `comment` doesn't carry request_approval / request_changes.
@@ -396,7 +400,7 @@ async function getApprovalRows(opts: {
     idx++;
     unionSql = `${pinSelect}
       UNION ALL
-      SELECT
+      (SELECT
         c.id,
         p.org_id,
         c.project_id,
@@ -428,7 +432,7 @@ async function getApprovalRows(opts: {
       LEFT JOIN "user" u ON u.id = c.user_id
       WHERE ${cmtWhere}
       ORDER BY c.created_at DESC
-      LIMIT $${cmtLimitIdx}`;
+      LIMIT $${cmtLimitIdx})`;
   }
 
   values.push(limit);
