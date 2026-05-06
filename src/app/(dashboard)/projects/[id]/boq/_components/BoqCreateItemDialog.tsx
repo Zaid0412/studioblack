@@ -3,11 +3,15 @@
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { FormDialog } from "@/components/ui/FormDialog";
+import { UnitSelect } from "@/components/ui/UnitSelect";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
+import type { ElementUnit } from "@/lib/validations";
 import { BOQ_NO_SECTION_ID } from "../_lib/formatters";
 import { BoqSectionSelect } from "./BoqSectionSelect";
+
+const DEFAULT_UNIT: ElementUnit = "nr";
 
 interface BoqCreateItemDialogProps {
   open: boolean;
@@ -36,7 +40,7 @@ export function BoqCreateItemDialog({
     defaultSectionId ?? BOQ_NO_SECTION_ID
   );
   const [description, setDescription] = useState("");
-  const [unit, setUnit] = useState("nos");
+  const [unit, setUnit] = useState<ElementUnit>(DEFAULT_UNIT);
   const [quantity, setQuantity] = useState("1");
   const [unitCost, setUnitCost] = useState("0");
   const [serviceChargePct, setServiceChargePct] = useState("0");
@@ -47,7 +51,7 @@ export function BoqCreateItemDialog({
     if (!open) return;
     setSectionId(defaultSectionId ?? BOQ_NO_SECTION_ID);
     setDescription("");
-    setUnit("nos");
+    setUnit(DEFAULT_UNIT);
     setQuantity("1");
     setUnitCost("0");
     setServiceChargePct("0");
@@ -62,19 +66,10 @@ export function BoqCreateItemDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedDesc = description.trim();
-    const trimmedUnit = unit.trim();
     if (!trimmedDesc) {
       toast({
         title: "Description required",
         description: "Describe the line item.",
-        variant: "error",
-      });
-      return;
-    }
-    if (!trimmedUnit) {
-      toast({
-        title: "Unit required",
-        description: 'e.g. "m3", "nos", "kg".',
         variant: "error",
       });
       return;
@@ -86,7 +81,7 @@ export function BoqCreateItemDialog({
         boqId,
         sectionId: sectionId === BOQ_NO_SECTION_ID ? null : sectionId,
         description: trimmedDesc,
-        unit: trimmedUnit,
+        unit,
         quantity: parseNum(quantity, 1),
         unitCost: parseNum(unitCost, 0),
         serviceChargePct: parseNum(serviceChargePct, 0),
@@ -133,17 +128,7 @@ export function BoqCreateItemDialog({
       </label>
 
       <div className="grid grid-cols-3 gap-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-text-secondary">Unit</span>
-          {/* Free text (≤30 chars), not UnitSelect: BOQ items accept any
-              contractor-supplied unit, not just the ElementUnit enum. */}
-          <Input
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            maxLength={30}
-            required
-          />
-        </label>
+        <UnitSelect value={unit} onChange={setUnit} label="Unit" required />
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-text-secondary">Qty</span>
           <Input
