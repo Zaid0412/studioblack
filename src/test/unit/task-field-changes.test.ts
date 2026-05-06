@@ -12,10 +12,9 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/queries/audit", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/lib/queries/audit")>(
-      "@/lib/queries/audit"
-    );
+  const actual = await vi.importActual<typeof import("@/lib/queries/audit")>(
+    "@/lib/queries/audit"
+  );
   return { ...actual, logAuditSafe };
 });
 
