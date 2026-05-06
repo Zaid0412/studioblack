@@ -87,10 +87,18 @@ interface SectionGroup {
   total: number;
 }
 
-// Tuned to fit a ~1100px content area without horizontal scroll. The Source
-// column is narrow on purpose — it carries a single short badge.
+// The Source column is narrow on purpose — it carries a single short badge.
 export const GRID_COLS =
   "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
+
+/**
+ * Sum of the fixed column widths above (999px) plus 11 inter-column gaps
+ * (gap-2 = 88px) = 1087px. Applied as `min-w` on the table's scrollable
+ * wrapper so columns never squish below their declared sizes; below the
+ * threshold the wrapper scrolls horizontally instead, keeping header and
+ * rows aligned.
+ */
+export const TABLE_MIN_WIDTH = "min-w-[1087px]";
 
 function isBoqLocked(status: BoqStatus): boolean {
   return status === "locked" || status === "superseded";
@@ -223,43 +231,45 @@ export function BoqTable({
         getSectionEl={getSectionEl}
         onActivate={expandSection}
       />
-      <div>
-        <div
-          className={`hidden lg:grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
-        >
-          <div>Code</div>
-          <div>Description</div>
-          <div>{t("columnSource")}</div>
-          <div>Unit</div>
-          <div className="text-right">Qty</div>
-          <div className="text-right">Unit Cost</div>
-          <div className="text-right">Total Cost</div>
-          <div className="text-right">Margin</div>
-          <div className="text-right">Sell Price</div>
-          <div>Lifecycle</div>
-          <div>Client</div>
-          <div />
-        </div>
+      <div className="overflow-x-auto">
+        <div className={TABLE_MIN_WIDTH}>
+          <div
+            className={`grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
+          >
+            <div>Code</div>
+            <div>Description</div>
+            <div>{t("columnSource")}</div>
+            <div>Unit</div>
+            <div className="text-right">Qty</div>
+            <div className="text-right">Unit Cost</div>
+            <div className="text-right">Total Cost</div>
+            <div className="text-right">Margin</div>
+            <div className="text-right">Sell Price</div>
+            <div>Lifecycle</div>
+            <div>Client</div>
+            <div />
+          </div>
 
-        <SectionList
-          groups={groups}
-          sections={sections}
-          currency={currency}
-          marginFloor={marginFloor}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          rowsEditable={rowsEditable}
-          sectionsEditable={sectionsEditable}
-          registerSectionRef={registerSectionRef}
-          onUpdateItem={onUpdateItem}
-          onDeleteItem={onDeleteItem}
-          onOpenItem={onOpenItem}
-          onAddItemToSection={onAddItemToSection}
-          onRenameSection={onRenameSection}
-          onToggleSectionVisibility={onToggleSectionVisibility}
-          onDeleteSection={onDeleteSection}
-          onReorderSections={onReorderSections}
-        />
+          <SectionList
+            groups={groups}
+            sections={sections}
+            currency={currency}
+            marginFloor={marginFloor}
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+            rowsEditable={rowsEditable}
+            sectionsEditable={sectionsEditable}
+            registerSectionRef={registerSectionRef}
+            onUpdateItem={onUpdateItem}
+            onDeleteItem={onDeleteItem}
+            onOpenItem={onOpenItem}
+            onAddItemToSection={onAddItemToSection}
+            onRenameSection={onRenameSection}
+            onToggleSectionVisibility={onToggleSectionVisibility}
+            onDeleteSection={onDeleteSection}
+            onReorderSections={onReorderSections}
+          />
+        </div>
       </div>
     </div>
   );

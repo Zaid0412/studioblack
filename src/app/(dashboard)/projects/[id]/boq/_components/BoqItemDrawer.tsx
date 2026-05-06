@@ -17,6 +17,8 @@ import { toast } from "@/components/ui/useToast";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 import type { BoqItemLifecycleStatus } from "@/lib/validations";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
+import { BoqEditableCell } from "./BoqEditableCell";
+import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   clientApprovalToVariant,
   formatCurrency,
@@ -82,6 +84,11 @@ export function BoqItemDrawer({
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  // True while ANY inline-edit cell is mid-PATCH. Used to disable the other
+  // cells so a fast user can't blur cell A → blur cell B before A returns
+  // and have B's PATCH go out with a stale `item.updated_at` (→ 409 + a
+  // silently-lost edit).
+  const [savingField, setSavingField] = useState(false);
   const [transitioning, setTransitioning] =
     useState<BoqItemLifecycleStatus | null>(null);
 
@@ -142,6 +149,17 @@ export function BoqItemDrawer({
     }
   };
 
+  const saveField = async (patch: Partial<UpdateItemPayload>) => {
+    setSavingField(true);
+    try {
+      await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
+    } finally {
+      setSavingField(false);
+    }
+  };
+
+  const fieldsDisabled = !canEdit || rowLocked || savingField;
+
   const allowedNext = LIFECYCLE_TRANSITIONS[item.lifecycle_status] ?? [];
 
   return (
@@ -179,11 +197,53 @@ export function BoqItemDrawer({
         </SheetHeader>
 
         <SheetBody className="flex flex-col gap-5">
+          <section className="flex flex-col gap-3">
+            <EditableField
+              label="Description"
+              disabled={fieldsDisabled}
+              value={item.description}
+              display={item.description}
+              onSave={(next) => saveField({ description: next })}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <EditableField
+                label="Item code"
+                disabled={fieldsDisabled}
+                value={item.item_code}
+                display={item.item_code}
+                onSave={(next) => saveField({ itemCode: next })}
+                inputClassName="font-mono"
+              />
+              <EditableField
+                label="Unit"
+                disabled={fieldsDisabled}
+                value={item.unit}
+                display={item.unit}
+                onSave={(next) => saveField({ unit: next })}
+              />
+            </div>
+          </section>
+
           <section className="grid grid-cols-2 gap-3 text-sm">
-            <DetailField label="Quantity" value={formatQty(item.quantity)} />
-            <DetailField
+            <EditableField
+              label="Quantity"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.quantity}
+              display={formatQty(item.quantity)}
+              onSave={(next) => saveField({ quantity: parseFloat(next) })}
+            />
+            <EditableField
               label="Unit cost"
-              value={formatCurrency(item.unit_cost, currency)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.unit_cost}
+              display={formatCurrency(item.unit_cost, currency)}
+              onSave={(next) => saveField({ unitCost: parseFloat(next) })}
             />
             <DetailField
               label="Total cost"
@@ -193,18 +253,41 @@ export function BoqItemDrawer({
               label="Sell price"
               value={formatCurrency(item.sell_price, currency)}
             />
-            <DetailField
+            <EditableField
               label="Margin"
-              value={formatPct(item.margin_pct)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              max={100}
+              value={item.margin_pct}
+              display={formatPct(item.margin_pct)}
               valueClassName={marginColor}
+              onSave={(next) => saveField({ marginPct: parseFloat(next) })}
             />
-            <DetailField
+            <EditableField
               label="Overhead"
-              value={formatPct(item.overhead_pct)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              max={100}
+              value={item.overhead_pct}
+              display={formatPct(item.overhead_pct)}
+              onSave={(next) => saveField({ overheadPct: parseFloat(next) })}
             />
-            <DetailField
+            <EditableField
               label="Service charge"
-              value={formatPct(item.service_charge_pct)}
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              max={100}
+              value={item.service_charge_pct}
+              display={formatPct(item.service_charge_pct)}
+              onSave={(next) =>
+                saveField({ serviceChargePct: parseFloat(next) })
+              }
             />
           </section>
 
@@ -314,6 +397,39 @@ function DetailField({
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+type EditableFieldProps = {
+  label: string;
+  valueClassName?: string;
+} & Omit<
+  React.ComponentProps<typeof BoqEditableCell>,
+  "ariaLabel" | "className"
+>;
+
+/**
+ * Each save fires its own PATCH with the current `item.updated_at`. While a
+ * save is in flight, the parent disables every cell (`fieldsDisabled |=
+ * savingField`) so a fast user can't blur cell A → click cell B → blur
+ * cell B before A's response lands and have B's PATCH go out with a stale
+ * token. The user has to wait for the prior save to settle before editing
+ * the next cell — no overlapping PATCHes.
+ */
+function EditableField({
+  label,
+  valueClassName,
+  ...cellProps
+}: EditableFieldProps) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs text-text-muted">{label}</span>
+      <BoqEditableCell
+        {...cellProps}
+        ariaLabel={label}
+        className={`text-sm tabular-nums text-text-primary ${valueClassName ?? ""}`}
+      />
     </div>
   );
 }

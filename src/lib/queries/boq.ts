@@ -568,12 +568,16 @@ export async function updateBoqItem(
 
   setClauses.push(`updated_at = now()`);
 
+  // `pg` deserializes TIMESTAMPTZ into JS Date (ms precision), so the
+  // round-tripped token loses the row's microseconds. Truncate both sides.
   const pool = getPool();
   const { rows } = await pool.query<BoqItemWithComputed>(
     `WITH updated AS (
        UPDATE boq_item bi
        SET ${setClauses.join(", ")}
-       WHERE bi.id = $${i} AND bi.updated_at = $${i + 1}
+       WHERE bi.id = $${i}
+         AND date_trunc('milliseconds', bi.updated_at)
+             = date_trunc('milliseconds', $${i + 1}::timestamptz)
        RETURNING *
      )
      SELECT bi.*, ${ITEM_COMPUTED_COLS}
@@ -603,9 +607,13 @@ export async function deleteBoqItem(
   itemId: string,
   expectedUpdatedAt: string
 ): Promise<DeleteBoqItemOutcome> {
+  // See `updateBoqItem` above for why the comparison truncates to ms.
   const pool = getPool();
   const { rowCount } = await pool.query(
-    `DELETE FROM boq_item WHERE id = $1 AND updated_at = $2`,
+    `DELETE FROM boq_item
+     WHERE id = $1
+       AND date_trunc('milliseconds', updated_at)
+           = date_trunc('milliseconds', $2::timestamptz)`,
     [itemId, expectedUpdatedAt]
   );
   if ((rowCount ?? 0) > 0) return { ok: true };

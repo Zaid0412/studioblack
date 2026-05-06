@@ -247,7 +247,7 @@ describe("DELETE /api/rate-contracts/[id]", () => {
 // ── POST /api/rate-contracts/[id]/items ───────────────────────────────────
 
 describe("POST /api/rate-contracts/[id]/items", () => {
-  const body = { items: [{ elementId: ELEMENT_ID, unit: "nr", rate: 100 }] };
+  const body = { items: [{ elementId: ELEMENT_ID, unit: "no", rate: 100 }] };
 
   it("adds items", async () => {
     vi.mocked(addRateContractItems).mockResolvedValue({ ok: true, count: 1 });

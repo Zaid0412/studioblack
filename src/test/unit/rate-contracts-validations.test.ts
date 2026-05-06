@@ -98,7 +98,7 @@ describe("updateRateContractSchema", () => {
 
 describe("addRateContractItemsSchema", () => {
   const valid = {
-    items: [{ elementId: ELEMENT_ID, unit: "nr", rate: 100 }],
+    items: [{ elementId: ELEMENT_ID, unit: "no", rate: 100 }],
   };
 
   it("accepts a minimal valid items array", () => {
@@ -114,7 +114,7 @@ describe("addRateContractItemsSchema", () => {
   it("rejects negative rate", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
-        items: [{ elementId: ELEMENT_ID, unit: "nr", rate: -1 }],
+        items: [{ elementId: ELEMENT_ID, unit: "no", rate: -1 }],
       }).success
     ).toBe(false);
   });
@@ -122,7 +122,7 @@ describe("addRateContractItemsSchema", () => {
   it("rejects zero rate", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
-        items: [{ elementId: ELEMENT_ID, unit: "nr", rate: 0 }],
+        items: [{ elementId: ELEMENT_ID, unit: "no", rate: 0 }],
       }).success
     ).toBe(false);
   });

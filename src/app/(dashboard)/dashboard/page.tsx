@@ -25,6 +25,7 @@ import { formatTimeAgo } from "@/lib/formatTime";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatShortDate, formatDate } from "@/lib/formatDate";
 import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
+import { PendingReviewsPopover } from "@/components/dashboard/PendingReviewsPopover";
 
 interface DashboardData {
   stats: {
@@ -247,33 +248,6 @@ export default function DashboardPage() {
   }
 
   // ── PM / Architect Dashboard ──────────────────────────────────────────
-  const stats = data
-    ? [
-        {
-          label: t("activeProjects"),
-          value: String(data.stats.active),
-          icon: FolderOpen,
-        },
-        {
-          label: t("pendingReviews"),
-          value: String(data.stats.pendingReviews),
-          valueColor: "text-accent",
-          icon: ClipboardCheck,
-        },
-        {
-          label: t("approvedDesigns"),
-          value: String(data.stats.approved),
-          valueColor: "text-success",
-          icon: CheckCircle2,
-        },
-        {
-          label: t("teamMembers"),
-          value: String(data.stats.teamMembers),
-          icon: Users,
-        },
-      ]
-    : [];
-
   const isEmpty =
     data &&
     data.stats.active === 0 &&
@@ -319,17 +293,29 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            icon={stat.icon}
-            valueColor={stat.valueColor}
-          />
-        ))}
+        <StatCard
+          label={t("activeProjects")}
+          value={String(data?.stats.active ?? 0)}
+          icon={FolderOpen}
+          href="/projects"
+        />
+        <PendingReviewsPopover
+          label={t("pendingReviews")}
+          count={data?.stats.pendingReviews ?? 0}
+        />
+        <StatCard
+          label={t("approvedDesigns")}
+          value={String(data?.stats.approved ?? 0)}
+          icon={CheckCircle2}
+          valueColor="text-success"
+        />
+        <StatCard
+          label={t("teamMembers")}
+          value={String(data?.stats.teamMembers ?? 0)}
+          icon={Users}
+          href="/organisation"
+        />
       </div>
 
       {/* Content row — stacks on mobile */}
