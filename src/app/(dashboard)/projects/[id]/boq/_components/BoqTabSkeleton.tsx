@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/Skeleton";
-import { GRID_COLS } from "./BoqTable";
+import { GRID_COLS, TABLE_MIN_WIDTH } from "./BoqTable";
 
 /** Loading placeholder that mirrors the real BOQ tab layout. */
 export function BoqTabSkeleton() {
@@ -38,41 +38,45 @@ export function BoqTabSkeleton() {
 
       {/* Table */}
       <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        {/* Column header */}
-        <div
-          className={`hidden lg:grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default`}
-        >
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="h-3 rounded" />
-          ))}
-          <div />
-        </div>
-        {/* Section header */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
-          <Skeleton className="h-4 w-4 rounded" />
-          <Skeleton className="h-4 w-40 rounded flex-1 max-w-[200px]" />
-          <Skeleton className="h-3 w-14 rounded" />
-          <Skeleton className="h-4 w-24 rounded" />
-        </div>
-        {/* Rows */}
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className={`grid ${GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0`}
-          >
-            <Skeleton className="h-3 w-14 rounded" />
-            <Skeleton className="h-4 rounded" />
-            <Skeleton className="h-3 w-8 rounded" />
-            <Skeleton className="h-4 w-12 rounded ml-auto" />
-            <Skeleton className="h-4 w-16 rounded ml-auto" />
-            <Skeleton className="h-4 w-20 rounded ml-auto" />
-            <Skeleton className="h-4 w-12 rounded ml-auto" />
-            <Skeleton className="h-4 w-20 rounded ml-auto" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-            <Skeleton className="h-5 w-16 rounded-full" />
-            <div />
+        <div className="overflow-x-auto">
+          <div className={TABLE_MIN_WIDTH}>
+            {/* Column header */}
+            <div
+              className={`grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default`}
+            >
+              {Array.from({ length: 10 }).map((_, i) => (
+                <Skeleton key={i} className="h-3 rounded" />
+              ))}
+              <div />
+            </div>
+            {/* Section header */}
+            <div className="flex items-center gap-3 px-4 py-3 bg-bg-elevated border-b border-border-default">
+              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-40 rounded flex-1 max-w-[200px]" />
+              <Skeleton className="h-3 w-14 rounded" />
+              <Skeleton className="h-4 w-24 rounded" />
+            </div>
+            {/* Rows */}
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className={`grid ${GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0`}
+              >
+                <Skeleton className="h-3 w-14 rounded" />
+                <Skeleton className="h-4 rounded" />
+                <Skeleton className="h-3 w-8 rounded" />
+                <Skeleton className="h-4 w-12 rounded ml-auto" />
+                <Skeleton className="h-4 w-16 rounded ml-auto" />
+                <Skeleton className="h-4 w-20 rounded ml-auto" />
+                <Skeleton className="h-4 w-12 rounded ml-auto" />
+                <Skeleton className="h-4 w-20 rounded ml-auto" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <div />
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
 
       {/* Bottom totals bar */}
