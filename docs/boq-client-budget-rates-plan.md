@@ -41,7 +41,7 @@ nailing before code:
    currency). Same convention as `unit_cost`.
 
 3. **What does "Budget Rate" mean?** Per the user's reference: the
-   *internally-targeted* per-unit cost. Compared against `unit_cost` to
+   _internally-targeted_ per-unit cost. Compared against `unit_cost` to
    answer "are we over our budget?" — not a financial-allocation budget.
 
 4. **Re-approval trigger.** `REAPPROVAL_FIELDS` in `src/lib/queries/boq.ts`
@@ -52,8 +52,8 @@ nailing before code:
 
 5. **Replacement of `sell_price`?** No. `client_rate` is independent. The
    existing `sell_price` (cost × markups) stays as the canonical computed
-   price; `client_rate`, when set, can be displayed to the client *instead
-   of* `sell_price` on client-facing surfaces, but the data model keeps
+   price; `client_rate`, when set, can be displayed to the client _instead
+   of_ `sell_price` on client-facing surfaces, but the data model keeps
    both.
 
 6. **Visibility for the client role?** `client_rate` should be visible to
@@ -198,7 +198,7 @@ service charge). Same blur-to-save pattern. **No new components** —
   given an element with `client_rate = 250`, the new BOQ line has
   `client_rate = 250`.
 - **API pass-through tests**: `PATCH /api/elements/[id]` and `PATCH
-  /api/projects/[id]/boq/items/[itemId]` accept and persist both fields.
+/api/projects/[id]/boq/items/[itemId]` accept and persist both fields.
 - **REAPPROVAL trigger test**: changing `client_rate` on an
   `approved` BOQ item flips it back to `pending`.
 

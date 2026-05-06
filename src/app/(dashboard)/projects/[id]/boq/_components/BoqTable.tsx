@@ -251,23 +251,23 @@ export function BoqTable({
           </div>
 
           <SectionList
-          groups={groups}
-          sections={sections}
-          currency={currency}
-          marginFloor={marginFloor}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          rowsEditable={rowsEditable}
-          sectionsEditable={sectionsEditable}
-          registerSectionRef={registerSectionRef}
-          onUpdateItem={onUpdateItem}
-          onDeleteItem={onDeleteItem}
-          onOpenItem={onOpenItem}
-          onAddItemToSection={onAddItemToSection}
-          onRenameSection={onRenameSection}
-          onToggleSectionVisibility={onToggleSectionVisibility}
-          onDeleteSection={onDeleteSection}
-          onReorderSections={onReorderSections}
+            groups={groups}
+            sections={sections}
+            currency={currency}
+            marginFloor={marginFloor}
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+            rowsEditable={rowsEditable}
+            sectionsEditable={sectionsEditable}
+            registerSectionRef={registerSectionRef}
+            onUpdateItem={onUpdateItem}
+            onDeleteItem={onDeleteItem}
+            onOpenItem={onOpenItem}
+            onAddItemToSection={onAddItemToSection}
+            onRenameSection={onRenameSection}
+            onToggleSectionVisibility={onToggleSectionVisibility}
+            onDeleteSection={onDeleteSection}
+            onReorderSections={onReorderSections}
           />
         </div>
       </div>
