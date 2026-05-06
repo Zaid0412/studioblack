@@ -158,7 +158,7 @@ export async function getTaskActivity(
       tc.created_at   AS created_at
     FROM task_comment tc
     LEFT JOIN "user" u ON u.id = tc.author_id
-    WHERE tc.task_id = $1 AND tc.org_id = $2
+    WHERE tc.task_id = $1::uuid AND tc.org_id = $2
 
     UNION ALL
 
@@ -176,7 +176,7 @@ export async function getTaskActivity(
     FROM audit_event ae
     LEFT JOIN "user" u ON u.id = ae.actor_id
     WHERE ae.target_table = 'task'
-      AND ae.target_id::text = $1
+      AND ae.target_id = $1::uuid
       AND ae.org_id = $2
       AND ae.action = ANY($3::text[])
 
