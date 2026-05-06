@@ -7,6 +7,7 @@ import { Pencil, Trash2, MoreVertical } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { Skeleton } from "@/components/ui/Skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,8 @@ import type { Task, TaskComment } from "@/types";
 interface TaskTimelineProps {
   task: Task;
   comments: TaskComment[];
+  /** True while the comments SWR is in its first fetch — renders placeholders. */
+  isLoadingComments?: boolean;
   currentUserId: string | null;
   canEditTask: boolean;
   onUpdateTask: (patch: Record<string, unknown>) => Promise<void>;
@@ -45,6 +48,7 @@ interface TaskTimelineProps {
 export function TaskTimeline({
   task,
   comments,
+  isLoadingComments,
   currentUserId,
   canEditTask,
   onUpdateTask,
@@ -60,16 +64,39 @@ export function TaskTimeline({
         onSave={(description) => onUpdateTask({ description })}
       />
 
-      {comments.map((comment) => (
-        <CommentCard
-          key={comment.id}
-          comment={comment}
-          taskId={task.id}
-          isAuthor={currentUserId === comment.author_id}
-          onChanged={onCommentsChanged}
-        />
-      ))}
+      {isLoadingComments
+        ? Array.from({ length: 2 }).map((_, i) => (
+            <CommentCardSkeleton key={i} />
+          ))
+        : comments.map((comment) => (
+            <CommentCard
+              key={comment.id}
+              comment={comment}
+              taskId={task.id}
+              isAuthor={currentUserId === comment.author_id}
+              onChanged={onCommentsChanged}
+            />
+          ))}
     </div>
+  );
+}
+
+/** Placeholder rail bullet + card while comments are loading. */
+function CommentCardSkeleton() {
+  return (
+    <article className="relative pl-9">
+      <Skeleton className="absolute left-0 top-2 w-6 h-6 rounded-full ring-2 ring-bg-primary" />
+      <div className="rounded-lg border border-border-default bg-bg-secondary overflow-hidden">
+        <header className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated/40 border-b border-border-default">
+          <Skeleton className="h-3.5 w-24" />
+          <Skeleton className="h-3 w-16 ml-auto" />
+        </header>
+        <div className="px-4 py-3 space-y-2">
+          <Skeleton className="h-3.5 w-full" />
+          <Skeleton className="h-3.5 w-4/5" />
+        </div>
+      </div>
+    </article>
   );
 }
 

@@ -79,6 +79,7 @@ export default function TaskDetailPage({
     comments: TaskComment[];
   }>(`/api/tasks/${id}/comments`);
   const comments = commentsData?.comments ?? [];
+  const isLoadingComments = commentsData === undefined;
 
   const isCreator = !!task && session?.user?.id === task.created_by;
   const isPm = role === "pm" || role === "architect";
@@ -210,6 +211,7 @@ export default function TaskDetailPage({
             <TaskTimeline
               task={task}
               comments={comments}
+              isLoadingComments={isLoadingComments}
               currentUserId={session?.user?.id ?? null}
               canEditTask={canEdit}
               onUpdateTask={onUpdate}

@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Avatar } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import { timeAgo } from "@/lib/formatTime";
@@ -10,10 +11,24 @@ import type { TaskComment } from "@/types";
 
 interface TaskCommentListProps {
   comments: TaskComment[];
+  /** True while the comments SWR is in its first fetch — renders placeholders. */
+  isLoading?: boolean;
 }
 
 /** Renders the comment thread inside the task side panel and full page. */
-export function TaskCommentList({ comments }: TaskCommentListProps) {
+export function TaskCommentList({
+  comments,
+  isLoading,
+}: TaskCommentListProps) {
+  if (isLoading) {
+    return (
+      <ul className="space-y-3">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <CommentCardSkeleton key={i} />
+        ))}
+      </ul>
+    );
+  }
   if (comments.length === 0) return null;
   return (
     <ul className="space-y-3">
@@ -21,6 +36,22 @@ export function TaskCommentList({ comments }: TaskCommentListProps) {
         <CommentCard key={c.id} comment={c} />
       ))}
     </ul>
+  );
+}
+
+function CommentCardSkeleton() {
+  return (
+    <li className="rounded-lg border border-border-default bg-bg-primary overflow-hidden">
+      <header className="flex items-center gap-2 px-4 py-2.5 bg-bg-elevated/50 border-b border-border-default">
+        <Skeleton className="w-6 h-6 rounded-full" />
+        <Skeleton className="h-3.5 w-24" />
+        <Skeleton className="h-3 w-16 ml-auto" />
+      </header>
+      <div className="px-4 py-3 space-y-2">
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-4/5" />
+      </div>
+    </li>
   );
 }
 

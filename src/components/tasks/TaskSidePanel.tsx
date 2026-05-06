@@ -43,6 +43,7 @@ export function TaskSidePanel({
     comments: TaskComment[];
   }>(task ? `/api/tasks/${taskId}/comments` : null);
   const comments = commentsData?.comments ?? [];
+  const isLoadingComments = !!task && commentsData === undefined;
 
   return (
     <>
@@ -66,6 +67,7 @@ export function TaskSidePanel({
           <PanelContent
             task={task}
             comments={comments}
+            isLoadingComments={isLoadingComments}
             onClose={onClose}
             onCommentPosted={() => mutateComments()}
           />
@@ -82,6 +84,7 @@ export function TaskSidePanel({
 interface PanelContentProps {
   task: Task;
   comments: TaskComment[];
+  isLoadingComments: boolean;
   onClose: () => void;
   onCommentPosted: () => void;
 }
@@ -89,6 +92,7 @@ interface PanelContentProps {
 function PanelContent({
   task,
   comments,
+  isLoadingComments,
   onClose,
   onCommentPosted,
 }: PanelContentProps) {
@@ -155,7 +159,7 @@ function PanelContent({
             No description provided.
           </p>
         )}
-        <TaskCommentList comments={comments} />
+        <TaskCommentList comments={comments} isLoading={isLoadingComments} />
       </div>
 
       <TaskComposer taskId={task.id} onSubmitted={onCommentPosted} />
