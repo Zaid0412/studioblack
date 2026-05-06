@@ -25,6 +25,7 @@ import { formatTimeAgo } from "@/lib/formatTime";
 import { useUserRole } from "@/hooks/useUserRole";
 import { formatShortDate, formatDate } from "@/lib/formatDate";
 import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
+import { PendingReviewsPopover } from "@/components/dashboard/PendingReviewsPopover";
 
 interface DashboardData {
   stats: {
@@ -247,18 +248,15 @@ export default function DashboardPage() {
   }
 
   // ── PM / Architect Dashboard ──────────────────────────────────────────
-  const stats = data
+  // Pending Reviews is rendered via `PendingReviewsPopover` (interactive),
+  // the rest are plain stat cards. Keeping the array for the three plain
+  // ones keeps the render loop tidy.
+  const plainStats = data
     ? [
         {
           label: t("activeProjects"),
           value: String(data.stats.active),
           icon: FolderOpen,
-        },
-        {
-          label: t("pendingReviews"),
-          value: String(data.stats.pendingReviews),
-          valueColor: "text-accent",
-          icon: ClipboardCheck,
         },
         {
           label: t("approvedDesigns"),
@@ -319,17 +317,32 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats row */}
+      {/* Stats row — Pending Reviews is interactive (opens a popover with
+        * the actual queue); the others are plain. Order matches the original
+        * layout: Active · Pending Reviews · Approved · Team. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            icon={stat.icon}
-            valueColor={stat.valueColor}
-          />
-        ))}
+        <StatCard
+          label={plainStats[0]?.label ?? t("activeProjects")}
+          value={plainStats[0]?.value ?? "0"}
+          icon={plainStats[0]?.icon ?? FolderOpen}
+          valueColor={plainStats[0]?.valueColor}
+        />
+        <PendingReviewsPopover
+          label={t("pendingReviews")}
+          count={data?.stats.pendingReviews ?? 0}
+        />
+        <StatCard
+          label={plainStats[1]?.label ?? t("approvedDesigns")}
+          value={plainStats[1]?.value ?? "0"}
+          icon={plainStats[1]?.icon ?? CheckCircle2}
+          valueColor={plainStats[1]?.valueColor}
+        />
+        <StatCard
+          label={plainStats[2]?.label ?? t("teamMembers")}
+          value={plainStats[2]?.value ?? "0"}
+          icon={plainStats[2]?.icon ?? Users}
+          valueColor={plainStats[2]?.valueColor}
+        />
       </div>
 
       {/* Content row — stacks on mobile */}

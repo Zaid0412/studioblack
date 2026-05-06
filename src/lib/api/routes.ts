@@ -71,6 +71,7 @@ export const API = {
 
   // ── Dashboard ──────────────────────────────────
   dashboard:             ()                            => "/api/dashboard",
+  dashboardPendingReviews: ()                          => "/api/dashboard/pending-reviews",
 
   // ── Settings ───────────────────────────────────
   changeEmail:           ()                            => "/api/settings/change-email",

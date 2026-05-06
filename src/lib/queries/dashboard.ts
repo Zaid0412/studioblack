@@ -1,5 +1,47 @@
 import { getPool } from "@/lib/db";
 
+/**
+ * One row in the dashboard's "Pending Reviews" popover. Mirrors the count
+ * from `getDashboardStats` (project-scoped attachments with
+ * `review_status = 'pending'`); standalone task attachments are excluded.
+ */
+export interface PendingReviewRow {
+  id: string;
+  project_id: string;
+  project_name: string;
+  file_name: string;
+  version: number;
+  uploaded_at: string;
+  uploaded_by_name: string | null;
+}
+
+/** Org-wide list of attachments awaiting review, newest first. */
+export async function getPendingReviews(
+  orgId: string,
+  limit = 20
+): Promise<PendingReviewRow[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       a.id,
+       a.project_id,
+       p.name AS project_name,
+       a.file_name,
+       a.version,
+       a.created_at AS uploaded_at,
+       u.name AS uploaded_by_name
+     FROM attachment a
+     JOIN project p ON p.id = a.project_id
+     LEFT JOIN "user" u ON u.id = a.uploaded_by
+     WHERE p.org_id = $1
+       AND a.review_status = 'pending'
+     ORDER BY a.created_at DESC
+     LIMIT $2`,
+    [orgId, limit]
+  );
+  return rows as PendingReviewRow[];
+}
+
 /** Get dashboard stats (active projects, reviews, team members, upcoming deadlines). */
 export async function getDashboardStats(orgId: string) {
   const pool = getPool();

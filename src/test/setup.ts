@@ -267,6 +267,7 @@ vi.mock("@/lib/queries", () => ({
   createClientUser: vi.fn(),
   getDashboardStats: vi.fn().mockResolvedValue(null),
   getRecentActivity: vi.fn().mockResolvedValue([]),
+  getPendingReviews: vi.fn().mockResolvedValue([]),
   getProjectsByClientEmail: vi.fn().mockResolvedValue([]),
   clearClientEmailByEmail: vi.fn().mockResolvedValue(0),
   // Element Categories
