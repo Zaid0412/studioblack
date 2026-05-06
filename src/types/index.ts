@@ -396,6 +396,33 @@ export interface TaskComment {
   author_name: string;
 }
 
+/**
+ * One entry in the `/tasks/[id]` timeline. Comments come from `task_comment`;
+ * events come from `audit_event` (filtered to task-relevant actions). The UI
+ * renders each kind differently: comments as full cards, events as compact
+ * single-line rail entries.
+ */
+export type TaskActivityEntry =
+  | {
+      kind: "comment";
+      id: string;
+      author_id: string;
+      author_name: string;
+      body: string;
+      attachments: TaskCommentAttachment[];
+      created_at: string;
+      updated_at: string | null;
+    }
+  | {
+      kind: "event";
+      id: string;
+      actor_id: string | null;
+      actor_name: string | null;
+      action: string;
+      metadata: Record<string, unknown> | null;
+      created_at: string;
+    };
+
 // ---------------------------------------------------------------------------
 // Element Library types
 // ---------------------------------------------------------------------------

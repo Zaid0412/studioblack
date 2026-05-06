@@ -65,6 +65,9 @@ export const API = {
   taskComments:          (tid: string)                 => `/api/tasks/${tid}/comments`,
   taskComment:           (tid: string, cid: string)    => `/api/tasks/${tid}/comments/${cid}`,
 
+  // ── Task → Activity (merged comments + audit events) ──
+  taskActivity:          (tid: string)                 => `/api/tasks/${tid}/activity`,
+
   // ── Notifications ──────────────────────────────
   notifications:         ()                            => "/api/notifications",
 

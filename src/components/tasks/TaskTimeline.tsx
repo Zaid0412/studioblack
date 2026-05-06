@@ -3,9 +3,22 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Pencil, Trash2, MoreVertical } from "lucide-react";
+import {
+  Pencil,
+  Trash2,
+  MoreVertical,
+  CircleDot,
+  Flag,
+  Tag,
+  UserCircle2,
+  CalendarClock,
+  FolderClosed,
+  Layers,
+  FileEdit,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -20,42 +33,47 @@ import { ApiError } from "@/lib/api";
 import { TaskMarkdownEditor } from "./TaskMarkdownEditor";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
-import { formatDate } from "@/lib/taskUtils";
+import { formatDate, STATUS_LABEL, capitalize } from "@/lib/taskUtils";
 import { timeAgo } from "@/lib/formatTime";
-import type { Task, TaskComment } from "@/types";
+import type { Task, TaskActivityEntry } from "@/types";
+
+type CommentEntry = Extract<TaskActivityEntry, { kind: "comment" }>;
+type EventEntry = Extract<TaskActivityEntry, { kind: "event" }>;
 
 interface TaskTimelineProps {
   task: Task;
-  comments: TaskComment[];
-  /** True while the comments SWR is in its first fetch — renders placeholders. */
-  isLoadingComments?: boolean;
+  /** Merged comment + audit-event feed, ordered chronologically. */
+  activity: TaskActivityEntry[];
+  /** True while the activity SWR is in its first fetch — renders placeholders. */
+  isLoadingActivity?: boolean;
   currentUserId: string | null;
   canEditTask: boolean;
   onUpdateTask: (patch: Record<string, unknown>) => Promise<void>;
-  onCommentsChanged: () => void;
+  /** Called after a comment was edited / deleted so the page can refetch. */
+  onActivityChanged: () => void;
 }
 
 /**
  * Vertical timeline rail with avatar bullets — original-post card on top,
- * each comment hangs off the rail beneath it. Comment authors get an
- * `…` menu with Edit / Delete; the description block has its own edit
- * affordance gated on `canEditTask`.
+ * each subsequent entry hangs off the rail beneath it. Two entry kinds:
  *
- * Future Phase 4: interleave audit_event entries (status changes,
- * assignee changes, etc.) chronologically with comments — the rail
- * already has the visual structure for compact activity rows.
+ * - **Comments** (`kind: "comment"`) — full markdown card; author can edit
+ *   or delete via the `…` menu.
+ * - **Events** (`kind: "event"`) — compact single-line activity row, e.g.
+ *   "Zaid changed status from To Do to In Progress · 2h ago". Read-only.
+ *
+ * Description edit is gated on `canEditTask`. The rail's vertical line is
+ * drawn by the parent page wrapper so it can span through the composer.
  */
 export function TaskTimeline({
   task,
-  comments,
-  isLoadingComments,
+  activity,
+  isLoadingActivity,
   currentUserId,
   canEditTask,
   onUpdateTask,
-  onCommentsChanged,
+  onActivityChanged,
 }: TaskTimelineProps) {
-  // The timeline rail is drawn by the parent page wrapper so it spans
-  // through the composer too. Just lay out cards on top of it.
   return (
     <div className="space-y-4">
       <DescriptionCard
@@ -64,20 +82,150 @@ export function TaskTimeline({
         onSave={(description) => onUpdateTask({ description })}
       />
 
-      {isLoadingComments
+      {isLoadingActivity
         ? Array.from({ length: 2 }).map((_, i) => (
             <CommentCardSkeleton key={i} />
           ))
-        : comments.map((comment) => (
-            <CommentCard
-              key={comment.id}
-              comment={comment}
-              taskId={task.id}
-              isAuthor={currentUserId === comment.author_id}
-              onChanged={onCommentsChanged}
-            />
-          ))}
+        : activity.map((entry) =>
+            entry.kind === "comment" ? (
+              <CommentCard
+                key={entry.id}
+                comment={entry}
+                taskId={task.id}
+                isAuthor={currentUserId === entry.author_id}
+                onChanged={onActivityChanged}
+              />
+            ) : (
+              <EventRow key={entry.id} event={entry} />
+            )
+          )}
     </div>
+  );
+}
+
+// ─── Activity event row ────────────────────────────────────────────────────
+
+const EVENT_ICON: Record<string, React.ElementType> = {
+  "task.status_changed": CircleDot,
+  "task.priority_changed": Flag,
+  "task.category_changed": Tag,
+  "task.assignee_changed": UserCircle2,
+  "task.due_date_changed": CalendarClock,
+  "task.project_changed": FolderClosed,
+  "task.phase_changed": Layers,
+  "task.title_changed": Pencil,
+  "task.description_changed": FileEdit,
+};
+
+/**
+ * One-line activity row hanging off the rail. The icon doubles as the rail
+ * bullet (matches the avatar circle from comments / description in size).
+ */
+function EventRow({ event }: { event: EventEntry }) {
+  const Icon = EVENT_ICON[event.action] ?? CircleDot;
+  const actor = event.actor_name ?? "Someone";
+  return (
+    <div className="relative pl-9 py-1">
+      <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-bg-elevated ring-2 ring-bg-primary flex items-center justify-center text-text-muted">
+        <Icon className="w-3.5 h-3.5" />
+      </div>
+      <div className="flex items-baseline gap-1.5 flex-wrap text-sm text-text-secondary leading-6">
+        <span className="font-medium text-text-primary">{actor}</span>
+        <EventDescription event={event} />
+        <span className="text-xs text-text-muted">·</span>
+        <time
+          className="text-xs text-text-muted"
+          dateTime={event.created_at}
+          title={new Date(event.created_at).toLocaleString()}
+        >
+          {timeAgo(event.created_at)}
+        </time>
+      </div>
+    </div>
+  );
+}
+
+/** Renders the verb + values portion of an event entry, by action type. */
+function EventDescription({ event }: { event: EventEntry }) {
+  const m = event.metadata ?? {};
+  const from = m.from as string | null | undefined;
+  const to = m.to as string | null | undefined;
+  const toName = (m.to_name as string | null | undefined) ?? null;
+
+  switch (event.action) {
+    case "task.status_changed":
+      return (
+        <>
+          <span>changed status from</span>
+          <ValuePill>{statusLabel(from) ?? "—"}</ValuePill>
+          <span>to</span>
+          <ValuePill>{statusLabel(to) ?? "—"}</ValuePill>
+        </>
+      );
+    case "task.priority_changed":
+      return (
+        <>
+          <span>set priority to</span>
+          <ValuePill>{capitalize(to ?? "—")}</ValuePill>
+        </>
+      );
+    case "task.category_changed":
+      return (
+        <>
+          <span>set category to</span>
+          <ValuePill>{capitalize(to ?? "—")}</ValuePill>
+        </>
+      );
+    case "task.assignee_changed":
+      if (!toName && !to) return <span>unassigned this task</span>;
+      return (
+        <>
+          <span>assigned this to</span>
+          <ValuePill>{toName ?? to}</ValuePill>
+        </>
+      );
+    case "task.due_date_changed":
+      if (!to) return <span>cleared the due date</span>;
+      return (
+        <>
+          <span>set due date to</span>
+          <ValuePill>{formatDate(to)}</ValuePill>
+        </>
+      );
+    case "task.project_changed":
+      return (
+        <>
+          <span>moved this to</span>
+          <ValuePill>{toName ?? to ?? "—"}</ValuePill>
+        </>
+      );
+    case "task.phase_changed":
+      if (!to) return <span>cleared the phase</span>;
+      return (
+        <>
+          <span>set phase to</span>
+          <ValuePill>{toName ?? to}</ValuePill>
+        </>
+      );
+    case "task.title_changed":
+      return <span>edited the title</span>;
+    case "task.description_changed":
+      return <span>edited the description</span>;
+    default:
+      return <span>{event.action}</span>;
+  }
+}
+
+function statusLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return (STATUS_LABEL as Record<string, string>)[value] ?? value;
+}
+
+function ValuePill({ children }: { children: React.ReactNode }) {
+  return (
+    <Badge variant="draft" className="font-normal">
+      {children}
+    </Badge>
   );
 }
 
@@ -197,7 +345,7 @@ function DescriptionCard({ task, canEdit, onSave }: DescriptionCardProps) {
 // ─── Comment card ──────────────────────────────────────────────────────────
 
 interface CommentCardProps {
-  comment: TaskComment;
+  comment: CommentEntry;
   taskId: string;
   isAuthor: boolean;
   onChanged: () => void;

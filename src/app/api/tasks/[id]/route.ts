@@ -6,6 +6,7 @@ import {
   updateTask,
   getMemberRole,
   deleteTask,
+  logTaskFieldChanges,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import {
@@ -102,6 +103,31 @@ export const PATCH = withAuth(
           { error: "No fields to update" },
           { status: 400 }
         );
+      }
+
+      // Write audit events for any tracked-field changes — surfaces in the
+      // /tasks/[id] timeline rail. Fire-and-forget; never blocks the response.
+      // Refetch with joined names so the audit metadata captures display
+      // names alongside IDs (timeline keeps reading correctly even if the
+      // assignee / project / phase is later renamed or deleted).
+      if (orgId) {
+        getTaskById(params.id, { orgId })
+          .then((updatedJoined) => {
+            if (!updatedJoined) return;
+            return logTaskFieldChanges({
+              orgId,
+              actorId: user.id,
+              taskId: params.id,
+              before: task as unknown as Record<string, unknown>,
+              after: updatedJoined as unknown as Record<string, unknown>,
+            });
+          })
+          .catch((err) =>
+            logger.warn("Task audit write failed", {
+              taskId: params.id,
+              error: String(err),
+            })
+          );
       }
 
       // Notify new assignee if changed

@@ -45,7 +45,7 @@ import {
 } from "@/lib/taskUtils";
 import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { deriveInitials } from "@/lib/utils";
-import type { Task, TaskComment, OrgMember } from "@/types";
+import type { Task, TaskActivityEntry, OrgMember } from "@/types";
 
 interface ProjectOption {
   id: string;
@@ -75,11 +75,22 @@ export default function TaskDetailPage({
     error,
     mutate: mutateTask,
   } = useSWR<Task>(`/api/tasks/${id}`);
-  const { data: commentsData, mutate: mutateComments } = useSWR<{
-    comments: TaskComment[];
-  }>(`/api/tasks/${id}/comments`);
-  const comments = commentsData?.comments ?? [];
-  const isLoadingComments = commentsData === undefined;
+  const { data: activityData, mutate: mutateActivity } = useSWR<{
+    events: TaskActivityEntry[];
+  }>(`/api/tasks/${id}/activity`);
+  const activity = useMemo(
+    () => activityData?.events ?? [],
+    [activityData?.events]
+  );
+  const comments = useMemo(
+    () =>
+      activity.filter(
+        (e): e is Extract<TaskActivityEntry, { kind: "comment" }> =>
+          e.kind === "comment"
+      ),
+    [activity]
+  );
+  const isLoadingActivity = activityData === undefined;
 
   const isCreator = !!task && session?.user?.id === task.created_by;
   const isPm = role === "pm" || role === "architect";
@@ -98,7 +109,10 @@ export default function TaskDetailPage({
       if (!task) return;
       try {
         await tasksApi.update(task.id, patch);
+        // Refresh the task itself (sidebar values, header) and the activity
+        // feed (new audit event for the change should appear in the rail).
         mutateTask();
+        mutateActivity();
       } catch (err) {
         toast({
           title: "Couldn't update task",
@@ -108,7 +122,7 @@ export default function TaskDetailPage({
         });
       }
     },
-    [task, mutateTask]
+    [task, mutateTask, mutateActivity]
   );
 
   if (error) {
@@ -210,18 +224,18 @@ export default function TaskDetailPage({
             <div className="absolute left-[15px] top-3 bottom-3 w-px bg-border-default" />
             <TaskTimeline
               task={task}
-              comments={comments}
-              isLoadingComments={isLoadingComments}
+              activity={activity}
+              isLoadingActivity={isLoadingActivity}
               currentUserId={session?.user?.id ?? null}
               canEditTask={canEdit}
               onUpdateTask={onUpdate}
-              onCommentsChanged={() => mutateComments()}
+              onActivityChanged={() => mutateActivity()}
             />
             <div className="mt-4">
               <TaskComposer
                 taskId={task.id}
                 inTimeline
-                onSubmitted={() => mutateComments()}
+                onSubmitted={() => mutateActivity()}
               />
             </div>
           </div>
