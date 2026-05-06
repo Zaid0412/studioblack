@@ -15,6 +15,12 @@ import {
 } from "@/lib/validations";
 import { parseBoqRequest } from "./_helpers";
 
+// TODO: this route currently exposes internal pricing (unit_cost,
+// material_cost, budget_rate, …) to matched-email clients via
+// `hasProjectAccess`. The client approval flow needs SOME of the BOQ to be
+// visible, so the answer isn't `blockedRoles: ["client"]`; it's a
+// role-aware projection in `getBoq` that strips internal fields when the
+// caller is a client. Tracked separately — pre-existing pattern.
 export const GET = withAuth(
   { projectAccess: true },
   async (_req, _ctx, params) => {

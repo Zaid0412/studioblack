@@ -86,6 +86,54 @@ describe("buildCategoryPathById", () => {
 
 // ── Parse ───────────────────────────────────────────────────────────────────
 
+describe("parseElementSheet — client_rate / budget_rate", () => {
+  it("parses Client Rate + Budget Rate when present in the sheet", async () => {
+    const headers = [
+      TEMPLATE_COLUMN_LABELS.code,
+      TEMPLATE_COLUMN_LABELS.name,
+      TEMPLATE_COLUMN_LABELS.unit,
+      TEMPLATE_COLUMN_LABELS.unitCost,
+      TEMPLATE_COLUMN_LABELS.clientRate,
+      TEMPLATE_COLUMN_LABELS.budgetRate,
+    ];
+    const buf = await buildSheet(headers, [["X-1", "Item", "m2", 100, 175, 85]]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    expect(result.rows[0].status).toBe("valid");
+    expect(result.rows[0].parsed?.clientRate).toBe(175);
+    expect(result.rows[0].parsed?.budgetRate).toBe(85);
+  });
+
+  it("treats blank rate cells as undefined (no value, not zero)", async () => {
+    const headers = [
+      TEMPLATE_COLUMN_LABELS.code,
+      TEMPLATE_COLUMN_LABELS.name,
+      TEMPLATE_COLUMN_LABELS.unit,
+      TEMPLATE_COLUMN_LABELS.unitCost,
+      TEMPLATE_COLUMN_LABELS.clientRate,
+      TEMPLATE_COLUMN_LABELS.budgetRate,
+    ];
+    const buf = await buildSheet(headers, [["X-2", "Item", "m2", 100, "", ""]]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    expect(result.rows[0].status).toBe("valid");
+    expect(result.rows[0].parsed?.clientRate).toBeUndefined();
+    expect(result.rows[0].parsed?.budgetRate).toBeUndefined();
+  });
+
+  it("rejects negative rate values", async () => {
+    const headers = [
+      TEMPLATE_COLUMN_LABELS.code,
+      TEMPLATE_COLUMN_LABELS.name,
+      TEMPLATE_COLUMN_LABELS.unit,
+      TEMPLATE_COLUMN_LABELS.unitCost,
+      TEMPLATE_COLUMN_LABELS.clientRate,
+    ];
+    const buf = await buildSheet(headers, [["X-3", "Item", "m2", 100, -10]]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    expect(result.rows[0].status).toBe("error");
+    expect(result.rows[0].errors.join(" ")).toMatch(/client rate/i);
+  });
+});
+
 describe("parseElementSheet", () => {
   it("parses a fully valid row", async () => {
     const buf = await buildSheet(HEADERS, [

@@ -738,9 +738,10 @@ export async function addElementToBoq(
     marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
     // Library default-flow: copy rates onto the line. The line can be
     // edited independently after — changing one doesn't ripple to the
-    // library element or vice versa.
-    clientRate: e.client_rate !== null ? Number(e.client_rate) : null,
-    budgetRate: e.budget_rate !== null ? Number(e.budget_rate) : null,
+    // library element or vice versa. `!= null` (loose) so an undefined
+    // (e.g. a test mock that omits the column) is treated as missing.
+    clientRate: e.client_rate != null ? Number(e.client_rate) : null,
+    budgetRate: e.budget_rate != null ? Number(e.budget_rate) : null,
   });
 }
 
