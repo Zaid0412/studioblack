@@ -55,15 +55,13 @@ export function PendingReviewsPopover({
             <span className="text-[13px] text-text-muted">{label}</span>
             <ClipboardCheck className="w-4 h-4 text-accent" />
           </div>
-          <div className="flex items-end justify-between gap-3">
-            <span className="text-[32px] font-bold text-accent leading-none">
-              {count}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent group-hover:gap-1.5 transition-all">
-              View list
-              <ChevronDown className="w-3 h-3" />
-            </span>
-          </div>
+          <span className="text-[32px] font-bold text-accent leading-none">
+            {count}
+          </span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-accent group-hover:gap-1.5 transition-all">
+            View list
+            <ChevronDown className="w-3 h-3" />
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent
