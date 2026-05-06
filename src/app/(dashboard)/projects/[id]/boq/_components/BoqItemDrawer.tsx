@@ -22,8 +22,10 @@ import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   clientApprovalToVariant,
   formatCurrency,
+  formatOptionalCurrency,
   formatPct,
   formatQty,
+  parseOptionalNumber,
   lifecycleToVariant,
   marginTier,
   toNum,
@@ -304,15 +306,9 @@ export function BoqItemDrawer({
               mode="number"
               min={0}
               value={item.client_rate ?? ""}
-              display={
-                item.client_rate !== null
-                  ? formatCurrency(item.client_rate, currency)
-                  : "—"
-              }
+              display={formatOptionalCurrency(item.client_rate, currency)}
               onSave={(next) =>
-                saveField({
-                  clientRate: next === "" ? null : parseFloat(next),
-                })
+                saveField({ clientRate: parseOptionalNumber(next) })
               }
             />
             <EditableField
@@ -322,15 +318,9 @@ export function BoqItemDrawer({
               mode="number"
               min={0}
               value={item.budget_rate ?? ""}
-              display={
-                item.budget_rate !== null
-                  ? formatCurrency(item.budget_rate, currency)
-                  : "—"
-              }
+              display={formatOptionalCurrency(item.budget_rate, currency)}
               onSave={(next) =>
-                saveField({
-                  budgetRate: next === "" ? null : parseFloat(next),
-                })
+                saveField({ budgetRate: parseOptionalNumber(next) })
               }
             />
           </section>

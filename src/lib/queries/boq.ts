@@ -45,7 +45,11 @@ const ITEM_COMPUTED_COLS = `
     ELSE 0
   END AS progress_pct,
   (bi.margin_pct < b.minimum_margin_pct) AS margin_alert,
-  (bi.budget_rate IS NOT NULL AND bi.unit_cost > bi.budget_rate) AS over_budget,
+  -- A budget of 0 isn't a meaningful target — treat as "no budget set" so the
+  -- over-budget badge and variance % stay in lockstep (else: badge fires but
+  -- the % renders as NULL).
+  (bi.budget_rate IS NOT NULL AND bi.budget_rate > 0
+    AND bi.unit_cost > bi.budget_rate) AS over_budget,
   CASE
     WHEN bi.budget_rate IS NULL OR bi.budget_rate = 0 THEN NULL
     ELSE ROUND((bi.unit_cost - bi.budget_rate) / bi.budget_rate * 100, 1)
@@ -761,6 +765,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
          COUNT(*) FILTER (
            WHERE bi.budget_rate IS NOT NULL
+             AND bi.budget_rate > 0
              AND bi.unit_cost > bi.budget_rate
              AND NOT bi.is_excluded
          ) AS over_budget_count,

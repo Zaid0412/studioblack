@@ -10,7 +10,6 @@
 -- Both are nullable; existing elements/items stay clean (no synthesised
 -- defaults). Both inherit the BOQ's currency.
 --
--- Companion plan: docs/boq-client-budget-rates-plan.md
 -- Run: psql $DATABASE_URL -f scripts/migrate-boq-client-budget-rates.sql
 
 ALTER TABLE element

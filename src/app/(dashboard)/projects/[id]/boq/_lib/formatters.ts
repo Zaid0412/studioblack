@@ -109,6 +109,25 @@ export function formatCurrency(
   }
 }
 
+/** Currency formatter for nullable rate fields — shows "—" when unset. */
+export function formatOptionalCurrency(
+  value: string | number | null,
+  currency: string = "USD"
+): string {
+  return value === null ? "—" : formatCurrency(value, currency);
+}
+
+/**
+ * Parse an inline-edit input back into a number-or-null. Empty string clears
+ * the field (PATCH `null`); non-numeric is rejected to null. Used by the
+ * client_rate / budget_rate cells in `BoqTable` and `BoqItemDrawer`.
+ */
+export function parseOptionalNumber(input: string): number | null {
+  if (input === "") return null;
+  const n = parseFloat(input);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 /** Format a quantity with up to 3 decimal places and locale-aware thousands separators. */
 export function formatQty(value: string | number): string {
   const n = toNum(value);

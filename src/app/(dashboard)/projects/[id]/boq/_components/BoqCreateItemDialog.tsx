@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
-import { BOQ_NO_SECTION_ID } from "../_lib/formatters";
+import { BOQ_NO_SECTION_ID, parseOptionalNumber } from "../_lib/formatters";
 import { BoqSectionSelect } from "./BoqSectionSelect";
 
 const DEFAULT_UNIT: ElementUnit = "no";
@@ -79,13 +79,6 @@ export function BoqCreateItemDialog({
       return;
     }
 
-    const optionalRate = (s: string) => {
-      const trimmed = s.trim();
-      if (!trimmed) return null;
-      const n = parseFloat(trimmed);
-      return Number.isFinite(n) && n >= 0 ? n : null;
-    };
-
     setSubmitting(true);
     try {
       await createItem({
@@ -97,8 +90,8 @@ export function BoqCreateItemDialog({
         unitCost: parseNum(unitCost, 0),
         serviceChargePct: parseNum(serviceChargePct, 0),
         marginPct: parseNum(marginPct, 15),
-        clientRate: optionalRate(clientRate),
-        budgetRate: optionalRate(budgetRate),
+        clientRate: parseOptionalNumber(clientRate.trim()),
+        budgetRate: parseOptionalNumber(budgetRate.trim()),
       });
       toast({ title: "Item added", variant: "success" });
       onOpenChange(false);
@@ -195,8 +188,6 @@ export function BoqCreateItemDialog({
         </label>
       </div>
 
-      {/* Optional pricing — both default-flow from the library element when
-       * the line is created via Element Picker. Both stay null if blank. */}
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-text-secondary">

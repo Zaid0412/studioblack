@@ -811,8 +811,8 @@ export interface BulkElementRow {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
-  clientRate?: number;
-  budgetRate?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   specReference?: string;
   drawingRef?: string;
   tags?: string[];

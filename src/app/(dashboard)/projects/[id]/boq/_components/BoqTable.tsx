@@ -41,8 +41,10 @@ import {
   BOQ_NO_SECTION_ID,
   clientApprovalToVariant,
   formatCurrency,
+  formatOptionalCurrency,
   formatPct,
   formatQty,
+  parseOptionalNumber,
   lifecycleToVariant,
   marginTier,
   toNum,
@@ -642,18 +644,12 @@ const BoqItemRow = memo(function BoqItemRow({
       </span>
       <BoqEditableCell
         value={item.client_rate ?? ""}
-        display={
-          item.client_rate !== null
-            ? formatCurrency(item.client_rate, currency)
-            : "—"
-        }
+        display={formatOptionalCurrency(item.client_rate, currency)}
         mode="number"
         min={0}
         align="right"
         disabled={!editable}
-        onSave={(next) =>
-          save({ clientRate: next === "" ? null : parseFloat(next) })
-        }
+        onSave={(next) => save({ clientRate: parseOptionalNumber(next) })}
         className="tabular-nums text-text-primary"
         ariaLabel={`Client rate for ${item.item_code}`}
       />
@@ -670,18 +666,12 @@ const BoqItemRow = memo(function BoqItemRow({
         {item.over_budget && <AlertTriangle className="w-3.5 h-3.5" />}
         <BoqEditableCell
           value={item.budget_rate ?? ""}
-          display={
-            item.budget_rate !== null
-              ? formatCurrency(item.budget_rate, currency)
-              : "—"
-          }
+          display={formatOptionalCurrency(item.budget_rate, currency)}
           mode="number"
           min={0}
           align="right"
           disabled={!editable}
-          onSave={(next) =>
-            save({ budgetRate: next === "" ? null : parseFloat(next) })
-          }
+          onSave={(next) => save({ budgetRate: parseOptionalNumber(next) })}
           className="tabular-nums"
           ariaLabel={`Budget rate for ${item.item_code}`}
         />
