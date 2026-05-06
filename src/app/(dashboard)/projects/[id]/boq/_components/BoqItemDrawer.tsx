@@ -144,9 +144,6 @@ export function BoqItemDrawer({
     }
   };
 
-  // Single-field save used by every inline editor below. Each cell fires its
-  // own PATCH on blur with the current `item.updated_at`; SWR replaces the row
-  // on success so the next field's save sees a fresh token.
   const saveField = async (patch: Partial<UpdateItemPayload>) => {
     await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
   };
@@ -190,8 +187,6 @@ export function BoqItemDrawer({
         </SheetHeader>
 
         <SheetBody className="flex flex-col gap-5">
-          {/* Description + identifier — separate from the metrics grid because
-            * description is multi-line and the others sit on a tabular grid. */}
           <section className="flex flex-col gap-3">
             <EditableField
               label="Description"
@@ -396,56 +391,31 @@ function DetailField({
   );
 }
 
-interface EditableFieldProps {
+type EditableFieldProps = {
   label: string;
-  /** Underlying value seeded into the input. */
-  value: string | number;
-  /** Formatted value rendered when not editing. */
-  display: string;
-  onSave: (next: string) => Promise<void> | void;
-  disabled?: boolean;
-  mode?: "text" | "number";
-  align?: "left" | "right";
-  min?: number;
-  max?: number;
   valueClassName?: string;
-  inputClassName?: string;
-}
+} & Omit<
+  React.ComponentProps<typeof BoqEditableCell>,
+  "ariaLabel" | "className"
+>;
 
 /**
- * Drawer wrapper around `BoqEditableCell` — adds a label above the cell and
- * lets the calling site stay declarative. Each save fires an independent
- * PATCH using the current `item.updated_at`; SWR replaces the row before the
- * next field's save runs.
+ * Each save fires its own PATCH with the current `item.updated_at`; SWR
+ * replaces the row before the next field's save runs, so blur-tabbing through
+ * fields doesn't trip the optimistic-lock.
  */
 function EditableField({
   label,
-  value,
-  display,
-  onSave,
-  disabled,
-  mode = "text",
-  align = "left",
-  min,
-  max,
   valueClassName,
-  inputClassName,
+  ...cellProps
 }: EditableFieldProps) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-text-muted">{label}</span>
       <BoqEditableCell
-        value={value}
-        display={display}
-        mode={mode}
-        align={align}
-        min={min}
-        max={max}
-        disabled={disabled}
-        onSave={onSave}
+        {...cellProps}
         ariaLabel={label}
         className={`text-sm tabular-nums text-text-primary ${valueClassName ?? ""}`}
-        inputClassName={inputClassName}
       />
     </div>
   );

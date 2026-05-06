@@ -14,7 +14,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { API } from "@/lib/api/routes";
 import { timeAgo } from "@/lib/formatTime";
+import { cn } from "@/lib/utils";
 import type { PendingReviewRow } from "@/lib/queries/dashboard";
 
 interface PendingReviewsPopoverProps {
@@ -23,16 +26,7 @@ interface PendingReviewsPopoverProps {
   label: string;
 }
 
-/**
- * Stat card for "Pending Reviews" that opens a popover listing the actual
- * review queue when clicked. The trigger is custom (not a plain `StatCard`)
- * so it can advertise its clickability — there's a persistent
- * `View list ⌄` affordance plus a hover ring; without those nothing
- * distinguishes it from the static stat cards alongside.
- *
- * The list fetches lazily — the popover SWR only fires once the user
- * opens the panel.
- */
+/** Stat-card variant that fetches the queue lazily on open. */
 export function PendingReviewsPopover({
   count,
   label,
@@ -42,13 +36,13 @@ export function PendingReviewsPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={[
+          className={cn(
             "group relative w-full text-left flex flex-col gap-2",
             "rounded-xl bg-bg-elevated p-5 cursor-pointer",
             "ring-1 ring-accent/30 hover:ring-accent transition-all",
             "hover:bg-bg-elevated/70 data-[state=open]:ring-accent",
-            "outline-none focus-visible:ring-2 focus-visible:ring-accent",
-          ].join(" ")}
+            "outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          )}
           aria-label={`${label}: ${count}. Click to see the queue.`}
         >
           <div className="flex items-center justify-between">
@@ -77,7 +71,7 @@ export function PendingReviewsPopover({
 
 function PopoverBody() {
   const { data, isLoading, error } = useSWR<{ reviews: PendingReviewRow[] }>(
-    "/api/dashboard/pending-reviews"
+    API.dashboardPendingReviews()
   );
 
   return (
@@ -96,9 +90,9 @@ function PopoverBody() {
         {isLoading ? (
           <ListSkeleton />
         ) : error ? (
-          <ErrorState />
+          <ErrorView />
         ) : !data || data.reviews.length === 0 ? (
-          <EmptyState />
+          <EmptyView />
         ) : (
           <ul>
             {data.reviews.map((row) => (
@@ -155,27 +149,24 @@ function ListSkeleton() {
   );
 }
 
-function EmptyState() {
+function EmptyView() {
   return (
-    <div className="flex flex-col items-center justify-center py-8 px-4 gap-2">
-      <ClipboardCheck className="w-6 h-6 text-text-muted" />
-      <span className="text-sm font-medium text-text-secondary">
-        Nothing pending
-      </span>
-      <span className="text-xs text-text-muted text-center">
-        Files awaiting design review will appear here.
-      </span>
-    </div>
+    <EmptyState
+      icon={ClipboardCheck}
+      title="Nothing pending"
+      description="Files awaiting design review will appear here."
+      className="!py-8"
+    />
   );
 }
 
-function ErrorState() {
+function ErrorView() {
   return (
-    <div className="flex flex-col items-center justify-center py-8 px-4 gap-1">
-      <span className="text-sm font-medium text-text-secondary">
-        Couldn&apos;t load the queue
-      </span>
-      <span className="text-xs text-text-muted">Try again in a moment.</span>
-    </div>
+    <EmptyState
+      icon={ClipboardCheck}
+      title="Couldn't load the queue"
+      description="Try again in a moment."
+      className="!py-8"
+    />
   );
 }

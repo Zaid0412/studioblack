@@ -248,30 +248,6 @@ export default function DashboardPage() {
   }
 
   // ── PM / Architect Dashboard ──────────────────────────────────────────
-  // Pending Reviews is rendered via `PendingReviewsPopover` (interactive),
-  // the rest are plain stat cards. Keeping the array for the three plain
-  // ones keeps the render loop tidy.
-  const plainStats = data
-    ? [
-        {
-          label: t("activeProjects"),
-          value: String(data.stats.active),
-          icon: FolderOpen,
-        },
-        {
-          label: t("approvedDesigns"),
-          value: String(data.stats.approved),
-          valueColor: "text-success",
-          icon: CheckCircle2,
-        },
-        {
-          label: t("teamMembers"),
-          value: String(data.stats.teamMembers),
-          icon: Users,
-        },
-      ]
-    : [];
-
   const isEmpty =
     data &&
     data.stats.active === 0 &&
@@ -317,16 +293,11 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats row. Pending Reviews opens a popover with the queue;
-        * Active Projects + Team Members deep-link to /projects and
-        * /organisation respectively. Approved Designs stays static —
-        * there's no equivalent landing surface for it yet. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label={plainStats[0]?.label ?? t("activeProjects")}
-          value={plainStats[0]?.value ?? "0"}
-          icon={plainStats[0]?.icon ?? FolderOpen}
-          valueColor={plainStats[0]?.valueColor}
+          label={t("activeProjects")}
+          value={String(data?.stats.active ?? 0)}
+          icon={FolderOpen}
           href="/projects"
         />
         <PendingReviewsPopover
@@ -334,16 +305,15 @@ export default function DashboardPage() {
           count={data?.stats.pendingReviews ?? 0}
         />
         <StatCard
-          label={plainStats[1]?.label ?? t("approvedDesigns")}
-          value={plainStats[1]?.value ?? "0"}
-          icon={plainStats[1]?.icon ?? CheckCircle2}
-          valueColor={plainStats[1]?.valueColor}
+          label={t("approvedDesigns")}
+          value={String(data?.stats.approved ?? 0)}
+          icon={CheckCircle2}
+          valueColor="text-success"
         />
         <StatCard
-          label={plainStats[2]?.label ?? t("teamMembers")}
-          value={plainStats[2]?.value ?? "0"}
-          icon={plainStats[2]?.icon ?? Users}
-          valueColor={plainStats[2]?.valueColor}
+          label={t("teamMembers")}
+          value={String(data?.stats.teamMembers ?? 0)}
+          icon={Users}
           href="/organisation"
         />
       </div>

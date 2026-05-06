@@ -568,13 +568,8 @@ export async function updateBoqItem(
 
   setClauses.push(`updated_at = now()`);
 
-  // Compare timestamps truncated to millisecond precision. Postgres stores
-  // `updated_at` with microsecond precision, but `pg` deserializes timestamps
-  // into JS `Date` objects which only carry milliseconds — so a round-tripped
-  // token (DB → JSON → client → JSON → DB) loses microseconds and would
-  // never match a literal `=` comparison. Truncating both sides on every
-  // PATCH lets the comparison succeed on rows whose `updated_at` was written
-  // with microsecond precision (i.e. every existing row in the DB).
+  // `pg` deserializes TIMESTAMPTZ into JS Date (ms precision), so the
+  // round-tripped token loses the row's microseconds. Truncate both sides.
   const pool = getPool();
   const { rows } = await pool.query<BoqItemWithComputed>(
     `WITH updated AS (
