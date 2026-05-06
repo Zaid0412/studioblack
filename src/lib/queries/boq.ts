@@ -568,12 +568,21 @@ export async function updateBoqItem(
 
   setClauses.push(`updated_at = now()`);
 
+  // Compare timestamps truncated to millisecond precision. Postgres stores
+  // `updated_at` with microsecond precision, but `pg` deserializes timestamps
+  // into JS `Date` objects which only carry milliseconds — so a round-tripped
+  // token (DB → JSON → client → JSON → DB) loses microseconds and would
+  // never match a literal `=` comparison. Truncating both sides on every
+  // PATCH lets the comparison succeed on rows whose `updated_at` was written
+  // with microsecond precision (i.e. every existing row in the DB).
   const pool = getPool();
   const { rows } = await pool.query<BoqItemWithComputed>(
     `WITH updated AS (
        UPDATE boq_item bi
        SET ${setClauses.join(", ")}
-       WHERE bi.id = $${i} AND bi.updated_at = $${i + 1}
+       WHERE bi.id = $${i}
+         AND date_trunc('milliseconds', bi.updated_at)
+             = date_trunc('milliseconds', $${i + 1}::timestamptz)
        RETURNING *
      )
      SELECT bi.*, ${ITEM_COMPUTED_COLS}
@@ -603,9 +612,13 @@ export async function deleteBoqItem(
   itemId: string,
   expectedUpdatedAt: string
 ): Promise<DeleteBoqItemOutcome> {
+  // See `updateBoqItem` above for why the comparison truncates to ms.
   const pool = getPool();
   const { rowCount } = await pool.query(
-    `DELETE FROM boq_item WHERE id = $1 AND updated_at = $2`,
+    `DELETE FROM boq_item
+     WHERE id = $1
+       AND date_trunc('milliseconds', updated_at)
+           = date_trunc('milliseconds', $2::timestamptz)`,
     [itemId, expectedUpdatedAt]
   );
   if ((rowCount ?? 0) > 0) return { ok: true };
