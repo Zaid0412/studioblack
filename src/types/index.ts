@@ -320,6 +320,18 @@ export interface Task {
   pin_comment_id: string | null;
   /** The attachment the pin comment belongs to. */
   pin_attachment_id: string | null;
+  /**
+   * Discriminator for rows returned in the approval/comment buckets:
+   *
+   * - `task` (or absent) — a real task row, click → side panel.
+   * - `pin_comment` — synthesized from a file-review pin annotation,
+   *   click → file review viewer with the pin expanded.
+   * - `comment` — synthesized from a project/phase-level comment, click →
+   *   project page.
+   *
+   * Will go away when the polymorphic Request entity ships in Phase 4.
+   */
+  _source?: "task" | "pin_comment" | "comment";
 }
 
 /** A single checklist item on a task. */
@@ -357,6 +369,59 @@ export interface TaskFormData {
   /** Files to upload and attach after task creation (create mode only). Client-only — uses browser File API. */
   pendingFiles: globalThis.File[];
 }
+
+/** Inline attachment reference stored on a task comment (GH-style). */
+export interface TaskCommentAttachment {
+  /** Storage URL of the uploaded file. */
+  url: string;
+  /** Original file name. */
+  name: string;
+  /** MIME type — used by the renderer to inline images vs link files. */
+  contentType: string;
+  /** Size in bytes; null when unknown. */
+  size: number | null;
+}
+
+/** A comment on a standalone task. Inline attachments live in `attachments`. */
+export interface TaskComment {
+  id: string;
+  org_id: string;
+  task_id: string;
+  author_id: string;
+  body: string;
+  attachments: TaskCommentAttachment[];
+  created_at: string;
+  updated_at: string | null;
+  /** Joined display name from the user table. */
+  author_name: string;
+}
+
+/**
+ * One entry in the `/tasks/[id]` timeline. Comments come from `task_comment`;
+ * events come from `audit_event` (filtered to task-relevant actions). The UI
+ * renders each kind differently: comments as full cards, events as compact
+ * single-line rail entries.
+ */
+export type TaskActivityEntry =
+  | {
+      kind: "comment";
+      id: string;
+      author_id: string;
+      author_name: string;
+      body: string;
+      attachments: TaskCommentAttachment[];
+      created_at: string;
+      updated_at: string | null;
+    }
+  | {
+      kind: "event";
+      id: string;
+      actor_id: string | null;
+      actor_name: string | null;
+      action: string;
+      metadata: Record<string, unknown> | null;
+      created_at: string;
+    };
 
 // ---------------------------------------------------------------------------
 // Element Library types

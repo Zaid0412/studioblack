@@ -14,6 +14,54 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+/**
+ * Bucket keys for the redesigned task page sidebar. Grouped by section in the
+ * UI (`PERSONAL`, `TASKS`, `APPROVALS`, `ALL`).
+ *
+ * `reminders` and `mentions` are intentionally part of the union but commented
+ * out in the sidebar's render list — they require the `task_reminder` table
+ * (Phase 2) and `@`-mention parser (Phase 3). Keeping them in the type means
+ * uncommenting one line is enough to enable them.
+ *
+ * The approval-related buckets (`my_requests`, `my_approvals`, `my_comments`,
+ * `all_requests`) are wired through the API but currently return empty
+ * results — full data joins land with the multi-domain Request entity work
+ * (Phase 4 in the redesign plan).
+ */
+export const TASK_BUCKETS = [
+  // PERSONAL
+  "important",
+  "reminders",
+  "mentions",
+  // TASKS
+  "tasks_for_me",
+  "tasks_by_me",
+  // APPROVALS
+  "my_requests",
+  "my_approvals",
+  "my_comments",
+  // ALL
+  "all_tasks",
+  "all_requests",
+] as const;
+export type TaskBucket = (typeof TASK_BUCKETS)[number];
+
+/**
+ * Buckets sourced from `pin_comment` / `comment` rather than the `task` table.
+ * `my_approvals` is included so list and empty-state code paths agree, even
+ * though it currently returns 0 rows (no reviewer concept yet — see Phase 4).
+ */
+export const APPROVAL_BUCKETS: ReadonlySet<TaskBucket> = new Set([
+  "my_requests",
+  "my_approvals",
+  "my_comments",
+  "all_requests",
+]);
+/** Whether the bucket reads from `pin_comment` / `comment` instead of `task`. */
+export function isApprovalBucket(bucket: TaskBucket): boolean {
+  return APPROVAL_BUCKETS.has(bucket);
+}
+
 export const TASK_CATEGORIES = [
   "general",
   "design",
@@ -111,6 +159,33 @@ const userId = z.string().min(1);
 const optionalUserId = z.string().min(1).optional();
 const trimmedString = z.string().trim().min(1);
 const optionalString = z.string().optional();
+
+/**
+ * URL pointing at a Supabase Storage object — public or signed.
+ *
+ * Refuses arbitrary external URLs and non-https schemes (blocks `javascript:`,
+ * `data:`, hotlinked trackers, etc.). The signed-URL upload route is the only
+ * path that produces these URLs server-side, and they always carry the
+ * `/storage/v1/object/...` prefix.
+ */
+const supabaseStorageUrl = z
+  .string()
+  .url()
+  .max(2000)
+  .refine(
+    (u) => {
+      try {
+        const parsed = new URL(u);
+        return (
+          parsed.protocol === "https:" &&
+          parsed.pathname.startsWith("/storage/v1/object/")
+        );
+      } catch {
+        return false;
+      }
+    },
+    { message: "must be a Supabase Storage URL" }
+  );
 
 // ─── Tasks (/api/tasks) ─────────────────────────────────────────────────────
 
@@ -256,6 +331,29 @@ export const createCommentSchema = z.object({
   taskId: optionalUuid,
 });
 
+// ─── Task Comments (/api/tasks/[id]/comments) ───────────────────────────────
+
+const taskCommentAttachmentSchema = z.object({
+  url: supabaseStorageUrl,
+  name: z.string().trim().min(1).max(255),
+  contentType: z.string().trim().min(1).max(127),
+  size: z.number().int().nonnegative().nullable(),
+});
+
+export const createTaskCommentSchema = z.object({
+  body: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
+  attachments: z.array(taskCommentAttachmentSchema).max(20).optional(),
+});
+
+export const updateTaskCommentSchema = z
+  .object({
+    body: z.string().trim().min(1).max(MAX_CONTENT_LENGTH).optional(),
+    attachments: z.array(taskCommentAttachmentSchema).max(20).optional(),
+  })
+  .refine((v) => v.body !== undefined || v.attachments !== undefined, {
+    message: "Provide body or attachments",
+  });
+
 // ─── Phase Tasks (/api/projects/[id]/tasks) ─────────────────────────────────
 
 export const createPhaseTaskSchema = z.object({
@@ -381,34 +479,6 @@ const elementAttributeInput = z.object({
 
 const nonNegativeMoney = z.number().nonnegative().finite();
 const percent = z.number().min(0).max(100).finite();
-
-/**
- * URL pointing at a Supabase Storage object — public or signed.
- *
- * Refuses arbitrary external URLs so a PM can't paste a tracker pixel,
- * hotlinked image, or a malicious host as the element's image / drawing
- * file. The signed-URL upload route is the only path that produces these
- * URLs server-side, and they always carry the `/storage/v1/object/...`
- * prefix.
- */
-const supabaseStorageUrl = z
-  .string()
-  .url()
-  .max(2000)
-  .refine(
-    (u) => {
-      try {
-        const parsed = new URL(u);
-        return (
-          parsed.protocol === "https:" &&
-          parsed.pathname.startsWith("/storage/v1/object/")
-        );
-      } catch {
-        return false;
-      }
-    },
-    { message: "must be a Supabase Storage URL" }
-  );
 
 export const createElementSchema = z.object({
   code: trimmedString.max(50),

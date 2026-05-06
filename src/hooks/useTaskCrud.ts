@@ -1,44 +1,26 @@
-import { useState, useCallback, useEffect } from "react";
-import { tasks as tasksApi, upload } from "@/lib/api";
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { tasks as tasksApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { NEXT_STATUS } from "@/lib/taskUtils";
-import type { Task, TaskFormData } from "@/types";
+import type { Task } from "@/types";
 
 interface UseTaskCrudOptions {
+  /** Called after a write to revalidate the list. */
   fetchTasks: () => void;
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
-  setCounts?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  defaultForm: TaskFormData;
-  projectId?: string;
-  onFetchPhases?: (projectId: string) => void;
-  /** Current user ID — used as default assignee when creating tasks. */
-  currentUserId?: string;
 }
 
-/** Shared CRUD operations for tasks: create, update, delete, star, and status toggle. */
-export function useTaskCrud({
-  fetchTasks,
-  setTasks,
-  setCounts,
-  defaultForm,
-  projectId,
-  onFetchPhases,
-  currentUserId,
-}: UseTaskCrudOptions) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [formData, setFormData] = useState<TaskFormData>(defaultForm);
-  const [submitting, setSubmitting] = useState(false);
+/**
+ * Row-level CRUD helpers for the task list — the create/edit form lives at
+ * `/tasks/new` and `/tasks/[id]` now, so this hook only carries delete +
+ * status toggle + star toggle, plus an `openEdit` that routes to the full
+ * page rather than opening a dialog.
+ */
+export function useTaskCrud({ fetchTasks, setTasks }: UseTaskCrudOptions) {
+  const router = useRouter();
   const [deleteTarget, setDeleteTarget] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  // Sync formData with defaultForm when it changes (e.g. phase switch)
-  // but only when the dialog is closed and we're not editing
-  useEffect(() => {
-    if (!dialogOpen && !editingTask) {
-      setFormData(defaultForm);
-    }
-  }, [defaultForm, dialogOpen, editingTask]);
 
   const toggleStatus = useCallback(
     async (task: Task) => {
@@ -64,10 +46,6 @@ export function useTaskCrud({
           t.id === task.id ? { ...t, is_starred: !t.is_starred } : t
         )
       );
-      setCounts?.((prev) => ({
-        ...prev,
-        starred: (prev.starred ?? 0) + (task.is_starred ? -1 : 1),
-      }));
       try {
         await tasksApi.toggleStar(task.id);
       } catch {
@@ -76,105 +54,10 @@ export function useTaskCrud({
             t.id === task.id ? { ...t, is_starred: task.is_starred } : t
           )
         );
-        setCounts?.((prev) => ({
-          ...prev,
-          starred: (prev.starred ?? 0) + (task.is_starred ? 1 : -1),
-        }));
       }
     },
-    [setTasks, setCounts]
+    [setTasks]
   );
-
-  const handleSubmit = useCallback(async () => {
-    if (!formData.title.trim()) return;
-    setSubmitting(true);
-
-    const body: Record<string, unknown> = {
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      projectId: projectId || formData.projectId || undefined,
-      phaseId: formData.phaseId || undefined,
-      priority: formData.priority,
-      category: formData.category,
-      assignedTo: formData.assignedTo || undefined,
-      dueDate: formData.dueDate || undefined,
-    };
-
-    try {
-      const isEdit = !!editingTask;
-      if (isEdit) {
-        await tasksApi.update(editingTask!.id, body);
-      } else {
-        const created = await tasksApi.create(
-          body as Parameters<typeof tasksApi.create>[0]
-        );
-
-        // Create checklist items and upload files in parallel after task creation
-        const postCreateWork: Promise<unknown>[] = [];
-
-        // Checklist items — create sequentially to preserve order
-        if (formData.checklistItems.length > 0) {
-          postCreateWork.push(
-            (async () => {
-              for (const title of formData.checklistItems) {
-                await tasksApi.addChecklistItem(created.id, title);
-              }
-            })()
-          );
-        }
-
-        // File uploads — upload and attach each file
-        if (formData.pendingFiles.length > 0) {
-          for (const file of formData.pendingFiles) {
-            postCreateWork.push(
-              upload.uploadFile(file).then((result) =>
-                tasksApi.addAttachment(created.id, {
-                  fileUrl: result.url,
-                  fileName: result.fileName,
-                  fileSize: file.size,
-                })
-              )
-            );
-          }
-        }
-
-        if (postCreateWork.length > 0) {
-          try {
-            await Promise.all(postCreateWork);
-          } catch (err) {
-            console.error("Post-create attachment error:", err);
-            toast({
-              title: "Task created with issues",
-              description:
-                "Some checklist items or attachments failed to save. You can add them from the task detail view.",
-              variant: "warning",
-            });
-          }
-        }
-      }
-
-      toast({
-        title: isEdit ? "Task updated" : "Task created",
-        description: isEdit
-          ? `"${formData.title}" has been updated.`
-          : `"${formData.title}" has been created.`,
-        variant: "success",
-      });
-      setDialogOpen(false);
-      setEditingTask(null);
-      setFormData(defaultForm);
-      fetchTasks();
-    } catch (err) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "Something went wrong",
-        variant: "error",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  }, [formData, editingTask, projectId, defaultForm, fetchTasks]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -199,52 +82,21 @@ export function useTaskCrud({
     }
   }, [deleteTarget, fetchTasks]);
 
+  // Edit happens on the task page, where every field is inline-editable.
   const openEdit = useCallback(
     (task: Task) => {
-      setEditingTask(task);
-      setFormData({
-        title: task.title,
-        description: task.description || "",
-        projectId: task.project_id || "",
-        phaseId: task.phase_id || defaultForm.phaseId || "",
-        priority: task.priority,
-        category: task.category,
-        assignedTo: task.assigned_to || "",
-        dueDate: task.due_date ? task.due_date.split("T")[0] : "",
-        checklistItems: [],
-        pendingFiles: [],
-      });
-      if (task.project_id && onFetchPhases) onFetchPhases(task.project_id);
-      setDialogOpen(true);
+      router.push(`/tasks/${task.id}`);
     },
-    [defaultForm.phaseId, onFetchPhases]
+    [router]
   );
 
-  const openCreate = useCallback(() => {
-    setEditingTask(null);
-    setFormData({
-      ...defaultForm,
-      assignedTo: currentUserId || defaultForm.assignedTo,
-    });
-    setDialogOpen(true);
-  }, [defaultForm, currentUserId]);
-
   return {
-    dialogOpen,
-    setDialogOpen,
-    editingTask,
-    setEditingTask,
-    formData,
-    setFormData,
-    submitting,
     deleteTarget,
     setDeleteTarget,
     deleting,
     toggleStatus,
     toggleStar,
-    handleSubmit,
     handleDelete,
     openEdit,
-    openCreate,
   };
 }

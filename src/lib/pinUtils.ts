@@ -1,4 +1,18 @@
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, Task } from "@/types";
+
+/**
+ * Build the deep-link URL to a pin comment in its file review view, or
+ * `null` if the task isn't linked to one. Used by every place that opens
+ * a task that originated as a review-page pin comment.
+ */
+export function pinCommentReviewHref(
+  task: Pick<Task, "project_id" | "pin_attachment_id" | "pin_comment_id">
+): string | null {
+  if (!task.project_id || !task.pin_attachment_id || !task.pin_comment_id) {
+    return null;
+  }
+  return `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`;
+}
 
 /** Sort pins by created_at ascending. */
 export function sortPinsByDate(pins: DbPinComment[]): DbPinComment[] {

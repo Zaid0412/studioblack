@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
 import { PostHogIdentify } from "@/components/providers/PostHogIdentify";
+import { TaskSidePanelHost } from "@/components/tasks/TaskSidePanelHost";
 import type { User } from "@/types";
 
 /**
@@ -61,13 +63,14 @@ export default async function DashboardLayout({
   ]);
   if (fullOrg) orgName = fullOrg.name ?? null;
 
-  // Vendors are scoped to /vendor-portal/* and /settings/*. Block them from
-  // PM/architect/client surfaces — they would only see empty states anyway.
+  // Vendors are scoped to /vendor-portal/*, /settings/*, and /tasks/* (their
+  // assigned tasks live in the same task system as everyone else's).
   if (effectiveRole === "vendor") {
     const pathname = reqHeaders.get("x-pathname") ?? "";
     if (
       !pathname.startsWith("/vendor-portal") &&
-      !pathname.startsWith("/settings")
+      !pathname.startsWith("/settings") &&
+      !pathname.startsWith("/tasks")
     ) {
       redirect("/vendor-portal");
     }
@@ -112,6 +115,11 @@ export default async function DashboardLayout({
               </main>
             </div>
           </div>
+          {/* Suspense boundary so `useSearchParams()` inside the host doesn't
+           * opt every dashboard route out of static prerendering. */}
+          <Suspense fallback={null}>
+            <TaskSidePanelHost />
+          </Suspense>
         </UserRoleProvider>
       </SidebarProvider>
     </SWRProvider>

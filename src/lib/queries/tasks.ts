@@ -2,6 +2,7 @@ import { getPool } from "@/lib/db";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
 import { escapeSqlLike } from "./helpers";
 import { verifyPhaseOwnership } from "./phaseTasks";
+import { isApprovalBucket, type TaskBucket } from "@/lib/validations";
 
 /** Verify a task belongs to a project (via its phase). */
 export async function verifyTaskOwnership(
@@ -79,13 +80,7 @@ export async function verifyTaskAccess(
 
 interface TaskFilters {
   orgId: string;
-  bucket?:
-    | "all"
-    | "my_tasks"
-    | "created_by_me"
-    | "starred"
-    | "upcoming"
-    | "completed";
+  bucket?: TaskBucket;
   userId: string;
   /** When true, all buckets are scoped to tasks assigned to the user. */
   assigneeOnly?: boolean;
@@ -99,44 +94,64 @@ interface TaskFilters {
   limit?: number;
 }
 
+/**
+ * Buckets that always return empty for now — they're in the type union but
+ * their data sources (`task_reminder` table, `@`-mention parser, pin_comment
+ * reviewer field) don't exist yet.
+ */
+const EMPTY_BUCKETS = new Set<TaskBucket>([
+  "reminders",
+  "mentions",
+  "my_approvals",
+]);
+
 /** Fetch tasks with bucket-based filtering and optional search/status/priority/category filters. */
 export async function getTasks(filters: TaskFilters) {
   const pool = getPool();
+
+  if (filters.bucket && EMPTY_BUCKETS.has(filters.bucket)) {
+    return { tasks: [], total: 0 };
+  }
+  if (filters.bucket && isApprovalBucket(filters.bucket)) {
+    return getApprovalRows({
+      orgId: filters.orgId,
+      userId: filters.userId,
+      bucket: filters.bucket,
+      projectId: filters.projectId,
+      page: filters.page,
+      limit: filters.limit,
+    });
+  }
+
   const conditions: string[] = ["t.org_id = $1"];
   const values: unknown[] = [filters.orgId];
   let idx = 2;
 
   // Bucket filters
   switch (filters.bucket) {
-    case "my_tasks":
+    case "important":
+      // Open tasks assigned to me, sorted later by priority + due date.
+      conditions.push(
+        `t.assigned_to = $${idx} AND t.status NOT IN ('completed', 'archived')`
+      );
+      values.push(filters.userId);
+      idx++;
+      break;
+    case "tasks_for_me":
       conditions.push(`t.assigned_to = $${idx}`);
       values.push(filters.userId);
       idx++;
       break;
-    case "created_by_me":
+    case "tasks_by_me":
       conditions.push(
         `t.created_by = $${idx} AND (t.assigned_to IS NULL OR t.assigned_to != $${idx})`
       );
       values.push(filters.userId);
       idx++;
       break;
-    case "starred":
-      conditions.push(
-        `EXISTS (SELECT 1 FROM task_star ts WHERE ts.task_id = t.id AND ts.user_id = $${idx})`
-      );
-      values.push(filters.userId);
-      idx++;
-      break;
-    case "upcoming":
-      conditions.push(
-        `t.due_date IS NOT NULL AND t.status != 'completed' AND t.status != 'archived'`
-      );
-      break;
-    case "completed":
-      conditions.push(`t.status = 'completed'`);
-      break;
+    case "all_tasks":
     default:
-      // "all" — exclude archived
+      // Org-wide list — exclude archived.
       conditions.push(`t.status != 'archived'`);
   }
 
@@ -224,6 +239,14 @@ export async function getTasks(filters: TaskFilters) {
      ) pc ON true
      WHERE ${conditions.join(" AND ")}
      ORDER BY
+       ${
+         filters.bucket === "important"
+           ? `CASE t.priority
+              WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
+              WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,
+            t.due_date NULLS LAST,`
+           : ""
+       }
        t.created_at DESC
      LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
     values
@@ -235,6 +258,215 @@ export async function getTasks(filters: TaskFilters) {
   const tasks = rows.map(({ _total_count, ...rest }) => rest);
 
   return { tasks, total };
+}
+
+/**
+ * List view for the approval-flavoured buckets. Reads from `pin_comment`
+ * joined through `attachment` → `project` for org scoping, then synthesizes
+ * each row into a Task-compatible shape with `_source = "pin_comment"` so
+ * the existing `TaskRow` UI can render it. Click handling on the page side
+ * uses the discriminator to route to the file review instead of the task
+ * side panel.
+ *
+ * Phase 4 will replace this with a polymorphic `approval_request` table that
+ * unifies file approvals, vendor invoice approvals, etc.
+ */
+async function getApprovalRows(opts: {
+  orgId: string;
+  userId: string;
+  bucket: TaskBucket;
+  projectId?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const pool = getPool();
+  const limit = opts.limit ?? DEFAULT_PAGE_LIMIT;
+  const offset = ((opts.page ?? 1) - 1) * limit;
+
+  // pin_comment subquery — varies per bucket
+  const pinConds: string[] = ["p.org_id = $1"];
+  // `whereValues` carries just the params needed by the WHERE clauses (used
+  // by the count query). `values` extends it with branch + outer LIMIT/OFFSET
+  // for the row query.
+  const whereValues: unknown[] = [opts.orgId];
+  let idx = 2;
+
+  switch (opts.bucket) {
+    case "my_requests":
+      pinConds.push(
+        `pc.user_id = $${idx} AND (pc.request_approval OR pc.request_changes) AND NOT pc.resolved`
+      );
+      whereValues.push(opts.userId);
+      idx++;
+      break;
+    case "my_comments":
+      pinConds.push(`pc.user_id = $${idx}`);
+      whereValues.push(opts.userId);
+      idx++;
+      break;
+    case "all_requests":
+      pinConds.push(`pc.request_approval AND NOT pc.resolved`);
+      break;
+    default:
+      return { tasks: [], total: 0 };
+  }
+
+  const pinProjectIdx = opts.projectId ? idx : null;
+  if (opts.projectId) {
+    pinConds.push(`a.project_id = $${idx}`);
+    whereValues.push(opts.projectId);
+    idx++;
+  }
+
+  const values: unknown[] = [...whereValues];
+
+  const pinFrom = `FROM pin_comment pc
+    JOIN attachment a ON a.id = pc.attachment_id
+    JOIN project p ON p.id = a.project_id`;
+  const pinWhere = pinConds.join(" AND ");
+
+  // Per-branch cap. The outer query trims to `limit` after UNION, so any
+  // branch row beyond `limit + offset` is unreachable — but Postgres would
+  // still materialize the entire matching set without this pushdown.
+  const branchCap = limit + offset;
+
+  // Pin branch — pre-trimmed. Wrapped in parens because Postgres binds a
+  // trailing `ORDER BY` / `LIMIT` to the UNION result unless each branch
+  // is parenthesised — without the parens you get
+  // `syntax error at or near "UNION"`.
+  values.push(branchCap);
+  const pinLimitIdx = idx;
+  idx++;
+  const pinSelect = `(
+    SELECT
+      pc.id,
+      p.org_id,
+      a.project_id,
+      a.phase_id,
+      SUBSTRING(pc.content FROM 1 FOR 80) AS title,
+      pc.content AS description,
+      CASE
+        WHEN pc.resolved THEN 'completed'
+        WHEN pc.request_approval OR pc.request_changes THEN 'in_progress'
+        ELSE 'todo'
+      END AS status,
+      'medium'::text AS priority,
+      CASE
+        WHEN pc.request_changes THEN 'revision'
+        WHEN pc.request_approval THEN 'review'
+        ELSE 'general'
+      END AS category,
+      pc.user_id AS created_by,
+      u.name AS created_by_name,
+      NULL::text AS assigned_to,
+      NULL::text AS assigned_to_name,
+      NULL::date AS due_date,
+      NULL::timestamptz AS reminder_at,
+      NULL::timestamptz AS completed_at,
+      pc.created_at,
+      COALESCE(pc.updated_at, pc.created_at) AS updated_at,
+      p.name AS project_name,
+      pp.name AS phase_name,
+      pc.id AS pin_comment_id,
+      pc.attachment_id AS pin_attachment_id,
+      false AS is_starred,
+      0::int AS checklist_total,
+      0::int AS checklist_done,
+      'pin_comment'::text AS _source
+    ${pinFrom}
+    LEFT JOIN project_phase pp ON pp.id = a.phase_id
+    LEFT JOIN "user" u ON u.id = pc.user_id
+    WHERE ${pinWhere}
+    ORDER BY pc.created_at DESC
+    LIMIT $${pinLimitIdx}
+  )`;
+
+  // Comment branch — only for `my_comments`. Other buckets are pin_comment-
+  // only because `comment` doesn't carry request_approval / request_changes.
+  let cmtFrom = "";
+  let cmtWhere = "";
+  let unionSql = pinSelect;
+  if (opts.bucket === "my_comments") {
+    const cmtConds: string[] = ["p.org_id = $1", `c.user_id = $2`];
+    if (pinProjectIdx !== null) {
+      cmtConds.push(`c.project_id = $${pinProjectIdx}`);
+    }
+    cmtFrom = `FROM comment c
+      JOIN project p ON p.id = c.project_id`;
+    cmtWhere = cmtConds.join(" AND ");
+
+    values.push(branchCap);
+    const cmtLimitIdx = idx;
+    idx++;
+    unionSql = `${pinSelect}
+      UNION ALL
+      (SELECT
+        c.id,
+        p.org_id,
+        c.project_id,
+        c.phase_id,
+        SUBSTRING(c.content FROM 1 FOR 80) AS title,
+        c.content AS description,
+        'todo'::text AS status,
+        'medium'::text AS priority,
+        'general'::text AS category,
+        c.user_id AS created_by,
+        u.name AS created_by_name,
+        NULL::text AS assigned_to,
+        NULL::text AS assigned_to_name,
+        NULL::date AS due_date,
+        NULL::timestamptz AS reminder_at,
+        NULL::timestamptz AS completed_at,
+        c.created_at,
+        c.created_at AS updated_at,
+        p.name AS project_name,
+        pp.name AS phase_name,
+        NULL::uuid AS pin_comment_id,
+        NULL::uuid AS pin_attachment_id,
+        false AS is_starred,
+        0::int AS checklist_total,
+        0::int AS checklist_done,
+        'comment'::text AS _source
+      ${cmtFrom}
+      LEFT JOIN project_phase pp ON pp.id = c.phase_id
+      LEFT JOIN "user" u ON u.id = c.user_id
+      WHERE ${cmtWhere}
+      ORDER BY c.created_at DESC
+      LIMIT $${cmtLimitIdx})`;
+  }
+
+  values.push(limit);
+  const outerLimitIdx = idx;
+  idx++;
+  values.push(offset);
+  const outerOffsetIdx = idx;
+
+  // Count query — runs in parallel, reuses the WHERE clauses but skips the
+  // joins/columns the row select needs (we only care about row counts).
+  // Since branch caps trim the row set, COUNT(*) OVER() in the row query
+  // would under-report once the user has more than `branchCap` matches.
+  const countSql =
+    opts.bucket === "my_comments"
+      ? `SELECT
+           (SELECT COUNT(*) ${pinFrom} WHERE ${pinWhere})::int
+           + (SELECT COUNT(*) ${cmtFrom} WHERE ${cmtWhere})::int AS total`
+      : `SELECT COUNT(*)::int AS total ${pinFrom} WHERE ${pinWhere}`;
+
+  const [rowsRes, countRes] = await Promise.all([
+    pool.query(
+      `SELECT *
+       FROM (${unionSql}) combined
+       ORDER BY created_at DESC
+       LIMIT $${outerLimitIdx} OFFSET $${outerOffsetIdx}`,
+      values
+    ),
+    pool.query(countSql, whereValues),
+  ]);
+
+  return {
+    tasks: rowsRes.rows,
+    total: countRes.rows[0]?.total ?? 0,
+  };
 }
 
 /** Fetch a single task by ID with joined user, project, and phase names. */
@@ -293,28 +525,87 @@ export async function getTaskById(
   return rows[0] || null;
 }
 
-/** Get task counts for each smart bucket in a single query. */
+/**
+ * Get task counts for each bucket in the redesigned sidebar.
+ *
+ * Two parallel queries: one over `task` for the action-item buckets and one
+ * over `pin_comment` (joined through `attachment` → `project`) for the
+ * approval-flavoured buckets. The list endpoints for the approval buckets
+ * still return empty rows for now — the row-level UI lands with the
+ * polymorphic Request entity work in Phase 4 — but the badges are real.
+ *
+ * `reminders` and `mentions` are still 0 (Phase 2/3).
+ *
+ * `my_approvals` is 0 because pin_comment has no reviewer_id; without a
+ * concept of "this comment is waiting on user X's decision" we can't count
+ * it accurately, and a global "everyone's pending requests" would be the
+ * `all_requests` bucket instead.
+ */
 export async function getTaskBucketCounts(
   orgId: string,
   userId: string,
   assigneeOnly?: boolean
-) {
+): Promise<Record<string, number>> {
   const pool = getPool();
   const assigneeFilter = assigneeOnly ? " AND t.assigned_to = $2" : "";
-  const { rows } = await pool.query(
-    `SELECT
-       COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all,
-       COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS my_tasks,
-       COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS created_by_me,
-       COUNT(*) FILTER (WHERE ts.task_id IS NOT NULL AND t.status != 'archived'${assigneeFilter})::int AS starred,
-       COUNT(*) FILTER (WHERE t.due_date IS NOT NULL AND t.status NOT IN ('completed', 'archived')${assigneeFilter})::int AS upcoming,
-       COUNT(*) FILTER (WHERE t.status = 'completed'${assigneeFilter})::int AS completed
-     FROM task t
-     LEFT JOIN task_star ts ON ts.task_id = t.id AND ts.user_id = $2
-     WHERE t.org_id = $1${assigneeFilter}`,
-    [orgId, userId]
-  );
-  return rows[0];
+
+  const [taskRow, approvalRow, projectCommentRow] = await Promise.all([
+    pool
+      .query(
+        `SELECT
+           COUNT(*) FILTER (WHERE t.status != 'archived')::int AS all_tasks,
+           COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status NOT IN ('completed', 'archived'))::int AS important,
+           COUNT(*) FILTER (WHERE t.assigned_to = $2 AND t.status != 'archived')::int AS tasks_for_me,
+           COUNT(*) FILTER (WHERE t.created_by = $2 AND (t.assigned_to IS NULL OR t.assigned_to != $2) AND t.status != 'archived')::int AS tasks_by_me
+         FROM task t
+         WHERE t.org_id = $1${assigneeFilter}`,
+        [orgId, userId]
+      )
+      .then((r) => r.rows[0]),
+    pool
+      .query(
+        `SELECT
+           COUNT(*) FILTER (
+             WHERE pc.user_id = $2
+               AND (pc.request_approval OR pc.request_changes)
+               AND NOT pc.resolved
+           )::int AS my_requests,
+           COUNT(*) FILTER (WHERE pc.user_id = $2)::int AS my_comments,
+           COUNT(*) FILTER (
+             WHERE pc.request_approval AND NOT pc.resolved
+           )::int AS all_requests
+         FROM pin_comment pc
+         JOIN attachment a ON a.id = pc.attachment_id
+         JOIN project p ON p.id = a.project_id
+         WHERE p.org_id = $1`,
+        [orgId, userId]
+      )
+      .then((r) => r.rows[0]),
+    pool
+      .query(
+        `SELECT COUNT(*)::int AS my_project_comments
+         FROM comment c
+         JOIN project p ON p.id = c.project_id
+         WHERE p.org_id = $1 AND c.user_id = $2`,
+        [orgId, userId]
+      )
+      .then((r) => r.rows[0]),
+  ]);
+
+  return {
+    important: taskRow.important ?? 0,
+    reminders: 0,
+    mentions: 0,
+    tasks_for_me: taskRow.tasks_for_me ?? 0,
+    tasks_by_me: taskRow.tasks_by_me ?? 0,
+    my_requests: approvalRow.my_requests ?? 0,
+    my_approvals: 0,
+    my_comments:
+      (approvalRow.my_comments ?? 0) +
+      (projectCommentRow.my_project_comments ?? 0),
+    all_tasks: taskRow.all_tasks ?? 0,
+    all_requests: approvalRow.all_requests ?? 0,
+  };
 }
 
 // ---------------------------------------------------------------------------

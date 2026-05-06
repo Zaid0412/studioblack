@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import {
   getTasks,
-  getTaskBucketCounts,
   getMemberRole,
   validateOrgMembership,
   validateProjectInOrg,
@@ -14,28 +13,33 @@ import {
 } from "@/lib/notifications";
 import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
-import { parseRequest, createTaskSchema } from "@/lib/validations";
+import {
+  parseRequest,
+  createTaskSchema,
+  TASK_BUCKETS,
+  type TaskBucket,
+} from "@/lib/validations";
 import { logger } from "@/lib/logger";
 
-const VALID_BUCKETS = [
-  "all",
-  "my_tasks",
-  "created_by_me",
-  "starred",
-  "upcoming",
-  "completed",
-];
+const VALID_BUCKETS: ReadonlySet<string> = new Set(TASK_BUCKETS);
 
-/** GET /api/tasks — list tasks with smart bucket filters. */
+/**
+ * GET /api/tasks — list tasks for the active bucket + filters.
+ *
+ * Bucket counts are NOT returned here — every page click / filter change
+ * would otherwise refire the 3-query count bundle even though counts only
+ * change on writes. Fetch them separately from `/api/tasks/counts` (with
+ * a longer SWR dedupe) and `mutate()` that key explicitly on writes.
+ */
 export const GET = withAuth(
   { blockedRoles: ["client"] },
   async (req, { user, orgId }) => {
     if (!orgId) {
-      return NextResponse.json({ tasks: [], counts: {} });
+      return NextResponse.json({ tasks: [], total: 0 });
     }
 
     const { searchParams } = req.nextUrl;
-    const bucket = searchParams.get("bucket") || "all";
+    const bucket = searchParams.get("bucket") || "all_tasks";
     const projectId = searchParams.get("projectId") || undefined;
     const status = searchParams.get("status") || undefined;
     const priority = searchParams.get("priority") || undefined;
@@ -51,39 +55,31 @@ export const GET = withAuth(
     // Architects only see tasks assigned to them
     const memberRole = await getMemberRole(orgId, user.id);
     if (!memberRole) {
-      return NextResponse.json({ tasks: [], counts: {}, total: 0 });
+      return NextResponse.json({ tasks: [], total: 0 });
     }
     const isArchitect = memberRole === "member";
 
-    const [taskResult, counts] = await Promise.all([
-      getTasks({
-        orgId,
-        bucket: VALID_BUCKETS.includes(bucket)
-          ? (bucket as
-              | "all"
-              | "my_tasks"
-              | "created_by_me"
-              | "starred"
-              | "upcoming"
-              | "completed")
-          : "all",
-        userId: user.id,
-        assigneeOnly: isArchitect,
-        projectId,
-        status,
-        priority,
-        category,
-        phaseId,
-        search,
-        page,
-        limit,
-      }),
-      getTaskBucketCounts(orgId, user.id, isArchitect),
-    ]);
+    const resolvedBucket: TaskBucket = VALID_BUCKETS.has(bucket)
+      ? (bucket as TaskBucket)
+      : "all_tasks";
+
+    const taskResult = await getTasks({
+      orgId,
+      bucket: resolvedBucket,
+      userId: user.id,
+      assigneeOnly: isArchitect,
+      projectId,
+      status,
+      priority,
+      category,
+      phaseId,
+      search,
+      page,
+      limit,
+    });
 
     return NextResponse.json({
       tasks: taskResult.tasks,
-      counts,
       total: taskResult.total,
       role: isArchitect ? "architect" : "pm",
     });

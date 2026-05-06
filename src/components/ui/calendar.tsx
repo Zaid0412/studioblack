@@ -25,15 +25,14 @@ function Calendar({
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row gap-4",
-        month: "flex flex-col gap-4",
-        month_caption: "flex items-center justify-center",
-        caption_label:
-          "text-sm font-medium text-text-primary flex-1 text-center",
-        nav: "contents",
+        month: "flex flex-col gap-4 relative",
+        month_caption: "flex items-center justify-center h-7 px-9",
+        caption_label: "text-sm font-medium text-text-primary",
+        nav: "absolute inset-x-0 top-0 flex items-center justify-between pointer-events-none",
         button_previous:
-          "inline-flex items-center justify-center h-7 w-7 rounded-md border-0 bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer order-first",
+          "inline-flex items-center justify-center h-7 w-7 rounded-md border-0 bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer pointer-events-auto",
         button_next:
-          "inline-flex items-center justify-center h-7 w-7 rounded-md border-0 bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer order-last",
+          "inline-flex items-center justify-center h-7 w-7 rounded-md border-0 bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer pointer-events-auto",
         month_grid: "w-full border-collapse",
         weekdays: "flex",
         weekday:

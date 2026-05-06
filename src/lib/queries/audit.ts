@@ -2,32 +2,17 @@ import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import type { AuditEvent } from "@/types";
 
-/**
- * Where the audit event originated. Distinguishes PM-acting-on-vendor (default,
- * not set) from vendor-acting-on-self via the portal — useful when reading the
- * F21 audit log to answer "did the vendor change this, or did we?"
- */
-export const AUDIT_SOURCES = {
-  SELF_SERVICE: "self_service",
-} as const;
-export type AuditSource = (typeof AUDIT_SOURCES)[keyof typeof AUDIT_SOURCES];
-
-/** Stable identifiers for audit log entries. Append-only — never rename. */
-export const AUDIT_ACTIONS = {
-  VENDOR_BANK_READ: "vendor.bank_details.read",
-  VENDOR_BANK_WRITE: "vendor.bank_details.write",
-  VENDOR_BANK_CLEAR: "vendor.bank_details.clear",
-  VENDOR_KYC_DOCUMENT_ADDED: "vendor.kyc.document_added",
-  VENDOR_KYC_DOCUMENT_REMOVED: "vendor.kyc.document_removed",
-  VENDOR_KYC_STATUS_CHANGED: "vendor.kyc.status_changed",
-  VENDOR_PROFILE_UPDATED: "vendor.profile.updated",
-  VENDOR_CONTACT_ADDED: "vendor.contact.added",
-  VENDOR_CONTACT_UPDATED: "vendor.contact.updated",
-  VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
-  RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
-  RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
-} as const;
-export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+// Constants + types live in a separate module so client components can
+// reference action keys (e.g. in the timeline UI) without dragging the
+// db pool — and pg's Node-only deps (`net`, `tls`, `dns`, `fs`) — into
+// the browser bundle.
+export {
+  AUDIT_SOURCES,
+  AUDIT_ACTIONS,
+  TASK_AUDIT_ACTIONS,
+  type AuditSource,
+  type AuditAction,
+} from "@/lib/auditConstants";
 
 /**
  * Append a structured audit event. Used by sensitive endpoints (e.g. vendor

@@ -131,6 +131,7 @@ export function Sidebar({
     },
     { href: "/vendor-portal/invoices", label: t("invoices"), icon: Receipt },
     { href: "/vendor-portal/profile", label: t("profile"), icon: UserCog },
+    { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 

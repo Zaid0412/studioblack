@@ -11,6 +11,8 @@ export * from "./projects";
 export * from "./phaseTasks";
 export * from "./tasks";
 export * from "./taskAttachments";
+export * from "./taskComments";
+export * from "./taskActivity";
 export * from "./checklists";
 export * from "./attachments";
 export * from "./attachmentReviews";

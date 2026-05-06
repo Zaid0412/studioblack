@@ -1,5 +1,6 @@
-import type { TaskPriority, TaskStatus, TaskCategory } from "@/types";
+import type { Task, TaskPriority, TaskStatus, TaskCategory } from "@/types";
 import { deriveInitials } from "@/lib/utils";
+import { pinCommentReviewHref } from "./pinUtils";
 
 // ---------------------------------------------------------------------------
 // Option arrays (for dropdowns / selects)
@@ -39,6 +40,19 @@ export const PRIORITY_DOT: Record<TaskPriority, string> = {
   medium: "bg-yellow-500",
   low: "bg-gray-400",
 };
+
+/** Tailwind classes for a priority pill — used in the task sidebar pickers. */
+export const PRIORITY_PILL: Record<TaskPriority, string> = {
+  urgent: "bg-red-500/10 text-red-500",
+  high: "bg-warning/10 text-warning",
+  medium: "bg-info/10 text-info",
+  low: "bg-text-muted/15 text-text-muted",
+};
+
+/** Same lookup as `PRIORITY_PILL` but tolerates an unknown string. */
+export function priorityClass(priority: string): string {
+  return PRIORITY_PILL[priority as TaskPriority] ?? "bg-info/10 text-info";
+}
 
 export const PRIORITY_LABEL: Record<TaskPriority, string> = {
   low: "Low",
@@ -101,6 +115,47 @@ export function isOverdue(dueDate: string | null, status?: string): boolean {
   if (!dueDate) return false;
   if (status === "completed") return false;
   return new Date(dueDate) < new Date(new Date().toDateString());
+}
+
+/**
+ * Where a task row should open when clicked.
+ *
+ * Real tasks open the global side panel (the caller pushes `?task=<id>`
+ * onto the URL — `kind === "panel"`). Approval-bucket rows are
+ * synthesized from `pin_comment` / `comment` and deep-link to the
+ * underlying record (`kind === "link"` with an `href`). Synthetic rows
+ * with broken refs (e.g. a pin_comment without an attachment, or a
+ * comment without a project) get `kind === "none"` — the row is shown
+ * but not clickable, instead of falling through to a phantom task id.
+ *
+ * Centralized so `openTask` (tasks/page.tsx), `OpenLink` (TaskRow), and
+ * any future surface stay in lockstep on the routing decision.
+ */
+export type TaskOpenTarget =
+  | { kind: "panel"; taskId: string; label: string }
+  | { kind: "link"; href: string; label: string }
+  | { kind: "none" };
+
+/** Resolve a task row to its click destination — see `TaskOpenTarget` above. */
+export function getTaskOpenTarget(task: Task): TaskOpenTarget {
+  if (task._source === "pin_comment") {
+    const reviewHref = pinCommentReviewHref(task);
+    if (!reviewHref) return { kind: "none" };
+    return {
+      kind: "link",
+      href: reviewHref,
+      label: "Open review comment",
+    };
+  }
+  if (task._source === "comment") {
+    if (!task.project_id) return { kind: "none" };
+    return {
+      kind: "link",
+      href: `/projects/${task.project_id}`,
+      label: "Open project",
+    };
+  }
+  return { kind: "panel", taskId: task.id, label: "Open task page" };
 }
 
 export {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
@@ -10,38 +10,25 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
-import { authClient } from "@/lib/authClient";
-import { projects as projectsApi } from "@/lib/api";
-import { useOrgMembers } from "@/hooks/useOrgMembers";
-import type { TaskListResponse } from "@/lib/api/tasks";
+import type { TaskListResponse, TaskCountsResponse } from "@/lib/api/tasks";
+import { API } from "@/lib/api/routes";
 import { useSwrFieldAdapter } from "@/lib/swr";
 import { useTaskCrud } from "@/hooks/useTaskCrud";
-import type { Task, TaskFormData } from "@/types";
-import { TaskDetailModal } from "./_components/TaskDetailModal";
-import { TaskFormDialog } from "./_components/TaskFormDialog";
+import type { Task } from "@/types";
+import {
+  TASK_BUCKETS,
+  isApprovalBucket,
+  type TaskBucket,
+} from "@/lib/validations";
+import { getTaskOpenTarget } from "@/lib/taskUtils";
 import { TaskDeleteDialog } from "./_components/TaskDeleteDialog";
 import {
   TaskBucketSidebar,
-  type Bucket,
   type BucketCounts,
 } from "./_components/TaskBucketSidebar";
 import { TaskFilterBar } from "./_components/TaskFilterBar";
-import { TaskRow, TaskRowHeader } from "./_components/TaskRow";
+import { TaskRow } from "./_components/TaskRow";
 import { SkeletonRow } from "@/components/ui/Skeleton";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface ProjectOption {
-  id: string;
-  name: string;
-}
-
-interface PhaseOption {
-  id: string;
-  name: string;
-}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -49,27 +36,17 @@ interface PhaseOption {
 
 const PAGE_SIZE = 15;
 
-const EMPTY_FORM: TaskFormData = {
-  title: "",
-  description: "",
-  projectId: "",
-  phaseId: "",
-  priority: "medium",
-  checklistItems: [],
-  pendingFiles: [],
-  category: "general",
-  assignedTo: "",
-  dueDate: "",
-};
+const DEFAULT_COUNTS: BucketCounts = TASK_BUCKETS.reduce(
+  (acc, key) => ({ ...acc, [key]: 0 }),
+  {} as BucketCounts
+);
 
-const DEFAULT_COUNTS: BucketCounts = {
-  all: 0,
-  my_tasks: 0,
-  created_by_me: 0,
-  starred: 0,
-  upcoming: 0,
-  completed: 0,
-};
+const VALID_BUCKETS_SET = new Set<string>(TASK_BUCKETS);
+function asBucket(value: string | null): TaskBucket {
+  return value && VALID_BUCKETS_SET.has(value)
+    ? (value as TaskBucket)
+    : "all_tasks";
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -80,11 +57,9 @@ export default function TasksPage() {
   const t = useTranslations("tasks");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = authClient.useSession();
-  const { members } = useOrgMembers({ assignableOnly: false });
 
   // -- Filter state (from URL) --
-  const activeBucket = (searchParams.get("bucket") as Bucket) || "all";
+  const activeBucket = asBucket(searchParams.get("bucket"));
   const searchValue = searchParams.get("search") || "";
   const statusFilter = searchParams.get("status") || "all";
   const priorityFilter = searchParams.get("priority") || "all";
@@ -119,58 +94,27 @@ export default function TasksPage() {
     { keepPreviousData: true }
   );
 
+  // Counts run on a separate cache key so paginated list requests don't
+  // refire the 3-query count bundle. 60s dedupe is safe because counts
+  // change only on writes (create/delete/star/status), all of which call
+  // `mutateCounts()` explicitly below via `useTaskCrud`.
+  const { data: countsData, mutate: mutateCounts } = useSWR<TaskCountsResponse>(
+    API.taskCounts(),
+    { dedupingInterval: 60_000 }
+  );
+
   const tasks = data?.tasks ?? [];
-  const counts = (data?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
+  const counts =
+    (countsData?.counts as unknown as BucketCounts) ?? DEFAULT_COUNTS;
   const totalTasks = data?.total ?? 0;
-  const taskRole = data?.role;
+  const taskRole = data?.role ?? countsData?.role;
   const isRefreshing = isValidating && !isLoading;
 
-  // Adapters: translate SWR mutate into setTasks/setCounts for useTaskCrud
+  // Adapter: translate SWR mutate into setTasks for useTaskCrud
   const setTasks = useSwrFieldAdapter<TaskListResponse, Task[]>(
     mutate,
     "tasks"
   );
-  const setCounts = useSwrFieldAdapter<
-    TaskListResponse,
-    Record<string, number>
-  >(mutate, "counts");
-
-  // -- Side data --
-  const { data: projectsRaw } =
-    useSWR<{ id: string; name: string }[]>("/api/projects");
-  const projects: ProjectOption[] = useMemo(
-    () => (projectsRaw ?? []).map((p) => ({ id: p.id, name: p.name })),
-    [projectsRaw]
-  );
-  const [phases, setPhases] = useState<PhaseOption[]>([]);
-  const [loadingPhases, setLoadingPhases] = useState(false);
-
-  // -- Fetch phases for a project --
-  const fetchPhases = useCallback(async (projectId: string) => {
-    if (!projectId) {
-      setPhases([]);
-      return;
-    }
-    setLoadingPhases(true);
-    try {
-      const data = await projectsApi.get<{
-        phases?: { id: string; name: string }[];
-      }>(projectId);
-      setPhases(
-        (data.phases ?? []).map((p) => ({
-          id: p.id,
-          name: p.name,
-        }))
-      );
-    } catch {
-      setPhases([]);
-    } finally {
-      setLoadingPhases(false);
-    }
-  }, []);
-
-  // -- Detail modal --
-  const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   // -- URL helpers --
   const setParam = useCallback(
@@ -188,33 +132,39 @@ export default function TasksPage() {
     [searchParams, router]
   );
 
-  // -- Task CRUD (dialog, delete, toggle, submit) --
+  // Routing decision lives in `getTaskOpenTarget` (taskUtils) so the row
+  // click here, the OpenLink anchor in TaskRow, and any future surface
+  // stay in lockstep.
+  const openTask = useCallback(
+    (task: Task) => {
+      const target = getTaskOpenTarget(task);
+      if (target.kind === "none") return;
+      if (target.kind === "link") {
+        router.push(target.href);
+        return;
+      }
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("task", target.taskId);
+      router.replace(`/tasks?${params.toString()}`, { scroll: false });
+    },
+    [searchParams, router]
+  );
+
+  // -- Task CRUD (delete, toggle, edit-routes-to-page) --
   const {
-    dialogOpen,
-    setDialogOpen,
-    editingTask,
-    setEditingTask,
-    formData,
-    setFormData,
-    submitting,
     deleteTarget,
     setDeleteTarget,
     deleting,
     toggleStatus,
     toggleStar,
-    handleSubmit,
     handleDelete,
     openEdit,
-    openCreate,
   } = useTaskCrud({
     fetchTasks: () => {
       mutate();
+      mutateCounts();
     },
     setTasks,
-    setCounts,
-    defaultForm: EMPTY_FORM,
-    onFetchPhases: fetchPhases,
-    currentUserId: session?.user?.id,
   });
 
   // -- Pagination (server-side) --
@@ -236,9 +186,10 @@ export default function TasksPage() {
             <RefreshButton
               onRefresh={() => {
                 mutate();
+                mutateCounts();
               }}
             />
-            <Button onClick={openCreate}>
+            <Button onClick={() => router.push("/tasks/new")}>
               <Plus className="w-4 h-4" />
               {t("newTask")}
             </Button>
@@ -253,7 +204,7 @@ export default function TasksPage() {
           counts={counts}
           role={taskRole}
           onSelect={(bucket) =>
-            setParam("bucket", bucket === "all" ? "" : bucket)
+            setParam("bucket", bucket === "all_tasks" ? "" : bucket)
           }
         />
 
@@ -269,8 +220,6 @@ export default function TasksPage() {
 
           {/* Task list */}
           <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
-            <TaskRowHeader showGoToProject />
-
             {/* Table body */}
             <div
               className={`flex-1 transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
@@ -282,12 +231,23 @@ export default function TasksPage() {
                   ))}
                 </div>
               ) : tasks.length === 0 ? (
-                <EmptyState
-                  icon={CheckSquare}
-                  title={t("noTasksTitle")}
-                  description={t("noTasksDescription")}
-                  action={{ label: t("createTask"), onClick: openCreate }}
-                />
+                isApprovalBucket(activeBucket) ? (
+                  <EmptyState
+                    icon={CheckSquare}
+                    title={t("noTasksTitle")}
+                    description={t("noTasksDescription")}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={CheckSquare}
+                    title={t("noTasksTitle")}
+                    description={t("noTasksDescription")}
+                    action={{
+                      label: t("createTask"),
+                      onClick: () => router.push("/tasks/new"),
+                    }}
+                  />
+                )
               ) : (
                 tasks.map((task) => (
                   <TaskRow
@@ -297,18 +257,7 @@ export default function TasksPage() {
                     onToggleStatus={toggleStatus}
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
-                    onClick={setDetailTask}
-                    onGoToProject={(t) => {
-                      if (t.pin_comment_id && t.pin_attachment_id) {
-                        router.push(
-                          `/projects/${t.project_id}/review/${t.pin_attachment_id}?comments=open&pinId=${t.pin_comment_id}`
-                        );
-                      } else {
-                        router.push(
-                          `/projects/${t.project_id}?highlightTask=${t.id}`
-                        );
-                      }
-                    }}
+                    onClick={openTask}
                   />
                 ))
               )}
@@ -331,62 +280,10 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Task Detail Modal */}
-      <TaskDetailModal
-        task={detailTask}
-        open={!!detailTask}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetailTask(null);
-            mutate();
-          }
-        }}
-        onEdit={(task) => {
-          setDetailTask(null);
-          openEdit(task);
-        }}
-        onToggleStatus={(task) => {
-          toggleStatus(task);
-          setDetailTask(null);
-        }}
-        onToggleStar={(task) => {
-          toggleStar(task);
-          setDetailTask({ ...task, is_starred: !task.is_starred });
-        }}
-        onDelete={(task) => {
-          setDetailTask(null);
-          setDeleteTarget(task);
-        }}
-        onChecklistChange={() => {
-          mutate();
-        }}
-      />
-
-      {/* Create / Edit Task Dialog */}
-      <TaskFormDialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDialogOpen(false);
-            setEditingTask(null);
-            setFormData(EMPTY_FORM);
-          }
-        }}
-        editingTask={editingTask}
-        formData={formData}
-        setFormData={setFormData}
-        submitting={submitting}
-        onSubmit={handleSubmit}
-        projects={projects}
-        phases={phases}
-        loadingPhases={loadingPhases}
-        onProjectChange={fetchPhases}
-        members={members.map((m) => ({
-          id: m.userId,
-          name: m.user.name,
-          email: m.user.email,
-        }))}
-      />
+      {/* Detail view is the global TaskSidePanelHost mounted in the dashboard
+       * layout — it opens whenever ?task=<id> is in the URL, so a row click
+       * just calls openTask above. Create + edit live at /tasks/new and
+       * /tasks/[id] respectively. */}
 
       {/* Delete Confirmation Dialog */}
       <TaskDeleteDialog

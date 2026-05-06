@@ -4,6 +4,7 @@ export * as attachments from "./attachments";
 export * as pinComments from "./pinComments";
 export * as comments from "./comments";
 export * as tasks from "./tasks";
+export * as taskComments from "./taskComments";
 export * as notifications from "./notifications";
 export * as upload from "./upload";
 export * as approvals from "./approvals";

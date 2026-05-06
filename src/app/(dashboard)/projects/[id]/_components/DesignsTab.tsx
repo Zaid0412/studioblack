@@ -112,12 +112,6 @@ export function DesignsTab({
             projectId={projectId}
             activePhaseId={activePhaseId}
             highlightTaskId={highlightTaskId}
-            phases={project.phases.map((p) => ({ id: p.id, name: p.name }))}
-            members={project.members.map((m) => ({
-              user_id: m.user_id,
-              user_name: m.name,
-              user_email: m.email,
-            }))}
           />
         </div>
       )}

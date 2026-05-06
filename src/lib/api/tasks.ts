@@ -9,8 +9,12 @@ import type {
 
 export interface TaskListResponse {
   tasks: Task[];
-  counts: Record<string, number>;
   total: number;
+  role?: "pm" | "architect";
+}
+
+export interface TaskCountsResponse {
+  counts: Record<string, number>;
   role?: "pm" | "architect";
 }
 

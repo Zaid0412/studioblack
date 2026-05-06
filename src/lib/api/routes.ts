@@ -49,6 +49,7 @@ export const API = {
 
   // ── Tasks ───────────────────────────────────────
   tasks:                 ()                            => "/api/tasks",
+  taskCounts:            ()                            => "/api/tasks/counts",
   task:                  (id: string)                  => `/api/tasks/${id}`,
   taskStar:              (id: string)                  => `/api/tasks/${id}/star`,
 
@@ -60,6 +61,13 @@ export const API = {
   // ── Task → Attachments ─────────────────────────
   taskAttachments:       (tid: string)                 => `/api/tasks/${tid}/attachments`,
   taskAttachment:        (tid: string, aid: string)    => `/api/tasks/${tid}/attachments/${aid}`,
+
+  // ── Task → Comments ────────────────────────────
+  taskComments:          (tid: string)                 => `/api/tasks/${tid}/comments`,
+  taskComment:           (tid: string, cid: string)    => `/api/tasks/${tid}/comments/${cid}`,
+
+  // ── Task → Activity (merged comments + audit events) ──
+  taskActivity:          (tid: string)                 => `/api/tasks/${tid}/activity`,
 
   // ── Notifications ──────────────────────────────
   notifications:         ()                            => "/api/notifications",

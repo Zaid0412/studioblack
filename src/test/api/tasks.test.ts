@@ -92,37 +92,29 @@ describe("GET /api/tasks", () => {
     expect(status).toBe(403);
   });
 
-  it("returns tasks with filters", async () => {
+  it("returns tasks with filters (no counts — counts live on /counts)", async () => {
     const tasks = [fakeTask];
     vi.mocked(getTasks).mockResolvedValue({ tasks, total: 1 });
-    vi.mocked(getTaskBucketCounts).mockResolvedValue({
-      all: 1,
-      my_tasks: 1,
-      created_by_me: 1,
-      starred: 0,
-      upcoming: 0,
-      completed: 0,
-    });
 
     const req = buildRequest("/api/tasks", {
-      searchParams: { bucket: "all", status: "todo" },
+      searchParams: { bucket: "all_tasks", status: "todo" },
     });
     const res = await GET(req);
     const { status, body } = await parseResponse<{
       tasks: unknown[];
-      counts: Record<string, number>;
       total: number;
+      role?: string;
     }>(res);
 
     expect(status).toBe(200);
     expect(body.tasks).toHaveLength(1);
     expect(body.total).toBe(1);
-    expect(body.counts).toBeDefined();
+    // The list endpoint must not run the count bundle anymore.
+    expect(getTaskBucketCounts).not.toHaveBeenCalled();
   });
 
   it("returns empty results", async () => {
     vi.mocked(getTasks).mockResolvedValue({ tasks: [], total: 0 });
-    vi.mocked(getTaskBucketCounts).mockResolvedValue({});
 
     const req = buildRequest("/api/tasks");
     const res = await GET(req);
