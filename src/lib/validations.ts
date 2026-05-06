@@ -572,6 +572,19 @@ export const reorderSectionsSchema = z.object({
   orderedIds: z.array(uuid).min(1),
 });
 
+/**
+ * `unit` is intentionally loose `string ≤ 30` rather than `z.enum(ALLOWED_UNITS)`
+ * on both create and update.
+ *
+ * The "Add line item" dialog and the BOQ Excel import both clamp input to the
+ * enum (via `UnitSelect` and `boqImportRowSchema` respectively), so new
+ * data lands on the enum. The schemas stay loose so legacy rows whose unit
+ * predates the current enum (or carries a custom string) can still be
+ * edited via PATCH without forcing a backfill — the user can fix the
+ * value in the UI without the API rejecting unrelated edits.
+ *
+ * Tighten to `z.enum(ALLOWED_UNITS)` once the data is known clean.
+ */
 export const createBoqItemSchema = z.object({
   sectionId: optionalUuid.nullable(),
   elementId: optionalUuid.nullable(),

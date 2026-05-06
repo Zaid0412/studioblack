@@ -84,6 +84,11 @@ export function BoqItemDrawer({
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
+  // True while ANY inline-edit cell is mid-PATCH. Used to disable the other
+  // cells so a fast user can't blur cell A → blur cell B before A returns
+  // and have B's PATCH go out with a stale `item.updated_at` (→ 409 + a
+  // silently-lost edit).
+  const [savingField, setSavingField] = useState(false);
   const [transitioning, setTransitioning] =
     useState<BoqItemLifecycleStatus | null>(null);
 
@@ -145,10 +150,15 @@ export function BoqItemDrawer({
   };
 
   const saveField = async (patch: Partial<UpdateItemPayload>) => {
-    await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
+    setSavingField(true);
+    try {
+      await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
+    } finally {
+      setSavingField(false);
+    }
   };
 
-  const fieldsDisabled = !canEdit || rowLocked;
+  const fieldsDisabled = !canEdit || rowLocked || savingField;
 
   const allowedNext = LIFECYCLE_TRANSITIONS[item.lifecycle_status] ?? [];
 
@@ -400,9 +410,12 @@ type EditableFieldProps = {
 >;
 
 /**
- * Each save fires its own PATCH with the current `item.updated_at`; SWR
- * replaces the row before the next field's save runs, so blur-tabbing through
- * fields doesn't trip the optimistic-lock.
+ * Each save fires its own PATCH with the current `item.updated_at`. While a
+ * save is in flight, the parent disables every cell (`fieldsDisabled |=
+ * savingField`) so a fast user can't blur cell A → click cell B → blur
+ * cell B before A's response lands and have B's PATCH go out with a stale
+ * token. The user has to wait for the prior save to settle before editing
+ * the next cell — no overlapping PATCHes.
  */
 function EditableField({
   label,

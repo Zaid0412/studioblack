@@ -63,16 +63,21 @@ export function PendingReviewsPopover({
         sideOffset={8}
         className="w-[420px] p-0 overflow-hidden"
       >
-        <PopoverBody />
+        <PopoverBody totalCount={count} />
       </PopoverContent>
     </Popover>
   );
 }
 
-function PopoverBody() {
+function PopoverBody({ totalCount }: { totalCount: number }) {
+  // Suppress the global `onError` toast (`src/lib/swr.ts`) for this fetch —
+  // the popover renders its own `ErrorView` inline; firing both is noise.
   const { data, isLoading, error } = useSWR<{ reviews: PendingReviewRow[] }>(
-    API.dashboardPendingReviews()
+    API.dashboardPendingReviews(),
+    { onError: () => {} }
   );
+  const shown = data?.reviews.length ?? 0;
+  const truncated = data && shown < totalCount;
 
   return (
     <>
@@ -82,7 +87,7 @@ function PopoverBody() {
         </span>
         {data && (
           <span className="text-xs font-bold text-accent tabular-nums">
-            {data.reviews.length}
+            {truncated ? `${shown} of ${totalCount}` : shown}
           </span>
         )}
       </header>

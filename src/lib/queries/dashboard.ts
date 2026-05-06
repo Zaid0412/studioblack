@@ -35,7 +35,7 @@ export async function getPendingReviews(
      LEFT JOIN "user" u ON u.id = a.uploaded_by
      WHERE p.org_id = $1
        AND a.review_status = 'pending'
-     ORDER BY a.created_at DESC
+     ORDER BY a.created_at DESC, a.id DESC
      LIMIT $2`,
     [orgId, limit]
   );

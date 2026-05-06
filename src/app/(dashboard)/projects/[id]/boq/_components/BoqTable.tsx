@@ -92,12 +92,13 @@ export const GRID_COLS =
   "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
 
 /**
- * Sum of the fixed column widths above plus 11 inter-column gaps (gap-2 =
- * 8px) — applied as `min-w` on the table's scrollable wrapper so columns
- * never squish below their declared sizes. When the viewport is narrower,
- * the wrapper scrolls horizontally instead and header + rows stay aligned.
+ * Sum of the fixed column widths above (999px) plus 11 inter-column gaps
+ * (gap-2 = 88px) = 1087px. Applied as `min-w` on the table's scrollable
+ * wrapper so columns never squish below their declared sizes; below the
+ * threshold the wrapper scrolls horizontally instead, keeping header and
+ * rows aligned.
  */
-export const TABLE_MIN_WIDTH = "min-w-[1187px]";
+export const TABLE_MIN_WIDTH = "min-w-[1087px]";
 
 function isBoqLocked(status: BoqStatus): boolean {
   return status === "locked" || status === "superseded";
