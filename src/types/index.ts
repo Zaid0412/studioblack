@@ -607,6 +607,8 @@ export interface ParsedBoqValues {
   labourCost?: number;
   overheadPct?: number;
   marginPct?: number;
+  clientRate?: number;
+  budgetRate?: number;
   notes?: string;
   clientNotes?: string;
   isProvisional?: boolean;

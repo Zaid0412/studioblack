@@ -30,6 +30,8 @@ export interface ParsedElementValues {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number;
+  budgetRate?: number;
   specReference?: string;
   drawingRef?: string;
   tags?: string[];
@@ -85,6 +87,8 @@ const TEMPLATE_COLUMNS = {
   overheadPct: "Overhead %",
   serviceChargePct: "Service Charge %",
   marginPct: "Margin %",
+  clientRate: "Client Rate",
+  budgetRate: "Budget Rate",
   specReference: "Spec Reference",
   drawingRef: "Drawing Ref",
   tags: "Tags",

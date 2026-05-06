@@ -811,6 +811,8 @@ export interface BulkElementRow {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number;
+  budgetRate?: number;
   specReference?: string;
   drawingRef?: string;
   tags?: string[];
@@ -911,11 +913,13 @@ async function tryInsertElementRow(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
         currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
+        client_rate, budget_rate,
         spec_reference, drawing_ref, tags, created_by)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11, $12, $13,
-        $14, $15, $16, $17)
+        $14, $15,
+        $16, $17, $18, $19)
      RETURNING id`,
     [
       orgId,
@@ -931,6 +935,8 @@ async function tryInsertElementRow(
       row.overheadPct ?? null,
       row.serviceChargePct ?? null,
       row.marginPct ?? null,
+      row.clientRate ?? null,
+      row.budgetRate ?? null,
       row.specReference ?? null,
       row.drawingRef ?? null,
       row.tags && row.tags.length > 0 ? row.tags : null,
@@ -1019,11 +1025,8 @@ async function insertElementVersion(
       row.overheadPct ?? prev.overhead_pct,
       row.serviceChargePct ?? prev.service_charge_pct,
       row.marginPct ?? prev.margin_pct,
-      // BulkElementRow doesn't carry rates yet (Phase 3 Excel round-trip).
-      // Inherit from the previous version so re-importing doesn't wipe a
-      // rate captured via the form.
-      prev.client_rate,
-      prev.budget_rate,
+      row.clientRate ?? prev.client_rate,
+      row.budgetRate ?? prev.budget_rate,
       row.specReference ?? prev.spec_reference,
       row.drawingRef ?? prev.drawing_ref,
       row.tags && row.tags.length > 0 ? row.tags : prev.tags,
@@ -1083,6 +1086,8 @@ async function overwriteElementRow(
   if (row.serviceChargePct !== undefined)
     push("service_charge_pct", row.serviceChargePct);
   if (row.marginPct !== undefined) push("margin_pct", row.marginPct);
+  if (row.clientRate !== undefined) push("client_rate", row.clientRate);
+  if (row.budgetRate !== undefined) push("budget_rate", row.budgetRate);
   if (row.specReference !== undefined)
     push("spec_reference", row.specReference);
   if (row.drawingRef !== undefined) push("drawing_ref", row.drawingRef);

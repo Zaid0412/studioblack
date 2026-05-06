@@ -1066,15 +1066,19 @@ export async function bulkInsertBoqItems(
           `INSERT INTO boq_item (
              boq_id, section_id, element_id, source, item_code, description, unit,
              quantity, unit_cost, material_cost, labour_cost,
-             overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
+             overhead_pct, service_charge_pct, margin_pct,
+             client_rate, budget_rate,
+             notes, client_notes,
              sort_order, is_provisional
            ) VALUES (
              $1, $2::uuid, $3::uuid,
              CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
              $4, $5, $6,
              $7::numeric, $8::numeric, $9::numeric, $10::numeric,
-             COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0), $14, $15,
-             $16::int, COALESCE($17, false)
+             COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
+             $14::numeric, $15::numeric,
+             $16, $17,
+             $18::int, COALESCE($19, false)
            )`,
           [
             boqId,
@@ -1090,6 +1094,8 @@ export async function bulkInsertBoqItems(
             row.overheadPct ?? null,
             row.serviceChargePct ?? null,
             row.marginPct ?? null,
+            row.clientRate ?? null,
+            row.budgetRate ?? null,
             row.notes ?? null,
             row.clientNotes ?? null,
             sortOrder,
