@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -21,17 +21,19 @@ import { Avatar } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { authClient } from "@/lib/authClient";
-import { tasks as tasksApi, projects as projectsApi } from "@/lib/api";
+import { tasks as tasksApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
-import { PRIORITIES, CATEGORIES, capitalize } from "@/lib/taskUtils";
+import {
+  PRIORITIES,
+  CATEGORIES,
+  capitalize,
+  priorityClass,
+} from "@/lib/taskUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import { TaskMarkdownEditor } from "@/components/tasks/TaskMarkdownEditor";
-import {
-  FieldCard,
-  PickerPanel,
-  priorityClass,
-} from "@/components/tasks/MetadataPickers";
+import { FieldCard, PickerPanel } from "@/components/tasks/MetadataPickers";
 import type { OrgMember } from "@/types";
 
 interface ProjectOption {
@@ -69,52 +71,27 @@ export default function NewTaskPage() {
   const [phaseId, setPhaseId] = useState<string>("");
   const [priority, setPriority] = useState<string>("medium");
   const [category, setCategory] = useState<string>("general");
-  const [assignedTo, setAssignedTo] = useState<string>("");
+  // Assignee defaults to the current session user. `null` = not yet
+  // customised (still tracking the session); once the user picks anything
+  // (including "" for unassigned), the override sticks.
+  const [assignedToOverride, setAssignedTo] = useState<string | null>(null);
+  const assignedTo =
+    assignedToOverride !== null
+      ? assignedToOverride
+      : (session?.user?.id ?? "");
   const [dueDate, setDueDate] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Default the assignee to the current user once the session resolves.
-  // Guarded so that explicitly unassigning doesn't snap back to "yourself".
-  const assigneeInitRef = useRef(false);
-  useEffect(() => {
-    if (assigneeInitRef.current) return;
-    if (session?.user?.id) {
-      assigneeInitRef.current = true;
-      setAssignedTo(session.user.id);
-    }
-  }, [session?.user?.id]);
+  const { data: projects = [] } = useSWR<ProjectOption[]>(API.projects());
 
-  // Project list
-  const { data: projectsRaw } = useSWR<ProjectOption[]>("/api/projects");
-  const projects: ProjectOption[] = useMemo(
-    () => (projectsRaw ?? []).map((p) => ({ id: p.id, name: p.name })),
-    [projectsRaw]
+  // Phases for the selected project — same SWR pattern as /tasks/[id].
+  const { data: projectDetail, isLoading: loadingPhases } = useSWR<{
+    phases?: PhaseOption[];
+  }>(projectId ? API.project(projectId) : null);
+  const phases = useMemo(
+    () => projectDetail?.phases ?? [],
+    [projectDetail?.phases]
   );
-
-  // Phases for the selected project
-  const [phases, setPhases] = useState<PhaseOption[]>([]);
-  const [loadingPhases, setLoadingPhases] = useState(false);
-  const fetchPhases = useCallback(async (pid: string) => {
-    if (!pid) {
-      setPhases([]);
-      return;
-    }
-    setLoadingPhases(true);
-    try {
-      const data = await projectsApi.get<{
-        phases?: { id: string; name: string }[];
-      }>(pid);
-      setPhases((data.phases ?? []).map((p) => ({ id: p.id, name: p.name })));
-    } catch {
-      setPhases([]);
-    } finally {
-      setLoadingPhases(false);
-    }
-  }, []);
-  useEffect(() => {
-    if (projectId) fetchPhases(projectId);
-    else setPhases([]);
-  }, [projectId, fetchPhases]);
 
   const titleLength = title.length;
   const titleOver = titleLength > TITLE_MAX;
@@ -253,7 +230,7 @@ export default function NewTaskPage() {
         </div>
 
         {/* Sidebar — single card with sections, offset to align with title input */}
-        <aside style={{ marginTop: 12 }}>
+        <aside className="mt-3">
           <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
             {/* Assignees */}
             <FieldCard
@@ -515,6 +492,3 @@ export default function NewTaskPage() {
     </div>
   );
 }
-
-// FieldCard, PickerPanel, priorityClass live in
-// src/components/tasks/MetadataPickers.tsx so /tasks/[id] can share them.

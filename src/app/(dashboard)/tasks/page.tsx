@@ -123,15 +123,20 @@ export default function TasksPage() {
 
   // Real tasks open the global side panel (`?task=<id>`); approval-bucket
   // rows (synthesized from pin_comment / comment) deep-link to the source.
+  // Synthetic rows with broken refs (e.g. pin_comment without an attachment)
+  // get no-op'd — the side-panel branch would push a phantom id and 404.
   const openTask = useCallback(
     (task: Task) => {
-      const reviewHref = pinCommentReviewHref(task);
-      if (task._source === "pin_comment" && reviewHref) {
-        router.push(reviewHref);
-        return;
-      }
-      if (task._source === "comment" && task.project_id) {
-        router.push(`/projects/${task.project_id}`);
+      if (task._source && task._source !== "task") {
+        if (task._source === "pin_comment") {
+          const reviewHref = pinCommentReviewHref(task);
+          if (reviewHref) router.push(reviewHref);
+          return;
+        }
+        if (task._source === "comment") {
+          if (task.project_id) router.push(`/projects/${task.project_id}`);
+          return;
+        }
         return;
       }
       const params = new URLSearchParams(searchParams.toString());

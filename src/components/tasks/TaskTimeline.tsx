@@ -30,12 +30,13 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { taskComments } from "@/lib/api";
 import { ApiError } from "@/lib/api";
+import { AUDIT_ACTIONS } from "@/lib/queries/audit";
 import { TaskMarkdownEditor } from "./TaskMarkdownEditor";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import { formatDate, STATUS_LABEL, capitalize } from "@/lib/taskUtils";
 import { timeAgo } from "@/lib/formatTime";
-import type { Task, TaskActivityEntry } from "@/types";
+import type { Task, TaskActivityEntry, TaskStatus } from "@/types";
 
 type CommentEntry = Extract<TaskActivityEntry, { kind: "comment" }>;
 type EventEntry = Extract<TaskActivityEntry, { kind: "event" }>;
@@ -106,15 +107,15 @@ export function TaskTimeline({
 // ─── Activity event row ────────────────────────────────────────────────────
 
 const EVENT_ICON: Record<string, React.ElementType> = {
-  "task.status_changed": CircleDot,
-  "task.priority_changed": Flag,
-  "task.category_changed": Tag,
-  "task.assignee_changed": UserCircle2,
-  "task.due_date_changed": CalendarClock,
-  "task.project_changed": FolderClosed,
-  "task.phase_changed": Layers,
-  "task.title_changed": Pencil,
-  "task.description_changed": FileEdit,
+  [AUDIT_ACTIONS.TASK_STATUS_CHANGED]: CircleDot,
+  [AUDIT_ACTIONS.TASK_PRIORITY_CHANGED]: Flag,
+  [AUDIT_ACTIONS.TASK_CATEGORY_CHANGED]: Tag,
+  [AUDIT_ACTIONS.TASK_ASSIGNEE_CHANGED]: UserCircle2,
+  [AUDIT_ACTIONS.TASK_DUE_DATE_CHANGED]: CalendarClock,
+  [AUDIT_ACTIONS.TASK_PROJECT_CHANGED]: FolderClosed,
+  [AUDIT_ACTIONS.TASK_PHASE_CHANGED]: Layers,
+  [AUDIT_ACTIONS.TASK_TITLE_CHANGED]: Pencil,
+  [AUDIT_ACTIONS.TASK_DESCRIPTION_CHANGED]: FileEdit,
 };
 
 /**
@@ -153,30 +154,34 @@ function EventDescription({ event }: { event: EventEntry }) {
   const toName = (m.to_name as string | null | undefined) ?? null;
 
   switch (event.action) {
-    case "task.status_changed":
+    case AUDIT_ACTIONS.TASK_STATUS_CHANGED:
       return (
         <>
           <span>changed status from</span>
-          <ValuePill>{statusLabel(from) ?? "—"}</ValuePill>
+          <ValuePill>
+            {from ? (STATUS_LABEL[from as TaskStatus] ?? from) : "—"}
+          </ValuePill>
           <span>to</span>
-          <ValuePill>{statusLabel(to) ?? "—"}</ValuePill>
+          <ValuePill>
+            {to ? (STATUS_LABEL[to as TaskStatus] ?? to) : "—"}
+          </ValuePill>
         </>
       );
-    case "task.priority_changed":
+    case AUDIT_ACTIONS.TASK_PRIORITY_CHANGED:
       return (
         <>
           <span>set priority to</span>
           <ValuePill>{capitalize(to ?? "—")}</ValuePill>
         </>
       );
-    case "task.category_changed":
+    case AUDIT_ACTIONS.TASK_CATEGORY_CHANGED:
       return (
         <>
           <span>set category to</span>
           <ValuePill>{capitalize(to ?? "—")}</ValuePill>
         </>
       );
-    case "task.assignee_changed":
+    case AUDIT_ACTIONS.TASK_ASSIGNEE_CHANGED:
       if (!toName && !to) return <span>unassigned this task</span>;
       return (
         <>
@@ -184,7 +189,7 @@ function EventDescription({ event }: { event: EventEntry }) {
           <ValuePill>{toName ?? to}</ValuePill>
         </>
       );
-    case "task.due_date_changed":
+    case AUDIT_ACTIONS.TASK_DUE_DATE_CHANGED:
       if (!to) return <span>cleared the due date</span>;
       return (
         <>
@@ -192,14 +197,14 @@ function EventDescription({ event }: { event: EventEntry }) {
           <ValuePill>{formatDate(to)}</ValuePill>
         </>
       );
-    case "task.project_changed":
+    case AUDIT_ACTIONS.TASK_PROJECT_CHANGED:
       return (
         <>
           <span>moved this to</span>
           <ValuePill>{toName ?? to ?? "—"}</ValuePill>
         </>
       );
-    case "task.phase_changed":
+    case AUDIT_ACTIONS.TASK_PHASE_CHANGED:
       if (!to) return <span>cleared the phase</span>;
       return (
         <>
@@ -207,18 +212,13 @@ function EventDescription({ event }: { event: EventEntry }) {
           <ValuePill>{toName ?? to}</ValuePill>
         </>
       );
-    case "task.title_changed":
+    case AUDIT_ACTIONS.TASK_TITLE_CHANGED:
       return <span>edited the title</span>;
-    case "task.description_changed":
+    case AUDIT_ACTIONS.TASK_DESCRIPTION_CHANGED:
       return <span>edited the description</span>;
     default:
       return <span>{event.action}</span>;
   }
-}
-
-function statusLabel(value: string | null | undefined): string | null {
-  if (!value) return null;
-  return (STATUS_LABEL as Record<string, string>)[value] ?? value;
 }
 
 function ValuePill({ children }: { children: React.ReactNode }) {

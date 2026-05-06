@@ -22,8 +22,6 @@ interface FieldCardProps {
   picker?: (close: () => void) => ReactNode;
   /** Override the popover width class. Default `w-72`. */
   popoverWidth?: string;
-  /** Hide the gear icon (useful when there's no popover). */
-  gearless?: boolean;
   divider?: boolean;
 }
 
@@ -38,7 +36,6 @@ export function FieldCard({
   children,
   picker,
   popoverWidth = "w-72",
-  gearless,
   divider,
 }: FieldCardProps) {
   const [headerOpen, setHeaderOpen] = useState(false);
@@ -54,7 +51,7 @@ export function FieldCard({
             {label}
           </span>
         </div>
-        {!gearless && picker && (
+        {picker && (
           <Popover open={headerOpen} onOpenChange={setHeaderOpen}>
             <PopoverTrigger asChild>
               <button
@@ -189,7 +186,3 @@ export function PickerPanel<T>({
     </div>
   );
 }
-
-// `priorityClass` lives in src/lib/taskUtils.ts alongside the other priority
-// styling tables — re-exported here for backwards compat.
-export { priorityClass } from "@/lib/taskUtils";

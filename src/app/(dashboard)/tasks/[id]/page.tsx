@@ -26,14 +26,11 @@ import { authClient } from "@/lib/authClient";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
 import { tasks as tasksApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
 import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskTimeline } from "@/components/tasks/TaskTimeline";
-import {
-  FieldCard,
-  PickerPanel,
-  priorityClass,
-} from "@/components/tasks/MetadataPickers";
+import { FieldCard, PickerPanel } from "@/components/tasks/MetadataPickers";
 import { avatarColor } from "@/lib/avatarUtils";
 import {
   STATUS_BADGE_VARIANT,
@@ -42,6 +39,7 @@ import {
   PRIORITIES,
   CATEGORIES,
   capitalize,
+  priorityClass,
 } from "@/lib/taskUtils";
 import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { deriveInitials } from "@/lib/utils";
@@ -70,24 +68,16 @@ export default function TaskDetailPage({
   const { data: session } = authClient.useSession();
   const { role } = useUserRole();
 
-  const {
-    data: task,
-    error,
-    mutate: mutateTask,
-  } = useSWR<Task>(`/api/tasks/${id}`);
+  const { data: task, error, mutate: mutateTask } = useSWR<Task>(API.task(id));
   const { data: activityData, mutate: mutateActivity } = useSWR<{
     events: TaskActivityEntry[];
-  }>(`/api/tasks/${id}/activity`);
+  }>(API.taskActivity(id));
   const activity = useMemo(
     () => activityData?.events ?? [],
     [activityData?.events]
   );
-  const comments = useMemo(
-    () =>
-      activity.filter(
-        (e): e is Extract<TaskActivityEntry, { kind: "comment" }> =>
-          e.kind === "comment"
-      ),
+  const commentCount = useMemo(
+    () => activity.reduce((n, e) => (e.kind === "comment" ? n + 1 : n), 0),
     [activity]
   );
   const isLoadingActivity = activityData === undefined;
@@ -124,6 +114,10 @@ export default function TaskDetailPage({
     },
     [task, mutateTask, mutateActivity]
   );
+
+  const refreshActivity = useCallback(() => {
+    void mutateActivity();
+  }, [mutateActivity]);
 
   if (error) {
     return (
@@ -196,7 +190,7 @@ export default function TaskDetailPage({
           <span>{formatDate(task.created_at)}</span>
           <span>·</span>
           <span>
-            {comments.length} comment{comments.length === 1 ? "" : "s"}
+            {commentCount} comment{commentCount === 1 ? "" : "s"}
           </span>
           {(() => {
             const reviewHref = pinCommentReviewHref(task);
@@ -219,25 +213,23 @@ export default function TaskDetailPage({
 
       {/* Body grid: main thread + sidebar */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0">
-          <div className="relative">
-            <div className="absolute left-[15px] top-3 bottom-3 w-px bg-border-default" />
-            <TaskTimeline
-              task={task}
-              activity={activity}
-              isLoadingActivity={isLoadingActivity}
-              currentUserId={session?.user?.id ?? null}
-              canEditTask={canEdit}
-              onUpdateTask={onUpdate}
-              onActivityChanged={() => mutateActivity()}
+        <div className="relative min-w-0">
+          <div className="absolute left-[15px] top-3 bottom-3 w-px bg-border-default" />
+          <TaskTimeline
+            task={task}
+            activity={activity}
+            isLoadingActivity={isLoadingActivity}
+            currentUserId={session?.user?.id ?? null}
+            canEditTask={canEdit}
+            onUpdateTask={onUpdate}
+            onActivityChanged={refreshActivity}
+          />
+          <div className="mt-4">
+            <TaskComposer
+              taskId={task.id}
+              inTimeline
+              onSubmitted={refreshActivity}
             />
-            <div className="mt-4">
-              <TaskComposer
-                taskId={task.id}
-                inTimeline
-                onSubmitted={() => mutateActivity()}
-              />
-            </div>
           </div>
         </div>
 
@@ -379,11 +371,11 @@ function EditableSidebarCard({
   onUpdate,
 }: EditableSidebarCardProps) {
   const { members } = useOrgMembers({ assignableOnly: false });
-  const { data: projects = [] } = useSWR<ProjectOption[]>("/api/projects");
+  const { data: projects = [] } = useSWR<ProjectOption[]>(API.projects());
 
   const { data: projectDetail, isLoading: loadingPhases } = useSWR<{
     phases?: PhaseOption[];
-  }>(task.project_id ? `/api/projects/${task.project_id}` : null);
+  }>(task.project_id ? API.project(task.project_id) : null);
   const phases = useMemo(
     () => projectDetail?.phases ?? [],
     [projectDetail?.phases]

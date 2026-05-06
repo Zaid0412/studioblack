@@ -5,11 +5,16 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ExternalLink, X, MessageSquare, Pencil } from "lucide-react";
 import useSWR from "swr";
+import { API } from "@/lib/api/routes";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { avatarColor } from "@/lib/avatarUtils";
-import { STATUS_BADGE_VARIANT, formatDate } from "@/lib/taskUtils";
+import {
+  STATUS_BADGE_VARIANT,
+  STATUS_LABEL,
+  formatDate,
+} from "@/lib/taskUtils";
 import { pinCommentReviewHref } from "@/lib/pinUtils";
 import { deriveInitials } from "@/lib/utils";
 import { TaskComposer } from "./TaskComposer";
@@ -41,7 +46,7 @@ export function TaskSidePanel({
 }: TaskSidePanelProps) {
   const { data: commentsData, mutate: mutateComments } = useSWR<{
     comments: TaskComment[];
-  }>(task ? `/api/tasks/${taskId}/comments` : null);
+  }>(task ? API.taskComments(taskId) : null);
   const comments = commentsData?.comments ?? [];
   const isLoadingComments = !!task && commentsData === undefined;
 
@@ -101,7 +106,7 @@ function PanelContent({
       <PanelHeader
         taskId={task.id}
         statusVariant={STATUS_BADGE_VARIANT[task.status] ?? "draft"}
-        statusLabel={prettyStatus(task.status)}
+        statusLabel={STATUS_LABEL[task.status] ?? task.status}
         onClose={onClose}
       />
 
@@ -311,21 +316,4 @@ function PanelMissing({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function prettyStatus(status: Task["status"]): string {
-  switch (status) {
-    case "in_progress":
-      return "In Progress";
-    case "todo":
-      return "To Do";
-    case "completed":
-      return "Completed";
-    case "archived":
-      return "Archived";
-    default:
-      return status;
-  }
 }

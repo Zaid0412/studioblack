@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -58,11 +59,16 @@ export function TaskMarkdownEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Mirror `value` so async uploads can replace placeholders against the
-  // latest text without going stale through closures.
+  // latest text without going stale through closures. Refs sync via effect
+  // so abandoned concurrent renders can't leak uncommitted values.
   const valueRef = useRef(value);
-  valueRef.current = value;
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
   const placeholderCounterRef = useRef(0);
 
   // ─── Selection helpers ────────────────────────────────────────────────────
@@ -168,8 +174,9 @@ export function TaskMarkdownEditor({
 
       const replaceInValue = (from: string, to: string) => {
         const current = valueRef.current;
-        if (!current.includes(from)) return; // user removed it — give up
-        onChangeRef.current(current.replace(from, to));
+        const next = current.replace(from, to);
+        if (next === current) return; // user removed it — give up
+        onChangeRef.current(next);
       };
 
       setUploading((n) => n + valid.length);

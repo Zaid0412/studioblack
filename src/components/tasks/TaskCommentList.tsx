@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
+import { formatFileSize } from "@/lib/fileUtils";
 import { timeAgo } from "@/lib/formatTime";
 import type { TaskComment } from "@/types";
 
@@ -16,10 +17,7 @@ interface TaskCommentListProps {
 }
 
 /** Renders the comment thread inside the task side panel and full page. */
-export function TaskCommentList({
-  comments,
-  isLoading,
-}: TaskCommentListProps) {
+export function TaskCommentList({ comments, isLoading }: TaskCommentListProps) {
   if (isLoading) {
     return (
       <ul className="space-y-3">
@@ -93,7 +91,7 @@ function CommentCard({ comment }: { comment: TaskComment }) {
                 </a>
                 {att.size != null && (
                   <span className="ml-2 text-xs text-text-muted">
-                    {formatBytes(att.size)}
+                    {formatFileSize(att.size)}
                   </span>
                 )}
               </li>
@@ -103,10 +101,4 @@ function CommentCard({ comment }: { comment: TaskComment }) {
       </div>
     </li>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

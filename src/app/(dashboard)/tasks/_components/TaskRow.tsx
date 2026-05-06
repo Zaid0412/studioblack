@@ -256,15 +256,22 @@ export function TaskRow({
 }
 
 function OpenLink({ task }: { task: Task }) {
-  const reviewHref = pinCommentReviewHref(task);
-  let href = `/tasks/${task.id}`;
+  // Synthetic rows (pin_comment / comment) with broken refs render no link
+  // rather than falling through to /tasks/<id> for an id that doesn't exist
+  // in the task table.
+  let href: string | null = null;
   let label = "Open task page";
-  if (task._source === "pin_comment" && reviewHref) {
+  if (task._source === "pin_comment") {
+    const reviewHref = pinCommentReviewHref(task);
+    if (!reviewHref) return null;
     href = reviewHref;
     label = "Open review comment";
-  } else if (task._source === "comment" && task.project_id) {
+  } else if (task._source === "comment") {
+    if (!task.project_id) return null;
     href = `/projects/${task.project_id}`;
     label = "Open project";
+  } else {
+    href = `/tasks/${task.id}`;
   }
   return (
     <Link

@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import useSWR from "swr";
+import { API } from "@/lib/api/routes";
 import { TaskSidePanel } from "./TaskSidePanel";
 import type { Task } from "@/types";
 
@@ -40,9 +41,7 @@ export function TaskSidePanelHost() {
     return () => document.removeEventListener("keydown", handler);
   }, [taskId, close]);
 
-  const { data: task, error } = useSWR<Task>(
-    taskId ? `/api/tasks/${taskId}` : null
-  );
+  const { data: task, error } = useSWR<Task>(taskId ? API.task(taskId) : null);
 
   if (!taskId) return null;
 
