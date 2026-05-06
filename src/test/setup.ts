@@ -341,6 +341,7 @@ vi.mock("@/lib/queries", () => ({
     average_margin_pct: "0",
     margin_bleed_count: 0,
     pending_approvals: 0,
+    over_budget_count: 0,
     item_count: 0,
     section_totals: [],
   }),

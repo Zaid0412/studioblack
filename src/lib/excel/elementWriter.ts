@@ -25,6 +25,8 @@ export type WritableElement = Pick<
   | "overhead_pct"
   | "service_charge_pct"
   | "margin_pct"
+  | "client_rate"
+  | "budget_rate"
   | "spec_reference"
   | "drawing_ref"
   | "tags"
@@ -70,6 +72,8 @@ export async function writeElementSheet(
       overheadPct: toNumber(el.overhead_pct),
       serviceChargePct: toNumber(el.service_charge_pct),
       marginPct: toNumber(el.margin_pct),
+      clientRate: toNumber(el.client_rate),
+      budgetRate: toNumber(el.budget_rate),
       specReference: el.spec_reference ?? "",
       drawingRef: el.drawing_ref ?? "",
       tags: el.tags && el.tags.length > 0 ? el.tags.join(", ") : "",
@@ -114,6 +118,8 @@ function pickStyle(key: string): Partial<ExcelJS.Style> | undefined {
     case "unitCost":
     case "materialCost":
     case "labourCost":
+    case "clientRate":
+    case "budgetRate":
       return { numFmt: "#,##0.00" };
     case "overheadPct":
     case "serviceChargePct":

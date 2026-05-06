@@ -8,7 +8,7 @@ import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import type { BoqSection } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
-import { BOQ_NO_SECTION_ID } from "../_lib/formatters";
+import { BOQ_NO_SECTION_ID, parseOptionalNumber } from "../_lib/formatters";
 import { BoqSectionSelect } from "./BoqSectionSelect";
 
 const DEFAULT_UNIT: ElementUnit = "no";
@@ -45,6 +45,8 @@ export function BoqCreateItemDialog({
   const [unitCost, setUnitCost] = useState("0");
   const [serviceChargePct, setServiceChargePct] = useState("0");
   const [marginPct, setMarginPct] = useState("15");
+  const [clientRate, setClientRate] = useState("");
+  const [budgetRate, setBudgetRate] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -56,6 +58,8 @@ export function BoqCreateItemDialog({
     setUnitCost("0");
     setServiceChargePct("0");
     setMarginPct("15");
+    setClientRate("");
+    setBudgetRate("");
   }, [open, defaultSectionId]);
 
   const parseNum = (v: string, fallback: number) => {
@@ -86,6 +90,8 @@ export function BoqCreateItemDialog({
         unitCost: parseNum(unitCost, 0),
         serviceChargePct: parseNum(serviceChargePct, 0),
         marginPct: parseNum(marginPct, 15),
+        clientRate: parseOptionalNumber(clientRate.trim()),
+        budgetRate: parseOptionalNumber(budgetRate.trim()),
       });
       toast({ title: "Item added", variant: "success" });
       onOpenChange(false);
@@ -178,6 +184,35 @@ export function BoqCreateItemDialog({
             step="0.1"
             value={marginPct}
             onChange={(e) => setMarginPct(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-text-secondary">
+            Client rate
+          </span>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="optional"
+            value={clientRate}
+            onChange={(e) => setClientRate(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-text-secondary">
+            Budget rate
+          </span>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="optional"
+            value={budgetRate}
+            onChange={(e) => setBudgetRate(e.target.value)}
           />
         </label>
       </div>

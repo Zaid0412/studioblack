@@ -22,8 +22,10 @@ import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   clientApprovalToVariant,
   formatCurrency,
+  formatOptionalCurrency,
   formatPct,
   formatQty,
+  parseOptionalNumber,
   lifecycleToVariant,
   marginTier,
   toNum,
@@ -193,6 +195,14 @@ export function BoqItemDrawer({
                 <AlertTriangle className="h-3 w-3" /> margin below floor
               </Badge>
             )}
+            {item.over_budget && (
+              <Badge variant="error" className="gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {item.budget_variance_pct !== null
+                  ? `${item.budget_variance_pct}% over budget`
+                  : "over budget"}
+              </Badge>
+            )}
           </div>
         </SheetHeader>
 
@@ -287,6 +297,30 @@ export function BoqItemDrawer({
               display={formatPct(item.service_charge_pct)}
               onSave={(next) =>
                 saveField({ serviceChargePct: parseFloat(next) })
+              }
+            />
+            <EditableField
+              label="Client rate"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.client_rate ?? ""}
+              display={formatOptionalCurrency(item.client_rate, currency)}
+              onSave={(next) =>
+                saveField({ clientRate: parseOptionalNumber(next) })
+              }
+            />
+            <EditableField
+              label="Budget rate"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.budget_rate ?? ""}
+              display={formatOptionalCurrency(item.budget_rate, currency)}
+              onSave={(next) =>
+                saveField({ budgetRate: parseOptionalNumber(next) })
               }
             />
           </section>

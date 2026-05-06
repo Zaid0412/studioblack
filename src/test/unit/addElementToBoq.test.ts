@@ -49,6 +49,8 @@ describe("addElementToBoq", () => {
             overhead_pct: "5.00",
             service_charge_pct: "2.50",
             margin_pct: "15.00",
+            client_rate: null,
+            budget_rate: null,
           },
         ],
       })
@@ -117,6 +119,8 @@ describe("addElementToBoq", () => {
             overhead_pct: null,
             service_charge_pct: null,
             margin_pct: null,
+            client_rate: null,
+            budget_rate: null,
           },
         ],
       })
@@ -132,5 +136,84 @@ describe("addElementToBoq", () => {
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
     expect(params[13]).toBe(0); // service_charge_pct defaults to 0
+  });
+
+  it("inherits client_rate / budget_rate from the source element", async () => {
+    // Library default-flow: when an element carries rates, the new BOQ line
+    // gets them on creation. After that the line drifts independently of the
+    // library element.
+    mocks.db.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            code: "EL-003",
+            name: "Custom-tier item",
+            description: "Cherry-on-top",
+            unit: "no",
+            unit_cost: "100.00",
+            material_cost: null,
+            labour_cost: null,
+            overhead_pct: null,
+            service_charge_pct: null,
+            margin_pct: null,
+            client_rate: "175.00",
+            budget_rate: "85.00",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: "new-item-id", source: "library" }],
+      });
+
+    await realAddElementToBoq(BOQ_ID, ORG, {
+      sectionId: null,
+      elementId: ELEMENT_ID,
+    });
+
+    // INSERT param order in `createBoqItem`:
+    // 0..7: boq_id, section_id, element_id, source, rate_contract_item_id,
+    //        item_code, description, unit
+    // 8..14: quantity, unit_cost, material_cost, labour_cost, overhead_pct,
+    //        service_charge_pct, margin_pct
+    // 15..16: client_rate, budget_rate  ← what we're verifying here
+    const insertCall = mocks.db.query.mock.calls[1]!;
+    const params = insertCall[1] as unknown[];
+    expect(params[15]).toBe(175);
+    expect(params[16]).toBe(85);
+  });
+
+  it("passes null for client_rate / budget_rate when the element has none", async () => {
+    mocks.db.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            code: "EL-004",
+            name: "Plain item",
+            description: null,
+            unit: "no",
+            unit_cost: "50.00",
+            material_cost: null,
+            labour_cost: null,
+            overhead_pct: null,
+            service_charge_pct: null,
+            margin_pct: null,
+            client_rate: null,
+            budget_rate: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [{ id: "new-item-id", source: "library" }],
+      });
+
+    await realAddElementToBoq(BOQ_ID, ORG, {
+      sectionId: null,
+      elementId: ELEMENT_ID,
+    });
+
+    const insertCall = mocks.db.query.mock.calls[1]!;
+    const params = insertCall[1] as unknown[];
+    expect(params[15]).toBeNull();
+    expect(params[16]).toBeNull();
   });
 });

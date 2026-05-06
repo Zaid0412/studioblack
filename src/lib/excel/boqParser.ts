@@ -42,6 +42,8 @@ const TEMPLATE_COLUMNS = {
   overheadPct: "Overhead %",
   serviceChargePct: "Service Charge %",
   marginPct: "Margin %",
+  clientRate: "Client Rate",
+  budgetRate: "Budget Rate",
   notes: "Notes",
   clientNotes: "Client Notes",
   isProvisional: "Is Provisional",

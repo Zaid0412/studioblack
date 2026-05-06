@@ -49,6 +49,8 @@ export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
       overheadPct: toNumber(item.overhead_pct),
       serviceChargePct: toNumber(item.service_charge_pct),
       marginPct: toNumber(item.margin_pct),
+      clientRate: toNumber(item.client_rate),
+      budgetRate: toNumber(item.budget_rate),
       notes: item.notes ?? "",
       clientNotes: item.client_notes ?? "",
       isProvisional: item.is_provisional ? "yes" : "",
@@ -86,6 +88,8 @@ function pickStyle(key: string): Partial<ExcelJS.Style> | undefined {
     case "unitCost":
     case "materialCost":
     case "labourCost":
+    case "clientRate":
+    case "budgetRate":
       return { numFmt: "#,##0.00" };
     case "overheadPct":
     case "serviceChargePct":

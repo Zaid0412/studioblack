@@ -385,6 +385,8 @@ function buildMutationPayload(values: SubmitValues) {
     overheadPct: values.overheadPct,
     serviceChargePct: values.serviceChargePct,
     marginPct: values.marginPct,
+    clientRate: values.clientRate,
+    budgetRate: values.budgetRate,
     specReference: values.specReference || undefined,
     drawingRef: values.drawingRef || undefined,
     tags: values.tags,

@@ -53,6 +53,8 @@ export interface CreateElementInput {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   specReference?: string;
   drawingRef?: string;
   tags?: string[];
@@ -86,6 +88,8 @@ const ELEMENT_COLS: Record<string, string> = {
   overheadPct: "overhead_pct",
   serviceChargePct: "service_charge_pct",
   marginPct: "margin_pct",
+  clientRate: "client_rate",
+  budgetRate: "budget_rate",
   specReference: "spec_reference",
   drawingRef: "drawing_ref",
   tags: "tags",
@@ -367,14 +371,16 @@ export async function createElement(
         `INSERT INTO element
            (org_id, code, name, description, category_id, unit, unit_cost,
             currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
+            client_rate, budget_rate,
             spec_reference, drawing_ref, tags, created_by,
             image_url, drawing_file_url, drawing_file_name,
             spec_file_url, spec_file_name)
          VALUES
            ($1, $2, $3, $4, $5, $6, $7,
             $8, $9, $10, $11, $12, $13,
-            $14, $15, $16, $17,
-            $18, $19, $20, $21, $22)
+            $14, $15,
+            $16, $17, $18, $19,
+            $20, $21, $22, $23, $24)
          RETURNING *`,
         [
           orgId,
@@ -390,6 +396,8 @@ export async function createElement(
           input.overheadPct ?? null,
           input.serviceChargePct ?? null,
           input.marginPct ?? null,
+          input.clientRate ?? null,
+          input.budgetRate ?? null,
           input.specReference ?? null,
           input.drawingRef ?? null,
           input.tags ?? null,
@@ -642,14 +650,16 @@ export async function duplicateElement(
         `INSERT INTO element
            (org_id, code, name, description, category_id, unit, unit_cost,
             currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
+            client_rate, budget_rate,
             spec_reference, drawing_ref, tags, is_active, created_by,
             image_url, drawing_file_url, drawing_file_name,
             spec_file_url, spec_file_name)
          VALUES
            ($1, $2, $3, $4, $5, $6, $7,
             $8, $9, $10, $11, $12, $13,
-            $14, $15, $16, true, $17,
-            $18, $19, $20, $21, $22)
+            $14, $15,
+            $16, $17, $18, true, $19,
+            $20, $21, $22, $23, $24)
          RETURNING *`,
         [
           orgId,
@@ -665,6 +675,8 @@ export async function duplicateElement(
           src.overhead_pct,
           src.service_charge_pct,
           src.margin_pct,
+          src.client_rate,
+          src.budget_rate,
           src.spec_reference,
           src.drawing_ref,
           src.tags,
@@ -799,6 +811,8 @@ export interface BulkElementRow {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   specReference?: string;
   drawingRef?: string;
   tags?: string[];
@@ -899,11 +913,13 @@ async function tryInsertElementRow(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
         currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
+        client_rate, budget_rate,
         spec_reference, drawing_ref, tags, created_by)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11, $12, $13,
-        $14, $15, $16, $17)
+        $14, $15,
+        $16, $17, $18, $19)
      RETURNING id`,
     [
       orgId,
@@ -919,6 +935,8 @@ async function tryInsertElementRow(
       row.overheadPct ?? null,
       row.serviceChargePct ?? null,
       row.marginPct ?? null,
+      row.clientRate ?? null,
+      row.budgetRate ?? null,
       row.specReference ?? null,
       row.drawingRef ?? null,
       row.tags && row.tags.length > 0 ? row.tags : null,
@@ -960,12 +978,16 @@ async function insertElementVersion(
     overhead_pct: string | null;
     service_charge_pct: string | null;
     margin_pct: string | null;
+    client_rate: string | null;
+    budget_rate: string | null;
     spec_reference: string | null;
     drawing_ref: string | null;
     tags: string[] | null;
   }>(
     `SELECT description, category_id, currency, material_cost, labour_cost,
-            overhead_pct, service_charge_pct, margin_pct, spec_reference, drawing_ref, tags
+            overhead_pct, service_charge_pct, margin_pct,
+            client_rate, budget_rate,
+            spec_reference, drawing_ref, tags
        FROM element
       WHERE id = $1 AND org_id = $2`,
     [prevLatestId, orgId]
@@ -979,13 +1001,15 @@ async function insertElementVersion(
     `INSERT INTO element
        (org_id, code, name, description, category_id, unit, unit_cost,
         currency, material_cost, labour_cost, overhead_pct, service_charge_pct, margin_pct,
+        client_rate, budget_rate,
         spec_reference, drawing_ref, tags, created_by,
         version_group, version_number)
      VALUES
        ($1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11, $12, $13,
-        $14, $15, $16, $17,
-        $18, $19)
+        $14, $15,
+        $16, $17, $18, $19,
+        $20, $21)
      RETURNING id`,
     [
       orgId,
@@ -1001,6 +1025,8 @@ async function insertElementVersion(
       row.overheadPct ?? prev.overhead_pct,
       row.serviceChargePct ?? prev.service_charge_pct,
       row.marginPct ?? prev.margin_pct,
+      row.clientRate ?? prev.client_rate,
+      row.budgetRate ?? prev.budget_rate,
       row.specReference ?? prev.spec_reference,
       row.drawingRef ?? prev.drawing_ref,
       row.tags && row.tags.length > 0 ? row.tags : prev.tags,
@@ -1060,6 +1086,8 @@ async function overwriteElementRow(
   if (row.serviceChargePct !== undefined)
     push("service_charge_pct", row.serviceChargePct);
   if (row.marginPct !== undefined) push("margin_pct", row.marginPct);
+  if (row.clientRate !== undefined) push("client_rate", row.clientRate);
+  if (row.budgetRate !== undefined) push("budget_rate", row.budgetRate);
   if (row.specReference !== undefined)
     push("spec_reference", row.specReference);
   if (row.drawingRef !== undefined) push("drawing_ref", row.drawingRef);

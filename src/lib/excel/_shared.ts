@@ -474,7 +474,9 @@ type SharedFinancialKey =
   | "labourCost"
   | "overheadPct"
   | "serviceChargePct"
-  | "marginPct";
+  | "marginPct"
+  | "clientRate"
+  | "budgetRate";
 
 export interface SharedFinancialValues {
   materialCost?: number;
@@ -482,6 +484,8 @@ export interface SharedFinancialValues {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number;
+  budgetRate?: number;
 }
 
 /**
@@ -497,6 +501,8 @@ const SHARED_FINANCIAL_SPEC: ReadonlyArray<
   ["overheadPct", "Overhead %", { min: 0, max: 100 }],
   ["serviceChargePct", "Service Charge %", { min: 0, max: 100 }],
   ["marginPct", "Margin %", { min: 0, max: 100 }],
+  ["clientRate", "Client Rate", { min: 0 }],
+  ["budgetRate", "Budget Rate", { min: 0 }],
 ];
 
 /**

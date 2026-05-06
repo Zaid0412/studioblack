@@ -404,6 +404,8 @@ export interface Element {
   overhead_pct: string | null;
   service_charge_pct: string | null;
   margin_pct: string | null;
+  client_rate: string | null;
+  budget_rate: string | null;
   spec_reference: string | null;
   drawing_ref: string | null;
   tags: string[] | null;
@@ -498,6 +500,8 @@ export interface BoqItem {
   overhead_pct: string;
   service_charge_pct: string;
   margin_pct: string;
+  client_rate: string | null;
+  budget_rate: string | null;
   source: BoqItemSource;
   rate_contract_item_id: string | null;
   lifecycle_status: BoqItemLifecycleStatus;
@@ -525,6 +529,8 @@ export interface BoqItemWithComputed extends BoqItem {
   sell_price: string;
   progress_pct: string;
   margin_alert: boolean;
+  over_budget: boolean;
+  budget_variance_pct: string | null;
 }
 
 /** Aggregate totals for a BOQ (used by /summary and the full-BOQ response). */
@@ -537,6 +543,7 @@ export interface BoqSummary {
   average_margin_pct: string;
   margin_bleed_count: number;
   pending_approvals: number;
+  over_budget_count: number;
   item_count: number;
   section_totals: Array<{
     section_id: string | null;
@@ -599,6 +606,8 @@ export interface ParsedBoqValues {
   labourCost?: number;
   overheadPct?: number;
   marginPct?: number;
+  clientRate?: number;
+  budgetRate?: number;
   notes?: string;
   clientNotes?: string;
   isProvisional?: boolean;

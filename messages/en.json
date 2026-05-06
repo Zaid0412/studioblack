@@ -758,6 +758,8 @@
     "fieldOverheadPct": "Overhead %",
     "fieldServiceChargePct": "Service Charge %",
     "fieldMarginPct": "Margin %",
+    "fieldClientRate": "Client Rate",
+    "fieldBudgetRate": "Budget Rate",
     "fieldSpecReference": "Specification Reference",
     "fieldDrawingRef": "Drawing Reference",
     "fieldImage": "Image",

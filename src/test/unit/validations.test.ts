@@ -960,6 +960,49 @@ describe("createElementSchema", () => {
       currency: "US",
     });
   });
+
+  it("accepts optional clientRate and budgetRate", () => {
+    const data = expectPass(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      clientRate: 250,
+      budgetRate: 8.5,
+    });
+    expect(data.clientRate).toBe(250);
+    expect(data.budgetRate).toBe(8.5);
+  });
+
+  it("accepts null for clientRate and budgetRate (clear via PATCH)", () => {
+    const data = expectPass(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      clientRate: null,
+      budgetRate: null,
+    });
+    expect(data.clientRate).toBeNull();
+    expect(data.budgetRate).toBeNull();
+  });
+
+  it("rejects negative clientRate / budgetRate", () => {
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      clientRate: -1,
+    });
+    expectFail(createElementSchema, {
+      code: "X",
+      name: "X",
+      unit: "m2",
+      unitCost: 10,
+      budgetRate: -1,
+    });
+  });
 });
 
 // ── updateElementSchema ──────────────────────────────────────────────────────

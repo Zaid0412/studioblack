@@ -52,6 +52,8 @@ export interface ElementFormValues {
   overheadPct: string;
   serviceChargePct: string;
   marginPct: string;
+  clientRate: string;
+  budgetRate: string;
   specReference: string;
   drawingRef: string;
   tags: string[];
@@ -69,7 +71,9 @@ type CostKey =
   | "labourCost"
   | "overheadPct"
   | "serviceChargePct"
-  | "marginPct";
+  | "marginPct"
+  | "clientRate"
+  | "budgetRate";
 
 const COST_FIELDS: ReadonlyArray<{
   key: CostKey;
@@ -83,6 +87,8 @@ const COST_FIELDS: ReadonlyArray<{
   { key: "overheadPct", labelKey: "fieldOverheadPct", max: "100" },
   { key: "serviceChargePct", labelKey: "fieldServiceChargePct", max: "100" },
   { key: "marginPct", labelKey: "fieldMarginPct", max: "100" },
+  { key: "clientRate", labelKey: "fieldClientRate" },
+  { key: "budgetRate", labelKey: "fieldBudgetRate" },
 ];
 
 const EMPTY_FORM: ElementFormValues = {
@@ -98,6 +104,8 @@ const EMPTY_FORM: ElementFormValues = {
   overheadPct: "",
   serviceChargePct: "",
   marginPct: "",
+  clientRate: "",
+  budgetRate: "",
   specReference: "",
   drawingRef: "",
   tags: [],
@@ -123,6 +131,8 @@ function elementToFormValues(el: ElementWithDetails): ElementFormValues {
     overheadPct: el.overhead_pct ?? "",
     serviceChargePct: el.service_charge_pct ?? "",
     marginPct: el.margin_pct ?? "",
+    clientRate: el.client_rate ?? "",
+    budgetRate: el.budget_rate ?? "",
     specReference: el.spec_reference ?? "",
     drawingRef: el.drawing_ref ?? "",
     tags: el.tags ?? [],
@@ -153,6 +163,8 @@ interface Props {
       | "overheadPct"
       | "serviceChargePct"
       | "marginPct"
+      | "clientRate"
+      | "budgetRate"
     > & {
       unitCost: number;
       materialCost?: number;
@@ -160,6 +172,8 @@ interface Props {
       overheadPct?: number;
       serviceChargePct?: number;
       marginPct?: number;
+      clientRate?: number | null;
+      budgetRate?: number | null;
     }
   ) => Promise<void>;
 }
@@ -254,6 +268,8 @@ export function ElementFormDialog({
       overheadPct: toNumber(values.overheadPct),
       serviceChargePct: toNumber(values.serviceChargePct),
       marginPct: toNumber(values.marginPct),
+      clientRate: toNumber(values.clientRate) ?? null,
+      budgetRate: toNumber(values.budgetRate) ?? null,
       imageUrl: values.imageUrl,
       drawingFileUrl: values.drawingFileUrl,
       drawingFileName: values.drawingFileName,

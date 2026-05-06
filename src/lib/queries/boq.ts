@@ -44,7 +44,16 @@ const ITEM_COMPUTED_COLS = `
     THEN ROUND(bi.installed_qty / NULLIF(bi.quantity, 0) * 100, 1)
     ELSE 0
   END AS progress_pct,
-  (bi.margin_pct < b.minimum_margin_pct) AS margin_alert
+  (bi.margin_pct < b.minimum_margin_pct) AS margin_alert,
+  -- A budget of 0 isn't a meaningful target — treat as "no budget set" so the
+  -- over-budget badge and variance % stay in lockstep (else: badge fires but
+  -- the % renders as NULL).
+  (bi.budget_rate IS NOT NULL AND bi.budget_rate > 0
+    AND bi.unit_cost > bi.budget_rate) AS over_budget,
+  CASE
+    WHEN bi.budget_rate IS NULL OR bi.budget_rate = 0 THEN NULL
+    ELSE ROUND((bi.unit_cost - bi.budget_rate) / bi.budget_rate * 100, 1)
+  END AS budget_variance_pct
 `;
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id`;
@@ -383,6 +392,8 @@ export interface CreateBoqItemInput {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   notes?: string | null;
   clientNotes?: string | null;
   sortOrder?: number;
@@ -410,15 +421,19 @@ export async function createBoqItem(
          boq_id, section_id, element_id, source, rate_contract_item_id,
          item_code, description, unit,
          quantity, unit_cost, material_cost, labour_cost,
-         overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
+         overhead_pct, service_charge_pct, margin_pct,
+         client_rate, budget_rate,
+         notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
          $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
          $6, $7, $8,
          COALESCE($9::numeric, 0), COALESCE($10::numeric, 0), $11::numeric, $12::numeric,
-         COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0), $16, $17,
-         COALESCE($18::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($19, false), COALESCE($20, false)
+         COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0),
+         $16::numeric, $17::numeric,
+         $18, $19,
+         COALESCE($20::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($21, false), COALESCE($22, false)
        )
        RETURNING *
      )
@@ -441,6 +456,8 @@ export async function createBoqItem(
       input.overheadPct ?? null,
       input.serviceChargePct ?? null,
       input.marginPct ?? null,
+      input.clientRate ?? null,
+      input.budgetRate ?? null,
       input.notes ?? null,
       input.clientNotes ?? null,
       input.sortOrder ?? null,
@@ -463,6 +480,8 @@ export interface UpdateBoqItemInput {
   overheadPct?: number;
   serviceChargePct?: number;
   marginPct?: number;
+  clientRate?: number | null;
+  budgetRate?: number | null;
   lifecycleStatus?: BoqItemLifecycleStatus;
   clientApprovalStatus?: BoqItemClientApprovalStatus;
   installedQty?: number;
@@ -485,6 +504,8 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   overheadPct: "overhead_pct",
   serviceChargePct: "service_charge_pct",
   marginPct: "margin_pct",
+  clientRate: "client_rate",
+  budgetRate: "budget_rate",
   lifecycleStatus: "lifecycle_status",
   clientApprovalStatus: "client_approval_status",
   installedQty: "installed_qty",
@@ -510,6 +531,9 @@ const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   "overheadPct",
   "serviceChargePct",
   "marginPct",
+  // The client signs off on `clientRate` directly — re-approval if it
+  // changes. `budgetRate` is internal-only and does NOT trigger re-approval.
+  "clientRate",
   "sectionId",
 ]);
 
@@ -664,7 +688,7 @@ export async function addElementToBoq(
   const pool = getPool();
   const { rows: elementRows } = await pool.query(
     `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
-            overhead_pct, service_charge_pct, margin_pct
+            overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate
      FROM element WHERE id = $1`,
     [params.elementId]
   );
@@ -712,6 +736,12 @@ export async function addElementToBoq(
     serviceChargePct:
       e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
     marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
+    // Library default-flow: copy rates onto the line. The line can be
+    // edited independently after — changing one doesn't ripple to the
+    // library element or vice versa. `!= null` (loose) so an undefined
+    // (e.g. a test mock that omits the column) is treated as missing.
+    clientRate: e.client_rate != null ? Number(e.client_rate) : null,
+    budgetRate: e.budget_rate != null ? Number(e.budget_rate) : null,
   });
 }
 
@@ -734,6 +764,12 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
          COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
+         COUNT(*) FILTER (
+           WHERE bi.budget_rate IS NOT NULL
+             AND bi.budget_rate > 0
+             AND bi.unit_cost > bi.budget_rate
+             AND NOT bi.is_excluded
+         ) AS over_budget_count,
          COUNT(*) AS item_count
        FROM boq_item bi
        JOIN boq b ON b.id = bi.boq_id
@@ -777,6 +813,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
     average_margin_pct: String(agg.average_margin_pct ?? 0),
     margin_bleed_count: Number(agg.margin_bleed_count ?? 0),
     pending_approvals: Number(agg.pending_approvals ?? 0),
+    over_budget_count: Number(agg.over_budget_count ?? 0),
     item_count: Number(agg.item_count ?? 0),
     section_totals: sectionRes.rows.map((r) => ({
       section_id: r.section_id,
@@ -1046,15 +1083,19 @@ export async function bulkInsertBoqItems(
           `INSERT INTO boq_item (
              boq_id, section_id, element_id, source, item_code, description, unit,
              quantity, unit_cost, material_cost, labour_cost,
-             overhead_pct, service_charge_pct, margin_pct, notes, client_notes,
+             overhead_pct, service_charge_pct, margin_pct,
+             client_rate, budget_rate,
+             notes, client_notes,
              sort_order, is_provisional
            ) VALUES (
              $1, $2::uuid, $3::uuid,
              CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
              $4, $5, $6,
              $7::numeric, $8::numeric, $9::numeric, $10::numeric,
-             COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0), $14, $15,
-             $16::int, COALESCE($17, false)
+             COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
+             $14::numeric, $15::numeric,
+             $16, $17,
+             $18::int, COALESCE($19, false)
            )`,
           [
             boqId,
@@ -1070,6 +1111,8 @@ export async function bulkInsertBoqItems(
             row.overheadPct ?? null,
             row.serviceChargePct ?? null,
             row.marginPct ?? null,
+            row.clientRate ?? null,
+            row.budgetRate ?? null,
             row.notes ?? null,
             row.clientNotes ?? null,
             sortOrder,

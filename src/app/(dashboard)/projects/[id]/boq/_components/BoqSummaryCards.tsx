@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { BoqSummary } from "@/types";
 import {
   formatCurrency,
@@ -26,8 +27,17 @@ export function BoqSummaryCards({
   const marginFloor = toNum(minimumMarginPct);
   const tier = marginTier(avgMargin, marginFloor || undefined);
 
+  // Over Budget card only renders when there are over-budget lines, so the
+  // grid stays 5-up most of the time and grows by one column when needed.
+  const overBudgetVisible = summary.over_budget_count > 0;
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+    <div
+      className={cn(
+        "grid grid-cols-2 md:grid-cols-3 gap-3",
+        overBudgetVisible ? "xl:grid-cols-6" : "xl:grid-cols-5"
+      )}
+    >
       <MetricCard
         label="Total Cost"
         value={formatCurrency(summary.total_cost, currency)}
@@ -70,6 +80,13 @@ export function BoqSummaryCards({
           ) : null
         }
       />
+      {overBudgetVisible && (
+        <MetricCard
+          label="Over Budget"
+          value={String(summary.over_budget_count)}
+          badge={<Badge variant="error">Review costs</Badge>}
+        />
+      )}
     </div>
   );
 }
