@@ -44,7 +44,7 @@ export function BoqTabSkeleton() {
             <div
               className={`grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default`}
             >
-              {Array.from({ length: 10 }).map((_, i) => (
+              {Array.from({ length: 12 }).map((_, i) => (
                 <Skeleton key={i} className="h-3 rounded" />
               ))}
               <div />
@@ -70,6 +70,8 @@ export function BoqTabSkeleton() {
                 <Skeleton className="h-4 w-20 rounded ml-auto" />
                 <Skeleton className="h-4 w-12 rounded ml-auto" />
                 <Skeleton className="h-4 w-20 rounded ml-auto" />
+                <Skeleton className="h-4 w-16 rounded ml-auto" />
+                <Skeleton className="h-4 w-16 rounded ml-auto" />
                 <Skeleton className="h-5 w-20 rounded-full" />
                 <Skeleton className="h-5 w-16 rounded-full" />
                 <div />

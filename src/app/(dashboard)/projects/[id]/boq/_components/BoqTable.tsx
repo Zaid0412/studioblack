@@ -88,17 +88,19 @@ interface SectionGroup {
 }
 
 // The Source column is narrow on purpose — it carries a single short badge.
+// Client Rate + Budget Rate are 90px each, sitting between Sell Price (cost
+// build-up output) and Lifecycle (workflow state).
 export const GRID_COLS =
-  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_95px_85px_32px]";
+  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
 
 /**
- * Sum of the fixed column widths above (999px) plus 11 inter-column gaps
- * (gap-2 = 88px) = 1087px. Applied as `min-w` on the table's scrollable
+ * Sum of the fixed column widths above (1179px) plus 13 inter-column gaps
+ * (gap-2 = 104px) = 1283px. Applied as `min-w` on the table's scrollable
  * wrapper so columns never squish below their declared sizes; below the
  * threshold the wrapper scrolls horizontally instead, keeping header and
  * rows aligned.
  */
-export const TABLE_MIN_WIDTH = "min-w-[1087px]";
+export const TABLE_MIN_WIDTH = "min-w-[1283px]";
 
 function isBoqLocked(status: BoqStatus): boolean {
   return status === "locked" || status === "superseded";
@@ -245,6 +247,8 @@ export function BoqTable({
             <div className="text-right">Total Cost</div>
             <div className="text-right">Margin</div>
             <div className="text-right">Sell Price</div>
+            <div className="text-right">Client Rate</div>
+            <div className="text-right">Budget Rate</div>
             <div>Lifecycle</div>
             <div>Client</div>
             <div />
@@ -636,6 +640,40 @@ const BoqItemRow = memo(function BoqItemRow({
       <span className="text-right tabular-nums text-text-primary">
         {formatCurrency(item.sell_price, currency)}
       </span>
+      <BoqEditableCell
+        value={item.client_rate ?? ""}
+        display={
+          item.client_rate !== null
+            ? formatCurrency(item.client_rate, currency)
+            : "—"
+        }
+        mode="number"
+        min={0}
+        align="right"
+        disabled={!editable}
+        onSave={(next) =>
+          save({ clientRate: next === "" ? null : parseFloat(next) })
+        }
+        className="tabular-nums text-text-primary"
+        ariaLabel={`Client rate for ${item.item_code}`}
+      />
+      <BoqEditableCell
+        value={item.budget_rate ?? ""}
+        display={
+          item.budget_rate !== null
+            ? formatCurrency(item.budget_rate, currency)
+            : "—"
+        }
+        mode="number"
+        min={0}
+        align="right"
+        disabled={!editable}
+        onSave={(next) =>
+          save({ budgetRate: next === "" ? null : parseFloat(next) })
+        }
+        className="tabular-nums text-text-primary"
+        ariaLabel={`Budget rate for ${item.item_code}`}
+      />
       <span className="min-w-0">
         <Badge
           variant={lifecycleToVariant(item.lifecycle_status)}
