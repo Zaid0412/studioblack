@@ -31,6 +31,11 @@ export const AUDIT_ACTIONS = {
   VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
   RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
   RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
+  // ── BOQ internal review ────────────────────────────────────────────────
+  BOQ_SUBMITTED_FOR_REVIEW: "boq.submitted_for_review",
+  BOQ_REVIEW_CANCELLED: "boq.review_cancelled",
+  BOQ_INTERNALLY_APPROVED: "boq.internally_approved",
+  BOQ_CHANGES_REQUESTED: "boq.changes_requested",
   // ── Tasks (rendered in /tasks/[id] timeline) ────────────────────────────
   TASK_STATUS_CHANGED: "task.status_changed",
   TASK_PRIORITY_CHANGED: "task.priority_changed",

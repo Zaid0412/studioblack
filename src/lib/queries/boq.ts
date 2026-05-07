@@ -211,7 +211,19 @@ export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   const pool = getPool();
 
   const [boqRes, sectionsRes, itemsRes, summary] = await Promise.all([
-    pool.query<Boq>(`SELECT * FROM boq WHERE id = $1`, [boqId]),
+    pool.query<Boq>(
+      `SELECT
+         b.*,
+         submitter.name AS internal_review_submitted_by_name,
+         approver.name  AS internally_approved_by_name,
+         requester.name AS changes_requested_by_name
+       FROM boq b
+       LEFT JOIN "user" submitter ON submitter.id = b.internal_review_submitted_by
+       LEFT JOIN "user" approver  ON approver.id  = b.internally_approved_by
+       LEFT JOIN "user" requester ON requester.id = b.changes_requested_by
+       WHERE b.id = $1`,
+      [boqId]
+    ),
     pool.query<BoqSection>(
       `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
       [boqId]
@@ -276,6 +288,122 @@ export async function updateBoq(
   const { rows } = await pool.query<Boq>(
     `UPDATE boq SET ${setClauses.join(", ")} WHERE id = $${i} RETURNING *`,
     values
+  );
+  return rows[0] ?? null;
+}
+
+// ─── Internal review (Feature 4 — internal approval gate) ───────────────────
+
+/**
+ * Returns the set of user IDs eligible to approve / request changes on
+ * this BOQ. The "4-eyes" rule excludes the creator — they can't sign
+ * off on their own work.
+ *
+ * Eligible = PMs (org owner/admin) OR architects (org member), AND not
+ * the BOQ creator. The set is used by:
+ *   - the route guards (verifies the caller is in the set)
+ *   - the submit-for-review notification fan-out
+ *   - the UI to decide whether to show approve / request-changes buttons
+ */
+export async function getEligibleReviewers(opts: {
+  orgId: string;
+  creatorId: string | null;
+}): Promise<string[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ userId: string }>(
+    `SELECT DISTINCT m."userId"
+     FROM member m
+     WHERE m."organizationId" = $1
+       AND m.role IN ('owner', 'admin', 'member')
+       AND ($2::text IS NULL OR m."userId" <> $2)`,
+    [opts.orgId, opts.creatorId]
+  );
+  return rows.map((r) => r.userId);
+}
+
+/** Flip status → pending_internal_review and stamp the submitted_at/by audit fields. */
+export async function submitBoqForReview(opts: {
+  boqId: string;
+  submittedBy: string;
+}): Promise<Boq | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<Boq>(
+    `UPDATE boq
+     SET status = 'pending_internal_review',
+         internal_review_submitted_at = now(),
+         internal_review_submitted_by = $2,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [opts.boqId, opts.submittedBy]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Flip status → internally_approved and stamp the approval audit
+ * fields. Clears the most-recent `changes_requested_*` block so the UI
+ * doesn't show a stale rejection comment after a clean approval.
+ */
+export async function approveBoqInternally(opts: {
+  boqId: string;
+  approvedBy: string;
+}): Promise<Boq | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<Boq>(
+    `UPDATE boq
+     SET status = 'internally_approved',
+         internally_approved_at = now(),
+         internally_approved_by = $2,
+         changes_requested_at = NULL,
+         changes_requested_by = NULL,
+         changes_requested_comment = NULL,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [opts.boqId, opts.approvedBy]
+  );
+  return rows[0] ?? null;
+}
+
+/** Flip status → changes_requested and stamp the rejection audit fields + comment. */
+export async function requestBoqChanges(opts: {
+  boqId: string;
+  requestedBy: string;
+  comment: string;
+}): Promise<Boq | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<Boq>(
+    `UPDATE boq
+     SET status = 'changes_requested',
+         changes_requested_at = now(),
+         changes_requested_by = $2,
+         changes_requested_comment = $3,
+         updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [opts.boqId, opts.requestedBy, opts.comment]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Cancel a pending review — flip back to `draft`. Called by the creator
+ * via the "Cancel review" overflow action when they want to take the
+ * BOQ out of the review queue without waiting for a reviewer to act.
+ *
+ * Doesn't clear any audit fields; the previous review history stays
+ * accessible via `audit_event` so we can show "submitted, then
+ * cancelled by creator" in the timeline.
+ */
+export async function cancelBoqReview(boqId: string): Promise<Boq | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<Boq>(
+    `UPDATE boq
+     SET status = 'draft', updated_at = now()
+     WHERE id = $1 AND status = 'pending_internal_review'
+     RETURNING *`,
+    [boqId]
   );
   return rows[0] ?? null;
 }

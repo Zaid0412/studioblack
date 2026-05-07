@@ -10,6 +10,9 @@ export const BOQ_NO_SECTION_ID = "__unassigned__";
 
 const BOQ_STATUS_VARIANT: Record<BoqStatus, BadgeVariant> = {
   draft: "draft",
+  pending_internal_review: "in-review",
+  internally_approved: "approved-arch",
+  changes_requested: "changes-requested",
   submitted_to_client: "submitted",
   client_approved: "approved-client",
   locked: "info",
@@ -18,6 +21,9 @@ const BOQ_STATUS_VARIANT: Record<BoqStatus, BadgeVariant> = {
 
 const BOQ_STATUS_LABEL: Record<BoqStatus, string> = {
   draft: "draft",
+  pending_internal_review: "awaiting internal review",
+  internally_approved: "internally approved",
+  changes_requested: "changes requested",
   submitted_to_client: "submitted to client",
   client_approved: "client approved",
   locked: "locked",

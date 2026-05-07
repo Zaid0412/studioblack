@@ -21,6 +21,8 @@ import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialo
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
 import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
+import { BoqRequestChangesDialog } from "../boq/_components/BoqRequestChangesDialog";
+import { BoqInternalReviewBanner } from "../boq/_components/BoqInternalReviewBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
 import { boq as boqApi, ApiError } from "@/lib/api";
@@ -42,7 +44,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     error,
     mutate: mutateBoq,
   } = useBoq(projectId);
-  const { role } = useUserRole();
+  const { role, session } = useUserRole();
+  const currentUserId = session?.user?.id ?? null;
   const {
     updateBoq,
     updateItem,
@@ -72,6 +75,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   );
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [requestChangesOpen, setRequestChangesOpen] = useState(false);
   const { selected: sourceFilter, setSelected: setSourceFilter } =
     useBoqSourceFilter();
 
@@ -137,6 +141,68 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     (role === "pm" || role === "architect") &&
     boq.status !== "locked" &&
     boq.status !== "superseded";
+
+  // Internal review eligibility — mirrors the server-side
+  // `getEligibleReviewers` rule: PM or architect AND not the BOQ creator.
+  // Clients are always false (they're already excluded by canEdit).
+  const isCreator = !!currentUserId && boq.created_by === currentUserId;
+  const canReview = (role === "pm" || role === "architect") && !isCreator;
+
+  /**
+   * Internal-review action wrapper — runs the API call inside
+   * `transitioning`, mutates the BOQ cache on success so the header
+   * flips status immediately, toasts on error, and swallows the
+   * promise so the BoqHeader's onClick is fire-and-forget.
+   */
+  async function runReviewAction(
+    action: () => Promise<unknown>,
+    successMessage: string
+  ) {
+    setTransitioning(true);
+    try {
+      await action();
+      await mutateBoq();
+      toast({ title: successMessage, variant: "success" });
+    } catch (err) {
+      const description =
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Try again.";
+      toast({ title: "Action failed", description, variant: "error" });
+    } finally {
+      setTransitioning(false);
+    }
+  }
+
+  const handleSubmitForReview = () =>
+    runReviewAction(
+      () => boqApi.submitForReview(projectId),
+      "BOQ submitted for internal review"
+    );
+  const handleCancelReview = () =>
+    runReviewAction(
+      () => boqApi.cancelReview(projectId),
+      "Review cancelled — BOQ is back to draft"
+    );
+  const handleApprove = () =>
+    runReviewAction(() => boqApi.approve(projectId), "BOQ internally approved");
+  const handleRequestChangesSubmit = async (comment: string) => {
+    setTransitioning(true);
+    try {
+      await boqApi.requestChanges(projectId, { comment });
+      await mutateBoq();
+      toast({ title: "Changes requested", variant: "success" });
+    } catch (err) {
+      const description =
+        err instanceof ApiError
+          ? err.message
+          : "Something went wrong. Try again.";
+      toast({ title: "Action failed", description, variant: "error" });
+      throw err; // keep dialog open so the reviewer can retry
+    } finally {
+      setTransitioning(false);
+    }
+  };
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
@@ -229,7 +295,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         pendingApprovals={boq.summary.pending_approvals}
         marginBleedCount={boq.summary.margin_bleed_count}
         canEdit={canEdit}
+        isCreator={isCreator}
+        canReview={canReview}
+        internallyApprovedAt={boq.internally_approved_at ?? null}
+        updatedAt={boq.updated_at}
         transitioning={transitioning}
+        onSubmitForReview={handleSubmitForReview}
+        onCancelReview={handleCancelReview}
+        onApprove={handleApprove}
+        onRequestChanges={() => setRequestChangesOpen(true)}
         onTransition={async (next) => {
           setTransitioning(true);
           try {
@@ -240,6 +314,20 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
             setTransitioning(false);
           }
         }}
+      />
+
+      {boq.status === "changes_requested" && (
+        <BoqInternalReviewBanner
+          reviewerName={boq.changes_requested_by_name ?? null}
+          comment={boq.changes_requested_comment}
+          requestedAt={boq.changes_requested_at}
+        />
+      )}
+
+      <BoqRequestChangesDialog
+        open={requestChangesOpen}
+        onOpenChange={setRequestChangesOpen}
+        onSubmit={handleRequestChangesSubmit}
       />
 
       <BoqSummaryCards

@@ -95,8 +95,27 @@ export const PATCH = withAuth(
       );
     }
 
-    // Status transitions must follow the state machine.
+    // Status transitions must follow the state machine. The
+    // internal-review states (`pending_internal_review`,
+    // `internally_approved`, `changes_requested`) carry audit columns
+    // that this generic PATCH doesn't stamp — force callers through
+    // the dedicated endpoints (/submit-for-review, /approve,
+    // /request-changes, /cancel-review) so the trail stays uniform.
+    const REVIEW_GATE_STATUSES = new Set([
+      "pending_internal_review",
+      "internally_approved",
+      "changes_requested",
+    ]);
     if (nextStatus && nextStatus !== currentStatus) {
+      if (REVIEW_GATE_STATUSES.has(nextStatus)) {
+        return NextResponse.json(
+          {
+            error: `Use the dedicated endpoint to set status to "${nextStatus}".`,
+            code: "USE_REVIEW_ENDPOINT",
+          },
+          { status: 422 }
+        );
+      }
       const allowed = BOQ_STATUS_TRANSITIONS[currentStatus] ?? [];
       if (!allowed.includes(nextStatus)) {
         return NextResponse.json(

@@ -331,6 +331,12 @@ vi.mock("@/lib/queries", () => ({
   getBoq: vi.fn().mockResolvedValue(null),
   getBoqByProject: vi.fn().mockResolvedValue(null),
   updateBoq: vi.fn().mockResolvedValue(null),
+  // Internal review (Feature 4 — internal approval gate)
+  getEligibleReviewers: vi.fn().mockResolvedValue([]),
+  submitBoqForReview: vi.fn().mockResolvedValue(null),
+  approveBoqInternally: vi.fn().mockResolvedValue(null),
+  requestBoqChanges: vi.fn().mockResolvedValue(null),
+  cancelBoqReview: vi.fn().mockResolvedValue(null),
   createBoqSection: vi.fn(),
   updateBoqSection: vi.fn().mockResolvedValue(null),
   deleteBoqSection: vi.fn().mockResolvedValue(true),
