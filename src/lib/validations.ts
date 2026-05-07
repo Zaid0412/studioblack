@@ -704,6 +704,12 @@ export const createBoqItemSchema = z.object({
   // See `createElementSchema` for the rationale on these two fields.
   clientRate: money.optional().nullable(),
   budgetRate: money.optional().nullable(),
+  // Per-line physical dimensions (m). Optional — only set for items
+  // whose quantity is naturally L × B × H. NOT promoted to `element`
+  // when the line is saved to the library (dimensions are BoQ-specific).
+  length: money.optional().nullable(),
+  breadth: money.optional().nullable(),
+  height: money.optional().nullable(),
   notes: z.string().optional().nullable(),
   clientNotes: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).optional(),
@@ -726,6 +732,9 @@ export const updateBoqItemSchema = z.object({
   marginPct: boqPercent.optional(),
   clientRate: money.nullable().optional(),
   budgetRate: money.nullable().optional(),
+  length: money.nullable().optional(),
+  breadth: money.nullable().optional(),
+  height: money.nullable().optional(),
   lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
   clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
   installedQty: quantity.optional(),
