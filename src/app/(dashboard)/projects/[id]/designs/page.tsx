@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { tasks } from "@/lib/api";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
@@ -44,9 +44,15 @@ export default function ProjectDesignsPage({
   const showWorkflowSteps = !isClient && boqEnabled;
 
   // When deep-linked with `?highlightTask=<id>`, jump to that task's
-  // phase before clearing the param.
+  // phase and clear the param. The ref guard ensures we only fire the
+  // task fetch once per highlightTaskId — without it, a project SWR
+  // revalidation mid-flight would re-trigger the fetch (since `project`
+  // would be in deps).
+  const handledHighlightRef = useRef<string | null>(null);
   useEffect(() => {
     if (!highlightTaskId || !project) return;
+    if (handledHighlightRef.current === highlightTaskId) return;
+    handledHighlightRef.current = highlightTaskId;
     tasks
       .get(highlightTaskId)
       .then((task) => {
@@ -54,14 +60,16 @@ export default function ProjectDesignsPage({
       })
       .catch(() => {})
       .finally(() => {
-        const params = new URLSearchParams(searchParams.toString());
+        // Read from window.location at flush time so we don't depend on
+        // the (frequently-changing) `searchParams` object.
+        const params = new URLSearchParams(window.location.search);
         params.delete("highlightTask");
         router.replace(
           `${window.location.pathname}${params.size ? `?${params}` : ""}`,
           { scroll: false }
         );
       });
-  }, [highlightTaskId, project, setActivePhaseId, router, searchParams]);
+  }, [highlightTaskId, project, setActivePhaseId, router]);
 
   if (!project) return null;
 
@@ -70,10 +78,7 @@ export default function ProjectDesignsPage({
       {showWorkflowSteps && (
         <ProjectWorkflowSteps
           projectId={id}
-          fileCount={Array.from(phaseCounts.values()).reduce(
-            (sum, n) => sum + n,
-            0
-          )}
+          phaseCounts={phaseCounts}
           showBoq={showWorkflowSteps}
         />
       )}
@@ -83,7 +88,6 @@ export default function ProjectDesignsPage({
         project={project}
         role={role}
         currentUserId={session?.user?.id}
-        activeTab="designs"
         activePhaseId={activePhaseId}
         setActivePhaseId={setActivePhaseId}
         phaseCounts={phaseCounts}

@@ -31,7 +31,6 @@ export default function BoqLayout({
   const boqEnabled = useFlag("boq");
   const showWorkflowSteps = isMyScope && !isClient && boqEnabled;
 
-  // Total file count drives the Design status dot in the stepper.
   const { phaseCounts } = useProjectDetail(id, {
     includeApprovals: isClient,
   });
@@ -41,10 +40,7 @@ export default function BoqLayout({
       {showWorkflowSteps && (
         <ProjectWorkflowSteps
           projectId={id}
-          fileCount={Array.from(phaseCounts.values()).reduce(
-            (sum, n) => sum + n,
-            0
-          )}
+          phaseCounts={phaseCounts}
           showBoq={!isClient && boqEnabled}
         />
       )}

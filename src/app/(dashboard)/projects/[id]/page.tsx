@@ -1,15 +1,8 @@
 import { redirect } from "next/navigation";
 
 /**
- * Project detail entry — redirects to the active tab.
- *
- * - Default: `/projects/[id]/designs`.
- * - Legacy `?tab=boq` query param → `/projects/[id]/boq` (which itself
- *   redirects to `/boq/my-scope`).
- * - Legacy `?tab=designs` → `/projects/[id]/designs`.
- *
- * Server-side redirect so old bookmarks and email links keep working
- * without a client-side flash.
+ * Project detail entry — server-side redirects to the active tab so
+ * old `?tab=` bookmarks keep working without a client-side flash.
  */
 export default async function ProjectDetailPage({
   params,

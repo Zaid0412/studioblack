@@ -34,13 +34,10 @@ export default function ProjectDetailLayout({
   const {
     project,
     comments,
-    newComment,
-    setNewComment,
-    sendingComment,
     loading,
     error,
     phaseCounts,
-    handleSendComment,
+    submitComment,
     refreshAll,
   } = useProjectDetail(id, { includeApprovals: isClient });
 
@@ -121,16 +118,9 @@ export default function ProjectDetailLayout({
 
       {children}
 
-      {/* Separator between tab content and comments */}
       <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
 
-      <CommentsSection
-        comments={comments}
-        newComment={newComment}
-        onNewCommentChange={setNewComment}
-        sendingComment={sendingComment}
-        onSendComment={handleSendComment}
-      />
+      <CommentsSection comments={comments} submitComment={submitComment} />
     </div>
   );
 }

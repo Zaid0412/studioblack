@@ -9,17 +9,17 @@ interface BoqSubTabStripProps {
 }
 
 /**
- * Horizontal sub-tab strip under the BOQ workflow step. Renders one
- * `<Link>` per entry in `VISIBLE_BOQ_TABS` — driven by the constants
- * file in `_lib/tabs.ts`, so flipping a tab's `enabled` flag is the
- * only change needed to surface it here.
+ * Horizontal sub-tab strip under the BOQ workflow step. Driven entirely
+ * by `VISIBLE_BOQ_TABS` in `_lib/tabs.ts` — flipping a tab's `enabled`
+ * flag surfaces it here.
  *
- * The active tab is resolved from the current pathname's last
- * segment.
+ * Active tab is detected by prefix-matching the pathname against each
+ * tab's full route, so future nested sub-routes (e.g. `/boq/rfq/new`)
+ * still highlight their parent tab.
  */
 export function BoqSubTabStrip({ projectId }: BoqSubTabStripProps) {
   const pathname = usePathname();
-  const activeSegment = pathname.split("/").pop();
+  const baseHref = `/projects/${projectId}/boq`;
 
   return (
     <nav
@@ -27,11 +27,13 @@ export function BoqSubTabStrip({ projectId }: BoqSubTabStripProps) {
       className="shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
     >
       {VISIBLE_BOQ_TABS.map((tab) => {
-        const isActive = tab.segment === activeSegment;
+        const tabHref = `${baseHref}/${tab.segment}`;
+        const isActive =
+          pathname === tabHref || pathname.startsWith(`${tabHref}/`);
         return (
           <Link
-            key={tab.key}
-            href={`/projects/${projectId}/boq/${tab.segment}`}
+            key={tab.segment}
+            href={tabHref}
             aria-current={isActive ? "page" : undefined}
             className={`relative py-3 text-sm whitespace-nowrap transition-colors ${
               isActive

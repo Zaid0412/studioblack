@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useBoq } from "@/hooks/useBoq";
-import { VISIBLE_BOQ_TABS } from "../boq/_lib/tabs";
+import { DEFAULT_BOQ_SEGMENT } from "../boq/_lib/tabs";
 import { useActiveProjectTab, type ProjectTab } from "./ProjectTabs";
 
 type StepStatus = "pending" | "in_progress" | "completed";
@@ -17,8 +17,8 @@ interface StepDef {
 
 interface ProjectWorkflowStepsProps {
   projectId: string;
-  /** Total attachment count across all phases — drives the Design status. */
-  fileCount: number;
+  /** Per-phase attachment counts — Design status is `pending` when this is empty. */
+  phaseCounts: Map<string, number>;
   /** Hide the BOQ step (e.g. for clients or when the feature is off). */
   showBoq: boolean;
 }
@@ -41,7 +41,7 @@ const STATUS_DOT: Record<StepStatus, string> = {
  */
 export function ProjectWorkflowSteps({
   projectId,
-  fileCount,
+  phaseCounts,
   showBoq,
 }: ProjectWorkflowStepsProps) {
   const activeTab = useActiveProjectTab(projectId);
@@ -50,7 +50,8 @@ export function ProjectWorkflowSteps({
   // TODO: mark Design as "completed" when all design files across all phases
   // are approved. Needs project-wide attachment status — not on the detail
   // payload today.
-  const designStatus: StepStatus = fileCount === 0 ? "pending" : "in_progress";
+  const designStatus: StepStatus =
+    phaseCounts.size === 0 ? "pending" : "in_progress";
 
   const boqStatus: StepStatus = notFound
     ? "pending"
@@ -70,12 +71,11 @@ export function ProjectWorkflowSteps({
     // Link straight to the first visible sub-tab so we skip the
     // intermediate /boq → /boq/my-scope redirect on every click. The
     // /boq route still redirects for bookmarks and external links.
-    const defaultBoqSegment = VISIBLE_BOQ_TABS[0]?.segment ?? "my-scope";
     steps.push({
       id: "boq",
       name: "BOQ",
       status: boqStatus,
-      href: `/projects/${projectId}/boq/${defaultBoqSegment}`,
+      href: `/projects/${projectId}/boq/${DEFAULT_BOQ_SEGMENT}`,
     });
   }
 
