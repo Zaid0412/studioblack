@@ -134,6 +134,29 @@ export function parseOptionalNumber(input: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+/**
+ * Render an L × B × H dimensions string for a BOQ item, skipping any
+ * blank dimension. Returns `null` when no dimension is set so callers
+ * can omit the subscript entirely.
+ *
+ * Examples:
+ *   (2.5, 1.5, 0.5) → "2.5 × 1.5 × 0.5 m"
+ *   (5, 3, null)    → "5 × 3 m"
+ *   (null, null, 4) → "4 m"
+ *   (null × 3)      → null
+ */
+export function formatDimensions(
+  length: string | null,
+  breadth: string | null,
+  height: string | null
+): string | null {
+  const parts = [length, breadth, height]
+    .map((s) => (s == null ? null : Number.parseFloat(s)))
+    .filter((n): n is number => n != null && Number.isFinite(n) && n > 0);
+  if (parts.length === 0) return null;
+  return `${parts.map((n) => formatQty(n)).join(" × ")} m`;
+}
+
 /** Format a quantity with up to 3 decimal places and locale-aware thousands separators. */
 export function formatQty(value: string | number): string {
   const n = toNum(value);

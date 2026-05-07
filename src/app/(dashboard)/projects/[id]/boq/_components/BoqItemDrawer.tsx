@@ -160,6 +160,34 @@ export function BoqItemDrawer({
     }
   };
 
+  /**
+   * Persist a dimension change and re-run the L × B × H product into
+   * `quantity` so the line stays in sync with its measurements. The
+   * incoming `next` is the new value of `key`; the other two
+   * dimensions are read from the current item. Blank dimensions are
+   * skipped from the product (matches the create-sheet behaviour).
+   */
+  const saveDimension = async (
+    key: "length" | "breadth" | "height",
+    next: string
+  ) => {
+    const parsed = parseOptionalNumber(next);
+    const dims: Record<"length" | "breadth" | "height", number | null> = {
+      length: parseOptionalNumber(item.length ?? ""),
+      breadth: parseOptionalNumber(item.breadth ?? ""),
+      height: parseOptionalNumber(item.height ?? ""),
+    };
+    dims[key] = parsed;
+    const positives = Object.values(dims).filter(
+      (n): n is number => n != null && Number.isFinite(n) && n > 0
+    );
+    const patch: Partial<UpdateItemPayload> = { [key]: parsed };
+    if (positives.length > 0) {
+      patch.quantity = Number(positives.reduce((a, b) => a * b, 1).toFixed(6));
+    }
+    await saveField(patch);
+  };
+
   const fieldsDisabled = !canEdit || rowLocked || savingField;
 
   const allowedNext = LIFECYCLE_TRANSITIONS[item.lifecycle_status] ?? [];
@@ -322,6 +350,36 @@ export function BoqItemDrawer({
               onSave={(next) =>
                 saveField({ budgetRate: parseOptionalNumber(next) })
               }
+            />
+            <EditableField
+              label="Length"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.length ?? ""}
+              display={item.length ? `${formatQty(item.length)} m` : "—"}
+              onSave={(next) => saveDimension("length", next)}
+            />
+            <EditableField
+              label="Breadth"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.breadth ?? ""}
+              display={item.breadth ? `${formatQty(item.breadth)} m` : "—"}
+              onSave={(next) => saveDimension("breadth", next)}
+            />
+            <EditableField
+              label="Height"
+              disabled={fieldsDisabled}
+              align="right"
+              mode="number"
+              min={0}
+              value={item.height ?? ""}
+              display={item.height ? `${formatQty(item.height)} m` : "—"}
+              onSave={(next) => saveDimension("height", next)}
             />
           </section>
 
