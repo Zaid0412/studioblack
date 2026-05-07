@@ -618,32 +618,47 @@ export function BoqCreateItemSheet({
 
           {/* Sticky bottom band: save-as-element panel + footer share bg-elevated */}
           <div className="bg-bg-elevated border-t border-border-default">
-            <div className="flex flex-col gap-3 px-6 py-4">
+            <div className="flex flex-col px-6 py-4">
               <div className="flex items-start gap-3">
                 <Checkbox
+                  id="boq-save-as-element"
                   checked={v.saveAsElement}
                   onCheckedChange={(checked) => set("saveAsElement", checked)}
                 />
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[13px] font-semibold text-text-primary">
-                    Also save to element library
+                <label
+                  htmlFor="boq-save-as-element"
+                  className="flex flex-col gap-1 cursor-pointer select-none"
+                >
+                  <span className="text-[15px] font-semibold text-text-primary">
+                    Save to element library
                   </span>
-                  <span className="text-[11px] text-text-muted leading-relaxed">
+                  <span className="text-[13px] font-medium text-text-muted leading-relaxed">
                     Creates a reusable element so you can add this line to other
                     BoQs.
                   </span>
+                </label>
+              </div>
+              {/* Animated reveal: grid-rows trick lets us transition from
+                  0 → auto height without a fixed pixel target. */}
+              <div
+                className={`grid transition-[grid-template-rows,opacity,margin-top] duration-200 ease-out ${
+                  v.saveAsElement
+                    ? "grid-rows-[1fr] opacity-100 mt-3"
+                    : "grid-rows-[0fr] opacity-0 mt-0"
+                }`}
+                aria-hidden={!v.saveAsElement}
+              >
+                <div className="overflow-hidden">
+                  <div className="pl-7">
+                    <CategorySelect
+                      label="Save under category"
+                      value={v.saveCategoryId}
+                      onChange={(id) => set("saveCategoryId", id)}
+                      tree={categoryTree}
+                    />
+                  </div>
                 </div>
               </div>
-              {v.saveAsElement && (
-                <div className="pl-7">
-                  <CategorySelect
-                    label="Save under category"
-                    value={v.saveCategoryId}
-                    onChange={(id) => set("saveCategoryId", id)}
-                    tree={categoryTree}
-                  />
-                </div>
-              )}
             </div>
             <div className="flex flex-row justify-end gap-2 px-6 py-3">
               <SheetClose asChild>
