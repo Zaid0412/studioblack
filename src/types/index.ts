@@ -534,6 +534,18 @@ export interface Boq {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Internal review audit — most recent action is denormalised onto
+  // the row; full history lives in `audit_event`.
+  internal_review_submitted_at: string | null;
+  internal_review_submitted_by: string | null;
+  internal_review_submitted_by_name?: string | null;
+  internally_approved_at: string | null;
+  internally_approved_by: string | null;
+  internally_approved_by_name?: string | null;
+  changes_requested_at: string | null;
+  changes_requested_by: string | null;
+  changes_requested_by_name?: string | null;
+  changes_requested_comment: string | null;
 }
 
 /** A section grouping within a BOQ (e.g., "Civil", "Electrical"). */

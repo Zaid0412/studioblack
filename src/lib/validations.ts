@@ -104,6 +104,9 @@ export const APPROVAL_DECISIONS = ["approved", "changes_requested"] as const;
 
 export const BOQ_STATUSES = [
   "draft",
+  "pending_internal_review",
+  "internally_approved",
+  "changes_requested",
   "submitted_to_client",
   "client_approved",
   "locked",
@@ -617,12 +620,35 @@ export const updateBoqSchema = z.object({
   status: z.enum(BOQ_STATUSES).optional(),
 });
 
+/** Approve a BOQ internally — comment is optional. */
+export const approveBoqSchema = z.object({
+  comment: z.string().trim().max(2000).optional(),
+});
+
+/** Request changes — comment is REQUIRED, otherwise the creator
+ * gets bounced back with no signal about what to fix. */
+export const requestBoqChangesSchema = z.object({
+  comment: z.string().trim().min(1).max(2000),
+});
+
 /**
  * Allowed BOQ status transitions. Any other src→dst pair is rejected at the
  * route layer. Locked and superseded are terminal — no transitions out.
  */
 export const BOQ_STATUS_TRANSITIONS: Record<BoqStatus, BoqStatus[]> = {
-  draft: ["submitted_to_client"],
+  // The internal-review gate sits between draft and the existing
+  // client-facing flow. Each non-terminal state has a `→ draft` escape
+  // hatch so the creator (or, in some cases, a PM) can pull the BOQ
+  // back to draft for a major restructuring without going through the
+  // review round-trip.
+  draft: ["pending_internal_review"],
+  pending_internal_review: [
+    "internally_approved",
+    "changes_requested",
+    "draft", // creator self-cancel
+  ],
+  internally_approved: ["submitted_to_client", "draft"],
+  changes_requested: ["pending_internal_review", "draft"],
   submitted_to_client: ["draft", "client_approved"],
   client_approved: ["locked", "draft"],
   locked: [],

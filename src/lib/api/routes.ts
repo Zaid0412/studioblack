@@ -116,6 +116,12 @@ export const API = {
   boqItemsReorder:       (pid: string)                       => `/api/projects/${pid}/boq/items/reorder`,
   boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
 
+  // ── BOQ internal review gate ────────────────────
+  boqSubmitForReview:    (pid: string)                       => `/api/projects/${pid}/boq/submit-for-review`,
+  boqApprove:            (pid: string)                       => `/api/projects/${pid}/boq/approve`,
+  boqRequestChanges:     (pid: string)                       => `/api/projects/${pid}/boq/request-changes`,
+  boqCancelReview:       (pid: string)                       => `/api/projects/${pid}/boq/cancel-review`,
+
   // ── BOQ Excel Import / Export (Feature 6) ───────
   boqImport:             (pid: string)                       => `/api/projects/${pid}/boq/import`,
   boqImportConfirm:      (pid: string)                       => `/api/projects/${pid}/boq/import/confirm`,

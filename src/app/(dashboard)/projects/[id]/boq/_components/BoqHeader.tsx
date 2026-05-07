@@ -1,10 +1,22 @@
 "use client";
 
-import { AlertTriangle, Clock } from "lucide-react";
+import { AlertTriangle, Clock, FilePen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { BoqStatus } from "@/lib/validations";
 import { boqStatusToLabel, boqStatusToVariant } from "../_lib/formatters";
+
+/**
+ * Statuses the generic PATCH /api/projects/[id]/boq endpoint accepts.
+ * The internal-review statuses go through dedicated endpoints, so they
+ * are intentionally NOT in this set.
+ */
+type DownstreamBoqStatus =
+  | "draft"
+  | "submitted_to_client"
+  | "client_approved"
+  | "locked"
+  | "superseded";
 
 interface BoqHeaderProps {
   title: string;
@@ -15,18 +27,34 @@ interface BoqHeaderProps {
   pendingApprovals: number;
   marginBleedCount: number;
   canEdit: boolean;
-  onTransition?: (next: BoqStatus) => void;
+  /** True when the current viewer is the BOQ creator. Drives which action buttons render. */
+  isCreator: boolean;
+  /**
+   * True when the current viewer is allowed to approve / request changes.
+   * Architects and PMs other than the creator. Clients are always false.
+   */
+  canReview: boolean;
+  /** ISO timestamp of the most recent internal approval, if any. */
+  internallyApprovedAt: string | null;
+  /** ISO timestamp of the BOQ's last edit. Drives the "edited since approval" badge. */
+  updatedAt: string;
+  // Internal-review action handlers — wired by the parent.
+  onSubmitForReview?: () => void;
+  onCancelReview?: () => void;
+  onApprove?: () => void;
+  onRequestChanges?: () => void;
+  // Existing client-flow transitions (Send to client / Lock).
+  onTransition?: (next: DownstreamBoqStatus) => void;
+  /** True while any action is in-flight; disables the buttons. */
   transitioning?: boolean;
 }
 
-/** Primary next-step transition per current status, for the PM action button. */
-const PRIMARY_NEXT: Partial<
-  Record<BoqStatus, { to: BoqStatus; label: string }>
-> = {
-  draft: { to: "submitted_to_client", label: "Submit to client" },
-  submitted_to_client: { to: "client_approved", label: "Mark approved" },
-  client_approved: { to: "locked", label: "Lock BOQ" },
-};
+const STATUSES_WITH_APPROVAL_HISTORY = new Set<BoqStatus>([
+  "internally_approved",
+  "submitted_to_client",
+  "client_approved",
+  "locked",
+]);
 
 /** Sticky title row showing BOQ title, status, and at-a-glance risk counts. */
 export function BoqHeader({
@@ -38,11 +66,24 @@ export function BoqHeader({
   pendingApprovals,
   marginBleedCount,
   canEdit,
+  isCreator,
+  canReview,
+  internallyApprovedAt,
+  updatedAt,
+  onSubmitForReview,
+  onCancelReview,
+  onApprove,
+  onRequestChanges,
   onTransition,
   transitioning,
 }: BoqHeaderProps) {
-  const nextStep = PRIMARY_NEXT[status];
-  const showAction = canEdit && nextStep && onTransition;
+  // The badge surfaces whenever the BOQ has been touched after an
+  // approval — useful to PMs/architects (re-review prompt) AND clients
+  // (transparency about edits since the BOQ they were sent).
+  const showStaleEditBadge =
+    internallyApprovedAt !== null &&
+    STATUSES_WITH_APPROVAL_HISTORY.has(status) &&
+    new Date(updatedAt).getTime() > new Date(internallyApprovedAt).getTime();
 
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -54,6 +95,12 @@ export function BoqHeader({
           <Badge variant={boqStatusToVariant(status)} className="!px-2">
             {boqStatusToLabel(status)}
           </Badge>
+          {showStaleEditBadge && (
+            <Badge variant="warning" className="gap-1 !px-2">
+              <FilePen className="h-3 w-3" />
+              Edited since approval
+            </Badge>
+          )}
           <span>v{version}</span>
           <span>·</span>
           <span>{currency}</span>
@@ -77,17 +124,151 @@ export function BoqHeader({
             {marginBleedCount} below floor
           </Badge>
         )}
-        {showAction && nextStep && (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => onTransition!(nextStep.to)}
-            disabled={transitioning}
-          >
-            {transitioning ? "Working..." : nextStep.label}
-          </Button>
+        {canEdit && (
+          <ActionButtons
+            status={status}
+            isCreator={isCreator}
+            canReview={canReview}
+            onSubmitForReview={onSubmitForReview}
+            onCancelReview={onCancelReview}
+            onApprove={onApprove}
+            onRequestChanges={onRequestChanges}
+            onTransition={onTransition}
+            transitioning={transitioning}
+          />
         )}
       </div>
     </div>
   );
+}
+
+function ActionButtons({
+  status,
+  isCreator,
+  canReview,
+  onSubmitForReview,
+  onCancelReview,
+  onApprove,
+  onRequestChanges,
+  onTransition,
+  transitioning,
+}: {
+  status: BoqStatus;
+  isCreator: boolean;
+  canReview: boolean;
+  onSubmitForReview?: () => void;
+  onCancelReview?: () => void;
+  onApprove?: () => void;
+  onRequestChanges?: () => void;
+  onTransition?: (next: DownstreamBoqStatus) => void;
+  transitioning?: boolean;
+}) {
+  const busy = !!transitioning;
+
+  // Creator-driven actions (draft / changes_requested).
+  if (status === "draft") {
+    if (!isCreator || !onSubmitForReview) return null;
+    return (
+      <Button
+        type="button"
+        size="sm"
+        onClick={onSubmitForReview}
+        disabled={busy}
+      >
+        {busy ? "Working..." : "Submit for internal review"}
+      </Button>
+    );
+  }
+
+  if (status === "changes_requested") {
+    if (!isCreator || !onSubmitForReview) return null;
+    return (
+      <Button
+        type="button"
+        size="sm"
+        onClick={onSubmitForReview}
+        disabled={busy}
+      >
+        {busy ? "Working..." : "Resubmit"}
+      </Button>
+    );
+  }
+
+  // Pending review — creator sees Cancel; reviewer sees Approve + Request changes.
+  if (status === "pending_internal_review") {
+    if (isCreator && onCancelReview) {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={onCancelReview}
+          disabled={busy}
+        >
+          {busy ? "Working..." : "Cancel review"}
+        </Button>
+      );
+    }
+    if (canReview && onApprove && onRequestChanges) {
+      return (
+        <>
+          <Button
+            type="button"
+            size="sm"
+            variant="danger"
+            onClick={onRequestChanges}
+            disabled={busy}
+          >
+            Request changes
+          </Button>
+          <Button type="button" size="sm" onClick={onApprove} disabled={busy}>
+            {busy ? "Working..." : "Approve"}
+          </Button>
+        </>
+      );
+    }
+    return null;
+  }
+
+  // Internally approved → "Send to client" unlocks the existing transition path.
+  if (status === "internally_approved" && onTransition) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => onTransition("submitted_to_client")}
+        disabled={busy}
+      >
+        {busy ? "Working..." : "Send to client"}
+      </Button>
+    );
+  }
+
+  // Existing downstream transitions kept intact.
+  if (status === "submitted_to_client" && onTransition) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => onTransition("client_approved")}
+        disabled={busy}
+      >
+        {busy ? "Working..." : "Mark approved"}
+      </Button>
+    );
+  }
+  if (status === "client_approved" && onTransition) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => onTransition("locked")}
+        disabled={busy}
+      >
+        {busy ? "Working..." : "Lock BOQ"}
+      </Button>
+    );
+  }
+
+  return null;
 }

@@ -60,6 +60,11 @@ export interface UpdateBoqPayload {
   architectId?: string | null;
   notes?: string | null;
   clientNotes?: string | null;
+  // The internal-review statuses (`pending_internal_review`,
+  // `internally_approved`, `changes_requested`) are NOT settable here —
+  // the PATCH route rejects them. Use the dedicated endpoints instead
+  // (`/submit-for-review`, `/approve`, `/request-changes`,
+  // `/cancel-review`).
   status?:
     | "draft"
     | "submitted_to_client"
@@ -182,6 +187,28 @@ export function addElement(
 /** Fetch the rolled-up BOQ totals (cost, sell, margins, per-section subtotals). */
 export function getSummary(projectId: string) {
   return apiGet<BoqSummary>(API.boqSummary(projectId));
+}
+
+// ── Internal review gate ───────────────────────────────────────────────────
+
+/** Architect submits their own BOQ for internal review. */
+export function submitForReview(projectId: string) {
+  return apiPost(API.boqSubmitForReview(projectId));
+}
+
+/** Eligible reviewer approves the BOQ — comment optional. */
+export function approve(projectId: string, input?: { comment?: string }) {
+  return apiPost(API.boqApprove(projectId), input ?? {});
+}
+
+/** Eligible reviewer requests changes — comment required. */
+export function requestChanges(projectId: string, input: { comment: string }) {
+  return apiPost(API.boqRequestChanges(projectId), input);
+}
+
+/** Creator cancels a pending review and pulls the BOQ back to draft. */
+export function cancelReview(projectId: string) {
+  return apiPost(API.boqCancelReview(projectId));
 }
 
 // ── Excel Import / Export (Feature 6) ───────────────────────────────────────

@@ -351,8 +351,12 @@ describe("PATCH /api/projects/[id]/boq", () => {
     expect(updateBoq).not.toHaveBeenCalled();
   });
 
-  it("allows the draft → submitted_to_client transition", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("draft");
+  it("allows the internally_approved → submitted_to_client transition", async () => {
+    // After F4 internal-review gate, draft no longer transitions
+    // straight to submitted_to_client — it goes through the review
+    // states first. The PATCH endpoint only handles transitions that
+    // don't have audit-side effects.
+    vi.mocked(getBoqStatus).mockResolvedValue("internally_approved");
     vi.mocked(updateBoq).mockResolvedValue({
       ...fakeBoq,
       status: "submitted_to_client",
@@ -367,6 +371,24 @@ describe("PATCH /api/projects/[id]/boq", () => {
 
     expect(status).toBe(200);
     expect(body.status).toBe("submitted_to_client");
+  });
+
+  it("rejects directly setting an internal-review status via PATCH", async () => {
+    // The internal-review states must go through their dedicated
+    // endpoints so the audit columns get stamped — not the generic
+    // PATCH route.
+    vi.mocked(getBoqStatus).mockResolvedValue("draft");
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
+      method: "PATCH",
+      body: { boqId: BOQ_ID, status: "pending_internal_review" },
+    });
+    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ code: string }>(res);
+
+    expect(status).toBe(422);
+    expect(body.code).toBe("USE_REVIEW_ENDPOINT");
+    expect(updateBoq).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid status transition with 422", async () => {
