@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { useBoq } from "@/hooks/useBoq";
-import { useProjectTabNav, type ProjectTab } from "./ProjectTabs";
+import { VISIBLE_BOQ_TABS } from "../boq/_lib/tabs";
+import { useActiveProjectTab, type ProjectTab } from "./ProjectTabs";
 
 type StepStatus = "pending" | "in_progress" | "completed";
 
@@ -10,11 +12,11 @@ interface StepDef {
   id: ProjectTab;
   name: string;
   status: StepStatus;
+  href: string;
 }
 
 interface ProjectWorkflowStepsProps {
   projectId: string;
-  activeTab: ProjectTab;
   /** Total attachment count across all phases — drives the Design status. */
   fileCount: number;
   /** Hide the BOQ step (e.g. for clients or when the feature is off). */
@@ -39,12 +41,11 @@ const STATUS_DOT: Record<StepStatus, string> = {
  */
 export function ProjectWorkflowSteps({
   projectId,
-  activeTab,
   fileCount,
   showBoq,
 }: ProjectWorkflowStepsProps) {
+  const activeTab = useActiveProjectTab(projectId);
   const { boq, notFound } = useBoq(projectId);
-  const { setTab } = useProjectTabNav(activeTab);
 
   // TODO: mark Design as "completed" when all design files across all phases
   // are approved. Needs project-wide attachment status — not on the detail
@@ -58,10 +59,24 @@ export function ProjectWorkflowSteps({
       : "in_progress";
 
   const steps: StepDef[] = [
-    { id: "designs", name: "Design", status: designStatus },
+    {
+      id: "designs",
+      name: "Design",
+      status: designStatus,
+      href: `/projects/${projectId}/designs`,
+    },
   ];
   if (showBoq) {
-    steps.push({ id: "boq", name: "BOQ", status: boqStatus });
+    // Link straight to the first visible sub-tab so we skip the
+    // intermediate /boq → /boq/my-scope redirect on every click. The
+    // /boq route still redirects for bookmarks and external links.
+    const defaultBoqSegment = VISIBLE_BOQ_TABS[0]?.segment ?? "my-scope";
+    steps.push({
+      id: "boq",
+      name: "BOQ",
+      status: boqStatus,
+      href: `/projects/${projectId}/boq/${defaultBoqSegment}`,
+    });
   }
 
   return (
@@ -73,9 +88,8 @@ export function ProjectWorkflowSteps({
             const isActive = step.id === activeTab;
             return (
               <div key={step.id} className="flex items-center gap-5">
-                <button
-                  type="button"
-                  onClick={() => setTab(step.id)}
+                <Link
+                  href={step.href}
                   aria-current={isActive ? "page" : undefined}
                   className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
                     isActive
@@ -95,7 +109,7 @@ export function ProjectWorkflowSteps({
                   >
                     {step.name}
                   </span>
-                </button>
+                </Link>
                 {i < steps.length - 1 && (
                   <ChevronRight
                     aria-hidden="true"
