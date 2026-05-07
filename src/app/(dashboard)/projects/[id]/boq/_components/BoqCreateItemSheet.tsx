@@ -54,6 +54,9 @@ interface FormState {
   serviceChargePct: string;
   clientRate: string;
   budgetRate: string;
+  length: string;
+  breadth: string;
+  height: string;
   specReference: string;
   drawingRef: string;
   drawingFileUrl: string | null;
@@ -84,6 +87,9 @@ const INITIAL: FormState = {
   serviceChargePct: "0",
   clientRate: "",
   budgetRate: "",
+  length: "",
+  breadth: "",
+  height: "",
   specReference: "",
   drawingRef: "",
   drawingFileUrl: null,
@@ -174,6 +180,47 @@ export function BoqCreateItemSheet({
     return Number.isFinite(n) && n >= 0 ? n : fallback;
   };
 
+  /**
+   * Set a dimension and auto-fill `quantity` with the product of all
+   * non-blank dimensions. Blanks are skipped (so a tiling line with
+   * only L+B yields qty = L × B; a unit-count line with all blank
+   * leaves qty alone). The user can still type over `quantity`
+   * manually after; the next dimension change will recompute and
+   * overwrite — that's the spec's "auto by default, manual override
+   * allowed" intent.
+   */
+  const setDimension = (
+    key: "length" | "breadth" | "height",
+    value: string
+  ) => {
+    setV((prev) => {
+      const next = { ...prev, [key]: value };
+      const dims = [next.length, next.breadth, next.height]
+        .map((s) => s.trim())
+        .filter((s) => s !== "")
+        .map((s) => Number.parseFloat(s))
+        .filter((n) => Number.isFinite(n) && n > 0);
+      if (dims.length > 0) {
+        const product = dims.reduce((a, b) => a * b, 1);
+        // Strip trailing zeros for cleaner display.
+        next.quantity = String(Number(product.toFixed(6)));
+      }
+      return next;
+    });
+  };
+
+  /** True when the current `quantity` is the auto-computed product of L/B/H. */
+  const qtyAutoFilled = (() => {
+    const dims = [v.length, v.breadth, v.height]
+      .map((s) => s.trim())
+      .filter((s) => s !== "")
+      .map((s) => Number.parseFloat(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (dims.length === 0) return false;
+    const product = dims.reduce((a, b) => a * b, 1);
+    return v.quantity.trim() === String(Number(product.toFixed(6)));
+  })();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedDesc = v.description.trim();
@@ -259,6 +306,9 @@ export function BoqCreateItemSheet({
         marginPct: num(v.marginPct, 15),
         clientRate: parseOptionalNumber(v.clientRate.trim()),
         budgetRate: parseOptionalNumber(v.budgetRate.trim()),
+        length: parseOptionalNumber(v.length.trim()),
+        breadth: parseOptionalNumber(v.breadth.trim()),
+        height: parseOptionalNumber(v.height.trim()),
         notes: v.notes.trim() || null,
       });
 
@@ -377,10 +427,54 @@ export function BoqCreateItemSheet({
               />
             </div>
 
+            {/* Length | Breadth | Height — optional, auto-fills Qty */}
+            <div className="grid grid-cols-3 gap-3">
+              <label className="flex flex-col gap-1.5">
+                <span className={labelCls}>Length</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="optional"
+                  value={v.length}
+                  onChange={(e) => setDimension("length", e.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className={labelCls}>Breadth</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="optional"
+                  value={v.breadth}
+                  onChange={(e) => setDimension("breadth", e.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className={labelCls}>Height</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder="optional"
+                  value={v.height}
+                  onChange={(e) => setDimension("height", e.target.value)}
+                />
+              </label>
+            </div>
+
             {/* Qty | Unit cost * | Margin % */}
             <div className="grid grid-cols-3 gap-3">
               <label className="flex flex-col gap-1.5">
-                <span className={labelCls}>Qty</span>
+                <span className={labelCls}>
+                  Qty
+                  {qtyAutoFilled && (
+                    <span className="ml-1.5 text-[10px] font-medium italic text-accent">
+                      (auto from L × B × H)
+                    </span>
+                  )}
+                </span>
                 <Input
                   type="number"
                   min="0"

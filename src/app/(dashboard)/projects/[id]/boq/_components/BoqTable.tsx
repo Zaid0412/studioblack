@@ -41,6 +41,7 @@ import {
   BOQ_NO_SECTION_ID,
   clientApprovalToVariant,
   formatCurrency,
+  formatDimensions,
   formatOptionalCurrency,
   formatPct,
   formatQty,
@@ -560,31 +561,41 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.item_code}
         </span>
       )}
-      <span className="flex items-center gap-1.5 min-w-0">
-        {item.is_provisional && (
-          <span
-            title="Provisional"
-            className="flex-shrink-0 inline-flex items-center rounded bg-warning/20 text-warning text-[9px] font-semibold px-1 py-0.5 leading-none"
-          >
-            PROV
-          </span>
-        )}
-        {item.is_excluded && (
-          <span
-            title="Excluded"
-            className="flex-shrink-0 inline-flex items-center rounded bg-border-default text-text-muted text-[9px] font-semibold px-1 py-0.5 leading-none line-through"
-          >
-            EXCL
-          </span>
-        )}
-        <BoqEditableCell
-          value={item.description}
-          display={item.description}
-          disabled={!editable}
-          onSave={(next) => save({ description: next })}
-          className="text-text-primary min-w-0"
-          ariaLabel={`Description for ${item.item_code}`}
-        />
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="flex items-center gap-1.5 min-w-0">
+          {item.is_provisional && (
+            <span
+              title="Provisional"
+              className="flex-shrink-0 inline-flex items-center rounded bg-warning/20 text-warning text-[9px] font-semibold px-1 py-0.5 leading-none"
+            >
+              PROV
+            </span>
+          )}
+          {item.is_excluded && (
+            <span
+              title="Excluded"
+              className="flex-shrink-0 inline-flex items-center rounded bg-border-default text-text-muted text-[9px] font-semibold px-1 py-0.5 leading-none line-through"
+            >
+              EXCL
+            </span>
+          )}
+          <BoqEditableCell
+            value={item.description}
+            display={item.description}
+            disabled={!editable}
+            onSave={(next) => save({ description: next })}
+            className="text-text-primary min-w-0"
+            ariaLabel={`Description for ${item.item_code}`}
+          />
+        </span>
+        {(() => {
+          const dims = formatDimensions(item.length, item.breadth, item.height);
+          return dims ? (
+            <span className="text-[11px] italic text-text-muted truncate">
+              {dims}
+            </span>
+          ) : null;
+        })()}
       </span>
       <span className="min-w-0">
         <BoqSourceBadge source={item.source} />
