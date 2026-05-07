@@ -579,6 +579,9 @@ export interface BoqItem {
   margin_pct: string;
   client_rate: string | null;
   budget_rate: string | null;
+  length: string | null;
+  breadth: string | null;
+  height: string | null;
   source: BoqItemSource;
   rate_contract_item_id: string | null;
   lifecycle_status: BoqItemLifecycleStatus;
