@@ -123,6 +123,7 @@
   /* Accent */
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--text-on-accent);
 
   /* Text */
   --color-text-primary: var(--text-primary);
