@@ -86,6 +86,12 @@ export function CategoryForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Stop the synthetic submit from bubbling up the React tree.
+    // CategoryForm is hosted in dialogs that are themselves nested inside
+    // outer forms (e.g. BoqCreateItemSheet). Radix portals the dialog DOM
+    // to body, but React events bubble through the component tree — so
+    // without this, clicking Save here also submits the outer form.
+    e.stopPropagation();
     if (!values.name.trim()) return;
     await onSubmit({
       name: values.name.trim(),

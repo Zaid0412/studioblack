@@ -692,7 +692,7 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.client_approval_status}
         </Badge>
       </span>
-      <span className="flex justify-end">
+      <span className="flex justify-end pr-2">
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger
