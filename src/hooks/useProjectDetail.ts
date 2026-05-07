@@ -59,8 +59,6 @@ export function useProjectDetail(
   >(includeApprovals ? `/api/projects/${id}/tasks/pending-review` : null);
 
   // -- UI state --
-  const [newComment, setNewComment] = useState("");
-  const [sendingComment, setSendingComment] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [reviewingTaskId, setReviewingTaskId] = useState<string | null>(null);
   const [changesDialogOpen, setChangesDialogOpen] = useState(false);
@@ -78,24 +76,29 @@ export function useProjectDetail(
   }, [project, activePhaseId]);
 
   // --- Comments ---
-  const handleSendComment = useCallback(async () => {
-    if (!newComment.trim() || sendingComment) return;
-    setSendingComment(true);
-    try {
-      await commentsApi.create(id, newComment.trim());
-      trackEvent("comment_added", { project_id: id });
-      mutateComments();
-      setNewComment("");
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to send comment",
-        variant: "error",
-      });
-    } finally {
-      setSendingComment(false);
-    }
-  }, [id, newComment, sendingComment, mutateComments]);
+  // The text input + sending flag live in `<CommentsSection>`. This
+  // hook only owns the API call so the layout doesn't re-render its
+  // entire subtree on every keystroke.
+  const submitComment = useCallback(
+    async (text: string): Promise<boolean> => {
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      try {
+        await commentsApi.create(id, trimmed);
+        trackEvent("comment_added", { project_id: id });
+        mutateComments();
+        return true;
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to send comment",
+          variant: "error",
+        });
+        return false;
+      }
+    },
+    [id, mutateComments]
+  );
 
   // --- Refresh ---
   const refreshAttachments = useCallback(() => {
@@ -211,10 +214,7 @@ export function useProjectDetail(
     phaseCounts,
     phaseFiles,
     // Comments
-    newComment,
-    setNewComment,
-    sendingComment,
-    handleSendComment,
+    submitComment,
     // Refresh
     refreshAttachments,
     refreshAll,

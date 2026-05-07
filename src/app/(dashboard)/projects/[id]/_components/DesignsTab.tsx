@@ -15,14 +15,12 @@ import { TaskSection } from "./TaskSection";
 import { PendingTasksBanner } from "./PendingTasksBanner";
 import { CompletedBanner } from "./CompletedBanner";
 import { ApprovalHistory } from "./ApprovalHistory";
-import type { ProjectTab } from "./ProjectTabs";
 
 interface DesignsTabProps {
   projectId: string;
   project: DbProjectDetail;
   role: UserRole | null;
   currentUserId: string | undefined;
-  activeTab: ProjectTab;
   activePhaseId: string | null;
   setActivePhaseId: (id: string) => void;
   phaseCounts: Map<string, number>;
@@ -50,7 +48,6 @@ export function DesignsTab({
   project,
   role,
   currentUserId,
-  activeTab,
   activePhaseId,
   setActivePhaseId,
   phaseCounts,
@@ -71,7 +68,6 @@ export function DesignsTab({
       {role === "pm" && (
         <WorkflowBar
           projectId={projectId}
-          activeTab={activeTab}
           onUpload={() => uploadTriggerRef.current?.()}
         />
       )}

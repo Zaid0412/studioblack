@@ -392,47 +392,46 @@ function noopSwrWrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe("useProjectDetail", () => {
-  it("handleSendComment: calls comments.create and clears input", async () => {
+  it("submitComment: calls comments.create and returns true on success", async () => {
     mockCommentsCreate.mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useProjectDetail("proj-1"), {
       wrapper: noopSwrWrapper,
     });
 
-    // Set comment text
-    act(() => result.current.setNewComment("Hello world"));
-
+    let outcome: boolean | undefined;
     await act(async () => {
-      await result.current.handleSendComment();
+      outcome = await result.current.submitComment("Hello world");
     });
 
     expect(mockCommentsCreate).toHaveBeenCalledWith("proj-1", "Hello world");
-    expect(result.current.newComment).toBe("");
-    expect(result.current.sendingComment).toBe(false);
+    expect(outcome).toBe(true);
   });
 
-  it("handleSendComment: does nothing when comment is empty", async () => {
+  it("submitComment: returns false and skips API call when text is empty", async () => {
     const { result } = renderHook(() => useProjectDetail("proj-1"), {
       wrapper: noopSwrWrapper,
     });
 
+    let outcome: boolean | undefined;
     await act(async () => {
-      await result.current.handleSendComment();
+      outcome = await result.current.submitComment("   ");
     });
 
     expect(mockCommentsCreate).not.toHaveBeenCalled();
+    expect(outcome).toBe(false);
   });
 
-  it("handleSendComment: shows error toast on failure", async () => {
+  it("submitComment: shows error toast and returns false on failure", async () => {
     mockCommentsCreate.mockRejectedValue(new Error("fail"));
 
     const { result } = renderHook(() => useProjectDetail("proj-1"), {
       wrapper: noopSwrWrapper,
     });
-    act(() => result.current.setNewComment("Test"));
 
+    let outcome: boolean | undefined;
     await act(async () => {
-      await result.current.handleSendComment();
+      outcome = await result.current.submitComment("Test");
     });
 
     expect(mockToast).toHaveBeenCalledWith(
@@ -441,7 +440,7 @@ describe("useProjectDetail", () => {
         description: "Failed to send comment",
       })
     );
-    expect(result.current.sendingComment).toBe(false);
+    expect(outcome).toBe(false);
   });
 
   it("handleDecision: calls approvals.submit", async () => {

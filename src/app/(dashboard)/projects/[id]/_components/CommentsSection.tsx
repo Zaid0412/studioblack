@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Loader2, MessageSquare, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -11,21 +12,30 @@ import type { DbComment } from "@/types";
 
 interface CommentsSectionProps {
   comments: DbComment[];
-  newComment: string;
-  onNewCommentChange: (value: string) => void;
-  sendingComment: boolean;
-  onSendComment: () => void;
+  /** Returns true on success (input is cleared), false on failure. */
+  submitComment: (text: string) => Promise<boolean>;
 }
 
-/** Displays project comments thread with input for new comments. */
+/**
+ * Project comments thread + input. Owns the input draft and sending
+ * flag locally so keystrokes don't re-render the parent layout subtree.
+ */
 export function CommentsSection({
   comments,
-  newComment,
-  onNewCommentChange,
-  sendingComment,
-  onSendComment,
+  submitComment,
 }: CommentsSectionProps) {
   const t = useTranslations("projectDetail");
+  const [newComment, setNewComment] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    if (!newComment.trim() || sending) return;
+    setSending(true);
+    const ok = await submitComment(newComment);
+    setSending(false);
+    if (ok) setNewComment("");
+  };
+
   return (
     <div className="px-4 lg:px-10 pb-8">
       <div className="flex flex-col gap-3">
@@ -37,11 +47,11 @@ export function CommentsSection({
         <div className="flex gap-3">
           <textarea
             value={newComment}
-            onChange={(e) => onNewCommentChange(e.target.value)}
+            onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
-                onSendComment();
+                handleSend();
               }
             }}
             placeholder={t("commentPlaceholder")}
@@ -51,10 +61,10 @@ export function CommentsSection({
           <Button
             size="sm"
             className="self-end"
-            onClick={onSendComment}
-            disabled={!newComment.trim() || sendingComment}
+            onClick={handleSend}
+            disabled={!newComment.trim() || sending}
           >
-            {sendingComment ? (
+            {sending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />
