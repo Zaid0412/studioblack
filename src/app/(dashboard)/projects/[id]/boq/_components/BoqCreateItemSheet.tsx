@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Plus, X, Save } from "lucide-react";
 import {
@@ -135,6 +135,11 @@ export function BoqCreateItemSheet({
   const { createItem } = useBoqMutations(projectId);
   const [v, setV] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
+  // Tracks whether the user has manually edited Qty in this session.
+  // Once true, dimension edits stop overwriting Qty so a manual
+  // override sticks for the rest of the session. Resets every time
+  // the sheet opens.
+  const [manualQty, setManualQty] = useState(false);
 
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     open ? API.elementCategories() : null
@@ -147,6 +152,7 @@ export function BoqCreateItemSheet({
       ...INITIAL,
       sectionId: defaultSectionId ?? BOQ_NO_SECTION_ID,
     });
+    setManualQty(false);
   }, [open, defaultSectionId]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -181,13 +187,13 @@ export function BoqCreateItemSheet({
   };
 
   /**
-   * Set a dimension and auto-fill `quantity` with the product of all
+   * Set a dimension and — unless the user has manually edited Qty
+   * in this session — auto-fill `quantity` with the product of all
    * non-blank dimensions. Blanks are skipped (so a tiling line with
    * only L+B yields qty = L × B; a unit-count line with all blank
-   * leaves qty alone). The user can still type over `quantity`
-   * manually after; the next dimension change will recompute and
-   * overwrite — that's the spec's "auto by default, manual override
-   * allowed" intent.
+   * leaves qty alone). Once the user manually overrides Qty,
+   * `manualQty` flips to `true` and further dimension edits leave
+   * Qty untouched — sticky-override semantics.
    */
   const setDimension = (
     key: "length" | "breadth" | "height",
@@ -195,6 +201,7 @@ export function BoqCreateItemSheet({
   ) => {
     setV((prev) => {
       const next = { ...prev, [key]: value };
+      if (manualQty) return next;
       const dims = [next.length, next.breadth, next.height]
         .map((s) => s.trim())
         .filter((s) => s !== "")
@@ -209,17 +216,20 @@ export function BoqCreateItemSheet({
     });
   };
 
-  /** True when the current `quantity` is the auto-computed product of L/B/H. */
-  const qtyAutoFilled = (() => {
-    const dims = [v.length, v.breadth, v.height]
-      .map((s) => s.trim())
-      .filter((s) => s !== "")
-      .map((s) => Number.parseFloat(s))
-      .filter((n) => Number.isFinite(n) && n > 0);
-    if (dims.length === 0) return false;
-    const product = dims.reduce((a, b) => a * b, 1);
-    return v.quantity.trim() === String(Number(product.toFixed(6)));
-  })();
+  /** Mark Qty as user-overridden so dimension edits stop touching it. */
+  const setQtyManually = (value: string) => {
+    setV((prev) => ({ ...prev, quantity: value }));
+    setManualQty(true);
+  };
+
+  /** True when at least one dimension is filled and Qty hasn't been manually edited. */
+  const qtyAutoFilled = useMemo(() => {
+    if (manualQty) return false;
+    const hasDim = [v.length, v.breadth, v.height].some(
+      (s) => s.trim() !== "" && Number.parseFloat(s) > 0
+    );
+    return hasDim;
+  }, [manualQty, v.length, v.breadth, v.height]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -480,7 +490,7 @@ export function BoqCreateItemSheet({
                   min="0"
                   step="any"
                   value={v.quantity}
-                  onChange={(e) => set("quantity", e.target.value)}
+                  onChange={(e) => setQtyManually(e.target.value)}
                 />
               </label>
               <label className="flex flex-col gap-1.5">
