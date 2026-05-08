@@ -541,6 +541,14 @@ const BoqItemRow = memo(function BoqItemRow({
     [onUpdateItem, item.id, item.updated_at]
   );
 
+  // Pre-compute the dimensions subscript so the formatter doesn't run
+  // inline in JSX on every render (cheap per row, but a 500-line BoQ
+  // would do 500× per render otherwise).
+  const dimensionsLabel = useMemo(
+    () => formatDimensions(item.length, item.breadth, item.height),
+    [item.length, item.breadth, item.height]
+  );
+
   const showMenu = editable && onDeleteItem;
 
   return (
@@ -588,14 +596,11 @@ const BoqItemRow = memo(function BoqItemRow({
             ariaLabel={`Description for ${item.item_code}`}
           />
         </span>
-        {(() => {
-          const dims = formatDimensions(item.length, item.breadth, item.height);
-          return dims ? (
-            <span className="text-[11px] italic text-text-muted truncate">
-              {dims}
-            </span>
-          ) : null;
-        })()}
+        {dimensionsLabel && (
+          <span className="text-[11px] italic text-text-muted truncate">
+            {dimensionsLabel}
+          </span>
+        )}
       </span>
       <span className="min-w-0">
         <BoqSourceBadge source={item.source} />
