@@ -278,6 +278,42 @@ describe("createBoqItemSchema", () => {
       itemCode: "a".repeat(51),
     });
   });
+
+  it("accepts decimal length / breadth / height values", () => {
+    const data = expectPass(createBoqItemSchema, {
+      description: "Concrete footing M25",
+      unit: "m3",
+      length: 2.5,
+      breadth: 1.5,
+      height: 0.5,
+    });
+    expect(data.length).toBe(2.5);
+    expect(data.breadth).toBe(1.5);
+    expect(data.height).toBe(0.5);
+  });
+
+  it("accepts null dimension values (omitted dimensions)", () => {
+    expectPass(createBoqItemSchema, {
+      description: "Pipework run",
+      unit: "lm",
+      length: 12,
+      breadth: null,
+      height: null,
+    });
+  });
+
+  it("rejects negative dimensions", () => {
+    expectFail(createBoqItemSchema, {
+      description: "X",
+      unit: "m2",
+      length: -1,
+    });
+    expectFail(createBoqItemSchema, {
+      description: "X",
+      unit: "m2",
+      height: -0.001,
+    });
+  });
 });
 
 // ── updateBoqItemSchema ──────────────────────────────────────────────────────
@@ -335,6 +371,25 @@ describe("updateBoqItemSchema", () => {
     expectFail(updateBoqItemSchema, {
       updatedAt: "2024-01-01T00:00:00Z",
       installedQty: -1,
+    });
+  });
+
+  it("accepts decimal length / breadth / height", () => {
+    const data = expectPass(updateBoqItemSchema, {
+      updatedAt: "2024-01-01T00:00:00Z",
+      length: 3,
+      breadth: 2,
+      height: 1.5,
+    });
+    expect(data.length).toBe(3);
+    expect(data.breadth).toBe(2);
+    expect(data.height).toBe(1.5);
+  });
+
+  it("rejects negative dimensions on update", () => {
+    expectFail(updateBoqItemSchema, {
+      updatedAt: "2024-01-01T00:00:00Z",
+      length: -1,
     });
   });
 });
