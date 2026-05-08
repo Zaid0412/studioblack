@@ -678,6 +678,14 @@ const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   // changes. `budgetRate` is internal-only and does NOT trigger re-approval.
   "clientRate",
   "sectionId",
+  // Physical dimensions are material — changing a footing from
+  // 2.5×1.5×0.5 to 3×2×1 is a re-approval-worthy change. Drawer edits
+  // already patch `quantity` alongside the dimension and would trigger
+  // via that path, but keep these listed defensively so a direct API
+  // patch of just `length` (etc.) still flips the row to pending.
+  "length",
+  "breadth",
+  "height",
 ]);
 
 export type UpdateBoqItemOutcome =
