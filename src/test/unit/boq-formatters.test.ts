@@ -4,6 +4,7 @@ import {
   lifecycleToVariant,
   clientApprovalToVariant,
   formatCurrency,
+  formatDimensions,
   formatQty,
   formatPct,
   toNum,
@@ -101,5 +102,32 @@ describe("formatPct", () => {
   it("fixes 1 decimal place", () => {
     expect(formatPct("12.345")).toBe("12.3%");
     expect(formatPct(0)).toBe("0.0%");
+  });
+});
+
+describe("formatDimensions", () => {
+  it("renders all three dimensions when present", () => {
+    expect(formatDimensions("2.5", "1.5", "0.5")).toBe("2.5 × 1.5 × 0.5 m");
+  });
+
+  it("skips a blank height", () => {
+    expect(formatDimensions("5", "3", null)).toBe("5 × 3 m");
+  });
+
+  it("skips blank length and breadth", () => {
+    expect(formatDimensions(null, null, "4")).toBe("4 m");
+  });
+
+  it("returns null when nothing is set", () => {
+    expect(formatDimensions(null, null, null)).toBeNull();
+  });
+
+  it("treats zero and negative as blank", () => {
+    expect(formatDimensions("0", "0", "0")).toBeNull();
+    expect(formatDimensions("-1", "2", "3")).toBe("2 × 3 m");
+  });
+
+  it("ignores non-numeric strings", () => {
+    expect(formatDimensions("abc", "2", "3")).toBe("2 × 3 m");
   });
 });
