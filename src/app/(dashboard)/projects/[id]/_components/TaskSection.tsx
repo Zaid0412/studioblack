@@ -71,6 +71,7 @@ export function TaskSection({
     setDeleteTarget,
     deleting,
     toggleStatus,
+    setStatus,
     toggleStar,
     handleDelete,
     openEdit,
@@ -165,6 +166,7 @@ export function TaskSection({
                 task={task}
                 onToggleStar={toggleStar}
                 onToggleStatus={toggleStatus}
+                onSetStatus={setStatus}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
                 onClick={openTask}

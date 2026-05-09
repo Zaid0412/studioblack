@@ -66,7 +66,10 @@ const STATUS_TKEY: Record<string, string> = {
 interface TaskRowProps {
   task: Task;
   onToggleStar: (task: Task) => void;
+  /** Cycles status forward (todo → in_progress → completed → todo). Used by the status pill. */
   onToggleStatus: (task: Task) => void;
+  /** Sets a specific status. Used by the row's Complete / Reopen menu item. */
+  onSetStatus: (task: Task, status: Task["status"]) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   /** When undefined, the row is not clickable. */
@@ -85,6 +88,7 @@ export function TaskRow({
   task,
   onToggleStar,
   onToggleStatus,
+  onSetStatus,
   onEdit,
   onDelete,
   onClick,
@@ -227,7 +231,15 @@ export function TaskRow({
                 <MoreVertical className="w-4 h-4" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent
+              align="end"
+              // Stop synthetic clicks from bubbling up to the row's onClick
+              // — without this, picking any menu item also opens the side
+              // panel. Radix portals the content to <body> so the DOM-level
+              // bubble is broken, but React events bubble through the
+              // component tree, not the DOM.
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenuItem onClick={() => onToggleStar(task)}>
                 <Star
                   className={`w-4 h-4 ${task.is_starred ? "fill-accent text-accent" : ""}`}
@@ -238,7 +250,14 @@ export function TaskRow({
                 <Edit className="w-4 h-4" />
                 {t("editTask")}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onToggleStatus(task)}>
+              <DropdownMenuItem
+                onClick={() =>
+                  onSetStatus(
+                    task,
+                    task.status === "completed" ? "todo" : "completed"
+                  )
+                }
+              >
                 <CheckCircle2 className="w-4 h-4" />
                 {task.status === "completed" ? t("reopen") : t("complete")}
               </DropdownMenuItem>
