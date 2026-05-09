@@ -505,7 +505,7 @@ export function BoqElementPickerDialog({
                           onChange={(e) =>
                             setQty(entry.element.id, e.target.value)
                           }
-                          className="w-20 h-7 text-xs"
+                          className="w-20 h-9 text-xs"
                         />
                         <span className="w-[36px] text-text-muted text-right">
                           {entry.element.unit}
