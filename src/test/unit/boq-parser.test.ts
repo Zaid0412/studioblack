@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
 import { parseBoqSheet } from "@/lib/excel/boqParser";
-import type { BoqElementLite } from "@/types";
+import { writeBoqSheet } from "@/lib/excel/boqWriter";
+import type { BoqElementLite, BoqItemWithComputed, BoqSection } from "@/types";
 
 const HEADERS = [
   "Section",
@@ -226,5 +227,153 @@ describe("parseBoqSheet", () => {
     expect(res.rows[0].rowNumber).toBe(2);
     expect(res.rows[1].rowNumber).toBe(3);
     expect(res.rows[0].parsed?.rowNumber).toBe(2);
+  });
+});
+
+describe("parseBoqSheet — dimensions", () => {
+  const HEADERS_WITH_DIMS = [
+    "Item Code",
+    "Description",
+    "Unit",
+    "Quantity",
+    "Unit Cost",
+    "Length",
+    "Breadth",
+    "Height",
+  ];
+
+  it("parses Length / Breadth / Height when all three are filled", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("BOQ");
+    ws.addRow(HEADERS_WITH_DIMS);
+    ws.addRow(["", "Concrete footing", "m3", 1.875, 200, 2.5, 1.5, 0.5]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.length).toBe(2.5);
+    expect(res.rows[0].parsed?.breadth).toBe(1.5);
+    expect(res.rows[0].parsed?.height).toBe(0.5);
+  });
+
+  it("accepts partial dimensions (only Length + Breadth)", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("BOQ");
+    ws.addRow(HEADERS_WITH_DIMS);
+    ws.addRow(["", "Tile area", "m2", 15, 45, 5, 3, ""]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.length).toBe(5);
+    expect(res.rows[0].parsed?.breadth).toBe(3);
+    expect(res.rows[0].parsed?.height).toBeUndefined();
+  });
+
+  it("rejects negative dimensions", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("BOQ");
+    ws.addRow(HEADERS_WITH_DIMS);
+    ws.addRow(["", "Bad row", "m3", 1, 1, -1, 1, 1]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    expect(res.rows[0].status).toBe("error");
+    expect(res.rows[0].errors.join(" ")).toMatch(/Length/);
+  });
+});
+
+describe("writeBoqSheet → parseBoqSheet round-trip — dimensions", () => {
+  function makeItem(
+    overrides: Partial<BoqItemWithComputed>
+  ): BoqItemWithComputed {
+    return {
+      id: "00000000-0000-0000-0000-000000000001",
+      boq_id: "00000000-0000-0000-0000-00000000aaaa",
+      section_id: null,
+      element_id: null,
+      item_code: "BOQ-001",
+      description: "Concrete footing M25",
+      unit: "m3",
+      quantity: "1.875",
+      unit_cost: "200",
+      material_cost: null,
+      labour_cost: null,
+      overhead_pct: "0",
+      service_charge_pct: "0",
+      margin_pct: "15",
+      client_rate: null,
+      budget_rate: null,
+      length: "2.5",
+      breadth: "1.5",
+      height: "0.5",
+      source: "custom",
+      rate_contract_item_id: null,
+      lifecycle_status: "draft",
+      client_approval_status: "pending",
+      client_approved_at: null,
+      client_approved_by: null,
+      requires_reapproval: false,
+      element_archived: false,
+      installed_qty: "0",
+      has_snag: false,
+      po_status: "none",
+      notes: null,
+      client_notes: null,
+      sort_order: 0,
+      is_provisional: false,
+      is_excluded: false,
+      created_at: "2026-05-09T00:00:00Z",
+      updated_at: "2026-05-09T00:00:00Z",
+      total_cost: "375",
+      subtotal: "431.25",
+      sell_price: "230",
+      progress_pct: "0",
+      margin_alert: false,
+      over_budget: false,
+      budget_variance_pct: null,
+      ...overrides,
+    };
+  }
+
+  const SECTIONS: BoqSection[] = [];
+
+  it("preserves L/B/H through export → import", async () => {
+    const buf = await writeBoqSheet({
+      items: [makeItem({})],
+      sections: SECTIONS,
+    });
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    expect(res.rows).toHaveLength(1);
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.length).toBe(2.5);
+    expect(res.rows[0].parsed?.breadth).toBe(1.5);
+    expect(res.rows[0].parsed?.height).toBe(0.5);
+  });
+
+  it("leaves dimensions undefined when source row has none", async () => {
+    const buf = await writeBoqSheet({
+      items: [makeItem({ length: null, breadth: null, height: null })],
+      sections: SECTIONS,
+    });
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.length).toBeUndefined();
+    expect(res.rows[0].parsed?.breadth).toBeUndefined();
+    expect(res.rows[0].parsed?.height).toBeUndefined();
+  });
+
+  it("round-trips partial dimensions (only L + B)", async () => {
+    const buf = await writeBoqSheet({
+      items: [makeItem({ length: "5", breadth: "3", height: null })],
+      sections: SECTIONS,
+    });
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    expect(res.rows[0].parsed?.length).toBe(5);
+    expect(res.rows[0].parsed?.breadth).toBe(3);
+    expect(res.rows[0].parsed?.height).toBeUndefined();
   });
 });

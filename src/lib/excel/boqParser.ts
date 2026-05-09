@@ -12,6 +12,7 @@ import {
   forEachDataRow,
   loadAndResolveHeaders,
   normalizeHeader,
+  parseOptionalNumericField,
   parseRequiredNumericField,
   parseRequiredUnitField,
   parseSharedFinancialFields,
@@ -44,6 +45,9 @@ const TEMPLATE_COLUMNS = {
   marginPct: "Margin %",
   clientRate: "Client Rate",
   budgetRate: "Budget Rate",
+  length: "Length",
+  breadth: "Breadth",
+  height: "Height",
   notes: "Notes",
   clientNotes: "Client Notes",
   isProvisional: "Is Provisional",
@@ -79,6 +83,20 @@ const OPTIONAL_STRING_FIELDS = [
   ["notes", "Notes", 2000],
   ["clientNotes", "Client Notes", 2000],
 ] as const;
+
+/**
+ * Per-line physical dimensions. BoQ-only (not shared with the element
+ * parser, since `element` doesn't carry dimensions). Parsed as
+ * non-negative numbers; blank cells stay undefined and the row is
+ * still valid.
+ */
+const OPTIONAL_DIMENSION_FIELDS: ReadonlyArray<
+  readonly ["length" | "breadth" | "height", string]
+> = [
+  ["length", "Length"],
+  ["breadth", "Breadth"],
+  ["height", "Height"],
+];
 
 export const BOQ_TEMPLATE_COLUMN_LABELS: Record<TemplateKey, string> =
   TEMPLATE_COLUMNS;
@@ -151,6 +169,18 @@ export async function parseBoqSheet(
 
       // ── Optional cost + percentage fields (shared shape with elements)
       parseSharedFinancialFields(byKey, values, errors, warnings);
+
+      // ── Optional dimension fields (BoQ-only, non-negative)
+      for (const [k, label] of OPTIONAL_DIMENSION_FIELDS) {
+        const v = parseOptionalNumericField(
+          byKey[k],
+          label,
+          { min: 0 },
+          errors,
+          warnings
+        );
+        if (v !== undefined) values[k] = v;
+      }
 
       // ── Optional strings with length caps
       for (const [k, label, max] of OPTIONAL_STRING_FIELDS) {
