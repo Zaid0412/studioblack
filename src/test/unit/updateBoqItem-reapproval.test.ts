@@ -79,4 +79,21 @@ describe("updateBoqItem — re-approval flip on REAPPROVAL_FIELDS", () => {
     expect(sql).not.toContain("requires_reapproval");
     expect(sql).toContain("client_approval_status");
   });
+
+  it.each(["length", "breadth", "height"] as const)(
+    "changing %s flips requires_reapproval + client_approval_status to pending",
+    async (key) => {
+      mocks.db.query.mockResolvedValueOnce({
+        rows: [{ id: ITEM_ID }],
+        rowCount: 1,
+      });
+
+      await realUpdateBoqItem(ITEM_ID, TOKEN, { [key]: 3 });
+
+      const sql = mocks.db.query.mock.calls[0]![0] as string;
+      expect(sql).toContain("requires_reapproval");
+      expect(sql).toContain("client_approval_status");
+      expect(sql).toContain("'pending'");
+    }
+  );
 });

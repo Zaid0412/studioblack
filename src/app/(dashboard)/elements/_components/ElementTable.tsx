@@ -39,6 +39,23 @@ import { formatMoney } from "../_lib/formatters";
 
 type SortKey = ElementSortField;
 
+/**
+ * Desktop grid template for the elements table — shared between the
+ * header and every row so the columns line up. The `Name` column is a
+ * `minmax` so it grows on wide screens but never collapses below 200px.
+ */
+const GRID_COLS = "grid-cols-[40px_140px_minmax(200px,1fr)_160px_140px_60px]";
+
+/**
+ * Sum of fixed widths (40 + 140 + 200 + 160 + 140 + 60 = 740) + 5
+ * inter-column gaps (5 × 16 = 80) + 2 × 16 horizontal padding = 852px.
+ * Round to 860 for breathing room. Applied as `min-w` on the
+ * scrollable wrapper so the columns never squish below the declared
+ * sizes; below the threshold the wrapper scrolls horizontally instead,
+ * keeping header and rows aligned.
+ */
+const TABLE_MIN_WIDTH = "lg:min-w-[860px]";
+
 interface Props {
   rows: Element[];
   isLoading: boolean;
@@ -79,67 +96,70 @@ export function ElementTable({
   return (
     <TooltipProvider>
       <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
-        <div className="hidden lg:grid grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
-          <div></div>
-          <SortableHeaderButton
-            sortKey="code"
-            config={sortConfig}
-            onSort={onSort}
-            className="w-full"
-          >
-            {t("colCode")}
-          </SortableHeaderButton>
-          <SortableHeaderButton
-            sortKey="name"
-            config={sortConfig}
-            onSort={onSort}
-            className="w-full"
-          >
-            {t("colName")}
-          </SortableHeaderButton>
-          <div>{t("colCategory")}</div>
-          <div>{t("colUnit")}</div>
-          <SortableHeaderButton
-            sortKey="unit_cost"
-            config={sortConfig}
-            onSort={onSort}
-            align="right"
-            className="w-full"
-          >
-            {t("colUnitCost")}
-          </SortableHeaderButton>
-          <div className="text-right">{t("colActions")}</div>
-        </div>
+        <div className="lg:overflow-x-auto">
+          <div className={TABLE_MIN_WIDTH}>
+            <div
+              className={`hidden lg:grid ${GRID_COLS} gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide`}
+            >
+              <div></div>
+              <SortableHeaderButton
+                sortKey="code"
+                config={sortConfig}
+                onSort={onSort}
+                className="w-full"
+              >
+                {t("colCode")}
+              </SortableHeaderButton>
+              <SortableHeaderButton
+                sortKey="name"
+                config={sortConfig}
+                onSort={onSort}
+                className="w-full"
+              >
+                {t("colName")}
+              </SortableHeaderButton>
+              <div>{t("colCategory")}</div>
+              <SortableHeaderButton
+                sortKey="unit_cost"
+                config={sortConfig}
+                onSort={onSort}
+                align="right"
+                className="w-full"
+              >
+                {t("colUnitCost")}
+              </SortableHeaderButton>
+              <div className="text-right">{t("colActions")}</div>
+            </div>
 
-        <div className="flex flex-col">
-          {isLoading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonRow key={i} columns={7} />
-            ))
-          ) : rows.length === 0 ? (
-            <EmptyState
-              icon={Layers}
-              title={t("noResults")}
-              description={t("noResultsHint")}
-            />
-          ) : (
-            rows.map((el) => (
-              <ElementRow
-                key={el.id}
-                element={el}
-                categoryName={
-                  el.category_id
-                    ? (categoryMap.get(el.category_id) ?? "—")
-                    : "—"
-                }
-                onClick={() => onRowClick(el)}
-                onEdit={() => onEdit(el)}
-                onDuplicate={() => onDuplicate(el)}
-                onArchive={() => onArchive(el)}
-                onRestore={() => onRestore(el)}
+            {isLoading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <SkeletonRow key={i} columns={6} />
+              ))
+            ) : rows.length === 0 ? (
+              <EmptyState
+                icon={Layers}
+                title={t("noResults")}
+                description={t("noResultsHint")}
               />
-            ))
-          )}
+            ) : (
+              rows.map((el) => (
+                <ElementRow
+                  key={el.id}
+                  element={el}
+                  categoryName={
+                    el.category_id
+                      ? (categoryMap.get(el.category_id) ?? "—")
+                      : "—"
+                  }
+                  onClick={() => onRowClick(el)}
+                  onEdit={() => onEdit(el)}
+                  onDuplicate={() => onDuplicate(el)}
+                  onArchive={() => onArchive(el)}
+                  onRestore={() => onRestore(el)}
+                />
+              ))
+            )}
+          </div>
         </div>
       </div>
     </TooltipProvider>
@@ -297,7 +317,7 @@ function ElementRow({
         />
       </div>
 
-      <div className="hidden lg:grid lg:grid-cols-[40px_140px_1fr_160px_80px_140px_60px] gap-4 px-4 py-3">
+      <div className={`hidden lg:grid ${GRID_COLS} gap-4 px-4 py-3`}>
         <div className="flex items-center justify-center">{thumbnail}</div>
         <div className="flex items-center gap-2 min-w-0">
           <span className="font-mono text-sm text-text-primary truncate">
@@ -315,7 +335,6 @@ function ElementRow({
         <div className="text-sm text-text-secondary truncate">
           {categoryName}
         </div>
-        <div className="text-sm text-text-secondary">{element.unit}</div>
         <div className="text-sm text-text-primary text-right font-mono">
           {formatMoney(element.unit_cost, element.currency)}
         </div>

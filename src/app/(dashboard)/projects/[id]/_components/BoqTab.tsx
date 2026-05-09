@@ -16,7 +16,7 @@ import { BoqActionBar } from "../boq/_components/BoqActionBar";
 import { BoqSourceFilter } from "../boq/_components/BoqSourceFilter";
 import { useBoqSourceFilter } from "../boq/_hooks/useBoqSourceFilter";
 import { BoqCreateSectionDialog } from "../boq/_components/BoqCreateSectionDialog";
-import { BoqCreateItemDialog } from "../boq/_components/BoqCreateItemDialog";
+import { BoqCreateItemSheet } from "../boq/_components/BoqCreateItemSheet";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
@@ -383,7 +383,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         nextSortOrder={boq.sections.length}
       />
 
-      <BoqCreateItemDialog
+      <BoqCreateItemSheet
         open={createItemOpen}
         onOpenChange={setCreateItemOpen}
         projectId={projectId}
@@ -468,6 +468,12 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
         canEdit={canEdit}
+        onDelete={(item) => {
+          // Close the drawer first so the confirm dialog isn't stacked
+          // on top of the open sheet — single modal layer at a time.
+          setDrawerItem(null);
+          setDeleteItemTarget(item);
+        }}
       />
 
       <BoqImportDialog

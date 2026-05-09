@@ -41,6 +41,7 @@ import {
   BOQ_NO_SECTION_ID,
   clientApprovalToVariant,
   formatCurrency,
+  formatDimensions,
   formatOptionalCurrency,
   formatPct,
   formatQty,
@@ -540,6 +541,14 @@ const BoqItemRow = memo(function BoqItemRow({
     [onUpdateItem, item.id, item.updated_at]
   );
 
+  // Pre-compute the dimensions subscript so the formatter doesn't run
+  // inline in JSX on every render (cheap per row, but a 500-line BoQ
+  // would do 500× per render otherwise).
+  const dimensionsLabel = useMemo(
+    () => formatDimensions(item.length, item.breadth, item.height),
+    [item.length, item.breadth, item.height]
+  );
+
   const showMenu = editable && onDeleteItem;
 
   return (
@@ -560,31 +569,38 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.item_code}
         </span>
       )}
-      <span className="flex items-center gap-1.5 min-w-0">
-        {item.is_provisional && (
-          <span
-            title="Provisional"
-            className="flex-shrink-0 inline-flex items-center rounded bg-warning/20 text-warning text-[9px] font-semibold px-1 py-0.5 leading-none"
-          >
-            PROV
+      <span className="flex flex-col gap-0.5 min-w-0">
+        <span className="flex items-center gap-1.5 min-w-0">
+          {item.is_provisional && (
+            <span
+              title="Provisional"
+              className="flex-shrink-0 inline-flex items-center rounded bg-warning/20 text-warning text-[9px] font-semibold px-1 py-0.5 leading-none"
+            >
+              PROV
+            </span>
+          )}
+          {item.is_excluded && (
+            <span
+              title="Excluded"
+              className="flex-shrink-0 inline-flex items-center rounded bg-border-default text-text-muted text-[9px] font-semibold px-1 py-0.5 leading-none line-through"
+            >
+              EXCL
+            </span>
+          )}
+          <BoqEditableCell
+            value={item.description}
+            display={item.description}
+            disabled={!editable}
+            onSave={(next) => save({ description: next })}
+            className="text-text-primary min-w-0"
+            ariaLabel={`Description for ${item.item_code}`}
+          />
+        </span>
+        {dimensionsLabel && (
+          <span className="text-[11px] italic text-text-muted truncate">
+            {dimensionsLabel}
           </span>
         )}
-        {item.is_excluded && (
-          <span
-            title="Excluded"
-            className="flex-shrink-0 inline-flex items-center rounded bg-border-default text-text-muted text-[9px] font-semibold px-1 py-0.5 leading-none line-through"
-          >
-            EXCL
-          </span>
-        )}
-        <BoqEditableCell
-          value={item.description}
-          display={item.description}
-          disabled={!editable}
-          onSave={(next) => save({ description: next })}
-          className="text-text-primary min-w-0"
-          ariaLabel={`Description for ${item.item_code}`}
-        />
       </span>
       <span className="min-w-0">
         <BoqSourceBadge source={item.source} />
@@ -692,7 +708,7 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.client_approval_status}
         </Badge>
       </span>
-      <span className="flex justify-end">
+      <span className="flex justify-end pr-2">
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger

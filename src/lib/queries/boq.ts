@@ -522,6 +522,10 @@ export interface CreateBoqItemInput {
   marginPct?: number;
   clientRate?: number | null;
   budgetRate?: number | null;
+  /** Per-line physical dimensions (m). Optional — see `migrate-boq-item-dimensions.sql`. */
+  length?: number | null;
+  breadth?: number | null;
+  height?: number | null;
   notes?: string | null;
   clientNotes?: string | null;
   sortOrder?: number;
@@ -551,6 +555,7 @@ export async function createBoqItem(
          quantity, unit_cost, material_cost, labour_cost,
          overhead_pct, service_charge_pct, margin_pct,
          client_rate, budget_rate,
+         length, breadth, height,
          notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
@@ -559,9 +564,10 @@ export async function createBoqItem(
          COALESCE($9::numeric, 0), COALESCE($10::numeric, 0), $11::numeric, $12::numeric,
          COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0),
          $16::numeric, $17::numeric,
-         $18, $19,
-         COALESCE($20::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($21, false), COALESCE($22, false)
+         $18::numeric, $19::numeric, $20::numeric,
+         $21, $22,
+         COALESCE($23::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($24, false), COALESCE($25, false)
        )
        RETURNING *
      )
@@ -586,6 +592,9 @@ export async function createBoqItem(
       input.marginPct ?? null,
       input.clientRate ?? null,
       input.budgetRate ?? null,
+      input.length ?? null,
+      input.breadth ?? null,
+      input.height ?? null,
       input.notes ?? null,
       input.clientNotes ?? null,
       input.sortOrder ?? null,
@@ -610,6 +619,9 @@ export interface UpdateBoqItemInput {
   marginPct?: number;
   clientRate?: number | null;
   budgetRate?: number | null;
+  length?: number | null;
+  breadth?: number | null;
+  height?: number | null;
   lifecycleStatus?: BoqItemLifecycleStatus;
   clientApprovalStatus?: BoqItemClientApprovalStatus;
   installedQty?: number;
@@ -634,6 +646,9 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   marginPct: "margin_pct",
   clientRate: "client_rate",
   budgetRate: "budget_rate",
+  length: "length",
+  breadth: "breadth",
+  height: "height",
   lifecycleStatus: "lifecycle_status",
   clientApprovalStatus: "client_approval_status",
   installedQty: "installed_qty",
@@ -663,6 +678,14 @@ const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   // changes. `budgetRate` is internal-only and does NOT trigger re-approval.
   "clientRate",
   "sectionId",
+  // Physical dimensions are material — changing a footing from
+  // 2.5×1.5×0.5 to 3×2×1 is a re-approval-worthy change. Drawer edits
+  // already patch `quantity` alongside the dimension and would trigger
+  // via that path, but keep these listed defensively so a direct API
+  // patch of just `length` (etc.) still flips the row to pending.
+  "length",
+  "breadth",
+  "height",
 ]);
 
 export type UpdateBoqItemOutcome =
@@ -1213,6 +1236,7 @@ export async function bulkInsertBoqItems(
              quantity, unit_cost, material_cost, labour_cost,
              overhead_pct, service_charge_pct, margin_pct,
              client_rate, budget_rate,
+             length, breadth, height,
              notes, client_notes,
              sort_order, is_provisional
            ) VALUES (
@@ -1222,8 +1246,9 @@ export async function bulkInsertBoqItems(
              $7::numeric, $8::numeric, $9::numeric, $10::numeric,
              COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
              $14::numeric, $15::numeric,
-             $16, $17,
-             $18::int, COALESCE($19, false)
+             $16::numeric, $17::numeric, $18::numeric,
+             $19, $20,
+             $21::int, COALESCE($22, false)
            )`,
           [
             boqId,
@@ -1241,6 +1266,9 @@ export async function bulkInsertBoqItems(
             row.marginPct ?? null,
             row.clientRate ?? null,
             row.budgetRate ?? null,
+            row.length ?? null,
+            row.breadth ?? null,
+            row.height ?? null,
             row.notes ?? null,
             row.clientNotes ?? null,
             sortOrder,

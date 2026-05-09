@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,12 @@ interface BoqItemDrawerProps {
   currency: string;
   minimumMarginPct: string;
   canEdit: boolean;
+  /**
+   * Optional delete handler — wired up by the parent so the existing
+   * ConfirmDialog flow stays the single source of truth. Drawer just
+   * emits the request; parent decides whether to close + show confirm.
+   */
+  onDelete?: (item: BoqItemWithComputed) => void;
 }
 
 /** Transitions allowed from each current lifecycle state. Keeps the UI honest. */
@@ -81,6 +87,7 @@ export function BoqItemDrawer({
   currency,
   minimumMarginPct,
   canEdit,
+  onDelete,
 }: BoqItemDrawerProps) {
   const { updateItem } = useBoqMutations(projectId);
   const [notes, setNotes] = useState("");
@@ -158,6 +165,34 @@ export function BoqItemDrawer({
     } finally {
       setSavingField(false);
     }
+  };
+
+  /**
+   * Persist a dimension change and re-run the L × B × H product into
+   * `quantity` so the line stays in sync with its measurements. The
+   * incoming `next` is the new value of `key`; the other two
+   * dimensions are read from the current item. Blank dimensions are
+   * skipped from the product (matches the create-sheet behaviour).
+   */
+  const saveDimension = async (
+    key: "length" | "breadth" | "height",
+    next: string
+  ) => {
+    const parsed = parseOptionalNumber(next);
+    const dims: Record<"length" | "breadth" | "height", number | null> = {
+      length: parseOptionalNumber(item.length ?? ""),
+      breadth: parseOptionalNumber(item.breadth ?? ""),
+      height: parseOptionalNumber(item.height ?? ""),
+    };
+    dims[key] = parsed;
+    const positives = Object.values(dims).filter(
+      (n): n is number => n != null && Number.isFinite(n) && n > 0
+    );
+    const patch: Partial<UpdateItemPayload> = { [key]: parsed };
+    if (positives.length > 0) {
+      patch.quantity = Number(positives.reduce((a, b) => a * b, 1).toFixed(6));
+    }
+    await saveField(patch);
   };
 
   const fieldsDisabled = !canEdit || rowLocked || savingField;
@@ -238,7 +273,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Quantity"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               value={item.quantity}
@@ -248,7 +282,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Unit cost"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               value={item.unit_cost}
@@ -266,7 +299,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Margin"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               max={100}
@@ -278,7 +310,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Overhead"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               max={100}
@@ -289,7 +320,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Service charge"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               max={100}
@@ -302,7 +332,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Client rate"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               value={item.client_rate ?? ""}
@@ -314,7 +343,6 @@ export function BoqItemDrawer({
             <EditableField
               label="Budget rate"
               disabled={fieldsDisabled}
-              align="right"
               mode="number"
               min={0}
               value={item.budget_rate ?? ""}
@@ -322,6 +350,33 @@ export function BoqItemDrawer({
               onSave={(next) =>
                 saveField({ budgetRate: parseOptionalNumber(next) })
               }
+            />
+            <EditableField
+              label="Length"
+              disabled={fieldsDisabled}
+              mode="number"
+              min={0}
+              value={item.length ?? ""}
+              display={item.length ? `${formatQty(item.length)} m` : "—"}
+              onSave={(next) => saveDimension("length", next)}
+            />
+            <EditableField
+              label="Breadth"
+              disabled={fieldsDisabled}
+              mode="number"
+              min={0}
+              value={item.breadth ?? ""}
+              display={item.breadth ? `${formatQty(item.breadth)} m` : "—"}
+              onSave={(next) => saveDimension("breadth", next)}
+            />
+            <EditableField
+              label="Height"
+              disabled={fieldsDisabled}
+              mode="number"
+              min={0}
+              value={item.height ?? ""}
+              display={item.height ? `${formatQty(item.height)} m` : "—"}
+              onSave={(next) => saveDimension("height", next)}
             />
           </section>
 
@@ -391,23 +446,37 @@ export function BoqItemDrawer({
           </section>
         </SheetBody>
 
-        <SheetFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-          >
-            Close
-          </Button>
-          {canEdit && !rowLocked && (
+        <SheetFooter className="!justify-between">
+          {canEdit && !rowLocked && onDelete ? (
             <Button
               type="button"
-              onClick={handleSaveNotes}
-              disabled={!notesDirty || savingNotes}
+              variant="danger"
+              onClick={() => onDelete(item)}
             >
-              {savingNotes ? "Saving..." : "Save notes"}
+              <Trash2 className="h-4 w-4" />
+              Delete
             </Button>
+          ) : (
+            <span />
           )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+            >
+              Close
+            </Button>
+            {canEdit && !rowLocked && (
+              <Button
+                type="button"
+                onClick={handleSaveNotes}
+                disabled={!notesDirty || savingNotes}
+              >
+                {savingNotes ? "Saving..." : "Save notes"}
+              </Button>
+            )}
+          </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>

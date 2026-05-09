@@ -191,6 +191,56 @@ describe("POST /api/projects/[id]/boq/items", () => {
 
     expect(status).toBe(403);
   });
+
+  it("forwards length / breadth / height through to createBoqItem", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(createBoqItem).mockResolvedValue(fakeItem);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "Concrete footing M25",
+        unit: "m3",
+        quantity: 1.875,
+        unitCost: 200,
+        length: 2.5,
+        breadth: 1.5,
+        height: 0.5,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(201);
+    expect(createBoqItem).toHaveBeenCalledWith(
+      BOQ_ID,
+      "org-test-001",
+      expect.objectContaining({
+        length: 2.5,
+        breadth: 1.5,
+        height: 0.5,
+      })
+    );
+  });
+
+  it("returns 400 when a dimension is negative", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "x",
+        unit: "m2",
+        length: -1,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+  });
 });
 
 // ── PATCH /api/projects/[id]/boq/items/[itemId] ─────────────────────────────
