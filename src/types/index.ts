@@ -737,12 +737,16 @@ export interface BulkBoqImportResult {
 // ── Vendor Management (F7) ───────────────────────────────────────────────────
 
 export interface VendorAddress {
+  /** Optional human label — e.g. "HQ", "Warehouse", "Billing". */
+  label?: string;
   line1?: string;
   line2?: string;
   city?: string;
   region?: string;
   postal?: string;
   country?: string;
+  /** At most one address per vendor should carry `is_primary: true`. */
+  is_primary?: boolean;
 }
 
 /**
@@ -787,7 +791,13 @@ export interface Vendor {
   kyc_verified_at: string | null;
   kyc_verified_by: string | null;
   kyc_notes: string | null;
+  /**
+   * @deprecated Use `addresses` instead. The single-address column is
+   * retained for one release while data is migrated; new code should
+   * read/write `addresses[]`.
+   */
   address: VendorAddress | null;
+  addresses: VendorAddress[];
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -814,6 +824,7 @@ export interface VendorContact {
   email: string;
   phone: string | null;
   is_primary: boolean;
+  is_secondary: boolean;
   receives_rfq: boolean;
   user_id: string | null;
   created_at: string;

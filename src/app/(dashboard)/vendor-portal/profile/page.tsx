@@ -173,6 +173,19 @@ function OverviewTab({
   const tProfile = useTranslations("vendorPortal.profile");
   const tCommon = useTranslations("common");
 
+  // Read the vendor's addresses array (preferred) with a one-release
+  // fallback to the legacy single `address` field while the column is
+  // still around. The portal currently exposes ONE address (the primary,
+  // or the first one if none is marked); a follow-up will expand this
+  // surface into a multi-address editor mirroring the PM-side dialog.
+  const pickPrimaryAddress = (
+    v: NonNullable<typeof vendor>
+  ): NonNullable<typeof vendor>["address"] => {
+    const list = v.addresses ?? [];
+    if (list.length === 0) return v.address;
+    return list.find((a) => a.is_primary) ?? list[0];
+  };
+
   const buildAddress = (
     a: NonNullable<typeof vendor>["address"]
   ): Record<AddressField, string> => ({
@@ -186,15 +199,23 @@ function OverviewTab({
 
   const [tradingName, setTradingName] = useState(vendor.trading_name ?? "");
   const [address, setAddress] = useState<Record<AddressField, string>>(() =>
-    buildAddress(vendor.address)
+    buildAddress(pickPrimaryAddress(vendor))
   );
   const [submitting, setSubmitting] = useState(false);
 
   useResyncFromProp(
-    { trading_name: vendor.trading_name, address: vendor.address },
+    {
+      trading_name: vendor.trading_name,
+      addresses: vendor.addresses,
+      address: vendor.address,
+    },
     (next) => {
       setTradingName(next.trading_name ?? "");
-      setAddress(buildAddress(next.address));
+      const primary =
+        next.addresses && next.addresses.length > 0
+          ? (next.addresses.find((a) => a.is_primary) ?? next.addresses[0])
+          : next.address;
+      setAddress(buildAddress(primary));
     }
   );
 
@@ -208,9 +229,12 @@ function OverviewTab({
       const cleanedAddress = Object.fromEntries(
         Object.entries(address).filter(([, v]) => v && v.trim())
       );
+      const hasAddress = Object.keys(cleanedAddress).length > 0;
       await save({
         tradingName: tradingName.trim() || null,
-        address: Object.keys(cleanedAddress).length > 0 ? cleanedAddress : null,
+        // The schema accepts an array. Send a single primary entry, or
+        // an empty array when the user has cleared every field.
+        addresses: hasAddress ? [{ ...cleanedAddress, is_primary: true }] : [],
       });
     } finally {
       setSubmitting(false);

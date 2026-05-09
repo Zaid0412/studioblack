@@ -29,6 +29,10 @@ import {
   type ContactDraft,
 } from "./VendorContactsEditor";
 import { VendorTradesEditor, type TradeDraft } from "./VendorTradesEditor";
+import {
+  VendorAddressesEditor,
+  type AddressDraft,
+} from "./VendorAddressesEditor";
 
 export interface VendorFormSubmit {
   companyName: string;
@@ -40,20 +44,23 @@ export interface VendorFormSubmit {
   vatRegistered: boolean;
   vatNumber?: string;
   notes?: string;
-  address?: {
+  addresses: Array<{
+    label?: string;
     line1?: string;
     line2?: string;
     city?: string;
     region?: string;
     postal?: string;
     country?: string;
-  };
+    is_primary?: boolean;
+  }>;
   contacts: Array<{
     name: string;
     title?: string;
     email: string;
     phone?: string;
     isPrimary?: boolean;
+    isSecondary?: boolean;
     receivesRfq?: boolean;
   }>;
   trades: Array<{
@@ -73,12 +80,7 @@ interface FormState {
   vatRegistered: boolean;
   vatNumber: string;
   notes: string;
-  line1: string;
-  line2: string;
-  city: string;
-  region: string;
-  postal: string;
-  country: string;
+  addresses: AddressDraft[];
   contacts: ContactDraft[];
   trades: TradeDraft[];
 }
@@ -93,17 +95,50 @@ const EMPTY: FormState = {
   vatRegistered: false,
   vatNumber: "",
   notes: "",
-  line1: "",
-  line2: "",
-  city: "",
-  region: "",
-  postal: "",
-  country: "",
+  addresses: [],
   contacts: [],
   trades: [],
 };
 
+/**
+ * Hydrate the form from a saved vendor. Reads the new `addresses` array
+ * and falls back to the legacy single `address` object for vendors not
+ * yet migrated by the data backfill (the column still exists on the
+ * row for one release while the new column rolls out).
+ */
 function vendorToForm(v: VendorWithRelations): FormState {
+  const fallbackList: AddressDraft[] = v.address
+    ? [
+        {
+          label: "",
+          line1: v.address.line1 ?? "",
+          line2: v.address.line2 ?? "",
+          city: v.address.city ?? "",
+          region: v.address.region ?? "",
+          postal: v.address.postal ?? "",
+          country: v.address.country ?? "",
+          isPrimary: true,
+        },
+      ]
+    : [];
+
+  const fromArray: AddressDraft[] = (v.addresses ?? []).map((a) => ({
+    label: a.label ?? "",
+    line1: a.line1 ?? "",
+    line2: a.line2 ?? "",
+    city: a.city ?? "",
+    region: a.region ?? "",
+    postal: a.postal ?? "",
+    country: a.country ?? "",
+    isPrimary: !!a.is_primary,
+  }));
+
+  // Auto-promote the first address to primary if no row carries the flag.
+  const addresses = fromArray.length > 0 ? fromArray : fallbackList;
+  if (addresses.length > 0 && !addresses.some((a) => a.isPrimary)) {
+    addresses[0] = { ...addresses[0], isPrimary: true };
+  }
+
   return {
     companyName: v.company_name,
     tradingName: v.trading_name ?? "",
@@ -114,18 +149,14 @@ function vendorToForm(v: VendorWithRelations): FormState {
     vatRegistered: v.vat_registered,
     vatNumber: v.vat_number ?? "",
     notes: v.notes ?? "",
-    line1: v.address?.line1 ?? "",
-    line2: v.address?.line2 ?? "",
-    city: v.address?.city ?? "",
-    region: v.address?.region ?? "",
-    postal: v.address?.postal ?? "",
-    country: v.address?.country ?? "",
+    addresses,
     contacts: v.contacts.map((c) => ({
       name: c.name,
       title: c.title ?? "",
       email: c.email,
       phone: c.phone ?? "",
       isPrimary: c.is_primary,
+      isSecondary: c.is_secondary,
       receivesRfq: c.receives_rfq,
     })),
     trades: v.trades.map((tr) => ({
@@ -170,22 +201,24 @@ export function VendorFormDialog({
     const trim = (s: string) => s.trim();
     const opt = (s: string) => (trim(s) ? trim(s) : undefined);
 
-    const address =
-      values.line1 ||
-      values.line2 ||
-      values.city ||
-      values.region ||
-      values.postal ||
-      values.country
-        ? {
-            line1: opt(values.line1),
-            line2: opt(values.line2),
-            city: opt(values.city),
-            region: opt(values.region),
-            postal: opt(values.postal),
-            country: opt(values.country),
-          }
-        : undefined;
+    // Drop empty rows (every address field blank). What's left is what
+    // the server persists.
+    const addresses = values.addresses
+      .map((a) => ({
+        label: opt(a.label),
+        line1: opt(a.line1),
+        line2: opt(a.line2),
+        city: opt(a.city),
+        region: opt(a.region),
+        postal: opt(a.postal),
+        country: opt(a.country),
+        is_primary: a.isPrimary || undefined,
+      }))
+      .filter((a) =>
+        Object.entries(a).some(
+          ([k, v]) => k !== "is_primary" && v !== undefined
+        )
+      );
 
     await onSubmit({
       companyName: trim(values.companyName),
@@ -197,7 +230,7 @@ export function VendorFormDialog({
       vatRegistered: values.vatRegistered,
       vatNumber: opt(values.vatNumber),
       notes: opt(values.notes),
-      address,
+      addresses,
       contacts: values.contacts
         .filter((c) => c.name.trim() && c.email.trim())
         .map((c) => ({
@@ -206,6 +239,7 @@ export function VendorFormDialog({
           email: c.email.trim(),
           phone: opt(c.phone),
           isPrimary: c.isPrimary,
+          isSecondary: c.isSecondary,
           receivesRfq: c.receivesRfq,
         })),
       trades: values.trades
@@ -303,50 +337,11 @@ export function VendorFormDialog({
             label={t("vatRegistered")}
           />
 
-          {/* Address */}
-          <div className="flex flex-col gap-2">
-            <span className="text-[13px] font-medium text-text-secondary">
-              {t("address")}
-            </span>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input
-                placeholder={t("addrLine1")}
-                value={values.line1}
-                onChange={(e) => setField("line1", e.target.value)}
-                maxLength={255}
-              />
-              <Input
-                placeholder={t("addrLine2")}
-                value={values.line2}
-                onChange={(e) => setField("line2", e.target.value)}
-                maxLength={255}
-              />
-              <Input
-                placeholder={t("addrCity")}
-                value={values.city}
-                onChange={(e) => setField("city", e.target.value)}
-                maxLength={100}
-              />
-              <Input
-                placeholder={t("addrRegion")}
-                value={values.region}
-                onChange={(e) => setField("region", e.target.value)}
-                maxLength={100}
-              />
-              <Input
-                placeholder={t("addrPostal")}
-                value={values.postal}
-                onChange={(e) => setField("postal", e.target.value)}
-                maxLength={20}
-              />
-              <Input
-                placeholder={t("addrCountry")}
-                value={values.country}
-                onChange={(e) => setField("country", e.target.value)}
-                maxLength={100}
-              />
-            </div>
-          </div>
+          {/* Addresses (multi-card editor — HQ / warehouse / billing / …) */}
+          <VendorAddressesEditor
+            addresses={values.addresses}
+            onChange={(a) => setField("addresses", a)}
+          />
 
           {/* Notes */}
           <div className="flex flex-col gap-1.5">
