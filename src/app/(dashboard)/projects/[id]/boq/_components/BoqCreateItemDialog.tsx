@@ -106,8 +106,7 @@ export function BoqCreateItemDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Add line item"
-      description="Enter a manual line. Sell price, subtotal, and margin alerts are computed server-side."
+      title="Add BOQ item"
       onSubmit={handleSubmit}
       submitting={submitting}
       submitLabel="Add item"
