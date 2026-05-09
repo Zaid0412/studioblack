@@ -827,23 +827,33 @@ export type VendorKycDocumentType = (typeof VENDOR_KYC_DOCUMENT_TYPES)[number];
 
 export const vendorAddressSchema = z
   .object({
+    /** Optional human label — e.g. "HQ", "Warehouse", "Billing". */
+    label: z.string().max(50).optional(),
     line1: z.string().max(255).optional(),
     line2: z.string().max(255).optional(),
     city: z.string().max(100).optional(),
     region: z.string().max(100).optional(),
     postal: z.string().max(20).optional(),
     country: z.string().max(100).optional(),
+    /** At most one address per vendor should carry `is_primary: true`. */
+    is_primary: z.boolean().optional(),
   })
   .strict();
 
-export const vendorContactSchema = z.object({
-  name: trimmedString.max(255),
-  title: z.string().max(100).optional(),
-  email: z.string().email(),
-  phone: z.string().max(50).optional(),
-  isPrimary: z.boolean().optional(),
-  receivesRfq: z.boolean().optional(),
-});
+export const vendorContactSchema = z
+  .object({
+    name: trimmedString.max(255),
+    title: z.string().max(100).optional(),
+    email: z.string().email(),
+    phone: z.string().max(50).optional(),
+    isPrimary: z.boolean().optional(),
+    isSecondary: z.boolean().optional(),
+    receivesRfq: z.boolean().optional(),
+  })
+  .refine((c) => !(c.isPrimary && c.isSecondary), {
+    message: "A contact can't be both Main and Secondary",
+    path: ["isSecondary"],
+  });
 
 export const vendorTradeSchema = z.object({
   categoryId: uuid,
@@ -871,8 +881,7 @@ export const createVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
-  taxId: z.string().max(50).optional(),
-  address: vendorAddressSchema.optional(),
+  addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
   trades: z.array(vendorTradeSchema).max(50).optional(),
@@ -891,8 +900,7 @@ export const updateVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional().nullable(),
-  taxId: z.string().max(50).optional().nullable(),
-  address: vendorAddressSchema.optional().nullable(),
+  addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional().nullable(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
   trades: z.array(vendorTradeSchema).max(50).optional(),
@@ -907,7 +915,7 @@ export const updateVendorSchema = z.object({
 
 export const vendorPortalUpdateSchema = z.object({
   tradingName: z.string().max(255).optional().nullable(),
-  address: vendorAddressSchema.optional().nullable(),
+  addresses: z.array(vendorAddressSchema).max(10).optional(),
 });
 
 export const vendorPortalContactCreateSchema = vendorContactSchema;
@@ -916,14 +924,20 @@ export const vendorPortalContactCreateSchema = vendorContactSchema;
  * Patch shape — every field is optional, and string fields accept `null` so
  * the vendor can clear an existing value (e.g. removing a phone number).
  */
-export const vendorPortalContactPatchSchema = z.object({
-  name: trimmedString.max(255).optional(),
-  title: z.string().max(100).optional().nullable(),
-  email: z.string().email().optional(),
-  phone: z.string().max(50).optional().nullable(),
-  isPrimary: z.boolean().optional(),
-  receivesRfq: z.boolean().optional(),
-});
+export const vendorPortalContactPatchSchema = z
+  .object({
+    name: trimmedString.max(255).optional(),
+    title: z.string().max(100).optional().nullable(),
+    email: z.string().email().optional(),
+    phone: z.string().max(50).optional().nullable(),
+    isPrimary: z.boolean().optional(),
+    isSecondary: z.boolean().optional(),
+    receivesRfq: z.boolean().optional(),
+  })
+  .refine((c) => !(c.isPrimary && c.isSecondary), {
+    message: "A contact can't be both Main and Secondary",
+    path: ["isSecondary"],
+  });
 
 // ─── Vendor KYC (F7.1) ───────────────────────────────────────────────────────
 

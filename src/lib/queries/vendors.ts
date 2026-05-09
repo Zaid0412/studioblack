@@ -60,8 +60,8 @@ export interface CreateVendorInput {
   currency?: string;
   vatRegistered?: boolean;
   vatNumber?: string;
-  taxId?: string;
-  address?: Record<string, string | undefined>;
+  /** Multiple addresses per vendor (HQ, warehouse, billing, …). */
+  addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string;
   contacts?: Array<{
     name: string;
@@ -69,6 +69,7 @@ export interface CreateVendorInput {
     email: string;
     phone?: string;
     isPrimary?: boolean;
+    isSecondary?: boolean;
     receivesRfq?: boolean;
   }>;
   trades?: Array<{
@@ -91,14 +92,34 @@ export interface UpdateVendorInput {
   currency?: string;
   vatRegistered?: boolean;
   vatNumber?: string | null;
-  taxId?: string | null;
-  address?: Record<string, string | undefined> | null;
+  /** Replaces the addresses array wholesale when provided. */
+  addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string | null;
   contacts?: CreateVendorInput["contacts"];
   trades?: CreateVendorInput["trades"];
 }
 
-/** Columns that participate in plain partial UPDATE. */
+/**
+ * Coerce the inbound `addresses` array into the JSON-string array shape pg
+ * expects for a `jsonb[]` parameter. `undefined` and `[]` both map to
+ * `null` so the caller can use `COALESCE(..., '{}'::jsonb[])` to default
+ * to an empty array.
+ */
+function addressesArray(
+  addresses: Array<Record<string, unknown>> | undefined
+): string[] | null {
+  if (!addresses?.length) return null;
+  return addresses.map((a) => JSON.stringify(a));
+}
+
+/**
+ * Columns that participate in plain partial UPDATE.
+ *
+ * `tax_id` is intentionally NOT listed — the column still exists on the
+ * `vendor` table for legacy data, but the UI no longer collects it and
+ * mutations can't set it. Drop the column in a follow-up once existing
+ * data is confirmed unneeded.
+ */
 const VENDOR_UPDATE_COLS: Record<string, string> = {
   companyName: "company_name",
   tradingName: "trading_name",
@@ -108,7 +129,6 @@ const VENDOR_UPDATE_COLS: Record<string, string> = {
   currency: "currency",
   vatRegistered: "vat_registered",
   vatNumber: "vat_number",
-  taxId: "tax_id",
   notes: "notes",
 };
 
@@ -175,7 +195,7 @@ export async function getVendors(
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
-      v.address, v.notes, v.created_by, v.created_at, v.updated_at,
+      v.address, v.addresses, v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(c.cnt, 0)::int AS contact_count,
       c.primary_email AS primary_contact_email,
       COALESCE(t.cnt, 0)::int AS trade_count,
@@ -219,10 +239,10 @@ export async function getVendorById(
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
-      v.address, v.notes, v.created_by, v.created_at, v.updated_at,
+      v.address, v.addresses, v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(
         (
-          SELECT json_agg(c ORDER BY c.is_primary DESC, c.created_at)
+          SELECT json_agg(c ORDER BY c.is_primary DESC, c.is_secondary DESC, c.created_at)
           FROM vendor_contact c
           WHERE c.vendor_id = v.id
         ), '[]'::json
@@ -319,12 +339,12 @@ export async function createVendor(
     const insertVendor = await client.query(
       `INSERT INTO vendor (
          org_id, company_name, trading_name, vendor_code, status,
-         payment_terms, currency, vat_registered, vat_number, tax_id,
-         address, notes, created_by
+         payment_terms, currency, vat_registered, vat_number,
+         addresses, notes, created_by
        )
        VALUES ($1, $2, $3, $4, COALESCE($5, 'active'),
-               $6, COALESCE($7, 'USD'), COALESCE($8, false), $9, $10,
-               $11, $12, $13)
+               $6, COALESCE($7, 'USD'), COALESCE($8, false), $9,
+               COALESCE($10::jsonb[], '{}'::jsonb[]), $11, $12)
        RETURNING id`,
       [
         orgId,
@@ -336,8 +356,7 @@ export async function createVendor(
         input.currency ?? null,
         input.vatRegistered ?? null,
         input.vatNumber ?? null,
-        input.taxId ?? null,
-        input.address ? JSON.stringify(input.address) : null,
+        addressesArray(input.addresses),
         input.notes ?? null,
         userId,
       ]
@@ -345,21 +364,27 @@ export async function createVendor(
     const vendorId = insertVendor.rows[0].id as string;
 
     if (input.contacts?.length) {
-      // Enforce one primary at most; if multiple, keep the first marked.
+      // Enforce one primary + one secondary at most. DB unique partial
+      // indexes back this up — the loop just keeps the first match wins
+      // semantics so we don't surface a 23505 to the caller.
       let primaryClaimed = false;
+      let secondaryClaimed = false;
       for (const c of input.contacts) {
-        const isPrimary = c.isPrimary && !primaryClaimed;
+        const isPrimary = !!c.isPrimary && !primaryClaimed;
         if (isPrimary) primaryClaimed = true;
+        const isSecondary = !!c.isSecondary && !isPrimary && !secondaryClaimed;
+        if (isSecondary) secondaryClaimed = true;
         await client.query(
-          `INSERT INTO vendor_contact (vendor_id, name, title, email, phone, is_primary, receives_rfq)
-           VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true))`,
+          `INSERT INTO vendor_contact (vendor_id, name, title, email, phone, is_primary, is_secondary, receives_rfq)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true))`,
           [
             vendorId,
             c.name,
             c.title ?? null,
             c.email,
             c.phone ?? null,
-            !!isPrimary,
+            isPrimary,
+            isSecondary,
             c.receivesRfq ?? null,
           ]
         );
@@ -412,9 +437,11 @@ export async function updateVendor(
         setClauses.push(`${col} = $${params.length}`);
       }
     }
-    if ("address" in patch) {
-      params.push(patch.address ? JSON.stringify(patch.address) : null);
-      setClauses.push(`address = $${params.length}`);
+    if ("addresses" in patch) {
+      params.push(addressesArray(patch.addresses));
+      setClauses.push(
+        `addresses = COALESCE($${params.length}::jsonb[], '{}'::jsonb[])`
+      );
     }
 
     if (setClauses.length > 0) {
@@ -446,19 +473,23 @@ export async function updateVendor(
         vendorId,
       ]);
       let primaryClaimed = false;
+      let secondaryClaimed = false;
       for (const c of patch.contacts) {
-        const isPrimary = c.isPrimary && !primaryClaimed;
+        const isPrimary = !!c.isPrimary && !primaryClaimed;
         if (isPrimary) primaryClaimed = true;
+        const isSecondary = !!c.isSecondary && !isPrimary && !secondaryClaimed;
+        if (isSecondary) secondaryClaimed = true;
         await client.query(
-          `INSERT INTO vendor_contact (vendor_id, name, title, email, phone, is_primary, receives_rfq)
-           VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, true))`,
+          `INSERT INTO vendor_contact (vendor_id, name, title, email, phone, is_primary, is_secondary, receives_rfq)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, true))`,
           [
             vendorId,
             c.name,
             c.title ?? null,
             c.email,
             c.phone ?? null,
-            !!isPrimary,
+            isPrimary,
+            isSecondary,
             c.receivesRfq ?? null,
           ]
         );
@@ -519,7 +550,7 @@ export async function updateVendorRating(
      RETURNING id, org_id, company_name, trading_name, vendor_code, status,
                rating, payment_terms, currency, vat_registered, vat_number,
                tax_id, kyc_status, kyc_verified_at, kyc_verified_by, kyc_notes,
-               address, notes, created_by, created_at, updated_at`,
+               address, addresses, notes, created_by, created_at, updated_at`,
     [rating, vendorId, orgId]
   );
   return (rows[0] as Vendor) ?? null;
@@ -745,10 +776,10 @@ export async function getVendorSelfById(
        v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
        v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
        v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
-       v.address, v.created_by, v.created_at, v.updated_at,
+       v.address, v.addresses, v.created_by, v.created_at, v.updated_at,
        COALESCE(
          (
-           SELECT json_agg(c ORDER BY c.is_primary DESC, c.created_at)
+           SELECT json_agg(c ORDER BY c.is_primary DESC, c.is_secondary DESC, c.created_at)
            FROM vendor_contact c
            WHERE c.vendor_id = v.id
          ), '[]'::json
@@ -801,10 +832,10 @@ export async function getVendorBankDetailsEnvelopeById(
   };
 }
 
-/** Vendor-side update: only `tradingName` + `address` are settable. */
+/** Vendor-side update: only `tradingName` + `addresses` are settable. */
 export interface UpdateVendorSelfInput {
   tradingName?: string | null;
-  address?: Record<string, string | undefined> | null;
+  addresses?: Array<Record<string, string | boolean | undefined>>;
 }
 
 /** Apply the vendor-side patch to a vendor row by id (no org guard). */
@@ -820,9 +851,11 @@ export async function updateVendorSelf(
     params.push(patch.tradingName);
     setClauses.push(`trading_name = $${params.length}`);
   }
-  if ("address" in patch) {
-    params.push(patch.address ? JSON.stringify(patch.address) : null);
-    setClauses.push(`address = $${params.length}`);
+  if ("addresses" in patch) {
+    params.push(addressesArray(patch.addresses));
+    setClauses.push(
+      `addresses = COALESCE($${params.length}::jsonb[], '{}'::jsonb[])`
+    );
   }
   if (setClauses.length === 0) return await getVendorSelfById(vendorId);
 
