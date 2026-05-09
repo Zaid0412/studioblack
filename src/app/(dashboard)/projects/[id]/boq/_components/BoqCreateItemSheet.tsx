@@ -8,7 +8,6 @@ import {
   SheetBody,
   SheetClose,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -370,11 +369,7 @@ export function BoqCreateItemSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl lg:max-w-2xl">
         <SheetHeader>
-          <SheetTitle>Add line item</SheetTitle>
-          <SheetDescription>
-            Enter a manual line. Sell price, subtotal, and margin alerts are
-            computed server-side.
-          </SheetDescription>
+          <SheetTitle>Add BOQ item</SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
