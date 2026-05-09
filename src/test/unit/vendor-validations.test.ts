@@ -86,7 +86,7 @@ describe("updateVendorSchema", () => {
     const result = updateVendorSchema.safeParse({
       tradingName: null,
       paymentTerms: null,
-      address: null,
+      addresses: [],
     });
     expect(result.success).toBe(true);
   });
@@ -209,5 +209,78 @@ describe("listVendorsQuerySchema", () => {
     expect(
       listVendorsQuerySchema.safeParse({ status: "deleted" }).success
     ).toBe(false);
+  });
+});
+
+// ─── Multi-address + secondary contact + dropped tax_id ────────────────────
+
+describe("createVendorSchema — multi-address + tax_id removed", () => {
+  it("accepts multiple addresses with labels and is_primary", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      addresses: [
+        { label: "HQ", line1: "1 Main", city: "Istanbul", is_primary: true },
+        { label: "Warehouse", line1: "12 Dock Rd", city: "Bodrum" },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.addresses).toHaveLength(2);
+    }
+  });
+
+  it("strips taxId — the field is gone from the schema", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      taxId: "ABC123",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect("taxId" in result.data).toBe(false);
+    }
+  });
+
+  it("rejects more than 10 addresses", () => {
+    const addresses = Array.from({ length: 11 }, () => ({ city: "X" }));
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      addresses,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("vendorContactSchema — secondary slot", () => {
+  it("accepts a secondary-only contact", () => {
+    const result = vendorContactSchema.safeParse({
+      name: "Jane",
+      email: "jane@acme.com",
+      isSecondary: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a contact marked both Main and Secondary", () => {
+    const result = vendorContactSchema.safeParse({
+      name: "Jane",
+      email: "jane@acme.com",
+      isPrimary: true,
+      isSecondary: true,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(JSON.stringify(result.error.issues)).toMatch(/Main.*Secondary/);
+    }
+  });
+});
+
+describe("vendorAddressSchema — label + is_primary", () => {
+  it("accepts an optional label and is_primary flag", () => {
+    const result = vendorAddressSchema.safeParse({
+      label: "HQ",
+      city: "Istanbul",
+      is_primary: true,
+    });
+    expect(result.success).toBe(true);
   });
 });
