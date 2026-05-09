@@ -231,28 +231,59 @@ export function VendorDrawer({
                       />
                     </section>
 
-                    {vendor.address &&
-                      Object.values(vendor.address).some(Boolean) && (
-                        <section className="flex flex-col gap-1">
+                    {(() => {
+                      // Prefer the new addresses[] column; fall back to the
+                      // legacy single `address` until the migration drops it.
+                      const list =
+                        vendor.addresses && vendor.addresses.length > 0
+                          ? vendor.addresses
+                          : vendor.address
+                            ? [vendor.address]
+                            : [];
+                      const visible = list.filter((a) =>
+                        Object.entries(a).some(
+                          ([k, v]) =>
+                            k !== "is_primary" && k !== "label" && Boolean(v)
+                        )
+                      );
+                      if (visible.length === 0) return null;
+                      return (
+                        <section className="flex flex-col gap-2">
                           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                            {t("address")}
+                            {t("addressesLabel")}
                           </h4>
-                          <p className="text-sm text-text-primary whitespace-pre-line">
-                            {[
-                              vendor.address.line1,
-                              vendor.address.line2,
-                              [vendor.address.city, vendor.address.region]
-                                .filter(Boolean)
-                                .join(", "),
-                              [vendor.address.postal, vendor.address.country]
-                                .filter(Boolean)
-                                .join(" "),
-                            ]
-                              .filter(Boolean)
-                              .join("\n")}
-                          </p>
+                          {visible.map((a, i) => (
+                            <div
+                              key={i}
+                              className="flex flex-col gap-0.5 rounded-md border border-border-default bg-bg-input p-2"
+                            >
+                              {(a.label || a.is_primary) && (
+                                <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                                  {a.label && <span>{a.label}</span>}
+                                  {a.is_primary && (
+                                    <span className="text-warning">
+                                      {t("primaryAddress")}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <p className="text-sm text-text-primary whitespace-pre-line">
+                                {[
+                                  a.line1,
+                                  a.line2,
+                                  [a.city, a.region].filter(Boolean).join(", "),
+                                  [a.postal, a.country]
+                                    .filter(Boolean)
+                                    .join(" "),
+                                ]
+                                  .filter(Boolean)
+                                  .join("\n")}
+                              </p>
+                            </div>
+                          ))}
                         </section>
-                      )}
+                      );
+                    })()}
 
                     {vendor.notes && (
                       <section className="flex flex-col gap-1">

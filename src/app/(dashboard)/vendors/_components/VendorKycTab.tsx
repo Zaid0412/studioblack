@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -16,8 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { useVendorKyc } from "@/hooks/useVendors";
 import { useUserRole } from "@/hooks/useUserRole";
-import { vendors as vendorsApi } from "@/lib/api";
-import { toast } from "@/components/ui/useToast";
 import { VENDOR_KYC_STATUSES } from "@/lib/validations";
 import type { VendorWithRelations, VendorKycStatus } from "@/types";
 import { KycDocumentList } from "@/components/vendors/KycDocumentList";
@@ -48,36 +45,13 @@ export function VendorKycTab({ vendor, enabled, onVendorMutate }: Props) {
   const { documents, isLoading, addDocument, removeDocument, setStatus } =
     useVendorKyc(vendor.id, enabled, onVendorMutate);
 
-  const [taxId, setTaxId] = useState(vendor.tax_id ?? "");
-  const [taxIdSaving, setTaxIdSaving] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<VendorKycStatus | null>(
     null
   );
   const [statusNotes, setStatusNotes] = useState("");
   const [statusSubmitting, setStatusSubmitting] = useState(false);
 
-  useEffect(() => {
-    setTaxId(vendor.tax_id ?? "");
-  }, [vendor.tax_id]);
-
   if (!enabled) return null;
-
-  const handleSaveTaxId = async () => {
-    const next = taxId.trim();
-    const current = vendor.tax_id ?? "";
-    if (next === current) return;
-    setTaxIdSaving(true);
-    try {
-      await vendorsApi.update(vendor.id, { taxId: next || null });
-      toast({ title: "Tax ID saved" });
-      onVendorMutate();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save";
-      toast({ title: msg, variant: "error" });
-    } finally {
-      setTaxIdSaving(false);
-    }
-  };
 
   const handleStatusConfirm = async () => {
     if (!pendingStatus) return;
@@ -93,7 +67,7 @@ export function VendorKycTab({ vendor, enabled, onVendorMutate }: Props) {
 
   return (
     <div className="flex flex-col gap-5 mt-4">
-      {/* Tax ID + status header */}
+      {/* KYC status header */}
       <section className="flex flex-col gap-3 rounded-lg border border-border-default bg-bg-input p-4">
         <div className="flex items-center justify-between gap-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -101,16 +75,6 @@ export function VendorKycTab({ vendor, enabled, onVendorMutate }: Props) {
           </h4>
           <VendorKycStatusBadge status={vendor.kyc_status} />
         </div>
-
-        <Input
-          label={t("taxId")}
-          value={taxId}
-          onChange={(e) => setTaxId(e.target.value)}
-          onBlur={handleSaveTaxId}
-          disabled={taxIdSaving}
-          maxLength={50}
-          placeholder={t("taxIdPlaceholder")}
-        />
 
         {vendor.kyc_notes && (
           <div className="flex flex-col gap-1">

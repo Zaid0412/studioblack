@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Plus, X, Star } from "lucide-react";
+import { Plus, X, Star, StarHalf } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,7 @@ export interface ContactDraft {
   email: string;
   phone: string;
   isPrimary: boolean;
+  isSecondary: boolean;
   receivesRfq: boolean;
 }
 
@@ -22,6 +23,7 @@ export const EMPTY_CONTACT: ContactDraft = {
   email: "",
   phone: "",
   isPrimary: false,
+  isSecondary: false,
   receivesRfq: true,
 };
 
@@ -30,7 +32,12 @@ interface Props {
   onChange: (next: ContactDraft[]) => void;
 }
 
-/** Inline list editor — add/remove rows, mark a single primary, toggle RFQ recipient. */
+/**
+ * Inline list editor — add/remove rows, mark a single Main contact, mark
+ * a single Secondary contact, toggle RFQ recipient. Main and Secondary
+ * are mutually exclusive on the same row; toggling one clears the other
+ * everywhere else (DB enforces both via unique partial indexes).
+ */
 export function VendorContactsEditor({ contacts, onChange }: Props) {
   const t = useTranslations("vendors");
 
@@ -39,7 +46,25 @@ export function VendorContactsEditor({ contacts, onChange }: Props) {
   };
 
   const setPrimary = (i: number) => {
-    onChange(contacts.map((c, idx) => ({ ...c, isPrimary: idx === i })));
+    onChange(
+      contacts.map((c, idx) => ({
+        ...c,
+        isPrimary: idx === i,
+        // Clearing isSecondary on the row that just became primary
+        // upholds the schema-level mutual-exclusion check.
+        isSecondary: idx === i ? false : c.isSecondary,
+      }))
+    );
+  };
+
+  const setSecondary = (i: number) => {
+    onChange(
+      contacts.map((c, idx) => ({
+        ...c,
+        isSecondary: idx === i,
+        isPrimary: idx === i ? false : c.isPrimary,
+      }))
+    );
   };
 
   const remove = (i: number) =>
@@ -107,6 +132,22 @@ export function VendorContactsEditor({ contacts, onChange }: Props) {
                     className={cn("w-3.5 h-3.5", c.isPrimary && "fill-warning")}
                   />
                   {t("primaryContact")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSecondary(i)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 text-xs transition-colors",
+                    c.isSecondary
+                      ? "text-info font-medium"
+                      : "text-text-muted hover:text-text-primary"
+                  )}
+                  aria-pressed={c.isSecondary}
+                >
+                  <StarHalf
+                    className={cn("w-3.5 h-3.5", c.isSecondary && "fill-info")}
+                  />
+                  {t("secondaryContact")}
                 </button>
                 <Checkbox
                   id={`rfq-${i}`}
