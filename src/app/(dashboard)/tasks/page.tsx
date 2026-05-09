@@ -156,6 +156,7 @@ export default function TasksPage() {
     setDeleteTarget,
     deleting,
     toggleStatus,
+    setStatus,
     toggleStar,
     handleDelete,
     openEdit,
@@ -255,6 +256,7 @@ export default function TasksPage() {
                     task={task}
                     onToggleStar={toggleStar}
                     onToggleStatus={toggleStatus}
+                    onSetStatus={setStatus}
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
                     onClick={openTask}

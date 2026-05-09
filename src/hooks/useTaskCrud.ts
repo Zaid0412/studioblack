@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { tasks as tasksApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { NEXT_STATUS } from "@/lib/taskUtils";
-import type { Task } from "@/types";
+import type { Task, TaskStatus } from "@/types";
 
 interface UseTaskCrudOptions {
   /** Called after a write to revalidate the list. */
@@ -27,6 +27,28 @@ export function useTaskCrud({ fetchTasks, setTasks }: UseTaskCrudOptions) {
       const newStatus = NEXT_STATUS[task.status] ?? "todo";
       try {
         await tasksApi.update(task.id, { status: newStatus });
+        fetchTasks();
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to update status",
+          variant: "error",
+        });
+      }
+    },
+    [fetchTasks]
+  );
+
+  /**
+   * Set a task's status directly (no cycling). Used by the row's "Complete"
+   * / "Reopen" menu item, where the user expects an explicit transition
+   * regardless of the current state. The status-pill button still uses
+   * `toggleStatus` for the cycle UX.
+   */
+  const setStatus = useCallback(
+    async (task: Task, status: TaskStatus) => {
+      try {
+        await tasksApi.update(task.id, { status });
         fetchTasks();
       } catch {
         toast({
@@ -95,6 +117,7 @@ export function useTaskCrud({ fetchTasks, setTasks }: UseTaskCrudOptions) {
     setDeleteTarget,
     deleting,
     toggleStatus,
+    setStatus,
     toggleStar,
     handleDelete,
     openEdit,
