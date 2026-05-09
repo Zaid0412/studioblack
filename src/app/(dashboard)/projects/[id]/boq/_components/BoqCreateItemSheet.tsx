@@ -216,10 +216,27 @@ export function BoqCreateItemSheet({
     });
   };
 
-  /** Mark Qty as user-overridden so dimension edits stop touching it. */
+  /**
+   * Mark Qty as user-overridden so dimension edits stop touching it —
+   * but only if the typed value actually differs from what the
+   * auto-compute would produce. Typing the exact auto value (e.g.
+   * `1.875` when L=2.5/B=1.5/H=0.5) doesn't count as an override and
+   * leaves the `(auto from L × B × H)` label visible.
+   */
   const setQtyManually = (value: string) => {
     setV((prev) => ({ ...prev, quantity: value }));
-    setManualQty(true);
+    const dims = [v.length, v.breadth, v.height]
+      .map((s) => s.trim())
+      .filter((s) => s !== "")
+      .map((s) => Number.parseFloat(s))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const autoValue =
+      dims.length > 0
+        ? String(Number(dims.reduce((a, b) => a * b, 1).toFixed(6)))
+        : null;
+    if (autoValue === null || value.trim() !== autoValue) {
+      setManualQty(true);
+    }
   };
 
   /** True when at least one dimension is filled and Qty hasn't been manually edited. */
