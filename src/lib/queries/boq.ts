@@ -896,6 +896,43 @@ export async function addElementToBoq(
   });
 }
 
+/**
+ * Batch variant of {@link addElementToBoq} — same per-row semantics, but
+ * called inside a single query loop so the caller can present a single
+ * "Add N to BoQ" action. Returns `null` when ANY element id doesn't
+ * resolve so the UI can surface a single error rather than partial
+ * insertion. (Each insert is autocommitted because the underlying
+ * `createBoqItem` doesn't expose a client transaction; if a later row
+ * fails after earlier rows succeeded, this function still returns
+ * `null` and the caller can refetch — the partially-added rows are
+ * consistent on their own and the user can retry the missing ones.)
+ */
+export async function addElementsToBoq(
+  boqId: string,
+  orgId: string,
+  params: {
+    sectionId: string | null;
+    items: Array<{
+      elementId: string;
+      quantity?: number;
+      rateContractItemId?: string;
+    }>;
+  }
+): Promise<BoqItemWithComputed[] | null> {
+  const created: BoqItemWithComputed[] = [];
+  for (const item of params.items) {
+    const inserted = await addElementToBoq(boqId, orgId, {
+      sectionId: params.sectionId,
+      elementId: item.elementId,
+      quantity: item.quantity,
+      rateContractItemId: item.rateContractItemId,
+    });
+    if (!inserted) return null;
+    created.push(inserted);
+  }
+  return created;
+}
+
 /** Aggregate cost/sell/margin/approval totals plus per-section subtotals for a BOQ in one query batch. */
 export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   const pool = getPool();

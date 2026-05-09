@@ -5,6 +5,7 @@ import {
   deleteBoqItem,
   reorderBoqItems,
   addElementToBoq,
+  addElementsToBoq,
   verifyBoqOwnership,
   verifyBoqItemOwnership,
   getBoqStatus,
@@ -19,6 +20,7 @@ import {
 } from "@/app/api/projects/[id]/boq/items/[itemId]/route";
 import { PATCH as PATCH_REORDER } from "@/app/api/projects/[id]/boq/items/reorder/route";
 import { POST as POST_FROM_ELEMENT } from "@/app/api/projects/[id]/boq/items/from-element/route";
+import { POST as POST_FROM_ELEMENTS } from "@/app/api/projects/[id]/boq/items/from-elements/route";
 import {
   buildRequest,
   buildParams,
@@ -37,6 +39,7 @@ const SECTION_ID = "550e8400-e29b-41d4-a716-446655440001";
 const ITEM_ID = "550e8400-e29b-41d4-a716-446655440003";
 const ITEM_ID_2 = "550e8400-e29b-41d4-a716-446655440004";
 const ELEMENT_ID = "550e8400-e29b-41d4-a716-446655440005";
+const ELEMENT_ID_2 = "550e8400-e29b-41d4-a716-446655440006";
 const UPDATED_AT = "2024-01-01T00:00:00Z";
 
 const fakeItem: BoqItemWithComputed = {
@@ -819,6 +822,171 @@ describe("POST /api/projects/[id]/boq/items/from-element", () => {
       }
     );
     const res = await POST_FROM_ELEMENT(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(403);
+  });
+});
+
+// ── POST /api/projects/[id]/boq/items/from-elements ─────────────────────────
+
+describe("POST /api/projects/[id]/boq/items/from-elements", () => {
+  const fakeItem2: BoqItemWithComputed = { ...fakeItem, id: ITEM_ID_2 };
+
+  it("inserts multiple elements as BOQ items in one batch", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(addElementsToBoq).mockResolvedValue([fakeItem, fakeItem2]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: {
+          boqId: BOQ_ID,
+          sectionId: SECTION_ID,
+          items: [
+            { elementId: ELEMENT_ID, quantity: 5 },
+            { elementId: ELEMENT_ID_2, quantity: 2 },
+          ],
+        },
+      }
+    );
+    const res = await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{
+      items: BoqItemWithComputed[];
+    }>(res);
+
+    expect(status).toBe(201);
+    expect(body.items).toHaveLength(2);
+    expect(body.items[0].id).toBe(ITEM_ID);
+    expect(body.items[1].id).toBe(ITEM_ID_2);
+    expect(addElementsToBoq).toHaveBeenCalledWith(BOQ_ID, "org-test-001", {
+      sectionId: SECTION_ID,
+      items: [
+        { elementId: ELEMENT_ID, quantity: 5 },
+        { elementId: ELEMENT_ID_2, quantity: 2 },
+      ],
+    });
+  });
+
+  it("defaults each item's quantity to 1 when omitted", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(addElementsToBoq).mockResolvedValue([fakeItem]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: {
+          boqId: BOQ_ID,
+          sectionId: null,
+          items: [{ elementId: ELEMENT_ID }],
+        },
+      }
+    );
+    await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
+
+    expect(addElementsToBoq).toHaveBeenCalledWith(
+      BOQ_ID,
+      "org-test-001",
+      expect.objectContaining({
+        items: [{ elementId: ELEMENT_ID, quantity: 1 }],
+      })
+    );
+  });
+
+  it("returns 404 when any element id can't be resolved", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(addElementsToBoq).mockResolvedValue(null);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: {
+          boqId: BOQ_ID,
+          sectionId: null,
+          items: [{ elementId: ELEMENT_ID }],
+        },
+      }
+    );
+    const res = await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(404);
+  });
+
+  it("returns 400 when items array is empty", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: { boqId: BOQ_ID, sectionId: null, items: [] },
+      }
+    );
+    const res = await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+  });
+
+  it("returns 400 when items array exceeds the cap", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    const tooMany = Array.from({ length: 51 }, () => ({
+      elementId: ELEMENT_ID,
+    }));
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: { boqId: BOQ_ID, sectionId: null, items: tooMany },
+      }
+    );
+    const res = await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+  });
+
+  it("returns 404 when BOQ not owned by project", async () => {
+    vi.mocked(getBoqStatus).mockResolvedValue(null);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: {
+          boqId: BOQ_ID,
+          sectionId: null,
+          items: [{ elementId: ELEMENT_ID }],
+        },
+      }
+    );
+    const res = await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(404);
+  });
+
+  it("returns 403 for client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+    vi.mocked(getOrgRole).mockResolvedValue(null as never);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/from-elements`,
+      {
+        method: "POST",
+        body: {
+          boqId: BOQ_ID,
+          sectionId: null,
+          items: [{ elementId: ELEMENT_ID }],
+        },
+      }
+    );
+    const res = await POST_FROM_ELEMENTS(req, buildParams({ id: PROJECT_ID }));
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);

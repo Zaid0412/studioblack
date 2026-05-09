@@ -182,6 +182,30 @@ export function addElement(
   return apiPost<BoqItemWithComputed>(API.boqItemsFromElement(projectId), data);
 }
 
+/**
+ * Batch variant of {@link addElement}: insert one BOQ line per element under
+ * the same section in one round-trip. Returns the created rows so the caller
+ * can splice them into the SWR cache; if any element id can't be resolved the
+ * server returns 404 and no rows are returned.
+ */
+export function addElements(
+  projectId: string,
+  data: {
+    boqId: string;
+    sectionId: string | null;
+    items: Array<{
+      elementId: string;
+      quantity?: number;
+      rateContractItemId?: string;
+    }>;
+  }
+) {
+  return apiPost<{ items: BoqItemWithComputed[] }>(
+    API.boqItemsFromElements(projectId),
+    data
+  );
+}
+
 // ── Summary ─────────────────────────────────────────────────────────────────
 
 /** Fetch the rolled-up BOQ totals (cost, sell, margins, per-section subtotals). */

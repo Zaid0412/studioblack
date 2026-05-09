@@ -115,6 +115,7 @@ export const API = {
   boqItem:               (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}`,
   boqItemsReorder:       (pid: string)                       => `/api/projects/${pid}/boq/items/reorder`,
   boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
+  boqItemsFromElements:  (pid: string)                       => `/api/projects/${pid}/boq/items/from-elements`,
 
   // ── BOQ internal review gate ────────────────────
   boqSubmitForReview:    (pid: string)                       => `/api/projects/${pid}/boq/submit-for-review`,
