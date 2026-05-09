@@ -688,6 +688,9 @@ export interface ParsedBoqValues {
   marginPct?: number;
   clientRate?: number;
   budgetRate?: number;
+  length?: number;
+  breadth?: number;
+  height?: number;
   notes?: string;
   clientNotes?: string;
   isProvisional?: boolean;

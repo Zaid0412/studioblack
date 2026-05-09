@@ -51,6 +51,9 @@ export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
       marginPct: toNumber(item.margin_pct),
       clientRate: toNumber(item.client_rate),
       budgetRate: toNumber(item.budget_rate),
+      length: toNumber(item.length),
+      breadth: toNumber(item.breadth),
+      height: toNumber(item.height),
       notes: item.notes ?? "",
       clientNotes: item.client_notes ?? "",
       isProvisional: item.is_provisional ? "yes" : "",
@@ -96,6 +99,9 @@ function pickStyle(key: string): Partial<ExcelJS.Style> | undefined {
     case "marginPct":
       return { numFmt: "0.00\\%" };
     case "quantity":
+    case "length":
+    case "breadth":
+    case "height":
       return { numFmt: "#,##0.000" };
     default:
       return undefined;
