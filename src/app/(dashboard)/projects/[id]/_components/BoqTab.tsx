@@ -468,6 +468,12 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
         canEdit={canEdit}
+        onDelete={(item) => {
+          // Close the drawer first so the confirm dialog isn't stacked
+          // on top of the open sheet — single modal layer at a time.
+          setDrawerItem(null);
+          setDeleteItemTarget(item);
+        }}
       />
 
       <BoqImportDialog
