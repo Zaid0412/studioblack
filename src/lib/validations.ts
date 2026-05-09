@@ -590,6 +590,13 @@ export const importConfirmSchema = z.object({
 const money = z.coerce.number().min(0).finite();
 const quantity = z.coerce.number().min(0).finite();
 const boqPercent = z.coerce.number().min(0).max(100).finite();
+/**
+ * Per-line physical dimension validator (m). Capped at 9_999_999 because
+ * the DB column is `NUMERIC(10,3)` — anything larger overflows on insert.
+ * Hitting the cap with a Zod error is a friendlier failure mode than the
+ * raw pg overflow message.
+ */
+const dimension = z.coerce.number().min(0).max(9_999_999).finite();
 /** Optimistic-lock token — clients echo the row's `updated_at` on mutations. */
 const updatedAtToken = z.string().min(1);
 
@@ -707,9 +714,9 @@ export const createBoqItemSchema = z.object({
   // Per-line physical dimensions (m). Optional — only set for items
   // whose quantity is naturally L × B × H. NOT promoted to `element`
   // when the line is saved to the library (dimensions are BoQ-specific).
-  length: money.optional().nullable(),
-  breadth: money.optional().nullable(),
-  height: money.optional().nullable(),
+  length: dimension.optional().nullable(),
+  breadth: dimension.optional().nullable(),
+  height: dimension.optional().nullable(),
   notes: z.string().optional().nullable(),
   clientNotes: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).optional(),
@@ -732,9 +739,9 @@ export const updateBoqItemSchema = z.object({
   marginPct: boqPercent.optional(),
   clientRate: money.nullable().optional(),
   budgetRate: money.nullable().optional(),
-  length: money.nullable().optional(),
-  breadth: money.nullable().optional(),
-  height: money.nullable().optional(),
+  length: dimension.nullable().optional(),
+  breadth: dimension.nullable().optional(),
+  height: dimension.nullable().optional(),
   lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
   clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
   installedQty: quantity.optional(),
@@ -789,9 +796,9 @@ export const boqImportRowSchema = z.object({
   marginPct: z.coerce.number().min(0).max(100).optional(),
   clientRate: z.coerce.number().min(0).finite().optional(),
   budgetRate: z.coerce.number().min(0).finite().optional(),
-  length: z.coerce.number().min(0).finite().optional(),
-  breadth: z.coerce.number().min(0).finite().optional(),
-  height: z.coerce.number().min(0).finite().optional(),
+  length: dimension.optional(),
+  breadth: dimension.optional(),
+  height: dimension.optional(),
   notes: z.string().max(2000).optional(),
   clientNotes: z.string().max(2000).optional(),
   isProvisional: z.boolean().optional(),

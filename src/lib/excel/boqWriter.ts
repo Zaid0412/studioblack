@@ -81,6 +81,11 @@ function pickWidth(key: string): number {
     case "notes":
     case "clientNotes":
       return 24;
+    case "length":
+    case "breadth":
+    case "height":
+      // Tighter than the default — 3-char header + small decimal value.
+      return 10;
     default:
       return 14;
   }

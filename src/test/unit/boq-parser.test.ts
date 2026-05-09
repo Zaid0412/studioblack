@@ -33,6 +33,11 @@ async function sheetBuffer(
 
 const EMPTY_MAP = new Map<string, BoqElementLite>();
 
+// Filler UUIDs for round-trip tests — the writer/parser path doesn't
+// touch these; only the values that travel through Excel matter.
+const FAKE_ITEM_ID = "00000000-0000-0000-0000-000000000001";
+const FAKE_BOQ_ID = "00000000-0000-0000-0000-00000000aaaa";
+
 describe("parseBoqSheet", () => {
   it("parses a minimal valid row and derives defaults for missing optional columns", async () => {
     const buf = await sheetBuffer([
@@ -288,8 +293,8 @@ describe("writeBoqSheet → parseBoqSheet round-trip — dimensions", () => {
     overrides: Partial<BoqItemWithComputed>
   ): BoqItemWithComputed {
     return {
-      id: "00000000-0000-0000-0000-000000000001",
-      boq_id: "00000000-0000-0000-0000-00000000aaaa",
+      id: FAKE_ITEM_ID,
+      boq_id: FAKE_BOQ_ID,
       section_id: null,
       element_id: null,
       item_code: "BOQ-001",

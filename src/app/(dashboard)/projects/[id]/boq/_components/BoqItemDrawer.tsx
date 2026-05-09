@@ -450,8 +450,7 @@ export function BoqItemDrawer({
           {canEdit && !rowLocked && onDelete ? (
             <Button
               type="button"
-              variant="ghost"
-              className="text-error hover:text-error hover:bg-error/10"
+              variant="danger"
               onClick={() => onDelete(item)}
             >
               <Trash2 className="h-4 w-4" />
