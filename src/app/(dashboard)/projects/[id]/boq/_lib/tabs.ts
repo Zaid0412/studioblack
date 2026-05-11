@@ -2,7 +2,7 @@
  * BOQ sub-tab definitions.
  *
  * The BOQ surface is becoming a tab container with six sub-tabs. Today
- * only `My Scope` is implemented — the others sit here with
+ * only `Scope` is implemented — the others sit here with
  * `enabled: false` so flipping them to `true` (and dropping the route
  * folder + content) is a one-line change.
  */
@@ -15,7 +15,7 @@ export interface BoqTab {
 }
 
 export const BOQ_TABS: readonly BoqTab[] = [
-  { label: "My Scope", segment: "my-scope", enabled: true },
+  { label: "Scope", segment: "my-scope", enabled: true },
   { label: "RFQ", segment: "rfq", enabled: false },
   { label: "Proposal For Client", segment: "client-proposal", enabled: false },
   { label: "Client Orders", segment: "client-orders", enabled: false },
