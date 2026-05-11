@@ -768,6 +768,25 @@ export const addElementToBoqSchema = z.object({
   rateContractItemId: z.string().uuid().optional(),
 });
 
+/**
+ * Batch variant — one section, N elements each with their own quantity.
+ * Backs the multi-select element picker. Capped at 50 entries per call;
+ * the UI's checkbox surface shouldn't realistically hit that.
+ */
+export const addElementsToBoqSchema = z.object({
+  sectionId: z.string().uuid().nullable(),
+  items: z
+    .array(
+      z.object({
+        elementId: uuid,
+        quantity: quantity.default(1),
+        rateContractItemId: z.string().uuid().optional(),
+      })
+    )
+    .min(1)
+    .max(50),
+});
+
 // ─── BOQ Excel Import (Feature 6) ───────────────────────────────────────────
 
 /** Max accepted .xlsx size for a BOQ import. Matches the element-library cap. */
