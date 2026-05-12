@@ -113,6 +113,7 @@ export const API = {
   boqSectionsReorder:    (pid: string)                       => `/api/projects/${pid}/boq/sections/reorder`,
   boqItems:              (pid: string)                       => `/api/projects/${pid}/boq/items`,
   boqItem:               (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}`,
+  boqItemMove:           (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/move`,
   boqItemsReorder:       (pid: string)                       => `/api/projects/${pid}/boq/items/reorder`,
   boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
   boqItemsFromElements:  (pid: string)                       => `/api/projects/${pid}/boq/items/from-elements`,

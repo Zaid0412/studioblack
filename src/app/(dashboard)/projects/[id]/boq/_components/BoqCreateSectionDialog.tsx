@@ -6,6 +6,7 @@ import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
+import type { BoqSection } from "@/types";
 
 interface BoqCreateSectionDialogProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface BoqCreateSectionDialogProps {
   boqId: string;
   /** Used to seed `sortOrder` for the new section. */
   nextSortOrder: number;
+  /** Fired after a successful create — used by BoqSectionSelect to auto-select. */
+  onCreated?: (section: BoqSection) => void;
 }
 
 /** Dialog for creating a new BOQ section. Title required, everything else optional. */
@@ -23,6 +26,7 @@ export function BoqCreateSectionDialog({
   projectId,
   boqId,
   nextSortOrder,
+  onCreated,
 }: BoqCreateSectionDialogProps) {
   const { createSection } = useBoqMutations(projectId);
   const [title, setTitle] = useState("");
@@ -51,7 +55,7 @@ export function BoqCreateSectionDialog({
     }
     setSubmitting(true);
     try {
-      await createSection({
+      const created = await createSection({
         boqId,
         title: trimmed,
         description: description.trim() || null,
@@ -60,6 +64,7 @@ export function BoqCreateSectionDialog({
       });
       toast({ title: "Section added", variant: "success" });
       onOpenChange(false);
+      onCreated?.(created);
     } catch {
       // useBoqMutations already toasts.
     } finally {

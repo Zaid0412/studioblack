@@ -103,9 +103,19 @@ export function updateSection(
   return apiPatch<BoqSection>(API.boqSection(projectId, sectionId), data);
 }
 
-/** Delete a section. Items keep their data; their `section_id` becomes null via FK. */
-export function deleteSection(projectId: string, sectionId: string) {
-  return apiDelete(API.boqSection(projectId, sectionId));
+/**
+ * Delete a section.
+ * - Default: items survive — `section_id` becomes null via the FK.
+ * - `{ cascade: true }`: items in the section are deleted in the same TX.
+ *   The UI gates this behind a type-to-confirm prompt.
+ */
+export function deleteSection(
+  projectId: string,
+  sectionId: string,
+  opts?: { cascade?: boolean }
+) {
+  const suffix = opts?.cascade ? "?cascade=true" : "";
+  return apiDelete(`${API.boqSection(projectId, sectionId)}${suffix}`);
 }
 
 /** Persist a new section ordering for a BOQ in a single bulk update. */
@@ -148,6 +158,22 @@ export function deleteItem(
   updatedAt: string
 ) {
   return apiDelete(API.boqItem(projectId, itemId), { updatedAt });
+}
+
+/**
+ * Move a BOQ item to a different section in the same BOQ. `null`
+ * targets the Unassigned bucket. Optimistic-locked on `updatedAt`.
+ */
+export function moveItem(
+  projectId: string,
+  itemId: string,
+  targetSectionId: string | null,
+  updatedAt: string
+) {
+  return apiPost<BoqItemWithComputed>(API.boqItemMove(projectId, itemId), {
+    updatedAt,
+    targetSectionId,
+  });
 }
 
 /** Persist a new ordering of items inside a section (or the unassigned bucket when `sectionId` is null). */

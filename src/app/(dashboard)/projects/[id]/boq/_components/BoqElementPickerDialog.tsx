@@ -573,6 +573,9 @@ export function BoqElementPickerDialog({
             value={sectionId}
             onChange={setSectionId}
             sections={sections}
+            projectId={projectId}
+            boqId={boqId}
+            nextSortOrder={sections.length}
           />
           {tab === "rate-contract" && (
             <label className="flex flex-col gap-1.5">

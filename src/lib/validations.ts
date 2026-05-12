@@ -756,6 +756,12 @@ export const deleteBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
 });
 
+export const moveBoqItemSchema = z.object({
+  updatedAt: updatedAtToken,
+  /** `null` moves the item back to the Unassigned bucket. */
+  targetSectionId: uuid.nullable(),
+});
+
 export const reorderItemsSchema = z.object({
   sectionId: z.string().uuid().nullable(),
   orderedIds: z.array(uuid).min(1),

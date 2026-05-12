@@ -30,13 +30,17 @@ export const PATCH = withAuth(
 
 export const DELETE = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (_req, _ctx, params) => {
+  async (req, _ctx, params) => {
     const { id, sectionId } = params;
 
     const gate = await assertSectionEditable(sectionId, id);
     if (gate) return gate;
 
-    const ok = await deleteBoqSection(sectionId);
+    // `?cascade=true` deletes the section's items in the same TX. Defaults
+    // to false (items reflow to Unassigned via ON DELETE SET NULL).
+    const cascade = req.nextUrl.searchParams.get("cascade") === "true";
+
+    const ok = await deleteBoqSection(sectionId, cascade);
     if (!ok) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

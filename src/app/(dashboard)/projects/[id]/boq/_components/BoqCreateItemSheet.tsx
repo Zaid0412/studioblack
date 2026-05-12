@@ -417,6 +417,9 @@ export function BoqCreateItemSheet({
               value={v.sectionId}
               onChange={(next) => set("sectionId", next)}
               sections={sections}
+              projectId={projectId}
+              boqId={boqId}
+              nextSortOrder={sections.length}
             />
 
             {/* Description */}
