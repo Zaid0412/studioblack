@@ -1,13 +1,16 @@
 "use client";
 
 import { use } from "react";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useFlag } from "@/hooks/useFlag";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
+import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
 
 /**
  * Shared chrome for every project sub-route — header, meta bar, and the
@@ -30,6 +33,8 @@ export default function ProjectDetailLayout({
   const tc = useTranslations("common");
   const { role, loading: roleLoading } = useUserRole();
   const isClient = role === "client";
+  const boqEnabled = useFlag("boq");
+  const pathname = usePathname();
 
   const {
     project,
@@ -40,6 +45,17 @@ export default function ProjectDetailLayout({
     submitComment,
     refreshAll,
   } = useProjectDetail(id, { includeApprovals: isClient });
+
+  // The stepper sits in the shared layout so switching between Design and
+  // BOQ doesn't unmount it. Visibility rules mirror the previous per-page
+  // gating: hidden for clients / when BOQ is off, and on BOQ side only
+  // visible on the my-scope sub-tab (other BOQ sub-tabs render their own
+  // header).
+  const showWorkflowSteps =
+    !isClient &&
+    boqEnabled &&
+    (pathname === `/projects/${id}/designs` ||
+      pathname === `/projects/${id}/boq/my-scope`);
 
   if (loading || roleLoading) {
     return (
@@ -115,6 +131,14 @@ export default function ProjectDetailLayout({
         city={project.city}
         state={project.state}
       />
+
+      {showWorkflowSteps && (
+        <ProjectWorkflowSteps
+          projectId={id}
+          phaseCounts={phaseCounts}
+          showBoq={!isClient && boqEnabled}
+        />
+      )}
 
       {children}
 

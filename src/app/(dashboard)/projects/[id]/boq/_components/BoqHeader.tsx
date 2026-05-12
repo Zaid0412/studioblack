@@ -4,6 +4,7 @@ import { AlertTriangle, Clock, FilePen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { BoqStatus } from "@/lib/validations";
+import { timeAgo } from "@/lib/formatTime";
 import { boqStatusToLabel, boqStatusToVariant } from "../_lib/formatters";
 
 /**
@@ -36,6 +37,8 @@ interface BoqHeaderProps {
   canReview: boolean;
   /** ISO timestamp of the most recent internal approval, if any. */
   internallyApprovedAt: string | null;
+  /** Name of the user who last internally approved the BOQ, if any. */
+  internallyApprovedByName: string | null;
   /** ISO timestamp of the BOQ's last edit. Drives the "edited since approval" badge. */
   updatedAt: string;
   // Internal-review action handlers — wired by the parent.
@@ -69,6 +72,7 @@ export function BoqHeader({
   isCreator,
   canReview,
   internallyApprovedAt,
+  internallyApprovedByName,
   updatedAt,
   onSubmitForReview,
   onCancelReview,
@@ -109,6 +113,14 @@ export function BoqHeader({
             {itemCount} item{itemCount === 1 ? "" : "s"}
           </span>
         </div>
+        {internallyApprovedAt && (
+          <p className="text-xs text-text-muted">
+            Approved
+            {internallyApprovedByName && ` by ${internallyApprovedByName}`}
+            {" · "}
+            {timeAgo(internallyApprovedAt)}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
