@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { BOQ_STATUS_TRANSITIONS, type BoqStatus } from "@/lib/validations";
 
-/** Pin the BOQ state machine — both the allowed transitions and (by
+/**
+ * Pin the BOQ state machine — both the allowed transitions and (by
  * inference) the forbidden ones. Updating this test is the
- * load-bearing checkpoint when adding new statuses or edges. */
+ * load-bearing checkpoint when adding new statuses or edges.
+ */
 describe("BOQ_STATUS_TRANSITIONS", () => {
   it("draft → pending_internal_review (gate entry)", () => {
     expect(BOQ_STATUS_TRANSITIONS.draft).toEqual(["pending_internal_review"]);

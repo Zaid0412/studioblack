@@ -632,8 +632,10 @@ export const approveBoqSchema = z.object({
   comment: z.string().trim().max(2000).optional(),
 });
 
-/** Request changes — comment is REQUIRED, otherwise the creator
- * gets bounced back with no signal about what to fix. */
+/**
+ * Request changes — comment is REQUIRED, otherwise the creator
+ * gets bounced back with no signal about what to fix.
+ */
 export const requestBoqChangesSchema = z.object({
   comment: z.string().trim().min(1).max(2000),
 });

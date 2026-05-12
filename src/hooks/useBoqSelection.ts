@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { withViewTransition } from "@/lib/utils";
+import { withViewTransition } from "@/lib/viewTransition";
 
 export type SectionSelectionState = "none" | "some" | "all";
 

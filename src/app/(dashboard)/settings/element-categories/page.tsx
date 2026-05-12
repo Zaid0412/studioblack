@@ -27,7 +27,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
-import { withViewTransition } from "@/lib/utils";
+import { withViewTransition } from "@/lib/viewTransition";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFlag } from "@/hooks/useFlag";
 import type { ElementCategoryNode } from "@/types";
