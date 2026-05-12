@@ -6,7 +6,12 @@ import {
   createPhaseTask,
   updatePhaseTask,
 } from "@/lib/queries";
-import { createNotification } from "@/lib/notifications";
+import {
+  createNotification,
+  notifyUserByEmailWithContext,
+} from "@/lib/notifications";
+import { escapeHtml } from "@/lib/email";
+import { env } from "@/env";
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
@@ -79,6 +84,20 @@ export const POST = withAuth(
         projectId: id,
         taskId: task.id,
       }).catch(() => {});
+
+      notifyUserByEmailWithContext(assignedTo, id, (ctx) => {
+        const projectUrl = escapeHtml(
+          `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+        );
+        return {
+          subject: ctx.projectName
+            ? `${ctx.projectName} | New Task Assigned to You`
+            : "New Task Assigned to You",
+          html: `<p><strong>${escapeHtml(user.name || user.email)}</strong> assigned you a new task.</p>
+            <p style="color: #666;">${escapeHtml(title.trim())}</p>
+            <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`,
+        };
+      });
     }
 
     return NextResponse.json(task, { status: 201 });
