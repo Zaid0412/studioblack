@@ -754,11 +754,14 @@ const BoqItemRow = memo(function BoqItemRow({
                       disabled={currentSectionId === null}
                       onSelect={() => void onMoveItem!(item, null)}
                     >
-                      (Unassigned)
+                      <span className="flex-1">(Unassigned)</span>
                       {currentSectionId === null && (
-                        <span className="ml-2 text-[10px] text-text-muted">
-                          current
-                        </span>
+                        <Badge
+                          variant="info"
+                          className="ml-2 !px-1.5 !py-0 text-[10px] font-medium"
+                        >
+                          Current
+                        </Badge>
                       )}
                     </DropdownMenuItem>
                     {sections.length > 0 && <DropdownMenuSeparator />}
@@ -768,13 +771,16 @@ const BoqItemRow = memo(function BoqItemRow({
                         disabled={currentSectionId === s.id}
                         onSelect={() => void onMoveItem!(item, s.id)}
                       >
-                        <span className="truncate max-w-[220px]">
+                        <span className="flex-1 truncate max-w-[220px]">
                           {s.title}
                         </span>
                         {currentSectionId === s.id && (
-                          <span className="ml-2 text-[10px] text-text-muted">
-                            current
-                          </span>
+                          <Badge
+                            variant="info"
+                            className="ml-2 !px-1.5 !py-0 text-[10px] font-medium"
+                          >
+                            Current
+                          </Badge>
                         )}
                       </DropdownMenuItem>
                     ))}
