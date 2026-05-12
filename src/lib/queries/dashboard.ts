@@ -53,11 +53,6 @@ export interface PendingBoqReviewRow {
   project_name: string;
   /** Most-recent item update on this BOQ — used to order the popover. */
   submitted_at: string;
-  /**
-   * Null in the per-item model — we no longer denormalise a "submitted by"
-   * actor onto the BOQ. The popover row gracefully omits the attribution.
-   */
-  submitted_by_name: string | null;
   /** Number of items in `internal_review` on this BOQ — surfaced in the popover. */
   items_in_review: number;
 }
@@ -80,7 +75,6 @@ export async function getPendingBoqReviews(
        b.project_id,
        p.name AS project_name,
        MAX(bi.updated_at) AS submitted_at,
-       NULL::text AS submitted_by_name,
        COUNT(bi.id)::int AS items_in_review
      FROM boq b
      JOIN project p ON p.id = b.project_id

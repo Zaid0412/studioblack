@@ -29,6 +29,15 @@ export function phaseToLabel(phase: BoqItemPhase): string {
   return PHASE_DISPLAY[phase].label;
 }
 
+/**
+ * Phases that need a mandatory comment from the actor (server-side schema
+ * requires it). Centralises the rule so UI surfaces don't hand-roll the
+ * `phase === "change_requested"` check.
+ */
+export function isDestructivePhase(phase: BoqItemPhase): boolean {
+  return phase === "change_requested";
+}
+
 export type MarginTier = "error" | "warning" | "success";
 
 /**

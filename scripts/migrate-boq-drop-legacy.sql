@@ -1,12 +1,12 @@
 -- BOQ per-item lifecycle — drop legacy columns
 --
--- PR-2 cutover follow-up to `migrate-boq-item-phase.sql` (PR-1). Removes the
--- old BOQ-wide state machine and the per-item dual-status columns now that
--- the unified `phase` column is the single source of truth.
+-- Follow-up to `migrate-boq-item-phase.sql`. Removes the old BOQ-wide state
+-- machine and the per-item dual-status columns now that the unified `phase`
+-- column is the single source of truth.
 --
--- ⚠️ Runs AFTER PR-2 code deploys to prod. The previously-deployed PR-1
--- runtime still reads these columns; dropping them before the deploy will
--- 500 every BOQ-related route until the new bundle goes live.
+-- ⚠️ Runs AFTER the per-item lifecycle code has deployed. The previously-
+-- deployed runtime reads these columns directly; dropping them before the
+-- new bundle is live will 500 every BOQ-related route.
 --
 -- Idempotent: every drop is guarded by IF EXISTS.
 --
@@ -41,3 +41,16 @@ ALTER TABLE boq DROP CONSTRAINT IF EXISTS boq_status_check;
 DROP INDEX IF EXISTS idx_boq_item_pending_approval;
 
 COMMIT;
+
+-- VERIFY: run after COMMIT, each should return 0 rows.
+--
+--   SELECT column_name FROM information_schema.columns
+--   WHERE table_name = 'boq_item'
+--     AND column_name IN ('lifecycle_status', 'client_approval_status',
+--                         'requires_reapproval',
+--                         'client_approved_at', 'client_approved_by');
+--
+--   SELECT column_name FROM information_schema.columns
+--   WHERE table_name = 'boq' AND column_name = 'status';
+--
+--   SELECT conname FROM pg_constraint WHERE conname = 'boq_status_check';
