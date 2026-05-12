@@ -176,6 +176,35 @@ export function moveItem(
   });
 }
 
+/**
+ * Move many BOQ items to the same target section in one transaction.
+ * Items receive successive `sort_order` values in the order supplied.
+ * Returns the updated rows in the same order.
+ */
+export function bulkMoveItems(
+  projectId: string,
+  boqId: string,
+  itemIds: string[],
+  targetSectionId: string | null
+) {
+  return apiPost<{ items: BoqItemWithComputed[] }>(
+    API.boqItemsBulkMove(projectId),
+    { boqId, itemIds, targetSectionId }
+  );
+}
+
+/** Delete many BOQ items in one statement. */
+export function bulkDeleteItems(
+  projectId: string,
+  boqId: string,
+  itemIds: string[]
+) {
+  return apiPost<{ deletedCount: number }>(API.boqItemsBulkDelete(projectId), {
+    boqId,
+    itemIds,
+  });
+}
+
 /** Persist a new ordering of items inside a section (or the unassigned bucket when `sectionId` is null). */
 export function reorderItems(
   projectId: string,

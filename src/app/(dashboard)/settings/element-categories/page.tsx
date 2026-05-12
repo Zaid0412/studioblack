@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -28,6 +27,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
+import { withViewTransition } from "@/lib/viewTransition";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFlag } from "@/hooks/useFlag";
 import type { ElementCategoryNode } from "@/types";
@@ -162,27 +162,7 @@ export default function ElementCategoriesSettingsPage() {
     } catch {
       // storage full or disabled — non-fatal
     }
-    // View Transitions lets the browser crossfade + tween row positions for us.
-    // flushSync forces the DOM mutation to be synchronous inside the callback
-    // so startViewTransition can capture the "after" snapshot correctly.
-    const supportsViewTransitions =
-      typeof document !== "undefined" &&
-      typeof (
-        document as Document & {
-          startViewTransition?: (cb: () => void) => unknown;
-        }
-      ).startViewTransition === "function";
-    if (supportsViewTransitions) {
-      (
-        document as Document & {
-          startViewTransition: (cb: () => void) => unknown;
-        }
-      ).startViewTransition(() => {
-        flushSync(() => setCollapsedIds(next));
-      });
-    } else {
-      setCollapsedIds(next);
-    }
+    withViewTransition(() => setCollapsedIds(next));
   };
 
   const flat = useMemo(

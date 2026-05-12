@@ -28,6 +28,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import type { SectionSelectionState } from "@/hooks/useBoqSelection";
 import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
 import type { BoqStatus } from "@/lib/validations";
 import {
@@ -59,6 +61,7 @@ import { BoqSectionFooter } from "./BoqSectionFooter";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqSourceBadge } from "./BoqSourceBadge";
+import { CurrentBadge } from "./BoqMoveTargetPopover";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import type { BoqItemSource } from "@/lib/validations";
 
@@ -82,12 +85,31 @@ interface BoqTableProps {
     item: BoqItemWithComputed,
     targetSectionId: string | null
   ) => Promise<BoqItemWithComputed | null | undefined>;
+  /** Surfaces "+ Create new section…" at the bottom of the row's Move sub-menu. */
+  onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
   onRenameSection?: (section: BoqSection) => void;
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
   onAddItemToSection?: (sectionId: string | null) => void;
+  /** Opens the element-library picker for adding to a specific section. */
+  onAddFromLibraryToSection?: (sectionId: string | null) => void;
   onReorderSections?: (orderedIds: string[]) => void;
   onOpenItem?: (item: BoqItemWithComputed) => void;
+  /** Optional — when supplied, renders a leading checkbox column for bulk-select mode. */
+  selection?: SelectionApi;
+}
+
+/**
+ * Subset of `useBoqSelection`'s return surface the table needs. Lifted
+ * here so consumers (`BoqTab`) instantiate the hook once and pass it down.
+ */
+export interface SelectionApi {
+  selected: Set<string>;
+  tableState: SectionSelectionState;
+  toggle: (id: string) => void;
+  toggleAll: () => void;
+  toggleSection: (sectionId: string | null) => void;
+  sectionState: (sectionId: string | null) => SectionSelectionState;
 }
 
 interface SectionGroup {
@@ -104,6 +126,10 @@ interface SectionGroup {
 // build-up output) and Lifecycle (workflow state).
 export const GRID_COLS =
   "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
+
+// Same as GRID_COLS with a leading 32px checkbox column for bulk select.
+const GRID_COLS_WITH_SELECT =
+  "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
 
 /**
  * Sum of the fixed column widths above (1179px) plus 13 inter-column gaps
@@ -137,10 +163,13 @@ export function BoqTable({
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
+  onCreateAndMoveItem,
+  selection,
   onRenameSection,
   onToggleSectionVisibility,
   onDeleteSection,
   onAddItemToSection,
+  onAddFromLibraryToSection,
   onReorderSections,
   onOpenItem,
 }: BoqTableProps) {
@@ -249,8 +278,18 @@ export function BoqTable({
       <div className="overflow-x-auto">
         <div className={TABLE_MIN_WIDTH}>
           <div
-            className={`grid ${GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
+            className={`grid ${selection ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
           >
+            {selection && (
+              <div className="flex items-center justify-center">
+                <Checkbox
+                  checked={selection.tableState === "all"}
+                  indeterminate={selection.tableState === "some"}
+                  onCheckedChange={() => selection.toggleAll()}
+                  aria-label="Select all visible items"
+                />
+              </div>
+            )}
             <div>Code</div>
             <div>Description</div>
             <div>{t("columnSource")}</div>
@@ -280,8 +319,11 @@ export function BoqTable({
             onUpdateItem={onUpdateItem}
             onDeleteItem={onDeleteItem}
             onMoveItem={onMoveItem}
+            onCreateAndMoveItem={onCreateAndMoveItem}
+            selection={selection}
             onOpenItem={onOpenItem}
             onAddItemToSection={onAddItemToSection}
+            onAddFromLibraryToSection={onAddFromLibraryToSection}
             onRenameSection={onRenameSection}
             onToggleSectionVisibility={onToggleSectionVisibility}
             onDeleteSection={onDeleteSection}
@@ -308,8 +350,11 @@ interface SectionListProps {
   onUpdateItem?: BoqTableProps["onUpdateItem"];
   onDeleteItem?: BoqTableProps["onDeleteItem"];
   onMoveItem?: BoqTableProps["onMoveItem"];
+  onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
+  selection?: BoqTableProps["selection"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
+  onAddFromLibraryToSection?: BoqTableProps["onAddFromLibraryToSection"];
   onRenameSection?: BoqTableProps["onRenameSection"];
   onToggleSectionVisibility?: BoqTableProps["onToggleSectionVisibility"];
   onDeleteSection?: BoqTableProps["onDeleteSection"];
@@ -425,8 +470,11 @@ function SectionBody({
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
+  onCreateAndMoveItem,
+  selection,
   onOpenItem,
   onAddItemToSection,
+  onAddFromLibraryToSection,
   onRenameSection,
   onToggleSectionVisibility,
   onDeleteSection,
@@ -460,9 +508,14 @@ function SectionBody({
           }
           visibleToClient={group.visibleToClient}
           dragHandleProps={dragHandleProps}
-          onAddItem={
+          onAddCustomItem={
             sectionsEditable && onAddItemToSection
               ? () => onAddItemToSection(section?.id ?? null)
+              : undefined
+          }
+          onAddFromLibrary={
+            sectionsEditable && onAddFromLibraryToSection
+              ? () => onAddFromLibraryToSection(section?.id ?? null)
               : undefined
           }
           onRename={
@@ -478,6 +531,14 @@ function SectionBody({
           onDelete={
             sectionsEditable && section && onDeleteSection
               ? () => onDeleteSection(section)
+              : undefined
+          }
+          selectionState={
+            selection ? selection.sectionState(section?.id ?? null) : undefined
+          }
+          onToggleSelection={
+            selection
+              ? () => selection.toggleSection(section?.id ?? null)
               : undefined
           }
         />
@@ -500,6 +561,11 @@ function SectionBody({
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}
               onMoveItem={onMoveItem}
+              onCreateAndMoveItem={onCreateAndMoveItem}
+              isSelected={selection ? selection.selected.has(item.id) : false}
+              onToggleSelected={
+                selection ? () => selection.toggle(item.id) : undefined
+              }
               onOpen={onOpenItem}
             />
           ))}
@@ -532,6 +598,11 @@ interface BoqItemRowProps {
   ) => Promise<BoqItemWithComputed | null | undefined>;
   /** All sections in this BOQ — surfaced in the row's "Move to section…" sub-menu. */
   sections: BoqSection[];
+  /** When defined, renders a leading checkbox column. */
+  isSelected?: boolean;
+  onToggleSelected?: () => void;
+  /** When defined, adds a "+ Create new section…" item at the bottom of the Move sub-menu. */
+  onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
   onOpen?: (item: BoqItemWithComputed) => void;
 }
 
@@ -544,8 +615,12 @@ const BoqItemRow = memo(function BoqItemRow({
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
+  isSelected,
+  onToggleSelected,
+  onCreateAndMoveItem,
   onOpen,
 }: BoqItemRowProps) {
+  const selectionMode = onToggleSelected !== undefined;
   const tier = marginTier(toNum(item.margin_pct), marginFloor);
   const marginColor =
     tier === "success"
@@ -579,8 +654,17 @@ const BoqItemRow = memo(function BoqItemRow({
 
   return (
     <div
-      className={`grid ${GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors`}
+      className={`grid ${selectionMode ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
     >
+      {selectionMode && (
+        <div className="flex items-center justify-center">
+          <Checkbox
+            checked={isSelected ?? false}
+            onCheckedChange={() => onToggleSelected?.()}
+            aria-label={`Select ${item.item_code}`}
+          />
+        </div>
+      )}
       {onOpen ? (
         <button
           type="button"
@@ -734,7 +818,7 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.client_approval_status}
         </Badge>
       </span>
-      <span className="flex justify-end pr-2">
+      <span className="flex justify-end pr-3">
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -755,14 +839,7 @@ const BoqItemRow = memo(function BoqItemRow({
                       onSelect={() => void onMoveItem!(item, null)}
                     >
                       <span className="flex-1">(Unassigned)</span>
-                      {currentSectionId === null && (
-                        <Badge
-                          variant="info"
-                          className="ml-2 !px-1.5 !py-0 text-[10px] font-medium"
-                        >
-                          Current
-                        </Badge>
-                      )}
+                      {currentSectionId === null && <CurrentBadge />}
                     </DropdownMenuItem>
                     {sections.length > 0 && <DropdownMenuSeparator />}
                     {sections.map((s) => (
@@ -774,16 +851,20 @@ const BoqItemRow = memo(function BoqItemRow({
                         <span className="flex-1 truncate max-w-[220px]">
                           {s.title}
                         </span>
-                        {currentSectionId === s.id && (
-                          <Badge
-                            variant="info"
-                            className="ml-2 !px-1.5 !py-0 text-[10px] font-medium"
-                          >
-                            Current
-                          </Badge>
-                        )}
+                        {currentSectionId === s.id && <CurrentBadge />}
                       </DropdownMenuItem>
                     ))}
+                    {onCreateAndMoveItem && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => onCreateAndMoveItem(item)}
+                          className="text-accent focus:text-accent"
+                        >
+                          + Create new section…
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}

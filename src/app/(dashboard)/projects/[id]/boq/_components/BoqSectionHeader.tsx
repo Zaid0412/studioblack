@@ -6,9 +6,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "../_lib/formatters";
+import type { SectionSelectionState } from "@/hooks/useBoqSelection";
 
 interface BoqSectionHeaderProps {
   title: string;
@@ -22,12 +28,18 @@ interface BoqSectionHeaderProps {
   onRename?: () => void;
   onToggleVisibility?: () => void;
   onDelete?: () => void;
-  onAddItem?: () => void;
+  /** Opens the "Add new custom item" sheet pre-filled to this section. */
+  onAddCustomItem?: () => void;
+  /** Opens the element-library picker pre-filled to this section. */
+  onAddFromLibrary?: () => void;
   /** When provided, renders a draggable grip handle wired to dnd-kit sortable. */
   dragHandleProps?: HTMLAttributes<HTMLButtonElement> &
     DOMAttributes<HTMLButtonElement> & {
       ref?: React.Ref<HTMLButtonElement>;
     };
+  /** When defined, renders a leading tri-state checkbox for bulk-select mode. */
+  selectionState?: SectionSelectionState;
+  onToggleSelection?: () => void;
 }
 
 /** Collapsible BOQ section row: drag handle, title, item count, section total, and optional actions menu. */
@@ -42,13 +54,31 @@ export function BoqSectionHeader({
   onRename,
   onToggleVisibility,
   onDelete,
-  onAddItem,
+  onAddCustomItem,
+  onAddFromLibrary,
   dragHandleProps,
+  selectionState,
+  onToggleSelection,
 }: BoqSectionHeaderProps) {
-  const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
+  const canAddItem = !!onAddCustomItem || !!onAddFromLibrary;
+  const hasMenu = onRename || onToggleVisibility || onDelete || canAddItem;
+  const selectionMode = !!onToggleSelection;
 
   return (
-    <div className="w-full flex items-center gap-2 pl-4 pr-5 py-3 bg-bg-elevated border-b border-border-default">
+    <div
+      className={`w-full flex items-center gap-2 ${selectionMode ? "pl-3" : "pl-4"} pr-5 py-3 bg-bg-elevated border-b border-border-default`}
+    >
+      {selectionMode && (
+        <div className="w-8 flex items-center justify-center shrink-0">
+          <Checkbox
+            checked={selectionState === "all"}
+            indeterminate={selectionState === "some"}
+            onCheckedChange={() => onToggleSelection!()}
+            disabled={itemCount === 0}
+            aria-label={`Select all items in ${title}`}
+          />
+        </div>
+      )}
       {dragHandleProps && (
         <button
           type="button"
@@ -95,10 +125,25 @@ export function BoqSectionHeader({
             <MoreVertical className="h-4 w-4" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {onAddItem && (
-              <DropdownMenuItem onSelect={onAddItem}>
-                Add item here
-              </DropdownMenuItem>
+            {canAddItem && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Add item here…</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {onAddCustomItem && (
+                    <DropdownMenuItem onSelect={onAddCustomItem}>
+                      New custom item
+                    </DropdownMenuItem>
+                  )}
+                  {onAddFromLibrary && (
+                    <DropdownMenuItem onSelect={onAddFromLibrary}>
+                      From element library…
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {canAddItem && (onRename || onToggleVisibility || onDelete) && (
+              <DropdownMenuSeparator />
             )}
             {onRename && (
               <DropdownMenuItem onSelect={onRename}>Rename</DropdownMenuItem>

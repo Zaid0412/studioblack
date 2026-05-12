@@ -632,8 +632,10 @@ export const approveBoqSchema = z.object({
   comment: z.string().trim().max(2000).optional(),
 });
 
-/** Request changes — comment is REQUIRED, otherwise the creator
- * gets bounced back with no signal about what to fix. */
+/**
+ * Request changes — comment is REQUIRED, otherwise the creator
+ * gets bounced back with no signal about what to fix.
+ */
 export const requestBoqChangesSchema = z.object({
   comment: z.string().trim().min(1).max(2000),
 });
@@ -760,6 +762,17 @@ export const moveBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   /** `null` moves the item back to the Unassigned bucket. */
   targetSectionId: uuid.nullable(),
+});
+
+export const bulkMoveBoqItemsSchema = z.object({
+  /** Items receive successive sort_order values starting at MAX+1 of the target bucket, in this order. */
+  itemIds: z.array(uuid).min(1).max(500),
+  /** `null` moves them all to the Unassigned bucket. */
+  targetSectionId: uuid.nullable(),
+});
+
+export const bulkDeleteBoqItemsSchema = z.object({
+  itemIds: z.array(uuid).min(1).max(500),
 });
 
 export const reorderItemsSchema = z.object({
