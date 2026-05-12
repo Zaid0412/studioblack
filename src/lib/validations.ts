@@ -155,6 +155,11 @@ export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
  * Allowed phase transitions. Any other src→dst pair is rejected at the route
  * layer. `change_requested` is the catch-all "kick back" — it returns the
  * item to `draft` so the creator can rework + resubmit.
+ *
+ * `client_approved` has no `locked` terminal: per Pap's 2026-05-12 spec the
+ * 6 phases are the entire vocabulary. Once the client approves, the only
+ * way out is `change_requested` (e.g. a late scope change). If we later
+ * need a true "frozen, no more edits" terminal, add `locked` as a 7th state.
  */
 export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
   {

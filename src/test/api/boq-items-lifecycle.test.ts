@@ -22,6 +22,8 @@ import {
   hasProjectAccess,
   getOrgRole,
   getEligibleReviewers,
+  getProjectClientInfo,
+  getUsersByIds,
 } from "@/lib/queries";
 import { POST as PATCH_PHASE } from "@/app/api/projects/[id]/boq/items/[itemId]/lifecycle/route";
 import { POST as BULK_PHASE } from "@/app/api/projects/[id]/boq/items/bulk-lifecycle/route";
@@ -84,7 +86,11 @@ beforeEach(() => {
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
   vi.mocked(getOrgRole).mockResolvedValue("owner");
   vi.mocked(getEligibleReviewers).mockResolvedValue([]);
+  vi.mocked(getUsersByIds).mockResolvedValue([]);
 });
+
+/** Wait one macrotask so the route's fire-and-forget fan-out can complete. */
+const flushFanOut = () => new Promise((r) => setTimeout(r, 0));
 
 // ── POST /items/[itemId]/lifecycle ─────────────────────────────────────────
 
@@ -282,7 +288,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
     vi.mocked(getBoq).mockResolvedValue({
       ...baseBoq,
       status: "draft",
-    } as never);
+    } as unknown as Boq);
     vi.mocked(setBoqItemsPhase).mockResolvedValue({
       ok: true,
       items: [
@@ -317,7 +323,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
     vi.mocked(getBoq).mockResolvedValue({
       ...baseBoq,
       created_by: CREATOR_ID,
-    } as never);
+    } as unknown as Boq);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/bulk-lifecycle`,
@@ -336,7 +342,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
   });
 
   it("rolls back when any item has an invalid source phase (422)", async () => {
-    vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as never);
+    vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as unknown as Boq);
     vi.mocked(setBoqItemsPhase).mockResolvedValue({
       ok: false,
       reason: "invalid_transition",
@@ -363,7 +369,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
   });
 
   it("404s when itemIds span the wrong BOQ", async () => {
-    vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as never);
+    vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as unknown as Boq);
     vi.mocked(setBoqItemsPhase).mockResolvedValue({
       ok: false,
       reason: "wrong_boq",
@@ -385,7 +391,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
   });
 
   it("requires comment for bulk change_requested (400)", async () => {
-    vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as never);
+    vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as unknown as Boq);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/bulk-lifecycle`,
@@ -419,5 +425,84 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
     );
     const res = await BULK_PHASE(req, buildParams({ id: PROJECT_ID }));
     expect(res.status).toBe(423);
+  });
+});
+
+// ── Notification fan-out ───────────────────────────────────────────────────
+
+describe("phase notification fan-out", () => {
+  it("internal_review → asks for eligible reviewers + batches user lookup", async () => {
+    setupAuth(mocks.auth, creatorSession);
+    vi.mocked(getOrgRole).mockResolvedValue("member");
+    vi.mocked(getBoqItemContext).mockResolvedValue(ctx({ phase: "draft" }));
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internal_review" },
+    });
+    vi.mocked(getEligibleReviewers).mockResolvedValue([PM_ID, ARCHITECT_ID]);
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: PM_ID, email: "pm@test.com", name: "PM" },
+      { id: ARCHITECT_ID, email: "arch@test.com", name: "Arch" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "internal_review" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getEligibleReviewers).toHaveBeenCalledWith({
+      orgId: "org-test-001",
+      creatorId: CREATOR_ID,
+    });
+    expect(getUsersByIds).toHaveBeenCalledWith([PM_ID, ARCHITECT_ID]);
+  });
+
+  it("internally_approved → notifies the BOQ creator only", async () => {
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internal_review" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internally_approved" },
+    });
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: CREATOR_ID, email: "creator@test.com", name: "Creator" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "internally_approved" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getUsersByIds).toHaveBeenCalledWith([CREATOR_ID]);
+    expect(getEligibleReviewers).not.toHaveBeenCalled();
+  });
+
+  it("submitted_to_client → looks up project's client email", async () => {
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internally_approved" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "submitted_to_client" },
+    });
+    vi.mocked(getProjectClientInfo).mockResolvedValue({
+      project_name: "Test Project",
+      client_email: "client@example.com",
+    });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "submitted_to_client" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getProjectClientInfo).toHaveBeenCalledWith(PROJECT_ID);
+    expect(getUsersByIds).not.toHaveBeenCalled();
   });
 });

@@ -19,7 +19,13 @@ import { notifyPhaseRecipients } from "../../_phaseNotifications";
  * affected items gets one email summarising all 5, not five emails.
  */
 export const POST = withAuth(
-  { projectAccess: true, fetchOrgRole: true },
+  {
+    projectAccess: true,
+    fetchOrgRole: true,
+    // `submitted_to_client` fans out an email per affected item; cap the
+    // blast radius if an insider fires the route in a loop.
+    rateLimit: { limit: 10, windowMs: 60_000 },
+  },
   async (req, { user, orgId, orgRole, effectiveRole }, params) => {
     const result = await parseBoqRequest(req, params.id, setItemsPhaseSchema);
     if (!result.ok) return result.response;
@@ -69,6 +75,11 @@ export const POST = withAuth(
     }
 
     if (orgId) {
+      // Convention: bulk transitions log ONE summary row against the BOQ
+      // (target_table = "boq"), with the affected item_ids in metadata.
+      // Per-item history is reconstructed by scanning metadata.item_ids —
+      // avoids logging N rows for a single user action. Single-item
+      // transitions still log against target_table = "boq_item".
       logAuditSafe({
         orgId,
         actorId: user.id,

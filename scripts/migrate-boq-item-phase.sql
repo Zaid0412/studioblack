@@ -16,6 +16,8 @@
 --
 -- Run: psql $DATABASE_URL -f scripts/migrate-boq-item-phase.sql
 
+BEGIN;
+
 -- 1. Add column (nullable, so we can detect un-backfilled rows).
 ALTER TABLE boq_item
   ADD COLUMN IF NOT EXISTS phase VARCHAR(30),
@@ -81,3 +83,5 @@ ALTER TABLE boq_item ADD CONSTRAINT boq_item_phase_check CHECK (
 
 -- 4. Index for the dashboard rollup ("X items in internal_review across this project").
 CREATE INDEX IF NOT EXISTS idx_boq_item_phase ON boq_item(boq_id, phase);
+
+COMMIT;

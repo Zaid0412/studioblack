@@ -120,6 +120,8 @@ async function fanOutToUsers(
   }
 }
 
+// No `default` case: BoqItemPhase is exhaustive, so TS flags new phases
+// at compile time. Adding a default would silently swallow them.
 function phaseTitle(
   target: BoqItemPhase,
   boqTitle: string,
