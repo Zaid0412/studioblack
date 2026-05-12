@@ -86,10 +86,9 @@ export function BoqSectionSelect({
           const filtered = query
             ? sections.filter((s) => s.title.toLowerCase().includes(query))
             : sections;
-          const showUnassigned =
-            !query ||
-            "(unassigned)".includes(query) ||
-            "unassigned".includes(query);
+          // `"(unassigned)".includes(...)` is a superset of `"unassigned".includes(...)`,
+          // so the parenthesised form covers both spellings the user might type.
+          const showUnassigned = !query || "(unassigned)".includes(query);
           return (
             <>
               {showUnassigned && (
