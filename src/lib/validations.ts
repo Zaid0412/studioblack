@@ -136,6 +136,41 @@ export const BOQ_ITEM_CLIENT_APPROVAL_STATUSES = [
 export type BoqItemClientApprovalStatus =
   (typeof BOQ_ITEM_CLIENT_APPROVAL_STATUSES)[number];
 
+/**
+ * Per-item lifecycle phase — the unified replacement for the old
+ * (lifecycle_status, client_approval_status) pair. Drives the single badge
+ * shown in the table and the bulk lifecycle picker.
+ */
+export const BOQ_ITEM_PHASES = [
+  "draft",
+  "internal_review",
+  "internally_approved",
+  "submitted_to_client",
+  "client_approved",
+  "change_requested",
+] as const;
+export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
+
+/**
+ * Allowed phase transitions. Any other src→dst pair is rejected at the route
+ * layer. `change_requested` is the catch-all "kick back" — it returns the
+ * item to `draft` so the creator can rework + resubmit.
+ *
+ * `client_approved` has no `locked` terminal: per Pap's 2026-05-12 spec the
+ * 6 phases are the entire vocabulary. Once the client approves, the only
+ * way out is `change_requested` (e.g. a late scope change). If we later
+ * need a true "frozen, no more edits" terminal, add `locked` as a 7th state.
+ */
+export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
+  {
+    draft: ["internal_review"],
+    internal_review: ["internally_approved", "change_requested", "draft"],
+    internally_approved: ["submitted_to_client", "change_requested", "draft"],
+    submitted_to_client: ["client_approved", "change_requested", "draft"],
+    client_approved: ["change_requested"],
+    change_requested: ["draft"],
+  };
+
 export const BOQ_ITEM_PO_STATUSES = [
   "none",
   "rfq_issued",
@@ -631,6 +666,40 @@ export const updateBoqSchema = z.object({
 export const approveBoqSchema = z.object({
   comment: z.string().trim().max(2000).optional(),
 });
+
+/**
+ * Move a single item to a new phase. `comment` is optional except when the
+ * target is `change_requested` (creator needs to know what to fix).
+ */
+export const setItemPhaseSchema = z
+  .object({
+    phase: z.enum(BOQ_ITEM_PHASES),
+    comment: z.string().trim().max(2000).optional(),
+  })
+  .refine(
+    (v) =>
+      v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
+    {
+      message: "Comment is required when requesting changes.",
+      path: ["comment"],
+    }
+  );
+
+/** Bulk variant: same target phase applied to every listed item. */
+export const setItemsPhaseSchema = z
+  .object({
+    itemIds: z.array(uuid).min(1).max(500),
+    phase: z.enum(BOQ_ITEM_PHASES),
+    comment: z.string().trim().max(2000).optional(),
+  })
+  .refine(
+    (v) =>
+      v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
+    {
+      message: "Comment is required when requesting changes.",
+      path: ["comment"],
+    }
+  );
 
 /**
  * Request changes — comment is REQUIRED, otherwise the creator

@@ -36,6 +36,7 @@ export const AUDIT_ACTIONS = {
   BOQ_REVIEW_CANCELLED: "boq.review_cancelled",
   BOQ_INTERNALLY_APPROVED: "boq.internally_approved",
   BOQ_CHANGES_REQUESTED: "boq.changes_requested",
+  BOQ_ITEM_PHASE_CHANGED: "boq.item.phase_changed",
   // ── Tasks (rendered in /tasks/[id] timeline) ────────────────────────────
   TASK_STATUS_CHANGED: "task.status_changed",
   TASK_PRIORITY_CHANGED: "task.priority_changed",
