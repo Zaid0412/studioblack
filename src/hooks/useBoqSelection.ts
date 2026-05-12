@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
+import { withViewTransition } from "@/lib/utils";
 
 export type SectionSelectionState = "none" | "some" | "all";
 
@@ -35,27 +35,14 @@ export function useBoqSelection({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
   const toggleMode = useCallback(() => {
-    const apply = () => {
+    // View Transition crossfades the grid-template-columns change instead
+    // of snapping. No-op fallback on browsers without the API.
+    withViewTransition(() => {
       setSelectionMode((on) => {
         if (on) setSelected(new Set()); // exiting mode clears selection
         return !on;
       });
-    };
-
-    // Wrap the toggle in a View Transition so the grid-template-columns
-    // change crossfades instead of snapping. Falls back to a plain update
-    // on browsers without the API.
-    const doc =
-      typeof document !== "undefined"
-        ? (document as Document & {
-            startViewTransition?: (cb: () => void) => unknown;
-          })
-        : null;
-    if (doc && typeof doc.startViewTransition === "function") {
-      doc.startViewTransition(() => flushSync(apply));
-    } else {
-      apply();
-    }
+    });
   }, []);
 
   const clear = useCallback(() => {

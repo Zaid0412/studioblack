@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
+import { flushSync } from "react-dom";
 import { twMerge } from "tailwind-merge";
 
 /**
@@ -22,6 +23,26 @@ export function getSafeReturnTo(
   if (!returnTo) return fallback;
   if (returnTo.startsWith("/") && !returnTo.startsWith("//")) return returnTo;
   return fallback;
+}
+
+/**
+ * Run a state update inside a View Transition so the browser can crossfade
+ * DOM changes. `flushSync` forces React to apply the update synchronously
+ * inside the callback so the browser captures the "after" snapshot. Falls
+ * back to a plain update on browsers without the API.
+ */
+export function withViewTransition(update: () => void): void {
+  const doc =
+    typeof document !== "undefined"
+      ? (document as Document & {
+          startViewTransition?: (cb: () => void) => unknown;
+        })
+      : null;
+  if (doc?.startViewTransition) {
+    doc.startViewTransition(() => flushSync(update));
+  } else {
+    update();
+  }
 }
 
 /** Derive 1–2 character initials from a full name. */

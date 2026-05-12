@@ -52,7 +52,7 @@ export function BoqBulkActionBar({
     <div
       role="region"
       aria-label="Bulk actions"
-      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl border border-accent/40 bg-bg-elevated px-4 py-3 shadow-2xl shadow-black/40 ring-1 ring-accent/30 backdrop-blur-sm"
+      className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl border border-accent/40 bg-bg-elevated px-4 py-3 shadow-2xl shadow-black/40 ring-1 ring-accent/30 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-200"
     >
       <span className="text-sm font-semibold text-text-primary px-1">
         {count} item{count === 1 ? "" : "s"} selected

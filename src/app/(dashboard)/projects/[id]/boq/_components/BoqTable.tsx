@@ -61,6 +61,7 @@ import { BoqSectionFooter } from "./BoqSectionFooter";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqSourceBadge } from "./BoqSourceBadge";
+import { CurrentBadge } from "./BoqMoveTargetPopover";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import type { BoqItemSource } from "@/lib/validations";
 
@@ -838,14 +839,7 @@ const BoqItemRow = memo(function BoqItemRow({
                       onSelect={() => void onMoveItem!(item, null)}
                     >
                       <span className="flex-1">(Unassigned)</span>
-                      {currentSectionId === null && (
-                        <Badge
-                          variant="info"
-                          className="ml-2 !px-1.5 !py-0 text-[10px] font-medium"
-                        >
-                          Current
-                        </Badge>
-                      )}
+                      {currentSectionId === null && <CurrentBadge />}
                     </DropdownMenuItem>
                     {sections.length > 0 && <DropdownMenuSeparator />}
                     {sections.map((s) => (
@@ -857,14 +851,7 @@ const BoqItemRow = memo(function BoqItemRow({
                         <span className="flex-1 truncate max-w-[220px]">
                           {s.title}
                         </span>
-                        {currentSectionId === s.id && (
-                          <Badge
-                            variant="info"
-                            className="ml-2 !px-1.5 !py-0 text-[10px] font-medium"
-                          >
-                            Current
-                          </Badge>
-                        )}
+                        {currentSectionId === s.id && <CurrentBadge />}
                       </DropdownMenuItem>
                     ))}
                     {onCreateAndMoveItem && (

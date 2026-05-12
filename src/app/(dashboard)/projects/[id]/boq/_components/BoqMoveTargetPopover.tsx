@@ -12,10 +12,6 @@ import { cn } from "@/lib/utils";
 import type { BoqSection } from "@/types";
 import { BoqCreateSectionDialog } from "./BoqCreateSectionDialog";
 
-// Sentinel marker: caller didn't pass currentSectionId at all (mixed selection).
-const NO_CURRENT_MARKER = Symbol("no-current");
-type CurrentSection = string | null | typeof NO_CURRENT_MARKER;
-
 interface BoqMoveTargetPopoverProps {
   /** Trigger element — usually a Button. Rendered with `asChild`. */
   trigger: React.ReactNode;
@@ -55,13 +51,8 @@ export function BoqMoveTargetPopover({
   const [createOpen, setCreateOpen] = useState(false);
   const canCreate = !!projectId && !!boqId && typeof nextSortOrder === "number";
 
-  // `arguments.length`-style trick: distinguish "prop not passed" from
-  // "prop passed as undefined". Callers using TypeScript will pass `null`
-  // for Unassigned, a UUID for a section, or omit the prop entirely.
-  const current: CurrentSection =
-    currentSectionId === undefined ? NO_CURRENT_MARKER : currentSectionId;
   const isCurrent = (s: string | null) =>
-    current !== NO_CURRENT_MARKER && s === current;
+    currentSectionId !== undefined && s === currentSectionId;
 
   return (
     <>
@@ -175,7 +166,8 @@ function Choice({
   );
 }
 
-function CurrentBadge() {
+/** Small "Current" pill, used by Move pickers to mark the shared/current section. */
+export function CurrentBadge() {
   return (
     <Badge
       variant="info"
