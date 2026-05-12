@@ -1,0 +1,142 @@
+import {
+  getEligibleReviewers,
+  getProjectClientInfo,
+  getUsersByIds,
+} from "@/lib/queries";
+import { createNotification } from "@/lib/notifications";
+import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import { logger } from "@/lib/logger";
+import type { BoqItemPhase } from "@/lib/validations";
+
+/**
+ * Fan-out for per-item phase notifications, shared between the single-item
+ * and bulk-item lifecycle routes. Behaviour:
+ *
+ * - Recipients depend on `target` (see switch below).
+ * - Reviewer / creator emails are batched into one `getUsersByIds` round-trip
+ *   instead of one DB lookup per recipient (avoids N+1 on bulk fan-outs).
+ * - All sends are fire-and-forget — errors are logged, never thrown.
+ * - Title wording adapts to `itemCount` ("item" vs "N items") so both call
+ *   sites share the same body.
+ */
+export async function notifyPhaseRecipients(opts: {
+  projectId: string;
+  orgId: string | null;
+  boqTitle: string;
+  boqCreatorId: string | null;
+  target: BoqItemPhase;
+  itemCount: number;
+  actor: { id: string; name?: string | null; email?: string | null };
+  comment: string | null;
+}): Promise<void> {
+  const {
+    projectId,
+    orgId,
+    boqTitle,
+    boqCreatorId,
+    target,
+    itemCount,
+    actor,
+    comment,
+  } = opts;
+  const actorName = actor.name || actor.email || "A teammate";
+  const noun = itemCount === 1 ? "item" : `${itemCount} items`;
+  const title = phaseTitle(target, boqTitle, noun);
+  const desc = comment
+    ? `${actorName} — ${comment}`
+    : `${actorName} updated ${noun} to ${target.replace(/_/g, " ")}.`;
+
+  switch (target) {
+    case "internal_review": {
+      if (!orgId) return;
+      const reviewerIds = await getEligibleReviewers({
+        orgId,
+        creatorId: actor.id,
+      });
+      await fanOutToUsers(reviewerIds, {
+        notificationType: "boq_item_review_requested",
+        projectId,
+        title,
+        desc,
+      });
+      return;
+    }
+    case "internally_approved":
+    case "client_approved":
+    case "change_requested": {
+      if (!boqCreatorId || boqCreatorId === actor.id) return;
+      await fanOutToUsers([boqCreatorId], {
+        notificationType: `boq_item_${target}`,
+        projectId,
+        title,
+        desc,
+      });
+      return;
+    }
+    case "submitted_to_client": {
+      const client = await getProjectClientInfo(projectId);
+      if (!client?.client_email) return;
+      const html = `<p>${escapeHtml(actorName)} sent ${escapeHtml(noun)} on <strong>${escapeHtml(boqTitle)}</strong> for your review.</p>${
+        comment ? `<p style="color: #666;">${escapeHtml(comment)}</p>` : ""
+      }`;
+      sendNotificationEmail(client.client_email, title, html).catch((err) =>
+        logger.error("Client phase email failed", { error: err })
+      );
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+/** Single batched DB lookup, then one in-app + email per recipient. */
+async function fanOutToUsers(
+  userIds: string[],
+  opts: {
+    notificationType: string;
+    projectId: string;
+    title: string;
+    desc: string;
+  }
+): Promise<void> {
+  if (userIds.length === 0) return;
+  const users = (await getUsersByIds(userIds)) as Array<{
+    id: string;
+    email: string | null;
+  }>;
+  for (const u of users) {
+    createNotification({
+      userId: u.id,
+      type: opts.notificationType,
+      title: opts.title,
+      description: opts.desc,
+      projectId: opts.projectId,
+    }).catch(() => {});
+    if (u.email) {
+      sendNotificationEmail(u.email, opts.title, opts.desc).catch((err) =>
+        logger.error("Phase fan-out email failed", { userId: u.id, error: err })
+      );
+    }
+  }
+}
+
+function phaseTitle(
+  target: BoqItemPhase,
+  boqTitle: string,
+  noun: string
+): string {
+  switch (target) {
+    case "internal_review":
+      return `BOQ ${noun} submitted for review: ${boqTitle}`;
+    case "internally_approved":
+      return `BOQ ${noun} internally approved: ${boqTitle}`;
+    case "submitted_to_client":
+      return `BOQ ${noun} sent to client: ${boqTitle}`;
+    case "client_approved":
+      return `BOQ ${noun} approved by client: ${boqTitle}`;
+    case "change_requested":
+      return `BOQ ${noun} — changes requested: ${boqTitle}`;
+    case "draft":
+      return `BOQ ${noun} moved back to draft: ${boqTitle}`;
+  }
+}

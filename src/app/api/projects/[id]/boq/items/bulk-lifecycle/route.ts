@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  setBoqItemsPhase,
-  getBoq,
-  getEligibleReviewers,
-  getProjectClientInfo,
-} from "@/lib/queries";
+import { setBoqItemsPhase, getBoq } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { setItemsPhaseSchema } from "@/lib/validations";
 import { logAuditSafe, AUDIT_ACTIONS } from "@/lib/queries/audit";
-import {
-  createNotification,
-  notifyUserByEmail,
-} from "@/lib/notifications";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { parseBoqRequest, canFirePhaseTransition } from "../../_helpers";
+import { notifyPhaseRecipients } from "../../_phaseNotifications";
 
 /**
  * POST /api/projects/[id]/boq/items/bulk-lifecycle
@@ -95,7 +86,7 @@ export const POST = withAuth(
       });
     }
 
-    fanOutBulkNotifications({
+    notifyPhaseRecipients({
       projectId: params.id,
       orgId,
       boqTitle: boq.title,
@@ -111,107 +102,3 @@ export const POST = withAuth(
     return NextResponse.json({ items: outcome.items });
   }
 );
-
-/**
- * One notification per affected recipient — never one per item.
- *
- * Recipients depend on the target phase, mirroring the single-item route's
- * rules but worded for batches ("3 items" vs "this item").
- */
-async function fanOutBulkNotifications(opts: {
-  projectId: string;
-  orgId: string | null;
-  boqTitle: string;
-  boqCreatorId: string | null;
-  target: string;
-  itemCount: number;
-  actor: { id: string; name?: string | null; email?: string | null };
-  comment: string | null;
-}) {
-  const {
-    projectId,
-    orgId,
-    boqTitle,
-    boqCreatorId,
-    target,
-    itemCount,
-    actor,
-    comment,
-  } = opts;
-  const actorName = actor.name || actor.email || "A teammate";
-  const noun = itemCount === 1 ? "item" : `${itemCount} items`;
-  const title = (() => {
-    switch (target) {
-      case "internal_review":
-        return `BOQ ${noun} submitted for review: ${boqTitle}`;
-      case "internally_approved":
-        return `BOQ ${noun} internally approved: ${boqTitle}`;
-      case "submitted_to_client":
-        return `BOQ ${noun} sent to client: ${boqTitle}`;
-      case "client_approved":
-        return `BOQ ${noun} approved by client: ${boqTitle}`;
-      case "change_requested":
-        return `BOQ ${noun} — changes requested: ${boqTitle}`;
-      default:
-        return `BOQ ${noun} moved to ${target}`;
-    }
-  })();
-  const desc = comment
-    ? `${actorName} — ${comment}`
-    : `${actorName} updated ${noun} to ${target.replace(/_/g, " ")}.`;
-
-  switch (target) {
-    case "internal_review": {
-      if (!orgId) return;
-      const reviewers = await getEligibleReviewers({
-        orgId,
-        creatorId: actor.id,
-      });
-      for (const userId of reviewers) {
-        createNotification({
-          userId,
-          type: "boq_item_review_requested",
-          title,
-          description: desc,
-          projectId,
-        }).catch(() => {});
-        notifyUserByEmail(userId, title, desc);
-      }
-      return;
-    }
-    case "internally_approved":
-    case "client_approved":
-    case "change_requested": {
-      if (boqCreatorId && boqCreatorId !== actor.id) {
-        createNotification({
-          userId: boqCreatorId,
-          type: `boq_item_${target}`,
-          title,
-          description: desc,
-          projectId,
-        }).catch(() => {});
-        notifyUserByEmail(boqCreatorId, title, desc);
-      }
-      return;
-    }
-    case "submitted_to_client": {
-      const client = await getProjectClientInfo(projectId);
-      if (client?.client_email) {
-        sendNotificationEmail(
-          client.client_email,
-          title,
-          `<p>${escapeHtml(actorName)} sent ${escapeHtml(noun)} on <strong>${escapeHtml(boqTitle)}</strong> for your review.</p>${
-            comment
-              ? `<p style="color: #666;">${escapeHtml(comment)}</p>`
-              : ""
-          }`
-        ).catch((err) =>
-          logger.error("Client bulk email failed", { error: err })
-        );
-      }
-      return;
-    }
-    default:
-      return;
-  }
-}

@@ -1,20 +1,11 @@
 import { NextResponse } from "next/server";
-import {
-  getBoqItemContext,
-  setBoqItemPhase,
-  getEligibleReviewers,
-  getProjectClientInfo,
-} from "@/lib/queries";
+import { getBoqItemContext, setBoqItemPhase } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, setItemPhaseSchema } from "@/lib/validations";
 import { logAuditSafe, AUDIT_ACTIONS } from "@/lib/queries/audit";
-import {
-  createNotification,
-  notifyUserByEmail,
-} from "@/lib/notifications";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { canFirePhaseTransition } from "../../../_helpers";
+import { notifyPhaseRecipients } from "../../../_phaseNotifications";
 
 /**
  * POST /api/projects/[id]/boq/items/[itemId]/lifecycle
@@ -102,10 +93,13 @@ export const POST = withAuth(
       },
     });
 
-    fanOutPhaseNotifications({
+    notifyPhaseRecipients({
       projectId,
-      ctx,
+      orgId: ctx.orgId,
+      boqTitle: ctx.boqTitle,
+      boqCreatorId: ctx.boqCreatorId,
       target,
+      itemCount: 1,
       actor: user,
       comment: comment ?? null,
     }).catch((err) =>
@@ -115,94 +109,3 @@ export const POST = withAuth(
     return NextResponse.json(item);
   }
 );
-
-/**
- * Best-effort notification fan-out for a single-item phase change.
- *
- * Fire-and-forget — errors are logged but never block the response.
- * Bulk transitions deliberately batch differently (see bulk-lifecycle).
- */
-async function fanOutPhaseNotifications(opts: {
-  projectId: string;
-  ctx: NonNullable<Awaited<ReturnType<typeof getBoqItemContext>>>;
-  target: string;
-  actor: { id: string; name?: string | null; email?: string | null };
-  comment: string | null;
-}) {
-  const { projectId, ctx, target, actor, comment } = opts;
-  const actorName = actor.name || actor.email || "A teammate";
-  const title = (() => {
-    switch (target) {
-      case "internal_review":
-        return `BOQ item submitted for review: ${ctx.boqTitle}`;
-      case "internally_approved":
-        return `BOQ item internally approved: ${ctx.boqTitle}`;
-      case "submitted_to_client":
-        return `BOQ item sent to client: ${ctx.boqTitle}`;
-      case "client_approved":
-        return `BOQ item approved by client: ${ctx.boqTitle}`;
-      case "change_requested":
-        return `BOQ item changes requested: ${ctx.boqTitle}`;
-      default:
-        return `BOQ item moved to ${target}`;
-    }
-  })();
-  const desc = comment
-    ? `${actorName} — ${comment}`
-    : `${actorName} updated an item to ${target.replace(/_/g, " ")}.`;
-
-  // Recipients depend on the target phase.
-  switch (target) {
-    case "internal_review": {
-      const reviewers = await getEligibleReviewers({
-        orgId: ctx.orgId,
-        creatorId: actor.id,
-      });
-      for (const userId of reviewers) {
-        createNotification({
-          userId,
-          type: "boq_item_review_requested",
-          title,
-          description: desc,
-          projectId,
-        }).catch(() => {});
-        notifyUserByEmail(userId, title, desc);
-      }
-      return;
-    }
-    case "internally_approved":
-    case "client_approved":
-    case "change_requested": {
-      if (ctx.boqCreatorId && ctx.boqCreatorId !== actor.id) {
-        createNotification({
-          userId: ctx.boqCreatorId,
-          type: `boq_item_${target}`,
-          title,
-          description: desc,
-          projectId,
-        }).catch(() => {});
-        notifyUserByEmail(ctx.boqCreatorId, title, desc);
-      }
-      return;
-    }
-    case "submitted_to_client": {
-      const client = await getProjectClientInfo(projectId);
-      if (client?.client_email) {
-        sendNotificationEmail(
-          client.client_email,
-          title,
-          `<p>${escapeHtml(actorName)} sent a BOQ item to you for review on <strong>${escapeHtml(ctx.boqTitle)}</strong>.</p>${
-            comment
-              ? `<p style="color: #666;">${escapeHtml(comment)}</p>`
-              : ""
-          }`
-        ).catch((err) =>
-          logger.error("Client send email failed", { error: err })
-        );
-      }
-      return;
-    }
-    default:
-      return;
-  }
-}

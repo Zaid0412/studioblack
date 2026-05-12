@@ -18,6 +18,7 @@ import {
   setBoqItemPhase,
   setBoqItemsPhase,
   getBoq,
+  getBoqStatus,
   hasProjectAccess,
   getOrgRole,
   getEligibleReviewers,
@@ -30,7 +31,6 @@ import {
   mockSession,
   setupAuth,
   parseResponse,
-  TEST_USER_ID,
 } from "../helpers";
 import { mocks } from "../setup";
 import type { Boq, BoqItemWithComputed } from "@/types";
@@ -102,7 +102,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "internal_review" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(200);
     expect(setBoqItemPhase).toHaveBeenCalledWith(ITEM_ID, "internal_review");
   });
@@ -118,7 +121,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "internally_approved" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(403);
     expect(setBoqItemPhase).not.toHaveBeenCalled();
   });
@@ -136,7 +142,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "internally_approved" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(200);
   });
 
@@ -151,7 +160,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "internally_approved" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(403);
   });
 
@@ -170,7 +182,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "client_approved" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(200);
   });
 
@@ -185,7 +200,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "internally_approved" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(403);
   });
 
@@ -198,29 +216,32 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "change_requested" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(400);
     expect(setBoqItemPhase).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid transition (422)", async () => {
+  it("permission gate fires before transition gate", async () => {
+    // PM asks for client_approved straight from internal_review. The
+    // permission gate (client-only on client_approved) rejects before
+    // the state-machine ever sees the invalid transition.
     vi.mocked(getBoqItemContext).mockResolvedValue(
       ctx({ phase: "internal_review" })
     );
-    vi.mocked(setBoqItemPhase).mockResolvedValue({
-      ok: false,
-      reason: "invalid_transition",
-      from: "internal_review",
-    });
 
-    // Caller asks for client_approved straight from internal_review — not allowed.
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "client_approved" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
-    // permission gate fires first for non-client actor → 403
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(403);
+    expect(setBoqItemPhase).not.toHaveBeenCalled();
   });
 
   it("rejects locked BOQ (423)", async () => {
@@ -232,7 +253,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "submitted_to_client" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(423);
   });
 
@@ -243,7 +267,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
       { method: "POST", body: { phase: "internal_review" } }
     );
-    const res = await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
     expect(res.status).toBe(404);
   });
 });
@@ -276,19 +303,17 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
       }
     );
     const res = await BULK_PHASE(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ items: BoqItemWithComputed[] }>(res);
+    const { status, body } = await parseResponse<{
+      items: BoqItemWithComputed[];
+    }>(res);
     expect(status).toBe(200);
     expect(body.items).toHaveLength(2);
   });
 
   it("blocks creator self-approval on bulk (403)", async () => {
+    // Signed-in user IS the BOQ creator → 4-eyes rule blocks internally_approved.
     setupAuth(mocks.auth, creatorSession);
     vi.mocked(getOrgRole).mockResolvedValue("owner");
-    vi.mocked(getBoq).mockResolvedValue({
-      ...baseBoq,
-      created_by: TEST_USER_ID === CREATOR_ID ? CREATOR_ID : CREATOR_ID,
-    } as never);
-    // The signed-in user IS the BOQ creator.
     vi.mocked(getBoq).mockResolvedValue({
       ...baseBoq,
       created_by: CREATOR_ID,
@@ -378,8 +403,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
   });
 
   it("rejects locked BOQ (423)", async () => {
-    // parseBoqRequest's gate uses getBoqStatus, not getBoq — mock that.
-    const { getBoqStatus } = await import("@/lib/queries");
+    // parseBoqRequest gates on getBoqStatus, not getBoq.
     vi.mocked(getBoqStatus).mockResolvedValue("locked");
 
     const req = buildRequest(
