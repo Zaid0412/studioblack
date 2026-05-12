@@ -42,6 +42,44 @@ export async function getPendingReviews(
   return rows as PendingReviewRow[];
 }
 
+/**
+ * One row in the "BOQs" section of the dashboard's pending reviews popover.
+ * Mirrors `getPendingReviews` shape so the popover can render both lists with
+ * the same row component.
+ */
+export interface PendingBoqReviewRow {
+  id: string;
+  project_id: string;
+  project_name: string;
+  submitted_at: string;
+  submitted_by_name: string | null;
+}
+
+/** Org-wide list of BOQs awaiting internal approval, newest first. */
+export async function getPendingBoqReviews(
+  orgId: string,
+  limit = 20
+): Promise<PendingBoqReviewRow[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       b.id,
+       b.project_id,
+       p.name AS project_name,
+       b.internal_review_submitted_at AS submitted_at,
+       u.name AS submitted_by_name
+     FROM boq b
+     JOIN project p ON p.id = b.project_id
+     LEFT JOIN "user" u ON u.id = b.internal_review_submitted_by
+     WHERE p.org_id = $1
+       AND b.status = 'pending_internal_review'
+     ORDER BY b.internal_review_submitted_at DESC NULLS LAST, b.id DESC
+     LIMIT $2`,
+    [orgId, limit]
+  );
+  return rows as PendingBoqReviewRow[];
+}
+
 /** Get dashboard stats (active projects, reviews, team members, upcoming deadlines). */
 export async function getDashboardStats(orgId: string) {
   const pool = getPool();
@@ -60,6 +98,12 @@ export async function getDashboardStats(orgId: string) {
       JOIN project p ON p.id = a.project_id
       WHERE p.org_id = $1
     ),
+    boq_review_stats AS (
+      SELECT COUNT(*)::int AS pending
+      FROM boq b
+      JOIN project p ON p.id = b.project_id
+      WHERE p.org_id = $1 AND b.status = 'pending_internal_review'
+    ),
     member_count AS (
       SELECT COUNT(*)::int AS count FROM member WHERE "organizationId" = $1
     ),
@@ -74,10 +118,11 @@ export async function getDashboardStats(orgId: string) {
     )
     SELECT
       ps.active, ps.completed,
-      rs.pending, rs.approved,
+      (rs.pending + brs.pending) AS pending,
+      rs.approved,
       mc.count AS team_members,
       u.rows AS deadlines
-    FROM project_stats ps, review_stats rs, member_count mc, upcoming u`,
+    FROM project_stats ps, review_stats rs, boq_review_stats brs, member_count mc, upcoming u`,
     [orgId]
   );
   return rows[0];
