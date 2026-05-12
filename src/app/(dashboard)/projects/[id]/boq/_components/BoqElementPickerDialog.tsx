@@ -74,6 +74,8 @@ interface BoqElementPickerDialogProps {
   currency: string;
   /** Element IDs already in this BOQ; rows for these are disabled. */
   existingElementIds: Set<string>;
+  /** Pre-selects this section on open. `null` = Unassigned. Default behaviour without it is Unassigned. */
+  defaultSectionId?: string | null;
 }
 
 const PAGE_LIMIT = 20;
@@ -96,6 +98,7 @@ export function BoqElementPickerDialog({
   sections,
   currency,
   existingElementIds,
+  defaultSectionId,
 }: BoqElementPickerDialogProps) {
   const t = useTranslations("rateContracts");
   const [tab, setTab] = useState<"library" | "rate-contract">("library");
@@ -107,7 +110,9 @@ export function BoqElementPickerDialog({
   );
   const [selectedRate, setSelectedRate] = useState<AvailableRate | null>(null);
   const [rateQuantity, setRateQuantity] = useState("1");
-  const [sectionId, setSectionId] = useState<string>(BOQ_NO_SECTION_ID);
+  const [sectionId, setSectionId] = useState<string>(
+    defaultSectionId ?? BOQ_NO_SECTION_ID
+  );
   const [submitting, setSubmitting] = useState(false);
   const rateContractsEnabled = useFlag("rateContracts");
 
@@ -120,8 +125,8 @@ export function BoqElementPickerDialog({
     setSelected(new Map());
     setSelectedRate(null);
     setRateQuantity("1");
-    setSectionId(BOQ_NO_SECTION_ID);
-  }, [open]);
+    setSectionId(defaultSectionId ?? BOQ_NO_SECTION_ID);
+  }, [open, defaultSectionId]);
 
   // Switching tabs clears the active selection so the submit button reflects
   // the visible picker.

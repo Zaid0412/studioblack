@@ -90,6 +90,8 @@ interface BoqTableProps {
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
   onAddItemToSection?: (sectionId: string | null) => void;
+  /** Opens the element-library picker for adding to a specific section. */
+  onAddFromLibraryToSection?: (sectionId: string | null) => void;
   onReorderSections?: (orderedIds: string[]) => void;
   onOpenItem?: (item: BoqItemWithComputed) => void;
   /** Optional — when supplied, renders a leading checkbox column for bulk-select mode. */
@@ -166,6 +168,7 @@ export function BoqTable({
   onToggleSectionVisibility,
   onDeleteSection,
   onAddItemToSection,
+  onAddFromLibraryToSection,
   onReorderSections,
   onOpenItem,
 }: BoqTableProps) {
@@ -319,6 +322,7 @@ export function BoqTable({
             selection={selection}
             onOpenItem={onOpenItem}
             onAddItemToSection={onAddItemToSection}
+            onAddFromLibraryToSection={onAddFromLibraryToSection}
             onRenameSection={onRenameSection}
             onToggleSectionVisibility={onToggleSectionVisibility}
             onDeleteSection={onDeleteSection}
@@ -349,6 +353,7 @@ interface SectionListProps {
   selection?: BoqTableProps["selection"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
+  onAddFromLibraryToSection?: BoqTableProps["onAddFromLibraryToSection"];
   onRenameSection?: BoqTableProps["onRenameSection"];
   onToggleSectionVisibility?: BoqTableProps["onToggleSectionVisibility"];
   onDeleteSection?: BoqTableProps["onDeleteSection"];
@@ -468,6 +473,7 @@ function SectionBody({
   selection,
   onOpenItem,
   onAddItemToSection,
+  onAddFromLibraryToSection,
   onRenameSection,
   onToggleSectionVisibility,
   onDeleteSection,
@@ -501,9 +507,14 @@ function SectionBody({
           }
           visibleToClient={group.visibleToClient}
           dragHandleProps={dragHandleProps}
-          onAddItem={
+          onAddCustomItem={
             sectionsEditable && onAddItemToSection
               ? () => onAddItemToSection(section?.id ?? null)
+              : undefined
+          }
+          onAddFromLibrary={
+            sectionsEditable && onAddFromLibraryToSection
+              ? () => onAddFromLibraryToSection(section?.id ?? null)
               : undefined
           }
           onRename={
@@ -806,7 +817,7 @@ const BoqItemRow = memo(function BoqItemRow({
           {item.client_approval_status}
         </Badge>
       </span>
-      <span className="flex justify-end pr-2">
+      <span className="flex justify-end pr-3">
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger

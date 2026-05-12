@@ -47,7 +47,11 @@ export function BoqActionBar({
           aria-pressed={selectionMode}
         >
           <CheckSquare className="h-4 w-4" />
-          {selectionMode ? "Selecting" : "Select"}
+          {/* Fixed-width label so the bg-color transition isn't disturbed
+              by a width snap when "Select" → "Selecting" flips. */}
+          <span className="inline-block min-w-[58px] text-center">
+            {selectionMode ? "Selecting" : "Select"}
+          </span>
         </Button>
       )}
       <Button

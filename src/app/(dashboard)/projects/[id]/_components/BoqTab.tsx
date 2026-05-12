@@ -68,6 +68,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     null
   );
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerInitialSection, setPickerInitialSection] = useState<
+    string | null
+  >(null);
   const [renameSection, setRenameSection] = useState<BoqSection | null>(null);
   const [deleteSectionTarget, setDeleteSectionTarget] =
     useState<BoqSection | null>(null);
@@ -110,6 +113,21 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     return map;
   }, [boq]);
   const selection = useBoqSelection({ allItemIds, itemIdsBySection });
+
+  // When every selected item lives in the same section, surface that
+  // section to the move popover so it can render the "Current" badge.
+  // `null` is the Unassigned bucket; `undefined` = mixed selection.
+  const sharedSelectedSectionId = useMemo<string | null | undefined>(() => {
+    if (!boq || selection.selected.size === 0) return undefined;
+    let shared: string | null | undefined;
+    for (const it of boq.items) {
+      if (!selection.selected.has(it.id)) continue;
+      const sid = it.section_id ?? null;
+      if (shared === undefined) shared = sid;
+      else if (shared !== sid) return undefined;
+    }
+    return shared;
+  }, [boq, selection.selected]);
 
   const handleBulkMove = useCallback(
     async (targetSectionId: string | null) => {
@@ -283,6 +301,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     setCreateItemOpen(true);
   };
 
+  const openPickerForSection = (sectionId: string | null) => {
+    setPickerInitialSection(sectionId);
+    setPickerOpen(true);
+  };
+
   const handleToggleVisibility = async (section: BoqSection) => {
     try {
       await updateSection(section.id, {
@@ -414,7 +437,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       {canEdit && (
         <BoqActionBar
           onAddItem={() => openAddItem(null)}
-          onAddFromLibrary={() => setPickerOpen(true)}
+          onAddFromLibrary={() => openPickerForSection(null)}
           onAddSection={() => setCreateSectionOpen(true)}
           onImport={() => setImportOpen(true)}
           onExport={handleExport}
@@ -444,6 +467,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={setDeleteSectionTarget}
         onAddItemToSection={openAddItem}
+        onAddFromLibraryToSection={openPickerForSection}
         onReorderSections={handleReorderSections}
         onOpenItem={setDrawerItem}
       />
@@ -489,6 +513,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         sections={boq.sections}
         currency={boq.currency}
         existingElementIds={existingElementIds}
+        defaultSectionId={pickerInitialSection}
       />
 
       <ConfirmDialog
@@ -550,6 +575,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           projectId={projectId}
           boqId={boq.id}
           nextSortOrder={boq.sections.length}
+          sharedSectionId={sharedSelectedSectionId}
           onMove={handleBulkMove}
           onDelete={() => setBulkDeleteConfirmOpen(true)}
           onCancel={selection.toggleMode}
