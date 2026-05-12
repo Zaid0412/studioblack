@@ -7,7 +7,10 @@ import {
 import {
   createNotification,
   createNotificationsForTeam,
+  notifyUserByEmailWithContext,
 } from "@/lib/notifications";
+import { escapeHtml } from "@/lib/email";
+import { env } from "@/env";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, submitTaskReviewSchema } from "@/lib/validations";
 import { guardTaskOwnership } from "@/app/api/tasks/helpers";
@@ -72,6 +75,23 @@ export const POST = withAuth(
         projectId: id,
         taskId: taskId,
       }).catch(() => {});
+
+      notifyUserByEmailWithContext(existing.assigned_to, id, (ctx) => {
+        const projectUrl = escapeHtml(
+          `${env().NEXT_PUBLIC_APP_URL}/projects/${encodeURIComponent(id)}`
+        );
+        const safeTitle = escapeHtml(task.title);
+        const safeClient = escapeHtml(user.name || user.email);
+        const safeComment = comment?.trim() ? escapeHtml(comment.trim()) : null;
+        return {
+          subject: ctx.projectName
+            ? `${ctx.projectName} | Client ${statusLabel} your task`
+            : `Client ${statusLabel} your task`,
+          html: `<p><strong>${safeClient}</strong> ${statusLabel} <strong>${safeTitle}</strong>.</p>
+            ${safeComment ? `<p style="color: #666;">Comment: "${safeComment}"</p>` : ""}
+            <p style="margin-top: 16px;"><a href="${projectUrl}" style="color: #2563eb;">View Project →</a></p>`,
+        };
+      });
     }
 
     return NextResponse.json(task);
