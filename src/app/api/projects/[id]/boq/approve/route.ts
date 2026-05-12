@@ -6,7 +6,7 @@ import {
   getEligibleReviewers,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, notifyUserByEmail } from "@/lib/notifications";
 import { parseRequest, approveBoqSchema } from "@/lib/validations";
 import { logAuditSafe, AUDIT_ACTIONS } from "@/lib/queries/audit";
 import { logger } from "@/lib/logger";
@@ -79,15 +79,18 @@ export const POST = withAuth(
     });
 
     if (header.created_by && header.created_by !== user.id) {
+      const title = `BOQ approved: ${header.title}`;
+      const description = `${user.name || "A reviewer"} approved your BOQ for the client.`;
       createNotification({
         userId: header.created_by,
         type: "boq_internally_approved",
-        title: `BOQ approved: ${header.title}`,
-        description: `${user.name || "A reviewer"} approved your BOQ for the client.`,
+        title,
+        description,
         projectId: params.id,
       }).catch((err) =>
         logger.warn("BOQ approval notification failed", { error: err })
       );
+      notifyUserByEmail(header.created_by, title, description);
     }
 
     const full = await getBoq(header.id);
