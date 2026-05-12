@@ -120,7 +120,7 @@ export const API = {
   boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
   boqItemsFromElements:  (pid: string)                       => `/api/projects/${pid}/boq/items/from-elements`,
 
-  // ── Per-item lifecycle phase (Pap's 2026-05-12 spec) ─
+  // ── Per-item lifecycle phase ────────────────────
   boqItemLifecycle:      (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/lifecycle`,
   boqItemsBulkLifecycle: (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-lifecycle`,
 

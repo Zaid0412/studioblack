@@ -122,10 +122,10 @@ export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
  * layer. `change_requested` is the catch-all "kick back" — it returns the
  * item to `draft` so the creator can rework + resubmit.
  *
- * `client_approved` has no `locked` terminal: per Pap's 2026-05-12 spec the
- * 6 phases are the entire vocabulary. Once the client approves, the only
- * way out is `change_requested` (e.g. a late scope change). If we later
- * need a true "frozen, no more edits" terminal, add `locked` as a 7th state.
+ * `client_approved` has no `locked` terminal: the 6 phases are the entire
+ * vocabulary. Once the client approves, the only way out is `change_requested`
+ * (e.g. a late scope change). If we later need a true "frozen, no more edits"
+ * terminal, add `locked` as a 7th state.
  */
 export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
   {

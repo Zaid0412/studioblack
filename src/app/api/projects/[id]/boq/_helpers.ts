@@ -16,10 +16,6 @@ const boqIdShape = z.string().uuid();
  * `boqId`, verify it belongs to the project, then parse the rest against the
  * route's own schema. Returns either the parsed payload or the NextResponse
  * the caller should return.
- *
- * The legacy BOQ-level "frozen" gate (`locked` / `superseded`) is gone in
- * the per-item lifecycle model — gating on a phase happens at the row level
- * via the lifecycle routes, not here.
  */
 export async function parseBoqRequest<T extends z.ZodType>(
   req: Request,
@@ -92,7 +88,7 @@ export async function parseBoqRequest<T extends z.ZodType>(
 /**
  * Decide whether the caller is allowed to fire a phase transition.
  *
- * Rules (per Pap's 2026-05-12 spec):
+ * Rules:
  * - `internal_review`         — creator or PM
  * - `internally_approved`     — PM, and NOT the creator (4-eyes)
  * - `submitted_to_client`     — PM
@@ -134,4 +130,9 @@ export function optimisticFailureResponse(
     return NextResponse.json(CONFLICT_BODY, { status: 409 });
   }
   return NextResponse.json({ error: notFoundMessage }, { status: 404 });
+}
+
+/** 404 response with a customised message for cross-project ownership failures. */
+export function notFoundResponse(message: string): NextResponse {
+  return NextResponse.json({ error: message }, { status: 404 });
 }

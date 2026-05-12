@@ -258,7 +258,7 @@ export function getSummary(projectId: string) {
   return apiGet<BoqSummary>(API.boqSummary(projectId));
 }
 
-// ── Per-item lifecycle phase (Pap's 2026-05-12 spec) ───────────────────────
+// ── Per-item lifecycle phase ───────────────────────────────────────────────
 
 /** Move a single BOQ item to a new phase. */
 export function setItemPhase(

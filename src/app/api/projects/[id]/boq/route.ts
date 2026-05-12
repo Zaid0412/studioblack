@@ -10,7 +10,7 @@ import { parseBoqRequest } from "./_helpers";
 
 // Clients only see items in `submitted_to_client`/`client_approved`/
 // `change_requested`. Drafts and items in internal review never leave the
-// studio, per Pap's 2026-05-12 spec.
+// studio.
 export const GET = withAuth(
   { projectAccess: true },
   async (_req, { effectiveRole }, params) => {

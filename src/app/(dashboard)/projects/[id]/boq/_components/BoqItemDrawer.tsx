@@ -103,9 +103,6 @@ export function BoqItemDrawer({
       : tier === "warning"
         ? "text-warning"
         : "text-error";
-  // No frozen terminal in the new phase model — every phase still allows
-  // some transition (or an explicit move back to draft). `client_approved`
-  // is the closest to "done" but edits auto-flip it via the server.
   const rowLocked = false;
   const notesDirty =
     (notes ?? "") !== (item.notes ?? "") ||

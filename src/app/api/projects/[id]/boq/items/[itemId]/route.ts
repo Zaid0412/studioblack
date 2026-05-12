@@ -10,14 +10,9 @@ import {
   updateBoqItemSchema,
   deleteBoqItemSchema,
 } from "@/lib/validations";
-import { optimisticFailureResponse } from "../../_helpers";
+import { notFoundResponse, optimisticFailureResponse } from "../../_helpers";
 
-function notFound(): NextResponse {
-  return NextResponse.json(
-    { error: "Item not found in this project" },
-    { status: 404 }
-  );
-}
+const notFound = () => notFoundResponse("Item not found in this project");
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },

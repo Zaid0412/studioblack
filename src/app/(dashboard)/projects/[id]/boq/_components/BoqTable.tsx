@@ -138,13 +138,6 @@ const GRID_COLS_WITH_SELECT =
  */
 export const TABLE_MIN_WIDTH = "min-w-[1255px]";
 
-function isItemLocked(_item: BoqItemWithComputed): boolean {
-  // No frozen terminal in the new phase model. Material edits on a
-  // `client_approved` row are still allowed and auto-flip the phase
-  // back to `submitted_to_client` server-side.
-  return false;
-}
-
 /** BOQ line-item grid: groups items under sortable sections, supports inline edits and item-level actions. */
 export function BoqTable({
   sections,
@@ -548,7 +541,7 @@ function SectionBody({
               item={item}
               currency={currency}
               marginFloor={marginFloor}
-              editable={rowsEditable && !isItemLocked(item)}
+              editable={rowsEditable}
               sections={sections}
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}

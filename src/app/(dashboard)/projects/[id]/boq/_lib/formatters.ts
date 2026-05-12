@@ -4,32 +4,29 @@ import type { BadgeVariant } from "@/components/ui/badge";
 /** Sentinel used in selects/grouping when an item has no section. */
 export const BOQ_NO_SECTION_ID = "__unassigned__";
 
-const PHASE_VARIANT: Record<BoqItemPhase, BadgeVariant> = {
-  draft: "draft",
-  internal_review: "in-review",
-  internally_approved: "approved-arch",
-  submitted_to_client: "submitted",
-  client_approved: "approved-client",
-  change_requested: "changes-requested",
-};
-
-const PHASE_LABEL: Record<BoqItemPhase, string> = {
-  draft: "Draft",
-  internal_review: "Internal Review",
-  internally_approved: "Internally Approved",
-  submitted_to_client: "Submitted to Client",
-  client_approved: "Client Approved",
-  change_requested: "Change Requested",
+const PHASE_DISPLAY: Record<
+  BoqItemPhase,
+  { label: string; variant: BadgeVariant }
+> = {
+  draft: { label: "Draft", variant: "draft" },
+  internal_review: { label: "Internal Review", variant: "in-review" },
+  internally_approved: {
+    label: "Internally Approved",
+    variant: "approved-arch",
+  },
+  submitted_to_client: { label: "Submitted to Client", variant: "submitted" },
+  client_approved: { label: "Client Approved", variant: "approved-client" },
+  change_requested: { label: "Change Requested", variant: "changes-requested" },
 };
 
 /** Map a BOQ item's phase to a Badge variant. */
 export function phaseToVariant(phase: BoqItemPhase): BadgeVariant {
-  return PHASE_VARIANT[phase];
+  return PHASE_DISPLAY[phase].variant;
 }
 
 /** Human-readable label for a phase (title-case, space-separated). */
 export function phaseToLabel(phase: BoqItemPhase): string {
-  return PHASE_LABEL[phase];
+  return PHASE_DISPLAY[phase].label;
 }
 
 export type MarginTier = "error" | "warning" | "success";

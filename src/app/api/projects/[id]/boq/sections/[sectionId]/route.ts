@@ -6,13 +6,9 @@ import {
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateBoqSectionSchema } from "@/lib/validations";
+import { notFoundResponse } from "../../_helpers";
 
-function notFound(): NextResponse {
-  return NextResponse.json(
-    { error: "Section not found in this project" },
-    { status: 404 }
-  );
-}
+const notFound = () => notFoundResponse("Section not found in this project");
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
