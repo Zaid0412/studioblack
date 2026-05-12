@@ -1222,7 +1222,9 @@ export async function deleteBoqItemsBulk(
 /** Sources allowed to transition INTO each target phase. Pre-computed once. */
 const PHASE_SOURCES: Record<BoqItemPhase, BoqItemPhase[]> = (() => {
   const out = {} as Record<BoqItemPhase, BoqItemPhase[]>;
-  for (const phase of Object.keys(BOQ_ITEM_PHASE_TRANSITIONS) as BoqItemPhase[]) {
+  for (const phase of Object.keys(
+    BOQ_ITEM_PHASE_TRANSITIONS
+  ) as BoqItemPhase[]) {
     out[phase] = [];
   }
   for (const [src, dests] of Object.entries(BOQ_ITEM_PHASE_TRANSITIONS) as [
@@ -1236,7 +1238,11 @@ const PHASE_SOURCES: Record<BoqItemPhase, BoqItemPhase[]> = (() => {
 
 export type SetPhaseOutcome =
   | { ok: true; item: BoqItemWithComputed }
-  | { ok: false; reason: "not_found" | "invalid_transition"; from?: BoqItemPhase };
+  | {
+      ok: false;
+      reason: "not_found" | "invalid_transition";
+      from?: BoqItemPhase;
+    };
 
 export type SetPhaseBulkOutcome =
   | { ok: true; items: BoqItemWithComputed[] }

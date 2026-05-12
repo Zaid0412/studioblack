@@ -677,8 +677,12 @@ export const setItemPhaseSchema = z
     comment: z.string().trim().max(2000).optional(),
   })
   .refine(
-    (v) => v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
-    { message: "Comment is required when requesting changes.", path: ["comment"] }
+    (v) =>
+      v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
+    {
+      message: "Comment is required when requesting changes.",
+      path: ["comment"],
+    }
   );
 
 /** Bulk variant: same target phase applied to every listed item. */
@@ -689,8 +693,12 @@ export const setItemsPhaseSchema = z
     comment: z.string().trim().max(2000).optional(),
   })
   .refine(
-    (v) => v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
-    { message: "Comment is required when requesting changes.", path: ["comment"] }
+    (v) =>
+      v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
+    {
+      message: "Comment is required when requesting changes.",
+      path: ["comment"],
+    }
   );
 
 /**
