@@ -8,7 +8,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "../_lib/formatters";
+import type { SectionSelectionState } from "@/hooks/useBoqSelection";
 
 interface BoqSectionHeaderProps {
   title: string;
@@ -28,6 +30,9 @@ interface BoqSectionHeaderProps {
     DOMAttributes<HTMLButtonElement> & {
       ref?: React.Ref<HTMLButtonElement>;
     };
+  /** When defined, renders a leading tri-state checkbox for bulk-select mode. */
+  selectionState?: SectionSelectionState;
+  onToggleSelection?: () => void;
 }
 
 /** Collapsible BOQ section row: drag handle, title, item count, section total, and optional actions menu. */
@@ -44,11 +49,27 @@ export function BoqSectionHeader({
   onDelete,
   onAddItem,
   dragHandleProps,
+  selectionState,
+  onToggleSelection,
 }: BoqSectionHeaderProps) {
   const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
+  const selectionMode = !!onToggleSelection;
 
   return (
-    <div className="w-full flex items-center gap-2 pl-4 pr-5 py-3 bg-bg-elevated border-b border-border-default">
+    <div
+      className={`w-full flex items-center gap-2 ${selectionMode ? "pl-3" : "pl-4"} pr-5 py-3 bg-bg-elevated border-b border-border-default`}
+    >
+      {selectionMode && (
+        <div className="w-8 flex items-center justify-center shrink-0">
+          <Checkbox
+            checked={selectionState === "all"}
+            indeterminate={selectionState === "some"}
+            onCheckedChange={() => onToggleSelection!()}
+            disabled={itemCount === 0}
+            aria-label={`Select all items in ${title}`}
+          />
+        </div>
+      )}
       {dragHandleProps && (
         <button
           type="button"

@@ -20,6 +20,8 @@ import { BoqCreateItemSheet } from "../boq/_components/BoqCreateItemSheet";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
 import { BoqDeleteSectionDialog } from "../boq/_components/BoqDeleteSectionDialog";
+import { BoqBulkActionBar } from "../boq/_components/BoqBulkActionBar";
+import { useBoqSelection } from "@/hooks/useBoqSelection";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
 import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
 import { BoqRequestChangesDialog } from "../boq/_components/BoqRequestChangesDialog";
@@ -51,6 +53,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     updateBoq,
     updateItem,
     moveItem,
+    bulkMoveItems,
+    bulkDeleteItems,
     deleteItem,
     updateSection,
     deleteSection,
@@ -80,6 +84,74 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [requestChangesOpen, setRequestChangesOpen] = useState(false);
   const { selected: sourceFilter, setSelected: setSourceFilter } =
     useBoqSourceFilter();
+
+  // Drives the row-level "+ Create new section and move here" flow.
+  // When non-null, the create-section dialog is open and the item is the
+  // pending target — on success we move it into the freshly-created section.
+  const [createAndMoveTarget, setCreateAndMoveTarget] =
+    useState<BoqItemWithComputed | null>(null);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+
+  // Selection mode (PR 2). Disabled when the BOQ is locked.
+  const allItemIds = useMemo(
+    () => (boq ? boq.items.map((it) => it.id) : []),
+    [boq]
+  );
+  const itemIdsBySection = useMemo(() => {
+    const map = new Map<string | null, string[]>();
+    if (boq) {
+      for (const it of boq.items) {
+        const key = it.section_id ?? null;
+        const list = map.get(key) ?? [];
+        list.push(it.id);
+        map.set(key, list);
+      }
+    }
+    return map;
+  }, [boq]);
+  const selection = useBoqSelection({ allItemIds, itemIdsBySection });
+
+  const handleBulkMove = useCallback(
+    async (targetSectionId: string | null) => {
+      if (!boq || selection.selected.size === 0) return;
+      try {
+        await bulkMoveItems(
+          boq.id,
+          Array.from(selection.selected),
+          targetSectionId
+        );
+        selection.clear();
+      } catch {
+        /* useBoqMutations toasts on error */
+      }
+    },
+    [boq, bulkMoveItems, selection]
+  );
+
+  const handleBulkDelete = useCallback(async () => {
+    if (!boq || selection.selected.size === 0) return;
+    try {
+      await bulkDeleteItems(boq.id, Array.from(selection.selected));
+      selection.clear();
+      setBulkDeleteConfirmOpen(false);
+    } catch {
+      /* useBoqMutations toasts on error */
+    }
+  }, [boq, bulkDeleteItems, selection]);
+
+  const handleCreateAndMoveCompleted = useCallback(
+    async (sectionId: string) => {
+      const item = createAndMoveTarget;
+      setCreateAndMoveTarget(null);
+      if (!item) return;
+      try {
+        await moveItem(item, sectionId);
+      } catch {
+        /* useBoqMutations toasts on error; the new section sticks around for retry */
+      }
+    },
+    [createAndMoveTarget, moveItem]
+  );
 
   // Stable so the import dialog's `runConfirm` deps don't churn across SWR
   // revalidations.
@@ -347,6 +419,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           onImport={() => setImportOpen(true)}
           onExport={handleExport}
           exporting={exporting}
+          selectionMode={selection.selectionMode}
+          onToggleSelectionMode={selection.toggleMode}
         />
       )}
 
@@ -364,6 +438,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onUpdateItem={updateItem}
         onDeleteItem={async (item) => setDeleteItemTarget(item)}
         onMoveItem={moveItem}
+        onCreateAndMoveItem={setCreateAndMoveTarget}
+        selection={selection.selectionMode ? selection : undefined}
         onRenameSection={setRenameSection}
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={setDeleteSectionTarget}
@@ -451,6 +527,43 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         }}
         submitting={deletingSection}
         onConfirm={confirmDeleteSection}
+      />
+
+      {/* Row-level "+ Create new section and move here" dialog. Separate
+          BoqCreateSectionDialog instance from the top-level "Add section"
+          flow so their state stays independent. */}
+      <BoqCreateSectionDialog
+        open={createAndMoveTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setCreateAndMoveTarget(null);
+        }}
+        projectId={projectId}
+        boqId={boq.id}
+        nextSortOrder={boq.sections.length}
+        onCreated={(section) => void handleCreateAndMoveCompleted(section.id)}
+      />
+
+      {selection.selectionMode && (
+        <BoqBulkActionBar
+          count={selection.selected.size}
+          sections={boq.sections}
+          projectId={projectId}
+          boqId={boq.id}
+          nextSortOrder={boq.sections.length}
+          onMove={handleBulkMove}
+          onDelete={() => setBulkDeleteConfirmOpen(true)}
+          onCancel={selection.toggleMode}
+        />
+      )}
+
+      <ConfirmDialog
+        open={bulkDeleteConfirmOpen}
+        onOpenChange={setBulkDeleteConfirmOpen}
+        title={`Delete ${selection.selected.size} item${selection.selected.size === 1 ? "" : "s"}?`}
+        description="This permanently removes the selected items. Sections stay in place."
+        confirmLabel={`Delete ${selection.selected.size} item${selection.selected.size === 1 ? "" : "s"}`}
+        destructive
+        onConfirm={handleBulkDelete}
       />
 
       <BoqItemDrawer

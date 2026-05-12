@@ -346,6 +346,10 @@ vi.mock("@/lib/queries", () => ({
   updateBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   deleteBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   moveBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  moveBoqItemsBulk: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
+  deleteBoqItemsBulk: vi.fn().mockResolvedValue(0),
   reorderBoqItems: vi.fn().mockResolvedValue(undefined),
   addElementToBoq: vi.fn().mockResolvedValue(null),
   addElementsToBoq: vi.fn().mockResolvedValue(null),

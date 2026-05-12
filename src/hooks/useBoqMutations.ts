@@ -185,6 +185,75 @@ export function useBoqMutations(projectId: string) {
     [projectId, key]
   );
 
+  const bulkMoveItems = useCallback(
+    async (
+      boqId: string,
+      itemIds: string[],
+      targetSectionId: string | null
+    ) => {
+      if (itemIds.length === 0) return [];
+      try {
+        const { items } = await boqApi.bulkMoveItems(
+          projectId,
+          boqId,
+          itemIds,
+          targetSectionId
+        );
+        // Patch each moved item into the cache, then revalidate so
+        // per-section sort_order and totals reflect the new state.
+        const byId = new Map(items.map((it) => [it.id, it] as const));
+        await globalMutate(
+          key,
+          (current: BoqWithDetails | null | undefined) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.map((it) => byId.get(it.id) ?? it),
+            };
+          },
+          { revalidate: true }
+        );
+        return items;
+      } catch (err) {
+        handleError(err, "Could not move items");
+        throw err;
+      }
+    },
+    [projectId, key]
+  );
+
+  const bulkDeleteItems = useCallback(
+    async (boqId: string, itemIds: string[]) => {
+      if (itemIds.length === 0) return 0;
+      try {
+        const idSet = new Set(itemIds);
+        await globalMutate(
+          key,
+          (current: BoqWithDetails | null | undefined) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.filter((it) => !idSet.has(it.id)),
+            };
+          },
+          { revalidate: false }
+        );
+        const { deletedCount } = await boqApi.bulkDeleteItems(
+          projectId,
+          boqId,
+          itemIds
+        );
+        await globalMutate(key);
+        return deletedCount;
+      } catch (err) {
+        await globalMutate(key); // rollback by refetching
+        handleError(err, "Could not delete items");
+        throw err;
+      }
+    },
+    [projectId, key]
+  );
+
   const createSection = useCallback(
     async (data: CreateSectionPayload) => {
       try {
@@ -293,6 +362,8 @@ export function useBoqMutations(projectId: string) {
     updateBoq,
     updateItem,
     moveItem,
+    bulkMoveItems,
+    bulkDeleteItems,
     deleteItem,
     createItem,
     createSection,

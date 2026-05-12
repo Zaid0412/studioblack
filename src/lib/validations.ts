@@ -762,6 +762,17 @@ export const moveBoqItemSchema = z.object({
   targetSectionId: uuid.nullable(),
 });
 
+export const bulkMoveBoqItemsSchema = z.object({
+  /** Items receive successive sort_order values starting at MAX+1 of the target bucket, in this order. */
+  itemIds: z.array(uuid).min(1).max(500),
+  /** `null` moves them all to the Unassigned bucket. */
+  targetSectionId: uuid.nullable(),
+});
+
+export const bulkDeleteBoqItemsSchema = z.object({
+  itemIds: z.array(uuid).min(1).max(500),
+});
+
 export const reorderItemsSchema = z.object({
   sectionId: z.string().uuid().nullable(),
   orderedIds: z.array(uuid).min(1),

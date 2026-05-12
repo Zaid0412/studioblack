@@ -1044,6 +1044,119 @@ export async function addElementsToBoq(
   return created;
 }
 
+export type MoveBoqItemsBulkOutcome =
+  | { ok: true; items: BoqItemWithComputed[] }
+  | { ok: false; reason: "not_found" | "wrong_boq" };
+
+/**
+ * Move many BOQ items to a different section in the same BOQ in one
+ * transaction. `targetSectionId = null` targets the Unassigned bucket.
+ *
+ * - Every `itemId` must belong to `boqId` — caller (route) already
+ *   validated `boqId` via `parseBoqRequest`, so we only need to
+ *   double-check the items.
+ * - Items receive successive `sort_order` values starting at
+ *   `MAX(target_bucket.sort_order) + 1`, in the order the caller
+ *   supplied them.
+ * - No per-row optimistic locking — bulk operations are explicit user
+ *   intent and forcing the client to ship N `updated_at` tokens would
+ *   make the UI fragile. The bulk-move atomic step + SWR revalidate
+ *   covers the staleness window in practice.
+ */
+export async function moveBoqItemsBulk(
+  itemIds: string[],
+  boqId: string,
+  targetSectionId: string | null
+): Promise<MoveBoqItemsBulkOutcome> {
+  if (itemIds.length === 0) return { ok: true, items: [] };
+
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Confirm every itemId exists in this BOQ.
+    const { rows: countRows } = await client.query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c
+       FROM boq_item
+       WHERE id = ANY($1::uuid[]) AND boq_id = $2`,
+      [itemIds, boqId]
+    );
+    if (countRows[0].c !== itemIds.length) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+
+    // 2. Confirm the target section (if any) is in this BOQ.
+    if (targetSectionId !== null) {
+      const { rows: sectionRows } = await client.query(
+        `SELECT 1 FROM boq_section WHERE id = $1 AND boq_id = $2`,
+        [targetSectionId, boqId]
+      );
+      if (sectionRows.length === 0) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "wrong_boq" };
+      }
+    }
+
+    // 3. Compute the starting sort_order in the target bucket.
+    //    Null-safe equality via IS NOT DISTINCT FROM.
+    const { rows: sortRows } = await client.query<{ next: number }>(
+      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next
+       FROM boq_item
+       WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid`,
+      [boqId, targetSectionId]
+    );
+    const baseSort = sortRows[0].next;
+
+    // 4. Move all items in one statement. `array_position` is 1-based,
+    //    so the first item gets baseSort, second baseSort+1, etc.
+    await client.query(
+      `UPDATE boq_item
+       SET section_id = $1,
+           sort_order = $2 + array_position($3::uuid[], id) - 1,
+           updated_at = now()
+       WHERE id = ANY($3::uuid[])`,
+      [targetSectionId, baseSort, itemIds]
+    );
+
+    // 5. Re-fetch the moved rows with computed columns, in the same
+    //    order the caller passed them in (so SWR cache merges cleanly).
+    const { rows } = await client.query<BoqItemWithComputed>(
+      `${ITEM_SELECT}
+       WHERE bi.id = ANY($1::uuid[])
+       ORDER BY array_position($1::uuid[], bi.id)`,
+      [itemIds]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, items: rows };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete many BOQ items in one statement. `boqId` scopes the delete so
+ * a forged itemId list can't reach into other projects' BOQs. Returns
+ * the number of rows actually removed.
+ */
+export async function deleteBoqItemsBulk(
+  itemIds: string[],
+  boqId: string
+): Promise<number> {
+  if (itemIds.length === 0) return 0;
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `DELETE FROM boq_item WHERE id = ANY($1::uuid[]) AND boq_id = $2`,
+    [itemIds, boqId]
+  );
+  return rowCount ?? 0;
+}
+
 /** Aggregate cost/sell/margin/approval totals plus per-section subtotals for a BOQ in one query batch. */
 export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   const pool = getPool();

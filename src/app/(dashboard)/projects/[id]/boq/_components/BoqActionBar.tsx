@@ -1,6 +1,13 @@
 "use client";
 
-import { Plus, FolderPlus, BookOpen, Download, Upload } from "lucide-react";
+import {
+  Plus,
+  FolderPlus,
+  BookOpen,
+  Download,
+  Upload,
+  CheckSquare,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface BoqActionBarProps {
@@ -11,6 +18,9 @@ interface BoqActionBarProps {
   onExport: () => void;
   exporting?: boolean;
   disabled?: boolean;
+  /** When provided, renders a "Select" toggle that flips the table into bulk-select mode. */
+  selectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
 }
 
 /** Right-aligned PM action row above the BOQ table. */
@@ -22,9 +32,24 @@ export function BoqActionBar({
   onExport,
   exporting,
   disabled,
+  selectionMode,
+  onToggleSelectionMode,
 }: BoqActionBarProps) {
   return (
     <div className="flex items-center justify-end gap-2 flex-wrap">
+      {onToggleSelectionMode && (
+        <Button
+          type="button"
+          variant={selectionMode ? "primary" : "secondary"}
+          size="sm"
+          onClick={onToggleSelectionMode}
+          disabled={disabled}
+          aria-pressed={selectionMode}
+        >
+          <CheckSquare className="h-4 w-4" />
+          {selectionMode ? "Selecting" : "Select"}
+        </Button>
+      )}
       <Button
         type="button"
         variant="secondary"
