@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   FileText,
+  ScrollText,
 } from "lucide-react";
 import Link from "next/link";
 import useSWR from "swr";
@@ -18,12 +19,21 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { API } from "@/lib/api/routes";
 import { timeAgo } from "@/lib/formatTime";
 import { cn } from "@/lib/utils";
-import type { PendingReviewRow } from "@/lib/queries/dashboard";
+import { DEFAULT_BOQ_SEGMENT } from "@/app/(dashboard)/projects/[id]/boq/_lib/tabs";
+import type {
+  PendingReviewRow,
+  PendingBoqReviewRow,
+} from "@/lib/queries/dashboard";
 
 interface PendingReviewsPopoverProps {
   /** Count rendered on the stat card. Comes from the dashboard SWR. */
   count: number;
   label: string;
+}
+
+interface PendingReviewsResponse {
+  files: PendingReviewRow[];
+  boqs: PendingBoqReviewRow[];
 }
 
 /** Stat-card variant that fetches the queue lazily on open. */
@@ -72,12 +82,16 @@ export function PendingReviewsPopover({
 function PopoverBody({ totalCount }: { totalCount: number }) {
   // Suppress the global `onError` toast (`src/lib/swr.ts`) for this fetch —
   // the popover renders its own `ErrorView` inline; firing both is noise.
-  const { data, isLoading, error } = useSWR<{ reviews: PendingReviewRow[] }>(
+  const { data, isLoading, error } = useSWR<PendingReviewsResponse>(
     API.dashboardPendingReviews(),
     { onError: () => {} }
   );
-  const shown = data?.reviews.length ?? 0;
+
+  const fileCount = data?.files.length ?? 0;
+  const boqCount = data?.boqs.length ?? 0;
+  const shown = fileCount + boqCount;
   const truncated = data && shown < totalCount;
+  const isEmpty = data && shown === 0;
 
   return (
     <>
@@ -96,42 +110,96 @@ function PopoverBody({ totalCount }: { totalCount: number }) {
           <ListSkeleton />
         ) : error ? (
           <ErrorView />
-        ) : !data || data.reviews.length === 0 ? (
+        ) : isEmpty ? (
           <EmptyView />
         ) : (
-          <ul>
-            {data.reviews.map((row) => (
-              <li key={row.id}>
-                <ReviewRow row={row} />
-              </li>
-            ))}
-          </ul>
+          <>
+            {fileCount > 0 && (
+              <Section title="Files" count={fileCount}>
+                {data!.files.map((row) => (
+                  <FileReviewRow key={row.id} row={row} />
+                ))}
+              </Section>
+            )}
+            {boqCount > 0 && (
+              <Section title="BOQs" count={boqCount}>
+                {data!.boqs.map((row) => (
+                  <BoqReviewRow key={row.id} row={row} />
+                ))}
+              </Section>
+            )}
+          </>
         )}
       </div>
     </>
   );
 }
 
-function ReviewRow({ row }: { row: PendingReviewRow }) {
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
   return (
-    <Link
-      href={`/projects/${row.project_id}/review/${row.id}`}
-      className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
-    >
-      <FileText className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-        <span className="text-[13px] font-semibold text-text-primary truncate">
-          {row.file_name}
-        </span>
-        <span className="text-xs text-text-muted truncate">
-          {row.project_name}
-          {row.uploaded_by_name && ` · ${row.uploaded_by_name}`}
-          {" · "}
-          {timeAgo(row.uploaded_at)}
-        </span>
-      </div>
-      <ChevronRight className="w-4 h-4 text-text-muted shrink-0 mt-1" />
-    </Link>
+    <section>
+      <h3 className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted bg-bg-elevated/40 border-b border-border-default">
+        {title} ({count})
+      </h3>
+      <ul>{children}</ul>
+    </section>
+  );
+}
+
+function FileReviewRow({ row }: { row: PendingReviewRow }) {
+  return (
+    <li>
+      <Link
+        href={`/projects/${row.project_id}/review/${row.id}`}
+        className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
+      >
+        <FileText className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          <span className="text-[13px] font-semibold text-text-primary truncate">
+            {row.file_name}
+          </span>
+          <span className="text-xs text-text-muted truncate">
+            {row.project_name}
+            {row.uploaded_by_name && ` · ${row.uploaded_by_name}`}
+            {" · "}
+            {timeAgo(row.uploaded_at)}
+          </span>
+        </div>
+        <ChevronRight className="w-4 h-4 text-text-muted shrink-0 mt-1" />
+      </Link>
+    </li>
+  );
+}
+
+function BoqReviewRow({ row }: { row: PendingBoqReviewRow }) {
+  return (
+    <li>
+      <Link
+        href={`/projects/${row.project_id}/boq/${DEFAULT_BOQ_SEGMENT}`}
+        className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
+      >
+        <ScrollText className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          <span className="text-[13px] font-semibold text-text-primary truncate">
+            BOQ — {row.project_name}
+          </span>
+          <span className="text-xs text-text-muted truncate">
+            {row.submitted_by_name && `submitted by ${row.submitted_by_name}`}
+            {row.submitted_by_name && " · "}
+            {timeAgo(row.submitted_at)}
+          </span>
+        </div>
+        <ChevronRight className="w-4 h-4 text-text-muted shrink-0 mt-1" />
+      </Link>
+    </li>
   );
 }
 
@@ -159,7 +227,7 @@ function EmptyView() {
     <EmptyState
       icon={ClipboardCheck}
       title="Nothing pending"
-      description="Files awaiting design review will appear here."
+      description="Files and BOQs awaiting review will appear here."
       className="!py-8"
     />
   );
