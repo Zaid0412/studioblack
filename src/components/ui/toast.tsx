@@ -69,7 +69,7 @@ const Toast = React.forwardRef<
     >
       <Icon
         aria-hidden="true"
-        className={cn("size-5 shrink-0", VARIANT_ICON_COLOR[resolved])}
+        className={cn("size-6 shrink-0", VARIANT_ICON_COLOR[resolved])}
       />
       {children}
     </ToastPrimitive.Root>
