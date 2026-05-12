@@ -5,9 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { tasks } from "@/lib/api";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useFlag } from "@/hooks/useFlag";
 import { DesignsTab } from "../_components/DesignsTab";
-import { ProjectWorkflowSteps } from "../_components/ProjectWorkflowSteps";
 
 /**
  * Design tab — phases / files / tasks / approvals. Mounted under the
@@ -22,7 +20,6 @@ export default function ProjectDesignsPage({
   const { id } = use(params);
   const { role, session } = useUserRole();
   const isClient = role === "client";
-  const boqEnabled = useFlag("boq");
 
   const {
     project,
@@ -41,7 +38,6 @@ export default function ProjectDesignsPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const highlightTaskId = searchParams.get("highlightTask");
-  const showWorkflowSteps = !isClient && boqEnabled;
 
   // When deep-linked with `?highlightTask=<id>`, jump to that task's
   // phase and clear the param. The ref guard ensures we only fire the
@@ -75,14 +71,6 @@ export default function ProjectDesignsPage({
 
   return (
     <>
-      {showWorkflowSteps && (
-        <ProjectWorkflowSteps
-          projectId={id}
-          phaseCounts={phaseCounts}
-          showBoq={showWorkflowSteps}
-        />
-      )}
-
       <DesignsTab
         projectId={id}
         project={project}
