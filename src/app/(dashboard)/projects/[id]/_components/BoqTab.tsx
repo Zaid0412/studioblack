@@ -298,6 +298,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         isCreator={isCreator}
         canReview={canReview}
         internallyApprovedAt={boq.internally_approved_at ?? null}
+        internallyApprovedByName={boq.internally_approved_by_name ?? null}
         updatedAt={boq.updated_at}
         transitioning={transitioning}
         onSubmitForReview={handleSubmitForReview}
