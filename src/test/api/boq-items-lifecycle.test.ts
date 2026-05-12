@@ -18,7 +18,6 @@ import {
   setBoqItemPhase,
   setBoqItemsPhase,
   getBoq,
-  getBoqStatus,
   hasProjectAccess,
   getOrgRole,
   getEligibleReviewers,
@@ -51,13 +50,14 @@ const architectSession = mockSession({ id: ARCHITECT_ID });
 const clientSession = mockSession({ id: "user-client", role: "client" });
 
 function ctx(
-  overrides: Partial<Awaited<ReturnType<typeof getBoqItemContext>>> = {}
-): Awaited<ReturnType<typeof getBoqItemContext>> {
+  overrides: Partial<
+    NonNullable<Awaited<ReturnType<typeof getBoqItemContext>>>
+  > = {}
+): NonNullable<Awaited<ReturnType<typeof getBoqItemContext>>> {
   return {
     itemId: ITEM_ID,
     boqId: BOQ_ID,
     boqTitle: "Main BOQ",
-    boqStatus: "draft" as Boq["status"],
     boqCreatorId: CREATOR_ID,
     orgId: "org-test-001",
     projectId: PROJECT_ID,
@@ -250,22 +250,6 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
     expect(setBoqItemPhase).not.toHaveBeenCalled();
   });
 
-  it("rejects locked BOQ (423)", async () => {
-    vi.mocked(getBoqItemContext).mockResolvedValue(
-      ctx({ phase: "internally_approved", boqStatus: "locked" })
-    );
-
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
-      { method: "POST", body: { phase: "submitted_to_client" } }
-    );
-    const res = await PATCH_PHASE(
-      req,
-      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
-    );
-    expect(res.status).toBe(423);
-  });
-
   it("404s an unknown item", async () => {
     vi.mocked(getBoqItemContext).mockResolvedValue(null);
 
@@ -406,25 +390,6 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
     );
     const res = await BULK_PHASE(req, buildParams({ id: PROJECT_ID }));
     expect(res.status).toBe(400);
-  });
-
-  it("rejects locked BOQ (423)", async () => {
-    // parseBoqRequest gates on getBoqStatus, not getBoq.
-    vi.mocked(getBoqStatus).mockResolvedValue("locked");
-
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/boq/items/bulk-lifecycle`,
-      {
-        method: "POST",
-        body: {
-          boqId: BOQ_ID,
-          itemIds: [ITEM_ID],
-          phase: "internally_approved",
-        },
-      }
-    );
-    const res = await BULK_PHASE(req, buildParams({ id: PROJECT_ID }));
-    expect(res.status).toBe(423);
   });
 });
 

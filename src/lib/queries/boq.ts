@@ -13,11 +13,8 @@ import type {
 } from "@/types";
 import type {
   BoqImportStrategy,
-  BoqItemLifecycleStatus,
   BoqItemPhase,
-  BoqItemClientApprovalStatus,
   BoqItemSource,
-  BoqStatus,
 } from "@/lib/validations";
 import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
 import type { z } from "zod";
@@ -74,39 +71,6 @@ export async function verifyBoqOwnership(
 }
 
 /**
- * Fetch a BOQ's status, scoped to a project. Returns null if the BOQ does not
- * belong to the project. Used by route handlers to gate mutating operations
- * on locked / superseded BOQs.
- */
-export async function getBoqStatus(
-  boqId: string,
-  projectId: string
-): Promise<BoqStatus | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<{ status: BoqStatus }>(
-    `SELECT status FROM boq WHERE id = $1 AND project_id = $2`,
-    [boqId, projectId]
-  );
-  return rows[0]?.status ?? null;
-}
-
-/** Look up the BOQ status for the BOQ that owns a given section. */
-export async function getBoqStatusForSection(
-  sectionId: string,
-  projectId: string
-): Promise<BoqStatus | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<{ status: BoqStatus }>(
-    `SELECT b.status FROM boq_section s
-     JOIN boq b ON b.id = s.boq_id
-     WHERE s.id = $1 AND b.project_id = $2`,
-    [sectionId, projectId]
-  );
-  return rows[0]?.status ?? null;
-}
-
-/** Look up the BOQ status for the BOQ that owns a given item. */
-/**
  * Fetch BOQ-level context for a single item: project, org, creator, BOQ
  * title, and the item's current phase. Used by the per-item lifecycle
  * route to gate permissions + drive notifications without a second
@@ -119,7 +83,6 @@ export async function getBoqItemContext(
   itemId: string;
   boqId: string;
   boqTitle: string;
-  boqStatus: BoqStatus;
   boqCreatorId: string | null;
   orgId: string;
   projectId: string;
@@ -130,7 +93,6 @@ export async function getBoqItemContext(
     item_id: string;
     boq_id: string;
     boq_title: string;
-    boq_status: BoqStatus;
     boq_created_by: string | null;
     org_id: string;
     project_id: string;
@@ -140,7 +102,6 @@ export async function getBoqItemContext(
        bi.id          AS item_id,
        b.id           AS boq_id,
        b.title        AS boq_title,
-       b.status       AS boq_status,
        b.created_by   AS boq_created_by,
        p.org_id       AS org_id,
        p.id           AS project_id,
@@ -157,27 +118,11 @@ export async function getBoqItemContext(
     itemId: r.item_id,
     boqId: r.boq_id,
     boqTitle: r.boq_title,
-    boqStatus: r.boq_status,
     boqCreatorId: r.boq_created_by,
     orgId: r.org_id,
     projectId: r.project_id,
     phase: r.phase,
   };
-}
-
-/** BOQ status guard for a single item — used by per-item edit routes. */
-export async function getBoqStatusForItem(
-  itemId: string,
-  projectId: string
-): Promise<BoqStatus | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<{ status: BoqStatus }>(
-    `SELECT b.status FROM boq_item bi
-     JOIN boq b ON b.id = bi.boq_id
-     WHERE bi.id = $1 AND b.project_id = $2`,
-    [itemId, projectId]
-  );
-  return rows[0]?.status ?? null;
 }
 
 /** Confirm a BOQ section's parent BOQ belongs to the given project. */
@@ -260,7 +205,7 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   const pool = getPool();
   const { rows } = await pool.query<Boq>(
     `SELECT * FROM boq
-     WHERE project_id = $1 AND status != 'superseded'
+     WHERE project_id = $1
      ORDER BY version DESC
      LIMIT 1`,
     [projectId]
@@ -268,31 +213,42 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   return rows[0] ?? null;
 }
 
-/** Fetch a BOQ with its sections, items (with computed cost columns), and rolled-up summary in one round-trip. */
-export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
+/** Phases visible to client viewers — items earlier than `submitted_to_client` are hidden. */
+const CLIENT_VISIBLE_PHASES = [
+  "submitted_to_client",
+  "client_approved",
+  "change_requested",
+] as const;
+
+/**
+ * Fetch a BOQ with its sections, items (with computed cost columns), and
+ * rolled-up summary in one round-trip.
+ *
+ * When `viewerIsClient` is true, only items in `submitted_to_client` /
+ * `client_approved` / `change_requested` are returned. Drafts and items
+ * still under internal review never leave the studio.
+ */
+export async function getBoq(
+  boqId: string,
+  opts: { viewerIsClient?: boolean } = {}
+): Promise<BoqWithDetails | null> {
   const pool = getPool();
+  const itemFilter = opts.viewerIsClient
+    ? `AND bi.phase = ANY($2::text[])`
+    : ``;
+  const itemParams: unknown[] = opts.viewerIsClient
+    ? [boqId, CLIENT_VISIBLE_PHASES]
+    : [boqId];
 
   const [boqRes, sectionsRes, itemsRes, summary] = await Promise.all([
-    pool.query<Boq>(
-      `SELECT
-         b.*,
-         submitter.name AS internal_review_submitted_by_name,
-         approver.name  AS internally_approved_by_name,
-         requester.name AS changes_requested_by_name
-       FROM boq b
-       LEFT JOIN "user" submitter ON submitter.id = b.internal_review_submitted_by
-       LEFT JOIN "user" approver  ON approver.id  = b.internally_approved_by
-       LEFT JOIN "user" requester ON requester.id = b.changes_requested_by
-       WHERE b.id = $1`,
-      [boqId]
-    ),
+    pool.query<Boq>(`SELECT b.* FROM boq b WHERE b.id = $1`, [boqId]),
     pool.query<BoqSection>(
       `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
       [boqId]
     ),
     pool.query<BoqItemWithComputed>(
-      `${ITEM_SELECT} WHERE bi.boq_id = $1 ORDER BY bi.sort_order, bi.created_at`,
-      [boqId]
+      `${ITEM_SELECT} WHERE bi.boq_id = $1 ${itemFilter} ORDER BY bi.sort_order, bi.created_at`,
+      itemParams
     ),
     getBoqSummary(boqId),
   ]);
@@ -307,9 +263,7 @@ export async function getBoq(boqId: string): Promise<BoqWithDetails | null> {
   };
 }
 
-export type UpdateBoqInput = Partial<Omit<CreateBoqInput, "createdBy">> & {
-  status?: BoqStatus;
-};
+export type UpdateBoqInput = Partial<Omit<CreateBoqInput, "createdBy">>;
 
 const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   title: "title",
@@ -322,7 +276,6 @@ const BOQ_COLS: Record<keyof UpdateBoqInput, string> = {
   architectId: "architect_id",
   notes: "notes",
   clientNotes: "client_notes",
-  status: "status",
 };
 
 /** Patch any subset of BOQ header fields. Returns null if no fields were provided. */
@@ -381,93 +334,6 @@ export async function getEligibleReviewers(opts: {
     [opts.orgId, opts.creatorId]
   );
   return rows.map((r) => r.userId);
-}
-
-/** Flip status → pending_internal_review and stamp the submitted_at/by audit fields. */
-export async function submitBoqForReview(opts: {
-  boqId: string;
-  submittedBy: string;
-}): Promise<Boq | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<Boq>(
-    `UPDATE boq
-     SET status = 'pending_internal_review',
-         internal_review_submitted_at = now(),
-         internal_review_submitted_by = $2,
-         updated_at = now()
-     WHERE id = $1
-     RETURNING *`,
-    [opts.boqId, opts.submittedBy]
-  );
-  return rows[0] ?? null;
-}
-
-/**
- * Flip status → internally_approved and stamp the approval audit
- * fields. Clears the most-recent `changes_requested_*` block so the UI
- * doesn't show a stale rejection comment after a clean approval.
- */
-export async function approveBoqInternally(opts: {
-  boqId: string;
-  approvedBy: string;
-}): Promise<Boq | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<Boq>(
-    `UPDATE boq
-     SET status = 'internally_approved',
-         internally_approved_at = now(),
-         internally_approved_by = $2,
-         changes_requested_at = NULL,
-         changes_requested_by = NULL,
-         changes_requested_comment = NULL,
-         updated_at = now()
-     WHERE id = $1
-     RETURNING *`,
-    [opts.boqId, opts.approvedBy]
-  );
-  return rows[0] ?? null;
-}
-
-/** Flip status → changes_requested and stamp the rejection audit fields + comment. */
-export async function requestBoqChanges(opts: {
-  boqId: string;
-  requestedBy: string;
-  comment: string;
-}): Promise<Boq | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<Boq>(
-    `UPDATE boq
-     SET status = 'changes_requested',
-         changes_requested_at = now(),
-         changes_requested_by = $2,
-         changes_requested_comment = $3,
-         updated_at = now()
-     WHERE id = $1
-     RETURNING *`,
-    [opts.boqId, opts.requestedBy, opts.comment]
-  );
-  return rows[0] ?? null;
-}
-
-/**
- * Cancel a pending review — flip back to `draft`. Called by the creator
- * via the "Cancel review" overflow action when they want to take the
- * BOQ out of the review queue without waiting for a reviewer to act.
- *
- * Doesn't clear any audit fields; the previous review history stays
- * accessible via `audit_event` so we can show "submitted, then
- * cancelled by creator" in the timeline.
- */
-export async function cancelBoqReview(boqId: string): Promise<Boq | null> {
-  const pool = getPool();
-  const { rows } = await pool.query<Boq>(
-    `UPDATE boq
-     SET status = 'draft', updated_at = now()
-     WHERE id = $1 AND status = 'pending_internal_review'
-     RETURNING *`,
-    [boqId]
-  );
-  return rows[0] ?? null;
 }
 
 export interface CreateBoqSectionInput {
@@ -717,8 +583,6 @@ export interface UpdateBoqItemInput {
   length?: number | null;
   breadth?: number | null;
   height?: number | null;
-  lifecycleStatus?: BoqItemLifecycleStatus;
-  clientApprovalStatus?: BoqItemClientApprovalStatus;
   installedQty?: number;
   notes?: string | null;
   clientNotes?: string | null;
@@ -744,8 +608,6 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   length: "length",
   breadth: "breadth",
   height: "height",
-  lifecycleStatus: "lifecycle_status",
-  clientApprovalStatus: "client_approval_status",
   installedQty: "installed_qty",
   notes: "notes",
   clientNotes: "client_notes",
@@ -755,9 +617,9 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
 };
 
 /**
- * Fields that represent a material change to an approved item — editing any of
- * these flips `requires_reapproval = true` and `client_approval_status = 'pending'`
- * so the client must re-review.
+ * Fields that represent a material change to a client-approved item.
+ * Editing any of these auto-flips `phase = 'client_approved'` back to
+ * `submitted_to_client` so the client re-decides on the fresh value.
  */
 const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   "description",
@@ -790,9 +652,11 @@ export type UpdateBoqItemOutcome =
 /**
  * Update a BOQ item with optimistic locking via `updated_at`.
  *
- * If `client_approval_status` was `approved` and the caller edits any cost /
- * description / section field, automatically sets `requires_reapproval = true`
- * and flips `client_approval_status` to `pending`.
+ * If the item is currently in phase `client_approved` and the caller edits
+ * any material field (cost / description / section / dimensions / clientRate),
+ * the phase auto-flips back to `submitted_to_client` — the client sees the
+ * fresh value in their queue on next visit. No notification fires for this
+ * implicit transition.
  *
  * Returns:
  * - `{ ok: true, item }` on success
@@ -824,15 +688,9 @@ export async function updateBoqItem(
     return { ok: false, reason: "not_found" };
   }
 
-  // Auto-flip re-approval only when the caller didn't explicitly set approval status;
-  // otherwise the caller's value would be overwritten.
-  const callerSetApproval = input.clientApprovalStatus !== undefined;
-  if (changedMaterialField && !callerSetApproval) {
+  if (changedMaterialField) {
     setClauses.push(
-      `requires_reapproval = CASE WHEN client_approval_status = 'approved' THEN true ELSE requires_reapproval END`
-    );
-    setClauses.push(
-      `client_approval_status = CASE WHEN client_approval_status = 'approved' THEN 'pending' ELSE client_approval_status END`
+      `phase = CASE WHEN phase = 'client_approved' THEN 'submitted_to_client' ELSE phase END`
     );
   }
 
@@ -1407,7 +1265,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
-         COUNT(*) FILTER (WHERE bi.client_approval_status = 'pending') AS pending_approvals,
+         COUNT(*) FILTER (WHERE bi.phase IN ('internal_review', 'submitted_to_client')) AS pending_approvals,
          COUNT(*) FILTER (
            WHERE bi.budget_rate IS NOT NULL
              AND bi.budget_rate > 0

@@ -325,20 +325,12 @@ vi.mock("@/lib/queries", () => ({
   verifyBoqOwnership: vi.fn().mockResolvedValue(true),
   verifyBoqSectionOwnership: vi.fn().mockResolvedValue(true),
   verifyBoqItemOwnership: vi.fn().mockResolvedValue(true),
-  getBoqStatus: vi.fn().mockResolvedValue("draft"),
-  getBoqStatusForSection: vi.fn().mockResolvedValue("draft"),
-  getBoqStatusForItem: vi.fn().mockResolvedValue("draft"),
   createBoq: vi.fn(),
   getBoq: vi.fn().mockResolvedValue(null),
   getBoqByProject: vi.fn().mockResolvedValue(null),
   updateBoq: vi.fn().mockResolvedValue(null),
-  // Internal review (Feature 4 — internal approval gate)
-  getEligibleReviewers: vi.fn().mockResolvedValue([]),
-  submitBoqForReview: vi.fn().mockResolvedValue(null),
-  approveBoqInternally: vi.fn().mockResolvedValue(null),
-  requestBoqChanges: vi.fn().mockResolvedValue(null),
-  cancelBoqReview: vi.fn().mockResolvedValue(null),
   // Per-item lifecycle phase (Pap's 2026-05-12 spec)
+  getEligibleReviewers: vi.fn().mockResolvedValue([]),
   getBoqItemContext: vi.fn().mockResolvedValue(null),
   setBoqItemPhase: vi
     .fn()

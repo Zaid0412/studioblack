@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   marginTier,
-  lifecycleToVariant,
-  clientApprovalToVariant,
+  phaseToVariant,
+  phaseToLabel,
   formatCurrency,
   formatDimensions,
   formatQty,
@@ -41,25 +41,25 @@ describe("marginTier", () => {
   });
 });
 
-describe("lifecycleToVariant", () => {
-  it("maps every lifecycle status to a badge variant", () => {
-    expect(lifecycleToVariant("draft")).toBe("draft");
-    expect(lifecycleToVariant("submitted")).toBe("submitted");
-    expect(lifecycleToVariant("approved")).toBe("approved-arch");
-    expect(lifecycleToVariant("rejected")).toBe("error");
-    expect(lifecycleToVariant("queried")).toBe("in-review");
-    expect(lifecycleToVariant("locked")).toBe("info");
-    expect(lifecycleToVariant("change_order_pending")).toBe("warning");
-    expect(lifecycleToVariant("superseded")).toBe("archived");
+describe("phaseToVariant", () => {
+  it("maps every phase to a badge variant", () => {
+    expect(phaseToVariant("draft")).toBe("draft");
+    expect(phaseToVariant("internal_review")).toBe("in-review");
+    expect(phaseToVariant("internally_approved")).toBe("approved-arch");
+    expect(phaseToVariant("submitted_to_client")).toBe("submitted");
+    expect(phaseToVariant("client_approved")).toBe("approved-client");
+    expect(phaseToVariant("change_requested")).toBe("changes-requested");
   });
 });
 
-describe("clientApprovalToVariant", () => {
-  it("maps every client approval status to a badge variant", () => {
-    expect(clientApprovalToVariant("pending")).toBe("draft");
-    expect(clientApprovalToVariant("approved")).toBe("approved-client");
-    expect(clientApprovalToVariant("rejected")).toBe("changes-requested");
-    expect(clientApprovalToVariant("queried")).toBe("in-review");
+describe("phaseToLabel", () => {
+  it("renders title-case labels for every phase", () => {
+    expect(phaseToLabel("draft")).toBe("Draft");
+    expect(phaseToLabel("internal_review")).toBe("Internal Review");
+    expect(phaseToLabel("internally_approved")).toBe("Internally Approved");
+    expect(phaseToLabel("submitted_to_client")).toBe("Submitted to Client");
+    expect(phaseToLabel("client_approved")).toBe("Client Approved");
+    expect(phaseToLabel("change_requested")).toBe("Change Requested");
   });
 });
 

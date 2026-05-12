@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   moveBoqItemsBulk,
   deleteBoqItemsBulk,
-  getBoqStatus,
   getOrgRole,
   hasProjectAccess,
   verifyBoqOwnership,
@@ -85,7 +84,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
-  vi.mocked(getBoqStatus).mockResolvedValue("draft");
   vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
 });
 
@@ -193,28 +191,6 @@ describe("POST /api/projects/[id]/boq/items/bulk-move", () => {
     expect(status).toBe(404);
   });
 
-  it("returns 423 when the parent BOQ is locked", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("locked");
-
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/boq/items/bulk-move`,
-      {
-        method: "POST",
-        body: {
-          boqId: BOQ_ID,
-          itemIds: [ITEM_ID_1],
-          targetSectionId: TARGET_SECTION_ID,
-        },
-      }
-    );
-    const res = await POST_BULK_MOVE(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ code: string }>(res);
-
-    expect(status).toBe(423);
-    expect(body.code).toBe("BOQ_LOCKED");
-    expect(moveBoqItemsBulk).not.toHaveBeenCalled();
-  });
-
   it("returns 400 when itemIds is empty", async () => {
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/bulk-move`,
@@ -275,23 +251,6 @@ describe("POST /api/projects/[id]/boq/items/bulk-delete", () => {
       [ITEM_ID_1, ITEM_ID_2],
       BOQ_ID
     );
-  });
-
-  it("returns 423 on a locked BOQ", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("locked");
-
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/boq/items/bulk-delete`,
-      {
-        method: "POST",
-        body: { boqId: BOQ_ID, itemIds: [ITEM_ID_1] },
-      }
-    );
-    const res = await POST_BULK_DELETE(req, buildParams({ id: PROJECT_ID }));
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(423);
-    expect(deleteBoqItemsBulk).not.toHaveBeenCalled();
   });
 
   it("returns 400 when itemIds is empty", async () => {

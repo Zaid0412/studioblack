@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { BoqSection } from "@/types";
+import type { BoqItemPhase } from "@/lib/validations";
 import { BoqMoveTargetPopover } from "./BoqMoveTargetPopover";
+import { BoqPhasePickerPopover } from "./BoqPhasePickerPopover";
 
 interface BoqBulkActionBarProps {
   count: number;
@@ -16,6 +18,7 @@ interface BoqBulkActionBarProps {
   /** When every selected item shares a section, forwarded to the move popover. */
   sharedSectionId?: string | null;
   onMove: (targetSectionId: string | null) => void;
+  onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
   onCancel: () => void;
 }
@@ -35,6 +38,7 @@ export function BoqBulkActionBar({
   nextSortOrder,
   sharedSectionId,
   onMove,
+  onSetPhase,
   onDelete,
   onCancel,
 }: BoqBulkActionBarProps) {
@@ -72,6 +76,15 @@ export function BoqBulkActionBar({
         projectId={projectId}
         boqId={boqId}
         nextSortOrder={nextSortOrder}
+      />
+
+      <BoqPhasePickerPopover
+        trigger={
+          <Button type="button" variant="secondary" size="sm">
+            Set lifecycle…
+          </Button>
+        }
+        onPick={onSetPhase}
       />
 
       <Button type="button" variant="danger" size="sm" onClick={onDelete}>

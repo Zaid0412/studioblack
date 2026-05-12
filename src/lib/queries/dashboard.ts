@@ -51,29 +51,54 @@ export interface PendingBoqReviewRow {
   id: string;
   project_id: string;
   project_name: string;
+  /** Earliest "moved to internal_review" timestamp across this BOQ's items. */
   submitted_at: string;
+  /** Architect / PM who submitted the most-recent item for review. */
   submitted_by_name: string | null;
+  /** Number of items in `internal_review` on this BOQ — surfaced in the popover. */
+  items_in_review: number;
 }
 
-/** Org-wide list of BOQs awaiting internal approval, newest first. */
+/**
+ * Org-wide list of BOQs that have ≥1 item in `internal_review`, newest first.
+ *
+ * The old BOQ-wide gate is gone (PR-2). The popover queue now reflects
+ * per-item phase: a BOQ shows up once any of its items is waiting on
+ * internal sign-off. Items themselves are not surfaced individually — the
+ * unit of "review work" stays at BOQ granularity for the popover.
+ */
 export async function getPendingBoqReviews(
   orgId: string,
   limit = 20
 ): Promise<PendingBoqReviewRow[]> {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT
+    `WITH latest_submitter AS (
+       SELECT DISTINCT ON (ae.target_id)
+         ae.target_id AS boq_id,
+         ae.actor_id,
+         ae.created_at
+       FROM audit_event ae
+       WHERE ae.action = 'boq.item.phase_changed'
+         AND ae.metadata->>'to' = 'internal_review'
+       ORDER BY ae.target_id, ae.created_at DESC
+     )
+     SELECT
        b.id,
        b.project_id,
        p.name AS project_name,
-       b.internal_review_submitted_at AS submitted_at,
-       u.name AS submitted_by_name
+       MAX(bi.updated_at) AS submitted_at,
+       u.name AS submitted_by_name,
+       COUNT(bi.id)::int AS items_in_review
      FROM boq b
      JOIN project p ON p.id = b.project_id
-     LEFT JOIN "user" u ON u.id = b.internal_review_submitted_by
+     JOIN boq_item bi ON bi.boq_id = b.id
+     LEFT JOIN latest_submitter ls ON ls.boq_id = b.id
+     LEFT JOIN "user" u ON u.id = ls.actor_id
      WHERE p.org_id = $1
-       AND b.status = 'pending_internal_review'
-     ORDER BY b.internal_review_submitted_at DESC NULLS LAST, b.id DESC
+       AND bi.phase = 'internal_review'
+     GROUP BY b.id, b.project_id, p.name, u.name
+     ORDER BY MAX(bi.updated_at) DESC NULLS LAST, b.id DESC
      LIMIT $2`,
     [orgId, limit]
   );
@@ -99,10 +124,11 @@ export async function getDashboardStats(orgId: string) {
       WHERE p.org_id = $1
     ),
     boq_review_stats AS (
-      SELECT COUNT(*)::int AS pending
-      FROM boq b
+      SELECT COUNT(DISTINCT bi.boq_id)::int AS pending
+      FROM boq_item bi
+      JOIN boq b ON b.id = bi.boq_id
       JOIN project p ON p.id = b.project_id
-      WHERE p.org_id = $1 AND b.status = 'pending_internal_review'
+      WHERE p.org_id = $1 AND bi.phase = 'internal_review'
     ),
     member_count AS (
       SELECT COUNT(*)::int AS count FROM member WHERE "organizationId" = $1

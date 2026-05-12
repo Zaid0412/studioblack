@@ -53,9 +53,14 @@ export function ProjectWorkflowSteps({
   const designStatus: StepStatus =
     phaseCounts.size === 0 ? "pending" : "in_progress";
 
+  // BOQ step is "completed" when every item is at the terminal phase.
+  // Empty BOQ counts as in-progress so the indicator nudges the team to
+  // start filling it. Notfound = pending (no BOQ yet).
   const boqStatus: StepStatus = notFound
     ? "pending"
-    : boq?.status === "client_approved" || boq?.status === "locked"
+    : boq &&
+        boq.items.length > 0 &&
+        boq.items.every((it) => it.phase === "client_approved")
       ? "completed"
       : "in_progress";
 

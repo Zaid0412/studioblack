@@ -9,6 +9,7 @@ import {
 import { API } from "./routes";
 import type {
   BoqImportStrategy,
+  BoqItemPhase,
   boqImportConfirmSchema,
   createBoqItemSchema,
   updateBoqItemSchema,
@@ -60,17 +61,6 @@ export interface UpdateBoqPayload {
   architectId?: string | null;
   notes?: string | null;
   clientNotes?: string | null;
-  // The internal-review statuses (`pending_internal_review`,
-  // `internally_approved`, `changes_requested`) are NOT settable here —
-  // the PATCH route rejects them. Use the dedicated endpoints instead
-  // (`/submit-for-review`, `/approve`, `/request-changes`,
-  // `/cancel-review`).
-  status?:
-    | "draft"
-    | "submitted_to_client"
-    | "client_approved"
-    | "locked"
-    | "superseded";
 }
 
 /** Patch BOQ header fields or transition its `status` (draft → submitted → approved → locked / superseded). */
@@ -268,26 +258,34 @@ export function getSummary(projectId: string) {
   return apiGet<BoqSummary>(API.boqSummary(projectId));
 }
 
-// ── Internal review gate ───────────────────────────────────────────────────
+// ── Per-item lifecycle phase (Pap's 2026-05-12 spec) ───────────────────────
 
-/** Architect submits their own BOQ for internal review. */
-export function submitForReview(projectId: string) {
-  return apiPost(API.boqSubmitForReview(projectId));
+/** Move a single BOQ item to a new phase. */
+export function setItemPhase(
+  projectId: string,
+  itemId: string,
+  input: { phase: BoqItemPhase; comment?: string }
+) {
+  return apiPost<BoqItemWithComputed>(
+    API.boqItemLifecycle(projectId, itemId),
+    input
+  );
 }
 
-/** Eligible reviewer approves the BOQ — comment optional. */
-export function approve(projectId: string, input?: { comment?: string }) {
-  return apiPost(API.boqApprove(projectId), input ?? {});
-}
-
-/** Eligible reviewer requests changes — comment required. */
-export function requestChanges(projectId: string, input: { comment: string }) {
-  return apiPost(API.boqRequestChanges(projectId), input);
-}
-
-/** Creator cancels a pending review and pulls the BOQ back to draft. */
-export function cancelReview(projectId: string) {
-  return apiPost(API.boqCancelReview(projectId));
+/** Move many BOQ items to the same target phase in one transaction. */
+export function bulkSetItemPhase(
+  projectId: string,
+  input: {
+    boqId: string;
+    itemIds: string[];
+    phase: BoqItemPhase;
+    comment?: string;
+  }
+) {
+  return apiPost<{ items: BoqItemWithComputed[] }>(
+    API.boqItemsBulkLifecycle(projectId),
+    input
+  );
 }
 
 // ── Excel Import / Export (Feature 6) ───────────────────────────────────────

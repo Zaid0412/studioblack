@@ -42,17 +42,16 @@ import {
 } from "@/components/ui/DropdownMenu";
 import type { SectionSelectionState } from "@/hooks/useBoqSelection";
 import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
-import type { BoqStatus } from "@/lib/validations";
 import {
   BOQ_NO_SECTION_ID,
-  clientApprovalToVariant,
   formatCurrency,
   formatDimensions,
   formatOptionalCurrency,
   formatPct,
   formatQty,
   parseOptionalNumber,
-  lifecycleToVariant,
+  phaseToLabel,
+  phaseToVariant,
   marginTier,
   toNum,
 } from "../_lib/formatters";
@@ -71,7 +70,6 @@ interface BoqTableProps {
   summary: BoqSummary;
   currency: string;
   minimumMarginPct: string;
-  boqStatus: BoqStatus;
   canEdit: boolean;
   /** When set, only items whose `source` is in the set are rendered. Empty/undefined → no filter. */
   sourceFilter?: ReadonlySet<BoqItemSource>;
@@ -123,31 +121,28 @@ interface SectionGroup {
 
 // The Source column is narrow on purpose — it carries a single short badge.
 // Client Rate + Budget Rate are 90px each, sitting between Sell Price (cost
-// build-up output) and Lifecycle (workflow state).
+// build-up output) and Phase (single unified workflow badge).
 export const GRID_COLS =
-  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
+  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
 
 // Same as GRID_COLS with a leading 32px checkbox column for bulk select.
 const GRID_COLS_WITH_SELECT =
-  "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
+  "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
 
 /**
- * Sum of the fixed column widths above (1179px) plus 13 inter-column gaps
- * (gap-2 = 104px) = 1283px. Applied as `min-w` on the table's scrollable
+ * Sum of the fixed column widths above (1159px) plus 12 inter-column gaps
+ * (gap-2 = 96px) = 1255px. Applied as `min-w` on the table's scrollable
  * wrapper so columns never squish below their declared sizes; below the
  * threshold the wrapper scrolls horizontally instead, keeping header and
  * rows aligned.
  */
-export const TABLE_MIN_WIDTH = "min-w-[1283px]";
+export const TABLE_MIN_WIDTH = "min-w-[1255px]";
 
-function isBoqLocked(status: BoqStatus): boolean {
-  return status === "locked" || status === "superseded";
-}
-
-function isItemLocked(item: BoqItemWithComputed): boolean {
-  return (
-    item.lifecycle_status === "locked" || item.lifecycle_status === "superseded"
-  );
+function isItemLocked(_item: BoqItemWithComputed): boolean {
+  // No frozen terminal in the new phase model. Material edits on a
+  // `client_approved` row are still allowed and auto-flip the phase
+  // back to `submitted_to_client` server-side.
+  return false;
 }
 
 /** BOQ line-item grid: groups items under sortable sections, supports inline edits and item-level actions. */
@@ -157,7 +152,6 @@ export function BoqTable({
   summary,
   currency,
   minimumMarginPct,
-  boqStatus,
   canEdit,
   sourceFilter,
   onUpdateItem,
@@ -176,9 +170,8 @@ export function BoqTable({
   const t = useTranslations("boq.table");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const marginFloor = toNum(minimumMarginPct) || undefined;
-  const boqLocked = isBoqLocked(boqStatus);
-  const rowsEditable = canEdit && !boqLocked && !!onUpdateItem;
-  const sectionsEditable = canEdit && !boqLocked;
+  const rowsEditable = canEdit && !!onUpdateItem;
+  const sectionsEditable = canEdit;
   // One ref per section header — chip strip uses these for IntersectionObserver
   // and smooth-scroll targets without prop-drilling refs through the section body.
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -301,8 +294,7 @@ export function BoqTable({
             <div className="text-right">Sell Price</div>
             <div className="text-right">Client Rate</div>
             <div className="text-right">Budget Rate</div>
-            <div>Lifecycle</div>
-            <div>Client</div>
+            <div>Phase</div>
             <div />
           </div>
 
@@ -804,18 +796,10 @@ const BoqItemRow = memo(function BoqItemRow({
       </span>
       <span className="min-w-0">
         <Badge
-          variant={lifecycleToVariant(item.lifecycle_status)}
+          variant={phaseToVariant(item.phase)}
           className="!px-2 truncate max-w-full"
         >
-          {item.lifecycle_status.replace(/_/g, " ")}
-        </Badge>
-      </span>
-      <span className="min-w-0">
-        <Badge
-          variant={clientApprovalToVariant(item.client_approval_status)}
-          className="!px-2 truncate max-w-full"
-        >
-          {item.client_approval_status}
+          {phaseToLabel(item.phase)}
         </Badge>
       </span>
       <span className="flex justify-end pr-3">

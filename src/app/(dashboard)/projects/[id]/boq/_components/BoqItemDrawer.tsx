@@ -15,18 +15,19 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/useToast";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
-import type { BoqItemLifecycleStatus } from "@/lib/validations";
+import type { BoqItemPhase } from "@/lib/validations";
+import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
-  clientApprovalToVariant,
   formatCurrency,
   formatOptionalCurrency,
   formatPct,
   formatQty,
   parseOptionalNumber,
-  lifecycleToVariant,
+  phaseToLabel,
+  phaseToVariant,
   marginTier,
   toNum,
 } from "../_lib/formatters";
@@ -48,30 +49,14 @@ interface BoqItemDrawerProps {
   onDelete?: (item: BoqItemWithComputed) => void;
 }
 
-/** Transitions allowed from each current lifecycle state. Keeps the UI honest. */
-const LIFECYCLE_TRANSITIONS: Record<
-  BoqItemLifecycleStatus,
-  BoqItemLifecycleStatus[]
-> = {
-  draft: ["submitted"],
-  submitted: ["approved", "rejected", "queried", "draft"],
-  queried: ["submitted", "rejected", "draft"],
-  approved: ["locked", "queried"],
-  rejected: ["draft"],
-  locked: [],
-  change_order_pending: ["approved", "rejected"],
-  superseded: [],
-};
-
-const TRANSITION_LABEL: Record<BoqItemLifecycleStatus, string> = {
-  draft: "Move to draft",
-  submitted: "Submit",
-  approved: "Approve",
-  rejected: "Reject",
-  queried: "Query",
-  locked: "Lock",
-  change_order_pending: "Change-order pending",
-  superseded: "Superseded",
+/** Action-button label for each target phase. */
+const PHASE_ACTION_LABEL: Record<BoqItemPhase, string> = {
+  draft: "Move to Draft",
+  internal_review: "Submit for Review",
+  internally_approved: "Approve",
+  submitted_to_client: "Send to Client",
+  client_approved: "Mark Client Approved",
+  change_requested: "Request Changes",
 };
 
 const NOTES_TEXTAREA_CLS =
@@ -89,7 +74,7 @@ export function BoqItemDrawer({
   canEdit,
   onDelete,
 }: BoqItemDrawerProps) {
-  const { updateItem } = useBoqMutations(projectId);
+  const { updateItem, setItemPhase } = useBoqMutations(projectId);
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -98,8 +83,7 @@ export function BoqItemDrawer({
   // and have B's PATCH go out with a stale `item.updated_at` (→ 409 + a
   // silently-lost edit).
   const [savingField, setSavingField] = useState(false);
-  const [transitioning, setTransitioning] =
-    useState<BoqItemLifecycleStatus | null>(null);
+  const [transitioning, setTransitioning] = useState<BoqItemPhase | null>(null);
 
   // Seed notes only when a new drawer opens — revalidations must not clobber edits.
   useEffect(() => {
@@ -119,26 +103,28 @@ export function BoqItemDrawer({
       : tier === "warning"
         ? "text-warning"
         : "text-error";
-  const rowLocked =
-    item.lifecycle_status === "locked" ||
-    item.lifecycle_status === "superseded";
+  // No frozen terminal in the new phase model — every phase still allows
+  // some transition (or an explicit move back to draft). `client_approved`
+  // is the closest to "done" but edits auto-flip it via the server.
+  const rowLocked = false;
   const notesDirty =
     (notes ?? "") !== (item.notes ?? "") ||
     (clientNotes ?? "") !== (item.client_notes ?? "");
 
-  const handleTransition = async (next: BoqItemLifecycleStatus) => {
+  const handleTransition = async (next: BoqItemPhase) => {
+    let comment: string | undefined;
+    if (next === "change_requested") {
+      const entered = window.prompt("Describe the change requested:")?.trim();
+      if (!entered) return;
+      comment = entered;
+    }
     setTransitioning(next);
     try {
-      const updated = await updateItem(item.id, {
-        updatedAt: item.updated_at,
-        lifecycleStatus: next,
+      await setItemPhase(item.id, next, comment ? { comment } : undefined);
+      toast({
+        title: `Marked ${phaseToLabel(next)}`,
+        variant: "success",
       });
-      if (updated) {
-        toast({
-          title: `Marked ${next.replace(/_/g, " ")}`,
-          variant: "success",
-        });
-      }
     } finally {
       setTransitioning(null);
     }
@@ -197,7 +183,7 @@ export function BoqItemDrawer({
 
   const fieldsDisabled = !canEdit || rowLocked || savingField;
 
-  const allowedNext = LIFECYCLE_TRANSITIONS[item.lifecycle_status] ?? [];
+  const allowedNext = BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -213,13 +199,8 @@ export function BoqItemDrawer({
             {formatCurrency(item.sell_price, currency)}
           </SheetDescription>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Badge variant={lifecycleToVariant(item.lifecycle_status)}>
-              {item.lifecycle_status.replace(/_/g, " ")}
-            </Badge>
-            <Badge
-              variant={clientApprovalToVariant(item.client_approval_status)}
-            >
-              client: {item.client_approval_status}
+            <Badge variant={phaseToVariant(item.phase)}>
+              {phaseToLabel(item.phase)}
             </Badge>
             {item.is_provisional && (
               <Badge variant="warning">provisional</Badge>
@@ -426,14 +407,16 @@ export function BoqItemDrawer({
                   <Button
                     key={next}
                     type="button"
-                    variant={next === "rejected" ? "danger" : "secondary"}
+                    variant={
+                      next === "change_requested" ? "danger" : "secondary"
+                    }
                     size="sm"
                     disabled={transitioning !== null}
                     onClick={() => handleTransition(next)}
                   >
                     {transitioning === next
                       ? "Working..."
-                      : TRANSITION_LABEL[next]}
+                      : PHASE_ACTION_LABEL[next]}
                   </Button>
                 ))}
               </div>

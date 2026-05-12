@@ -24,14 +24,13 @@ import { BoqBulkActionBar } from "../boq/_components/BoqBulkActionBar";
 import { useBoqSelection } from "@/hooks/useBoqSelection";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
 import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
-import { BoqRequestChangesDialog } from "../boq/_components/BoqRequestChangesDialog";
-import { BoqInternalReviewBanner } from "../boq/_components/BoqInternalReviewBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
 import { boq as boqApi, ApiError } from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
 import { saveBlob } from "@/lib/download";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
+import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
 
 interface BoqTabProps {
   projectId: string;
@@ -47,14 +46,13 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     error,
     mutate: mutateBoq,
   } = useBoq(projectId);
-  const { role, session } = useUserRole();
-  const currentUserId = session?.user?.id ?? null;
+  const { role } = useUserRole();
   const {
-    updateBoq,
     updateItem,
     moveItem,
     bulkMoveItems,
     bulkDeleteItems,
+    bulkSetItemPhase,
     deleteItem,
     updateSection,
     deleteSection,
@@ -78,13 +76,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [deleteItemTarget, setDeleteItemTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [deletingItem, setDeletingItem] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
   );
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [requestChangesOpen, setRequestChangesOpen] = useState(false);
   const { selected: sourceFilter, setSelected: setSourceFilter } =
     useBoqSourceFilter();
 
@@ -157,6 +153,24 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   }, [boq, bulkDeleteItems, selection]);
 
+  const handleBulkSetPhase = useCallback(
+    async (phase: BoqItemPhase, comment?: string) => {
+      if (!boq || selection.selected.size === 0) return;
+      try {
+        await bulkSetItemPhase(
+          boq.id,
+          Array.from(selection.selected),
+          phase,
+          comment ? { comment } : undefined
+        );
+        selection.clear();
+      } catch {
+        /* useBoqMutations toasts on error */
+      }
+    },
+    [boq, bulkSetItemPhase, selection]
+  );
+
   const handleCreateAndMoveCompleted = useCallback(
     async (sectionId: string) => {
       const item = createAndMoveTarget;
@@ -190,6 +204,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       ),
     [boq?.items]
   );
+
+  /** Item-count strip for the BOQ header — one bucket per phase. */
+  const phaseCounts = useMemo<Record<BoqItemPhase, number>>(() => {
+    const counts = Object.fromEntries(
+      BOQ_ITEM_PHASES.map((p) => [p, 0])
+    ) as Record<BoqItemPhase, number>;
+    for (const it of boq?.items ?? []) counts[it.phase] += 1;
+    return counts;
+  }, [boq?.items]);
 
   if (isLoading) {
     return <BoqTabSkeleton />;
@@ -229,72 +252,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
 
   if (!boq) return null;
 
-  const canEdit =
-    (role === "pm" || role === "architect") &&
-    boq.status !== "locked" &&
-    boq.status !== "superseded";
-
-  // Internal review eligibility — mirrors the server-side
-  // `getEligibleReviewers` rule: PM or architect AND not the BOQ creator.
-  // Clients are always false (they're already excluded by canEdit).
-  const isCreator = !!currentUserId && boq.created_by === currentUserId;
-  const canReview = (role === "pm" || role === "architect") && !isCreator;
-
-  /**
-   * Internal-review action wrapper — runs the API call inside
-   * `transitioning`, mutates the BOQ cache on success so the header
-   * flips status immediately, toasts on error, and swallows the
-   * promise so the BoqHeader's onClick is fire-and-forget.
-   */
-  async function runReviewAction(
-    action: () => Promise<unknown>,
-    successMessage: string
-  ) {
-    setTransitioning(true);
-    try {
-      await action();
-      await mutateBoq();
-      toast({ title: successMessage, variant: "success" });
-    } catch (err) {
-      const description =
-        err instanceof ApiError
-          ? err.message
-          : "Something went wrong. Try again.";
-      toast({ title: "Action failed", description, variant: "error" });
-    } finally {
-      setTransitioning(false);
-    }
-  }
-
-  const handleSubmitForReview = () =>
-    runReviewAction(
-      () => boqApi.submitForReview(projectId),
-      "BOQ submitted for internal review"
-    );
-  const handleCancelReview = () =>
-    runReviewAction(
-      () => boqApi.cancelReview(projectId),
-      "Review cancelled — BOQ is back to draft"
-    );
-  const handleApprove = () =>
-    runReviewAction(() => boqApi.approve(projectId), "BOQ internally approved");
-  const handleRequestChangesSubmit = async (comment: string) => {
-    setTransitioning(true);
-    try {
-      await boqApi.requestChanges(projectId, { comment });
-      await mutateBoq();
-      toast({ title: "Changes requested", variant: "success" });
-    } catch (err) {
-      const description =
-        err instanceof ApiError
-          ? err.message
-          : "Something went wrong. Try again.";
-      toast({ title: "Action failed", description, variant: "error" });
-      throw err; // keep dialog open so the reviewer can retry
-    } finally {
-      setTransitioning(false);
-    }
-  };
+  const canEdit = role === "pm" || role === "architect";
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
@@ -386,46 +344,10 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       <BoqHeader
         title={boq.title}
         version={boq.version}
-        status={boq.status}
         currency={boq.currency}
         itemCount={boq.items.length}
-        pendingApprovals={boq.summary.pending_approvals}
         marginBleedCount={boq.summary.margin_bleed_count}
-        canEdit={canEdit}
-        isCreator={isCreator}
-        canReview={canReview}
-        internallyApprovedAt={boq.internally_approved_at ?? null}
-        internallyApprovedByName={boq.internally_approved_by_name ?? null}
-        updatedAt={boq.updated_at}
-        transitioning={transitioning}
-        onSubmitForReview={handleSubmitForReview}
-        onCancelReview={handleCancelReview}
-        onApprove={handleApprove}
-        onRequestChanges={() => setRequestChangesOpen(true)}
-        onTransition={async (next) => {
-          setTransitioning(true);
-          try {
-            await updateBoq({ boqId: boq.id, status: next });
-          } catch {
-            /* useBoqMutations toasts on error */
-          } finally {
-            setTransitioning(false);
-          }
-        }}
-      />
-
-      {boq.status === "changes_requested" && (
-        <BoqInternalReviewBanner
-          reviewerName={boq.changes_requested_by_name ?? null}
-          comment={boq.changes_requested_comment}
-          requestedAt={boq.changes_requested_at}
-        />
-      )}
-
-      <BoqRequestChangesDialog
-        open={requestChangesOpen}
-        onOpenChange={setRequestChangesOpen}
-        onSubmit={handleRequestChangesSubmit}
+        phaseCounts={phaseCounts}
       />
 
       <BoqSummaryCards
@@ -455,7 +377,6 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         summary={boq.summary}
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
-        boqStatus={boq.status}
         canEdit={canEdit}
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
@@ -577,6 +498,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           nextSortOrder={boq.sections.length}
           sharedSectionId={sharedSelectedSectionId}
           onMove={handleBulkMove}
+          onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}
           onCancel={selection.toggleMode}
         />

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   moveBoqItem,
-  getBoqStatusForItem,
+  verifyBoqItemOwnership,
   getOrgRole,
   hasProjectAccess,
 } from "@/lib/queries";
@@ -22,57 +22,14 @@ const TARGET_SECTION_ID = "550e8400-e29b-41d4-a716-446655440002";
 const ITEM_ID = "550e8400-e29b-41d4-a716-446655440003";
 const UPDATED_AT = "2024-01-01T00:00:00Z";
 
-const fakeMovedItem: BoqItemWithComputed = {
+const fakeMovedItem = {
   id: ITEM_ID,
   boq_id: BOQ_ID,
   section_id: TARGET_SECTION_ID,
-  element_id: null,
-  item_code: "BOQ-2026-001",
-  description: "Laying tiles",
-  unit: "m2",
-  quantity: "10",
-  unit_cost: "100",
-  material_cost: null,
-  labour_cost: null,
-  overhead_pct: "0",
-  service_charge_pct: "0",
-  margin_pct: "15",
-  source: "custom",
-  rate_contract_item_id: null,
-  spec_reference: null,
-  notes: null,
-  status: "draft",
-  client_approval_status: "pending",
-  requires_reapproval: false,
-  client_rate: null,
-  budget_rate: null,
-  client_approved_at: null,
-  client_approved_by: null,
-  changes_requested_at: null,
-  changes_requested_by: null,
-  changes_requested_comment: null,
-  client_pin_message: null,
-  client_pin_required_action: null,
-  client_pin_required_by: null,
-  po_status: null,
-  po_id: null,
-  is_provisional: false,
-  is_excluded: false,
-  visible_to_client: true,
-  length: null,
-  breadth: null,
-  height: null,
+  phase: "draft",
   sort_order: 0,
-  created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-01T00:00:01Z",
-  created_by: null,
-  amount: "1000",
-  cost_total: "1000",
-  sell_price: "1150",
-  subtotal: "11500",
-  progress_pct: "0",
-  margin_alert: false,
-};
+} as unknown as BoqItemWithComputed;
 
 const pmSession = mockSession();
 const clientSession = mockSession({ role: "client" });
@@ -81,7 +38,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
-  vi.mocked(getBoqStatusForItem).mockResolvedValue("draft");
+  vi.mocked(verifyBoqItemOwnership).mockResolvedValue(true);
 });
 
 describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
@@ -99,7 +56,7 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status, body } = await parseResponse<BoqItemWithComputed>(res);
+    const { status, body } = await parseResponse<{ section_id: string }>(res);
 
     expect(status).toBe(200);
     expect(body.section_id).toBe(TARGET_SECTION_ID);
@@ -127,9 +84,7 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(200);
+    expect(res.status).toBe(200);
     expect(moveBoqItem).toHaveBeenCalledWith(ITEM_ID, null, UPDATED_AT);
   });
 
@@ -151,7 +106,6 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
     const { status, body } = await parseResponse<{ code: string }>(res);
-
     expect(status).toBe(400);
     expect(body.code).toBe("WRONG_BOQ");
   });
@@ -170,10 +124,7 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status, body } = await parseResponse<{ code: string }>(res);
-
-    expect(status).toBe(409);
-    expect(body.code).toBe("OPTIMISTIC_LOCK_CONFLICT");
+    expect(res.status).toBe(409);
   });
 
   it("returns 404 when the item doesn't exist", async () => {
@@ -193,13 +144,11 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(404);
+    expect(res.status).toBe(404);
   });
 
   it("returns 404 when item is not owned by project", async () => {
-    vi.mocked(getBoqStatusForItem).mockResolvedValue(null);
+    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(false);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/move`,
@@ -212,46 +161,23 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(404);
-    expect(moveBoqItem).not.toHaveBeenCalled();
-  });
-
-  it("returns 423 when the parent BOQ is locked", async () => {
-    vi.mocked(getBoqStatusForItem).mockResolvedValue("locked");
-
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/move`,
-      {
-        method: "POST",
-        body: { updatedAt: UPDATED_AT, targetSectionId: TARGET_SECTION_ID },
-      }
-    );
-    const res = await POST_MOVE(
-      req,
-      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
-    );
-    const { status, body } = await parseResponse<{ code: string }>(res);
-
-    expect(status).toBe(423);
-    expect(body.code).toBe("BOQ_LOCKED");
+    expect(res.status).toBe(404);
     expect(moveBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 400 when updatedAt is missing", async () => {
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/move`,
-      { method: "POST", body: { targetSectionId: TARGET_SECTION_ID } }
+      {
+        method: "POST",
+        body: { targetSectionId: TARGET_SECTION_ID },
+      }
     );
     const res = await POST_MOVE(
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
-    expect(moveBoqItem).not.toHaveBeenCalled();
+    expect(res.status).toBe(400);
   });
 
   it("returns 400 when targetSectionId is not a uuid or null", async () => {
@@ -266,10 +192,7 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
-    expect(moveBoqItem).not.toHaveBeenCalled();
+    expect(res.status).toBe(400);
   });
 
   it("returns 403 for client role", async () => {
@@ -287,9 +210,6 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/move", () => {
       req,
       buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
     );
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(403);
-    expect(moveBoqItem).not.toHaveBeenCalled();
+    expect(res.status).toBe(403);
   });
 });

@@ -102,40 +102,6 @@ export const APPROVAL_DECISIONS = ["approved", "changes_requested"] as const;
 
 // ─── BOQ (Feature 4) ────────────────────────────────────────────────────────
 
-export const BOQ_STATUSES = [
-  "draft",
-  "pending_internal_review",
-  "internally_approved",
-  "changes_requested",
-  "submitted_to_client",
-  "client_approved",
-  "locked",
-  "superseded",
-] as const;
-export type BoqStatus = (typeof BOQ_STATUSES)[number];
-
-export const BOQ_ITEM_LIFECYCLE_STATUSES = [
-  "draft",
-  "submitted",
-  "approved",
-  "rejected",
-  "queried",
-  "locked",
-  "change_order_pending",
-  "superseded",
-] as const;
-export type BoqItemLifecycleStatus =
-  (typeof BOQ_ITEM_LIFECYCLE_STATUSES)[number];
-
-export const BOQ_ITEM_CLIENT_APPROVAL_STATUSES = [
-  "pending",
-  "approved",
-  "rejected",
-  "queried",
-] as const;
-export type BoqItemClientApprovalStatus =
-  (typeof BOQ_ITEM_CLIENT_APPROVAL_STATUSES)[number];
-
 /**
  * Per-item lifecycle phase — the unified replacement for the old
  * (lifecycle_status, client_approval_status) pair. Drives the single badge
@@ -659,12 +625,6 @@ export const updateBoqSchema = z.object({
   architectId: z.string().min(1).nullable().optional(),
   notes: z.string().nullable().optional(),
   clientNotes: z.string().nullable().optional(),
-  status: z.enum(BOQ_STATUSES).optional(),
-});
-
-/** Approve a BOQ internally — comment is optional. */
-export const approveBoqSchema = z.object({
-  comment: z.string().trim().max(2000).optional(),
 });
 
 /**
@@ -700,38 +660,6 @@ export const setItemsPhaseSchema = z
       path: ["comment"],
     }
   );
-
-/**
- * Request changes — comment is REQUIRED, otherwise the creator
- * gets bounced back with no signal about what to fix.
- */
-export const requestBoqChangesSchema = z.object({
-  comment: z.string().trim().min(1).max(2000),
-});
-
-/**
- * Allowed BOQ status transitions. Any other src→dst pair is rejected at the
- * route layer. Locked and superseded are terminal — no transitions out.
- */
-export const BOQ_STATUS_TRANSITIONS: Record<BoqStatus, BoqStatus[]> = {
-  // The internal-review gate sits between draft and the existing
-  // client-facing flow. Each non-terminal state has a `→ draft` escape
-  // hatch so the creator (or, in some cases, a PM) can pull the BOQ
-  // back to draft for a major restructuring without going through the
-  // review round-trip.
-  draft: ["pending_internal_review"],
-  pending_internal_review: [
-    "internally_approved",
-    "changes_requested",
-    "draft", // creator self-cancel
-  ],
-  internally_approved: ["submitted_to_client", "draft"],
-  changes_requested: ["pending_internal_review", "draft"],
-  submitted_to_client: ["draft", "client_approved"],
-  client_approved: ["locked", "draft"],
-  locked: [],
-  superseded: [],
-};
 
 export const createBoqSectionSchema = z.object({
   title: trimmedString.max(255),
@@ -813,8 +741,6 @@ export const updateBoqItemSchema = z.object({
   length: dimension.nullable().optional(),
   breadth: dimension.nullable().optional(),
   height: dimension.nullable().optional(),
-  lifecycleStatus: z.enum(BOQ_ITEM_LIFECYCLE_STATUSES).optional(),
-  clientApprovalStatus: z.enum(BOQ_ITEM_CLIENT_APPROVAL_STATUSES).optional(),
   installedQty: quantity.optional(),
   notes: z.string().nullable().optional(),
   clientNotes: z.string().nullable().optional(),

@@ -13,6 +13,7 @@ import type {
   UpdateItemPayload,
 } from "@/lib/api/boq";
 import type { BoqItemWithComputed, BoqSection, BoqWithDetails } from "@/types";
+import type { BoqItemPhase } from "@/lib/validations";
 
 /**
  * BOQ mutation helpers — all share a single SWR cache key so consumers auto-update.
@@ -357,6 +358,75 @@ export function useBoqMutations(projectId: string) {
     [projectId, key]
   );
 
+  const setItemPhase = useCallback(
+    async (
+      itemId: string,
+      phase: BoqItemPhase,
+      opts?: { comment?: string }
+    ) => {
+      try {
+        const updated = await boqApi.setItemPhase(projectId, itemId, {
+          phase,
+          comment: opts?.comment,
+        });
+        await globalMutate(
+          key,
+          (current: BoqWithDetails | null | undefined) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.map((it) =>
+                it.id === itemId ? updated : it
+              ),
+            };
+          },
+          { revalidate: true }
+        );
+        return updated;
+      } catch (err) {
+        handleError(err, "Could not change item phase");
+        throw err;
+      }
+    },
+    [projectId, key]
+  );
+
+  const bulkSetItemPhase = useCallback(
+    async (
+      boqId: string,
+      itemIds: string[],
+      phase: BoqItemPhase,
+      opts?: { comment?: string }
+    ) => {
+      if (itemIds.length === 0) return [];
+      try {
+        const { items } = await boqApi.bulkSetItemPhase(projectId, {
+          boqId,
+          itemIds,
+          phase,
+          comment: opts?.comment,
+        });
+        const byId = new Map(items.map((it) => [it.id, it] as const));
+        await globalMutate(
+          key,
+          (current: BoqWithDetails | null | undefined) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.map((it) => byId.get(it.id) ?? it),
+            };
+          },
+          { revalidate: true }
+        );
+        return items;
+      } catch (err) {
+        handleError(err, "Could not change item phases");
+        throw err;
+      }
+    },
+    [projectId, key]
+  );
+
   return {
     createBoq,
     updateBoq,
@@ -370,5 +440,7 @@ export function useBoqMutations(projectId: string) {
     updateSection,
     deleteSection,
     reorderSections,
+    setItemPhase,
+    bulkSetItemPhase,
   };
 }
