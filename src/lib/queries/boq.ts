@@ -14,10 +14,12 @@ import type {
 import type {
   BoqImportStrategy,
   BoqItemLifecycleStatus,
+  BoqItemPhase,
   BoqItemClientApprovalStatus,
   BoqItemSource,
   BoqStatus,
 } from "@/lib/validations";
+import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
 import type { z } from "zod";
 import type { boqImportRowSchema } from "@/lib/validations";
 
@@ -104,6 +106,66 @@ export async function getBoqStatusForSection(
 }
 
 /** Look up the BOQ status for the BOQ that owns a given item. */
+/**
+ * Fetch BOQ-level context for a single item: project, org, creator, BOQ
+ * title, and the item's current phase. Used by the per-item lifecycle
+ * route to gate permissions + drive notifications without a second
+ * round-trip.
+ */
+export async function getBoqItemContext(
+  itemId: string,
+  projectId: string
+): Promise<{
+  itemId: string;
+  boqId: string;
+  boqTitle: string;
+  boqStatus: BoqStatus;
+  boqCreatorId: string | null;
+  orgId: string;
+  projectId: string;
+  phase: BoqItemPhase;
+} | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    item_id: string;
+    boq_id: string;
+    boq_title: string;
+    boq_status: BoqStatus;
+    boq_created_by: string | null;
+    org_id: string;
+    project_id: string;
+    phase: BoqItemPhase;
+  }>(
+    `SELECT
+       bi.id          AS item_id,
+       b.id           AS boq_id,
+       b.title        AS boq_title,
+       b.status       AS boq_status,
+       b.created_by   AS boq_created_by,
+       p.org_id       AS org_id,
+       p.id           AS project_id,
+       bi.phase       AS phase
+     FROM boq_item bi
+     JOIN boq b ON b.id = bi.boq_id
+     JOIN project p ON p.id = b.project_id
+     WHERE bi.id = $1 AND b.project_id = $2`,
+    [itemId, projectId]
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    itemId: r.item_id,
+    boqId: r.boq_id,
+    boqTitle: r.boq_title,
+    boqStatus: r.boq_status,
+    boqCreatorId: r.boq_created_by,
+    orgId: r.org_id,
+    projectId: r.project_id,
+    phase: r.phase,
+  };
+}
+
+/** BOQ status guard for a single item — used by per-item edit routes. */
 export async function getBoqStatusForItem(
   itemId: string,
   projectId: string
@@ -1155,6 +1217,170 @@ export async function deleteBoqItemsBulk(
     [itemIds, boqId]
   );
   return rowCount ?? 0;
+}
+
+/** Sources allowed to transition INTO each target phase. Pre-computed once. */
+const PHASE_SOURCES: Record<BoqItemPhase, BoqItemPhase[]> = (() => {
+  const out = {} as Record<BoqItemPhase, BoqItemPhase[]>;
+  for (const phase of Object.keys(BOQ_ITEM_PHASE_TRANSITIONS) as BoqItemPhase[]) {
+    out[phase] = [];
+  }
+  for (const [src, dests] of Object.entries(BOQ_ITEM_PHASE_TRANSITIONS) as [
+    BoqItemPhase,
+    BoqItemPhase[],
+  ][]) {
+    for (const dst of dests) out[dst].push(src);
+  }
+  return out;
+})();
+
+export type SetPhaseOutcome =
+  | { ok: true; item: BoqItemWithComputed }
+  | { ok: false; reason: "not_found" | "invalid_transition"; from?: BoqItemPhase };
+
+export type SetPhaseBulkOutcome =
+  | { ok: true; items: BoqItemWithComputed[] }
+  | {
+      ok: false;
+      reason: "not_found" | "wrong_boq" | "invalid_transition";
+      blockedIds?: string[];
+    };
+
+/**
+ * Move a single BOQ item to a new phase.
+ *
+ * Validates the source→target transition against `BOQ_ITEM_PHASE_TRANSITIONS`.
+ * On `submitted_to_client` / `client_approved` / `change_requested` entry,
+ * stamps the relevant timestamp column so the timeline view has dates.
+ *
+ * Routes are responsible for the actor-level permission check (who can
+ * fire which transition). This query enforces only the state machine.
+ */
+export async function setBoqItemPhase(
+  itemId: string,
+  target: BoqItemPhase
+): Promise<SetPhaseOutcome> {
+  const allowedSources = PHASE_SOURCES[target];
+  const pool = getPool();
+  const { rows } = await pool.query<BoqItemWithComputed>(
+    `WITH updated AS (
+       UPDATE boq_item bi
+       SET phase = $2,
+           sent_to_client_at = CASE
+             WHEN $2 = 'submitted_to_client' THEN now()
+             ELSE bi.sent_to_client_at
+           END,
+           client_decided_at = CASE
+             WHEN $2 = 'client_approved' THEN now()
+             WHEN $2 = 'change_requested'
+                  AND bi.phase IN ('submitted_to_client', 'client_approved')
+               THEN now()
+             ELSE bi.client_decided_at
+           END,
+           updated_at = now()
+       WHERE bi.id = $1 AND bi.phase = ANY($3::text[])
+       RETURNING *
+     )
+     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     FROM updated bi
+     JOIN boq b ON b.id = bi.boq_id`,
+    [itemId, target, allowedSources]
+  );
+
+  if (rows.length > 0) return { ok: true, item: rows[0] };
+
+  // 0 rows updated — disambiguate: missing row vs. wrong source phase.
+  const probe = await pool.query<{ phase: BoqItemPhase }>(
+    `SELECT phase FROM boq_item WHERE id = $1`,
+    [itemId]
+  );
+  if (probe.rows.length === 0) return { ok: false, reason: "not_found" };
+  return {
+    ok: false,
+    reason: "invalid_transition",
+    from: probe.rows[0].phase,
+  };
+}
+
+/**
+ * Move many BOQ items to the same target phase in a single transaction.
+ *
+ * All items must (a) belong to the given BOQ and (b) have a current phase
+ * that's a valid source for the target. If any item fails either check, the
+ * whole batch rolls back and the caller gets the offending ids back.
+ */
+export async function setBoqItemsPhase(
+  itemIds: string[],
+  boqId: string,
+  target: BoqItemPhase
+): Promise<SetPhaseBulkOutcome> {
+  if (itemIds.length === 0) return { ok: true, items: [] };
+
+  const allowedSources = PHASE_SOURCES[target];
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Confirm every id is in this BOQ.
+    const { rows: ownership } = await client.query<{
+      id: string;
+      phase: BoqItemPhase;
+    }>(
+      `SELECT id, phase FROM boq_item
+       WHERE id = ANY($1::uuid[]) AND boq_id = $2`,
+      [itemIds, boqId]
+    );
+    if (ownership.length !== itemIds.length) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "wrong_boq" };
+    }
+
+    // 2. Verify each current phase supports the target transition.
+    const blocked = ownership
+      .filter((r) => !allowedSources.includes(r.phase))
+      .map((r) => r.id);
+    if (blocked.length > 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "invalid_transition", blockedIds: blocked };
+    }
+
+    // 3. Apply the transition in one statement.
+    await client.query(
+      `UPDATE boq_item
+       SET phase = $2,
+           sent_to_client_at = CASE
+             WHEN $2 = 'submitted_to_client' THEN now()
+             ELSE sent_to_client_at
+           END,
+           client_decided_at = CASE
+             WHEN $2 = 'client_approved' THEN now()
+             WHEN $2 = 'change_requested'
+                  AND phase IN ('submitted_to_client', 'client_approved')
+               THEN now()
+             ELSE client_decided_at
+           END,
+           updated_at = now()
+       WHERE id = ANY($1::uuid[])`,
+      [itemIds, target]
+    );
+
+    // 4. Return fresh rows with computed cost columns, preserving input order.
+    const { rows } = await client.query<BoqItemWithComputed>(
+      `${ITEM_SELECT}
+       WHERE bi.id = ANY($1::uuid[])
+       ORDER BY array_position($1::uuid[], bi.id)`,
+      [itemIds]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, items: rows };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Aggregate cost/sell/margin/approval totals plus per-section subtotals for a BOQ in one query batch. */

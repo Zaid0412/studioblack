@@ -7,7 +7,7 @@ import {
   verifyBoqOwnership,
 } from "@/lib/queries";
 import { parseBody } from "@/lib/validations";
-import type { BoqStatus } from "@/lib/validations";
+import type { BoqItemPhase, BoqStatus } from "@/lib/validations";
 
 const CONFLICT_BODY = {
   error: "This item was updated by another user. Please refresh.",
@@ -155,6 +155,42 @@ export async function assertItemEditable(
   }
   if (isFrozen(status)) return frozenResponse();
   return null;
+}
+
+/**
+ * Decide whether the caller is allowed to fire a phase transition.
+ *
+ * Rules (per Pap's 2026-05-12 spec):
+ * - `internal_review`         — creator or PM
+ * - `internally_approved`     — PM, and NOT the creator (4-eyes)
+ * - `submitted_to_client`     — PM
+ * - `client_approved`         — client
+ * - `change_requested`        — PM or client
+ * - `draft`                   — creator or PM (escape hatch / re-do)
+ */
+export function canFirePhaseTransition(opts: {
+  target: BoqItemPhase;
+  actorId: string;
+  isPM: boolean;
+  isClient: boolean;
+  boqCreatorId: string | null;
+}): boolean {
+  const { target, actorId, isPM, isClient, boqCreatorId } = opts;
+  const isCreator = boqCreatorId !== null && actorId === boqCreatorId;
+  switch (target) {
+    case "internal_review":
+      return isCreator || isPM;
+    case "internally_approved":
+      return isPM && !isCreator;
+    case "submitted_to_client":
+      return isPM;
+    case "client_approved":
+      return isClient;
+    case "change_requested":
+      return isPM || isClient;
+    case "draft":
+      return isCreator || isPM;
+  }
 }
 
 /** Map an optimistic-lock failure reason to the right HTTP response. */

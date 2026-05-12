@@ -4,6 +4,7 @@ import type {
   TaskCategory,
   BoqStatus,
   BoqItemLifecycleStatus,
+  BoqItemPhase,
   BoqItemClientApprovalStatus,
   BoqItemPoStatus,
   BoqItemSource,
@@ -585,6 +586,9 @@ export interface BoqItem {
   source: BoqItemSource;
   rate_contract_item_id: string | null;
   lifecycle_status: BoqItemLifecycleStatus;
+  phase: BoqItemPhase;
+  sent_to_client_at: string | null;
+  client_decided_at: string | null;
   client_approval_status: BoqItemClientApprovalStatus;
   client_approved_at: string | null;
   client_approved_by: string | null;

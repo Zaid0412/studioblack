@@ -338,6 +338,14 @@ vi.mock("@/lib/queries", () => ({
   approveBoqInternally: vi.fn().mockResolvedValue(null),
   requestBoqChanges: vi.fn().mockResolvedValue(null),
   cancelBoqReview: vi.fn().mockResolvedValue(null),
+  // Per-item lifecycle phase (Pap's 2026-05-12 spec)
+  getBoqItemContext: vi.fn().mockResolvedValue(null),
+  setBoqItemPhase: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
+  setBoqItemsPhase: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "wrong_boq" }),
   createBoqSection: vi.fn(),
   updateBoqSection: vi.fn().mockResolvedValue(null),
   deleteBoqSection: vi.fn().mockResolvedValue(true),
