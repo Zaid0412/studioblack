@@ -777,6 +777,84 @@ export type DeleteBoqItemOutcome =
   | { ok: true }
   | { ok: false; reason: "not_found" | "conflict" };
 
+export type MoveBoqItemOutcome =
+  | { ok: true; item: BoqItemWithComputed }
+  | { ok: false; reason: "not_found" | "conflict" | "wrong_boq" };
+
+/**
+ * Move a BOQ item to a different section in the same BOQ.
+ * `targetSectionId = null` moves it to the Unassigned bucket
+ * (`boq_item.section_id IS NULL`).
+ *
+ * - Validates a UUID target belongs to the same BOQ as the item.
+ *   Cross-BOQ moves are rejected — they'd break cost / version semantics.
+ * - Appends to the bottom of the target bucket
+ *   (`sort_order = COALESCE(MAX, -1) + 1`). Source-section gaps are not
+ *   reclaimed (cheap to ignore; mirrors delete).
+ * - Optimistic lock via `updated_at`, same scheme as `updateBoqItem`.
+ *
+ * Returns the full row (with computed cost columns) on success so SWR
+ * can patch the cache without a refetch.
+ */
+export async function moveBoqItem(
+  itemId: string,
+  targetSectionId: string | null,
+  expectedUpdatedAt: string
+): Promise<MoveBoqItemOutcome> {
+  const pool = getPool();
+
+  if (targetSectionId !== null) {
+    // Verify the target section belongs to the same BOQ as the item.
+    // Distinct from "not found" so the caller can return a useful error.
+    const { rows: matchRows } = await pool.query(
+      `SELECT 1 FROM boq_section bs
+       JOIN boq_item bi ON bi.boq_id = bs.boq_id
+       WHERE bs.id = $1 AND bi.id = $2`,
+      [targetSectionId, itemId]
+    );
+    if (matchRows.length === 0) {
+      const itemCheck = await pool.query(
+        `SELECT 1 FROM boq_item WHERE id = $1`,
+        [itemId]
+      );
+      return {
+        ok: false,
+        reason: itemCheck.rows.length === 0 ? "not_found" : "wrong_boq",
+      };
+    }
+  }
+
+  // Move with optimistic locking; compute the new sort_order in-line.
+  // `IS NOT DISTINCT FROM` makes the equality null-safe for the Unassigned
+  // bucket. Two concurrent moves to the same target can pick the same MAX,
+  // which just produces a sort_order tie — ORDER BY (sort_order, created_at)
+  // breaks ties deterministically downstream, so we accept it.
+  const { rows } = await pool.query<BoqItemWithComputed>(
+    `WITH updated AS (
+       UPDATE boq_item bi
+       SET section_id = $1,
+           sort_order = COALESCE(
+             (SELECT MAX(sort_order) FROM boq_item
+              WHERE boq_id = bi.boq_id
+                AND section_id IS NOT DISTINCT FROM $1::uuid),
+             -1
+           ) + 1,
+           updated_at = now()
+       WHERE bi.id = $2
+         AND date_trunc('milliseconds', bi.updated_at)
+             = date_trunc('milliseconds', $3::timestamptz)
+       RETURNING *
+     )
+     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     FROM updated bi
+     JOIN boq b ON b.id = bi.boq_id`,
+    [targetSectionId, itemId, expectedUpdatedAt]
+  );
+
+  if (rows.length > 0) return { ok: true, item: rows[0] };
+  return { ok: false, reason: "conflict" };
+}
+
 /** Delete a BOQ item with optimistic locking via `updated_at`. */
 export async function deleteBoqItem(
   itemId: string,

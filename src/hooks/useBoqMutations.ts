@@ -93,6 +93,50 @@ export function useBoqMutations(projectId: string) {
     [projectId, key]
   );
 
+  const moveItem = useCallback(
+    async (item: BoqItemWithComputed, targetSectionId: string | null) => {
+      // Same-section move is a no-op — short-circuit so we don't bump
+      // updated_at or fire a needless request. Null-safe.
+      if ((item.section_id ?? null) === targetSectionId) return item;
+
+      try {
+        const updated = await boqApi.moveItem(
+          projectId,
+          item.id,
+          targetSectionId,
+          item.updated_at
+        );
+        await globalMutate(
+          key,
+          (current: BoqWithDetails | null | undefined) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.map((it) =>
+                it.id === item.id ? updated : it
+              ),
+            };
+          },
+          { revalidate: true }
+        );
+        return updated;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          toast({
+            title: "Item was updated elsewhere",
+            description: "Refreshing with the latest data.",
+            variant: "warning",
+          });
+          await globalMutate(key);
+          return null;
+        }
+        handleError(err, "Could not move item");
+        throw err;
+      }
+    },
+    [projectId, key]
+  );
+
   const deleteItem = useCallback(
     async (item: BoqItemWithComputed) => {
       try {
@@ -241,6 +285,7 @@ export function useBoqMutations(projectId: string) {
     createBoq,
     updateBoq,
     updateItem,
+    moveItem,
     deleteItem,
     createItem,
     createSection,

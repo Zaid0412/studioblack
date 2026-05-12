@@ -49,6 +49,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const {
     updateBoq,
     updateItem,
+    moveItem,
     deleteItem,
     updateSection,
     deleteSection,
@@ -361,6 +362,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
         onDeleteItem={async (item) => setDeleteItemTarget(item)}
+        onMoveItem={moveItem}
         onRenameSection={setRenameSection}
         onToggleSectionVisibility={handleToggleVisibility}
         onDeleteSection={setDeleteSectionTarget}

@@ -150,6 +150,22 @@ export function deleteItem(
   return apiDelete(API.boqItem(projectId, itemId), { updatedAt });
 }
 
+/**
+ * Move a BOQ item to a different section in the same BOQ. `null`
+ * targets the Unassigned bucket. Optimistic-locked on `updatedAt`.
+ */
+export function moveItem(
+  projectId: string,
+  itemId: string,
+  targetSectionId: string | null,
+  updatedAt: string
+) {
+  return apiPost<BoqItemWithComputed>(API.boqItemMove(projectId, itemId), {
+    updatedAt,
+    targetSectionId,
+  });
+}
+
 /** Persist a new ordering of items inside a section (or the unassigned bucket when `sectionId` is null). */
 export function reorderItems(
   projectId: string,

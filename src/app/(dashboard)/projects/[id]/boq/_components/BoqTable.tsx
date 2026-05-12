@@ -33,6 +33,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
@@ -73,6 +77,11 @@ interface BoqTableProps {
     data: UpdateItemPayload
   ) => Promise<BoqItemWithComputed | null | undefined>;
   onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+  /** Move `item` to `targetSectionId` (`null` = Unassigned bucket). */
+  onMoveItem?: (
+    item: BoqItemWithComputed,
+    targetSectionId: string | null
+  ) => Promise<BoqItemWithComputed | null | undefined>;
   onRenameSection?: (section: BoqSection) => void;
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
@@ -127,6 +136,7 @@ export function BoqTable({
   sourceFilter,
   onUpdateItem,
   onDeleteItem,
+  onMoveItem,
   onRenameSection,
   onToggleSectionVisibility,
   onDeleteSection,
@@ -269,6 +279,7 @@ export function BoqTable({
             registerSectionRef={registerSectionRef}
             onUpdateItem={onUpdateItem}
             onDeleteItem={onDeleteItem}
+            onMoveItem={onMoveItem}
             onOpenItem={onOpenItem}
             onAddItemToSection={onAddItemToSection}
             onRenameSection={onRenameSection}
@@ -296,6 +307,7 @@ interface SectionListProps {
   registerSectionRef: (id: string, el: HTMLElement | null) => void;
   onUpdateItem?: BoqTableProps["onUpdateItem"];
   onDeleteItem?: BoqTableProps["onDeleteItem"];
+  onMoveItem?: BoqTableProps["onMoveItem"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
   onRenameSection?: BoqTableProps["onRenameSection"];
@@ -402,6 +414,7 @@ const SortableSectionContext = createContext<{
 
 function SectionBody({
   group,
+  sections,
   currency,
   marginFloor,
   collapsed,
@@ -411,6 +424,7 @@ function SectionBody({
   registerSectionRef,
   onUpdateItem,
   onDeleteItem,
+  onMoveItem,
   onOpenItem,
   onAddItemToSection,
   onRenameSection,
@@ -482,8 +496,10 @@ function SectionBody({
               currency={currency}
               marginFloor={marginFloor}
               editable={rowsEditable && !isItemLocked(item)}
+              sections={sections}
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}
+              onMoveItem={onMoveItem}
               onOpen={onOpenItem}
             />
           ))}
@@ -510,6 +526,12 @@ interface BoqItemRowProps {
     data: UpdateItemPayload
   ) => Promise<BoqItemWithComputed | null | undefined>;
   onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+  onMoveItem?: (
+    item: BoqItemWithComputed,
+    targetSectionId: string | null
+  ) => Promise<BoqItemWithComputed | null | undefined>;
+  /** All sections in this BOQ — surfaced in the row's "Move to section…" sub-menu. */
+  sections: BoqSection[];
   onOpen?: (item: BoqItemWithComputed) => void;
 }
 
@@ -518,8 +540,10 @@ const BoqItemRow = memo(function BoqItemRow({
   currency,
   marginFloor,
   editable,
+  sections,
   onUpdateItem,
   onDeleteItem,
+  onMoveItem,
   onOpen,
 }: BoqItemRowProps) {
   const tier = marginTier(toNum(item.margin_pct), marginFloor);
@@ -549,7 +573,9 @@ const BoqItemRow = memo(function BoqItemRow({
     [item.length, item.breadth, item.height]
   );
 
-  const showMenu = editable && onDeleteItem;
+  const canMove = editable && !!onMoveItem;
+  const showMenu = editable && (onDeleteItem || canMove);
+  const currentSectionId = item.section_id ?? null;
 
   return (
     <div
@@ -718,12 +744,52 @@ const BoqItemRow = memo(function BoqItemRow({
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onSelect={() => void onDeleteItem!(item)}
-                className="text-error focus:text-error"
-              >
-                Delete item
-              </DropdownMenuItem>
+              {canMove && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    Move to section…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    <DropdownMenuItem
+                      disabled={currentSectionId === null}
+                      onSelect={() => void onMoveItem!(item, null)}
+                    >
+                      (Unassigned)
+                      {currentSectionId === null && (
+                        <span className="ml-2 text-[10px] text-text-muted">
+                          current
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                    {sections.length > 0 && <DropdownMenuSeparator />}
+                    {sections.map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        disabled={currentSectionId === s.id}
+                        onSelect={() => void onMoveItem!(item, s.id)}
+                      >
+                        <span className="truncate max-w-[220px]">
+                          {s.title}
+                        </span>
+                        {currentSectionId === s.id && (
+                          <span className="ml-2 text-[10px] text-text-muted">
+                            current
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {canMove && onDeleteItem && <DropdownMenuSeparator />}
+              {onDeleteItem && (
+                <DropdownMenuItem
+                  onSelect={() => void onDeleteItem(item)}
+                  className="text-error focus:text-error"
+                >
+                  Delete item
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
