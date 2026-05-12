@@ -244,7 +244,26 @@ describe("DELETE /api/projects/[id]/boq/sections/[sectionId]", () => {
 
     expect(status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(deleteBoqSection).toHaveBeenCalledWith(SECTION_ID);
+    expect(deleteBoqSection).toHaveBeenCalledWith(SECTION_ID, false);
+  });
+
+  it("cascade-deletes the section + its items when ?cascade=true", async () => {
+    vi.mocked(verifyBoqSectionOwnership).mockResolvedValue(true);
+    vi.mocked(deleteBoqSection).mockResolvedValue(true);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/sections/${SECTION_ID}?cascade=true`,
+      { method: "DELETE" }
+    );
+    const res = await DELETE_SECTION(
+      req,
+      buildParams({ id: PROJECT_ID, sectionId: SECTION_ID })
+    );
+    const { status, body } = await parseResponse<{ ok: boolean }>(res);
+
+    expect(status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(deleteBoqSection).toHaveBeenCalledWith(SECTION_ID, true);
   });
 
   it("returns 404 when section is not owned by project", async () => {

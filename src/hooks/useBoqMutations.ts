@@ -230,7 +230,8 @@ export function useBoqMutations(projectId: string) {
   );
 
   const deleteSection = useCallback(
-    async (section: BoqSection) => {
+    async (section: BoqSection, opts?: { cascade?: boolean }) => {
+      const cascade = opts?.cascade ?? false;
       try {
         await globalMutate(
           key,
@@ -239,11 +240,17 @@ export function useBoqMutations(projectId: string) {
             return {
               ...current,
               sections: current.sections.filter((s) => s.id !== section.id),
+              // Cascade also wipes the section's items locally. Without it,
+              // items keep their data and the server reflows `section_id` to
+              // null — we let the revalidate refresh handle that.
+              items: cascade
+                ? current.items.filter((it) => it.section_id !== section.id)
+                : current.items,
             };
           },
           { revalidate: false }
         );
-        await boqApi.deleteSection(projectId, section.id);
+        await boqApi.deleteSection(projectId, section.id, { cascade });
         await globalMutate(key);
       } catch (err) {
         await globalMutate(key);

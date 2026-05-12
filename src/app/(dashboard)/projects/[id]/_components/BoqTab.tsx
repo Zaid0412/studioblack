@@ -19,6 +19,7 @@ import { BoqCreateSectionDialog } from "../boq/_components/BoqCreateSectionDialo
 import { BoqCreateItemSheet } from "../boq/_components/BoqCreateItemSheet";
 import { BoqElementPickerDialog } from "../boq/_components/BoqElementPickerDialog";
 import { BoqRenameSectionDialog } from "../boq/_components/BoqRenameSectionDialog";
+import { BoqDeleteSectionDialog } from "../boq/_components/BoqDeleteSectionDialog";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
 import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
 import { BoqRequestChangesDialog } from "../boq/_components/BoqRequestChangesDialog";
@@ -220,11 +221,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
-  const confirmDeleteSection = async () => {
+  const confirmDeleteSection = async (cascade: boolean) => {
     if (!deleteSectionTarget) return;
     setDeletingSection(true);
     try {
-      await deleteSection(deleteSectionTarget);
+      await deleteSection(deleteSectionTarget, { cascade });
       setDeleteSectionTarget(null);
     } catch {
       /* useBoqMutations toasts on error */
@@ -436,26 +437,18 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onConfirm={confirmDeleteItem}
       />
 
-      <ConfirmDialog
-        open={deleteSectionTarget !== null}
+      <BoqDeleteSectionDialog
+        target={deleteSectionTarget}
+        itemCount={
+          deleteSectionTarget
+            ? (boq?.items.filter(
+                (it) => it.section_id === deleteSectionTarget.id
+              ).length ?? 0)
+            : 0
+        }
         onOpenChange={(open) => {
           if (!open) setDeleteSectionTarget(null);
         }}
-        title="Delete section?"
-        description={
-          deleteSectionTarget ? (
-            <>
-              <span className="font-medium text-text-primary">
-                {deleteSectionTarget.title}
-              </span>
-              {
-                " — items stay in the BOQ but become unassigned. This can't be undone."
-              }
-            </>
-          ) : null
-        }
-        confirmLabel="Delete section"
-        destructive
         submitting={deletingSection}
         onConfirm={confirmDeleteSection}
       />

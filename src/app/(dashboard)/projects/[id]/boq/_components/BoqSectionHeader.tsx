@@ -48,7 +48,7 @@ export function BoqSectionHeader({
   const hasMenu = onRename || onToggleVisibility || onDelete || onAddItem;
 
   return (
-    <div className="w-full flex items-center gap-2 px-4 py-3 bg-bg-elevated border-b border-border-default">
+    <div className="w-full flex items-center gap-2 pl-4 pr-5 py-3 bg-bg-elevated border-b border-border-default">
       {dragHandleProps && (
         <button
           type="button"

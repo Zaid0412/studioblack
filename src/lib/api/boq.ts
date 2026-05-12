@@ -103,9 +103,19 @@ export function updateSection(
   return apiPatch<BoqSection>(API.boqSection(projectId, sectionId), data);
 }
 
-/** Delete a section. Items keep their data; their `section_id` becomes null via FK. */
-export function deleteSection(projectId: string, sectionId: string) {
-  return apiDelete(API.boqSection(projectId, sectionId));
+/**
+ * Delete a section.
+ * - Default: items survive — `section_id` becomes null via the FK.
+ * - `{ cascade: true }`: items in the section are deleted in the same TX.
+ *   The UI gates this behind a type-to-confirm prompt.
+ */
+export function deleteSection(
+  projectId: string,
+  sectionId: string,
+  opts?: { cascade?: boolean }
+) {
+  const suffix = opts?.cascade ? "?cascade=true" : "";
+  return apiDelete(`${API.boqSection(projectId, sectionId)}${suffix}`);
 }
 
 /** Persist a new section ordering for a BOQ in a single bulk update. */

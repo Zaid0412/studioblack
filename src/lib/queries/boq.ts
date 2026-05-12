@@ -479,14 +479,47 @@ export async function updateBoqSection(
   return rows[0] ?? null;
 }
 
-/** Delete a section. Items assigned to it have section_id → NULL via FK. */
-export async function deleteBoqSection(sectionId: string): Promise<boolean> {
+/**
+ * Delete a section.
+ *
+ * - `cascade = false` (default) — items in the section survive; their
+ *   `section_id` flips to NULL via the FK's `ON DELETE SET NULL`, moving
+ *   them into the Unassigned bucket.
+ * - `cascade = true` — items in the section are deleted in the same
+ *   transaction. Used by the "Delete section + all items" path, which
+ *   the UI gates behind a type-to-confirm prompt.
+ */
+export async function deleteBoqSection(
+  sectionId: string,
+  cascade = false
+): Promise<boolean> {
   const pool = getPool();
-  const { rowCount } = await pool.query(
-    `DELETE FROM boq_section WHERE id = $1`,
-    [sectionId]
-  );
-  return (rowCount ?? 0) > 0;
+  if (!cascade) {
+    const { rowCount } = await pool.query(
+      `DELETE FROM boq_section WHERE id = $1`,
+      [sectionId]
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM boq_item WHERE section_id = $1`, [
+      sectionId,
+    ]);
+    const { rowCount } = await client.query(
+      `DELETE FROM boq_section WHERE id = $1`,
+      [sectionId]
+    );
+    await client.query("COMMIT");
+    return (rowCount ?? 0) > 0;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Reorder sections within a BOQ. All IDs must belong to the same BOQ. */
