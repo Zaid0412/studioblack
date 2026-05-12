@@ -28,10 +28,13 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-border-default bg-bg-secondary text-text-primary",
-        success: "border-success/30 bg-success/10 text-success",
-        error: "border-error/30 bg-error/10 text-error",
-        warning: "border-warning/30 bg-warning/10 text-warning",
+        default: "border-border-default bg-bg-elevated text-text-primary",
+        success:
+          "border-success/40 bg-bg-elevated text-text-primary ring-1 ring-success/30",
+        error:
+          "border-error/40 bg-bg-elevated text-text-primary ring-1 ring-error/30",
+        warning:
+          "border-warning/40 bg-bg-elevated text-text-primary ring-1 ring-warning/30",
       },
     },
     defaultVariants: {
