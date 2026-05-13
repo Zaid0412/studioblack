@@ -1129,14 +1129,14 @@ export async function setBoqItemPhase(
   const { rows } = await pool.query<BoqItemWithComputed>(
     `WITH updated AS (
        UPDATE boq_item bi
-       SET phase = $2,
+       SET phase = $2::text,
            sent_to_client_at = CASE
-             WHEN $2 = 'submitted_to_client' THEN now()
+             WHEN $2::text = 'submitted_to_client' THEN now()
              ELSE bi.sent_to_client_at
            END,
            client_decided_at = CASE
-             WHEN $2 = 'client_approved' THEN now()
-             WHEN $2 = 'change_requested'
+             WHEN $2::text = 'client_approved' THEN now()
+             WHEN $2::text = 'change_requested'
                   AND bi.phase IN ('submitted_to_client', 'client_approved')
                THEN now()
              ELSE bi.client_decided_at
@@ -1212,14 +1212,14 @@ export async function setBoqItemsPhase(
     // 3. Apply the transition in one statement.
     await client.query(
       `UPDATE boq_item
-       SET phase = $2,
+       SET phase = $2::text,
            sent_to_client_at = CASE
-             WHEN $2 = 'submitted_to_client' THEN now()
+             WHEN $2::text = 'submitted_to_client' THEN now()
              ELSE sent_to_client_at
            END,
            client_decided_at = CASE
-             WHEN $2 = 'client_approved' THEN now()
-             WHEN $2 = 'change_requested'
+             WHEN $2::text = 'client_approved' THEN now()
+             WHEN $2::text = 'change_requested'
                   AND phase IN ('submitted_to_client', 'client_approved')
                THEN now()
              ELSE client_decided_at
