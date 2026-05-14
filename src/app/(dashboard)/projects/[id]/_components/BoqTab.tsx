@@ -118,11 +118,21 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   // popovers can disable the matching row. Mixed selection → undefined. Used
   // for both the section move-target and the phase picker.
   const sharedSelectedSectionId = useMemo(
-    () => sharedFieldAcrossSelection(boq?.items, selection.selected, (it) => it.section_id ?? null),
+    () =>
+      sharedFieldAcrossSelection(
+        boq?.items,
+        selection.selected,
+        (it) => it.section_id ?? null
+      ),
     [boq?.items, selection.selected]
   );
   const sharedSelectedPhase = useMemo(
-    () => sharedFieldAcrossSelection(boq?.items, selection.selected, (it) => it.phase),
+    () =>
+      sharedFieldAcrossSelection(
+        boq?.items,
+        selection.selected,
+        (it) => it.phase
+      ),
     [boq?.items, selection.selected]
   );
 

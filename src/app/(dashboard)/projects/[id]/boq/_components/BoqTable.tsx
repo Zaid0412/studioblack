@@ -305,7 +305,9 @@ export function BoqTable({
     : selection
       ? GRID_COLS_WITH_SELECT
       : GRID_COLS;
-  const wrapperMinWidth = isExternal ? TABLE_MIN_WIDTH_EXTERNAL : TABLE_MIN_WIDTH;
+  const wrapperMinWidth = isExternal
+    ? TABLE_MIN_WIDTH_EXTERNAL
+    : TABLE_MIN_WIDTH;
 
   return (
     <>
