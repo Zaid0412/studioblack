@@ -1,6 +1,7 @@
 import type { BoqItemPhase } from "@/lib/validations";
 import type { BadgeVariant } from "@/components/ui/badge";
 import type { UserRole } from "@/types";
+import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
 
 /** Sentinel used in selects/grouping when an item has no section. */
 export const BOQ_NO_SECTION_ID = "__unassigned__";
@@ -40,11 +41,9 @@ export function isDestructivePhase(phase: BoqItemPhase): boolean {
 }
 
 /**
- * Client-side mirror of the server-side `canFirePhaseTransition` in
- * `src/app/api/projects/[id]/boq/_helpers.ts`. Used to gate button
- * visibility so users never see actions they can't actually fire.
- * Keep both copies in lockstep — if the server matrix changes, this
- * must change too.
+ * Client-side wrapper around the shared phase-transition permission matrix
+ * in `src/lib/boq/phasePermissions.ts`. Gates button visibility in the
+ * drawer + row menu so users never see actions the server will reject.
  */
 export function canFireBoqItemPhaseTransition(
   target: BoqItemPhase,
@@ -54,25 +53,15 @@ export function canFireBoqItemPhaseTransition(
     boqCreatorId: string | null;
   }
 ): boolean {
-  const { role, actorId, boqCreatorId } = ctx;
-  const isPM = role === "pm";
-  const isClient = role === "client";
-  const isCreator =
-    boqCreatorId !== null && actorId !== null && actorId === boqCreatorId;
-  switch (target) {
-    case "internal_review":
-      return isCreator || isPM;
-    case "internally_approved":
-      return isPM && !isCreator;
-    case "submitted_to_client":
-      return isPM;
-    case "client_approved":
-      return isClient;
-    case "change_requested":
-      return isPM || isClient;
-    case "draft":
-      return isCreator || isPM;
-  }
+  return canFireBoqPhaseTransition({
+    target,
+    isPM: ctx.role === "pm",
+    isClient: ctx.role === "client",
+    isCreator:
+      ctx.boqCreatorId !== null &&
+      ctx.actorId !== null &&
+      ctx.actorId === ctx.boqCreatorId,
+  });
 }
 
 export type MarginTier = "error" | "warning" | "success";

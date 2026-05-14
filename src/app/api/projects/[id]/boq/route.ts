@@ -6,11 +6,13 @@ import {
   createBoqSchema,
   updateBoqSchema,
 } from "@/lib/validations";
+import { isExternalViewer } from "@/lib/effectiveRole";
 import { parseBoqRequest } from "./_helpers";
 
-// Clients only see items in `submitted_to_client`/`client_approved`/
-// `change_requested`. Drafts and items in internal review never leave the
-// studio.
+// External viewers (client + vendor) only see items in `submitted_to_client`
+// / `client_approved` / `change_requested`, and cost/margin/budget data is
+// scrubbed from the payload. Drafts and items in internal review never
+// leave the studio.
 export const GET = withAuth(
   { projectAccess: true },
   async (_req, { effectiveRole }, params) => {
@@ -20,7 +22,7 @@ export const GET = withAuth(
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
     }
     const full = await getBoq(header.id, {
-      viewerIsClient: effectiveRole === "client",
+      viewerIsExternal: isExternalViewer(effectiveRole),
     });
     return NextResponse.json(full);
   }

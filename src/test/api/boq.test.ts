@@ -91,7 +91,29 @@ describe("GET /api/projects/[id]/boq", () => {
     expect(status).toBe(200);
     expect(body.id).toBe(BOQ_ID);
     expect(body.summary.item_count).toBe(3);
-    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsClient: false });
+    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsExternal: false });
+  });
+
+  it("passes viewerIsExternal=true for client viewer", async () => {
+    setupAuth(mocks.auth, clientSession);
+    vi.mocked(getBoqByProject).mockResolvedValue(fakeBoq);
+    vi.mocked(getBoq).mockResolvedValue(fakeFullBoq);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`);
+    await GET(req, buildParams({ id: PROJECT_ID }));
+
+    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsExternal: true });
+  });
+
+  it("passes viewerIsExternal=true for vendor viewer", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "vendor" }));
+    vi.mocked(getBoqByProject).mockResolvedValue(fakeBoq);
+    vi.mocked(getBoq).mockResolvedValue(fakeFullBoq);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`);
+    await GET(req, buildParams({ id: PROJECT_ID }));
+
+    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsExternal: true });
   });
 
   it("returns 404 when no BOQ exists for project", async () => {

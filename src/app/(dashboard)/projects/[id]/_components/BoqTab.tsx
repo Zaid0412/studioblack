@@ -7,6 +7,7 @@ import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
 import { useBoq } from "@/hooks/useBoq";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { useUserRole } from "@/hooks/useUserRole";
+import { isExternalViewer } from "@/lib/effectiveRole";
 import { BoqCreateDialog } from "../boq/_components/BoqCreateDialog";
 import { BoqHeader } from "../boq/_components/BoqHeader";
 import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
@@ -199,11 +200,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       comment?: string
     ) => {
       try {
-        await setItemPhase(
-          item.id,
-          target,
-          comment ? { comment } : undefined
-        );
+        await setItemPhase(item.id, target, comment ? { comment } : undefined);
       } catch {
         /* useBoqMutations toasts on error */
       }
@@ -293,7 +290,10 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   if (!boq) return null;
 
   const canEdit = role === "pm" || role === "architect";
-  const isClient = role === "client";
+  // External viewers (client OR vendor) see the trimmed table + drawer.
+  // Vendor will also need to reach this surface for RFQ work eventually;
+  // gating on the role group keeps them in lockstep with clients.
+  const isExternal = isExternalViewer(role);
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
@@ -388,14 +388,14 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         itemCount={boq.items.length}
         // Margin bleed is a studio-only metric — never expose count to clients.
-        marginBleedCount={isClient ? 0 : boq.summary.margin_bleed_count}
+        marginBleedCount={isExternal ? 0 : boq.summary.margin_bleed_count}
         phaseCounts={phaseCounts}
       />
 
       {/* Summary KPI cards expose cost / margin / over-budget aggregates —
           hidden from clients entirely. The BottomBar already shows the
           client-facing financial breakdown they need. */}
-      {!isClient && (
+      {!isExternal && (
         <BoqSummaryCards
           summary={boq.summary}
           currency={boq.currency}
@@ -418,7 +418,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
 
       {/* Source filter is a studio organising tool (library / custom / rate
           contract) — not useful to clients and exposes internal taxonomy. */}
-      {!isClient && (
+      {!isExternal && (
         <BoqSourceFilter selected={sourceFilter} onChange={setSourceFilter} />
       )}
 

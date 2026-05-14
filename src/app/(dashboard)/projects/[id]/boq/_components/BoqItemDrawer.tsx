@@ -17,6 +17,7 @@ import { toast } from "@/components/ui/useToast";
 import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
 import type { BoqItemPhase } from "@/lib/validations";
 import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
+import { isExternalViewer } from "@/lib/effectiveRole";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
@@ -87,6 +88,9 @@ export function BoqItemDrawer({
   onDelete,
 }: BoqItemDrawerProps) {
   const { updateItem, setItemPhase } = useBoqMutations(projectId);
+  // Clients + vendors share the same trimmed drawer view (no cost/margin
+  // sections, no internal notes). Internal viewers see everything.
+  const isExternal = isExternalViewer(role);
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -286,10 +290,10 @@ export function BoqItemDrawer({
                   what they'll be billed. All cost/margin/overhead inputs and
                   Client rate / Budget rate stay studio-only. */}
               <DetailField
-                label={role === "client" ? "Price" : "Sell price"}
+                label={isExternal ? "Total" : "Sell price"}
                 value={formatCurrency(item.sell_price, currency)}
               />
-              {role !== "client" && (
+              {!isExternal && (
                 <EditableField
                   label="Unit cost"
                   disabled={fieldsDisabled}
@@ -300,13 +304,13 @@ export function BoqItemDrawer({
                   onSave={(next) => saveField({ unitCost: parseFloat(next) })}
                 />
               )}
-              {role !== "client" && (
+              {!isExternal && (
                 <DetailField
                   label="Total cost"
                   value={formatCurrency(item.total_cost, currency)}
                 />
               )}
-              {role !== "client" && (
+              {!isExternal && (
                 <EditableField
                   label="Margin"
                   disabled={fieldsDisabled}
@@ -319,7 +323,7 @@ export function BoqItemDrawer({
                   onSave={(next) => saveField({ marginPct: parseFloat(next) })}
                 />
               )}
-              {role !== "client" && (
+              {!isExternal && (
                 <EditableField
                   label="Overhead"
                   disabled={fieldsDisabled}
@@ -333,7 +337,7 @@ export function BoqItemDrawer({
                   }
                 />
               )}
-              {role !== "client" && (
+              {!isExternal && (
                 <EditableField
                   label="Service charge"
                   disabled={fieldsDisabled}
@@ -347,7 +351,7 @@ export function BoqItemDrawer({
                   }
                 />
               )}
-              {role !== "client" && (
+              {!isExternal && (
                 <EditableField
                   label="Client rate"
                   disabled={fieldsDisabled}
@@ -360,7 +364,7 @@ export function BoqItemDrawer({
                   }
                 />
               )}
-              {role !== "client" && (
+              {!isExternal && (
                 <EditableField
                   label="Budget rate"
                   disabled={fieldsDisabled}
@@ -411,7 +415,7 @@ export function BoqItemDrawer({
 
             <section className="flex flex-col gap-2">
               {/* Internal notes — studio-only. Never shown to the client. */}
-              {role !== "client" && (
+              {!isExternal && (
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-text-secondary">
                     Internal notes
@@ -431,7 +435,7 @@ export function BoqItemDrawer({
                   change-request comment, not by editing this field. */}
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-text-secondary">
-                  {role === "client" ? "Notes from the team" : "Client notes"}
+                  {isExternal ? "Notes from the team" : "Client notes"}
                 </span>
                 <textarea
                   value={clientNotes}
@@ -440,7 +444,7 @@ export function BoqItemDrawer({
                   rows={3}
                   className={NOTES_TEXTAREA_CLS}
                   placeholder={
-                    role === "client"
+                    isExternal
                       ? "No notes from the team for this line."
                       : "Shown to the client on this line."
                   }

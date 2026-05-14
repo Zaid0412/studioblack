@@ -47,10 +47,8 @@ import type {
   BoqSummary,
   UserRole,
 } from "@/types";
-import {
-  BOQ_ITEM_PHASES,
-  type BoqItemPhase,
-} from "@/lib/validations";
+import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
+import { isExternalViewer } from "@/lib/effectiveRole";
 import {
   BOQ_NO_SECTION_ID,
   canFireBoqItemPhaseTransition,
@@ -203,6 +201,10 @@ export function BoqTable({
 }: BoqTableProps) {
   const t = useTranslations("boq.table");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // Lifted from the row level so we mount one `<BoqChangeRequestDialog>` per
+  // table, not one per item. Holds the item awaiting a change-request comment.
+  const [changeRequestTarget, setChangeRequestTarget] =
+    useState<BoqItemWithComputed | null>(null);
   const marginFloor = toNum(minimumMarginPct) || undefined;
   const rowsEditable = canEdit && !!onUpdateItem;
   const sectionsEditable = canEdit;
@@ -295,7 +297,7 @@ export function BoqTable({
     );
   }
 
-  const isClient = role === "client";
+  const isClient = isExternalViewer(role);
   // Clients see a trimmed table: no cost / margin / budget / source columns.
   // Server already scrubs those numbers from the payload, but hiding the
   // columns avoids confusing zeros in the UI.
@@ -307,72 +309,87 @@ export function BoqTable({
   const wrapperMinWidth = isClient ? TABLE_MIN_WIDTH_CLIENT : TABLE_MIN_WIDTH;
 
   return (
-    <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-      <BoqSectionChips
-        chips={chips}
-        getSectionEl={getSectionEl}
-        onActivate={expandSection}
-      />
-      <div className="overflow-x-auto">
-        <div className={wrapperMinWidth}>
-          <div
-            className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
-          >
-            {!isClient && selection && (
-              <div className="flex items-center justify-center">
-                <Checkbox
-                  checked={selection.tableState === "all"}
-                  indeterminate={selection.tableState === "some"}
-                  onCheckedChange={() => selection.toggleAll()}
-                  aria-label="Select all visible items"
-                />
-              </div>
-            )}
-            <div>Code</div>
-            <div>Description</div>
-            {!isClient && <div>{t("columnSource")}</div>}
-            <div>Unit</div>
-            <div className="text-right">Qty</div>
-            {!isClient && <div className="text-right">Unit Cost</div>}
-            {!isClient && <div className="text-right">Total Cost</div>}
-            {!isClient && <div className="text-right">Margin</div>}
-            <div className="text-right">Sell Price</div>
-            {!isClient && <div className="text-right">Client Rate</div>}
-            {!isClient && <div className="text-right">Budget Rate</div>}
-            <div className="text-center pl-3">Phase</div>
-            <div />
-          </div>
+    <>
+      <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <BoqSectionChips
+          chips={chips}
+          getSectionEl={getSectionEl}
+          onActivate={expandSection}
+        />
+        <div className="overflow-x-auto">
+          <div className={wrapperMinWidth}>
+            <div
+              className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
+            >
+              {!isClient && selection && (
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={selection.tableState === "all"}
+                    indeterminate={selection.tableState === "some"}
+                    onCheckedChange={() => selection.toggleAll()}
+                    aria-label="Select all visible items"
+                  />
+                </div>
+              )}
+              <div>Code</div>
+              <div>Description</div>
+              {!isClient && <div>{t("columnSource")}</div>}
+              <div>Unit</div>
+              <div className="text-right">Qty</div>
+              {!isClient && <div className="text-right">Unit Cost</div>}
+              {!isClient && <div className="text-right">Total Cost</div>}
+              {!isClient && <div className="text-right">Margin</div>}
+              <div className="text-right">Sell Price</div>
+              {!isClient && <div className="text-right">Client Rate</div>}
+              {!isClient && <div className="text-right">Budget Rate</div>}
+              <div className="text-center pl-3">Phase</div>
+              <div />
+            </div>
 
-          <SectionList
-            groups={groups}
-            sections={sections}
-            currency={currency}
-            marginFloor={marginFloor}
-            collapsed={collapsed}
-            setCollapsed={setCollapsed}
-            rowsEditable={rowsEditable}
-            sectionsEditable={sectionsEditable}
-            role={role}
-            currentUserId={currentUserId}
-            boqCreatorId={boqCreatorId}
-            registerSectionRef={registerSectionRef}
-            onUpdateItem={onUpdateItem}
-            onDeleteItem={onDeleteItem}
-            onMoveItem={onMoveItem}
-            onCreateAndMoveItem={onCreateAndMoveItem}
-            onSetItemPhase={onSetItemPhase}
-            selection={selection}
-            onOpenItem={onOpenItem}
-            onAddItemToSection={onAddItemToSection}
-            onAddFromLibraryToSection={onAddFromLibraryToSection}
-            onRenameSection={onRenameSection}
-            onToggleSectionVisibility={onToggleSectionVisibility}
-            onDeleteSection={onDeleteSection}
-            onReorderSections={onReorderSections}
-          />
+            <SectionList
+              groups={groups}
+              sections={sections}
+              currency={currency}
+              marginFloor={marginFloor}
+              collapsed={collapsed}
+              setCollapsed={setCollapsed}
+              rowsEditable={rowsEditable}
+              sectionsEditable={sectionsEditable}
+              role={role}
+              currentUserId={currentUserId}
+              boqCreatorId={boqCreatorId}
+              registerSectionRef={registerSectionRef}
+              onUpdateItem={onUpdateItem}
+              onDeleteItem={onDeleteItem}
+              onMoveItem={onMoveItem}
+              onCreateAndMoveItem={onCreateAndMoveItem}
+              onSetItemPhase={onSetItemPhase}
+              onRequestChangeComment={setChangeRequestTarget}
+              selection={selection}
+              onOpenItem={onOpenItem}
+              onAddItemToSection={onAddItemToSection}
+              onAddFromLibraryToSection={onAddFromLibraryToSection}
+              onRenameSection={onRenameSection}
+              onToggleSectionVisibility={onToggleSectionVisibility}
+              onDeleteSection={onDeleteSection}
+              onReorderSections={onReorderSections}
+            />
+          </div>
         </div>
       </div>
-    </div>
+      <BoqChangeRequestDialog
+        open={changeRequestTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setChangeRequestTarget(null);
+        }}
+        onSubmit={async (comment) => {
+          const target = changeRequestTarget;
+          if (!target || !onSetItemPhase) return;
+          await onSetItemPhase(target, "change_requested", comment);
+          setChangeRequestTarget(null);
+        }}
+      />
+    </>
   );
 }
 
@@ -396,6 +413,7 @@ interface SectionListProps {
   onMoveItem?: BoqTableProps["onMoveItem"];
   onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
   onSetItemPhase?: BoqTableProps["onSetItemPhase"];
+  onRequestChangeComment?: (item: BoqItemWithComputed) => void;
   selection?: BoqTableProps["selection"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
@@ -520,6 +538,7 @@ function SectionBody({
   onMoveItem,
   onCreateAndMoveItem,
   onSetItemPhase,
+  onRequestChangeComment,
   selection,
   onOpenItem,
   onAddItemToSection,
@@ -615,6 +634,7 @@ function SectionBody({
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
+              onRequestChangeComment={onRequestChangeComment}
               isSelected={selection ? selection.selected.has(item.id) : false}
               onToggleSelected={
                 selection ? () => selection.toggle(item.id) : undefined
@@ -666,6 +686,12 @@ interface BoqItemRowProps {
     target: BoqItemPhase,
     comment?: string
   ) => Promise<unknown> | void;
+  /**
+   * Request the table-level change-request comment prompt for `item`. Used
+   * for destructive transitions so the dialog is mounted once at the table
+   * level instead of once per row.
+   */
+  onRequestChangeComment?: (item: BoqItemWithComputed) => void;
   onOpen?: (item: BoqItemWithComputed) => void;
 }
 
@@ -685,11 +711,9 @@ const BoqItemRow = memo(function BoqItemRow({
   onToggleSelected,
   onCreateAndMoveItem,
   onSetItemPhase,
+  onRequestChangeComment,
   onOpen,
 }: BoqItemRowProps) {
-  // Captures a comment for `change_requested` before firing the transition.
-  // Inline (per-row) so each row drives its own dialog state.
-  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
   const selectionMode = onToggleSelected !== undefined;
   const tier = marginTier(toNum(item.margin_pct), marginFloor);
   const marginColor =
@@ -719,7 +743,7 @@ const BoqItemRow = memo(function BoqItemRow({
   );
 
   const canMove = editable && !!onMoveItem;
-  const isClient = role === "client";
+  const isClient = isExternalViewer(role);
   // Phases the viewer can actually transition this item into right now.
   // Empty for clients on items in `change_requested` / `draft`, etc.
   const lifecycleTargets = onSetItemPhase
@@ -743,7 +767,9 @@ const BoqItemRow = memo(function BoqItemRow({
   const handlePickLifecycle = (target: BoqItemPhase) => {
     if (!onSetItemPhase) return;
     if (isDestructivePhase(target)) {
-      setChangeRequestOpen(true);
+      // Defer the comment prompt to the table-level dialog so we don't mount
+      // one `<BoqChangeRequestDialog>` per row.
+      onRequestChangeComment?.(item);
       return;
     }
     void onSetItemPhase(item, target);
@@ -756,10 +782,9 @@ const BoqItemRow = memo(function BoqItemRow({
       : GRID_COLS;
 
   return (
-    <>
-      <div
-        className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
-      >
+    <div
+      className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
+    >
       {!isClient && selectionMode && (
         <div className="flex items-center justify-center">
           <Checkbox
@@ -1019,15 +1044,6 @@ const BoqItemRow = memo(function BoqItemRow({
           </DropdownMenu>
         )}
       </span>
-      </div>
-      <BoqChangeRequestDialog
-        open={changeRequestOpen}
-        onOpenChange={setChangeRequestOpen}
-        onSubmit={async (comment) => {
-          if (!onSetItemPhase) return;
-          await onSetItemPhase(item, "change_requested", comment);
-        }}
-      />
-    </>
+    </div>
   );
 });

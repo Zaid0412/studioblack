@@ -56,6 +56,13 @@ export function ProjectWorkflowSteps({
   // BOQ step is "completed" when every item is at the terminal phase.
   // Empty BOQ counts as in-progress so the indicator nudges the team to
   // start filling it. Notfound = pending (no BOQ yet).
+  //
+  // Note: for client viewers, `boq.items` is already filtered server-side
+  // to `submitted_to_client+`. So a client whose items are all `client_approved`
+  // sees the green "completed" dot even when the studio still has items in
+  // `draft` for the same BOQ. That's intentional — from the client's POV
+  // every item they care about IS approved — but it means the same dot can
+  // show different states to different viewers of the same BOQ.
   const boqStatus: StepStatus = notFound
     ? "pending"
     : boq &&

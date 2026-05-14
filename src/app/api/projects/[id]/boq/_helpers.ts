@@ -3,6 +3,7 @@ import { z } from "zod";
 import { verifyBoqOwnership } from "@/lib/queries";
 import { parseBody } from "@/lib/validations";
 import type { BoqItemPhase } from "@/lib/validations";
+import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
 
 const CONFLICT_BODY = {
   error: "This item was updated by another user. Please refresh.",
@@ -86,15 +87,10 @@ export async function parseBoqRequest<T extends z.ZodType>(
 }
 
 /**
- * Decide whether the caller is allowed to fire a phase transition.
- *
- * Rules:
- * - `internal_review`         — creator or PM
- * - `internally_approved`     — PM, and NOT the creator (4-eyes)
- * - `submitted_to_client`     — PM
- * - `client_approved`         — client
- * - `change_requested`        — PM or client
- * - `draft`                   — creator or PM (escape hatch / re-do)
+ * Server-side wrapper around the shared phase-transition permission matrix.
+ * Derives `isCreator` from the actor id + BOQ creator id and delegates the
+ * actual rule set to `canFireBoqPhaseTransition` — the only place that
+ * knows which role can fire which transition.
  */
 export function canFirePhaseTransition(opts: {
   target: BoqItemPhase;
@@ -103,22 +99,12 @@ export function canFirePhaseTransition(opts: {
   isClient: boolean;
   boqCreatorId: string | null;
 }): boolean {
-  const { target, actorId, isPM, isClient, boqCreatorId } = opts;
-  const isCreator = boqCreatorId !== null && actorId === boqCreatorId;
-  switch (target) {
-    case "internal_review":
-      return isCreator || isPM;
-    case "internally_approved":
-      return isPM && !isCreator;
-    case "submitted_to_client":
-      return isPM;
-    case "client_approved":
-      return isClient;
-    case "change_requested":
-      return isPM || isClient;
-    case "draft":
-      return isCreator || isPM;
-  }
+  return canFireBoqPhaseTransition({
+    target: opts.target,
+    isPM: opts.isPM,
+    isClient: opts.isClient,
+    isCreator: opts.boqCreatorId !== null && opts.actorId === opts.boqCreatorId,
+  });
 }
 
 /** Map an optimistic-lock failure reason to the right HTTP response. */

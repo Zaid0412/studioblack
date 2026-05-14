@@ -224,19 +224,21 @@ const CLIENT_VISIBLE_PHASES = [
  * Fetch a BOQ with its sections, items (with computed cost columns), and
  * rolled-up summary in one round-trip.
  *
- * When `viewerIsClient` is true, only items in `submitted_to_client` /
- * `client_approved` / `change_requested` are returned. Drafts and items
- * still under internal review never leave the studio.
+ * When `viewerIsExternal` is true (client or vendor), only items in
+ * `submitted_to_client` / `client_approved` / `change_requested` are
+ * returned, AND every studio-internal cost/margin field is scrubbed
+ * from the payload before it leaves the server. Drafts and items still
+ * under internal review never leave the studio.
  */
 export async function getBoq(
   boqId: string,
-  opts: { viewerIsClient?: boolean } = {}
+  opts: { viewerIsExternal?: boolean } = {}
 ): Promise<BoqWithDetails | null> {
   const pool = getPool();
-  const itemFilter = opts.viewerIsClient
+  const itemFilter = opts.viewerIsExternal
     ? `AND bi.phase = ANY($2::text[])`
     : ``;
-  const itemParams: unknown[] = opts.viewerIsClient
+  const itemParams: unknown[] = opts.viewerIsExternal
     ? [boqId, CLIENT_VISIBLE_PHASES]
     : [boqId];
 
@@ -255,54 +257,74 @@ export async function getBoq(
 
   if (boqRes.rows.length === 0) return null;
 
-  // Scrub every studio-internal field from the payload before it leaves the
-  // server. Sell-side fields (sell_price, client_rate, subtotal, vat, client
-  // total) stay because they're what the client will be billed; cost-side
-  // and margin-side fields are zeroed/nulled so the JSON inspector reveals
-  // nothing the UI is trying to hide.
-  const items = opts.viewerIsClient
-    ? itemsRes.rows.map((it) => ({
-        ...it,
-        unit_cost: "0",
-        material_cost: null,
-        labour_cost: null,
-        overhead_pct: "0",
-        service_charge_pct: "0",
-        margin_pct: "0",
-        budget_rate: null,
-        notes: null,
-        total_cost: "0",
-        margin_alert: false,
-        over_budget: false,
-        budget_variance_pct: null,
-      }))
-    : itemsRes.rows;
-
-  // Same treatment for the BOQ header + summary aggregates that depend on
-  // cost/margin internals.
-  const boq = opts.viewerIsClient
-    ? { ...boqRes.rows[0], notes: null }
-    : boqRes.rows[0];
-
-  const scrubbedSummary = opts.viewerIsClient
-    ? {
-        ...summary,
-        total_cost: "0",
-        average_margin_pct: "0",
-        margin_bleed_count: 0,
-        over_budget_count: 0,
-        section_totals: summary.section_totals.map((s) => ({
-          ...s,
-          total_cost: "0",
-        })),
-      }
-    : summary;
+  const {
+    boq,
+    items,
+    summary: scrubbedSummary,
+  } = opts.viewerIsExternal
+    ? scrubBoqForExternalViewer({
+        boq: boqRes.rows[0],
+        items: itemsRes.rows,
+        summary,
+      })
+    : { boq: boqRes.rows[0], items: itemsRes.rows, summary };
 
   return {
     ...boq,
     sections: sectionsRes.rows,
     items,
     summary: scrubbedSummary,
+  };
+}
+
+/**
+ * Strip every studio-internal cost/margin/budget/notes field from a BOQ
+ * payload before returning it to a client or vendor viewer. Sell-side
+ * fields (sell_price, client_rate, subtotal, vat, client_total) stay
+ * because they're what the external viewer will be billed; everything
+ * cost-side is zeroed or nulled so the JSON inspector reveals nothing
+ * the UI is trying to hide.
+ *
+ * Pure function, exported so the scrub contract can be pinned in a unit
+ * test without standing up the full query chain.
+ */
+export function scrubBoqForExternalViewer(input: {
+  boq: Boq;
+  items: BoqItemWithComputed[];
+  summary: BoqSummary;
+}): {
+  boq: Boq;
+  items: BoqItemWithComputed[];
+  summary: BoqSummary;
+} {
+  return {
+    boq: { ...input.boq, notes: null },
+    items: input.items.map((it) => ({
+      ...it,
+      unit_cost: "0",
+      material_cost: null,
+      labour_cost: null,
+      overhead_pct: "0",
+      service_charge_pct: "0",
+      margin_pct: "0",
+      budget_rate: null,
+      notes: null,
+      total_cost: "0",
+      margin_alert: false,
+      over_budget: false,
+      budget_variance_pct: null,
+    })),
+    summary: {
+      ...input.summary,
+      total_cost: "0",
+      average_margin_pct: "0",
+      margin_bleed_count: 0,
+      over_budget_count: 0,
+      section_totals: input.summary.section_totals.map((s) => ({
+        ...s,
+        total_cost: "0",
+      })),
+    },
   };
 }
 
