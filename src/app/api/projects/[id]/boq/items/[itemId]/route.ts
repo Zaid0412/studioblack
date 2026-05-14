@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
-import { deleteBoqItem, updateBoqItem } from "@/lib/queries";
+import {
+  deleteBoqItem,
+  updateBoqItem,
+  verifyBoqItemOwnership,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
   updateBoqItemSchema,
   deleteBoqItemSchema,
 } from "@/lib/validations";
-import { assertItemEditable, optimisticFailureResponse } from "../../_helpers";
+import { notFoundResponse, optimisticFailureResponse } from "../../_helpers";
+
+const notFound = () => notFoundResponse("Item not found in this project");
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
     const { id, itemId } = params;
 
-    const gate = await assertItemEditable(itemId, id);
-    if (gate) return gate;
+    if (!(await verifyBoqItemOwnership(itemId, id))) return notFound();
 
     const parsed = await parseRequest(req, updateBoqItemSchema);
     if (!parsed.success) {
@@ -33,8 +38,7 @@ export const DELETE = withAuth(
   async (req, _ctx, params) => {
     const { id, itemId } = params;
 
-    const gate = await assertItemEditable(itemId, id);
-    if (gate) return gate;
+    if (!(await verifyBoqItemOwnership(itemId, id))) return notFound();
 
     const parsed = await parseRequest(req, deleteBoqItemSchema);
     if (!parsed.success) {

@@ -51,11 +51,19 @@ export interface PendingBoqReviewRow {
   id: string;
   project_id: string;
   project_name: string;
+  /** Most-recent item update on this BOQ — used to order the popover. */
   submitted_at: string;
-  submitted_by_name: string | null;
+  /** Number of items in `internal_review` on this BOQ — surfaced in the popover. */
+  items_in_review: number;
 }
 
-/** Org-wide list of BOQs awaiting internal approval, newest first. */
+/**
+ * Org-wide list of BOQs that have ≥1 item in `internal_review`, newest first.
+ *
+ * A BOQ shows up once any of its items is waiting on internal sign-off.
+ * Items themselves are not surfaced individually — the unit of "review work"
+ * stays at BOQ granularity for the popover.
+ */
 export async function getPendingBoqReviews(
   orgId: string,
   limit = 20
@@ -66,14 +74,15 @@ export async function getPendingBoqReviews(
        b.id,
        b.project_id,
        p.name AS project_name,
-       b.internal_review_submitted_at AS submitted_at,
-       u.name AS submitted_by_name
+       MAX(bi.updated_at) AS submitted_at,
+       COUNT(bi.id)::int AS items_in_review
      FROM boq b
      JOIN project p ON p.id = b.project_id
-     LEFT JOIN "user" u ON u.id = b.internal_review_submitted_by
+     JOIN boq_item bi ON bi.boq_id = b.id
      WHERE p.org_id = $1
-       AND b.status = 'pending_internal_review'
-     ORDER BY b.internal_review_submitted_at DESC NULLS LAST, b.id DESC
+       AND bi.phase = 'internal_review'
+     GROUP BY b.id, b.project_id, p.name
+     ORDER BY MAX(bi.updated_at) DESC NULLS LAST, b.id DESC
      LIMIT $2`,
     [orgId, limit]
   );
@@ -99,10 +108,11 @@ export async function getDashboardStats(orgId: string) {
       WHERE p.org_id = $1
     ),
     boq_review_stats AS (
-      SELECT COUNT(*)::int AS pending
-      FROM boq b
+      SELECT COUNT(DISTINCT bi.boq_id)::int AS pending
+      FROM boq_item bi
+      JOIN boq b ON b.id = bi.boq_id
       JOIN project p ON p.id = b.project_id
-      WHERE p.org_id = $1 AND b.status = 'pending_internal_review'
+      WHERE p.org_id = $1 AND bi.phase = 'internal_review'
     ),
     member_count AS (
       SELECT COUNT(*)::int AS count FROM member WHERE "organizationId" = $1

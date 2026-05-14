@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { moveBoqItem } from "@/lib/queries";
+import { moveBoqItem, verifyBoqItemOwnership } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, moveBoqItemSchema } from "@/lib/validations";
-import {
-  assertItemEditable,
-  optimisticFailureResponse,
-} from "../../../_helpers";
+import { optimisticFailureResponse } from "../../../_helpers";
 
 /**
  * POST /api/projects/[id]/boq/items/[itemId]/move
@@ -14,15 +11,19 @@ import {
  * the bottom of the target section. Optimistic-locked on `updatedAt`.
  *
  * Cross-BOQ moves are rejected (400) — they'd break cost / version
- * semantics. The locked-BOQ guard is enforced via `assertItemEditable`.
+ * semantics.
  */
 export const POST = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
   async (req, _ctx, params) => {
     const { id, itemId } = params;
 
-    const gate = await assertItemEditable(itemId, id);
-    if (gate) return gate;
+    if (!(await verifyBoqItemOwnership(itemId, id))) {
+      return NextResponse.json(
+        { error: "Item not found in this project" },
+        { status: 404 }
+      );
+    }
 
     const parsed = await parseRequest(req, moveBoqItemSchema);
     if (!parsed.success) {

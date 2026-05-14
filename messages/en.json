@@ -210,6 +210,7 @@
   },
   "projectDetail": {
     "title": "Project Detail",
+    "category": "Category",
     "designSections": "Design Sections",
     "teamMembers": "Team Members",
     "projectInfo": "Project Info",

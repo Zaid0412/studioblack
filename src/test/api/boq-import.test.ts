@@ -118,22 +118,6 @@ describe("POST /api/projects/[id]/boq/import", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 423 when the BOQ is locked", async () => {
-    stubBoq("locked");
-    const buf = await sheetBuffer([["Item", "m2", 1, 1]]);
-    const file = new File([buf], "boq.xlsx", {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    const res = await POST(
-      buildUploadRequest(file),
-      buildParams({ id: PROJECT_ID })
-    );
-    const { status, body } = await parseResponse<{ code: string }>(res);
-    expect(status).toBe(423);
-    expect(body.code).toBe("BOQ_LOCKED");
-  });
-
   it("denies client role with 403", async () => {
     setupAuth(mocks.auth, clientSession);
     const buf = await sheetBuffer([["Item", "m2", 1, 1]]);

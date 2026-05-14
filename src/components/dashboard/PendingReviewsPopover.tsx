@@ -192,8 +192,7 @@ function BoqReviewRow({ row }: { row: PendingBoqReviewRow }) {
             BOQ — {row.project_name}
           </span>
           <span className="text-xs text-text-muted truncate">
-            {row.submitted_by_name && `submitted by ${row.submitted_by_name}`}
-            {row.submitted_by_name && " · "}
+            {row.items_in_review} item{row.items_in_review === 1 ? "" : "s"} ·{" "}
             {timeAgo(row.submitted_at)}
           </span>
         </div>

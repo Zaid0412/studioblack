@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import {
   bulkInsertBoqItems,
-  getBoqStatus,
   verifyBoqOwnership,
   withBoqImportIdempotency,
 } from "@/lib/queries";
@@ -59,19 +58,6 @@ export const POST = withAuth(
       return NextResponse.json(
         { error: "BOQ not found in this project" },
         { status: 404 }
-      );
-    }
-
-    // Re-check status at confirm time — the BOQ could have been locked
-    // between the preview call and this call.
-    const status = await getBoqStatus(boqId, params.id);
-    if (status === "locked" || status === "superseded") {
-      return NextResponse.json(
-        {
-          error: "This BOQ is locked and can no longer be edited.",
-          code: "BOQ_LOCKED",
-        },
-        { status: 423 }
       );
     }
 

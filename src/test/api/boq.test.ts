@@ -5,7 +5,6 @@ import {
   getBoqByProject,
   updateBoq,
   verifyBoqOwnership,
-  getBoqStatus,
   hasProjectAccess,
   getOrgRole,
 } from "@/lib/queries";
@@ -31,7 +30,6 @@ const fakeBoq: Boq = {
   project_id: PROJECT_ID,
   title: "Main BOQ",
   version: 1,
-  status: "draft",
   currency: "USD",
   exchange_rate: "1",
   contingency_pct: "5",
@@ -77,7 +75,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
-  vi.mocked(getBoqStatus).mockResolvedValue("draft");
 });
 
 // ── GET /api/projects/[id]/boq ──────────────────────────────────────────────
@@ -94,7 +91,29 @@ describe("GET /api/projects/[id]/boq", () => {
     expect(status).toBe(200);
     expect(body.id).toBe(BOQ_ID);
     expect(body.summary.item_count).toBe(3);
-    expect(getBoq).toHaveBeenCalledWith(BOQ_ID);
+    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsExternal: false });
+  });
+
+  it("passes viewerIsExternal=true for client viewer", async () => {
+    setupAuth(mocks.auth, clientSession);
+    vi.mocked(getBoqByProject).mockResolvedValue(fakeBoq);
+    vi.mocked(getBoq).mockResolvedValue(fakeFullBoq);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`);
+    await GET(req, buildParams({ id: PROJECT_ID }));
+
+    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsExternal: true });
+  });
+
+  it("passes viewerIsExternal=true for vendor viewer", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "vendor" }));
+    vi.mocked(getBoqByProject).mockResolvedValue(fakeBoq);
+    vi.mocked(getBoq).mockResolvedValue(fakeFullBoq);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`);
+    await GET(req, buildParams({ id: PROJECT_ID }));
+
+    expect(getBoq).toHaveBeenCalledWith(BOQ_ID, { viewerIsExternal: true });
   });
 
   it("returns 404 when no BOQ exists for project", async () => {
@@ -283,7 +302,7 @@ describe("PATCH /api/projects/[id]/boq", () => {
   });
 
   it("returns 404 when BOQ is not owned by the project", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue(null);
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
       method: "PATCH",
@@ -334,90 +353,6 @@ describe("PATCH /api/projects/[id]/boq", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(403);
-  });
-
-  it("returns 423 when editing non-status fields on a locked BOQ", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("locked");
-
-    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
-      method: "PATCH",
-      body: { boqId: BOQ_ID, title: "Renamed" },
-    });
-    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ code: string }>(res);
-
-    expect(status).toBe(423);
-    expect(body.code).toBe("BOQ_LOCKED");
-    expect(updateBoq).not.toHaveBeenCalled();
-  });
-
-  it("allows the internally_approved → submitted_to_client transition", async () => {
-    // After F4 internal-review gate, draft no longer transitions
-    // straight to submitted_to_client — it goes through the review
-    // states first. The PATCH endpoint only handles transitions that
-    // don't have audit-side effects.
-    vi.mocked(getBoqStatus).mockResolvedValue("internally_approved");
-    vi.mocked(updateBoq).mockResolvedValue({
-      ...fakeBoq,
-      status: "submitted_to_client",
-    });
-
-    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
-      method: "PATCH",
-      body: { boqId: BOQ_ID, status: "submitted_to_client" },
-    });
-    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ status: string }>(res);
-
-    expect(status).toBe(200);
-    expect(body.status).toBe("submitted_to_client");
-  });
-
-  it("rejects directly setting an internal-review status via PATCH", async () => {
-    // The internal-review states must go through their dedicated
-    // endpoints so the audit columns get stamped — not the generic
-    // PATCH route.
-    vi.mocked(getBoqStatus).mockResolvedValue("draft");
-
-    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
-      method: "PATCH",
-      body: { boqId: BOQ_ID, status: "pending_internal_review" },
-    });
-    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ code: string }>(res);
-
-    expect(status).toBe(422);
-    expect(body.code).toBe("USE_REVIEW_ENDPOINT");
-    expect(updateBoq).not.toHaveBeenCalled();
-  });
-
-  it("rejects an invalid status transition with 422", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("draft");
-
-    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
-      method: "PATCH",
-      body: { boqId: BOQ_ID, status: "locked" },
-    });
-    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ code: string }>(res);
-
-    expect(status).toBe(422);
-    expect(body.code).toBe("INVALID_STATUS_TRANSITION");
-    expect(updateBoq).not.toHaveBeenCalled();
-  });
-
-  it("rejects any transition out of the terminal locked status", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("locked");
-
-    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq`, {
-      method: "PATCH",
-      body: { boqId: BOQ_ID, status: "draft" },
-    });
-    const res = await PATCH(req, buildParams({ id: PROJECT_ID }));
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(422);
-    expect(updateBoq).not.toHaveBeenCalled();
   });
 });
 

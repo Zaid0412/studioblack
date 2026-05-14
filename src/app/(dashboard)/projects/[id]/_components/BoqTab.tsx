@@ -7,6 +7,7 @@ import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
 import { useBoq } from "@/hooks/useBoq";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { useUserRole } from "@/hooks/useUserRole";
+import { isExternalViewer } from "@/lib/roles";
 import { BoqCreateDialog } from "../boq/_components/BoqCreateDialog";
 import { BoqHeader } from "../boq/_components/BoqHeader";
 import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
@@ -24,14 +25,14 @@ import { BoqBulkActionBar } from "../boq/_components/BoqBulkActionBar";
 import { useBoqSelection } from "@/hooks/useBoqSelection";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
 import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
-import { BoqRequestChangesDialog } from "../boq/_components/BoqRequestChangesDialog";
-import { BoqInternalReviewBanner } from "../boq/_components/BoqInternalReviewBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
 import { boq as boqApi, ApiError } from "@/lib/api";
 import { trackEvent } from "@/lib/analytics";
 import { saveBlob } from "@/lib/download";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
+import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
+import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
 
 interface BoqTabProps {
   projectId: string;
@@ -50,11 +51,12 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const { role, session } = useUserRole();
   const currentUserId = session?.user?.id ?? null;
   const {
-    updateBoq,
     updateItem,
     moveItem,
     bulkMoveItems,
     bulkDeleteItems,
+    bulkSetItemPhase,
+    setItemPhase,
     deleteItem,
     updateSection,
     deleteSection,
@@ -78,13 +80,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [deleteItemTarget, setDeleteItemTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [deletingItem, setDeletingItem] = useState(false);
-  const [transitioning, setTransitioning] = useState(false);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
   );
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [requestChangesOpen, setRequestChangesOpen] = useState(false);
   const { selected: sourceFilter, setSelected: setSourceFilter } =
     useBoqSourceFilter();
 
@@ -114,21 +114,45 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   }, [boq]);
   const selection = useBoqSelection({ allItemIds, itemIdsBySection });
 
-  // When every selected item lives in the same section, surface that
-  // section to the move popover so it can render the "Current" badge.
-  // `null` is the Unassigned bucket; `undefined` = mixed selection.
-  const sharedSelectedSectionId = useMemo<string | null | undefined>(() => {
-    if (!boq || selection.selected.size === 0) return undefined;
-    let shared: string | null | undefined;
-    for (const it of boq.items) {
-      if (!selection.selected.has(it.id)) continue;
-      const sid = it.section_id ?? null;
-      if (shared === undefined) shared = sid;
-      else if (shared !== sid) return undefined;
-    }
-    return shared;
-  }, [boq, selection.selected]);
+  // When every selected item shares a field value, surface it so downstream
+  // popovers can disable the matching row. Mixed selection → undefined. Used
+  // for both the section move-target and the phase picker.
+  const sharedSelectedSectionId = useMemo(
+    () =>
+      sharedFieldAcrossSelection(
+        boq?.items,
+        selection.selected,
+        (it) => it.section_id ?? null
+      ),
+    [boq?.items, selection.selected]
+  );
+  const sharedSelectedPhase = useMemo(
+    () =>
+      sharedFieldAcrossSelection(
+        boq?.items,
+        selection.selected,
+        (it) => it.phase
+      ),
+    [boq?.items, selection.selected]
+  );
 
+  // Pre-filter the bulk lifecycle picker to role-fireable phases. `isCreator`
+  // is a BOQ-level property, so one boolean covers the whole batch.
+  const bulkAllowedPhases = useMemo<readonly BoqItemPhase[]>(() => {
+    const isPM = role === "pm";
+    const isClient = role === "client";
+    const isCreator =
+      boq?.created_by != null &&
+      currentUserId != null &&
+      boq.created_by === currentUserId;
+    return BOQ_ITEM_PHASES.filter((phase) =>
+      canFireBoqPhaseTransition({ target: phase, isPM, isClient, isCreator })
+    );
+  }, [role, currentUserId, boq?.created_by]);
+
+  // Bulk action success → exit selection mode entirely (per UX: after one
+  // batch action, dismiss the bar). Failures keep the user in selection mode
+  // so they can retry / cancel.
   const handleBulkMove = useCallback(
     async (targetSectionId: string | null) => {
       if (!boq || selection.selected.size === 0) return;
@@ -138,7 +162,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           Array.from(selection.selected),
           targetSectionId
         );
-        selection.clear();
+        selection.toggleMode();
       } catch {
         /* useBoqMutations toasts on error */
       }
@@ -150,12 +174,48 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     if (!boq || selection.selected.size === 0) return;
     try {
       await bulkDeleteItems(boq.id, Array.from(selection.selected));
-      selection.clear();
       setBulkDeleteConfirmOpen(false);
+      selection.toggleMode();
     } catch {
       /* useBoqMutations toasts on error */
     }
   }, [boq, bulkDeleteItems, selection]);
+
+  const handleBulkSetPhase = useCallback(
+    async (phase: BoqItemPhase, comment?: string) => {
+      if (!boq || selection.selected.size === 0) return;
+      try {
+        await bulkSetItemPhase(
+          boq.id,
+          Array.from(selection.selected),
+          phase,
+          comment ? { comment } : undefined
+        );
+        selection.toggleMode();
+      } catch {
+        /* useBoqMutations toasts on error */
+      }
+    },
+    [boq, bulkSetItemPhase, selection]
+  );
+
+  // Single-item lifecycle change from the row's "..." menu. Errors are
+  // surfaced via toast inside `useBoqMutations`; we just no-op here so
+  // the menu can resume normally.
+  const handleSetItemPhase = useCallback(
+    async (
+      item: BoqItemWithComputed,
+      target: BoqItemPhase,
+      comment?: string
+    ) => {
+      try {
+        await setItemPhase(item.id, target, comment ? { comment } : undefined);
+      } catch {
+        /* useBoqMutations toasts on error */
+      }
+    },
+    [setItemPhase]
+  );
 
   const handleCreateAndMoveCompleted = useCallback(
     async (sectionId: string) => {
@@ -190,6 +250,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       ),
     [boq?.items]
   );
+
+  /** Item-count strip for the BOQ header — one bucket per phase. */
+  const phaseCounts = useMemo<Record<BoqItemPhase, number>>(() => {
+    const counts = Object.fromEntries(
+      BOQ_ITEM_PHASES.map((p) => [p, 0])
+    ) as Record<BoqItemPhase, number>;
+    for (const it of boq?.items ?? []) counts[it.phase] += 1;
+    return counts;
+  }, [boq?.items]);
 
   if (isLoading) {
     return <BoqTabSkeleton />;
@@ -229,72 +298,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
 
   if (!boq) return null;
 
-  const canEdit =
-    (role === "pm" || role === "architect") &&
-    boq.status !== "locked" &&
-    boq.status !== "superseded";
-
-  // Internal review eligibility — mirrors the server-side
-  // `getEligibleReviewers` rule: PM or architect AND not the BOQ creator.
-  // Clients are always false (they're already excluded by canEdit).
-  const isCreator = !!currentUserId && boq.created_by === currentUserId;
-  const canReview = (role === "pm" || role === "architect") && !isCreator;
-
-  /**
-   * Internal-review action wrapper — runs the API call inside
-   * `transitioning`, mutates the BOQ cache on success so the header
-   * flips status immediately, toasts on error, and swallows the
-   * promise so the BoqHeader's onClick is fire-and-forget.
-   */
-  async function runReviewAction(
-    action: () => Promise<unknown>,
-    successMessage: string
-  ) {
-    setTransitioning(true);
-    try {
-      await action();
-      await mutateBoq();
-      toast({ title: successMessage, variant: "success" });
-    } catch (err) {
-      const description =
-        err instanceof ApiError
-          ? err.message
-          : "Something went wrong. Try again.";
-      toast({ title: "Action failed", description, variant: "error" });
-    } finally {
-      setTransitioning(false);
-    }
-  }
-
-  const handleSubmitForReview = () =>
-    runReviewAction(
-      () => boqApi.submitForReview(projectId),
-      "BOQ submitted for internal review"
-    );
-  const handleCancelReview = () =>
-    runReviewAction(
-      () => boqApi.cancelReview(projectId),
-      "Review cancelled — BOQ is back to draft"
-    );
-  const handleApprove = () =>
-    runReviewAction(() => boqApi.approve(projectId), "BOQ internally approved");
-  const handleRequestChangesSubmit = async (comment: string) => {
-    setTransitioning(true);
-    try {
-      await boqApi.requestChanges(projectId, { comment });
-      await mutateBoq();
-      toast({ title: "Changes requested", variant: "success" });
-    } catch (err) {
-      const description =
-        err instanceof ApiError
-          ? err.message
-          : "Something went wrong. Try again.";
-      toast({ title: "Action failed", description, variant: "error" });
-      throw err; // keep dialog open so the reviewer can retry
-    } finally {
-      setTransitioning(false);
-    }
-  };
+  const canEdit = role === "pm" || role === "architect";
+  // External viewers (client + vendor) see the trimmed table + drawer.
+  const isExternal = isExternalViewer(role);
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
@@ -386,53 +392,23 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       <BoqHeader
         title={boq.title}
         version={boq.version}
-        status={boq.status}
         currency={boq.currency}
         itemCount={boq.items.length}
-        pendingApprovals={boq.summary.pending_approvals}
-        marginBleedCount={boq.summary.margin_bleed_count}
-        canEdit={canEdit}
-        isCreator={isCreator}
-        canReview={canReview}
-        internallyApprovedAt={boq.internally_approved_at ?? null}
-        internallyApprovedByName={boq.internally_approved_by_name ?? null}
-        updatedAt={boq.updated_at}
-        transitioning={transitioning}
-        onSubmitForReview={handleSubmitForReview}
-        onCancelReview={handleCancelReview}
-        onApprove={handleApprove}
-        onRequestChanges={() => setRequestChangesOpen(true)}
-        onTransition={async (next) => {
-          setTransitioning(true);
-          try {
-            await updateBoq({ boqId: boq.id, status: next });
-          } catch {
-            /* useBoqMutations toasts on error */
-          } finally {
-            setTransitioning(false);
-          }
-        }}
+        // Margin bleed is a studio-only metric — never expose count to clients.
+        marginBleedCount={isExternal ? 0 : boq.summary.margin_bleed_count}
+        phaseCounts={phaseCounts}
       />
 
-      {boq.status === "changes_requested" && (
-        <BoqInternalReviewBanner
-          reviewerName={boq.changes_requested_by_name ?? null}
-          comment={boq.changes_requested_comment}
-          requestedAt={boq.changes_requested_at}
+      {/* Summary KPI cards expose cost / margin / over-budget aggregates —
+          hidden from clients entirely. The BottomBar already shows the
+          client-facing financial breakdown they need. */}
+      {!isExternal && (
+        <BoqSummaryCards
+          summary={boq.summary}
+          currency={boq.currency}
+          minimumMarginPct={boq.minimum_margin_pct}
         />
       )}
-
-      <BoqRequestChangesDialog
-        open={requestChangesOpen}
-        onOpenChange={setRequestChangesOpen}
-        onSubmit={handleRequestChangesSubmit}
-      />
-
-      <BoqSummaryCards
-        summary={boq.summary}
-        currency={boq.currency}
-        minimumMarginPct={boq.minimum_margin_pct}
-      />
 
       {canEdit && (
         <BoqActionBar
@@ -447,7 +423,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         />
       )}
 
-      <BoqSourceFilter selected={sourceFilter} onChange={setSourceFilter} />
+      {/* Source filter is a studio organising tool (library / custom / rate
+          contract) — not useful to clients and exposes internal taxonomy. */}
+      {!isExternal && (
+        <BoqSourceFilter selected={sourceFilter} onChange={setSourceFilter} />
+      )}
 
       <BoqTable
         sections={boq.sections}
@@ -455,13 +435,16 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         summary={boq.summary}
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
-        boqStatus={boq.status}
         canEdit={canEdit}
+        role={role}
+        currentUserId={currentUserId}
+        boqCreatorId={boq.created_by}
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
         onDeleteItem={async (item) => setDeleteItemTarget(item)}
         onMoveItem={moveItem}
         onCreateAndMoveItem={setCreateAndMoveTarget}
+        onSetItemPhase={handleSetItemPhase}
         selection={selection.selectionMode ? selection : undefined}
         onRenameSection={setRenameSection}
         onToggleSectionVisibility={handleToggleVisibility}
@@ -576,7 +559,10 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           boqId={boq.id}
           nextSortOrder={boq.sections.length}
           sharedSectionId={sharedSelectedSectionId}
+          sharedPhase={sharedSelectedPhase}
+          allowedPhases={bulkAllowedPhases}
           onMove={handleBulkMove}
+          onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}
           onCancel={selection.toggleMode}
         />
@@ -603,6 +589,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
         canEdit={canEdit}
+        role={role}
+        currentUserId={currentUserId}
+        boqCreatorId={boq.created_by}
         onDelete={(item) => {
           // Close the drawer first so the confirm dialog isn't stacked
           // on top of the open sheet — single modal layer at a time.
@@ -619,4 +608,30 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       />
     </div>
   );
+}
+
+/**
+ * Resolve the field value shared across every selected item, or `undefined`
+ * if the selection is mixed (or empty). Used by the bulk popovers to render
+ * a "Current" hint on whichever row the entire selection is already on.
+ */
+function sharedFieldAcrossSelection<T>(
+  items: ReadonlyArray<BoqItemWithComputed> | undefined,
+  selected: ReadonlySet<string>,
+  getField: (item: BoqItemWithComputed) => T
+): T | undefined {
+  if (!items || selected.size === 0) return undefined;
+  let shared: T | undefined;
+  let seen = false;
+  for (const it of items) {
+    if (!selected.has(it.id)) continue;
+    const value = getField(it);
+    if (!seen) {
+      shared = value;
+      seen = true;
+    } else if (shared !== value) {
+      return undefined;
+    }
+  }
+  return shared;
 }

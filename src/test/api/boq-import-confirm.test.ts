@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { POST } from "@/app/api/projects/[id]/boq/import/confirm/route";
 import {
   bulkInsertBoqItems,
-  getBoqStatus,
   verifyBoqOwnership,
   withBoqImportIdempotency,
 } from "@/lib/queries";
@@ -62,7 +61,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
-  vi.mocked(getBoqStatus).mockResolvedValue("draft");
   vi.mocked(bulkInsertBoqItems).mockResolvedValue({
     inserted: 1,
     replaced: 0,
@@ -106,18 +104,6 @@ describe("POST /api/projects/[id]/boq/import/confirm", () => {
       buildParams({ id: PROJECT_ID })
     );
     expect(res.status).toBe(404);
-    expect(bulkInsertBoqItems).not.toHaveBeenCalled();
-  });
-
-  it("returns 423 when the BOQ is locked", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue("locked");
-    const res = await POST(
-      buildRequest(uniquePayload("locked")),
-      buildParams({ id: PROJECT_ID })
-    );
-    const { status, body } = await parseResponse<{ code: string }>(res);
-    expect(status).toBe(423);
-    expect(body.code).toBe("BOQ_LOCKED");
     expect(bulkInsertBoqItems).not.toHaveBeenCalled();
   });
 

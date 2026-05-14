@@ -120,11 +120,9 @@ export const API = {
   boqItemsFromElement:   (pid: string)                       => `/api/projects/${pid}/boq/items/from-element`,
   boqItemsFromElements:  (pid: string)                       => `/api/projects/${pid}/boq/items/from-elements`,
 
-  // ── BOQ internal review gate ────────────────────
-  boqSubmitForReview:    (pid: string)                       => `/api/projects/${pid}/boq/submit-for-review`,
-  boqApprove:            (pid: string)                       => `/api/projects/${pid}/boq/approve`,
-  boqRequestChanges:     (pid: string)                       => `/api/projects/${pid}/boq/request-changes`,
-  boqCancelReview:       (pid: string)                       => `/api/projects/${pid}/boq/cancel-review`,
+  // ── Per-item lifecycle phase ────────────────────
+  boqItemLifecycle:      (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/lifecycle`,
+  boqItemsBulkLifecycle: (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-lifecycle`,
 
   // ── BOQ Excel Import / Export (Feature 6) ───────
   boqImport:             (pid: string)                       => `/api/projects/${pid}/boq/import`,

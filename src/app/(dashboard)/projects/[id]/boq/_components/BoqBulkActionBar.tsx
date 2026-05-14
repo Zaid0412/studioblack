@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import { Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { BoqSection } from "@/types";
+import type { BoqItemPhase } from "@/lib/validations";
 import { BoqMoveTargetPopover } from "./BoqMoveTargetPopover";
+import { BoqPhasePickerPopover } from "./BoqPhasePickerPopover";
 
 interface BoqBulkActionBarProps {
   count: number;
@@ -15,7 +17,12 @@ interface BoqBulkActionBarProps {
   nextSortOrder: number;
   /** When every selected item shares a section, forwarded to the move popover. */
   sharedSectionId?: string | null;
+  /** When every selected item shares a phase, forwarded to the phase picker so it can disable that row. */
+  sharedPhase?: BoqItemPhase;
+  /** Phases the viewer is permitted to fire, pre-filtered through the role matrix. */
+  allowedPhases: readonly BoqItemPhase[];
   onMove: (targetSectionId: string | null) => void;
+  onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
   onCancel: () => void;
 }
@@ -34,7 +41,10 @@ export function BoqBulkActionBar({
   boqId,
   nextSortOrder,
   sharedSectionId,
+  sharedPhase,
+  allowedPhases,
   onMove,
+  onSetPhase,
   onDelete,
   onCancel,
 }: BoqBulkActionBarProps) {
@@ -73,6 +83,19 @@ export function BoqBulkActionBar({
         boqId={boqId}
         nextSortOrder={nextSortOrder}
       />
+
+      {allowedPhases.length > 0 && (
+        <BoqPhasePickerPopover
+          trigger={
+            <Button type="button" variant="secondary" size="sm">
+              Set lifecycle…
+            </Button>
+          }
+          onPick={onSetPhase}
+          currentPhase={sharedPhase}
+          allowedPhases={allowedPhases}
+        />
+      )}
 
       <Button type="button" variant="danger" size="sm" onClick={onDelete}>
         <Trash2 className="h-3.5 w-3.5" />

@@ -14,19 +14,24 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/useToast";
-import type { BoqItemWithComputed, BoqSection } from "@/types";
-import type { BoqItemLifecycleStatus } from "@/lib/validations";
+import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
+import type { BoqItemPhase } from "@/lib/validations";
+import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
+import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
+import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
-  clientApprovalToVariant,
+  canFireBoqItemPhaseTransition,
   formatCurrency,
   formatOptionalCurrency,
   formatPct,
   formatQty,
+  isDestructivePhase,
   parseOptionalNumber,
-  lifecycleToVariant,
+  phaseToLabel,
+  phaseToVariant,
   marginTier,
   toNum,
 } from "../_lib/formatters";
@@ -40,6 +45,12 @@ interface BoqItemDrawerProps {
   currency: string;
   minimumMarginPct: string;
   canEdit: boolean;
+  /** Caller's role — gates phase-transition buttons per server permission matrix. */
+  role: UserRole | null;
+  /** Current viewer's user id — used to derive `isCreator`. */
+  currentUserId: string | null;
+  /** BOQ.created_by — used to derive `isCreator` for the 4-eyes rule. */
+  boqCreatorId: string | null;
   /**
    * Optional delete handler — wired up by the parent so the existing
    * ConfirmDialog flow stays the single source of truth. Drawer just
@@ -48,30 +59,14 @@ interface BoqItemDrawerProps {
   onDelete?: (item: BoqItemWithComputed) => void;
 }
 
-/** Transitions allowed from each current lifecycle state. Keeps the UI honest. */
-const LIFECYCLE_TRANSITIONS: Record<
-  BoqItemLifecycleStatus,
-  BoqItemLifecycleStatus[]
-> = {
-  draft: ["submitted"],
-  submitted: ["approved", "rejected", "queried", "draft"],
-  queried: ["submitted", "rejected", "draft"],
-  approved: ["locked", "queried"],
-  rejected: ["draft"],
-  locked: [],
-  change_order_pending: ["approved", "rejected"],
-  superseded: [],
-};
-
-const TRANSITION_LABEL: Record<BoqItemLifecycleStatus, string> = {
-  draft: "Move to draft",
-  submitted: "Submit",
-  approved: "Approve",
-  rejected: "Reject",
-  queried: "Query",
-  locked: "Lock",
-  change_order_pending: "Change-order pending",
-  superseded: "Superseded",
+/** Action-button label for each target phase. */
+const PHASE_ACTION_LABEL: Record<BoqItemPhase, string> = {
+  draft: "Move to Draft",
+  internal_review: "Submit for Review",
+  internally_approved: "Approve",
+  submitted_to_client: "Send to Client",
+  client_approved: "Mark Client Approved",
+  change_requested: "Request Changes",
 };
 
 const NOTES_TEXTAREA_CLS =
@@ -87,9 +82,13 @@ export function BoqItemDrawer({
   currency,
   minimumMarginPct,
   canEdit,
+  role,
+  currentUserId,
+  boqCreatorId,
   onDelete,
 }: BoqItemDrawerProps) {
-  const { updateItem } = useBoqMutations(projectId);
+  const { updateItem, setItemPhase } = useBoqMutations(projectId);
+  const isExternal = isExternalViewer(role);
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -98,8 +97,8 @@ export function BoqItemDrawer({
   // and have B's PATCH go out with a stale `item.updated_at` (→ 409 + a
   // silently-lost edit).
   const [savingField, setSavingField] = useState(false);
-  const [transitioning, setTransitioning] =
-    useState<BoqItemLifecycleStatus | null>(null);
+  const [transitioning, setTransitioning] = useState<BoqItemPhase | null>(null);
+  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
 
   // Seed notes only when a new drawer opens — revalidations must not clobber edits.
   useEffect(() => {
@@ -119,29 +118,29 @@ export function BoqItemDrawer({
       : tier === "warning"
         ? "text-warning"
         : "text-error";
-  const rowLocked =
-    item.lifecycle_status === "locked" ||
-    item.lifecycle_status === "superseded";
   const notesDirty =
     (notes ?? "") !== (item.notes ?? "") ||
     (clientNotes ?? "") !== (item.client_notes ?? "");
 
-  const handleTransition = async (next: BoqItemLifecycleStatus) => {
+  const fireTransition = async (next: BoqItemPhase, comment?: string) => {
     setTransitioning(next);
     try {
-      const updated = await updateItem(item.id, {
-        updatedAt: item.updated_at,
-        lifecycleStatus: next,
+      await setItemPhase(item.id, next, comment ? { comment } : undefined);
+      toast({
+        title: `Marked ${phaseToLabel(next)}`,
+        variant: "success",
       });
-      if (updated) {
-        toast({
-          title: `Marked ${next.replace(/_/g, " ")}`,
-          variant: "success",
-        });
-      }
     } finally {
       setTransitioning(null);
     }
+  };
+
+  const handleTransition = (next: BoqItemPhase) => {
+    if (isDestructivePhase(next)) {
+      setChangeRequestOpen(true);
+      return;
+    }
+    void fireTransition(next);
   };
 
   const handleSaveNotes = async () => {
@@ -195,291 +194,321 @@ export function BoqItemDrawer({
     await saveField(patch);
   };
 
-  const fieldsDisabled = !canEdit || rowLocked || savingField;
+  const fieldsDisabled = !canEdit || savingField;
 
-  const allowedNext = LIFECYCLE_TRANSITIONS[item.lifecycle_status] ?? [];
+  // Show only transitions the viewer's role can actually fire — surfaces
+  // Mark Client Approved to clients even though `canEdit` is false for them.
+  const allowedNext = (BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? []).filter(
+    (target) =>
+      canFireBoqItemPhaseTransition(target, {
+        role,
+        actorId: currentUserId,
+        boqCreatorId,
+      })
+  );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
-        <SheetHeader>
-          <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
-            {item.item_code}
-            {section && <span>· {section.title}</span>}
-          </div>
-          <SheetTitle>{item.description}</SheetTitle>
-          <SheetDescription>
-            {formatQty(item.quantity)} {item.unit} ·{" "}
-            {formatCurrency(item.sell_price, currency)}
-          </SheetDescription>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Badge variant={lifecycleToVariant(item.lifecycle_status)}>
-              {item.lifecycle_status.replace(/_/g, " ")}
-            </Badge>
-            <Badge
-              variant={clientApprovalToVariant(item.client_approval_status)}
-            >
-              client: {item.client_approval_status}
-            </Badge>
-            {item.is_provisional && (
-              <Badge variant="warning">provisional</Badge>
-            )}
-            {item.is_excluded && <Badge variant="archived">excluded</Badge>}
-            {item.margin_alert && (
-              <Badge variant="error" className="gap-1">
-                <AlertTriangle className="h-3 w-3" /> margin below floor
-              </Badge>
-            )}
-            {item.over_budget && (
-              <Badge variant="error" className="gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                {item.budget_variance_pct !== null
-                  ? `${item.budget_variance_pct}% over budget`
-                  : "over budget"}
-              </Badge>
-            )}
-          </div>
-        </SheetHeader>
-
-        <SheetBody className="flex flex-col gap-5">
-          <section className="flex flex-col gap-3">
-            <EditableField
-              label="Description"
-              disabled={fieldsDisabled}
-              value={item.description}
-              display={item.description}
-              onSave={(next) => saveField({ description: next })}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <EditableField
-                label="Item code"
-                disabled={fieldsDisabled}
-                value={item.item_code}
-                display={item.item_code}
-                onSave={(next) => saveField({ itemCode: next })}
-                inputClassName="font-mono"
-              />
-              <EditableField
-                label="Unit"
-                disabled={fieldsDisabled}
-                value={item.unit}
-                display={item.unit}
-                onSave={(next) => saveField({ unit: next })}
-              />
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent>
+          <SheetHeader>
+            <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+              {item.item_code}
+              {section && <span>· {section.title}</span>}
             </div>
-          </section>
+            <SheetTitle>{item.description}</SheetTitle>
+            <SheetDescription>
+              {formatQty(item.quantity)} {item.unit} ·{" "}
+              {formatCurrency(item.sell_price, currency)}
+            </SheetDescription>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Badge variant={phaseToVariant(item.phase)}>
+                {phaseToLabel(item.phase)}
+              </Badge>
+              {item.is_provisional && (
+                <Badge variant="warning">provisional</Badge>
+              )}
+              {item.is_excluded && <Badge variant="archived">excluded</Badge>}
+              {item.margin_alert && (
+                <Badge variant="error" className="gap-1">
+                  <AlertTriangle className="h-3 w-3" /> margin below floor
+                </Badge>
+              )}
+              {item.over_budget && (
+                <Badge variant="error" className="gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  {item.budget_variance_pct !== null
+                    ? `${item.budget_variance_pct}% over budget`
+                    : "over budget"}
+                </Badge>
+              )}
+            </div>
+          </SheetHeader>
 
-          <section className="grid grid-cols-2 gap-3 text-sm">
-            <EditableField
-              label="Quantity"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.quantity}
-              display={formatQty(item.quantity)}
-              onSave={(next) => saveField({ quantity: parseFloat(next) })}
-            />
-            <EditableField
-              label="Unit cost"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.unit_cost}
-              display={formatCurrency(item.unit_cost, currency)}
-              onSave={(next) => saveField({ unitCost: parseFloat(next) })}
-            />
-            <DetailField
-              label="Total cost"
-              value={formatCurrency(item.total_cost, currency)}
-            />
-            <DetailField
-              label="Sell price"
-              value={formatCurrency(item.sell_price, currency)}
-            />
-            <EditableField
-              label="Margin"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              max={100}
-              value={item.margin_pct}
-              display={formatPct(item.margin_pct)}
-              valueClassName={marginColor}
-              onSave={(next) => saveField({ marginPct: parseFloat(next) })}
-            />
-            <EditableField
-              label="Overhead"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              max={100}
-              value={item.overhead_pct}
-              display={formatPct(item.overhead_pct)}
-              onSave={(next) => saveField({ overheadPct: parseFloat(next) })}
-            />
-            <EditableField
-              label="Service charge"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              max={100}
-              value={item.service_charge_pct}
-              display={formatPct(item.service_charge_pct)}
-              onSave={(next) =>
-                saveField({ serviceChargePct: parseFloat(next) })
-              }
-            />
-            <EditableField
-              label="Client rate"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.client_rate ?? ""}
-              display={formatOptionalCurrency(item.client_rate, currency)}
-              onSave={(next) =>
-                saveField({ clientRate: parseOptionalNumber(next) })
-              }
-            />
-            <EditableField
-              label="Budget rate"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.budget_rate ?? ""}
-              display={formatOptionalCurrency(item.budget_rate, currency)}
-              onSave={(next) =>
-                saveField({ budgetRate: parseOptionalNumber(next) })
-              }
-            />
-            <EditableField
-              label="Length"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.length ?? ""}
-              display={item.length ? `${formatQty(item.length)} m` : "—"}
-              onSave={(next) => saveDimension("length", next)}
-            />
-            <EditableField
-              label="Breadth"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.breadth ?? ""}
-              display={item.breadth ? `${formatQty(item.breadth)} m` : "—"}
-              onSave={(next) => saveDimension("breadth", next)}
-            />
-            <EditableField
-              label="Height"
-              disabled={fieldsDisabled}
-              mode="number"
-              min={0}
-              value={item.height ?? ""}
-              display={item.height ? `${formatQty(item.height)} m` : "—"}
-              onSave={(next) => saveDimension("height", next)}
-            />
-          </section>
-
-          {item.element_id && (
-            <section className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-xs text-text-muted">
-              Linked to library element
-              {item.element_archived ? " (archived)" : ""}.
-            </section>
-          )}
-
-          <section className="flex flex-col gap-2">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">
-                Internal notes
-              </span>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={!canEdit || rowLocked}
-                rows={3}
-                className={NOTES_TEXTAREA_CLS}
-                placeholder="Not shown to the client."
+          <SheetBody className="flex flex-col gap-5">
+            <section className="flex flex-col gap-3">
+              <EditableField
+                label="Description"
+                disabled={fieldsDisabled}
+                value={item.description}
+                display={item.description}
+                onSave={(next) => saveField({ description: next })}
               />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-text-secondary">
-                Client notes
-              </span>
-              <textarea
-                value={clientNotes}
-                onChange={(e) => setClientNotes(e.target.value)}
-                disabled={!canEdit || rowLocked}
-                rows={3}
-                className={NOTES_TEXTAREA_CLS}
-                placeholder="Shown to the client on this line."
-              />
-            </label>
-          </section>
-
-          {canEdit && !rowLocked && allowedNext.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
-                Lifecycle
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {allowedNext.map((next) => (
-                  <Button
-                    key={next}
-                    type="button"
-                    variant={next === "rejected" ? "danger" : "secondary"}
-                    size="sm"
-                    disabled={transitioning !== null}
-                    onClick={() => handleTransition(next)}
-                  >
-                    {transitioning === next
-                      ? "Working..."
-                      : TRANSITION_LABEL[next]}
-                  </Button>
-                ))}
+              <div className="grid grid-cols-2 gap-3">
+                <EditableField
+                  label="Item code"
+                  disabled={fieldsDisabled}
+                  value={item.item_code}
+                  display={item.item_code}
+                  onSave={(next) => saveField({ itemCode: next })}
+                  inputClassName="font-mono"
+                />
+                <EditableField
+                  label="Unit"
+                  disabled={fieldsDisabled}
+                  value={item.unit}
+                  display={item.unit}
+                  onSave={(next) => saveField({ unit: next })}
+                />
               </div>
             </section>
-          )}
 
-          <section className="grid grid-cols-2 gap-3 text-xs text-text-muted">
-            <span>Created {new Date(item.created_at).toLocaleString()}</span>
-            <span>Updated {new Date(item.updated_at).toLocaleString()}</span>
-          </section>
-        </SheetBody>
+            <section className="grid grid-cols-2 gap-3 text-sm">
+              <EditableField
+                label="Quantity"
+                disabled={fieldsDisabled}
+                mode="number"
+                min={0}
+                value={item.quantity}
+                display={formatQty(item.quantity)}
+                onSave={(next) => saveField({ quantity: parseFloat(next) })}
+              />
+              <DetailField
+                label={isExternal ? "Total" : "Sell price"}
+                value={formatCurrency(item.sell_price, currency)}
+              />
+              {!isExternal && (
+                <>
+                  <EditableField
+                    label="Unit cost"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    value={item.unit_cost}
+                    display={formatCurrency(item.unit_cost, currency)}
+                    onSave={(next) => saveField({ unitCost: parseFloat(next) })}
+                  />
+                  <DetailField
+                    label="Total cost"
+                    value={formatCurrency(item.total_cost, currency)}
+                  />
+                  <EditableField
+                    label="Margin"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    max={100}
+                    value={item.margin_pct}
+                    display={formatPct(item.margin_pct)}
+                    valueClassName={marginColor}
+                    onSave={(next) =>
+                      saveField({ marginPct: parseFloat(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Overhead"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    max={100}
+                    value={item.overhead_pct}
+                    display={formatPct(item.overhead_pct)}
+                    onSave={(next) =>
+                      saveField({ overheadPct: parseFloat(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Service charge"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    max={100}
+                    value={item.service_charge_pct}
+                    display={formatPct(item.service_charge_pct)}
+                    onSave={(next) =>
+                      saveField({ serviceChargePct: parseFloat(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Client rate"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    value={item.client_rate ?? ""}
+                    display={formatOptionalCurrency(item.client_rate, currency)}
+                    onSave={(next) =>
+                      saveField({ clientRate: parseOptionalNumber(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Budget rate"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    value={item.budget_rate ?? ""}
+                    display={formatOptionalCurrency(item.budget_rate, currency)}
+                    onSave={(next) =>
+                      saveField({ budgetRate: parseOptionalNumber(next) })
+                    }
+                  />
+                </>
+              )}
+              <EditableField
+                label="Length"
+                disabled={fieldsDisabled}
+                mode="number"
+                min={0}
+                value={item.length ?? ""}
+                display={item.length ? `${formatQty(item.length)} m` : "—"}
+                onSave={(next) => saveDimension("length", next)}
+              />
+              <EditableField
+                label="Breadth"
+                disabled={fieldsDisabled}
+                mode="number"
+                min={0}
+                value={item.breadth ?? ""}
+                display={item.breadth ? `${formatQty(item.breadth)} m` : "—"}
+                onSave={(next) => saveDimension("breadth", next)}
+              />
+              <EditableField
+                label="Height"
+                disabled={fieldsDisabled}
+                mode="number"
+                min={0}
+                value={item.height ?? ""}
+                display={item.height ? `${formatQty(item.height)} m` : "—"}
+                onSave={(next) => saveDimension("height", next)}
+              />
+            </section>
 
-        <SheetFooter className="!justify-between">
-          {canEdit && !rowLocked && onDelete ? (
-            <Button
-              type="button"
-              variant="danger"
-              onClick={() => onDelete(item)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => onOpenChange(false)}
-            >
-              Close
-            </Button>
-            {canEdit && !rowLocked && (
+            {item.element_id && (
+              <section className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-xs text-text-muted">
+                Linked to library element
+                {item.element_archived ? " (archived)" : ""}.
+              </section>
+            )}
+
+            <section className="flex flex-col gap-2">
+              {!isExternal && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-text-secondary">
+                    Internal notes
+                  </span>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    disabled={!canEdit}
+                    rows={3}
+                    className={NOTES_TEXTAREA_CLS}
+                    placeholder="Not shown to the client."
+                  />
+                </label>
+              )}
+              {/* External viewers see this read-only; feedback flows through
+                  the change-request comment, not by editing this field. */}
+              <label className="flex flex-col gap-1.5">
+                <span className="text-xs font-medium text-text-secondary">
+                  {isExternal ? "Notes from the team" : "Client notes"}
+                </span>
+                <textarea
+                  value={clientNotes}
+                  onChange={(e) => setClientNotes(e.target.value)}
+                  disabled={!canEdit}
+                  rows={3}
+                  className={NOTES_TEXTAREA_CLS}
+                  placeholder={
+                    isExternal
+                      ? "No notes from the team for this line."
+                      : "Shown to the client on this line."
+                  }
+                />
+              </label>
+            </section>
+
+            {allowedNext.length > 0 && (
+              <section className="flex flex-col gap-2">
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  Lifecycle
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {allowedNext.map((next) => (
+                    <Button
+                      key={next}
+                      type="button"
+                      variant={
+                        next === "change_requested" ? "danger" : "secondary"
+                      }
+                      size="sm"
+                      disabled={transitioning !== null}
+                      onClick={() => handleTransition(next)}
+                    >
+                      {transitioning === next
+                        ? "Working..."
+                        : PHASE_ACTION_LABEL[next]}
+                    </Button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="grid grid-cols-2 gap-3 text-xs text-text-muted">
+              <span>Created {new Date(item.created_at).toLocaleString()}</span>
+              <span>Updated {new Date(item.updated_at).toLocaleString()}</span>
+            </section>
+          </SheetBody>
+
+          <SheetFooter className="!justify-between">
+            {canEdit && onDelete ? (
               <Button
                 type="button"
-                onClick={handleSaveNotes}
-                disabled={!notesDirty || savingNotes}
+                variant="danger"
+                onClick={() => onDelete(item)}
               >
-                {savingNotes ? "Saving..." : "Save notes"}
+                <Trash2 className="h-4 w-4" />
+                Delete
               </Button>
+            ) : (
+              <span />
             )}
-          </div>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => onOpenChange(false)}
+              >
+                Close
+              </Button>
+              {canEdit && (
+                <Button
+                  type="button"
+                  onClick={handleSaveNotes}
+                  disabled={!notesDirty || savingNotes}
+                >
+                  {savingNotes ? "Saving..." : "Save notes"}
+                </Button>
+              )}
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      <BoqChangeRequestDialog
+        open={changeRequestOpen}
+        onOpenChange={setChangeRequestOpen}
+        onSubmit={(comment) => fireTransition("change_requested", comment)}
+      />
+    </>
   );
 }
 

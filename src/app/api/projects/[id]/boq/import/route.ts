@@ -29,17 +29,6 @@ export const POST = withAuth(
         { status: 404 }
       );
     }
-    // `getBoqByProject` already filters out 'superseded'; check 'locked'
-    // here so we don't burn an extra round-trip on `getBoqStatus`.
-    if (boq.status === "locked") {
-      return NextResponse.json(
-        {
-          error: "This BOQ is locked and can no longer be edited.",
-          code: "BOQ_LOCKED",
-        },
-        { status: 423 }
-      );
-    }
 
     const upload = await validateXlsxUpload(req, "file", BOQ_IMPORT_MAX_BYTES);
     if (!upload.ok) {

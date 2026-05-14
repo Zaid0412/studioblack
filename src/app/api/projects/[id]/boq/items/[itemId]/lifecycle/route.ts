@@ -33,16 +33,6 @@ export const POST = withAuth(
       );
     }
 
-    if (ctx.boqStatus === "locked" || ctx.boqStatus === "superseded") {
-      return NextResponse.json(
-        {
-          error: "This BOQ is locked and can no longer be edited.",
-          code: "BOQ_LOCKED" as const,
-        },
-        { status: 423 }
-      );
-    }
-
     const isPM = orgRole === "owner" || orgRole === "admin";
     const isClient = effectiveRole === "client";
     if (

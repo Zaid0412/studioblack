@@ -331,35 +331,6 @@ describe("updateBoqItemSchema", () => {
     expectPass(updateBoqItemSchema, { updatedAt: "2024-01-01T00:00:00Z" });
   });
 
-  it("accepts lifecycleStatus from the allowed enum", () => {
-    const data = expectPass(updateBoqItemSchema, {
-      updatedAt: "2024-01-01T00:00:00Z",
-      lifecycleStatus: "approved",
-    });
-    expect(data.lifecycleStatus).toBe("approved");
-  });
-
-  it("rejects invalid lifecycleStatus", () => {
-    expectFail(updateBoqItemSchema, {
-      updatedAt: "2024-01-01T00:00:00Z",
-      lifecycleStatus: "something-else",
-    });
-  });
-
-  it("accepts clientApprovalStatus from the allowed enum", () => {
-    expectPass(updateBoqItemSchema, {
-      updatedAt: "2024-01-01T00:00:00Z",
-      clientApprovalStatus: "pending",
-    });
-  });
-
-  it("rejects invalid clientApprovalStatus", () => {
-    expectFail(updateBoqItemSchema, {
-      updatedAt: "2024-01-01T00:00:00Z",
-      clientApprovalStatus: "maybe",
-    });
-  });
-
   it("rejects non-UUID sectionId", () => {
     expectFail(updateBoqItemSchema, {
       updatedAt: "2024-01-01T00:00:00Z",

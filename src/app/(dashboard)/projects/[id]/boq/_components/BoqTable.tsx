@@ -41,21 +41,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import type { SectionSelectionState } from "@/hooks/useBoqSelection";
-import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
-import type { BoqStatus } from "@/lib/validations";
+import type {
+  BoqItemWithComputed,
+  BoqSection,
+  BoqSummary,
+  UserRole,
+} from "@/types";
+import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
+import { isExternalViewer } from "@/lib/roles";
 import {
   BOQ_NO_SECTION_ID,
-  clientApprovalToVariant,
+  canFireBoqItemPhaseTransition,
   formatCurrency,
   formatDimensions,
   formatOptionalCurrency,
   formatPct,
   formatQty,
+  isDestructivePhase,
   parseOptionalNumber,
-  lifecycleToVariant,
+  phaseToLabel,
+  phaseToVariant,
   marginTier,
   toNum,
 } from "../_lib/formatters";
+import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqSectionHeader } from "./BoqSectionHeader";
 import { BoqSectionFooter } from "./BoqSectionFooter";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
@@ -71,8 +80,13 @@ interface BoqTableProps {
   summary: BoqSummary;
   currency: string;
   minimumMarginPct: string;
-  boqStatus: BoqStatus;
   canEdit: boolean;
+  /** Viewer's role — gates the row menu's "Change lifecycle…" submenu per the server permission matrix. */
+  role: UserRole | null;
+  /** Current viewer's user id — used to derive `isCreator`. */
+  currentUserId: string | null;
+  /** BOQ.created_by — used to derive `isCreator` for the 4-eyes rule. */
+  boqCreatorId: string | null;
   /** When set, only items whose `source` is in the set are rendered. Empty/undefined → no filter. */
   sourceFilter?: ReadonlySet<BoqItemSource>;
   onUpdateItem?: (
@@ -87,6 +101,16 @@ interface BoqTableProps {
   ) => Promise<BoqItemWithComputed | null | undefined>;
   /** Surfaces "+ Create new section…" at the bottom of the row's Move sub-menu. */
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
+  /**
+   * Fire a phase transition on a single item from the row's "..." menu.
+   * `comment` is required for destructive phases (`change_requested`);
+   * the menu captures it via `BoqChangeRequestDialog` before calling.
+   */
+  onSetItemPhase?: (
+    item: BoqItemWithComputed,
+    target: BoqItemPhase,
+    comment?: string
+  ) => Promise<unknown> | void;
   onRenameSection?: (section: BoqSection) => void;
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
@@ -123,32 +147,31 @@ interface SectionGroup {
 
 // The Source column is narrow on purpose — it carries a single short badge.
 // Client Rate + Budget Rate are 90px each, sitting between Sell Price (cost
-// build-up output) and Lifecycle (workflow state).
+// build-up output) and Phase (single unified workflow badge).
 export const GRID_COLS =
-  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
+  "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
 
 // Same as GRID_COLS with a leading 32px checkbox column for bulk select.
 const GRID_COLS_WITH_SELECT =
-  "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_95px_85px_32px]";
+  "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
+
+// External-viewer variant (client + vendor) — drops Source / Unit Cost /
+// Total Cost / Margin / Budget Rate / Client Rate. Leaves Code, Description,
+// Unit, Qty, Sell Price, Phase, Actions.
+const GRID_COLS_EXTERNAL =
+  "grid-cols-[70px_minmax(160px,1fr)_50px_70px_100px_160px_32px]";
 
 /**
- * Sum of the fixed column widths above (1179px) plus 13 inter-column gaps
- * (gap-2 = 104px) = 1283px. Applied as `min-w` on the table's scrollable
+ * Sum of the fixed column widths above (1159px) plus 12 inter-column gaps
+ * (gap-2 = 96px) = 1255px. Applied as `min-w` on the table's scrollable
  * wrapper so columns never squish below their declared sizes; below the
  * threshold the wrapper scrolls horizontally instead, keeping header and
  * rows aligned.
  */
-export const TABLE_MIN_WIDTH = "min-w-[1283px]";
-
-function isBoqLocked(status: BoqStatus): boolean {
-  return status === "locked" || status === "superseded";
-}
-
-function isItemLocked(item: BoqItemWithComputed): boolean {
-  return (
-    item.lifecycle_status === "locked" || item.lifecycle_status === "superseded"
-  );
-}
+export const TABLE_MIN_WIDTH = "min-w-[1255px]";
+// External-viewer table is narrower (7 columns); ease off the wide min-width
+// so it renders naturally without horizontal scroll on most viewports.
+const TABLE_MIN_WIDTH_EXTERNAL = "min-w-[600px]";
 
 /** BOQ line-item grid: groups items under sortable sections, supports inline edits and item-level actions. */
 export function BoqTable({
@@ -157,13 +180,16 @@ export function BoqTable({
   summary,
   currency,
   minimumMarginPct,
-  boqStatus,
   canEdit,
+  role,
+  currentUserId,
+  boqCreatorId,
   sourceFilter,
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
   onCreateAndMoveItem,
+  onSetItemPhase,
   selection,
   onRenameSection,
   onToggleSectionVisibility,
@@ -175,10 +201,12 @@ export function BoqTable({
 }: BoqTableProps) {
   const t = useTranslations("boq.table");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // One dialog per table, not per row — `change_requested` capture state.
+  const [changeRequestTarget, setChangeRequestTarget] =
+    useState<BoqItemWithComputed | null>(null);
   const marginFloor = toNum(minimumMarginPct) || undefined;
-  const boqLocked = isBoqLocked(boqStatus);
-  const rowsEditable = canEdit && !boqLocked && !!onUpdateItem;
-  const sectionsEditable = canEdit && !boqLocked;
+  const rowsEditable = canEdit && !!onUpdateItem;
+  const sectionsEditable = canEdit;
   // One ref per section header — chip strip uses these for IntersectionObserver
   // and smooth-scroll targets without prop-drilling refs through the section body.
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -268,70 +296,101 @@ export function BoqTable({
     );
   }
 
-  return (
-    <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-      <BoqSectionChips
-        chips={chips}
-        getSectionEl={getSectionEl}
-        onActivate={expandSection}
-      />
-      <div className="overflow-x-auto">
-        <div className={TABLE_MIN_WIDTH}>
-          <div
-            className={`grid ${selection ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
-          >
-            {selection && (
-              <div className="flex items-center justify-center">
-                <Checkbox
-                  checked={selection.tableState === "all"}
-                  indeterminate={selection.tableState === "some"}
-                  onCheckedChange={() => selection.toggleAll()}
-                  aria-label="Select all visible items"
-                />
-              </div>
-            )}
-            <div>Code</div>
-            <div>Description</div>
-            <div>{t("columnSource")}</div>
-            <div>Unit</div>
-            <div className="text-right">Qty</div>
-            <div className="text-right">Unit Cost</div>
-            <div className="text-right">Total Cost</div>
-            <div className="text-right">Margin</div>
-            <div className="text-right">Sell Price</div>
-            <div className="text-right">Client Rate</div>
-            <div className="text-right">Budget Rate</div>
-            <div>Lifecycle</div>
-            <div>Client</div>
-            <div />
-          </div>
+  const isExternal = isExternalViewer(role);
+  // Clients see a trimmed table: no cost / margin / budget / source columns.
+  // Server already scrubs those numbers from the payload, but hiding the
+  // columns avoids confusing zeros in the UI.
+  const gridCols = isExternal
+    ? GRID_COLS_EXTERNAL
+    : selection
+      ? GRID_COLS_WITH_SELECT
+      : GRID_COLS;
+  const wrapperMinWidth = isExternal
+    ? TABLE_MIN_WIDTH_EXTERNAL
+    : TABLE_MIN_WIDTH;
 
-          <SectionList
-            groups={groups}
-            sections={sections}
-            currency={currency}
-            marginFloor={marginFloor}
-            collapsed={collapsed}
-            setCollapsed={setCollapsed}
-            rowsEditable={rowsEditable}
-            sectionsEditable={sectionsEditable}
-            registerSectionRef={registerSectionRef}
-            onUpdateItem={onUpdateItem}
-            onDeleteItem={onDeleteItem}
-            onMoveItem={onMoveItem}
-            onCreateAndMoveItem={onCreateAndMoveItem}
-            selection={selection}
-            onOpenItem={onOpenItem}
-            onAddItemToSection={onAddItemToSection}
-            onAddFromLibraryToSection={onAddFromLibraryToSection}
-            onRenameSection={onRenameSection}
-            onToggleSectionVisibility={onToggleSectionVisibility}
-            onDeleteSection={onDeleteSection}
-            onReorderSections={onReorderSections}
-          />
+  return (
+    <>
+      <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <BoqSectionChips
+          chips={chips}
+          getSectionEl={getSectionEl}
+          onActivate={expandSection}
+        />
+        <div className="overflow-x-auto">
+          <div className={wrapperMinWidth}>
+            <div
+              className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
+            >
+              {!isExternal && selection && (
+                <div className="flex items-center justify-center">
+                  <Checkbox
+                    checked={selection.tableState === "all"}
+                    indeterminate={selection.tableState === "some"}
+                    onCheckedChange={() => selection.toggleAll()}
+                    aria-label="Select all visible items"
+                  />
+                </div>
+              )}
+              <div>Code</div>
+              <div>Description</div>
+              {!isExternal && <div>{t("columnSource")}</div>}
+              <div>Unit</div>
+              <div className="text-right">Qty</div>
+              {!isExternal && <div className="text-right">Unit Cost</div>}
+              {!isExternal && <div className="text-right">Total Cost</div>}
+              {!isExternal && <div className="text-right">Margin</div>}
+              <div className="text-right">Sell Price</div>
+              {!isExternal && <div className="text-right">Client Rate</div>}
+              {!isExternal && <div className="text-right">Budget Rate</div>}
+              <div className="text-center pl-3">Phase</div>
+              <div />
+            </div>
+
+            <SectionList
+              groups={groups}
+              sections={sections}
+              currency={currency}
+              marginFloor={marginFloor}
+              collapsed={collapsed}
+              setCollapsed={setCollapsed}
+              rowsEditable={rowsEditable}
+              sectionsEditable={sectionsEditable}
+              role={role}
+              currentUserId={currentUserId}
+              boqCreatorId={boqCreatorId}
+              registerSectionRef={registerSectionRef}
+              onUpdateItem={onUpdateItem}
+              onDeleteItem={onDeleteItem}
+              onMoveItem={onMoveItem}
+              onCreateAndMoveItem={onCreateAndMoveItem}
+              onSetItemPhase={onSetItemPhase}
+              onRequestChangeComment={setChangeRequestTarget}
+              selection={selection}
+              onOpenItem={onOpenItem}
+              onAddItemToSection={onAddItemToSection}
+              onAddFromLibraryToSection={onAddFromLibraryToSection}
+              onRenameSection={onRenameSection}
+              onToggleSectionVisibility={onToggleSectionVisibility}
+              onDeleteSection={onDeleteSection}
+              onReorderSections={onReorderSections}
+            />
+          </div>
         </div>
       </div>
-    </div>
+      <BoqChangeRequestDialog
+        open={changeRequestTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setChangeRequestTarget(null);
+        }}
+        onSubmit={async (comment) => {
+          const target = changeRequestTarget;
+          if (!target || !onSetItemPhase) return;
+          await onSetItemPhase(target, "change_requested", comment);
+          setChangeRequestTarget(null);
+        }}
+      />
+    </>
   );
 }
 
@@ -346,11 +405,16 @@ interface SectionListProps {
   setCollapsed: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   rowsEditable: boolean;
   sectionsEditable: boolean;
+  role: UserRole | null;
+  currentUserId: string | null;
+  boqCreatorId: string | null;
   registerSectionRef: (id: string, el: HTMLElement | null) => void;
   onUpdateItem?: BoqTableProps["onUpdateItem"];
   onDeleteItem?: BoqTableProps["onDeleteItem"];
   onMoveItem?: BoqTableProps["onMoveItem"];
   onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
+  onSetItemPhase?: BoqTableProps["onSetItemPhase"];
+  onRequestChangeComment?: (item: BoqItemWithComputed) => void;
   selection?: BoqTableProps["selection"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
@@ -466,11 +530,16 @@ function SectionBody({
   setCollapsed,
   rowsEditable,
   sectionsEditable,
+  role,
+  currentUserId,
+  boqCreatorId,
   registerSectionRef,
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
   onCreateAndMoveItem,
+  onSetItemPhase,
+  onRequestChangeComment,
   selection,
   onOpenItem,
   onAddItemToSection,
@@ -556,12 +625,17 @@ function SectionBody({
               item={item}
               currency={currency}
               marginFloor={marginFloor}
-              editable={rowsEditable && !isItemLocked(item)}
+              editable={rowsEditable}
               sections={sections}
+              role={role}
+              currentUserId={currentUserId}
+              boqCreatorId={boqCreatorId}
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
+              onSetItemPhase={onSetItemPhase}
+              onRequestChangeComment={onRequestChangeComment}
               isSelected={selection ? selection.selected.has(item.id) : false}
               onToggleSelected={
                 selection ? () => selection.toggle(item.id) : undefined
@@ -587,6 +661,10 @@ interface BoqItemRowProps {
   currency: string;
   marginFloor?: number;
   editable: boolean;
+  /** Viewer's role — drives lifecycle submenu visibility/per-phase gating. */
+  role: UserRole | null;
+  currentUserId: string | null;
+  boqCreatorId: string | null;
   onUpdateItem?: (
     itemId: string,
     data: UpdateItemPayload
@@ -603,6 +681,18 @@ interface BoqItemRowProps {
   onToggleSelected?: () => void;
   /** When defined, adds a "+ Create new section…" item at the bottom of the Move sub-menu. */
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
+  /** Fire a single-item phase transition from the row's "..." menu. */
+  onSetItemPhase?: (
+    item: BoqItemWithComputed,
+    target: BoqItemPhase,
+    comment?: string
+  ) => Promise<unknown> | void;
+  /**
+   * Request the table-level change-request comment prompt for `item`. Used
+   * for destructive transitions so the dialog is mounted once at the table
+   * level instead of once per row.
+   */
+  onRequestChangeComment?: (item: BoqItemWithComputed) => void;
   onOpen?: (item: BoqItemWithComputed) => void;
 }
 
@@ -612,12 +702,17 @@ const BoqItemRow = memo(function BoqItemRow({
   marginFloor,
   editable,
   sections,
+  role,
+  currentUserId,
+  boqCreatorId,
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
   isSelected,
   onToggleSelected,
   onCreateAndMoveItem,
+  onSetItemPhase,
+  onRequestChangeComment,
   onOpen,
 }: BoqItemRowProps) {
   const selectionMode = onToggleSelected !== undefined;
@@ -649,14 +744,47 @@ const BoqItemRow = memo(function BoqItemRow({
   );
 
   const canMove = editable && !!onMoveItem;
-  const showMenu = editable && (onDeleteItem || canMove);
+  const isExternal = isExternalViewer(role);
+  // Phases the viewer can actually transition this item into right now.
+  // Empty for clients on items in `change_requested` / `draft`, etc.
+  const lifecycleTargets = onSetItemPhase
+    ? BOQ_ITEM_PHASES.filter(
+        (target) =>
+          target !== item.phase &&
+          canFireBoqItemPhaseTransition(target, {
+            role,
+            actorId: currentUserId,
+            boqCreatorId,
+          })
+      )
+    : [];
+  const canChangeLifecycle = lifecycleTargets.length > 0;
+  // Clients only get menu access for lifecycle actions; PMs/architects keep
+  // their existing move/delete entries gated on `editable`.
+  const showMenu =
+    (editable && (onDeleteItem || canMove)) || canChangeLifecycle;
   const currentSectionId = item.section_id ?? null;
+
+  const handlePickLifecycle = (target: BoqItemPhase) => {
+    if (!onSetItemPhase) return;
+    if (isDestructivePhase(target)) {
+      onRequestChangeComment?.(item);
+      return;
+    }
+    void onSetItemPhase(item, target);
+  };
+
+  const rowGridCols = isExternal
+    ? GRID_COLS_EXTERNAL
+    : selectionMode
+      ? GRID_COLS_WITH_SELECT
+      : GRID_COLS;
 
   return (
     <div
-      className={`grid ${selectionMode ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
+      className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
     >
-      {selectionMode && (
+      {!isExternal && selectionMode && (
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isSelected ?? false}
@@ -712,9 +840,11 @@ const BoqItemRow = memo(function BoqItemRow({
           </span>
         )}
       </span>
-      <span className="min-w-0">
-        <BoqSourceBadge source={item.source} />
-      </span>
+      {!isExternal && (
+        <span className="min-w-0">
+          <BoqSourceBadge source={item.source} />
+        </span>
+      )}
       <BoqEditableCell
         value={item.unit}
         display={item.unit}
@@ -734,88 +864,90 @@ const BoqItemRow = memo(function BoqItemRow({
         className="tabular-nums text-text-primary"
         ariaLabel={`Quantity for ${item.item_code}`}
       />
-      <BoqEditableCell
-        value={item.unit_cost}
-        display={formatCurrency(item.unit_cost, currency)}
-        mode="number"
-        min={0}
-        align="right"
-        disabled={!editable}
-        onSave={(next) => save({ unitCost: parseFloat(next) })}
-        className="tabular-nums text-text-primary"
-        ariaLabel={`Unit cost for ${item.item_code}`}
-      />
-      <span className="text-right tabular-nums text-text-primary">
-        {formatCurrency(item.total_cost, currency)}
-      </span>
-      <span
-        className={`text-right tabular-nums font-medium ${marginColor} flex items-center justify-end gap-1`}
-      >
-        {item.margin_alert && <AlertTriangle className="w-3.5 h-3.5" />}
+      {!isExternal && (
         <BoqEditableCell
-          value={item.margin_pct}
-          display={formatPct(item.margin_pct)}
+          value={item.unit_cost}
+          display={formatCurrency(item.unit_cost, currency)}
           mode="number"
           min={0}
-          max={100}
           align="right"
           disabled={!editable}
-          onSave={(next) => save({ marginPct: parseFloat(next) })}
-          className="tabular-nums"
-          ariaLabel={`Margin for ${item.item_code}`}
+          onSave={(next) => save({ unitCost: parseFloat(next) })}
+          className="tabular-nums text-text-primary"
+          ariaLabel={`Unit cost for ${item.item_code}`}
         />
-      </span>
+      )}
+      {!isExternal && (
+        <span className="text-right tabular-nums text-text-primary">
+          {formatCurrency(item.total_cost, currency)}
+        </span>
+      )}
+      {!isExternal && (
+        <span
+          className={`text-right tabular-nums font-medium ${marginColor} flex items-center justify-end gap-1`}
+        >
+          {item.margin_alert && <AlertTriangle className="w-3.5 h-3.5" />}
+          <BoqEditableCell
+            value={item.margin_pct}
+            display={formatPct(item.margin_pct)}
+            mode="number"
+            min={0}
+            max={100}
+            align="right"
+            disabled={!editable}
+            onSave={(next) => save({ marginPct: parseFloat(next) })}
+            className="tabular-nums"
+            ariaLabel={`Margin for ${item.item_code}`}
+          />
+        </span>
+      )}
       <span className="text-right tabular-nums text-text-primary">
         {formatCurrency(item.sell_price, currency)}
       </span>
-      <BoqEditableCell
-        value={item.client_rate ?? ""}
-        display={formatOptionalCurrency(item.client_rate, currency)}
-        mode="number"
-        min={0}
-        align="right"
-        disabled={!editable}
-        onSave={(next) => save({ clientRate: parseOptionalNumber(next) })}
-        className="tabular-nums text-text-primary"
-        ariaLabel={`Client rate for ${item.item_code}`}
-      />
-      <span
-        className={`text-right tabular-nums flex items-center justify-end gap-1 ${
-          item.over_budget ? "text-error font-medium" : "text-text-primary"
-        }`}
-        title={
-          item.over_budget && item.budget_variance_pct !== null
-            ? `Cost is ${item.budget_variance_pct}% over the budget rate.`
-            : undefined
-        }
-      >
-        {item.over_budget && <AlertTriangle className="w-3.5 h-3.5" />}
+      {!isExternal && (
         <BoqEditableCell
-          value={item.budget_rate ?? ""}
-          display={formatOptionalCurrency(item.budget_rate, currency)}
+          value={item.client_rate ?? ""}
+          display={formatOptionalCurrency(item.client_rate, currency)}
           mode="number"
           min={0}
           align="right"
           disabled={!editable}
-          onSave={(next) => save({ budgetRate: parseOptionalNumber(next) })}
-          className="tabular-nums"
-          ariaLabel={`Budget rate for ${item.item_code}`}
+          onSave={(next) => save({ clientRate: parseOptionalNumber(next) })}
+          className="tabular-nums text-text-primary"
+          ariaLabel={`Client rate for ${item.item_code}`}
         />
-      </span>
-      <span className="min-w-0">
+      )}
+      {!isExternal && (
+        <span
+          className={`text-right tabular-nums flex items-center justify-end gap-1 ${
+            item.over_budget ? "text-error font-medium" : "text-text-primary"
+          }`}
+          title={
+            item.over_budget && item.budget_variance_pct !== null
+              ? `Cost is ${item.budget_variance_pct}% over the budget rate.`
+              : undefined
+          }
+        >
+          {item.over_budget && <AlertTriangle className="w-3.5 h-3.5" />}
+          <BoqEditableCell
+            value={item.budget_rate ?? ""}
+            display={formatOptionalCurrency(item.budget_rate, currency)}
+            mode="number"
+            min={0}
+            align="right"
+            disabled={!editable}
+            onSave={(next) => save({ budgetRate: parseOptionalNumber(next) })}
+            className="tabular-nums"
+            ariaLabel={`Budget rate for ${item.item_code}`}
+          />
+        </span>
+      )}
+      <span className="min-w-0 flex items-center justify-center pl-3">
         <Badge
-          variant={lifecycleToVariant(item.lifecycle_status)}
+          variant={phaseToVariant(item.phase)}
           className="!px-2 truncate max-w-full"
         >
-          {item.lifecycle_status.replace(/_/g, " ")}
-        </Badge>
-      </span>
-      <span className="min-w-0">
-        <Badge
-          variant={clientApprovalToVariant(item.client_approval_status)}
-          className="!px-2 truncate max-w-full"
-        >
-          {item.client_approval_status}
+          {phaseToLabel(item.phase)}
         </Badge>
       </span>
       <span className="flex justify-end pr-3">
@@ -868,8 +1000,33 @@ const BoqItemRow = memo(function BoqItemRow({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              {canMove && onDeleteItem && <DropdownMenuSeparator />}
-              {onDeleteItem && (
+              {canChangeLifecycle && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    Change lifecycle…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {/* Only fireable targets — current phase is on the row badge. */}
+                    {lifecycleTargets.map((phase) => (
+                      <DropdownMenuItem
+                        key={phase}
+                        onSelect={() => handlePickLifecycle(phase)}
+                        className={
+                          isDestructivePhase(phase)
+                            ? "text-error focus:text-error"
+                            : undefined
+                        }
+                      >
+                        <span className="flex-1">{phaseToLabel(phase)}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {(canMove || canChangeLifecycle) && onDeleteItem && editable && (
+                <DropdownMenuSeparator />
+              )}
+              {onDeleteItem && editable && (
                 <DropdownMenuItem
                   onSelect={() => void onDeleteItem(item)}
                   className="text-error focus:text-error"

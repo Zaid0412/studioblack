@@ -47,12 +47,11 @@ export default function ProjectDetailLayout({
   } = useProjectDetail(id, { includeApprovals: isClient });
 
   // The stepper sits in the shared layout so switching between Design and
-  // BOQ doesn't unmount it. Visibility rules mirror the previous per-page
-  // gating: hidden for clients / when BOQ is off, and on BOQ side only
-  // visible on the my-scope sub-tab (other BOQ sub-tabs render their own
-  // header).
+  // BOQ doesn't unmount it. Clients see the same nav because PR-2 surfaces
+  // BOQ items at `submitted_to_client+` to them — without the stepper they
+  // would have no tab switcher. On BOQ side only visible on the my-scope
+  // sub-tab (other BOQ sub-tabs render their own header).
   const showWorkflowSteps =
-    !isClient &&
     boqEnabled &&
     (pathname === `/projects/${id}/designs` ||
       pathname === `/projects/${id}/boq/my-scope`);
@@ -136,7 +135,7 @@ export default function ProjectDetailLayout({
         <ProjectWorkflowSteps
           projectId={id}
           phaseCounts={phaseCounts}
-          showBoq={!isClient && boqEnabled}
+          showBoq={boqEnabled}
         />
       )}
 

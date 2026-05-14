@@ -2,10 +2,7 @@ import type {
   TaskStatus,
   TaskPriority,
   TaskCategory,
-  BoqStatus,
-  BoqItemLifecycleStatus,
   BoqItemPhase,
-  BoqItemClientApprovalStatus,
   BoqItemPoStatus,
   BoqItemSource,
   VendorStatus,
@@ -519,7 +516,6 @@ export interface Boq {
   project_id: string;
   title: string;
   version: number;
-  status: BoqStatus;
   currency: string;
   exchange_rate: string;
   contingency_pct: string;
@@ -535,18 +531,6 @@ export interface Boq {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  // Internal review audit — most recent action is denormalised onto
-  // the row; full history lives in `audit_event`.
-  internal_review_submitted_at: string | null;
-  internal_review_submitted_by: string | null;
-  internal_review_submitted_by_name?: string | null;
-  internally_approved_at: string | null;
-  internally_approved_by: string | null;
-  internally_approved_by_name?: string | null;
-  changes_requested_at: string | null;
-  changes_requested_by: string | null;
-  changes_requested_by_name?: string | null;
-  changes_requested_comment: string | null;
 }
 
 /** A section grouping within a BOQ (e.g., "Civil", "Electrical"). */
@@ -585,14 +569,9 @@ export interface BoqItem {
   height: string | null;
   source: BoqItemSource;
   rate_contract_item_id: string | null;
-  lifecycle_status: BoqItemLifecycleStatus;
   phase: BoqItemPhase;
   sent_to_client_at: string | null;
   client_decided_at: string | null;
-  client_approval_status: BoqItemClientApprovalStatus;
-  client_approved_at: string | null;
-  client_approved_by: string | null;
-  requires_reapproval: boolean;
   element_archived: boolean;
   installed_qty: string;
   has_snag: boolean;

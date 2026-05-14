@@ -6,8 +6,6 @@ import {
   reorderBoqSections,
   verifyBoqOwnership,
   verifyBoqSectionOwnership,
-  getBoqStatus,
-  getBoqStatusForSection,
   getOrgRole,
   hasProjectAccess,
 } from "@/lib/queries";
@@ -53,8 +51,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
-  vi.mocked(getBoqStatus).mockResolvedValue("draft");
-  vi.mocked(getBoqStatusForSection).mockResolvedValue("draft");
 });
 
 // ── POST /api/projects/[id]/boq/sections ────────────────────────────────────
@@ -92,7 +88,7 @@ describe("POST /api/projects/[id]/boq/sections", () => {
   });
 
   it("returns 404 when BOQ is not owned by project", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue(null);
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/sections`, {
       method: "POST",
@@ -155,11 +151,14 @@ describe("PATCH /api/projects/[id]/boq/sections/[sectionId]", () => {
 
     expect(status).toBe(200);
     expect(body.title).toBe("Renamed");
-    expect(getBoqStatusForSection).toHaveBeenCalledWith(SECTION_ID, PROJECT_ID);
+    expect(verifyBoqSectionOwnership).toHaveBeenCalledWith(
+      SECTION_ID,
+      PROJECT_ID
+    );
   });
 
   it("returns 404 when section is not owned by project", async () => {
-    vi.mocked(getBoqStatusForSection).mockResolvedValue(null);
+    vi.mocked(verifyBoqSectionOwnership).mockResolvedValue(false);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/sections/${SECTION_ID}`,
@@ -267,7 +266,7 @@ describe("DELETE /api/projects/[id]/boq/sections/[sectionId]", () => {
   });
 
   it("returns 404 when section is not owned by project", async () => {
-    vi.mocked(getBoqStatusForSection).mockResolvedValue(null);
+    vi.mocked(verifyBoqSectionOwnership).mockResolvedValue(false);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/sections/${SECTION_ID}`,
@@ -353,7 +352,7 @@ describe("PATCH /api/projects/[id]/boq/sections/reorder", () => {
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
-    vi.mocked(getBoqStatus).mockResolvedValue(null);
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/sections/reorder`,

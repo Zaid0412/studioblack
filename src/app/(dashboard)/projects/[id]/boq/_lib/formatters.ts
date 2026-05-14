@@ -1,43 +1,63 @@
-import type {
-  BoqItemLifecycleStatus,
-  BoqItemClientApprovalStatus,
-  BoqStatus,
-} from "@/lib/validations";
+import type { BoqItemPhase } from "@/lib/validations";
 import type { BadgeVariant } from "@/components/ui/badge";
+import type { UserRole } from "@/types";
+import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
 
 /** Sentinel used in selects/grouping when an item has no section. */
 export const BOQ_NO_SECTION_ID = "__unassigned__";
 
-const BOQ_STATUS_VARIANT: Record<BoqStatus, BadgeVariant> = {
-  draft: "draft",
-  pending_internal_review: "in-review",
-  internally_approved: "approved-arch",
-  changes_requested: "changes-requested",
-  submitted_to_client: "submitted",
-  client_approved: "approved-client",
-  locked: "info",
-  superseded: "archived",
+const PHASE_DISPLAY: Record<
+  BoqItemPhase,
+  { label: string; variant: BadgeVariant }
+> = {
+  draft: { label: "Draft", variant: "draft" },
+  internal_review: { label: "Internal Review", variant: "in-review" },
+  internally_approved: {
+    label: "Internally Approved",
+    variant: "approved-arch",
+  },
+  submitted_to_client: { label: "Submitted to Client", variant: "submitted" },
+  client_approved: { label: "Client Approved", variant: "approved-client" },
+  change_requested: { label: "Change Requested", variant: "changes-requested" },
 };
 
-const BOQ_STATUS_LABEL: Record<BoqStatus, string> = {
-  draft: "draft",
-  pending_internal_review: "awaiting internal review",
-  internally_approved: "internally approved",
-  changes_requested: "changes requested",
-  submitted_to_client: "submitted to client",
-  client_approved: "client approved",
-  locked: "locked",
-  superseded: "superseded",
-};
-
-/** Map a BOQ header status to the Badge variant used in the UI. */
-export function boqStatusToVariant(status: BoqStatus): BadgeVariant {
-  return BOQ_STATUS_VARIANT[status];
+/** Map a BOQ item's phase to a Badge variant. */
+export function phaseToVariant(phase: BoqItemPhase): BadgeVariant {
+  return PHASE_DISPLAY[phase].variant;
 }
 
-/** Human-readable label for a BOQ header status (lower-case, space-separated). */
-export function boqStatusToLabel(status: BoqStatus): string {
-  return BOQ_STATUS_LABEL[status];
+/** Human-readable label for a phase (title-case, space-separated). */
+export function phaseToLabel(phase: BoqItemPhase): string {
+  return PHASE_DISPLAY[phase].label;
+}
+
+/**
+ * Phases that need a mandatory comment from the actor (server-side schema
+ * requires it). Centralises the rule so UI surfaces don't hand-roll the
+ * `phase === "change_requested"` check.
+ */
+export function isDestructivePhase(phase: BoqItemPhase): boolean {
+  return phase === "change_requested";
+}
+
+/** Adapts the shared phase matrix to the (role, actorId, boqCreatorId) shape. */
+export function canFireBoqItemPhaseTransition(
+  target: BoqItemPhase,
+  ctx: {
+    role: UserRole | null;
+    actorId: string | null;
+    boqCreatorId: string | null;
+  }
+): boolean {
+  return canFireBoqPhaseTransition({
+    target,
+    isPM: ctx.role === "pm",
+    isClient: ctx.role === "client",
+    isCreator:
+      ctx.boqCreatorId !== null &&
+      ctx.actorId !== null &&
+      ctx.actorId === ctx.boqCreatorId,
+  });
 }
 
 export type MarginTier = "error" | "warning" | "success";
@@ -54,41 +74,6 @@ export function marginTier(pct: number, minimumMarginPct?: number): MarginTier {
   if (pct < floor) return "error";
   if (pct < 15) return "warning";
   return "success";
-}
-
-const LIFECYCLE_VARIANT: Record<BoqItemLifecycleStatus, BadgeVariant> = {
-  draft: "draft",
-  submitted: "submitted",
-  approved: "approved-arch",
-  rejected: "error",
-  queried: "in-review",
-  locked: "info",
-  change_order_pending: "warning",
-  superseded: "archived",
-};
-
-const CLIENT_APPROVAL_VARIANT: Record<
-  BoqItemClientApprovalStatus,
-  BadgeVariant
-> = {
-  pending: "draft",
-  approved: "approved-client",
-  rejected: "changes-requested",
-  queried: "in-review",
-};
-
-/** Map a BOQ item's lifecycle status (draft, submitted, approved, …) to a Badge variant. */
-export function lifecycleToVariant(
-  status: BoqItemLifecycleStatus
-): BadgeVariant {
-  return LIFECYCLE_VARIANT[status];
-}
-
-/** Map a BOQ item's client approval status (pending, approved, …) to a Badge variant. */
-export function clientApprovalToVariant(
-  status: BoqItemClientApprovalStatus
-): BadgeVariant {
-  return CLIENT_APPROVAL_VARIANT[status];
 }
 
 /** Parse a numeric string coming from `pg` NUMERIC columns into a finite number. */
