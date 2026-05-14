@@ -48,7 +48,7 @@ import type {
   UserRole,
 } from "@/types";
 import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
-import { isExternalViewer } from "@/lib/effectiveRole";
+import { isExternalViewer } from "@/lib/roles";
 import {
   BOQ_NO_SECTION_ID,
   canFireBoqItemPhaseTransition,

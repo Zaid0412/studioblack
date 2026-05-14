@@ -6,7 +6,7 @@ import {
   createBoqSchema,
   updateBoqSchema,
 } from "@/lib/validations";
-import { isExternalViewer } from "@/lib/effectiveRole";
+import { isExternalViewer } from "@/lib/roles";
 import { parseBoqRequest } from "./_helpers";
 
 // External viewers (client + vendor) only see items in `submitted_to_client`

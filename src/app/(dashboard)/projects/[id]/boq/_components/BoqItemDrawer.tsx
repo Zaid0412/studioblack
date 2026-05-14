@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/useToast";
 import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
 import type { BoqItemPhase } from "@/lib/validations";
 import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
-import { isExternalViewer } from "@/lib/effectiveRole";
+import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";

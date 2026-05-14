@@ -7,7 +7,7 @@ import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
 import { useBoq } from "@/hooks/useBoq";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { useUserRole } from "@/hooks/useUserRole";
-import { isExternalViewer } from "@/lib/effectiveRole";
+import { isExternalViewer } from "@/lib/roles";
 import { BoqCreateDialog } from "../boq/_components/BoqCreateDialog";
 import { BoqHeader } from "../boq/_components/BoqHeader";
 import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
