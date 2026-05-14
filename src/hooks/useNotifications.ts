@@ -171,7 +171,9 @@ export function useNotifications({
     }
     if (notification.projectId) {
       onClose();
-      onNavigate(`/projects/${notification.projectId}`);
+      onNavigate(
+        notificationDestination(notification.type, notification.projectId)
+      );
     }
   };
 
@@ -308,4 +310,20 @@ export function useNotifications({
     handleAcceptInvite,
     handleRejectInvite,
   };
+}
+
+/**
+ * Pick the deep-link target for a notification. BOQ-related notifications
+ * route into the BOQ sub-tab; everything else lands on the project root.
+ * Exported so the routing rule can be pinned in a unit test without
+ * standing up a full notifications hook + SWR mock.
+ */
+export function notificationDestination(
+  type: string,
+  projectId: string
+): string {
+  if (type.startsWith("boq_")) {
+    return `/projects/${projectId}/boq/my-scope`;
+  }
+  return `/projects/${projectId}`;
 }
