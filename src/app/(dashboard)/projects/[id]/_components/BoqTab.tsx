@@ -140,13 +140,20 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   // is a BOQ-level property, so one boolean covers the whole batch.
   const bulkAllowedPhases = useMemo<readonly BoqItemPhase[]>(() => {
     const isPM = role === "pm";
+    const isArchitect = role === "architect";
     const isClient = role === "client";
     const isCreator =
       boq?.created_by != null &&
       currentUserId != null &&
       boq.created_by === currentUserId;
     return BOQ_ITEM_PHASES.filter((phase) =>
-      canFireBoqPhaseTransition({ target: phase, isPM, isClient, isCreator })
+      canFireBoqPhaseTransition({
+        target: phase,
+        isPM,
+        isArchitect,
+        isClient,
+        isCreator,
+      })
     );
   }, [role, currentUserId, boq?.created_by]);
 

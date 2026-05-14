@@ -52,6 +52,7 @@ export function canFireBoqItemPhaseTransition(
   return canFireBoqPhaseTransition({
     target,
     isPM: ctx.role === "pm",
+    isArchitect: ctx.role === "architect",
     isClient: ctx.role === "client",
     isCreator:
       ctx.boqCreatorId !== null &&

@@ -37,12 +37,14 @@ export const POST = withAuth(
     }
 
     const isPM = orgRole === "owner" || orgRole === "admin";
+    const isArchitect = orgRole === "member";
     const isClient = effectiveRole === "client";
     if (
       !canFirePhaseTransition({
         target,
         actorId: user.id,
         isPM,
+        isArchitect,
         isClient,
         boqCreatorId: boq.created_by,
       })

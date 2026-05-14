@@ -6,7 +6,7 @@
  *
  * Both routes share the same permission rules via `canFirePhaseTransition`:
  *   - internal_review        — creator or PM
- *   - internally_approved    — PM, AND NOT creator (4-eyes)
+ *   - internally_approved    — PM or architect, AND NOT creator (4-eyes)
  *   - submitted_to_client    — PM
  *   - client_approved        — client
  *   - change_requested       — PM or client
@@ -155,8 +155,32 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
     expect(res.status).toBe(200);
   });
 
-  it("non-PM architect cannot approve internally (403)", async () => {
+  it("non-creator architect can approve internally (200)", async () => {
     setupAuth(mocks.auth, architectSession);
+    vi.mocked(getOrgRole).mockResolvedValue("member");
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internal_review" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internally_approved" },
+    });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "internally_approved" } }
+    );
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("architect who IS the creator cannot self-approve (4-eyes, 403)", async () => {
+    // Same user is both the architect and the BOQ creator — 4-eyes rule
+    // still blocks even though architects can now approve in general.
+    setupAuth(mocks.auth, creatorSession);
     vi.mocked(getOrgRole).mockResolvedValue("member");
     vi.mocked(getBoqItemContext).mockResolvedValue(
       ctx({ phase: "internal_review" })

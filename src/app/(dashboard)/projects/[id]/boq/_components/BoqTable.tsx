@@ -47,7 +47,10 @@ import type {
   BoqSummary,
   UserRole,
 } from "@/types";
-import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
+import {
+  BOQ_ITEM_PHASE_TRANSITIONS,
+  type BoqItemPhase,
+} from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import {
   BOQ_NO_SECTION_ID,
@@ -745,17 +748,17 @@ const BoqItemRow = memo(function BoqItemRow({
 
   const canMove = editable && !!onMoveItem;
   const isExternal = isExternalViewer(role);
-  // Phases the viewer can actually transition this item into right now.
-  // Empty for clients on items in `change_requested` / `draft`, etc.
+  // Phases the viewer can actually transition this item into right now —
+  // intersect the legal-from-current-phase set with the role-permission set,
+  // so a PM viewing `internal_review` doesn't see "Send to Client" (legal
+  // for the role but not from that phase).
   const lifecycleTargets = onSetItemPhase
-    ? BOQ_ITEM_PHASES.filter(
-        (target) =>
-          target !== item.phase &&
-          canFireBoqItemPhaseTransition(target, {
-            role,
-            actorId: currentUserId,
-            boqCreatorId,
-          })
+    ? (BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? []).filter((target) =>
+        canFireBoqItemPhaseTransition(target, {
+          role,
+          actorId: currentUserId,
+          boqCreatorId,
+        })
       )
     : [];
   const canChangeLifecycle = lifecycleTargets.length > 0;
