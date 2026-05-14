@@ -1007,25 +1007,24 @@ const BoqItemRow = memo(function BoqItemRow({
                     Change lifecycle…
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    {BOQ_ITEM_PHASES.map((phase) => {
-                      const isCurrent = phase === item.phase;
-                      const isAllowed = lifecycleTargets.includes(phase);
-                      return (
-                        <DropdownMenuItem
-                          key={phase}
-                          disabled={isCurrent || !isAllowed}
-                          onSelect={() => handlePickLifecycle(phase)}
-                          className={
-                            isDestructivePhase(phase) && !isCurrent && isAllowed
-                              ? "text-error focus:text-error"
-                              : undefined
-                          }
-                        >
-                          <span className="flex-1">{phaseToLabel(phase)}</span>
-                          {isCurrent && <CurrentBadge />}
-                        </DropdownMenuItem>
-                      );
-                    })}
+                    {/* Only render phases the viewer can actually fire — the
+                        item's current phase is already shown on the row badge,
+                        and surfacing disabled options for unreachable / role-
+                        gated transitions (e.g. 'Client approved' to a PM) is
+                        noise. */}
+                    {lifecycleTargets.map((phase) => (
+                      <DropdownMenuItem
+                        key={phase}
+                        onSelect={() => handlePickLifecycle(phase)}
+                        className={
+                          isDestructivePhase(phase)
+                            ? "text-error focus:text-error"
+                            : undefined
+                        }
+                      >
+                        <span className="flex-1">{phaseToLabel(phase)}</span>
+                      </DropdownMenuItem>
+                    ))}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}

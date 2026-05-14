@@ -19,6 +19,8 @@ interface BoqBulkActionBarProps {
   sharedSectionId?: string | null;
   /** When every selected item shares a phase, forwarded to the phase picker so it can disable that row. */
   sharedPhase?: BoqItemPhase;
+  /** Phases the viewer is permitted to fire, pre-filtered through the role matrix. */
+  allowedPhases: readonly BoqItemPhase[];
   onMove: (targetSectionId: string | null) => void;
   onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
@@ -40,6 +42,7 @@ export function BoqBulkActionBar({
   nextSortOrder,
   sharedSectionId,
   sharedPhase,
+  allowedPhases,
   onMove,
   onSetPhase,
   onDelete,
@@ -81,15 +84,18 @@ export function BoqBulkActionBar({
         nextSortOrder={nextSortOrder}
       />
 
-      <BoqPhasePickerPopover
-        trigger={
-          <Button type="button" variant="secondary" size="sm">
-            Set lifecycle…
-          </Button>
-        }
-        onPick={onSetPhase}
-        currentPhase={sharedPhase}
-      />
+      {allowedPhases.length > 0 && (
+        <BoqPhasePickerPopover
+          trigger={
+            <Button type="button" variant="secondary" size="sm">
+              Set lifecycle…
+            </Button>
+          }
+          onPick={onSetPhase}
+          currentPhase={sharedPhase}
+          allowedPhases={allowedPhases}
+        />
+      )}
 
       <Button type="button" variant="danger" size="sm" onClick={onDelete}>
         <Trash2 className="h-3.5 w-3.5" />

@@ -32,6 +32,7 @@ import { trackEvent } from "@/lib/analytics";
 import { saveBlob } from "@/lib/download";
 import type { BoqItemWithComputed, BoqSection } from "@/types";
 import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
+import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
 
 interface BoqTabProps {
   projectId: string;
@@ -140,6 +141,23 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
     return shared;
   }, [boq, selection.selected]);
+
+  // Pre-filter the bulk lifecycle picker to phases the viewer's role can
+  // actually fire. Without this the popover lists every phase (incl.
+  // 'Client approved') to PM/architects, which 403s server-side. `isCreator`
+  // is a property of the BOQ, not of individual items, so it's a single
+  // boolean for the whole batch.
+  const bulkAllowedPhases = useMemo<readonly BoqItemPhase[]>(() => {
+    const isPM = role === "pm";
+    const isClient = role === "client";
+    const isCreator =
+      boq?.created_by != null &&
+      currentUserId != null &&
+      boq.created_by === currentUserId;
+    return BOQ_ITEM_PHASES.filter((phase) =>
+      canFireBoqPhaseTransition({ target: phase, isPM, isClient, isCreator })
+    );
+  }, [role, currentUserId, boq?.created_by]);
 
   // Bulk action success → exit selection mode entirely (per UX: after one
   // batch action, dismiss the bar). Failures keep the user in selection mode
@@ -553,6 +571,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           nextSortOrder={boq.sections.length}
           sharedSectionId={sharedSelectedSectionId}
           sharedPhase={sharedSelectedPhase}
+          allowedPhases={bulkAllowedPhases}
           onMove={handleBulkMove}
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}

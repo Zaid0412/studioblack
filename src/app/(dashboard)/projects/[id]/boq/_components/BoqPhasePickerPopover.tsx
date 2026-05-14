@@ -7,13 +7,19 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { BOQ_ITEM_PHASES, type BoqItemPhase } from "@/lib/validations";
+import type { BoqItemPhase } from "@/lib/validations";
 import { isDestructivePhase, phaseToLabel } from "../_lib/formatters";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 
 interface BoqPhasePickerPopoverProps {
   /** Trigger element — usually a Button. Rendered with `asChild`. */
   trigger: React.ReactNode;
+  /**
+   * Phases the viewer is permitted to fire. Caller pre-filters through the
+   * role-based permission matrix so PM never sees `client_approved`, etc.
+   * Order in the array is the order rendered.
+   */
+  allowedPhases: readonly BoqItemPhase[];
   /**
    * Called with the chosen phase + optional comment. A destructive phase
    * (`change_requested`) opens the comment dialog before firing; other
@@ -30,11 +36,12 @@ interface BoqPhasePickerPopoverProps {
 
 /**
  * Phase-picker popover used by the BOQ bulk action bar's "Set lifecycle…"
- * button. Lists every phase. Picking a destructive phase opens
- * `BoqChangeRequestDialog` to capture the required comment.
+ * button. Picking a destructive phase opens `BoqChangeRequestDialog` to
+ * capture the required comment.
  */
 export function BoqPhasePickerPopover({
   trigger,
+  allowedPhases,
   onPick,
   currentPhase,
 }: BoqPhasePickerPopoverProps) {
@@ -60,7 +67,7 @@ export function BoqPhasePickerPopover({
           className="w-[240px] p-0 max-h-[320px] overflow-y-auto"
         >
           <ul className="py-1">
-            {BOQ_ITEM_PHASES.map((phase) => {
+            {allowedPhases.map((phase) => {
               const isCurrent = phase === currentPhase;
               return (
                 <li key={phase}>
