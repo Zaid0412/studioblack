@@ -157,6 +157,12 @@ export const GRID_COLS =
 const GRID_COLS_WITH_SELECT =
   "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
 
+// Client variant — drops Source / Unit Cost / Total Cost / Margin / Budget
+// Rate / Client Rate. Leaves Code, Description, Unit, Qty, Sell Price, Phase,
+// Actions. Total widths: 70 + flex + 50 + 70 + 100 + 160 + 32 = 482 px + flex.
+const GRID_COLS_CLIENT =
+  "grid-cols-[70px_minmax(160px,1fr)_50px_70px_100px_160px_32px]";
+
 /**
  * Sum of the fixed column widths above (1159px) plus 12 inter-column gaps
  * (gap-2 = 96px) = 1255px. Applied as `min-w` on the table's scrollable
@@ -165,6 +171,9 @@ const GRID_COLS_WITH_SELECT =
  * rows aligned.
  */
 export const TABLE_MIN_WIDTH = "min-w-[1255px]";
+// Client table is narrower — only 7 columns. Skip the min-width so it
+// renders naturally without horizontal scroll on most viewports.
+const TABLE_MIN_WIDTH_CLIENT = "min-w-[600px]";
 
 /** BOQ line-item grid: groups items under sortable sections, supports inline edits and item-level actions. */
 export function BoqTable({
@@ -286,6 +295,17 @@ export function BoqTable({
     );
   }
 
+  const isClient = role === "client";
+  // Clients see a trimmed table: no cost / margin / budget / source columns.
+  // Server already scrubs those numbers from the payload, but hiding the
+  // columns avoids confusing zeros in the UI.
+  const gridCols = isClient
+    ? GRID_COLS_CLIENT
+    : selection
+      ? GRID_COLS_WITH_SELECT
+      : GRID_COLS;
+  const wrapperMinWidth = isClient ? TABLE_MIN_WIDTH_CLIENT : TABLE_MIN_WIDTH;
+
   return (
     <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
       <BoqSectionChips
@@ -294,11 +314,11 @@ export function BoqTable({
         onActivate={expandSection}
       />
       <div className="overflow-x-auto">
-        <div className={TABLE_MIN_WIDTH}>
+        <div className={wrapperMinWidth}>
           <div
-            className={`grid ${selection ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
+            className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
           >
-            {selection && (
+            {!isClient && selection && (
               <div className="flex items-center justify-center">
                 <Checkbox
                   checked={selection.tableState === "all"}
@@ -310,15 +330,15 @@ export function BoqTable({
             )}
             <div>Code</div>
             <div>Description</div>
-            <div>{t("columnSource")}</div>
+            {!isClient && <div>{t("columnSource")}</div>}
             <div>Unit</div>
             <div className="text-right">Qty</div>
-            <div className="text-right">Unit Cost</div>
-            <div className="text-right">Total Cost</div>
-            <div className="text-right">Margin</div>
+            {!isClient && <div className="text-right">Unit Cost</div>}
+            {!isClient && <div className="text-right">Total Cost</div>}
+            {!isClient && <div className="text-right">Margin</div>}
             <div className="text-right">Sell Price</div>
-            <div className="text-right">Client Rate</div>
-            <div className="text-right">Budget Rate</div>
+            {!isClient && <div className="text-right">Client Rate</div>}
+            {!isClient && <div className="text-right">Budget Rate</div>}
             <div className="text-center pl-3">Phase</div>
             <div />
           </div>
@@ -699,6 +719,7 @@ const BoqItemRow = memo(function BoqItemRow({
   );
 
   const canMove = editable && !!onMoveItem;
+  const isClient = role === "client";
   // Phases the viewer can actually transition this item into right now.
   // Empty for clients on items in `change_requested` / `draft`, etc.
   const lifecycleTargets = onSetItemPhase
@@ -728,12 +749,18 @@ const BoqItemRow = memo(function BoqItemRow({
     void onSetItemPhase(item, target);
   };
 
+  const rowGridCols = isClient
+    ? GRID_COLS_CLIENT
+    : selectionMode
+      ? GRID_COLS_WITH_SELECT
+      : GRID_COLS;
+
   return (
     <>
       <div
-        className={`grid ${selectionMode ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
+        className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
       >
-      {selectionMode && (
+      {!isClient && selectionMode && (
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isSelected ?? false}
@@ -789,9 +816,11 @@ const BoqItemRow = memo(function BoqItemRow({
           </span>
         )}
       </span>
-      <span className="min-w-0">
-        <BoqSourceBadge source={item.source} />
-      </span>
+      {!isClient && (
+        <span className="min-w-0">
+          <BoqSourceBadge source={item.source} />
+        </span>
+      )}
       <BoqEditableCell
         value={item.unit}
         display={item.unit}
@@ -811,74 +840,84 @@ const BoqItemRow = memo(function BoqItemRow({
         className="tabular-nums text-text-primary"
         ariaLabel={`Quantity for ${item.item_code}`}
       />
-      <BoqEditableCell
-        value={item.unit_cost}
-        display={formatCurrency(item.unit_cost, currency)}
-        mode="number"
-        min={0}
-        align="right"
-        disabled={!editable}
-        onSave={(next) => save({ unitCost: parseFloat(next) })}
-        className="tabular-nums text-text-primary"
-        ariaLabel={`Unit cost for ${item.item_code}`}
-      />
-      <span className="text-right tabular-nums text-text-primary">
-        {formatCurrency(item.total_cost, currency)}
-      </span>
-      <span
-        className={`text-right tabular-nums font-medium ${marginColor} flex items-center justify-end gap-1`}
-      >
-        {item.margin_alert && <AlertTriangle className="w-3.5 h-3.5" />}
+      {!isClient && (
         <BoqEditableCell
-          value={item.margin_pct}
-          display={formatPct(item.margin_pct)}
+          value={item.unit_cost}
+          display={formatCurrency(item.unit_cost, currency)}
           mode="number"
           min={0}
-          max={100}
           align="right"
           disabled={!editable}
-          onSave={(next) => save({ marginPct: parseFloat(next) })}
-          className="tabular-nums"
-          ariaLabel={`Margin for ${item.item_code}`}
+          onSave={(next) => save({ unitCost: parseFloat(next) })}
+          className="tabular-nums text-text-primary"
+          ariaLabel={`Unit cost for ${item.item_code}`}
         />
-      </span>
+      )}
+      {!isClient && (
+        <span className="text-right tabular-nums text-text-primary">
+          {formatCurrency(item.total_cost, currency)}
+        </span>
+      )}
+      {!isClient && (
+        <span
+          className={`text-right tabular-nums font-medium ${marginColor} flex items-center justify-end gap-1`}
+        >
+          {item.margin_alert && <AlertTriangle className="w-3.5 h-3.5" />}
+          <BoqEditableCell
+            value={item.margin_pct}
+            display={formatPct(item.margin_pct)}
+            mode="number"
+            min={0}
+            max={100}
+            align="right"
+            disabled={!editable}
+            onSave={(next) => save({ marginPct: parseFloat(next) })}
+            className="tabular-nums"
+            ariaLabel={`Margin for ${item.item_code}`}
+          />
+        </span>
+      )}
       <span className="text-right tabular-nums text-text-primary">
         {formatCurrency(item.sell_price, currency)}
       </span>
-      <BoqEditableCell
-        value={item.client_rate ?? ""}
-        display={formatOptionalCurrency(item.client_rate, currency)}
-        mode="number"
-        min={0}
-        align="right"
-        disabled={!editable}
-        onSave={(next) => save({ clientRate: parseOptionalNumber(next) })}
-        className="tabular-nums text-text-primary"
-        ariaLabel={`Client rate for ${item.item_code}`}
-      />
-      <span
-        className={`text-right tabular-nums flex items-center justify-end gap-1 ${
-          item.over_budget ? "text-error font-medium" : "text-text-primary"
-        }`}
-        title={
-          item.over_budget && item.budget_variance_pct !== null
-            ? `Cost is ${item.budget_variance_pct}% over the budget rate.`
-            : undefined
-        }
-      >
-        {item.over_budget && <AlertTriangle className="w-3.5 h-3.5" />}
+      {!isClient && (
         <BoqEditableCell
-          value={item.budget_rate ?? ""}
-          display={formatOptionalCurrency(item.budget_rate, currency)}
+          value={item.client_rate ?? ""}
+          display={formatOptionalCurrency(item.client_rate, currency)}
           mode="number"
           min={0}
           align="right"
           disabled={!editable}
-          onSave={(next) => save({ budgetRate: parseOptionalNumber(next) })}
-          className="tabular-nums"
-          ariaLabel={`Budget rate for ${item.item_code}`}
+          onSave={(next) => save({ clientRate: parseOptionalNumber(next) })}
+          className="tabular-nums text-text-primary"
+          ariaLabel={`Client rate for ${item.item_code}`}
         />
-      </span>
+      )}
+      {!isClient && (
+        <span
+          className={`text-right tabular-nums flex items-center justify-end gap-1 ${
+            item.over_budget ? "text-error font-medium" : "text-text-primary"
+          }`}
+          title={
+            item.over_budget && item.budget_variance_pct !== null
+              ? `Cost is ${item.budget_variance_pct}% over the budget rate.`
+              : undefined
+          }
+        >
+          {item.over_budget && <AlertTriangle className="w-3.5 h-3.5" />}
+          <BoqEditableCell
+            value={item.budget_rate ?? ""}
+            display={formatOptionalCurrency(item.budget_rate, currency)}
+            mode="number"
+            min={0}
+            align="right"
+            disabled={!editable}
+            onSave={(next) => save({ budgetRate: parseOptionalNumber(next) })}
+            className="tabular-nums"
+            ariaLabel={`Budget rate for ${item.item_code}`}
+          />
+        </span>
+      )}
       <span className="min-w-0 flex items-center justify-center pl-3">
         <Badge
           variant={phaseToVariant(item.phase)}

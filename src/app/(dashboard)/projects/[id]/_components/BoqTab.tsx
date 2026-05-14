@@ -293,6 +293,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   if (!boq) return null;
 
   const canEdit = role === "pm" || role === "architect";
+  const isClient = role === "client";
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
@@ -386,15 +387,21 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         version={boq.version}
         currency={boq.currency}
         itemCount={boq.items.length}
-        marginBleedCount={boq.summary.margin_bleed_count}
+        // Margin bleed is a studio-only metric — never expose count to clients.
+        marginBleedCount={isClient ? 0 : boq.summary.margin_bleed_count}
         phaseCounts={phaseCounts}
       />
 
-      <BoqSummaryCards
-        summary={boq.summary}
-        currency={boq.currency}
-        minimumMarginPct={boq.minimum_margin_pct}
-      />
+      {/* Summary KPI cards expose cost / margin / over-budget aggregates —
+          hidden from clients entirely. The BottomBar already shows the
+          client-facing financial breakdown they need. */}
+      {!isClient && (
+        <BoqSummaryCards
+          summary={boq.summary}
+          currency={boq.currency}
+          minimumMarginPct={boq.minimum_margin_pct}
+        />
+      )}
 
       {canEdit && (
         <BoqActionBar
@@ -409,7 +416,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         />
       )}
 
-      <BoqSourceFilter selected={sourceFilter} onChange={setSourceFilter} />
+      {/* Source filter is a studio organising tool (library / custom / rate
+          contract) — not useful to clients and exposes internal taxonomy. */}
+      {!isClient && (
+        <BoqSourceFilter selected={sourceFilter} onChange={setSourceFilter} />
+      )}
 
       <BoqTable
         sections={boq.sections}

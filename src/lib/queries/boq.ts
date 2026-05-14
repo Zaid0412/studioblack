@@ -255,24 +255,54 @@ export async function getBoq(
 
   if (boqRes.rows.length === 0) return null;
 
-  // Strip internal notes when the viewer is the client. The `client_notes`
-  // field stays — it's authored by the studio specifically for the client.
-  // Defence-in-depth: even if the UI ever renders `notes` for a client by
-  // mistake, the payload no longer carries the content.
+  // Scrub every studio-internal field from the payload before it leaves the
+  // server. Sell-side fields (sell_price, client_rate, subtotal, vat, client
+  // total) stay because they're what the client will be billed; cost-side
+  // and margin-side fields are zeroed/nulled so the JSON inspector reveals
+  // nothing the UI is trying to hide.
   const items = opts.viewerIsClient
-    ? itemsRes.rows.map((it) => ({ ...it, notes: null }))
+    ? itemsRes.rows.map((it) => ({
+        ...it,
+        unit_cost: "0",
+        material_cost: null,
+        labour_cost: null,
+        overhead_pct: "0",
+        service_charge_pct: "0",
+        margin_pct: "0",
+        budget_rate: null,
+        notes: null,
+        total_cost: "0",
+        margin_alert: false,
+        over_budget: false,
+        budget_variance_pct: null,
+      }))
     : itemsRes.rows;
 
-  // Boq-level `notes` (header) is also studio-internal; scrub it the same way.
+  // Same treatment for the BOQ header + summary aggregates that depend on
+  // cost/margin internals.
   const boq = opts.viewerIsClient
     ? { ...boqRes.rows[0], notes: null }
     : boqRes.rows[0];
+
+  const scrubbedSummary = opts.viewerIsClient
+    ? {
+        ...summary,
+        total_cost: "0",
+        average_margin_pct: "0",
+        margin_bleed_count: 0,
+        over_budget_count: 0,
+        section_totals: summary.section_totals.map((s) => ({
+          ...s,
+          total_cost: "0",
+        })),
+      }
+    : summary;
 
   return {
     ...boq,
     sections: sectionsRes.rows,
     items,
-    summary,
+    summary: scrubbedSummary,
   };
 }
 

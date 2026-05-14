@@ -282,78 +282,97 @@ export function BoqItemDrawer({
                 display={formatQty(item.quantity)}
                 onSave={(next) => saveField({ quantity: parseFloat(next) })}
               />
-              <EditableField
-                label="Unit cost"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={item.unit_cost}
-                display={formatCurrency(item.unit_cost, currency)}
-                onSave={(next) => saveField({ unitCost: parseFloat(next) })}
-              />
+              {/* Sell price is the only price field clients see — it reflects
+                  what they'll be billed. All cost/margin/overhead inputs and
+                  Client rate / Budget rate stay studio-only. */}
               <DetailField
-                label="Total cost"
-                value={formatCurrency(item.total_cost, currency)}
-              />
-              <DetailField
-                label="Sell price"
+                label={role === "client" ? "Price" : "Sell price"}
                 value={formatCurrency(item.sell_price, currency)}
               />
-              <EditableField
-                label="Margin"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                max={100}
-                value={item.margin_pct}
-                display={formatPct(item.margin_pct)}
-                valueClassName={marginColor}
-                onSave={(next) => saveField({ marginPct: parseFloat(next) })}
-              />
-              <EditableField
-                label="Overhead"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                max={100}
-                value={item.overhead_pct}
-                display={formatPct(item.overhead_pct)}
-                onSave={(next) => saveField({ overheadPct: parseFloat(next) })}
-              />
-              <EditableField
-                label="Service charge"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                max={100}
-                value={item.service_charge_pct}
-                display={formatPct(item.service_charge_pct)}
-                onSave={(next) =>
-                  saveField({ serviceChargePct: parseFloat(next) })
-                }
-              />
-              <EditableField
-                label="Client rate"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={item.client_rate ?? ""}
-                display={formatOptionalCurrency(item.client_rate, currency)}
-                onSave={(next) =>
-                  saveField({ clientRate: parseOptionalNumber(next) })
-                }
-              />
-              <EditableField
-                label="Budget rate"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={item.budget_rate ?? ""}
-                display={formatOptionalCurrency(item.budget_rate, currency)}
-                onSave={(next) =>
-                  saveField({ budgetRate: parseOptionalNumber(next) })
-                }
-              />
+              {role !== "client" && (
+                <EditableField
+                  label="Unit cost"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  value={item.unit_cost}
+                  display={formatCurrency(item.unit_cost, currency)}
+                  onSave={(next) => saveField({ unitCost: parseFloat(next) })}
+                />
+              )}
+              {role !== "client" && (
+                <DetailField
+                  label="Total cost"
+                  value={formatCurrency(item.total_cost, currency)}
+                />
+              )}
+              {role !== "client" && (
+                <EditableField
+                  label="Margin"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  max={100}
+                  value={item.margin_pct}
+                  display={formatPct(item.margin_pct)}
+                  valueClassName={marginColor}
+                  onSave={(next) => saveField({ marginPct: parseFloat(next) })}
+                />
+              )}
+              {role !== "client" && (
+                <EditableField
+                  label="Overhead"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  max={100}
+                  value={item.overhead_pct}
+                  display={formatPct(item.overhead_pct)}
+                  onSave={(next) =>
+                    saveField({ overheadPct: parseFloat(next) })
+                  }
+                />
+              )}
+              {role !== "client" && (
+                <EditableField
+                  label="Service charge"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  max={100}
+                  value={item.service_charge_pct}
+                  display={formatPct(item.service_charge_pct)}
+                  onSave={(next) =>
+                    saveField({ serviceChargePct: parseFloat(next) })
+                  }
+                />
+              )}
+              {role !== "client" && (
+                <EditableField
+                  label="Client rate"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  value={item.client_rate ?? ""}
+                  display={formatOptionalCurrency(item.client_rate, currency)}
+                  onSave={(next) =>
+                    saveField({ clientRate: parseOptionalNumber(next) })
+                  }
+                />
+              )}
+              {role !== "client" && (
+                <EditableField
+                  label="Budget rate"
+                  disabled={fieldsDisabled}
+                  mode="number"
+                  min={0}
+                  value={item.budget_rate ?? ""}
+                  display={formatOptionalCurrency(item.budget_rate, currency)}
+                  onSave={(next) =>
+                    saveField({ budgetRate: parseOptionalNumber(next) })
+                  }
+                />
+              )}
               <EditableField
                 label="Length"
                 disabled={fieldsDisabled}
