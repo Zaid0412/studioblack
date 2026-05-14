@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/withAuth";
 import { setItemsPhaseSchema } from "@/lib/validations";
 import { logAuditSafe, AUDIT_ACTIONS } from "@/lib/queries/audit";
 import { logger } from "@/lib/logger";
+import { deriveRoleFlags } from "@/lib/roles";
 import { parseBoqRequest, canFirePhaseTransition } from "../../_helpers";
 import { notifyPhaseRecipients } from "../../_phaseNotifications";
 
@@ -36,16 +37,12 @@ export const POST = withAuth(
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
     }
 
-    const isPM = orgRole === "owner" || orgRole === "admin";
-    const isArchitect = orgRole === "member";
-    const isClient = effectiveRole === "client";
+    const flags = deriveRoleFlags(orgRole, effectiveRole);
     if (
       !canFirePhaseTransition({
         target,
         actorId: user.id,
-        isPM,
-        isArchitect,
-        isClient,
+        ...flags,
         boqCreatorId: boq.created_by,
       })
     ) {

@@ -74,11 +74,14 @@ export async function getLastPhaseActors(
 ): Promise<Map<string, string>> {
   if (itemIds.length === 0) return new Map();
   const pool = getPool();
+  // `audit_event.target_id` is uuid — cast the param array to `uuid[]` so
+  // Postgres can use `idx_audit_event_target` instead of coercing each row's
+  // uuid to text for the equality check.
   const { rows } = await pool.query<{ target_id: string; actor_id: string }>(
     `SELECT DISTINCT ON (target_id) target_id, actor_id
      FROM audit_event
      WHERE target_table = 'boq_item'
-       AND target_id = ANY($1::text[])
+       AND target_id = ANY($1::uuid[])
        AND action = $2
        AND metadata->>'to' = $3
        AND actor_id IS NOT NULL

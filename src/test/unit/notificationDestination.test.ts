@@ -4,7 +4,7 @@
  * about, not on the project root where they'd have to click again.
  */
 import { describe, it, expect } from "vitest";
-import { notificationDestination } from "@/hooks/useNotifications";
+import { notificationDestination } from "@/lib/notificationDestination";
 
 const PROJECT = "proj-1";
 
