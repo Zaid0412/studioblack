@@ -14,3 +14,4 @@ export * as boq from "./boq";
 export * as vendors from "./vendors";
 export * as vendorPortal from "./vendor-portal";
 export * as rateContracts from "./rateContracts";
+export * as rfqs from "./rfqs";

@@ -434,6 +434,13 @@ vi.mock("@/lib/queries", () => ({
     .mockResolvedValue({ ok: false, reason: "not_found" }),
   addRateContractItems: vi.fn().mockResolvedValue({ ok: true, count: 0 }),
   removeRateContractItem: vi.fn().mockResolvedValue(true),
+  // RFQ (Feature 9) — reads only in Phase A
+  verifyRfqOwnership: vi.fn().mockResolvedValue(true),
+  getRfqsByProject: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getRfqDetail: vi.fn().mockResolvedValue(null),
+  getSuggestedVendorsForRfq: vi.fn().mockResolvedValue([]),
+  getRfqsForVendor: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getRfqDetailForVendor: vi.fn().mockResolvedValue(null),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
   logAuditSafe: vi.fn().mockResolvedValue(undefined),
@@ -450,6 +457,10 @@ vi.mock("@/lib/queries", () => ({
     VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
     RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
     RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
+    RFQ_CREATED: "rfq.created",
+    RFQ_UPDATED: "rfq.updated",
+    RFQ_ISSUED: "rfq.issued",
+    RFQ_CANCELLED: "rfq.cancelled",
   } as const,
   AUDIT_SOURCES: {
     SELF_SERVICE: "self_service",

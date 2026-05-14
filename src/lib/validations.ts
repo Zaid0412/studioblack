@@ -1116,6 +1116,25 @@ export const listRateContractsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
 
+// ─── RFQ (F9) ───────────────────────────────────────────────────────────────
+
+export const RFQ_STATUSES = [
+  "draft",
+  "issued",
+  "quotes_received",
+  "under_review",
+  "awarded",
+  "cancelled",
+] as const;
+export type RfqStatus = (typeof RFQ_STATUSES)[number];
+
+export const listRfqsQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(RFQ_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */

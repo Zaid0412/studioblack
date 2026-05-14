@@ -31,6 +31,11 @@ export const AUDIT_ACTIONS = {
   VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
   RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
   RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
+  // ── RFQ (F9) ───────────────────────────────────────────────────────────
+  RFQ_CREATED: "rfq.created",
+  RFQ_UPDATED: "rfq.updated",
+  RFQ_ISSUED: "rfq.issued",
+  RFQ_CANCELLED: "rfq.cancelled",
   // ── BOQ per-item lifecycle ─────────────────────────────────────────────
   BOQ_ITEM_PHASE_CHANGED: "boq.item.phase_changed",
   // ── Tasks (rendered in /tasks/[id] timeline) ────────────────────────────
