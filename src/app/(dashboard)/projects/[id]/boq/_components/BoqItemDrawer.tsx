@@ -391,22 +391,28 @@ export function BoqItemDrawer({
             )}
 
             <section className="flex flex-col gap-2">
+              {/* Internal notes — studio-only. Never shown to the client. */}
+              {role !== "client" && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-text-secondary">
+                    Internal notes
+                  </span>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    disabled={!canEdit}
+                    rows={3}
+                    className={NOTES_TEXTAREA_CLS}
+                    placeholder="Not shown to the client."
+                  />
+                </label>
+              )}
+              {/* Client notes — written by the studio for the client.
+                  Clients see this read-only; feedback flows through the
+                  change-request comment, not by editing this field. */}
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-text-secondary">
-                  Internal notes
-                </span>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={!canEdit}
-                  rows={3}
-                  className={NOTES_TEXTAREA_CLS}
-                  placeholder="Not shown to the client."
-                />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-text-secondary">
-                  Client notes
+                  {role === "client" ? "Notes from the team" : "Client notes"}
                 </span>
                 <textarea
                   value={clientNotes}
@@ -414,7 +420,11 @@ export function BoqItemDrawer({
                   disabled={!canEdit}
                   rows={3}
                   className={NOTES_TEXTAREA_CLS}
-                  placeholder="Shown to the client on this line."
+                  placeholder={
+                    role === "client"
+                      ? "No notes from the team for this line."
+                      : "Shown to the client on this line."
+                  }
                 />
               </label>
             </section>

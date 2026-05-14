@@ -255,10 +255,23 @@ export async function getBoq(
 
   if (boqRes.rows.length === 0) return null;
 
+  // Strip internal notes when the viewer is the client. The `client_notes`
+  // field stays — it's authored by the studio specifically for the client.
+  // Defence-in-depth: even if the UI ever renders `notes` for a client by
+  // mistake, the payload no longer carries the content.
+  const items = opts.viewerIsClient
+    ? itemsRes.rows.map((it) => ({ ...it, notes: null }))
+    : itemsRes.rows;
+
+  // Boq-level `notes` (header) is also studio-internal; scrub it the same way.
+  const boq = opts.viewerIsClient
+    ? { ...boqRes.rows[0], notes: null }
+    : boqRes.rows[0];
+
   return {
-    ...boqRes.rows[0],
+    ...boq,
     sections: sectionsRes.rows,
-    items: itemsRes.rows,
+    items,
     summary,
   };
 }
