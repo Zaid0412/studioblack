@@ -105,7 +105,7 @@ export const POST = withAuth(
       boqTitle: boq.title,
       boqCreatorId: boq.created_by,
       target,
-      itemCount: itemIds.length,
+      itemIds,
       actor: user,
       comment: comment ?? null,
     }).catch((err) =>

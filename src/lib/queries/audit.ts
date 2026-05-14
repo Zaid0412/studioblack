@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import type { AuditEvent } from "@/types";
 
 // Constants + types live in a separate module so client components can
@@ -57,6 +58,34 @@ export async function logAuditSafe(
   } catch (err) {
     logger.warn("audit log failed", { err: String(err) });
   }
+}
+
+/**
+ * For each BOQ item, find the actor who most recently fired a transition to
+ * `targetPhase`. Reads the audit log; returns a map keyed by item id.
+ *
+ * Used by the phase-notification fan-out to credit the submitter — e.g.
+ * notify whoever fired `internal_review` once the item is approved. Items
+ * with no matching event (or a null actor) are omitted from the map.
+ */
+export async function getLastPhaseActors(
+  itemIds: readonly string[],
+  targetPhase: string
+): Promise<Map<string, string>> {
+  if (itemIds.length === 0) return new Map();
+  const pool = getPool();
+  const { rows } = await pool.query<{ target_id: string; actor_id: string }>(
+    `SELECT DISTINCT ON (target_id) target_id, actor_id
+     FROM audit_event
+     WHERE target_table = 'boq_item'
+       AND target_id = ANY($1::text[])
+       AND action = $2
+       AND metadata->>'to' = $3
+       AND actor_id IS NOT NULL
+     ORDER BY target_id, created_at DESC`,
+    [itemIds, AUDIT_ACTIONS.BOQ_ITEM_PHASE_CHANGED, targetPhase]
+  );
+  return new Map(rows.map((r) => [r.target_id, r.actor_id]));
 }
 
 /** Read recent audit events for an org. Reserved for F21. */
