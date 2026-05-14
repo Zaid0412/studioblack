@@ -210,6 +210,7 @@
   },
   "projectDetail": {
     "title": "Proje Detayı",
+    "category": "Kategori",
     "designSections": "Tasarım Bölümleri",
     "teamMembers": "Ekip Üyeleri",
     "projectInfo": "Proje Bilgisi",
