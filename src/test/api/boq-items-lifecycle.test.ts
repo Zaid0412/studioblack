@@ -6,7 +6,7 @@
  *
  * Both routes share the same permission rules via `canFirePhaseTransition`:
  *   - internal_review        — creator or PM
- *   - internally_approved    — PM, AND NOT creator (4-eyes)
+ *   - internally_approved    — PM or architect, AND NOT creator (4-eyes)
  *   - submitted_to_client    — PM
  *   - client_approved        — client
  *   - change_requested       — PM or client
@@ -21,6 +21,7 @@ import {
   hasProjectAccess,
   getOrgRole,
   getEligibleReviewers,
+  getLastPhaseActors,
   getProjectClientInfo,
   getUsersByIds,
 } from "@/lib/queries";
@@ -86,6 +87,7 @@ beforeEach(() => {
   vi.mocked(hasProjectAccess).mockResolvedValue(true);
   vi.mocked(getOrgRole).mockResolvedValue("owner");
   vi.mocked(getEligibleReviewers).mockResolvedValue([]);
+  vi.mocked(getLastPhaseActors).mockResolvedValue(new Map());
   vi.mocked(getUsersByIds).mockResolvedValue([]);
 });
 
@@ -155,8 +157,32 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
     expect(res.status).toBe(200);
   });
 
-  it("non-PM architect cannot approve internally (403)", async () => {
+  it("non-creator architect can approve internally (200)", async () => {
     setupAuth(mocks.auth, architectSession);
+    vi.mocked(getOrgRole).mockResolvedValue("member");
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internal_review" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internally_approved" },
+    });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "internally_approved" } }
+    );
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("architect who IS the creator cannot self-approve (4-eyes, 403)", async () => {
+    // Same user is both the architect and the BOQ creator — 4-eyes rule
+    // still blocks even though architects can now approve in general.
+    setupAuth(mocks.auth, creatorSession);
     vi.mocked(getOrgRole).mockResolvedValue("member");
     vi.mocked(getBoqItemContext).mockResolvedValue(
       ctx({ phase: "internal_review" })
@@ -424,7 +450,7 @@ describe("phase notification fan-out", () => {
     expect(getUsersByIds).toHaveBeenCalledWith([PM_ID, ARCHITECT_ID]);
   });
 
-  it("internally_approved → notifies the BOQ creator only", async () => {
+  it("internally_approved → notifies BOQ creator when submitter == creator", async () => {
     vi.mocked(getBoqItemContext).mockResolvedValue(
       ctx({ phase: "internal_review" })
     );
@@ -432,6 +458,10 @@ describe("phase notification fan-out", () => {
       ok: true,
       item: { ...baseItem, phase: "internally_approved" },
     });
+    // Submitter audit row points at the creator (the BOQ owner submitted).
+    vi.mocked(getLastPhaseActors).mockResolvedValue(
+      new Map([[ITEM_ID, CREATOR_ID]])
+    );
     vi.mocked(getUsersByIds).mockResolvedValue([
       { id: CREATOR_ID, email: "creator@test.com", name: "Creator" },
     ]);
@@ -445,6 +475,68 @@ describe("phase notification fan-out", () => {
 
     expect(getUsersByIds).toHaveBeenCalledWith([CREATOR_ID]);
     expect(getEligibleReviewers).not.toHaveBeenCalled();
+  });
+
+  it("internally_approved → also notifies the submitter when they are not the creator", async () => {
+    const SUBMITTER_ID = "user-submitter";
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internal_review" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internally_approved" },
+    });
+    // A different PM submitted the item for review — they should hear about
+    // the approval too, not just the BOQ creator.
+    vi.mocked(getLastPhaseActors).mockResolvedValue(
+      new Map([[ITEM_ID, SUBMITTER_ID]])
+    );
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: CREATOR_ID, email: "creator@test.com", name: "Creator" },
+      { id: SUBMITTER_ID, email: "sub@test.com", name: "Submitter" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "internally_approved" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    // Set semantics — order isn't guaranteed.
+    const recipientIds = vi.mocked(getUsersByIds).mock.calls[0][0] as string[];
+    expect(recipientIds).toHaveLength(2);
+    expect(new Set(recipientIds)).toEqual(new Set([CREATOR_ID, SUBMITTER_ID]));
+  });
+
+  it("internally_approved → excludes the approving actor from recipients", async () => {
+    // The architect (ARCHITECT_ID) is approving, but they also happen to be
+    // the recorded submitter. They shouldn't get notified about their own
+    // action — the creator is the only recipient left.
+    setupAuth(mocks.auth, architectSession);
+    vi.mocked(getOrgRole).mockResolvedValue("member");
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internal_review" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internally_approved" },
+    });
+    vi.mocked(getLastPhaseActors).mockResolvedValue(
+      new Map([[ITEM_ID, ARCHITECT_ID]])
+    );
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: CREATOR_ID, email: "creator@test.com", name: "Creator" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "internally_approved" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getUsersByIds).toHaveBeenCalledWith([CREATOR_ID]);
   });
 
   it("submitted_to_client → looks up project's client email", async () => {

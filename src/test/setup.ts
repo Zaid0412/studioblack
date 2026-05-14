@@ -331,6 +331,7 @@ vi.mock("@/lib/queries", () => ({
   updateBoq: vi.fn().mockResolvedValue(null),
   // Per-item lifecycle phase (Pap's 2026-05-12 spec)
   getEligibleReviewers: vi.fn().mockResolvedValue([]),
+  getLastPhaseActors: vi.fn().mockResolvedValue(new Map()),
   getBoqItemContext: vi.fn().mockResolvedValue(null),
   setBoqItemPhase: vi
     .fn()

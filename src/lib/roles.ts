@@ -10,3 +10,23 @@ import type { UserRole } from "@/types";
 export function isExternalViewer(role: UserRole | null | undefined): boolean {
   return role === "client" || role === "vendor";
 }
+
+/**
+ * Boolean flags used by the BOQ phase-permission matrix and other route
+ * guards. Derived from the better-auth `orgRole` (owner/admin/member) plus
+ * the app's `effectiveRole` (which folds in client/vendor from `dbRole`).
+ *
+ * Single source of truth — route handlers and any other server-side gate
+ * should call this rather than re-deriving `isPM = orgRole === "owner"
+ * || orgRole === "admin"` inline.
+ */
+export function deriveRoleFlags(
+  orgRole: string | null | undefined,
+  effectiveRole: UserRole | null | undefined
+): { isPM: boolean; isArchitect: boolean; isClient: boolean } {
+  return {
+    isPM: orgRole === "owner" || orgRole === "admin",
+    isArchitect: orgRole === "member",
+    isClient: effectiveRole === "client",
+  };
+}

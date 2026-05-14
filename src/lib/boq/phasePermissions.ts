@@ -8,15 +8,20 @@ import type { BoqItemPhase } from "@/lib/validations";
 export function canFireBoqPhaseTransition(opts: {
   target: BoqItemPhase;
   isPM: boolean;
+  isArchitect: boolean;
   isClient: boolean;
   isCreator: boolean;
 }): boolean {
-  const { target, isPM, isClient, isCreator } = opts;
+  const { target, isPM, isArchitect, isClient, isCreator } = opts;
+  // 4-eyes rule on `internally_approved`: any studio staffer (PM or
+  // architect) can approve, but never the BOQ's own creator. Architects
+  // are included so single-PM studios where the PM created the BOQ are
+  // not stuck — otherwise nobody but a second PM could ever approve.
   switch (target) {
     case "internal_review":
       return isCreator || isPM;
     case "internally_approved":
-      return isPM && !isCreator;
+      return (isPM || isArchitect) && !isCreator;
     case "submitted_to_client":
       return isPM;
     case "client_approved":

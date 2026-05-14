@@ -86,17 +86,19 @@ export async function parseBoqRequest<T extends z.ZodType>(
   return { ok: true, boqId: boqIdParsed.data, data: parsed.data };
 }
 
-/** Adapts the shared phase matrix to the (actor, isPM, isClient, boqCreatorId) shape. */
+/** Adapts the shared phase matrix to the (actor, isPM, isArchitect, isClient, boqCreatorId) shape. */
 export function canFirePhaseTransition(opts: {
   target: BoqItemPhase;
   actorId: string;
   isPM: boolean;
+  isArchitect: boolean;
   isClient: boolean;
   boqCreatorId: string | null;
 }): boolean {
   return canFireBoqPhaseTransition({
     target: opts.target,
     isPM: opts.isPM,
+    isArchitect: opts.isArchitect,
     isClient: opts.isClient,
     isCreator: opts.boqCreatorId !== null && opts.actorId === opts.boqCreatorId,
   });

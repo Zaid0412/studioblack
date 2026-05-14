@@ -4,6 +4,7 @@ import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
 import { POLLING_INTERVAL_MS } from "@/lib/constants";
+import { notificationDestination } from "@/lib/notificationDestination";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
 import type { Notification, DbNotificationRow } from "@/types";
 
@@ -171,7 +172,9 @@ export function useNotifications({
     }
     if (notification.projectId) {
       onClose();
-      onNavigate(`/projects/${notification.projectId}`);
+      onNavigate(
+        notificationDestination(notification.type, notification.projectId)
+      );
     }
   };
 

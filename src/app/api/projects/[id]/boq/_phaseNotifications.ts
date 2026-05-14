@@ -1,5 +1,6 @@
 import {
   getEligibleReviewers,
+  getLastPhaseActors,
   getProjectClientInfo,
   getUsersByIds,
 } from "@/lib/queries";
@@ -25,7 +26,7 @@ export async function notifyPhaseRecipients(opts: {
   boqTitle: string;
   boqCreatorId: string | null;
   target: BoqItemPhase;
-  itemCount: number;
+  itemIds: readonly string[];
   actor: { id: string; name?: string | null; email?: string | null };
   comment: string | null;
 }): Promise<void> {
@@ -35,12 +36,12 @@ export async function notifyPhaseRecipients(opts: {
     boqTitle,
     boqCreatorId,
     target,
-    itemCount,
+    itemIds,
     actor,
     comment,
   } = opts;
   const actorName = actor.name || actor.email || "A teammate";
-  const noun = itemCount === 1 ? "item" : `${itemCount} items`;
+  const noun = itemIds.length === 1 ? "item" : `${itemIds.length} items`;
   const title = phaseTitle(target, boqTitle, noun);
   const desc = comment
     ? `${actorName} — ${comment}`
@@ -61,7 +62,24 @@ export async function notifyPhaseRecipients(opts: {
       });
       return;
     }
-    case "internally_approved":
+    case "internally_approved": {
+      // Notify the BOQ creator AND whoever fired `internal_review` on each
+      // item — the submitter may not be the creator (any PM can submit).
+      // De-dup the recipient set and skip the acting approver.
+      const submitters = await getLastPhaseActors(itemIds, "internal_review");
+      const recipients = new Set<string>();
+      if (boqCreatorId) recipients.add(boqCreatorId);
+      for (const userId of submitters.values()) recipients.add(userId);
+      recipients.delete(actor.id);
+      if (recipients.size === 0) return;
+      await fanOutToUsers([...recipients], {
+        notificationType: `boq_item_${target}`,
+        projectId,
+        title,
+        desc,
+      });
+      return;
+    }
     case "client_approved":
     case "change_requested": {
       if (!boqCreatorId || boqCreatorId === actor.id) return;
