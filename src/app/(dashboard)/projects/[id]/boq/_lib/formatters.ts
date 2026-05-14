@@ -1,5 +1,6 @@
 import type { BoqItemPhase } from "@/lib/validations";
 import type { BadgeVariant } from "@/components/ui/badge";
+import type { UserRole } from "@/types";
 
 /** Sentinel used in selects/grouping when an item has no section. */
 export const BOQ_NO_SECTION_ID = "__unassigned__";
@@ -36,6 +37,42 @@ export function phaseToLabel(phase: BoqItemPhase): string {
  */
 export function isDestructivePhase(phase: BoqItemPhase): boolean {
   return phase === "change_requested";
+}
+
+/**
+ * Client-side mirror of the server-side `canFirePhaseTransition` in
+ * `src/app/api/projects/[id]/boq/_helpers.ts`. Used to gate button
+ * visibility so users never see actions they can't actually fire.
+ * Keep both copies in lockstep — if the server matrix changes, this
+ * must change too.
+ */
+export function canFireBoqItemPhaseTransition(
+  target: BoqItemPhase,
+  ctx: {
+    role: UserRole | null;
+    actorId: string | null;
+    boqCreatorId: string | null;
+  }
+): boolean {
+  const { role, actorId, boqCreatorId } = ctx;
+  const isPM = role === "pm";
+  const isClient = role === "client";
+  const isCreator =
+    boqCreatorId !== null && actorId !== null && actorId === boqCreatorId;
+  switch (target) {
+    case "internal_review":
+      return isCreator || isPM;
+    case "internally_approved":
+      return isPM && !isCreator;
+    case "submitted_to_client":
+      return isPM;
+    case "client_approved":
+      return isClient;
+    case "change_requested":
+      return isPM || isClient;
+    case "draft":
+      return isCreator || isPM;
+  }
 }
 
 export type MarginTier = "error" | "warning" | "success";

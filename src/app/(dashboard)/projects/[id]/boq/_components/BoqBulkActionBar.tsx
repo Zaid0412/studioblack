@@ -17,6 +17,8 @@ interface BoqBulkActionBarProps {
   nextSortOrder: number;
   /** When every selected item shares a section, forwarded to the move popover. */
   sharedSectionId?: string | null;
+  /** When every selected item shares a phase, forwarded to the phase picker so it can disable that row. */
+  sharedPhase?: BoqItemPhase;
   onMove: (targetSectionId: string | null) => void;
   onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
@@ -37,6 +39,7 @@ export function BoqBulkActionBar({
   boqId,
   nextSortOrder,
   sharedSectionId,
+  sharedPhase,
   onMove,
   onSetPhase,
   onDelete,
@@ -85,6 +88,7 @@ export function BoqBulkActionBar({
           </Button>
         }
         onPick={onSetPhase}
+        currentPhase={sharedPhase}
       />
 
       <Button type="button" variant="danger" size="sm" onClick={onDelete}>

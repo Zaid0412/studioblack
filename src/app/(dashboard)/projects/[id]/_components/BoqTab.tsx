@@ -46,13 +46,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     error,
     mutate: mutateBoq,
   } = useBoq(projectId);
-  const { role } = useUserRole();
+  const { role, session } = useUserRole();
+  const currentUserId = session?.user?.id ?? null;
   const {
     updateItem,
     moveItem,
     bulkMoveItems,
     bulkDeleteItems,
     bulkSetItemPhase,
+    setItemPhase,
     deleteItem,
     updateSection,
     deleteSection,
@@ -125,6 +127,22 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     return shared;
   }, [boq, selection.selected]);
 
+  // Same idea for phase: if every selected item shares a phase, pass it to
+  // the lifecycle picker so it can disable that row. Mixed → undefined.
+  const sharedSelectedPhase = useMemo<BoqItemPhase | undefined>(() => {
+    if (!boq || selection.selected.size === 0) return undefined;
+    let shared: BoqItemPhase | undefined;
+    for (const it of boq.items) {
+      if (!selection.selected.has(it.id)) continue;
+      if (shared === undefined) shared = it.phase;
+      else if (shared !== it.phase) return undefined;
+    }
+    return shared;
+  }, [boq, selection.selected]);
+
+  // Bulk action success → exit selection mode entirely (per UX: after one
+  // batch action, dismiss the bar). Failures keep the user in selection mode
+  // so they can retry / cancel.
   const handleBulkMove = useCallback(
     async (targetSectionId: string | null) => {
       if (!boq || selection.selected.size === 0) return;
@@ -134,7 +152,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           Array.from(selection.selected),
           targetSectionId
         );
-        selection.clear();
+        selection.toggleMode();
       } catch {
         /* useBoqMutations toasts on error */
       }
@@ -146,8 +164,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     if (!boq || selection.selected.size === 0) return;
     try {
       await bulkDeleteItems(boq.id, Array.from(selection.selected));
-      selection.clear();
       setBulkDeleteConfirmOpen(false);
+      selection.toggleMode();
     } catch {
       /* useBoqMutations toasts on error */
     }
@@ -163,12 +181,34 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           phase,
           comment ? { comment } : undefined
         );
-        selection.clear();
+        selection.toggleMode();
       } catch {
         /* useBoqMutations toasts on error */
       }
     },
     [boq, bulkSetItemPhase, selection]
+  );
+
+  // Single-item lifecycle change from the row's "..." menu. Errors are
+  // surfaced via toast inside `useBoqMutations`; we just no-op here so
+  // the menu can resume normally.
+  const handleSetItemPhase = useCallback(
+    async (
+      item: BoqItemWithComputed,
+      target: BoqItemPhase,
+      comment?: string
+    ) => {
+      try {
+        await setItemPhase(
+          item.id,
+          target,
+          comment ? { comment } : undefined
+        );
+      } catch {
+        /* useBoqMutations toasts on error */
+      }
+    },
+    [setItemPhase]
   );
 
   const handleCreateAndMoveCompleted = useCallback(
@@ -378,11 +418,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
         canEdit={canEdit}
+        role={role}
+        currentUserId={currentUserId}
+        boqCreatorId={boq.created_by}
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
         onDeleteItem={async (item) => setDeleteItemTarget(item)}
         onMoveItem={moveItem}
         onCreateAndMoveItem={setCreateAndMoveTarget}
+        onSetItemPhase={handleSetItemPhase}
         selection={selection.selectionMode ? selection : undefined}
         onRenameSection={setRenameSection}
         onToggleSectionVisibility={handleToggleVisibility}
@@ -497,6 +541,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           boqId={boq.id}
           nextSortOrder={boq.sections.length}
           sharedSectionId={sharedSelectedSectionId}
+          sharedPhase={sharedSelectedPhase}
           onMove={handleBulkMove}
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}
@@ -525,6 +570,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         currency={boq.currency}
         minimumMarginPct={boq.minimum_margin_pct}
         canEdit={canEdit}
+        role={role}
+        currentUserId={currentUserId}
+        boqCreatorId={boq.created_by}
         onDelete={(item) => {
           // Close the drawer first so the confirm dialog isn't stacked
           // on top of the open sheet — single modal layer at a time.

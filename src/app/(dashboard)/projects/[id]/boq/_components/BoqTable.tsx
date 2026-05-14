@@ -41,20 +41,32 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import type { SectionSelectionState } from "@/hooks/useBoqSelection";
-import type { BoqItemWithComputed, BoqSection, BoqSummary } from "@/types";
+import type {
+  BoqItemWithComputed,
+  BoqSection,
+  BoqSummary,
+  UserRole,
+} from "@/types";
+import {
+  BOQ_ITEM_PHASES,
+  type BoqItemPhase,
+} from "@/lib/validations";
 import {
   BOQ_NO_SECTION_ID,
+  canFireBoqItemPhaseTransition,
   formatCurrency,
   formatDimensions,
   formatOptionalCurrency,
   formatPct,
   formatQty,
+  isDestructivePhase,
   parseOptionalNumber,
   phaseToLabel,
   phaseToVariant,
   marginTier,
   toNum,
 } from "../_lib/formatters";
+import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqSectionHeader } from "./BoqSectionHeader";
 import { BoqSectionFooter } from "./BoqSectionFooter";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
@@ -71,6 +83,12 @@ interface BoqTableProps {
   currency: string;
   minimumMarginPct: string;
   canEdit: boolean;
+  /** Viewer's role — gates the row menu's "Change lifecycle…" submenu per the server permission matrix. */
+  role: UserRole | null;
+  /** Current viewer's user id — used to derive `isCreator`. */
+  currentUserId: string | null;
+  /** BOQ.created_by — used to derive `isCreator` for the 4-eyes rule. */
+  boqCreatorId: string | null;
   /** When set, only items whose `source` is in the set are rendered. Empty/undefined → no filter. */
   sourceFilter?: ReadonlySet<BoqItemSource>;
   onUpdateItem?: (
@@ -85,6 +103,16 @@ interface BoqTableProps {
   ) => Promise<BoqItemWithComputed | null | undefined>;
   /** Surfaces "+ Create new section…" at the bottom of the row's Move sub-menu. */
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
+  /**
+   * Fire a phase transition on a single item from the row's "..." menu.
+   * `comment` is required for destructive phases (`change_requested`);
+   * the menu captures it via `BoqChangeRequestDialog` before calling.
+   */
+  onSetItemPhase?: (
+    item: BoqItemWithComputed,
+    target: BoqItemPhase,
+    comment?: string
+  ) => Promise<unknown> | void;
   onRenameSection?: (section: BoqSection) => void;
   onToggleSectionVisibility?: (section: BoqSection) => void;
   onDeleteSection?: (section: BoqSection) => void;
@@ -146,11 +174,15 @@ export function BoqTable({
   currency,
   minimumMarginPct,
   canEdit,
+  role,
+  currentUserId,
+  boqCreatorId,
   sourceFilter,
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
   onCreateAndMoveItem,
+  onSetItemPhase,
   selection,
   onRenameSection,
   onToggleSectionVisibility,
@@ -287,7 +319,7 @@ export function BoqTable({
             <div className="text-right">Sell Price</div>
             <div className="text-right">Client Rate</div>
             <div className="text-right">Budget Rate</div>
-            <div>Phase</div>
+            <div className="text-center pl-3">Phase</div>
             <div />
           </div>
 
@@ -300,11 +332,15 @@ export function BoqTable({
             setCollapsed={setCollapsed}
             rowsEditable={rowsEditable}
             sectionsEditable={sectionsEditable}
+            role={role}
+            currentUserId={currentUserId}
+            boqCreatorId={boqCreatorId}
             registerSectionRef={registerSectionRef}
             onUpdateItem={onUpdateItem}
             onDeleteItem={onDeleteItem}
             onMoveItem={onMoveItem}
             onCreateAndMoveItem={onCreateAndMoveItem}
+            onSetItemPhase={onSetItemPhase}
             selection={selection}
             onOpenItem={onOpenItem}
             onAddItemToSection={onAddItemToSection}
@@ -331,11 +367,15 @@ interface SectionListProps {
   setCollapsed: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   rowsEditable: boolean;
   sectionsEditable: boolean;
+  role: UserRole | null;
+  currentUserId: string | null;
+  boqCreatorId: string | null;
   registerSectionRef: (id: string, el: HTMLElement | null) => void;
   onUpdateItem?: BoqTableProps["onUpdateItem"];
   onDeleteItem?: BoqTableProps["onDeleteItem"];
   onMoveItem?: BoqTableProps["onMoveItem"];
   onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
+  onSetItemPhase?: BoqTableProps["onSetItemPhase"];
   selection?: BoqTableProps["selection"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
@@ -451,11 +491,15 @@ function SectionBody({
   setCollapsed,
   rowsEditable,
   sectionsEditable,
+  role,
+  currentUserId,
+  boqCreatorId,
   registerSectionRef,
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
   onCreateAndMoveItem,
+  onSetItemPhase,
   selection,
   onOpenItem,
   onAddItemToSection,
@@ -543,10 +587,14 @@ function SectionBody({
               marginFloor={marginFloor}
               editable={rowsEditable}
               sections={sections}
+              role={role}
+              currentUserId={currentUserId}
+              boqCreatorId={boqCreatorId}
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
+              onSetItemPhase={onSetItemPhase}
               isSelected={selection ? selection.selected.has(item.id) : false}
               onToggleSelected={
                 selection ? () => selection.toggle(item.id) : undefined
@@ -572,6 +620,10 @@ interface BoqItemRowProps {
   currency: string;
   marginFloor?: number;
   editable: boolean;
+  /** Viewer's role — drives lifecycle submenu visibility/per-phase gating. */
+  role: UserRole | null;
+  currentUserId: string | null;
+  boqCreatorId: string | null;
   onUpdateItem?: (
     itemId: string,
     data: UpdateItemPayload
@@ -588,6 +640,12 @@ interface BoqItemRowProps {
   onToggleSelected?: () => void;
   /** When defined, adds a "+ Create new section…" item at the bottom of the Move sub-menu. */
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
+  /** Fire a single-item phase transition from the row's "..." menu. */
+  onSetItemPhase?: (
+    item: BoqItemWithComputed,
+    target: BoqItemPhase,
+    comment?: string
+  ) => Promise<unknown> | void;
   onOpen?: (item: BoqItemWithComputed) => void;
 }
 
@@ -597,14 +655,21 @@ const BoqItemRow = memo(function BoqItemRow({
   marginFloor,
   editable,
   sections,
+  role,
+  currentUserId,
+  boqCreatorId,
   onUpdateItem,
   onDeleteItem,
   onMoveItem,
   isSelected,
   onToggleSelected,
   onCreateAndMoveItem,
+  onSetItemPhase,
   onOpen,
 }: BoqItemRowProps) {
+  // Captures a comment for `change_requested` before firing the transition.
+  // Inline (per-row) so each row drives its own dialog state.
+  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
   const selectionMode = onToggleSelected !== undefined;
   const tier = marginTier(toNum(item.margin_pct), marginFloor);
   const marginColor =
@@ -634,13 +699,40 @@ const BoqItemRow = memo(function BoqItemRow({
   );
 
   const canMove = editable && !!onMoveItem;
-  const showMenu = editable && (onDeleteItem || canMove);
+  // Phases the viewer can actually transition this item into right now.
+  // Empty for clients on items in `change_requested` / `draft`, etc.
+  const lifecycleTargets = onSetItemPhase
+    ? BOQ_ITEM_PHASES.filter(
+        (target) =>
+          target !== item.phase &&
+          canFireBoqItemPhaseTransition(target, {
+            role,
+            actorId: currentUserId,
+            boqCreatorId,
+          })
+      )
+    : [];
+  const canChangeLifecycle = lifecycleTargets.length > 0;
+  // Clients only get menu access for lifecycle actions; PMs/architects keep
+  // their existing move/delete entries gated on `editable`.
+  const showMenu =
+    (editable && (onDeleteItem || canMove)) || canChangeLifecycle;
   const currentSectionId = item.section_id ?? null;
 
+  const handlePickLifecycle = (target: BoqItemPhase) => {
+    if (!onSetItemPhase) return;
+    if (isDestructivePhase(target)) {
+      setChangeRequestOpen(true);
+      return;
+    }
+    void onSetItemPhase(item, target);
+  };
+
   return (
-    <div
-      className={`grid ${selectionMode ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
-    >
+    <>
+      <div
+        className={`grid ${selectionMode ? GRID_COLS_WITH_SELECT : GRID_COLS} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
+      >
       {selectionMode && (
         <div className="flex items-center justify-center">
           <Checkbox
@@ -787,7 +879,7 @@ const BoqItemRow = memo(function BoqItemRow({
           ariaLabel={`Budget rate for ${item.item_code}`}
         />
       </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex items-center justify-center pl-3">
         <Badge
           variant={phaseToVariant(item.phase)}
           className="!px-2 truncate max-w-full"
@@ -845,8 +937,38 @@ const BoqItemRow = memo(function BoqItemRow({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              {canMove && onDeleteItem && <DropdownMenuSeparator />}
-              {onDeleteItem && (
+              {canChangeLifecycle && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    Change lifecycle…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {BOQ_ITEM_PHASES.map((phase) => {
+                      const isCurrent = phase === item.phase;
+                      const isAllowed = lifecycleTargets.includes(phase);
+                      return (
+                        <DropdownMenuItem
+                          key={phase}
+                          disabled={isCurrent || !isAllowed}
+                          onSelect={() => handlePickLifecycle(phase)}
+                          className={
+                            isDestructivePhase(phase) && !isCurrent && isAllowed
+                              ? "text-error focus:text-error"
+                              : undefined
+                          }
+                        >
+                          <span className="flex-1">{phaseToLabel(phase)}</span>
+                          {isCurrent && <CurrentBadge />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {(canMove || canChangeLifecycle) && onDeleteItem && editable && (
+                <DropdownMenuSeparator />
+              )}
+              {onDeleteItem && editable && (
                 <DropdownMenuItem
                   onSelect={() => void onDeleteItem(item)}
                   className="text-error focus:text-error"
@@ -858,6 +980,15 @@ const BoqItemRow = memo(function BoqItemRow({
           </DropdownMenu>
         )}
       </span>
-    </div>
+      </div>
+      <BoqChangeRequestDialog
+        open={changeRequestOpen}
+        onOpenChange={setChangeRequestOpen}
+        onSubmit={async (comment) => {
+          if (!onSetItemPhase) return;
+          await onSetItemPhase(item, "change_requested", comment);
+        }}
+      />
+    </>
   );
 });

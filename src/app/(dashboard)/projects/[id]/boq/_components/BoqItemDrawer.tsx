@@ -14,7 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/useToast";
-import type { BoqItemWithComputed, BoqSection } from "@/types";
+import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
 import type { BoqItemPhase } from "@/lib/validations";
 import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
@@ -22,6 +22,7 @@ import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
+  canFireBoqItemPhaseTransition,
   formatCurrency,
   formatOptionalCurrency,
   formatPct,
@@ -43,6 +44,12 @@ interface BoqItemDrawerProps {
   currency: string;
   minimumMarginPct: string;
   canEdit: boolean;
+  /** Caller's role — gates phase-transition buttons per server permission matrix. */
+  role: UserRole | null;
+  /** Current viewer's user id — used to derive `isCreator`. */
+  currentUserId: string | null;
+  /** BOQ.created_by — used to derive `isCreator` for the 4-eyes rule. */
+  boqCreatorId: string | null;
   /**
    * Optional delete handler — wired up by the parent so the existing
    * ConfirmDialog flow stays the single source of truth. Drawer just
@@ -74,6 +81,9 @@ export function BoqItemDrawer({
   currency,
   minimumMarginPct,
   canEdit,
+  role,
+  currentUserId,
+  boqCreatorId,
   onDelete,
 }: BoqItemDrawerProps) {
   const { updateItem, setItemPhase } = useBoqMutations(projectId);
@@ -184,7 +194,17 @@ export function BoqItemDrawer({
 
   const fieldsDisabled = !canEdit || savingField;
 
-  const allowedNext = BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? [];
+  // Filter transitions through the per-role permission matrix so users never
+  // see buttons the server will reject. Clients can still see the section
+  // (e.g. Mark Client Approved) even when `canEdit` is false for them.
+  const allowedNext = (BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? []).filter(
+    (target) =>
+      canFireBoqItemPhaseTransition(target, {
+        role,
+        actorId: currentUserId,
+        boqCreatorId,
+      })
+  );
 
   return (
     <>
@@ -399,7 +419,7 @@ export function BoqItemDrawer({
               </label>
             </section>
 
-            {canEdit && allowedNext.length > 0 && (
+            {allowedNext.length > 0 && (
               <section className="flex flex-col gap-2">
                 <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
                   Lifecycle
