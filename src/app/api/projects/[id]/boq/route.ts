@@ -9,10 +9,7 @@ import {
 import { isExternalViewer } from "@/lib/roles";
 import { parseBoqRequest } from "./_helpers";
 
-// External viewers (client + vendor) only see items in `submitted_to_client`
-// / `client_approved` / `change_requested`, and cost/margin/budget data is
-// scrubbed from the payload. Drafts and items in internal review never
-// leave the studio.
+// External viewers get a phase-filtered + scrubbed payload — see getBoq.
 export const GET = withAuth(
   { projectAccess: true },
   async (_req, { effectiveRole }, params) => {

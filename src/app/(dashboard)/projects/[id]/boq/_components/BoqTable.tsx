@@ -155,10 +155,10 @@ export const GRID_COLS =
 const GRID_COLS_WITH_SELECT =
   "grid-cols-[32px_70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
 
-// Client variant — drops Source / Unit Cost / Total Cost / Margin / Budget
-// Rate / Client Rate. Leaves Code, Description, Unit, Qty, Sell Price, Phase,
-// Actions. Total widths: 70 + flex + 50 + 70 + 100 + 160 + 32 = 482 px + flex.
-const GRID_COLS_CLIENT =
+// External-viewer variant (client + vendor) — drops Source / Unit Cost /
+// Total Cost / Margin / Budget Rate / Client Rate. Leaves Code, Description,
+// Unit, Qty, Sell Price, Phase, Actions.
+const GRID_COLS_EXTERNAL =
   "grid-cols-[70px_minmax(160px,1fr)_50px_70px_100px_160px_32px]";
 
 /**
@@ -169,9 +169,9 @@ const GRID_COLS_CLIENT =
  * rows aligned.
  */
 export const TABLE_MIN_WIDTH = "min-w-[1255px]";
-// Client table is narrower — only 7 columns. Skip the min-width so it
-// renders naturally without horizontal scroll on most viewports.
-const TABLE_MIN_WIDTH_CLIENT = "min-w-[600px]";
+// External-viewer table is narrower (7 columns); ease off the wide min-width
+// so it renders naturally without horizontal scroll on most viewports.
+const TABLE_MIN_WIDTH_EXTERNAL = "min-w-[600px]";
 
 /** BOQ line-item grid: groups items under sortable sections, supports inline edits and item-level actions. */
 export function BoqTable({
@@ -201,8 +201,7 @@ export function BoqTable({
 }: BoqTableProps) {
   const t = useTranslations("boq.table");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  // Lifted from the row level so we mount one `<BoqChangeRequestDialog>` per
-  // table, not one per item. Holds the item awaiting a change-request comment.
+  // One dialog per table, not per row — `change_requested` capture state.
   const [changeRequestTarget, setChangeRequestTarget] =
     useState<BoqItemWithComputed | null>(null);
   const marginFloor = toNum(minimumMarginPct) || undefined;
@@ -297,16 +296,16 @@ export function BoqTable({
     );
   }
 
-  const isClient = isExternalViewer(role);
+  const isExternal = isExternalViewer(role);
   // Clients see a trimmed table: no cost / margin / budget / source columns.
   // Server already scrubs those numbers from the payload, but hiding the
   // columns avoids confusing zeros in the UI.
-  const gridCols = isClient
-    ? GRID_COLS_CLIENT
+  const gridCols = isExternal
+    ? GRID_COLS_EXTERNAL
     : selection
       ? GRID_COLS_WITH_SELECT
       : GRID_COLS;
-  const wrapperMinWidth = isClient ? TABLE_MIN_WIDTH_CLIENT : TABLE_MIN_WIDTH;
+  const wrapperMinWidth = isExternal ? TABLE_MIN_WIDTH_EXTERNAL : TABLE_MIN_WIDTH;
 
   return (
     <>
@@ -321,7 +320,7 @@ export function BoqTable({
             <div
               className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
             >
-              {!isClient && selection && (
+              {!isExternal && selection && (
                 <div className="flex items-center justify-center">
                   <Checkbox
                     checked={selection.tableState === "all"}
@@ -333,15 +332,15 @@ export function BoqTable({
               )}
               <div>Code</div>
               <div>Description</div>
-              {!isClient && <div>{t("columnSource")}</div>}
+              {!isExternal && <div>{t("columnSource")}</div>}
               <div>Unit</div>
               <div className="text-right">Qty</div>
-              {!isClient && <div className="text-right">Unit Cost</div>}
-              {!isClient && <div className="text-right">Total Cost</div>}
-              {!isClient && <div className="text-right">Margin</div>}
+              {!isExternal && <div className="text-right">Unit Cost</div>}
+              {!isExternal && <div className="text-right">Total Cost</div>}
+              {!isExternal && <div className="text-right">Margin</div>}
               <div className="text-right">Sell Price</div>
-              {!isClient && <div className="text-right">Client Rate</div>}
-              {!isClient && <div className="text-right">Budget Rate</div>}
+              {!isExternal && <div className="text-right">Client Rate</div>}
+              {!isExternal && <div className="text-right">Budget Rate</div>}
               <div className="text-center pl-3">Phase</div>
               <div />
             </div>
@@ -743,7 +742,7 @@ const BoqItemRow = memo(function BoqItemRow({
   );
 
   const canMove = editable && !!onMoveItem;
-  const isClient = isExternalViewer(role);
+  const isExternal = isExternalViewer(role);
   // Phases the viewer can actually transition this item into right now.
   // Empty for clients on items in `change_requested` / `draft`, etc.
   const lifecycleTargets = onSetItemPhase
@@ -767,16 +766,14 @@ const BoqItemRow = memo(function BoqItemRow({
   const handlePickLifecycle = (target: BoqItemPhase) => {
     if (!onSetItemPhase) return;
     if (isDestructivePhase(target)) {
-      // Defer the comment prompt to the table-level dialog so we don't mount
-      // one `<BoqChangeRequestDialog>` per row.
       onRequestChangeComment?.(item);
       return;
     }
     void onSetItemPhase(item, target);
   };
 
-  const rowGridCols = isClient
-    ? GRID_COLS_CLIENT
+  const rowGridCols = isExternal
+    ? GRID_COLS_EXTERNAL
     : selectionMode
       ? GRID_COLS_WITH_SELECT
       : GRID_COLS;
@@ -785,7 +782,7 @@ const BoqItemRow = memo(function BoqItemRow({
     <div
       className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
     >
-      {!isClient && selectionMode && (
+      {!isExternal && selectionMode && (
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isSelected ?? false}
@@ -841,7 +838,7 @@ const BoqItemRow = memo(function BoqItemRow({
           </span>
         )}
       </span>
-      {!isClient && (
+      {!isExternal && (
         <span className="min-w-0">
           <BoqSourceBadge source={item.source} />
         </span>
@@ -865,7 +862,7 @@ const BoqItemRow = memo(function BoqItemRow({
         className="tabular-nums text-text-primary"
         ariaLabel={`Quantity for ${item.item_code}`}
       />
-      {!isClient && (
+      {!isExternal && (
         <BoqEditableCell
           value={item.unit_cost}
           display={formatCurrency(item.unit_cost, currency)}
@@ -878,12 +875,12 @@ const BoqItemRow = memo(function BoqItemRow({
           ariaLabel={`Unit cost for ${item.item_code}`}
         />
       )}
-      {!isClient && (
+      {!isExternal && (
         <span className="text-right tabular-nums text-text-primary">
           {formatCurrency(item.total_cost, currency)}
         </span>
       )}
-      {!isClient && (
+      {!isExternal && (
         <span
           className={`text-right tabular-nums font-medium ${marginColor} flex items-center justify-end gap-1`}
         >
@@ -905,7 +902,7 @@ const BoqItemRow = memo(function BoqItemRow({
       <span className="text-right tabular-nums text-text-primary">
         {formatCurrency(item.sell_price, currency)}
       </span>
-      {!isClient && (
+      {!isExternal && (
         <BoqEditableCell
           value={item.client_rate ?? ""}
           display={formatOptionalCurrency(item.client_rate, currency)}
@@ -918,7 +915,7 @@ const BoqItemRow = memo(function BoqItemRow({
           ariaLabel={`Client rate for ${item.item_code}`}
         />
       )}
-      {!isClient && (
+      {!isExternal && (
         <span
           className={`text-right tabular-nums flex items-center justify-end gap-1 ${
             item.over_budget ? "text-error font-medium" : "text-text-primary"
@@ -1007,11 +1004,7 @@ const BoqItemRow = memo(function BoqItemRow({
                     Change lifecycle…
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
-                    {/* Only render phases the viewer can actually fire — the
-                        item's current phase is already shown on the row badge,
-                        and surfacing disabled options for unreachable / role-
-                        gated transitions (e.g. 'Client approved' to a PM) is
-                        noise. */}
+                    {/* Only fireable targets — current phase is on the row badge. */}
                     {lifecycleTargets.map((phase) => (
                       <DropdownMenuItem
                         key={phase}

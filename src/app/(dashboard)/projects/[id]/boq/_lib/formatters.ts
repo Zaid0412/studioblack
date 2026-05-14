@@ -40,11 +40,7 @@ export function isDestructivePhase(phase: BoqItemPhase): boolean {
   return phase === "change_requested";
 }
 
-/**
- * Client-side wrapper around the shared phase-transition permission matrix
- * in `src/lib/boq/phasePermissions.ts`. Gates button visibility in the
- * drawer + row menu so users never see actions the server will reject.
- */
+/** Adapts the shared phase matrix to the (role, actorId, boqCreatorId) shape. */
 export function canFireBoqItemPhaseTransition(
   target: BoqItemPhase,
   ctx: {

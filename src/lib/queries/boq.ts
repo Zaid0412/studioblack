@@ -279,14 +279,8 @@ export async function getBoq(
 
 /**
  * Strip every studio-internal cost/margin/budget/notes field from a BOQ
- * payload before returning it to a client or vendor viewer. Sell-side
- * fields (sell_price, client_rate, subtotal, vat, client_total) stay
- * because they're what the external viewer will be billed; everything
- * cost-side is zeroed or nulled so the JSON inspector reveals nothing
- * the UI is trying to hide.
- *
- * Pure function, exported so the scrub contract can be pinned in a unit
- * test without standing up the full query chain.
+ * payload. Sell-side fields (sell_price, client_rate, subtotal, vat,
+ * client_total) stay — that's what the external viewer is billed.
  */
 export function scrubBoqForExternalViewer(input: {
   boq: Boq;

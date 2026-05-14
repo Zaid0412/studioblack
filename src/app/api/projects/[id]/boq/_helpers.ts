@@ -86,12 +86,7 @@ export async function parseBoqRequest<T extends z.ZodType>(
   return { ok: true, boqId: boqIdParsed.data, data: parsed.data };
 }
 
-/**
- * Server-side wrapper around the shared phase-transition permission matrix.
- * Derives `isCreator` from the actor id + BOQ creator id and delegates the
- * actual rule set to `canFireBoqPhaseTransition` — the only place that
- * knows which role can fire which transition.
- */
+/** Adapts the shared phase matrix to the (actor, isPM, isClient, boqCreatorId) shape. */
 export function canFirePhaseTransition(opts: {
   target: BoqItemPhase;
   actorId: string;

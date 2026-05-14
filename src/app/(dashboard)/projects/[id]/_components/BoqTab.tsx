@@ -114,39 +114,20 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   }, [boq]);
   const selection = useBoqSelection({ allItemIds, itemIdsBySection });
 
-  // When every selected item lives in the same section, surface that
-  // section to the move popover so it can render the "Current" badge.
-  // `null` is the Unassigned bucket; `undefined` = mixed selection.
-  const sharedSelectedSectionId = useMemo<string | null | undefined>(() => {
-    if (!boq || selection.selected.size === 0) return undefined;
-    let shared: string | null | undefined;
-    for (const it of boq.items) {
-      if (!selection.selected.has(it.id)) continue;
-      const sid = it.section_id ?? null;
-      if (shared === undefined) shared = sid;
-      else if (shared !== sid) return undefined;
-    }
-    return shared;
-  }, [boq, selection.selected]);
+  // When every selected item shares a field value, surface it so downstream
+  // popovers can disable the matching row. Mixed selection → undefined. Used
+  // for both the section move-target and the phase picker.
+  const sharedSelectedSectionId = useMemo(
+    () => sharedFieldAcrossSelection(boq?.items, selection.selected, (it) => it.section_id ?? null),
+    [boq?.items, selection.selected]
+  );
+  const sharedSelectedPhase = useMemo(
+    () => sharedFieldAcrossSelection(boq?.items, selection.selected, (it) => it.phase),
+    [boq?.items, selection.selected]
+  );
 
-  // Same idea for phase: if every selected item shares a phase, pass it to
-  // the lifecycle picker so it can disable that row. Mixed → undefined.
-  const sharedSelectedPhase = useMemo<BoqItemPhase | undefined>(() => {
-    if (!boq || selection.selected.size === 0) return undefined;
-    let shared: BoqItemPhase | undefined;
-    for (const it of boq.items) {
-      if (!selection.selected.has(it.id)) continue;
-      if (shared === undefined) shared = it.phase;
-      else if (shared !== it.phase) return undefined;
-    }
-    return shared;
-  }, [boq, selection.selected]);
-
-  // Pre-filter the bulk lifecycle picker to phases the viewer's role can
-  // actually fire. Without this the popover lists every phase (incl.
-  // 'Client approved') to PM/architects, which 403s server-side. `isCreator`
-  // is a property of the BOQ, not of individual items, so it's a single
-  // boolean for the whole batch.
+  // Pre-filter the bulk lifecycle picker to role-fireable phases. `isCreator`
+  // is a BOQ-level property, so one boolean covers the whole batch.
   const bulkAllowedPhases = useMemo<readonly BoqItemPhase[]>(() => {
     const isPM = role === "pm";
     const isClient = role === "client";
@@ -308,9 +289,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   if (!boq) return null;
 
   const canEdit = role === "pm" || role === "architect";
-  // External viewers (client OR vendor) see the trimmed table + drawer.
-  // Vendor will also need to reach this surface for RFQ work eventually;
-  // gating on the role group keeps them in lockstep with clients.
+  // External viewers (client + vendor) see the trimmed table + drawer.
   const isExternal = isExternalViewer(role);
 
   const openAddItem = (sectionId: string | null) => {
@@ -619,4 +598,30 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       />
     </div>
   );
+}
+
+/**
+ * Resolve the field value shared across every selected item, or `undefined`
+ * if the selection is mixed (or empty). Used by the bulk popovers to render
+ * a "Current" hint on whichever row the entire selection is already on.
+ */
+function sharedFieldAcrossSelection<T>(
+  items: ReadonlyArray<BoqItemWithComputed> | undefined,
+  selected: ReadonlySet<string>,
+  getField: (item: BoqItemWithComputed) => T
+): T | undefined {
+  if (!items || selected.size === 0) return undefined;
+  let shared: T | undefined;
+  let seen = false;
+  for (const it of items) {
+    if (!selected.has(it.id)) continue;
+    const value = getField(it);
+    if (!seen) {
+      shared = value;
+      seen = true;
+    } else if (shared !== value) {
+      return undefined;
+    }
+  }
+  return shared;
 }

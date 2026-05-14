@@ -88,8 +88,6 @@ export function BoqItemDrawer({
   onDelete,
 }: BoqItemDrawerProps) {
   const { updateItem, setItemPhase } = useBoqMutations(projectId);
-  // Clients + vendors share the same trimmed drawer view (no cost/margin
-  // sections, no internal notes). Internal viewers see everything.
   const isExternal = isExternalViewer(role);
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
@@ -198,9 +196,8 @@ export function BoqItemDrawer({
 
   const fieldsDisabled = !canEdit || savingField;
 
-  // Filter transitions through the per-role permission matrix so users never
-  // see buttons the server will reject. Clients can still see the section
-  // (e.g. Mark Client Approved) even when `canEdit` is false for them.
+  // Show only transitions the viewer's role can actually fire — surfaces
+  // Mark Client Approved to clients even though `canEdit` is false for them.
   const allowedNext = (BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? []).filter(
     (target) =>
       canFireBoqItemPhaseTransition(target, {
@@ -286,96 +283,85 @@ export function BoqItemDrawer({
                 display={formatQty(item.quantity)}
                 onSave={(next) => saveField({ quantity: parseFloat(next) })}
               />
-              {/* Sell price is the only price field clients see — it reflects
-                  what they'll be billed. All cost/margin/overhead inputs and
-                  Client rate / Budget rate stay studio-only. */}
               <DetailField
                 label={isExternal ? "Total" : "Sell price"}
                 value={formatCurrency(item.sell_price, currency)}
               />
               {!isExternal && (
-                <EditableField
-                  label="Unit cost"
-                  disabled={fieldsDisabled}
-                  mode="number"
-                  min={0}
-                  value={item.unit_cost}
-                  display={formatCurrency(item.unit_cost, currency)}
-                  onSave={(next) => saveField({ unitCost: parseFloat(next) })}
-                />
-              )}
-              {!isExternal && (
-                <DetailField
-                  label="Total cost"
-                  value={formatCurrency(item.total_cost, currency)}
-                />
-              )}
-              {!isExternal && (
-                <EditableField
-                  label="Margin"
-                  disabled={fieldsDisabled}
-                  mode="number"
-                  min={0}
-                  max={100}
-                  value={item.margin_pct}
-                  display={formatPct(item.margin_pct)}
-                  valueClassName={marginColor}
-                  onSave={(next) => saveField({ marginPct: parseFloat(next) })}
-                />
-              )}
-              {!isExternal && (
-                <EditableField
-                  label="Overhead"
-                  disabled={fieldsDisabled}
-                  mode="number"
-                  min={0}
-                  max={100}
-                  value={item.overhead_pct}
-                  display={formatPct(item.overhead_pct)}
-                  onSave={(next) =>
-                    saveField({ overheadPct: parseFloat(next) })
-                  }
-                />
-              )}
-              {!isExternal && (
-                <EditableField
-                  label="Service charge"
-                  disabled={fieldsDisabled}
-                  mode="number"
-                  min={0}
-                  max={100}
-                  value={item.service_charge_pct}
-                  display={formatPct(item.service_charge_pct)}
-                  onSave={(next) =>
-                    saveField({ serviceChargePct: parseFloat(next) })
-                  }
-                />
-              )}
-              {!isExternal && (
-                <EditableField
-                  label="Client rate"
-                  disabled={fieldsDisabled}
-                  mode="number"
-                  min={0}
-                  value={item.client_rate ?? ""}
-                  display={formatOptionalCurrency(item.client_rate, currency)}
-                  onSave={(next) =>
-                    saveField({ clientRate: parseOptionalNumber(next) })
-                  }
-                />
-              )}
-              {!isExternal && (
-                <EditableField
-                  label="Budget rate"
-                  disabled={fieldsDisabled}
-                  mode="number"
-                  min={0}
-                  value={item.budget_rate ?? ""}
-                  display={formatOptionalCurrency(item.budget_rate, currency)}
-                  onSave={(next) =>
-                    saveField({ budgetRate: parseOptionalNumber(next) })
-                  }
-                />
+                <>
+                  <EditableField
+                    label="Unit cost"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    value={item.unit_cost}
+                    display={formatCurrency(item.unit_cost, currency)}
+                    onSave={(next) => saveField({ unitCost: parseFloat(next) })}
+                  />
+                  <DetailField
+                    label="Total cost"
+                    value={formatCurrency(item.total_cost, currency)}
+                  />
+                  <EditableField
+                    label="Margin"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    max={100}
+                    value={item.margin_pct}
+                    display={formatPct(item.margin_pct)}
+                    valueClassName={marginColor}
+                    onSave={(next) =>
+                      saveField({ marginPct: parseFloat(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Overhead"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    max={100}
+                    value={item.overhead_pct}
+                    display={formatPct(item.overhead_pct)}
+                    onSave={(next) =>
+                      saveField({ overheadPct: parseFloat(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Service charge"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    max={100}
+                    value={item.service_charge_pct}
+                    display={formatPct(item.service_charge_pct)}
+                    onSave={(next) =>
+                      saveField({ serviceChargePct: parseFloat(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Client rate"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    value={item.client_rate ?? ""}
+                    display={formatOptionalCurrency(item.client_rate, currency)}
+                    onSave={(next) =>
+                      saveField({ clientRate: parseOptionalNumber(next) })
+                    }
+                  />
+                  <EditableField
+                    label="Budget rate"
+                    disabled={fieldsDisabled}
+                    mode="number"
+                    min={0}
+                    value={item.budget_rate ?? ""}
+                    display={formatOptionalCurrency(item.budget_rate, currency)}
+                    onSave={(next) =>
+                      saveField({ budgetRate: parseOptionalNumber(next) })
+                    }
+                  />
+                </>
               )}
               <EditableField
                 label="Length"
@@ -414,7 +400,6 @@ export function BoqItemDrawer({
             )}
 
             <section className="flex flex-col gap-2">
-              {/* Internal notes — studio-only. Never shown to the client. */}
               {!isExternal && (
                 <label className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-text-secondary">
@@ -430,9 +415,8 @@ export function BoqItemDrawer({
                   />
                 </label>
               )}
-              {/* Client notes — written by the studio for the client.
-                  Clients see this read-only; feedback flows through the
-                  change-request comment, not by editing this field. */}
+              {/* External viewers see this read-only; feedback flows through
+                  the change-request comment, not by editing this field. */}
               <label className="flex flex-col gap-1.5">
                 <span className="text-xs font-medium text-text-secondary">
                   {isExternal ? "Notes from the team" : "Client notes"}
