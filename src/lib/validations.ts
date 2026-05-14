@@ -1135,6 +1135,61 @@ export const listRfqsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
 
+const rfqItemInputSchema = z.object({
+  boqItemId: z.string().uuid(),
+  description: z.string().trim().min(1).max(2000),
+  unit: z.string().trim().min(1).max(30),
+  quantity: z.coerce.number().positive().finite(),
+  specNotes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const createRfqSchema = z.object({
+  title: z.string().trim().min(1).max(255),
+  scopeOfWork: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
+  termsConditions: z
+    .string()
+    .trim()
+    .max(MAX_CONTENT_LENGTH)
+    .optional()
+    .nullable(),
+  responseDeadline: z.string().date().optional().nullable(),
+  items: z.array(rfqItemInputSchema).min(1).max(500),
+});
+
+/**
+ * Patch shape for a draft RFQ header. Items are not edited via this schema —
+ * Phase C will add explicit item add/remove endpoints. Once a RFQ leaves
+ * `draft`, the route returns 409.
+ */
+export const updateRfqSchema = z
+  .object({
+    title: z.string().trim().min(1).max(255).optional(),
+    scopeOfWork: z
+      .string()
+      .trim()
+      .max(MAX_CONTENT_LENGTH)
+      .nullable()
+      .optional(),
+    termsConditions: z
+      .string()
+      .trim()
+      .max(MAX_CONTENT_LENGTH)
+      .nullable()
+      .optional(),
+    responseDeadline: z.string().date().nullable().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, {
+    message: "No fields to update",
+  });
+
+export const issueRfqSchema = z.object({
+  vendorIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+export const cancelRfqSchema = z.object({
+  reason: z.string().trim().max(2000).optional().nullable(),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */

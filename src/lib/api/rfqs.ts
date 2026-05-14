@@ -1,10 +1,20 @@
-import { apiGet } from "./client";
+import { apiGet, apiPatch, apiPost } from "./client";
 import { API } from "./routes";
-import type { RfqListRow, RfqWithItems, VendorLite } from "@/types";
+import type { Rfq, RfqListRow, RfqWithItems, VendorLite } from "@/types";
 import type { z } from "zod";
-import type { listRfqsQuerySchema } from "@/lib/validations";
+import type {
+  cancelRfqSchema,
+  createRfqSchema,
+  issueRfqSchema,
+  listRfqsQuerySchema,
+  updateRfqSchema,
+} from "@/lib/validations";
 
 type ListParams = Partial<z.input<typeof listRfqsQuerySchema>>;
+type CreateInput = z.infer<typeof createRfqSchema>;
+type UpdateInput = z.infer<typeof updateRfqSchema>;
+type IssueInput = z.infer<typeof issueRfqSchema>;
+type CancelInput = z.infer<typeof cancelRfqSchema>;
 
 export interface ListRfqsResponse {
   rows: RfqListRow[];
@@ -57,4 +67,27 @@ export function vendorList(params: ListParams = {}) {
 /** Vendor portal: detail scoped to the caller's vendor. */
 export function vendorGet(rfqId: string) {
   return apiGet<Omit<RfqWithItems, "vendors">>(API.vendorPortalRfq(rfqId));
+}
+
+/** Studio: create an RFQ draft + items. */
+export function create(projectId: string, data: CreateInput) {
+  return apiPost<Rfq>(API.rfqs(projectId), data);
+}
+
+/** Studio: patch a draft RFQ header. Returns 409 once issued. */
+export function update(projectId: string, rfqId: string, patch: UpdateInput) {
+  return apiPatch<Rfq>(API.rfq(projectId, rfqId), patch);
+}
+
+/** Studio: issue a draft RFQ to selected vendors. Fires emails server-side. */
+export function issue(projectId: string, rfqId: string, data: IssueInput) {
+  return apiPost<{ rfq: Rfq; invitedContactCount: number }>(
+    API.rfqIssue(projectId, rfqId),
+    data
+  );
+}
+
+/** Studio: cancel an RFQ (PM only on the server). */
+export function cancel(projectId: string, rfqId: string, data: CancelInput) {
+  return apiPost<Rfq>(API.rfqCancel(projectId, rfqId), data);
 }

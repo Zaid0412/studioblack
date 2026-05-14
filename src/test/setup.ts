@@ -74,6 +74,7 @@ vi.mock("@/lib/email", () => ({
   sendVerificationEmail: vi.fn(),
   sendInvitationEmail: vi.fn(),
   sendChangeEmailVerification: vi.fn(),
+  sendRfqIssuedEmail: vi.fn().mockResolvedValue(undefined),
   escapeHtml: vi.fn((s: string) => s),
 }));
 
@@ -434,13 +435,18 @@ vi.mock("@/lib/queries", () => ({
     .mockResolvedValue({ ok: false, reason: "not_found" }),
   addRateContractItems: vi.fn().mockResolvedValue({ ok: true, count: 0 }),
   removeRateContractItem: vi.fn().mockResolvedValue(true),
-  // RFQ (Feature 9) — reads only in Phase A
+  // RFQ (Feature 9)
   verifyRfqOwnership: vi.fn().mockResolvedValue(true),
   getRfqsByProject: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRfqDetail: vi.fn().mockResolvedValue(null),
   getSuggestedVendorsForRfq: vi.fn().mockResolvedValue([]),
   getRfqsForVendor: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRfqDetailForVendor: vi.fn().mockResolvedValue(null),
+  getRfqContactsForEmail: vi.fn().mockResolvedValue([]),
+  createRfqDraft: vi.fn(),
+  updateRfqDraft: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  issueRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  cancelRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
   logAuditSafe: vi.fn().mockResolvedValue(undefined),
