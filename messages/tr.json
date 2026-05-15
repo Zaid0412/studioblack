@@ -1110,6 +1110,73 @@
       "filterAll": "Tümü"
     }
   },
+  "rfq": {
+    "title": "Teklif Talepleri",
+    "subtitle": "Seçili BOQ kalemleri için tedarikçilerden teklif isteyin.",
+    "newRfq": "Yeni Talep",
+    "noRfqs": "Henüz talep yok",
+    "noRfqsHint": "Tedarikçilerden teklif almak için BOQ kalemlerinden bir tane oluşturun.",
+    "noResults": "Eşleşme yok",
+    "noResultsHint": "Filtreleri temizleyin.",
+    "status": {
+      "draft": "Taslak",
+      "issued": "Gönderildi",
+      "quotes_received": "Teklifler alındı",
+      "under_review": "İncelemede",
+      "awarded": "Kazanan seçildi",
+      "cancelled": "İptal"
+    },
+    "columns": {
+      "number": "Numara",
+      "title": "Başlık",
+      "status": "Durum",
+      "items": "Kalem",
+      "vendors": "Tedarikçi",
+      "deadline": "Son tarih",
+      "created": "Oluşturulma"
+    },
+    "filter": {
+      "searchPlaceholder": "Numara veya başlığa göre ara",
+      "allStatuses": "Tüm durumlar",
+      "clear": "Temizle"
+    },
+    "pagination": {
+      "showing": "{total} kayıttan {from}-{to} gösteriliyor"
+    },
+    "create": {
+      "title": "Yeni Talep",
+      "subtitle": "BOQ kalemlerini seçin ve tedarikçi paketini hazırlayın.",
+      "back": "Taleplere dön",
+      "headerFields": "Paket detayları",
+      "titleField": "Başlık",
+      "titlePlaceholder": "ör. Sıhhi tesisat — Blok A",
+      "scopeField": "İş kapsamı",
+      "scopePlaceholder": "Tedarikçilerin teklif vereceği iş tanımı.",
+      "termsField": "Şartlar",
+      "termsPlaceholder": "Ödeme koşulları, geçerlilik, dışlamalar…",
+      "deadlineField": "Yanıt son tarihi",
+      "deadlinePlaceholder": "Tarih seç",
+      "itemsHeading": "BOQ kalemleri",
+      "itemsSelectedCount": "{total} kalemden {selected} seçili",
+      "selectAll": "Tümünü seç",
+      "deselectAll": "Seçimi kaldır",
+      "noBoq": "Bu projede henüz BOQ kalemi yok",
+      "noBoqHint": "Talep oluşturmadan önce BOQ'a kalem ekleyin.",
+      "goToBoq": "BOQ'u aç",
+      "loadingBoq": "BOQ yükleniyor…",
+      "col": {
+        "code": "Kod",
+        "description": "Açıklama",
+        "unit": "Birim",
+        "quantity": "Mik."
+      },
+      "cancel": "İptal",
+      "save": "Taslağı kaydet",
+      "successToast": "Talep oluşturuldu",
+      "titleRequired": "Başlık zorunludur",
+      "minItemsError": "En az bir BOQ kalemi seçin"
+    }
+  },
   "rateContracts": {
     "title": "Fiyat Sözleşmeleri",
     "subtitle": "Tedarikçi bazlı, süreli element fiyatlandırması",

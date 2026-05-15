@@ -1110,6 +1110,73 @@
       "filterAll": "All"
     }
   },
+  "rfq": {
+    "title": "RFQs",
+    "subtitle": "Request quotes from vendors for picked BOQ items.",
+    "newRfq": "New RFQ",
+    "noRfqs": "No RFQs yet",
+    "noRfqsHint": "Create one from your BOQ items to request vendor quotes.",
+    "noResults": "No matches",
+    "noResultsHint": "Try clearing filters.",
+    "status": {
+      "draft": "Draft",
+      "issued": "Issued",
+      "quotes_received": "Quotes received",
+      "under_review": "Under review",
+      "awarded": "Awarded",
+      "cancelled": "Cancelled"
+    },
+    "columns": {
+      "number": "Number",
+      "title": "Title",
+      "status": "Status",
+      "items": "Items",
+      "vendors": "Vendors",
+      "deadline": "Deadline",
+      "created": "Created"
+    },
+    "filter": {
+      "searchPlaceholder": "Search by number or title",
+      "allStatuses": "All statuses",
+      "clear": "Clear"
+    },
+    "pagination": {
+      "showing": "Showing {from}-{to} of {total}"
+    },
+    "create": {
+      "title": "New RFQ",
+      "subtitle": "Pick BOQ items and prepare the package for vendors.",
+      "back": "Back to RFQs",
+      "headerFields": "Package details",
+      "titleField": "Title",
+      "titlePlaceholder": "e.g. Plumbing scope — Block A",
+      "scopeField": "Scope of work",
+      "scopePlaceholder": "Outline the deliverables vendors should quote against.",
+      "termsField": "Terms & conditions",
+      "termsPlaceholder": "Payment terms, validity, exclusions…",
+      "deadlineField": "Response deadline",
+      "deadlinePlaceholder": "Pick a date",
+      "itemsHeading": "BOQ items",
+      "itemsSelectedCount": "{selected} of {total} selected",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "noBoq": "This project has no BOQ items yet",
+      "noBoqHint": "Add items to the BOQ before raising an RFQ.",
+      "goToBoq": "Open BOQ",
+      "loadingBoq": "Loading BOQ items…",
+      "col": {
+        "code": "Code",
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty"
+      },
+      "cancel": "Cancel",
+      "save": "Save draft",
+      "successToast": "RFQ created",
+      "titleRequired": "Title is required",
+      "minItemsError": "Select at least one BOQ item"
+    }
+  },
   "rateContracts": {
     "title": "Rate Contracts",
     "subtitle": "Vendor-scoped, time-bound element pricing",
