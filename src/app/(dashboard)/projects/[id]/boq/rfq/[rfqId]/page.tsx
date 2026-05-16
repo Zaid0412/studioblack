@@ -4,7 +4,6 @@ import { use, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Mail, Trash2 } from "lucide-react";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -90,31 +89,39 @@ export default function BoqRfqDetailPage({
         {t("back")}
       </Link>
 
-      <PageHeader
-        title={rfq.title}
-        subtitle={`${rfq.rfq_number} · ${formatDate(rfq.created_at)}`}
-        actions={
-          <>
+      {/* Custom header: status badge inline with the title (PageHeader's
+          `title` prop is string-only). */}
+      <div className="flex items-start justify-between gap-4 pb-4 lg:pb-6">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-xl lg:text-2xl font-bold text-text-primary">
+              {rfq.title}
+            </h1>
             <RfqStatusBadge status={rfq.status} />
-            {canManage && isDraft && (
-              <Button onClick={() => setIssueOpen(true)}>
-                <Mail className="w-4 h-4" />
-                {t("issueBtn")}
-              </Button>
-            )}
-            {isPM && isCancellable && (
-              <Button
-                variant="ghost"
-                onClick={() => setCancelOpen(true)}
-                className="text-error hover:text-error"
-              >
-                <Trash2 className="w-4 h-4" />
-                {t("cancelBtn")}
-              </Button>
-            )}
-          </>
-        }
-      />
+          </div>
+          <p className="text-sm text-text-secondary">
+            {rfq.rfq_number} · {formatDate(rfq.created_at)}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {canManage && isDraft && (
+            <Button onClick={() => setIssueOpen(true)}>
+              <Mail className="w-4 h-4" />
+              {t("issueBtn")}
+            </Button>
+          )}
+          {isPM && isCancellable && (
+            <Button
+              variant="ghost"
+              onClick={() => setCancelOpen(true)}
+              className="text-error hover:text-error"
+            >
+              <Trash2 className="w-4 h-4" />
+              {t("cancelBtn")}
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Header details */}
       <section className="rounded-xl border border-border-default bg-bg-secondary p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">

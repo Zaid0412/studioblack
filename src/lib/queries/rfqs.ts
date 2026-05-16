@@ -176,17 +176,23 @@ export async function getSuggestedVendorsForRfq(
        SELECT ec.parent_id FROM element_category ec
        JOIN cat_ancestors ca ON ec.id = ca.id
        WHERE ec.parent_id IS NOT NULL
+     ),
+     -- DISTINCT inside a CTE so the outer ORDER BY can reference
+     -- expressions (lower(company_name)) without Postgres rejecting it
+     -- with "ORDER BY expressions must appear in select list".
+     matches AS (
+       SELECT DISTINCT
+         v.id, v.company_name, v.vendor_code, v.status, v.rating,
+         (SELECT email FROM vendor_contact
+          WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
+       FROM vendor v
+       JOIN vendor_trade vt ON vt.vendor_id = v.id
+       WHERE vt.category_id IN (SELECT id FROM cat_ancestors)
+         AND v.status = 'active'
+         AND v.org_id = (SELECT org_id FROM rfq WHERE id = $1)
      )
-     SELECT DISTINCT
-       v.id, v.company_name, v.vendor_code, v.status, v.rating,
-       (SELECT email FROM vendor_contact
-        WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
-     FROM vendor v
-     JOIN vendor_trade vt ON vt.vendor_id = v.id
-     WHERE vt.category_id IN (SELECT id FROM cat_ancestors)
-       AND v.status = 'active'
-       AND v.org_id = (SELECT org_id FROM rfq WHERE id = $1)
-     ORDER BY v.rating DESC NULLS LAST, lower(v.company_name)`,
+     SELECT * FROM matches
+     ORDER BY rating DESC NULLS LAST, lower(company_name)`,
     [rfqId]
   );
   return rows as VendorLite[];
