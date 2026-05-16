@@ -100,7 +100,10 @@ export function RfqCreateForm({ projectId }: Props) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6 p-4 lg:p-10">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-6 p-4 lg:p-10 min-h-[calc(100vh-7rem)]"
+    >
       <div className="flex items-center gap-3">
         <Link
           href={`/projects/${projectId}/boq/rfq`}
@@ -202,7 +205,26 @@ export function RfqCreateForm({ projectId }: Props) {
             <table className="w-full text-sm">
               <thead className="bg-bg-elevated text-text-muted">
                 <tr className="text-left">
-                  <th className="px-4 py-2.5 w-10" />
+                  <th className="px-4 py-2.5 w-10">
+                    {/* Header checkbox: select-all toggle. Indeterminate while
+                       a partial selection is active, so the visual state
+                       always matches the row checkboxes below. */}
+                    <span
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex"
+                    >
+                      <Checkbox
+                        checked={
+                          items.length > 0 && selected.size === items.length
+                        }
+                        indeterminate={
+                          selected.size > 0 && selected.size < items.length
+                        }
+                        onCheckedChange={toggleAll}
+                        aria-label={t("create.selectAll")}
+                      />
+                    </span>
+                  </th>
                   <th className="px-4 py-2.5 font-medium">
                     {t("create.col.code")}
                   </th>
@@ -225,12 +247,19 @@ export function RfqCreateForm({ projectId }: Props) {
                     onClick={() => toggleItem(it.id)}
                   >
                     <td className="px-4 py-3">
-                      <Checkbox
-                        checked={selected.has(it.id)}
-                        onCheckedChange={() => toggleItem(it.id)}
+                      {/* Wrapping span absorbs the click so the row's onClick
+                         doesn't fire a second toggle that cancels the
+                         checkbox's own onCheckedChange. */}
+                      <span
                         onClick={(e) => e.stopPropagation()}
-                        aria-label={it.description}
-                      />
+                        className="inline-flex"
+                      >
+                        <Checkbox
+                          checked={selected.has(it.id)}
+                          onCheckedChange={() => toggleItem(it.id)}
+                          aria-label={it.description}
+                        />
+                      </span>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-text-muted">
                       {it.item_code}
@@ -250,7 +279,7 @@ export function RfqCreateForm({ projectId }: Props) {
         )}
       </section>
 
-      <div className="flex items-center justify-end gap-3 sticky bottom-0 bg-bg-primary py-4 border-t border-border-default -mx-4 lg:-mx-10 px-4 lg:px-10">
+      <div className="flex items-center justify-end gap-3 mt-auto pt-4 border-t border-border-default -mx-4 lg:-mx-10 px-4 lg:px-10">
         <Link href={`/projects/${projectId}/boq/rfq`}>
           <Button type="button" variant="ghost">
             {t("create.cancel")}

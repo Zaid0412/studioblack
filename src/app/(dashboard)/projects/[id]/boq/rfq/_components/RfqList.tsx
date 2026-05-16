@@ -99,8 +99,8 @@ export function RfqList({
         )}
       </div>
 
-      <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden min-h-[420px] flex flex-col">
+        <div className="overflow-x-auto flex-1">
           <table className="w-full text-sm">
             <thead className="bg-bg-elevated text-text-muted">
               <tr className="text-left">
