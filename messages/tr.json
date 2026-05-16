@@ -1175,6 +1175,46 @@
       "successToast": "Talep oluşturuldu",
       "titleRequired": "Başlık zorunludur",
       "minItemsError": "En az bir BOQ kalemi seçin"
+    },
+    "detail": {
+      "loading": "Talep yükleniyor…",
+      "notFound": "Talep bulunamadı.",
+      "back": "Taleplere dön",
+      "issueBtn": "Tedarikçilere gönder",
+      "cancelBtn": "Talebi iptal et",
+      "issuedDate": "Gönderildi",
+      "responseDeadline": "Yanıt son tarihi",
+      "scope": "İş kapsamı",
+      "terms": "Şartlar",
+      "itemsHeading": "Kalemler ({count})",
+      "vendorsHeading": "Davet edilen tedarikçiler ({count})",
+      "vendorsEmpty": "Henüz tedarikçi davet edilmedi. Göndermek için \"Tedarikçilere gönder\"i tıklayın.",
+      "invitedAt": "Davet edildi",
+      "col": {
+        "description": "Açıklama",
+        "unit": "Birim",
+        "quantity": "Mik.",
+        "specNotes": "Notlar"
+      },
+      "cancelConfirmTitle": "Bu talep iptal edilsin mi?",
+      "cancelConfirmDescription": "Gönderilmiş talepler iptale geçer. Başka bir aktif talepte yer almayan BOQ kalemleri \"yok\" durumuna döner.",
+      "cancelConfirm": "Evet, iptal et",
+      "keepRfq": "Vazgeç"
+    },
+    "issue": {
+      "title": "Tedarikçilere gönder",
+      "description": "{count, plural, =0 {Davet edilecek tedarikçileri seçin.} =1 {1 tedarikçi seçildi.} other {# tedarikçi seçildi.}}",
+      "suggestedLabel": "Önerilen (ticaret eşleşmesi)",
+      "allLabel": "Tüm tedarikçiler",
+      "showAll": "Tümünü göster",
+      "showSuggested": "Önerilenleri göster",
+      "showAllComingSoon": "F10'da gelecek",
+      "loading": "Tedarikçiler yükleniyor…",
+      "noVendors": "Eşleşen tedarikçi yok",
+      "noVendorsHint": "Eşleşen ticarete sahip bir tedarikçi ekleyin veya \"Tümünü göster\" seçeneğini kullanın (yakında).",
+      "emailWarning": "Seçilen her tedarikçinin RFQ alıcısı kontakları hemen e-posta alır.",
+      "cancel": "İptal",
+      "confirm": "{count, plural, =0 {Gönder} =1 {1 tedarikçiye gönder} other {# tedarikçiye gönder}}"
     }
   },
   "rateContracts": {
@@ -1272,6 +1312,44 @@
     "overallCompletion": "Genel Tamamlanma",
     "noRfqs": "Açık teklif talebi yok",
     "noRfqsHint": "Şirketinize atanan teklif talepleri burada görünecek.",
+    "rfqList": {
+      "subtitle": "Firmanızın davet edildiği talepler.",
+      "allStatuses": "Tüm durumlar",
+      "empty": "Henüz talep yok",
+      "emptyHint": "Bir projeye davet edildiğinizde talepler burada görünür.",
+      "pagination": "{total} kayıttan {from}-{to} gösteriliyor",
+      "col": {
+        "number": "Numara",
+        "title": "Başlık",
+        "status": "Durum",
+        "items": "Kalem",
+        "issued": "Gönderildi",
+        "deadline": "Son tarih"
+      },
+      "status": {
+        "issued": "Açık",
+        "quotes_received": "Teklif alındı",
+        "under_review": "İncelemede",
+        "awarded": "Kazanan seçildi"
+      }
+    },
+    "rfqDetail": {
+      "loading": "Talep yükleniyor…",
+      "notFound": "Talep bulunamadı veya davet edilmediniz.",
+      "back": "Taleplere dön",
+      "submitBtn": "Teklif gönder",
+      "submitComingSoon": "Teklif gönderme F10 ile gelecek",
+      "responseDeadline": "Yanıt son tarihi",
+      "scope": "İş kapsamı",
+      "terms": "Şartlar",
+      "itemsHeading": "Kalemler ({count})",
+      "col": {
+        "description": "Açıklama",
+        "unit": "Birim",
+        "quantity": "Mik.",
+        "specNotes": "Notlar"
+      }
+    },
     "noPOs": "Aktif satın alma siparişi yok",
     "noPOsHint": "Şirketinize gönderilen siparişler burada görünecek.",
     "noProgress": "Raporlanacak bir şey yok",

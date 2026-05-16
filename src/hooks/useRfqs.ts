@@ -5,7 +5,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { rfqs as rfqApi, ApiError } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
-import type { Rfq, RfqStatus } from "@/types";
+import type { Rfq, RfqStatus, RfqWithItems, VendorLite } from "@/types";
 import type { ListRfqsResponse } from "@/lib/api/rfqs";
 import type { z } from "zod";
 import type {
@@ -149,4 +149,112 @@ export function useRfqMutations(projectId: string) {
   );
 
   return { create, update, issue, cancel, invalidateList };
+}
+
+// ── Detail + vendor-portal hooks ────────────────────────────────────────────
+
+/**
+ * Studio RFQ detail (header + items + invited vendors). 404 is treated as a
+ * real "not found" — the caller renders an empty state, not an error toast.
+ */
+export function useRfqDetail(projectId: string, rfqId: string) {
+  const key = API.rfq(projectId, rfqId);
+  const { data, error, isLoading, mutate } = useSWR<RfqWithItems | null>(
+    key,
+    async () => {
+      try {
+        return await rfqApi.get(projectId, rfqId);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) return null;
+        throw err;
+      }
+    },
+    {
+      onError: (err: unknown) => {
+        if (
+          err instanceof ApiError &&
+          (err.status === 401 || err.status === 403)
+        )
+          return;
+        toast({
+          title: "Error",
+          description:
+            err instanceof Error ? err.message : "Failed to load RFQ",
+          variant: "error",
+        });
+      },
+    }
+  );
+  return {
+    rfq: data ?? null,
+    notFound: data === null && !error && !isLoading,
+    isLoading,
+    error,
+    mutate,
+    cacheKey: key,
+  };
+}
+
+/**
+ * Suggested vendors for an RFQ. Lazy — only fetches once `enabled` flips true
+ * (typically when the issue dialog opens) to avoid a wasted query for every
+ * detail view.
+ */
+export function useRfqSuggestedVendors(
+  projectId: string,
+  rfqId: string,
+  enabled: boolean
+) {
+  const key = enabled ? API.rfqSuggestedVendors(projectId, rfqId) : null;
+  const { data, error, isLoading } = useSWR<{ vendors: VendorLite[] }>(key);
+  return {
+    vendors: data?.vendors ?? [],
+    isLoading,
+    error,
+  };
+}
+
+/** Vendor-portal RFQ list. Caller owns the filter state. */
+export function useVendorRfqs(params: UseRfqListParams) {
+  const search = new URLSearchParams();
+  if (params.search) search.set("search", params.search);
+  if (params.status) search.set("status", params.status);
+  if (params.page !== undefined) search.set("page", String(params.page));
+  if (params.limit !== undefined) search.set("limit", String(params.limit));
+  const qs = search.toString();
+  const key = `${API.vendorPortalRfqs()}${qs ? `?${qs}` : ""}`;
+
+  const { data, error, isLoading, isValidating, mutate } =
+    useSWR<ListRfqsResponse>(key, { keepPreviousData: true });
+  return {
+    rows: data?.rows ?? [],
+    total: data?.total ?? 0,
+    isLoading,
+    isValidating,
+    error,
+    mutate,
+    cacheKey: key,
+  };
+}
+
+/** Vendor-portal RFQ detail (no invited-vendors list — competitive info). */
+export function useVendorRfqDetail(rfqId: string) {
+  const key = API.vendorPortalRfq(rfqId);
+  const { data, error, isLoading } = useSWR<Omit<
+    RfqWithItems,
+    "vendors"
+  > | null>(key, async () => {
+    try {
+      return await rfqApi.vendorGet(rfqId);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+  });
+  return {
+    rfq: data ?? null,
+    notFound: data === null && !error && !isLoading,
+    isLoading,
+    error,
+  };
 }

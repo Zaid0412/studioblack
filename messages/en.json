@@ -1175,6 +1175,46 @@
       "successToast": "RFQ created",
       "titleRequired": "Title is required",
       "minItemsError": "Select at least one BOQ item"
+    },
+    "detail": {
+      "loading": "Loading RFQ…",
+      "notFound": "RFQ not found.",
+      "back": "Back to RFQs",
+      "issueBtn": "Issue to vendors",
+      "cancelBtn": "Cancel RFQ",
+      "issuedDate": "Issued",
+      "responseDeadline": "Response deadline",
+      "scope": "Scope of work",
+      "terms": "Terms & conditions",
+      "itemsHeading": "Items ({count})",
+      "vendorsHeading": "Invited vendors ({count})",
+      "vendorsEmpty": "No vendors invited yet. Click \"Issue to vendors\" to send this RFQ out.",
+      "invitedAt": "Invited",
+      "col": {
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty",
+        "specNotes": "Spec notes"
+      },
+      "cancelConfirmTitle": "Cancel this RFQ?",
+      "cancelConfirmDescription": "Issued RFQs become cancelled. BOQ items will be released back to \"none\" unless another live RFQ references them.",
+      "cancelConfirm": "Yes, cancel",
+      "keepRfq": "Keep it"
+    },
+    "issue": {
+      "title": "Issue to vendors",
+      "description": "{count, plural, =0 {Pick vendors to invite.} =1 {1 vendor selected.} other {# vendors selected.}}",
+      "suggestedLabel": "Suggested (trade match)",
+      "allLabel": "All vendors",
+      "showAll": "Show all vendors",
+      "showSuggested": "Show suggested",
+      "showAllComingSoon": "Coming in F10",
+      "loading": "Loading vendors…",
+      "noVendors": "No matching vendors",
+      "noVendorsHint": "Register a vendor with a matching trade, or use the \"Show all\" option (coming soon).",
+      "emailWarning": "Each selected vendor's \"receives RFQ\" contacts will get an email immediately.",
+      "cancel": "Cancel",
+      "confirm": "{count, plural, =0 {Issue} =1 {Issue to 1 vendor} other {Issue to # vendors}}"
     }
   },
   "rateContracts": {
@@ -1272,6 +1312,44 @@
     "overallCompletion": "Overall Completion",
     "noRfqs": "No open RFQs",
     "noRfqsHint": "RFQs assigned to your company will appear here.",
+    "rfqList": {
+      "subtitle": "RFQs your company has been invited to.",
+      "allStatuses": "All statuses",
+      "empty": "No RFQs yet",
+      "emptyHint": "Once you're invited to bid on a project, RFQs will appear here.",
+      "pagination": "Showing {from}-{to} of {total}",
+      "col": {
+        "number": "Number",
+        "title": "Title",
+        "status": "Status",
+        "items": "Items",
+        "issued": "Issued",
+        "deadline": "Deadline"
+      },
+      "status": {
+        "issued": "Open",
+        "quotes_received": "Quotes received",
+        "under_review": "Under review",
+        "awarded": "Awarded"
+      }
+    },
+    "rfqDetail": {
+      "loading": "Loading RFQ…",
+      "notFound": "RFQ not found, or you weren't invited to it.",
+      "back": "Back to RFQs",
+      "submitBtn": "Submit quote",
+      "submitComingSoon": "Quote submission ships in F10",
+      "responseDeadline": "Response deadline",
+      "scope": "Scope of work",
+      "terms": "Terms & conditions",
+      "itemsHeading": "Items ({count})",
+      "col": {
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty",
+        "specNotes": "Spec notes"
+      }
+    },
     "noPOs": "No active purchase orders",
     "noPOsHint": "POs issued to your company will appear here.",
     "noProgress": "Nothing to report",
