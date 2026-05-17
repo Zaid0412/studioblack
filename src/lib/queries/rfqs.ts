@@ -159,8 +159,13 @@ export async function getRfqDetail(
  * Audit events for an RFQ, joined with `user.name` so the timeline can show
  * "Issued by Zaid" without a second round-trip. Ordered oldest-first so a
  * client renders top-to-bottom as the story unfolded. `rfq.updated` is
- * excluded because the timeline currently doesn't have a renderer for it —
- * Phase E can add one when the create flow gains edit affordances.
+ * excluded — the timeline doesn't have a renderer for it yet.
+ *
+ * For `rfq.issued` events we also backfill `vendor_names` from the vendor
+ * table so the timeline can render the actual company names instead of
+ * UUID slugs. Older audit rows (pre-vendor_names metadata) and rows where
+ * the issue route couldn't capture a name (vendor without a receives_rfq
+ * contact) both get resolved here.
  */
 async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
   const pool = getPool();
@@ -175,14 +180,56 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
      ORDER BY ae.created_at ASC`,
     [rfqId]
   );
-  return rows.map((r) => ({
-    id: r.id,
-    action: r.action,
-    createdAt: r.created_at,
-    actorId: r.actor_id,
-    actorName: r.actor_name,
-    metadata: r.metadata ?? null,
-  }));
+
+  // Collect vendor IDs across all issued events that are missing names so
+  // we can resolve them with a single batched lookup.
+  const missingIds = new Set<string>();
+  for (const r of rows) {
+    if (r.action !== "rfq.issued" || !r.metadata) continue;
+    const ids = Array.isArray(r.metadata.vendor_ids)
+      ? (r.metadata.vendor_ids as string[])
+      : [];
+    const names = Array.isArray(r.metadata.vendor_names)
+      ? (r.metadata.vendor_names as (string | null)[])
+      : [];
+    ids.forEach((id, i) => {
+      if (typeof id === "string" && !names[i]) missingIds.add(id);
+    });
+  }
+  let nameById = new Map<string, string>();
+  if (missingIds.size > 0) {
+    const { rows: vendorRows } = await pool.query<{
+      id: string;
+      company_name: string;
+    }>(`SELECT id, company_name FROM vendor WHERE id = ANY($1::uuid[])`, [
+      Array.from(missingIds),
+    ]);
+    nameById = new Map(vendorRows.map((v) => [v.id, v.company_name]));
+  }
+
+  return rows.map((r) => {
+    let metadata = r.metadata ?? null;
+    if (r.action === "rfq.issued" && metadata) {
+      const ids = Array.isArray(metadata.vendor_ids)
+        ? (metadata.vendor_ids as string[])
+        : [];
+      const existing = Array.isArray(metadata.vendor_names)
+        ? (metadata.vendor_names as (string | null)[])
+        : [];
+      const resolved = ids.map(
+        (id, i) => existing[i] ?? nameById.get(id) ?? null
+      );
+      metadata = { ...metadata, vendor_names: resolved };
+    }
+    return {
+      id: r.id,
+      action: r.action,
+      createdAt: r.created_at,
+      actorId: r.actor_id,
+      actorName: r.actor_name,
+      metadata,
+    };
+  });
 }
 
 /**
@@ -325,14 +372,20 @@ export async function getRfqDetailForVendor(
     [rfqId]
   );
 
-  // Vendors get a sanitised event list: actor names stripped (competitive
-  // info — they shouldn't know which studio user fired which transition).
+  // Vendors get a sanitised event list: actor names AND vendor names
+  // stripped (competitive info — they shouldn't see other vendors'
+  // identities on issued events, nor which studio user did what).
   const studioEvents = await getRfqEvents(rfqId);
-  const events: RfqEvent[] = studioEvents.map((e) => ({
-    ...e,
-    actorId: null,
-    actorName: null,
-  }));
+  const events: RfqEvent[] = studioEvents.map((e) => {
+    const metadata = e.metadata
+      ? Object.fromEntries(
+          Object.entries(e.metadata).filter(
+            ([key]) => key !== "vendor_names" && key !== "vendor_ids"
+          )
+        )
+      : null;
+    return { ...e, actorId: null, actorName: null, metadata };
+  });
 
   return {
     ...rfq,

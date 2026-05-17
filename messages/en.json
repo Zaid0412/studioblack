@@ -1206,10 +1206,11 @@
     "timeline": {
       "empty": "Nothing has happened yet.",
       "someone": "Someone",
-      "created": "{actor} created the RFQ with {count, plural, =1 {# item} other {# items}}.",
-      "issued": "{actor} issued the RFQ to {count, plural, =1 {# vendor} other {# vendors}}.",
-      "cancelled": "{actor} cancelled the RFQ.",
-      "cancelledWithReason": "{actor} cancelled the RFQ — {reason}"
+      "createdVerb": "created the RFQ with",
+      "issuedVerb": "issued the RFQ to",
+      "cancelledVerb": "cancelled the RFQ",
+      "itemsCount": "{count, plural, =1 {# item} other {# items}}",
+      "vendorsCount": "{count, plural, =1 {# vendor} other {# vendors}}"
     },
     "issue": {
       "title": "Issue to vendors",

@@ -65,6 +65,13 @@ export const POST = withAuth(
     });
 
     if (orgId) {
+      // Capture vendor display names in the audit row so the timeline can
+      // render "Issued to Anatolia Tile, Hansgrohe…" without an extra
+      // vendor lookup at read time. `contacts` already has names because
+      // it's joined from vendor — dedupe by vendorId.
+      const namesByVendor = new Map<string, string>();
+      for (const c of contacts) namesByVendor.set(c.vendorId, c.vendorName);
+      const vendorIds = Array.from(new Set(parsed.data.vendorIds));
       void logAuditSafe({
         orgId,
         actorId: user.id,
@@ -72,7 +79,8 @@ export const POST = withAuth(
         targetTable: "rfq",
         targetId: resolved.rfqId,
         metadata: {
-          vendor_ids: Array.from(new Set(parsed.data.vendorIds)),
+          vendor_ids: vendorIds,
+          vendor_names: vendorIds.map((id) => namesByVendor.get(id) ?? null),
           invited_contact_count: contacts.length,
           response_deadline: result.rfq.response_deadline,
         },

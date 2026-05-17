@@ -219,16 +219,6 @@ export default function BoqRfqDetailPage({
         </div>
       </section>
 
-      {/* Status timeline */}
-      <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        <div className="px-6 py-4 border-b border-border-default">
-          <h2 className="text-sm font-semibold text-text-primary">
-            {t("timelineHeading")}
-          </h2>
-        </div>
-        <RfqStatusTimeline events={rfq.events} />
-      </section>
-
       {/* Invited vendors */}
       <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
         <div className="px-6 py-4 border-b border-border-default">
@@ -263,6 +253,16 @@ export default function BoqRfqDetailPage({
             ))}
           </ul>
         )}
+      </section>
+
+      {/* Activity timeline — at the bottom of the page, GH/tasks-style. */}
+      <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-default">
+          <h2 className="text-sm font-semibold text-text-primary">
+            {t("timelineHeading")}
+          </h2>
+        </div>
+        <RfqStatusTimeline events={rfq.events} />
       </section>
 
       <RfqIssueDialog

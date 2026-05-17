@@ -3,14 +3,16 @@
 import { useTranslations } from "next-intl";
 import { Ban, FilePlus2, Mail } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { formatDateTime } from "@/lib/formatDate";
+import { Badge } from "@/components/ui/badge";
+import { timeAgo } from "@/lib/formatTime";
 import type { RfqEvent } from "@/types";
 
 interface Props {
   events: readonly RfqEvent[];
   /**
-   * When true, the timeline renders without actor names (used in the vendor
-   * portal where competitive info is stripped server-side anyway).
+   * When true, the timeline renders without actor names AND vendor names
+   * (used by the vendor portal where both fields are competitive info and
+   * are stripped server-side).
    */
   hideActor?: boolean;
 }
@@ -22,10 +24,13 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 /**
- * Vertical timeline of the RFQ's audit events. Renders oldest-first so the
- * story reads top-to-bottom. Each row has an icon, a localised one-line
- * summary, and a timestamp. Unknown actions are skipped (defence in depth
- * against future audit kinds the UI doesn't know about yet).
+ * Vertical rail timeline matching the task-detail UX. Each event hangs off
+ * the rail with a small circular icon bullet. The rail line itself is
+ * drawn behind the bullets via an absolute child on the `<ol>`.
+ *
+ * Studio side shows full actor names and vendor pills on "Issued" rows.
+ * Vendor side gets `hideActor` and the metadata already arrives with
+ * `vendor_ids` / `vendor_names` stripped by `getRfqDetailForVendor`.
  */
 export function RfqStatusTimeline({ events, hideActor }: Props) {
   const t = useTranslations("rfq.timeline");
@@ -39,60 +44,119 @@ export function RfqStatusTimeline({ events, hideActor }: Props) {
   }
 
   return (
-    <ol className="px-6 py-4 flex flex-col gap-4 relative">
-      {/* Vertical guide line — sits behind the icons. */}
+    <ol className="px-6 py-5 relative flex flex-col gap-3">
+      {/* Vertical guide line — sits behind the bullets. */}
       <span
         aria-hidden="true"
-        className="absolute left-[34px] top-6 bottom-6 w-px bg-border-default"
+        className="absolute left-[36px] top-7 bottom-7 w-px bg-border-default"
       />
-      {events.map((ev) => {
-        const Icon = ICONS[ev.action] ?? FilePlus2;
-        return (
-          <li key={ev.id} className="flex items-start gap-3 relative">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-bg-elevated border border-border-default shrink-0 z-10">
-              <Icon className="h-4 w-4 text-accent" />
-            </span>
-            <div className="flex-1 min-w-0 pt-1">
-              <div className="text-sm text-text-primary">
-                {renderLabel(ev, hideActor, t)}
-              </div>
-              <div className="text-xs text-text-muted mt-0.5">
-                {formatDateTime(ev.createdAt)}
-              </div>
-            </div>
-          </li>
-        );
-      })}
+      {events.map((ev) => (
+        <EventRow key={ev.id} event={ev} hideActor={hideActor} t={t} />
+      ))}
     </ol>
   );
 }
 
-/** Compose the one-line summary from an event's action + metadata. */
-function renderLabel(
-  ev: RfqEvent,
-  hideActor: boolean | undefined,
-  t: ReturnType<typeof useTranslations>
-): string {
-  const actor = !hideActor && ev.actorName ? ev.actorName : t("someone");
-  const meta = ev.metadata ?? {};
-  switch (ev.action) {
+function EventRow({
+  event,
+  hideActor,
+  t,
+}: {
+  event: RfqEvent;
+  hideActor?: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const Icon = ICONS[event.action] ?? FilePlus2;
+  const actor = !hideActor && event.actorName ? event.actorName : t("someone");
+
+  return (
+    <li className="relative pl-10">
+      <span className="absolute left-0 top-0.5 w-7 h-7 rounded-full bg-bg-elevated ring-2 ring-bg-secondary flex items-center justify-center text-text-muted z-10">
+        <Icon className="w-3.5 h-3.5 text-accent" />
+      </span>
+      <div className="flex items-baseline gap-1.5 flex-wrap text-sm text-text-secondary leading-6">
+        <span className="font-medium text-text-primary">{actor}</span>
+        <EventBody event={event} t={t} />
+        <span className="text-xs text-text-muted">·</span>
+        <time
+          className="text-xs text-text-muted"
+          dateTime={event.createdAt}
+          title={new Date(event.createdAt).toLocaleString()}
+        >
+          {timeAgo(event.createdAt)}
+        </time>
+      </div>
+    </li>
+  );
+}
+
+/** Verb + value-pill phrase, varies by action type. */
+function EventBody({
+  event,
+  t,
+}: {
+  event: RfqEvent;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const m = event.metadata ?? {};
+  switch (event.action) {
     case "rfq.created": {
-      const itemCount = Number(meta.item_count ?? 0);
-      return t("created", { actor, count: itemCount });
+      const itemCount = Number(m.item_count ?? 0);
+      return (
+        <>
+          <span>{t("createdVerb")}</span>
+          <Pill>{t("itemsCount", { count: itemCount })}</Pill>
+        </>
+      );
     }
     case "rfq.issued": {
-      const vendorCount = Array.isArray(meta.vendor_ids)
-        ? meta.vendor_ids.length
-        : Number(meta.invited_contact_count ?? 0);
-      return t("issued", { actor, count: vendorCount });
+      const names = Array.isArray(m.vendor_names)
+        ? (m.vendor_names as (string | null)[]).filter(
+            (n): n is string => typeof n === "string" && n.length > 0
+          )
+        : [];
+      const ids = Array.isArray(m.vendor_ids) ? (m.vendor_ids as string[]) : [];
+      const count =
+        names.length > 0
+          ? names.length
+          : ids.length > 0
+            ? ids.length
+            : Number(m.invited_contact_count ?? 0);
+      return (
+        <>
+          <span>{t("issuedVerb")}</span>
+          {names.length > 0 ? (
+            <>
+              {names.map((n, i) => (
+                <Pill key={`${n}-${i}`}>{n}</Pill>
+              ))}
+            </>
+          ) : (
+            <Pill>{t("vendorsCount", { count })}</Pill>
+          )}
+        </>
+      );
     }
     case "rfq.cancelled": {
-      const reason = typeof meta.reason === "string" ? meta.reason : null;
-      return reason
-        ? t("cancelledWithReason", { actor, reason })
-        : t("cancelled", { actor });
+      const reason = typeof m.reason === "string" ? m.reason : null;
+      return reason ? (
+        <>
+          <span>{t("cancelledVerb")}</span>
+          <Pill>{reason}</Pill>
+        </>
+      ) : (
+        <span>{t("cancelledVerb")}</span>
+      );
     }
     default:
-      return ev.action;
+      return <span className="font-mono text-xs">{event.action}</span>;
   }
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <Badge variant="draft" className="font-normal">
+      {children}
+    </Badge>
+  );
 }

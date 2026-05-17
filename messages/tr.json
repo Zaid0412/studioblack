@@ -1206,10 +1206,11 @@
     "timeline": {
       "empty": "Henüz hareket yok.",
       "someone": "Birisi",
-      "created": "{actor}, {count, plural, =1 {# kalemle} other {# kalemle}} talebi oluşturdu.",
-      "issued": "{actor}, talebi {count, plural, =1 {# tedarikçiye} other {# tedarikçiye}} gönderdi.",
-      "cancelled": "{actor} talebi iptal etti.",
-      "cancelledWithReason": "{actor} talebi iptal etti — {reason}"
+      "createdVerb": "talebi şu kalemlerle oluşturdu:",
+      "issuedVerb": "talebi şunlara gönderdi:",
+      "cancelledVerb": "talebi iptal etti",
+      "itemsCount": "{count, plural, =1 {# kalem} other {# kalem}}",
+      "vendorsCount": "{count, plural, =1 {# tedarikçi} other {# tedarikçi}}"
     },
     "issue": {
       "title": "Tedarikçilere gönder",
