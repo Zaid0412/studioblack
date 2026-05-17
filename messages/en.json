@@ -1181,7 +1181,9 @@
       "notFound": "RFQ not found",
       "notFoundHint": "This RFQ might have been cancelled, deleted, or it belongs to a different project.",
       "back": "Back to RFQs",
+      "editBtn": "Edit",
       "issueBtn": "Issue to vendors",
+      "inviteMoreBtn": "Invite more vendors",
       "cancelBtn": "Cancel RFQ",
       "issuedDate": "Issued",
       "responseDeadline": "Response deadline",
@@ -1208,6 +1210,7 @@
       "someone": "Someone",
       "createdVerb": "created the RFQ with",
       "issuedVerb": "issued the RFQ to",
+      "vendorsAddedVerb": "invited",
       "cancelledVerb": "cancelled the RFQ",
       "itemsCount": "{count, plural, =1 {# item} other {# items}}",
       "vendorsCount": "{count, plural, =1 {# vendor} other {# vendors}}"
@@ -1226,6 +1229,32 @@
       "emailWarning": "Each selected vendor's \"receives RFQ\" contacts will get an email immediately.",
       "cancel": "Cancel",
       "confirm": "{count, plural, =0 {Issue} =1 {Issue to 1 vendor} other {Issue to # vendors}}"
+    },
+    "invite": {
+      "title": "Invite more vendors",
+      "description": "{count, plural, =0 {Pick vendors to invite. Already-invited vendors are skipped.} =1 {1 vendor selected.} other {# vendors selected.}}",
+      "suggestedLabel": "Suggested (trade match)",
+      "allLabel": "All vendors",
+      "showAll": "Show all vendors",
+      "showSuggested": "Show suggested",
+      "showAllComingSoon": "Coming in F10",
+      "loading": "Loading vendors…",
+      "noVendors": "No matching vendors",
+      "noVendorsHint": "Register a vendor with a matching trade, or use the \"Show all\" option (coming soon).",
+      "emailWarning": "Each newly-invited vendor's \"receives RFQ\" contacts will get an email immediately. Vendors already on this RFQ are skipped silently.",
+      "cancel": "Cancel",
+      "confirm": "{count, plural, =0 {Invite} =1 {Invite 1 vendor} other {Invite # vendors}}"
+    },
+    "edit": {
+      "title": "Edit RFQ",
+      "description": "Header-only edits while in draft. Once issued, scope can't change.",
+      "titleField": "Title",
+      "scopeField": "Scope of work",
+      "termsField": "Terms & conditions",
+      "deadlineField": "Response deadline",
+      "deadlinePlaceholder": "Pick a date",
+      "cancel": "Cancel",
+      "save": "Save changes"
     }
   },
   "rateContracts": {

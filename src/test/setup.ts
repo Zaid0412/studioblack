@@ -446,6 +446,10 @@ vi.mock("@/lib/queries", () => ({
   createRfqDraft: vi.fn(),
   updateRfqDraft: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   issueRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  inviteRfqVendors: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
+  getRfqContactsForEmailByVendors: vi.fn().mockResolvedValue([]),
   cancelRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
@@ -466,6 +470,7 @@ vi.mock("@/lib/queries", () => ({
     RFQ_CREATED: "rfq.created",
     RFQ_UPDATED: "rfq.updated",
     RFQ_ISSUED: "rfq.issued",
+    RFQ_VENDORS_ADDED: "rfq.vendors_added",
     RFQ_CANCELLED: "rfq.cancelled",
   } as const,
   AUDIT_SOURCES: {

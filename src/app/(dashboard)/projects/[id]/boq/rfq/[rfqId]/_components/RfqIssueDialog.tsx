@@ -24,16 +24,21 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (vendorIds: string[]) => Promise<void>;
+  /**
+   * `issue` = first-time fan-out (flips status draft → issued).
+   * `invite` = additive on an already-issued RFQ. Only changes copy on
+   * the dialog; the actual mutation is the parent's call.
+   */
+  mode?: "issue" | "invite";
 }
 
 /**
- * Vendor picker + issue confirmation. The "suggested" list comes from the
- * trade-match query and is the default view; user can flip to "Show all
- * vendors" if the suggestions are too narrow (or empty — a common case until
- * `vendor_trade` is populated).
+ * Vendor picker + confirmation, shared by the Issue and Invite-more flows.
+ * Suggested list comes from the trade-match query; "Show all vendors"
+ * remains a stub until F10 ships a broader endpoint.
  *
  * Submit calls `onConfirm`. The parent owns the actual API call so the
- * issued RFQ state can be merged into its SWR cache.
+ * mutated RFQ state can be merged into its SWR cache.
  */
 export function RfqIssueDialog({
   projectId,
@@ -41,8 +46,11 @@ export function RfqIssueDialog({
   open,
   onOpenChange,
   onConfirm,
+  mode = "issue",
 }: Props) {
-  const t = useTranslations("rfq.issue");
+  const tIssue = useTranslations("rfq.issue");
+  const tInvite = useTranslations("rfq.invite");
+  const t = mode === "invite" ? tInvite : tIssue;
 
   const [showAll, setShowAll] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());

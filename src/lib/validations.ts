@@ -1186,6 +1186,14 @@ export const issueRfqSchema = z.object({
   vendorIds: z.array(z.string().uuid()).min(1).max(50),
 });
 
+/**
+ * Same shape as issueRfqSchema — exported separately so callers can read
+ * the intent at the import site (and so we can diverge later if needed).
+ */
+export const inviteRfqVendorsSchema = z.object({
+  vendorIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
 export const cancelRfqSchema = z.object({
   reason: z.string().trim().max(2000).optional().nullable(),
 });

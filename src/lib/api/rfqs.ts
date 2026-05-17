@@ -5,6 +5,7 @@ import type { z } from "zod";
 import type {
   cancelRfqSchema,
   createRfqSchema,
+  inviteRfqVendorsSchema,
   issueRfqSchema,
   listRfqsQuerySchema,
   updateRfqSchema,
@@ -14,6 +15,7 @@ type ListParams = Partial<z.input<typeof listRfqsQuerySchema>>;
 type CreateInput = z.infer<typeof createRfqSchema>;
 type UpdateInput = z.infer<typeof updateRfqSchema>;
 type IssueInput = z.infer<typeof issueRfqSchema>;
+type InviteInput = z.infer<typeof inviteRfqVendorsSchema>;
 type CancelInput = z.infer<typeof cancelRfqSchema>;
 
 export interface ListRfqsResponse {
@@ -85,6 +87,18 @@ export function issue(projectId: string, rfqId: string, data: IssueInput) {
     API.rfqIssue(projectId, rfqId),
     data
   );
+}
+
+/**
+ * Studio: invite MORE vendors to an already-issued RFQ. Emails only the
+ * newly-inserted invitees; previously-invited vendors are skipped silently.
+ */
+export function invite(projectId: string, rfqId: string, data: InviteInput) {
+  return apiPost<{
+    rfq: Rfq;
+    addedVendorCount: number;
+    invitedContactCount: number;
+  }>(API.rfqInvite(projectId, rfqId), data);
 }
 
 /** Studio: cancel an RFQ (PM only on the server). */

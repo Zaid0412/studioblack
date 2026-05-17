@@ -176,16 +176,17 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
      LEFT JOIN "user" u ON u.id = ae.actor_id
      WHERE ae.target_table = 'rfq'
        AND ae.target_id = $1::uuid
-       AND ae.action IN ('rfq.created','rfq.issued','rfq.cancelled')
+       AND ae.action IN ('rfq.created','rfq.issued','rfq.vendors_added','rfq.cancelled')
      ORDER BY ae.created_at ASC`,
     [rfqId]
   );
 
-  // Collect vendor IDs across all issued events that are missing names so
-  // we can resolve them with a single batched lookup.
+  // Collect vendor IDs across all events with vendor metadata that are
+  // missing names so we can resolve them with a single batched lookup.
+  const VENDOR_BEARING_ACTIONS = new Set(["rfq.issued", "rfq.vendors_added"]);
   const missingIds = new Set<string>();
   for (const r of rows) {
-    if (r.action !== "rfq.issued" || !r.metadata) continue;
+    if (!VENDOR_BEARING_ACTIONS.has(r.action) || !r.metadata) continue;
     const ids = Array.isArray(r.metadata.vendor_ids)
       ? (r.metadata.vendor_ids as string[])
       : [];
@@ -209,7 +210,7 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
 
   return rows.map((r) => {
     let metadata = r.metadata ?? null;
-    if (r.action === "rfq.issued" && metadata) {
+    if (VENDOR_BEARING_ACTIONS.has(r.action) && metadata) {
       const ids = Array.isArray(metadata.vendor_ids)
         ? (metadata.vendor_ids as string[])
         : [];
@@ -742,6 +743,135 @@ export async function issueRfq(
   } finally {
     client.release();
   }
+}
+
+/**
+ * Add more vendors to an already-issued RFQ. Refuses on draft (use
+ * `issueRfq` instead), cancelled, or awarded. Returns the IDs that were
+ * actually inserted (ON CONFLICT skips duplicates), so the caller can
+ * scope the email fan-out to only the NEW invitees.
+ */
+export async function inviteRfqVendors(
+  rfqId: string,
+  vendorIds: readonly string[],
+  actorId: string
+): Promise<
+  | { ok: true; rfq: Rfq; addedVendorIds: string[] }
+  | {
+      ok: false;
+      reason: "not_found" | "wrong_status" | "bad_vendors" | "no_vendors";
+    }
+> {
+  if (vendorIds.length === 0) {
+    return { ok: false, reason: "no_vendors" };
+  }
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: rfqRows } = await client.query<Rfq>(
+      `SELECT * FROM rfq WHERE id = $1 FOR UPDATE`,
+      [rfqId]
+    );
+    const rfq = rfqRows[0];
+    if (!rfq) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+    // Additive flow — only valid AFTER issue and BEFORE award/cancel.
+    if (!["issued", "quotes_received", "under_review"].includes(rfq.status)) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "wrong_status" };
+    }
+
+    const uniqueIds = Array.from(new Set(vendorIds));
+    const { rows: vendorCheck } = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM vendor
+       WHERE id = ANY($1::uuid[]) AND org_id = $2 AND status = 'active'`,
+      [uniqueIds, rfq.org_id]
+    );
+    if (Number(vendorCheck[0]?.count ?? 0) !== uniqueIds.length) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "bad_vendors" };
+    }
+
+    // RETURNING surfaces only the rows the INSERT actually created — vendors
+    // who were already on rfq_vendor (ON CONFLICT) are skipped here, so the
+    // caller's email fan-out only hits NEW invitees.
+    const addedVendorIds: string[] = [];
+    for (const vendorId of uniqueIds) {
+      const { rows: inserted } = await client.query<{ vendor_id: string }>(
+        `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (rfq_id, vendor_id) DO NOTHING
+         RETURNING vendor_id`,
+        [rfqId, vendorId, actorId]
+      );
+      if (inserted.length > 0) addedVendorIds.push(inserted[0].vendor_id);
+    }
+
+    await client.query(`UPDATE rfq SET updated_at = now() WHERE id = $1`, [
+      rfqId,
+    ]);
+
+    await client.query("COMMIT");
+    return { ok: true, rfq, addedVendorIds };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Email-fan-out helper scoped to a specific subset of vendors. Used by the
+ * "invite more vendors" flow so the email loop hits ONLY the new invitees,
+ * not the ones who were already on the RFQ.
+ */
+export async function getRfqContactsForEmailByVendors(
+  rfqId: string,
+  vendorIds: readonly string[]
+): Promise<
+  Array<{
+    vendorId: string;
+    vendorName: string;
+    contactId: string;
+    contactName: string;
+    contactEmail: string;
+    contactUserId: string | null;
+  }>
+> {
+  if (vendorIds.length === 0) return [];
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       v.id AS vendor_id,
+       v.company_name AS vendor_name,
+       vc.id AS contact_id,
+       vc.name AS contact_name,
+       vc.email AS contact_email,
+       vc.user_id AS contact_user_id
+     FROM rfq_vendor rv
+     JOIN vendor v ON v.id = rv.vendor_id
+     JOIN vendor_contact vc ON vc.vendor_id = v.id
+     WHERE rv.rfq_id = $1
+       AND rv.vendor_id = ANY($2::uuid[])
+       AND vc.receives_rfq = true
+       AND vc.email IS NOT NULL
+       AND v.status = 'active'
+     ORDER BY lower(v.company_name), vc.is_primary DESC, lower(vc.name)`,
+    [rfqId, Array.from(new Set(vendorIds))]
+  );
+  return rows.map((r) => ({
+    vendorId: r.vendor_id,
+    vendorName: r.vendor_name,
+    contactId: r.contact_id,
+    contactName: r.contact_name,
+    contactEmail: r.contact_email,
+    contactUserId: r.contact_user_id,
+  }));
 }
 
 /**

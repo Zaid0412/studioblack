@@ -3,7 +3,14 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, FileText, Mail, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  Mail,
+  Pencil,
+  Trash2,
+  UserPlus2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -12,6 +19,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
 import { formatDate } from "@/lib/formatDate";
 import { RfqStatusBadge } from "../_components/RfqStatusBadge";
+import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
 import { RfqStatusTimeline } from "./_components/RfqStatusTimeline";
 
@@ -32,9 +40,11 @@ export default function BoqRfqDetailPage({
   const canManage = role === "pm" || role === "architect";
 
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
-  const { issue, cancel } = useRfqMutations(projectId);
+  const { issue, invite, cancel } = useRfqMutations(projectId);
 
   const [issueOpen, setIssueOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
@@ -85,12 +95,23 @@ export default function BoqRfqDetailPage({
   }
 
   const isDraft = rfq.status === "draft";
+  const canInviteMore = ["issued", "quotes_received", "under_review"].includes(
+    rfq.status
+  );
   const isCancellable = !["cancelled", "awarded"].includes(rfq.status);
 
   const handleIssue = async (vendorIds: string[]) => {
     const res = await issue(rfqId, { vendorIds });
     if (res) {
       setIssueOpen(false);
+      await mutate();
+    }
+  };
+
+  const handleInvite = async (vendorIds: string[]) => {
+    const res = await invite(rfqId, { vendorIds });
+    if (res) {
+      setInviteOpen(false);
       await mutate();
     }
   };
@@ -134,9 +155,21 @@ export default function BoqRfqDetailPage({
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {canManage && isDraft && (
+            <Button variant="ghost" onClick={() => setEditOpen(true)}>
+              <Pencil className="w-4 h-4" />
+              {t("editBtn")}
+            </Button>
+          )}
+          {canManage && isDraft && (
             <Button onClick={() => setIssueOpen(true)}>
               <Mail className="w-4 h-4" />
               {t("issueBtn")}
+            </Button>
+          )}
+          {canManage && canInviteMore && (
+            <Button onClick={() => setInviteOpen(true)}>
+              <UserPlus2 className="w-4 h-4" />
+              {t("inviteMoreBtn")}
             </Button>
           )}
           {isPM && isCancellable && (
@@ -271,6 +304,23 @@ export default function BoqRfqDetailPage({
         open={issueOpen}
         onOpenChange={setIssueOpen}
         onConfirm={handleIssue}
+      />
+
+      <RfqIssueDialog
+        projectId={projectId}
+        rfqId={rfqId}
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onConfirm={handleInvite}
+        mode="invite"
+      />
+
+      <RfqEditDialog
+        projectId={projectId}
+        rfq={rfq}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => mutate()}
       />
 
       <ConfirmDialog

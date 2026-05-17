@@ -11,6 +11,7 @@ import type { z } from "zod";
 import type {
   cancelRfqSchema,
   createRfqSchema,
+  inviteRfqVendorsSchema,
   issueRfqSchema,
   updateRfqSchema,
 } from "@/lib/validations";
@@ -133,6 +134,35 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
+  const invite = useCallback(
+    async (rfqId: string, data: z.infer<typeof inviteRfqVendorsSchema>) => {
+      try {
+        const res = await rfqApi.invite(projectId, rfqId, data);
+        await invalidateList();
+        if (res.addedVendorCount === 0) {
+          toast({
+            title: "All picks were already on this RFQ",
+            description: "No new emails sent.",
+            variant: "warning",
+          });
+        } else {
+          toast({
+            title: "Vendors invited",
+            description: `${res.addedVendorCount} added · ${res.invitedContactCount} email${
+              res.invitedContactCount === 1 ? "" : "s"
+            } sent.`,
+            variant: "success",
+          });
+        }
+        return res;
+      } catch (err) {
+        handleError(err, "Could not invite vendors");
+        return null;
+      }
+    },
+    [projectId, invalidateList]
+  );
+
   const cancel = useCallback(
     async (rfqId: string, data: z.infer<typeof cancelRfqSchema>) => {
       try {
@@ -148,7 +178,7 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
-  return { create, update, issue, cancel, invalidateList };
+  return { create, update, issue, invite, cancel, invalidateList };
 }
 
 // ── Detail + vendor-portal hooks ────────────────────────────────────────────

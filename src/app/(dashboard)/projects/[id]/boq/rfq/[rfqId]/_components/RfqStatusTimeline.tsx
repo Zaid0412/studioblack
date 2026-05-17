@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Ban, FilePlus2, Mail } from "lucide-react";
+import { Ban, FilePlus2, Mail, UserPlus2 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/formatTime";
@@ -20,6 +20,7 @@ interface Props {
 const ICONS: Record<string, LucideIcon> = {
   "rfq.created": FilePlus2,
   "rfq.issued": Mail,
+  "rfq.vendors_added": UserPlus2,
   "rfq.cancelled": Ban,
 };
 
@@ -109,7 +110,10 @@ function EventBody({
         </>
       );
     }
-    case "rfq.issued": {
+    case "rfq.issued":
+    case "rfq.vendors_added": {
+      const verb =
+        event.action === "rfq.issued" ? t("issuedVerb") : t("vendorsAddedVerb");
       const names = Array.isArray(m.vendor_names)
         ? (m.vendor_names as (string | null)[]).filter(
             (n): n is string => typeof n === "string" && n.length > 0
@@ -124,7 +128,7 @@ function EventBody({
             : Number(m.invited_contact_count ?? 0);
       return (
         <>
-          <span>{t("issuedVerb")}</span>
+          <span>{verb}</span>
           {names.length > 0 ? (
             <>
               {names.map((n, i) => (

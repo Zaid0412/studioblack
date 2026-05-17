@@ -56,6 +56,11 @@ export default function ProjectDetailLayout({
     (pathname === `/projects/${id}/designs` ||
       pathname === `/projects/${id}/boq/my-scope`);
 
+  // RFQ sub-pages are deep workflow surfaces with their own chrome — project
+  // comments don't belong on them. Suppress the global comments section so
+  // it doesn't overlay the create/detail forms.
+  const showProjectComments = !pathname.startsWith(`/projects/${id}/boq/rfq`);
+
   if (loading || roleLoading) {
     return (
       <div className="flex flex-col h-full">
@@ -141,9 +146,12 @@ export default function ProjectDetailLayout({
 
       {children}
 
-      <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
-
-      <CommentsSection comments={comments} submitComment={submitComment} />
+      {showProjectComments && (
+        <>
+          <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
+          <CommentsSection comments={comments} submitComment={submitComment} />
+        </>
+      )}
     </div>
   );
 }
