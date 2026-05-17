@@ -573,6 +573,153 @@ export interface UpdateRfqInput {
   responseDeadline?: string | null;
 }
 
+/**
+ * Append BOQ items to an existing draft RFQ. Refused once the RFQ is no
+ * longer in draft — changing scope after vendors have started bidding is
+ * a procurement-process change, not a UI tweak; the right move there is
+ * to create a new RFQ.
+ *
+ * Verifies every BOQ item belongs to the RFQ's project inside the
+ * transaction so a concurrent BOQ delete/move can't bypass the check.
+ * Sort_order continues from where the existing items left off, so a
+ * mixed UI list renders in insertion order without gaps.
+ */
+export async function addRfqItems(
+  rfqId: string,
+  items: NewRfqItem[]
+): Promise<
+  | { ok: true; count: number }
+  | {
+      ok: false;
+      reason: "not_found" | "wrong_status" | "no_items" | "bad_items";
+    }
+> {
+  if (items.length === 0) return { ok: false, reason: "no_items" };
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: rfqRows } = await client.query<{
+      status: string;
+      project_id: string;
+      next_sort: number;
+    }>(
+      `SELECT r.status, r.project_id,
+              COALESCE(MAX(ri.sort_order), -1) + 1 AS next_sort
+         FROM rfq r
+         LEFT JOIN rfq_item ri ON ri.rfq_id = r.id
+        WHERE r.id = $1
+        GROUP BY r.status, r.project_id
+        FOR UPDATE`,
+      [rfqId]
+    );
+    const rfq = rfqRows[0];
+    if (!rfq) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+    if (rfq.status !== "draft") {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "wrong_status" };
+    }
+
+    const boqItemIds = items.map((i) => i.boqItemId);
+    const { rows: ownCheck } = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count
+       FROM boq_item bi
+       JOIN boq b ON b.id = bi.boq_id
+       WHERE bi.id = ANY($1::uuid[]) AND b.project_id = $2`,
+      [boqItemIds, rfq.project_id]
+    );
+    if (Number(ownCheck[0]?.count ?? 0) !== boqItemIds.length) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "bad_items" };
+    }
+
+    for (const [idx, item] of items.entries()) {
+      await client.query(
+        `INSERT INTO rfq_item (
+           rfq_id, boq_item_id, description, unit, quantity,
+           spec_notes, sort_order
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          rfqId,
+          item.boqItemId,
+          item.description,
+          item.unit,
+          item.quantity,
+          item.specNotes ?? null,
+          rfq.next_sort + idx,
+        ]
+      );
+    }
+
+    await client.query(`UPDATE rfq SET updated_at = now() WHERE id = $1`, [
+      rfqId,
+    ]);
+
+    await client.query("COMMIT");
+    return { ok: true, count: items.length };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Delete one item from a draft RFQ. Same status guard as `addRfqItems`.
+ * Returns `wrong_status` once the RFQ is issued or further along — at
+ * that point a vendor may already be quoting on the item and removing
+ * it silently breaks the bid contract.
+ */
+export async function removeRfqItem(
+  rfqId: string,
+  itemId: string
+): Promise<{ ok: true } | { ok: false; reason: "not_found" | "wrong_status" }> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: rfqRows } = await client.query<{ status: string }>(
+      `SELECT status FROM rfq WHERE id = $1 FOR UPDATE`,
+      [rfqId]
+    );
+    const rfq = rfqRows[0];
+    if (!rfq) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+    if (rfq.status !== "draft") {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "wrong_status" };
+    }
+
+    const { rowCount } = await client.query(
+      `DELETE FROM rfq_item WHERE id = $1 AND rfq_id = $2`,
+      [itemId, rfqId]
+    );
+    if (!rowCount) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+
+    await client.query(`UPDATE rfq SET updated_at = now() WHERE id = $1`, [
+      rfqId,
+    ]);
+    await client.query("COMMIT");
+    return { ok: true };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 const RFQ_HEADER_COLS: Record<keyof UpdateRfqInput, string> = {
   title: "title",
   scopeOfWork: "scope_of_work",

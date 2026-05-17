@@ -8,8 +8,10 @@ import {
   FileText,
   Mail,
   Pencil,
+  Plus,
   Trash2,
   UserPlus2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -19,6 +21,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
 import { formatDate } from "@/lib/formatDate";
 import { RfqStatusBadge } from "../_components/RfqStatusBadge";
+import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
 import { RfqStatusTimeline } from "./_components/RfqStatusTimeline";
@@ -40,13 +43,16 @@ export default function BoqRfqDetailPage({
   const canManage = role === "pm" || role === "architect";
 
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
-  const { issue, invite, cancel } = useRfqMutations(projectId);
+  // `addItems` is called inside RfqAddItemsDialog, not directly here.
+  const { issue, invite, removeItem, cancel } = useRfqMutations(projectId);
 
   const [issueOpen, setIssueOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [addItemsOpen, setAddItemsOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -117,6 +123,13 @@ export default function BoqRfqDetailPage({
       setInviteOpen(false);
       await mutate();
     }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    setRemovingItemId(itemId);
+    const ok = await removeItem(rfqId, itemId);
+    setRemovingItemId(null);
+    if (ok) await mutate();
   };
 
   const handleCancel = async () => {
@@ -218,6 +231,16 @@ export default function BoqRfqDetailPage({
           <h2 className="text-sm font-semibold text-text-primary">
             {t("itemsHeading", { count: rfq.items.length })}
           </h2>
+          {canManage && isDraft && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAddItemsOpen(true)}
+            >
+              <Plus className="w-4 h-4" />
+              {t("addItemsBtn")}
+            </Button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -233,6 +256,7 @@ export default function BoqRfqDetailPage({
                 <th className="px-4 py-2.5 font-medium">
                   {t("col.specNotes")}
                 </th>
+                {canManage && isDraft && <th className="px-4 py-2.5 w-10" />}
               </tr>
             </thead>
             <tbody>
@@ -248,6 +272,19 @@ export default function BoqRfqDetailPage({
                   <td className="px-4 py-3 text-text-muted">
                     {it.spec_notes ?? "—"}
                   </td>
+                  {canManage && isDraft && (
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(it.id)}
+                        disabled={removingItemId === it.id}
+                        aria-label={t("removeItem")}
+                        className="text-text-muted hover:text-error transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -323,6 +360,15 @@ export default function BoqRfqDetailPage({
         rfq={rfq}
         open={editOpen}
         onOpenChange={setEditOpen}
+        onSaved={() => mutate()}
+      />
+
+      <RfqAddItemsDialog
+        projectId={projectId}
+        rfqId={rfqId}
+        excludeBoqItemIds={rfq.items.map((it) => it.boq_item_id)}
+        open={addItemsOpen}
+        onOpenChange={setAddItemsOpen}
         onSaved={() => mutate()}
       />
 

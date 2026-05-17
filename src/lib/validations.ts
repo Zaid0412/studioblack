@@ -1194,6 +1194,10 @@ export const inviteRfqVendorsSchema = z.object({
   vendorIds: z.array(z.string().uuid()).min(1).max(50),
 });
 
+export const addRfqItemsSchema = z.object({
+  items: z.array(rfqItemInputSchema).min(1).max(500),
+});
+
 export const cancelRfqSchema = z.object({
   reason: z.string().trim().max(2000).optional().nullable(),
 });

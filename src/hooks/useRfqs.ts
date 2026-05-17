@@ -9,6 +9,7 @@ import type { Rfq, RfqStatus, RfqWithItems, VendorLite } from "@/types";
 import type { ListRfqsResponse } from "@/lib/api/rfqs";
 import type { z } from "zod";
 import type {
+  addRfqItemsSchema,
   cancelRfqSchema,
   createRfqSchema,
   inviteRfqVendorsSchema,
@@ -178,7 +179,49 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
-  return { create, update, issue, invite, cancel, invalidateList };
+  const addItems = useCallback(
+    async (rfqId: string, data: z.infer<typeof addRfqItemsSchema>) => {
+      try {
+        const res = await rfqApi.addItems(projectId, rfqId, data);
+        await invalidateList();
+        toast({
+          title: "Items added",
+          description: `${res.count} item${res.count === 1 ? "" : "s"} added.`,
+          variant: "success",
+        });
+        return res;
+      } catch (err) {
+        handleError(err, "Could not add items");
+        return null;
+      }
+    },
+    [projectId, invalidateList]
+  );
+
+  const removeItem = useCallback(
+    async (rfqId: string, itemId: string) => {
+      try {
+        await rfqApi.removeItem(projectId, rfqId, itemId);
+        await invalidateList();
+        return true;
+      } catch (err) {
+        handleError(err, "Could not remove item");
+        return false;
+      }
+    },
+    [projectId, invalidateList]
+  );
+
+  return {
+    create,
+    update,
+    issue,
+    invite,
+    addItems,
+    removeItem,
+    cancel,
+    invalidateList,
+  };
 }
 
 // ── Detail + vendor-portal hooks ────────────────────────────────────────────

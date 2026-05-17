@@ -1,8 +1,9 @@
-import { apiGet, apiPatch, apiPost } from "./client";
+import { apiDelete, apiGet, apiPatch, apiPost } from "./client";
 import { API } from "./routes";
 import type { Rfq, RfqListRow, RfqWithItems, VendorLite } from "@/types";
 import type { z } from "zod";
 import type {
+  addRfqItemsSchema,
   cancelRfqSchema,
   createRfqSchema,
   inviteRfqVendorsSchema,
@@ -16,6 +17,7 @@ type CreateInput = z.infer<typeof createRfqSchema>;
 type UpdateInput = z.infer<typeof updateRfqSchema>;
 type IssueInput = z.infer<typeof issueRfqSchema>;
 type InviteInput = z.infer<typeof inviteRfqVendorsSchema>;
+type AddItemsInput = z.infer<typeof addRfqItemsSchema>;
 type CancelInput = z.infer<typeof cancelRfqSchema>;
 
 export interface ListRfqsResponse {
@@ -104,4 +106,18 @@ export function invite(projectId: string, rfqId: string, data: InviteInput) {
 /** Studio: cancel an RFQ (PM only on the server). */
 export function cancel(projectId: string, rfqId: string, data: CancelInput) {
   return apiPost<Rfq>(API.rfqCancel(projectId, rfqId), data);
+}
+
+/** Studio: append items to a draft RFQ. */
+export function addItems(
+  projectId: string,
+  rfqId: string,
+  data: AddItemsInput
+) {
+  return apiPost<{ count: number }>(API.rfqItems(projectId, rfqId), data);
+}
+
+/** Studio: remove one item from a draft RFQ. */
+export function removeItem(projectId: string, rfqId: string, itemId: string) {
+  return apiDelete<{ ok: true }>(API.rfqItem(projectId, rfqId, itemId));
 }
