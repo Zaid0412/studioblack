@@ -10,15 +10,12 @@ import type {
   VendorLite,
 } from "@/types";
 import { escapeSqlLike } from "./helpers";
-import { getNextSequenceNumber } from "./boq";
+import { nextSequenceNumbers } from "./boq";
 import { mapPgError } from "./_pgErrors";
+import { AUDIT_ACTIONS } from "@/lib/auditConstants";
+import { RFQ_INVITEABLE_STATUSES } from "@/lib/validations";
 
-/**
- * F9 — RFQ Workflow read paths.
- *
- * Mutations (createRfqDraft, updateRfqDraft, issueRfq, cancelRfq) land in
- * Phase B; this module is reads-only.
- */
+/** F9 — RFQ Workflow query layer (reads + mutations + email-fan-out helpers). */
 
 export interface RfqListFilters {
   status?: RfqStatus;
@@ -126,31 +123,34 @@ export async function getRfqDetail(
   const rfq = rfqRows[0];
   if (!rfq) return null;
 
-  const { rows: itemRows } = await pool.query<RfqItem>(
-    `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
-            sort_order, awarded_vendor_id, awarded_quote_item_id
-     FROM rfq_item
-     WHERE rfq_id = $1
-     ORDER BY sort_order, description`,
-    [rfqId]
-  );
-
-  const { rows: vendorRows } = await pool.query<RfqVendorInvite>(
-    `SELECT rv.rfq_id, rv.vendor_id, v.company_name AS vendor_name,
-            v.vendor_code, rv.invited_at, rv.invited_by
-     FROM rfq_vendor rv
-     JOIN vendor v ON v.id = rv.vendor_id
-     WHERE rv.rfq_id = $1
-     ORDER BY lower(v.company_name)`,
-    [rfqId]
-  );
-
-  const events = await getRfqEvents(rfqId);
+  // Items, vendors, and events are independent of each other and of the
+  // header beyond the rfqId — fetch in parallel to cut detail-page latency
+  // from 4 sequential RTTs to ~max-of-3.
+  const [itemRes, vendorRes, events] = await Promise.all([
+    pool.query<RfqItem>(
+      `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
+              sort_order, awarded_vendor_id, awarded_quote_item_id
+       FROM rfq_item
+       WHERE rfq_id = $1
+       ORDER BY sort_order, description`,
+      [rfqId]
+    ),
+    pool.query<RfqVendorInvite>(
+      `SELECT rv.rfq_id, rv.vendor_id, v.company_name AS vendor_name,
+              v.vendor_code, rv.invited_at, rv.invited_by
+       FROM rfq_vendor rv
+       JOIN vendor v ON v.id = rv.vendor_id
+       WHERE rv.rfq_id = $1
+       ORDER BY lower(v.company_name)`,
+      [rfqId]
+    ),
+    getRfqEvents(rfqId),
+  ]);
 
   return {
     ...rfq,
-    items: itemRows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
-    vendors: vendorRows,
+    items: itemRes.rows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
+    vendors: vendorRes.rows,
     events,
   };
 }
@@ -167,6 +167,17 @@ export async function getRfqDetail(
  * the issue route couldn't capture a name (vendor without a receives_rfq
  * contact) both get resolved here.
  */
+const TIMELINE_ACTIONS = [
+  AUDIT_ACTIONS.RFQ_CREATED,
+  AUDIT_ACTIONS.RFQ_ISSUED,
+  AUDIT_ACTIONS.RFQ_VENDORS_ADDED,
+  AUDIT_ACTIONS.RFQ_CANCELLED,
+] as const;
+const VENDOR_BEARING_ACTIONS = new Set<string>([
+  AUDIT_ACTIONS.RFQ_ISSUED,
+  AUDIT_ACTIONS.RFQ_VENDORS_ADDED,
+]);
+
 async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
   const pool = getPool();
   const { rows } = await pool.query(
@@ -176,14 +187,13 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
      LEFT JOIN "user" u ON u.id = ae.actor_id
      WHERE ae.target_table = 'rfq'
        AND ae.target_id = $1::uuid
-       AND ae.action IN ('rfq.created','rfq.issued','rfq.vendors_added','rfq.cancelled')
+       AND ae.action = ANY($2::text[])
      ORDER BY ae.created_at ASC`,
-    [rfqId]
+    [rfqId, TIMELINE_ACTIONS]
   );
 
   // Collect vendor IDs across all events with vendor metadata that are
   // missing names so we can resolve them with a single batched lookup.
-  const VENDOR_BEARING_ACTIONS = new Set(["rfq.issued", "rfq.vendors_added"]);
   const missingIds = new Set<string>();
   for (const r of rows) {
     if (!VENDOR_BEARING_ACTIONS.has(r.action) || !r.metadata) continue;
@@ -364,19 +374,23 @@ export async function getRfqDetailForVendor(
   const rfq = rfqRows[0];
   if (!rfq) return null;
 
-  const { rows: itemRows } = await pool.query<RfqItem>(
-    `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
-            sort_order, awarded_vendor_id, awarded_quote_item_id
-     FROM rfq_item
-     WHERE rfq_id = $1
-     ORDER BY sort_order, description`,
-    [rfqId]
-  );
+  // Items + events in parallel — independent post-header.
+  const [itemRes, studioEvents] = await Promise.all([
+    pool.query<RfqItem>(
+      `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
+              sort_order, awarded_vendor_id, awarded_quote_item_id
+       FROM rfq_item
+       WHERE rfq_id = $1
+       ORDER BY sort_order, description`,
+      [rfqId]
+    ),
+    getRfqEvents(rfqId),
+  ]);
+  const itemRows = itemRes.rows;
 
   // Vendors get a sanitised event list: actor names AND vendor names
   // stripped (competitive info — they shouldn't see other vendors'
   // identities on issued events, nor which studio user did what).
-  const studioEvents = await getRfqEvents(rfqId);
   const events: RfqEvent[] = studioEvents.map((e) => {
     const metadata = e.metadata
       ? Object.fromEntries(
@@ -410,14 +424,24 @@ export interface RfqContactForEmail {
 }
 
 /**
- * `receives_rfq = true` contacts for every vendor on this RFQ's invitation
- * list, joined with `vendor.company_name` and the `vendor_contact.user_id`
- * link (when a vendor user has accepted the portal invite).
+ * `receives_rfq = true` contacts for vendors on this RFQ's invitation list,
+ * joined with `vendor.company_name` and the `vendor_contact.user_id` link
+ * (when a vendor user has accepted the portal invite). Pass `vendorIds`
+ * to scope to a subset — used by the invite-more flow so emails only fire
+ * to newly-added vendors.
  */
 export async function getRfqContactsForEmail(
-  rfqId: string
+  rfqId: string,
+  vendorIds?: readonly string[]
 ): Promise<RfqContactForEmail[]> {
+  if (vendorIds && vendorIds.length === 0) return [];
   const pool = getPool();
+  const params: unknown[] = [rfqId];
+  let vendorFilter = "";
+  if (vendorIds) {
+    params.push(Array.from(new Set(vendorIds)));
+    vendorFilter = `AND rv.vendor_id = ANY($${params.length}::uuid[])`;
+  }
   const { rows } = await pool.query(
     `SELECT
        v.id AS vendor_id,
@@ -430,11 +454,12 @@ export async function getRfqContactsForEmail(
      JOIN vendor v ON v.id = rv.vendor_id
      JOIN vendor_contact vc ON vc.vendor_id = v.id
      WHERE rv.rfq_id = $1
+       ${vendorFilter}
        AND vc.receives_rfq = true
        AND vc.email IS NOT NULL
        AND v.status = 'active'
      ORDER BY lower(v.company_name), vc.is_primary DESC, lower(vc.name)`,
-    [rfqId]
+    params
   );
   return rows.map((r) => ({
     vendorId: r.vendor_id,
@@ -462,6 +487,60 @@ export interface CreateRfqInput {
   termsConditions?: string | null;
   responseDeadline?: string | null;
   items: NewRfqItem[];
+}
+
+/**
+ * Bulk-insert `rfq_item` rows via parallel `unnest` arrays — single
+ * round-trip regardless of item count. `startSortOrder` lets a caller
+ * append to an existing item list without colliding sort values.
+ */
+async function bulkInsertRfqItems(
+  client: import("pg").PoolClient,
+  rfqId: string,
+  items: readonly NewRfqItem[],
+  startSortOrder: number
+): Promise<void> {
+  if (items.length === 0) return;
+  await client.query(
+    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
+     SELECT $1::uuid, boq_item_id, description, unit, quantity, spec_notes, sort_order
+     FROM UNNEST(
+       $2::uuid[], $3::text[], $4::text[], $5::numeric[], $6::text[], $7::int[]
+     ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)`,
+    [
+      rfqId,
+      items.map((i) => i.boqItemId),
+      items.map((i) => i.description),
+      items.map((i) => i.unit),
+      items.map((i) => String(i.quantity)),
+      items.map((i) => i.specNotes ?? null),
+      items.map((_, idx) => startSortOrder + idx),
+    ]
+  );
+}
+
+/**
+ * Bulk-insert `rfq_vendor` rows via parallel `unnest` arrays, with
+ * ON CONFLICT skipping duplicates. RETURNING surfaces only the rows that
+ * actually inserted — used by the invite-more flow to know which vendors
+ * are new so emails only fire to those.
+ */
+async function bulkInsertRfqVendors(
+  client: import("pg").PoolClient,
+  rfqId: string,
+  vendorIds: readonly string[],
+  invitedBy: string
+): Promise<string[]> {
+  if (vendorIds.length === 0) return [];
+  const { rows } = await client.query<{ vendor_id: string }>(
+    `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
+     SELECT $1::uuid, vendor_id, $3
+     FROM UNNEST($2::uuid[]) AS t(vendor_id)
+     ON CONFLICT (rfq_id, vendor_id) DO NOTHING
+     RETURNING vendor_id`,
+    [rfqId, vendorIds, invitedBy]
+  );
+  return rows.map((r) => r.vendor_id);
 }
 
 /**
@@ -509,7 +588,10 @@ export async function createRfqDraft(
       throw new Error("One or more BOQ items do not belong to this project");
     }
 
-    const rfqNumber = await getNextSequenceNumber(orgId, "RFQ");
+    // Use the tx-bound sequence helper so a later ROLLBACK reverses the
+    // sequence advance — otherwise a failed RFQ create burns a number and
+    // leaves a visible gap in client-facing RFQ IDs.
+    const [rfqNumber] = await nextSequenceNumbers(client, orgId, "RFQ", 1);
 
     const { rows: rfqRows } = await client.query<Rfq>(
       `INSERT INTO rfq (
@@ -530,25 +612,7 @@ export async function createRfqDraft(
     );
     const rfq = rfqRows[0];
 
-    // Bulk-insert items. Index drives sort_order so the create flow's order
-    // is preserved.
-    for (const [idx, item] of input.items.entries()) {
-      await client.query(
-        `INSERT INTO rfq_item (
-           rfq_id, boq_item_id, description, unit, quantity,
-           spec_notes, sort_order
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          rfq.id,
-          item.boqItemId,
-          item.description,
-          item.unit,
-          item.quantity,
-          item.specNotes ?? null,
-          idx,
-        ]
-      );
-    }
+    await bulkInsertRfqItems(client, rfq.id, input.items, 0);
 
     await client.query("COMMIT");
     return rfq;
@@ -637,23 +701,7 @@ export async function addRfqItems(
       return { ok: false, reason: "bad_items" };
     }
 
-    for (const [idx, item] of items.entries()) {
-      await client.query(
-        `INSERT INTO rfq_item (
-           rfq_id, boq_item_id, description, unit, quantity,
-           spec_notes, sort_order
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [
-          rfqId,
-          item.boqItemId,
-          item.description,
-          item.unit,
-          item.quantity,
-          item.specNotes ?? null,
-          rfq.next_sort + idx,
-        ]
-      );
-    }
+    await bulkInsertRfqItems(client, rfqId, items, rfq.next_sort);
 
     await client.query(`UPDATE rfq SET updated_at = now() WHERE id = $1`, [
       rfqId,
@@ -867,14 +915,7 @@ export async function issueRfq(
 
     // Bulk-insert invitations. ON CONFLICT keeps idempotency if an issue
     // route retry slipped through — we never overwrite an existing invite.
-    for (const vendorId of uniqueVendorIds) {
-      await client.query(
-        `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (rfq_id, vendor_id) DO NOTHING`,
-        [rfqId, vendorId, actorId]
-      );
-    }
+    await bulkInsertRfqVendors(client, rfqId, uniqueVendorIds, actorId);
 
     // Flip BOQ po_status for the referenced items. WHERE filter intentionally
     // restricted to po_status='none' so we don't downgrade an item already on
@@ -935,7 +976,7 @@ export async function inviteRfqVendors(
       return { ok: false, reason: "not_found" };
     }
     // Additive flow — only valid AFTER issue and BEFORE award/cancel.
-    if (!["issued", "quotes_received", "under_review"].includes(rfq.status)) {
+    if (!(RFQ_INVITEABLE_STATUSES as readonly string[]).includes(rfq.status)) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "wrong_status" };
     }
@@ -951,20 +992,14 @@ export async function inviteRfqVendors(
       return { ok: false, reason: "bad_vendors" };
     }
 
-    // RETURNING surfaces only the rows the INSERT actually created — vendors
-    // who were already on rfq_vendor (ON CONFLICT) are skipped here, so the
-    // caller's email fan-out only hits NEW invitees.
-    const addedVendorIds: string[] = [];
-    for (const vendorId of uniqueIds) {
-      const { rows: inserted } = await client.query<{ vendor_id: string }>(
-        `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (rfq_id, vendor_id) DO NOTHING
-         RETURNING vendor_id`,
-        [rfqId, vendorId, actorId]
-      );
-      if (inserted.length > 0) addedVendorIds.push(inserted[0].vendor_id);
-    }
+    // ON CONFLICT skips duplicates and RETURNING gives only the newly
+    // inserted rows, so the caller's email fan-out only hits new invitees.
+    const addedVendorIds = await bulkInsertRfqVendors(
+      client,
+      rfqId,
+      uniqueIds,
+      actorId
+    );
 
     await client.query(`UPDATE rfq SET updated_at = now() WHERE id = $1`, [
       rfqId,
@@ -978,55 +1013,6 @@ export async function inviteRfqVendors(
   } finally {
     client.release();
   }
-}
-
-/**
- * Email-fan-out helper scoped to a specific subset of vendors. Used by the
- * "invite more vendors" flow so the email loop hits ONLY the new invitees,
- * not the ones who were already on the RFQ.
- */
-export async function getRfqContactsForEmailByVendors(
-  rfqId: string,
-  vendorIds: readonly string[]
-): Promise<
-  Array<{
-    vendorId: string;
-    vendorName: string;
-    contactId: string;
-    contactName: string;
-    contactEmail: string;
-    contactUserId: string | null;
-  }>
-> {
-  if (vendorIds.length === 0) return [];
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT
-       v.id AS vendor_id,
-       v.company_name AS vendor_name,
-       vc.id AS contact_id,
-       vc.name AS contact_name,
-       vc.email AS contact_email,
-       vc.user_id AS contact_user_id
-     FROM rfq_vendor rv
-     JOIN vendor v ON v.id = rv.vendor_id
-     JOIN vendor_contact vc ON vc.vendor_id = v.id
-     WHERE rv.rfq_id = $1
-       AND rv.vendor_id = ANY($2::uuid[])
-       AND vc.receives_rfq = true
-       AND vc.email IS NOT NULL
-       AND v.status = 'active'
-     ORDER BY lower(v.company_name), vc.is_primary DESC, lower(vc.name)`,
-    [rfqId, Array.from(new Set(vendorIds))]
-  );
-  return rows.map((r) => ({
-    vendorId: r.vendor_id,
-    vendorName: r.vendor_name,
-    contactId: r.contact_id,
-    contactName: r.contact_name,
-    contactEmail: r.contact_email,
-    contactUserId: r.contact_user_id,
-  }));
 }
 
 /**

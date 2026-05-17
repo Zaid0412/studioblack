@@ -1128,6 +1128,15 @@ export const RFQ_STATUSES = [
 ] as const;
 export type RfqStatus = (typeof RFQ_STATUSES)[number];
 
+/** Status set where the RFQ can still be edited or cancelled. */
+export const RFQ_TERMINAL_STATUSES = ["awarded", "cancelled"] as const;
+/** Status set where more vendors can be invited after the initial issue. */
+export const RFQ_INVITEABLE_STATUSES = [
+  "issued",
+  "quotes_received",
+  "under_review",
+] as const;
+
 export const listRfqsQuerySchema = z.object({
   search: z.string().optional(),
   status: z.enum(RFQ_STATUSES).optional(),

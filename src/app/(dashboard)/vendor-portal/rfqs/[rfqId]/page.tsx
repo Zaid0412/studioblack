@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
+import { RfqDetailRow } from "../../../projects/[id]/boq/rfq/_components/RfqDetailRow";
 import { RfqStatusBadge } from "../../../projects/[id]/boq/rfq/_components/RfqStatusBadge";
 import { RfqStatusTimeline } from "../../../projects/[id]/boq/rfq/[rfqId]/_components/RfqStatusTimeline";
 
@@ -94,14 +95,18 @@ export default function VendorPortalRfqDetailPage({
       />
 
       <section className="rounded-xl border border-border-default bg-bg-secondary p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <Detail
+        <RfqDetailRow
           label={t("responseDeadline")}
           value={
             rfq.response_deadline ? formatDate(rfq.response_deadline) : "—"
           }
         />
-        <Detail label={t("scope")} value={rfq.scope_of_work ?? "—"} multiline />
-        <Detail
+        <RfqDetailRow
+          label={t("scope")}
+          value={rfq.scope_of_work ?? "—"}
+          multiline
+        />
+        <RfqDetailRow
           label={t("terms")}
           value={rfq.terms_conditions ?? "—"}
           multiline
@@ -158,29 +163,6 @@ export default function VendorPortalRfqDetailPage({
         </div>
         <RfqStatusTimeline events={rfq.events} hideActor />
       </section>
-    </div>
-  );
-}
-
-function Detail({
-  label,
-  value,
-  multiline,
-}: {
-  label: string;
-  value: string;
-  multiline?: boolean;
-}) {
-  return (
-    <div className={`flex flex-col gap-1 ${multiline ? "md:col-span-2" : ""}`}>
-      <span className="text-xs font-medium text-text-muted">{label}</span>
-      <span
-        className={`text-sm text-text-primary ${
-          multiline ? "whitespace-pre-wrap" : ""
-        }`}
-      >
-        {value}
-      </span>
     </div>
   );
 }

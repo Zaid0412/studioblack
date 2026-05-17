@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   AUDIT_ACTIONS,
   getProjectName,
-  getRfqContactsForEmailByVendors,
+  getRfqContactsForEmail,
   inviteRfqVendors,
   logAuditSafe,
 } from "@/lib/queries";
@@ -65,7 +65,7 @@ export const POST = withAuth(
 
     // Email fan-out — only the NEW invitees, run after commit.
     const [contacts, projectName] = await Promise.all([
-      getRfqContactsForEmailByVendors(resolved.rfqId, result.addedVendorIds),
+      getRfqContactsForEmail(resolved.rfqId, result.addedVendorIds),
       getProjectName(params.id),
     ]);
     notifyRfqIssued(contacts, {

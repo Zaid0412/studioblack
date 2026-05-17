@@ -449,7 +449,6 @@ vi.mock("@/lib/queries", () => ({
   inviteRfqVendors: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),
-  getRfqContactsForEmailByVendors: vi.fn().mockResolvedValue([]),
   addRfqItems: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   removeRfqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   cancelRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),

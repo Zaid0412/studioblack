@@ -20,6 +20,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
 import { formatDate } from "@/lib/formatDate";
+import {
+  RFQ_INVITEABLE_STATUSES,
+  RFQ_TERMINAL_STATUSES,
+} from "@/lib/validations";
+import { RfqDetailRow } from "../_components/RfqDetailRow";
 import { RfqStatusBadge } from "../_components/RfqStatusBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
@@ -27,9 +32,9 @@ import { RfqIssueDialog } from "./_components/RfqIssueDialog";
 import { RfqStatusTimeline } from "./_components/RfqStatusTimeline";
 
 /**
- * Studio RFQ detail page — header, items, invited vendors, and the
- * issue/cancel action buttons. The status timeline (audit-event driven)
- * lands in Phase E; for now the badge is the only history surface.
+ * Studio RFQ detail page — header (title + status badge + actions),
+ * scope/terms card, items table, invited-vendors list, and the
+ * audit-event-driven Activity timeline at the bottom.
  */
 export default function BoqRfqDetailPage({
   params,
@@ -101,13 +106,17 @@ export default function BoqRfqDetailPage({
   }
 
   const isDraft = rfq.status === "draft";
-  const canInviteMore = ["issued", "quotes_received", "under_review"].includes(
+  const canInviteMore = (RFQ_INVITEABLE_STATUSES as readonly string[]).includes(
     rfq.status
   );
-  // Edits are now allowed post-issue too — same rule as cancel: blocked
-  // only when the RFQ has been awarded or already cancelled.
-  const isEditable = !["cancelled", "awarded"].includes(rfq.status);
-  const isCancellable = !["cancelled", "awarded"].includes(rfq.status);
+  const isTerminal = (RFQ_TERMINAL_STATUSES as readonly string[]).includes(
+    rfq.status
+  );
+  // Edit + Cancel are both gated on non-terminal status. Edits post-issue
+  // are intentional (typo fixes / deadline extensions); a warning banner
+  // inside the edit dialog tells the PM vendors will see the change.
+  const isEditable = !isTerminal;
+  const isCancellable = !isTerminal;
 
   const handleIssue = async (vendorIds: string[]) => {
     const res = await issue(rfqId, { vendorIds });
@@ -203,22 +212,22 @@ export default function BoqRfqDetailPage({
 
       {/* Header details */}
       <section className="rounded-xl border border-border-default bg-bg-secondary p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <DetailRow
+        <RfqDetailRow
           label={t("issuedDate")}
           value={rfq.issued_date ? formatDate(rfq.issued_date) : "—"}
         />
-        <DetailRow
+        <RfqDetailRow
           label={t("responseDeadline")}
           value={
             rfq.response_deadline ? formatDate(rfq.response_deadline) : "—"
           }
         />
-        <DetailRow
+        <RfqDetailRow
           label={t("scope")}
           value={rfq.scope_of_work ?? "—"}
           multiline
         />
-        <DetailRow
+        <RfqDetailRow
           label={t("terms")}
           value={rfq.terms_conditions ?? "—"}
           multiline
@@ -385,30 +394,4 @@ export default function BoqRfqDetailPage({
       />
     </div>
   );
-
-  /** Tiny inline component to keep the detail grid tidy. */
-  function DetailRow({
-    label,
-    value,
-    multiline,
-  }: {
-    label: string;
-    value: string;
-    multiline?: boolean;
-  }) {
-    return (
-      <div
-        className={`flex flex-col gap-1 ${multiline ? "md:col-span-2" : ""}`}
-      >
-        <span className="text-xs font-medium text-text-muted">{label}</span>
-        <span
-          className={`text-sm text-text-primary ${
-            multiline ? "whitespace-pre-wrap" : ""
-          }`}
-        >
-          {value}
-        </span>
-      </div>
-    );
-  }
 }

@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { useRfqMutations } from "@/hooks/useRfqs";
+import { toIsoDate } from "@/lib/formatDate";
 import type { Rfq } from "@/types";
 
 interface Props {
@@ -163,11 +164,4 @@ export function RfqEditDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function toIsoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }

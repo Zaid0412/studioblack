@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import { toast } from "@/components/ui/useToast";
+import { toIsoDate } from "@/lib/formatDate";
 import type { BoqItemWithComputed } from "@/types";
 
 interface Props {
@@ -292,12 +293,4 @@ export function RfqCreateForm({ projectId }: Props) {
       </div>
     </form>
   );
-}
-
-/** Format a JS `Date` as `YYYY-MM-DD` in local time. */
-function toIsoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }

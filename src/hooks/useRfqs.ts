@@ -78,9 +78,16 @@ export function useRfqMutations(projectId: string) {
     toast({ title: fallback, description, variant: "error" });
   };
 
+  /**
+   * Match the bare list key and any filtered variant (`?status=…`). Does
+   * NOT match the detail key (`/uuid`) — detail pages own their own
+   * `mutate()` so we don't double-fetch.
+   */
   const invalidateList = useCallback(async () => {
     await globalMutate(
-      (k) => typeof k === "string" && k.startsWith(listPrefix),
+      (k) =>
+        typeof k === "string" &&
+        (k === listPrefix || k.startsWith(`${listPrefix}?`)),
       undefined,
       { revalidate: true }
     );

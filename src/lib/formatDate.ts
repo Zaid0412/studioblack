@@ -43,3 +43,11 @@ export function formatDateTime(dateStr: string, locale?: string): string {
     minute: "2-digit",
   });
 }
+
+/** Serialise a `Date` as a local-time `YYYY-MM-DD` string for date-only inputs. */
+export function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}

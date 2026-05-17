@@ -1418,7 +1418,7 @@ export async function getNextSequenceNumber(
  * applied import would burn codes permanently and leave gaps that show up on
  * client-facing invoices.
  */
-async function nextSequenceNumbers(
+export async function nextSequenceNumbers(
   client: PoolClient,
   orgId: string,
   prefix: string,
