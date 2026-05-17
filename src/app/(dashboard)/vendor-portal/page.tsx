@@ -4,13 +4,28 @@ import { useTranslations } from "next-intl";
 import { FileText, Receipt, ScrollText, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
+import { useVendorRfqs } from "@/hooks/useRfqs";
 
-/** Vendor portal landing page — dashboard with metric cards (zero-state placeholders). */
+/**
+ * Vendor portal landing page — Open RFQs count is live; PO / invoice /
+ * progress cards are still placeholders pending F10–F16.6.
+ */
 export default function VendorPortalPage() {
   const t = useTranslations("vendorPortal");
 
+  // Server filters out `draft` and `cancelled` already, so `total` here is
+  // exactly the count of RFQs awaiting/in-progress/awarded for this vendor.
+  const { total: openRfqs, isLoading } = useVendorRfqs({
+    page: 1,
+    limit: 1,
+  });
+
   const stats = [
-    { label: t("openRfqs"), value: "0", icon: FileText },
+    {
+      label: t("openRfqs"),
+      value: isLoading ? "…" : String(openRfqs),
+      icon: FileText,
+    },
     { label: t("activePOs"), value: "0", icon: ScrollText },
     { label: t("pendingInvoices"), value: "0", icon: Receipt },
     { label: t("overallCompletion"), value: "0%", icon: TrendingUp },

@@ -3,9 +3,11 @@
 import { use, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Mail, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Mail, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
 import { formatDate } from "@/lib/formatDate";
@@ -37,20 +39,46 @@ export default function BoqRfqDetailPage({
 
   if (isLoading) {
     return (
-      <div className="p-4 lg:p-10 text-sm text-text-muted">{t("loading")}</div>
+      <div className="flex flex-col gap-6 p-4 lg:p-10">
+        <Skeleton className="h-4 w-32" />
+        <div className="flex items-start justify-between gap-4 pb-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-7 w-72" />
+              <Skeleton className="h-6 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-56" />
+          </div>
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-36" />
+            <Skeleton className="h-9 w-28" />
+          </div>
+        </div>
+        <Skeleton className="h-44 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
     );
   }
   if (notFound || !rfq) {
     return (
-      <div className="flex flex-col gap-4 p-4 lg:p-10">
+      <div className="flex flex-col gap-6 p-4 lg:p-10">
         <Link
           href={`/projects/${projectId}/boq/rfq`}
-          className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary"
+          className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
         >
           <ArrowLeft className="w-4 h-4" />
           {t("back")}
         </Link>
-        <p className="text-sm text-text-muted">{t("notFound")}</p>
+        <EmptyState
+          icon={FileText}
+          title={t("notFound")}
+          description={t("notFoundHint")}
+          action={{
+            label: t("back"),
+            href: `/projects/${projectId}/boq/rfq`,
+          }}
+        />
       </div>
     );
   }

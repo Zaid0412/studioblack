@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -32,6 +32,7 @@ const PAGE_SIZE = 25;
 export default function VendorPortalRfqsPage() {
   const t = useTranslations("vendorPortal.rfqList");
   const tNav = useTranslations("nav");
+  const router = useRouter();
 
   const [status, setStatus] = useState<RfqStatus | null>(null);
   const [page, setPage] = useState(1);
@@ -117,24 +118,13 @@ export default function VendorPortalRfqsPage() {
                 rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-t border-border-default hover:bg-bg-elevated/40"
+                    className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
+                    onClick={() => router.push(`/vendor-portal/rfqs/${row.id}`)}
                   >
-                    <td className="px-4 py-3 font-mono text-xs">
-                      <Link
-                        href={`/vendor-portal/rfqs/${row.id}`}
-                        className="text-text-secondary hover:text-accent"
-                      >
-                        {row.rfq_number}
-                      </Link>
+                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
+                      {row.rfq_number}
                     </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/vendor-portal/rfqs/${row.id}`}
-                        className="text-text-primary hover:text-accent"
-                      >
-                        {row.title}
-                      </Link>
-                    </td>
+                    <td className="px-4 py-3 text-text-primary">{row.title}</td>
                     <td className="px-4 py-3">
                       <RfqStatusBadge status={row.status} />
                     </td>

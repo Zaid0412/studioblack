@@ -1178,7 +1178,8 @@
     },
     "detail": {
       "loading": "Talep yükleniyor…",
-      "notFound": "Talep bulunamadı.",
+      "notFound": "Talep bulunamadı",
+      "notFoundHint": "Bu talep iptal edilmiş, silinmiş veya farklı bir projeye ait olabilir.",
       "back": "Taleplere dön",
       "issueBtn": "Tedarikçilere gönder",
       "cancelBtn": "Talebi iptal et",

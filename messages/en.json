@@ -1178,7 +1178,8 @@
     },
     "detail": {
       "loading": "Loading RFQ…",
-      "notFound": "RFQ not found.",
+      "notFound": "RFQ not found",
+      "notFoundHint": "This RFQ might have been cancelled, deleted, or it belongs to a different project.",
       "back": "Back to RFQs",
       "issueBtn": "Issue to vendors",
       "cancelBtn": "Cancel RFQ",

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { FileText, X } from "lucide-react";
 import {
@@ -59,6 +59,7 @@ export function RfqList({
   onClear,
 }: Props) {
   const t = useTranslations("rfq");
+  const router = useRouter();
   const hasFilters = state.search.length > 0 || state.status !== null;
   const showingFrom = total === 0 ? 0 : (state.page - 1) * pageSize + 1;
   const showingTo = Math.min(state.page * pageSize, total);
@@ -156,24 +157,15 @@ export function RfqList({
                 rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-t border-border-default hover:bg-bg-elevated/40"
+                    className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
+                    onClick={() =>
+                      router.push(`/projects/${projectId}/boq/rfq/${row.id}`)
+                    }
                   >
                     <td className="px-4 py-3 font-mono text-xs text-text-secondary">
-                      <Link
-                        href={`/projects/${projectId}/boq/rfq/${row.id}`}
-                        className="hover:text-accent"
-                      >
-                        {row.rfq_number}
-                      </Link>
+                      {row.rfq_number}
                     </td>
-                    <td className="px-4 py-3 text-text-primary">
-                      <Link
-                        href={`/projects/${projectId}/boq/rfq/${row.id}`}
-                        className="hover:text-accent"
-                      >
-                        {row.title}
-                      </Link>
-                    </td>
+                    <td className="px-4 py-3 text-text-primary">{row.title}</td>
                     <td className="px-4 py-3">
                       <RfqStatusBadge status={row.status} />
                     </td>

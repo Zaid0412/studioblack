@@ -36,8 +36,10 @@ export function NavItem({
   isCollapsed,
 }: NavItemProps) {
   const pathname = usePathname();
-  // Exact match for dashboard roots, startsWith for everything else
-  const isDashboardRoot = href === "/dashboard";
+  // Dashboard roots (`/dashboard`, `/vendor-portal`) need exact match — every
+  // sub-route lives under their prefix, and prefix-matching would light up
+  // both the root entry AND the leaf entry at the same time.
+  const isDashboardRoot = href === "/dashboard" || href === "/vendor-portal";
   const isActive =
     pathname === href || (!isDashboardRoot && pathname.startsWith(href + "/"));
 
