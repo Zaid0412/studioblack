@@ -1375,7 +1375,8 @@
     },
     "rfqDetail": {
       "loading": "Talep yükleniyor…",
-      "notFound": "Talep bulunamadı veya davet edilmediniz.",
+      "notFound": "Talep bulunamadı",
+      "notFoundHint": "Bu talep iptal edilmiş, geri çekilmiş veya davet edilmemiş olabilirsiniz.",
       "back": "Taleplere dön",
       "submitBtn": "Teklif gönder",
       "submitComingSoon": "Teklif gönderme F10 ile gelecek",

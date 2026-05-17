@@ -1375,7 +1375,8 @@
     },
     "rfqDetail": {
       "loading": "Loading RFQ…",
-      "notFound": "RFQ not found, or you weren't invited to it.",
+      "notFound": "RFQ not found",
+      "notFoundHint": "This RFQ might have been cancelled, withdrawn, or you weren't invited to it.",
       "back": "Back to RFQs",
       "submitBtn": "Submit quote",
       "submitComingSoon": "Quote submission ships in F10",
