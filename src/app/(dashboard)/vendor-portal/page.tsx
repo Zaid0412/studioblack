@@ -25,10 +25,26 @@ export default function VendorPortalPage() {
       label: t("openRfqs"),
       value: isLoading ? "…" : String(openRfqs),
       icon: FileText,
+      href: "/vendor-portal/rfqs",
     },
-    { label: t("activePOs"), value: "0", icon: ScrollText },
-    { label: t("pendingInvoices"), value: "0", icon: Receipt },
-    { label: t("overallCompletion"), value: "0%", icon: TrendingUp },
+    {
+      label: t("activePOs"),
+      value: "0",
+      icon: ScrollText,
+      href: "/vendor-portal/purchase-orders",
+    },
+    {
+      label: t("pendingInvoices"),
+      value: "0",
+      icon: Receipt,
+      href: "/vendor-portal/invoices",
+    },
+    {
+      label: t("overallCompletion"),
+      value: "0%",
+      icon: TrendingUp,
+      href: "/vendor-portal/progress",
+    },
   ];
 
   return (
@@ -42,6 +58,7 @@ export default function VendorPortalPage() {
             label={stat.label}
             value={stat.value}
             icon={stat.icon}
+            href={stat.href}
           />
         ))}
       </div>
