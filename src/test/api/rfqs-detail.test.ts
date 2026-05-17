@@ -50,6 +50,7 @@ const sampleDetail: RfqWithItems = {
   updated_at: "2026-05-14T00:00:00Z",
   items: [],
   vendors: [],
+  events: [],
 };
 
 beforeEach(() => {

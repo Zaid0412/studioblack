@@ -1197,10 +1197,19 @@
         "quantity": "Mik.",
         "specNotes": "Notlar"
       },
+      "timelineHeading": "Aktivite",
       "cancelConfirmTitle": "Bu talep iptal edilsin mi?",
       "cancelConfirmDescription": "Gönderilmiş talepler iptale geçer. Başka bir aktif talepte yer almayan BOQ kalemleri \"yok\" durumuna döner.",
       "cancelConfirm": "Evet, iptal et",
       "keepRfq": "Vazgeç"
+    },
+    "timeline": {
+      "empty": "Henüz hareket yok.",
+      "someone": "Birisi",
+      "created": "{actor}, {count, plural, =1 {# kalemle} other {# kalemle}} talebi oluşturdu.",
+      "issued": "{actor}, talebi {count, plural, =1 {# tedarikçiye} other {# tedarikçiye}} gönderdi.",
+      "cancelled": "{actor} talebi iptal etti.",
+      "cancelledWithReason": "{actor} talebi iptal etti — {reason}"
     },
     "issue": {
       "title": "Tedarikçilere gönder",
@@ -1340,6 +1349,7 @@
       "back": "Taleplere dön",
       "submitBtn": "Teklif gönder",
       "submitComingSoon": "Teklif gönderme F10 ile gelecek",
+      "timelineHeading": "Aktivite",
       "responseDeadline": "Yanıt son tarihi",
       "scope": "İş kapsamı",
       "terms": "Şartlar",

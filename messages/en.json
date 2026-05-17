@@ -1197,10 +1197,19 @@
         "quantity": "Qty",
         "specNotes": "Spec notes"
       },
+      "timelineHeading": "Activity",
       "cancelConfirmTitle": "Cancel this RFQ?",
       "cancelConfirmDescription": "Issued RFQs become cancelled. BOQ items will be released back to \"none\" unless another live RFQ references them.",
       "cancelConfirm": "Yes, cancel",
       "keepRfq": "Keep it"
+    },
+    "timeline": {
+      "empty": "Nothing has happened yet.",
+      "someone": "Someone",
+      "created": "{actor} created the RFQ with {count, plural, =1 {# item} other {# items}}.",
+      "issued": "{actor} issued the RFQ to {count, plural, =1 {# vendor} other {# vendors}}.",
+      "cancelled": "{actor} cancelled the RFQ.",
+      "cancelledWithReason": "{actor} cancelled the RFQ — {reason}"
     },
     "issue": {
       "title": "Issue to vendors",
@@ -1340,6 +1349,7 @@
       "back": "Back to RFQs",
       "submitBtn": "Submit quote",
       "submitComingSoon": "Quote submission ships in F10",
+      "timelineHeading": "Activity",
       "responseDeadline": "Response deadline",
       "scope": "Scope of work",
       "terms": "Terms & conditions",

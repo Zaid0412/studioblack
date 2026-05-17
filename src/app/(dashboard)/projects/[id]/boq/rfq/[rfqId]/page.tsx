@@ -13,6 +13,7 @@ import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
 import { formatDate } from "@/lib/formatDate";
 import { RfqStatusBadge } from "../_components/RfqStatusBadge";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
+import { RfqStatusTimeline } from "./_components/RfqStatusTimeline";
 
 /**
  * Studio RFQ detail page — header, items, invited vendors, and the
@@ -216,6 +217,16 @@ export default function BoqRfqDetailPage({
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* Status timeline */}
+      <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-default">
+          <h2 className="text-sm font-semibold text-text-primary">
+            {t("timelineHeading")}
+          </h2>
+        </div>
+        <RfqStatusTimeline events={rfq.events} />
       </section>
 
       {/* Invited vendors */}

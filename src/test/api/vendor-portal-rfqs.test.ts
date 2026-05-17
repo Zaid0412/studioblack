@@ -119,6 +119,7 @@ describe("GET /api/vendor-portal/rfqs/[rfqId]", () => {
       created_at: "2026-05-14T00:00:00Z",
       updated_at: "2026-05-14T00:00:00Z",
       items: [],
+      events: [],
     });
     const res = await GET_DETAIL(
       buildRequest(`/api/vendor-portal/rfqs/${RFQ_ID}`),

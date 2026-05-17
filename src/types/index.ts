@@ -971,6 +971,21 @@ export interface RfqVendorInvite {
   invited_by: string | null;
 }
 
+/**
+ * One row from the status timeline on the RFQ detail page. Sourced from
+ * `audit_event` and joined with the actor's display name. For vendor-facing
+ * responses, `actorId` and `actorName` are blanked.
+ */
+export interface RfqEvent {
+  id: string;
+  /** Audit action key, e.g. `"rfq.created" | "rfq.issued" | "rfq.cancelled"`. */
+  action: string;
+  createdAt: string;
+  actorId: string | null;
+  actorName: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
 /** List-row shape: a compact RFQ summary with counts. */
 export interface RfqListRow {
   id: string;
@@ -984,8 +999,9 @@ export interface RfqListRow {
   created_at: string;
 }
 
-/** Full RFQ + items + invited vendors. Detail-view payload. */
+/** Full RFQ + items + invited vendors + audit timeline. Detail-view payload. */
 export interface RfqWithItems extends Rfq {
   items: RfqItem[];
   vendors: RfqVendorInvite[];
+  events: RfqEvent[];
 }

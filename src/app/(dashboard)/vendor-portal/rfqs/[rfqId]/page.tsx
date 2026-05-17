@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
 import { RfqStatusBadge } from "../../../projects/[id]/boq/rfq/_components/RfqStatusBadge";
+import { RfqStatusTimeline } from "../../../projects/[id]/boq/rfq/[rfqId]/_components/RfqStatusTimeline";
 
 /**
  * Vendor-portal RFQ detail. Read-only in F9 — the "Submit Quote" CTA is
@@ -123,6 +124,15 @@ export default function VendorPortalRfqDetailPage({
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-default">
+          <h2 className="text-sm font-semibold text-text-primary">
+            {t("timelineHeading")}
+          </h2>
+        </div>
+        <RfqStatusTimeline events={rfq.events} hideActor />
       </section>
     </div>
   );

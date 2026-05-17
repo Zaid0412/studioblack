@@ -1,6 +1,7 @@
 import { getPool } from "@/lib/db";
 import type {
   Rfq,
+  RfqEvent,
   RfqItem,
   RfqVendorInvite,
   RfqListRow,
@@ -144,11 +145,44 @@ export async function getRfqDetail(
     [rfqId]
   );
 
+  const events = await getRfqEvents(rfqId);
+
   return {
     ...rfq,
     items: itemRows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
     vendors: vendorRows,
+    events,
   };
+}
+
+/**
+ * Audit events for an RFQ, joined with `user.name` so the timeline can show
+ * "Issued by Zaid" without a second round-trip. Ordered oldest-first so a
+ * client renders top-to-bottom as the story unfolded. `rfq.updated` is
+ * excluded because the timeline currently doesn't have a renderer for it —
+ * Phase E can add one when the create flow gains edit affordances.
+ */
+async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT ae.id, ae.action, ae.created_at, ae.actor_id, u.name AS actor_name,
+            ae.metadata
+     FROM audit_event ae
+     LEFT JOIN "user" u ON u.id = ae.actor_id
+     WHERE ae.target_table = 'rfq'
+       AND ae.target_id = $1::uuid
+       AND ae.action IN ('rfq.created','rfq.issued','rfq.cancelled')
+     ORDER BY ae.created_at ASC`,
+    [rfqId]
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    action: r.action,
+    createdAt: r.created_at,
+    actorId: r.actor_id,
+    actorName: r.actor_name,
+    metadata: r.metadata ?? null,
+  }));
 }
 
 /**
@@ -291,9 +325,19 @@ export async function getRfqDetailForVendor(
     [rfqId]
   );
 
+  // Vendors get a sanitised event list: actor names stripped (competitive
+  // info — they shouldn't know which studio user fired which transition).
+  const studioEvents = await getRfqEvents(rfqId);
+  const events: RfqEvent[] = studioEvents.map((e) => ({
+    ...e,
+    actorId: null,
+    actorName: null,
+  }));
+
   return {
     ...rfq,
     items: itemRows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
+    events,
   };
 }
 
