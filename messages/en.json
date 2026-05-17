@@ -1247,7 +1247,8 @@
     },
     "edit": {
       "title": "Edit RFQ",
-      "description": "Header-only edits while in draft. Once issued, scope can't change.",
+      "description": "Update the title, scope, terms, or response deadline.",
+      "postIssueWarning": "This RFQ has already been issued. Vendors will see the updated info on their next visit — they're not notified automatically.",
       "titleField": "Title",
       "scopeField": "Scope of work",
       "termsField": "Terms & conditions",

@@ -581,11 +581,21 @@ const RFQ_HEADER_COLS: Record<keyof UpdateRfqInput, string> = {
 };
 
 /**
- * Patch a draft RFQ's header fields. Refuses once the RFQ has been issued —
- * issued RFQs would otherwise rewrite the scope vendors have already seen.
+ * Patch an RFQ's header fields. Allowed on every status that's still
+ * "live" (draft / issued / quotes_received / under_review). Refuses on
+ * `awarded` and `cancelled` — once the RFQ is locked into an award flow
+ * or terminated, the header is part of the audit record and shouldn't
+ * change.
  *
- * Returns `{ok: false, reason: "not_found"}` for missing RFQs and
- * `{ok: false, reason: "wrong_status"}` for non-draft RFQs.
+ * Post-issue edits are intentional and surfaced via the audit log
+ * (`rfq.updated`). The UI shows a warning in that case so PMs know
+ * vendors will see the change on their next visit (no automatic
+ * notification fires — that's a deliberate hands-off choice, since
+ * most edits are typo fixes / deadline extensions, not scope changes).
+ *
+ * Returns `{ok: false, reason: "not_found"}` for missing RFQs,
+ * `{ok: false, reason: "wrong_status"}` for awarded/cancelled, and
+ * `{ok: false, reason: "no_changes"}` when no fields are set.
  */
 export async function updateRfqDraft(
   rfqId: string,
@@ -610,17 +620,17 @@ export async function updateRfqDraft(
   params.push(rfqId);
   const idIdx = params.length;
   const pool = getPool();
-  const { rows } = await pool.query<Rfq & { __status?: string }>(
-    `WITH cur AS (SELECT status FROM rfq WHERE id = $${idIdx})
-     UPDATE rfq
+  const { rows } = await pool.query<Rfq>(
+    `UPDATE rfq
         SET ${cols.join(", ")}, updated_at = now()
       WHERE id = $${idIdx}
-        AND status = 'draft'
-      RETURNING *, (SELECT status FROM cur) AS __status`,
+        AND status NOT IN ('awarded','cancelled')
+      RETURNING *`,
     params
   );
   if (rows.length === 0) {
-    // Either missing or not in draft. Distinguish for accurate response codes.
+    // Either missing or in a terminal status. Probe to distinguish so the
+    // route can return the right HTTP code.
     const { rows: probe } = await pool.query<{ status: string }>(
       `SELECT status FROM rfq WHERE id = $1`,
       [rfqId]
@@ -628,9 +638,7 @@ export async function updateRfqDraft(
     if (probe.length === 0) return { ok: false, reason: "not_found" };
     return { ok: false, reason: "wrong_status" };
   }
-  const { __status: _unused, ...row } = rows[0];
-  void _unused;
-  return { ok: true, row: row as Rfq };
+  return { ok: true, row: rows[0] };
 }
 
 /**

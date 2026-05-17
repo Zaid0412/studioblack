@@ -47,7 +47,10 @@ export const PATCH = withAuth(
       }
       if (result.reason === "wrong_status") {
         return NextResponse.json(
-          { error: "RFQ has already been issued and can no longer be edited" },
+          {
+            error:
+              "RFQ has been awarded or cancelled and can no longer be edited",
+          },
           { status: 409 }
         );
       }

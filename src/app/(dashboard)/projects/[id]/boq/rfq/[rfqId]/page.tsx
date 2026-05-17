@@ -98,6 +98,9 @@ export default function BoqRfqDetailPage({
   const canInviteMore = ["issued", "quotes_received", "under_review"].includes(
     rfq.status
   );
+  // Edits are now allowed post-issue too — same rule as cancel: blocked
+  // only when the RFQ has been awarded or already cancelled.
+  const isEditable = !["cancelled", "awarded"].includes(rfq.status);
   const isCancellable = !["cancelled", "awarded"].includes(rfq.status);
 
   const handleIssue = async (vendorIds: string[]) => {
@@ -154,7 +157,7 @@ export default function BoqRfqDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {canManage && isDraft && (
+          {canManage && isEditable && (
             <Button variant="ghost" onClick={() => setEditOpen(true)}>
               <Pencil className="w-4 h-4" />
               {t("editBtn")}

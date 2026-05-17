@@ -1247,7 +1247,8 @@
     },
     "edit": {
       "title": "Talebi düzenle",
-      "description": "Yalnızca taslakken başlık düzenlenebilir. Gönderildikten sonra kapsam değiştirilemez.",
+      "description": "Başlık, kapsam, şartlar veya yanıt son tarihini güncelle.",
+      "postIssueWarning": "Bu talep zaten gönderildi. Tedarikçiler güncel bilgiyi bir sonraki ziyaretlerinde görür — otomatik bildirilmez.",
       "titleField": "Başlık",
       "scopeField": "İş kapsamı",
       "termsField": "Şartlar",

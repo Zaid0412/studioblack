@@ -66,7 +66,9 @@ describe("PATCH /api/projects/[id]/rfqs/[rfqId]", () => {
     expect(body.title).toBe("Edited title");
   });
 
-  it("409 when RFQ has been issued", async () => {
+  it("409 when RFQ is awarded or cancelled", async () => {
+    // Edits are now allowed post-issue; only awarded/cancelled terminate
+    // the header lifecycle and surface wrong_status from updateRfqDraft.
     vi.mocked(updateRfqDraft).mockResolvedValue({
       ok: false,
       reason: "wrong_status",
@@ -74,7 +76,7 @@ describe("PATCH /api/projects/[id]/rfqs/[rfqId]", () => {
     const res = await PATCH_RFQ(
       buildRequest(`/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}`, {
         method: "PATCH",
-        body: { title: "after issue" },
+        body: { title: "after award" },
       }),
       buildParams({ id: PROJECT_ID, rfqId: RFQ_ID })
     );
