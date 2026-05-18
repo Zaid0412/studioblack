@@ -5,7 +5,6 @@ import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import {
   FolderOpen,
-  ClipboardCheck,
   CheckCircle2,
   Users,
   Calendar,
@@ -26,6 +25,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { formatShortDate, formatDate } from "@/lib/formatDate";
 import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
 import { PendingReviewsPopover } from "@/components/dashboard/PendingReviewsPopover";
+import { ClientPendingReviewsPopover } from "@/components/dashboard/ClientPendingReviewsPopover";
 
 interface DashboardData {
   stats: {
@@ -61,6 +61,10 @@ interface ClientProject {
   created_at: string;
 }
 
+interface ClientPendingReviewsCount {
+  total: number;
+}
+
 /** Unified dashboard — adapts content based on user role. */
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
@@ -85,6 +89,9 @@ export default function DashboardPage() {
     mutate: clientMutate,
   } = useSWR<ClientProject[]>(
     !roleLoading && role === "client" ? "/api/client/projects" : null
+  );
+  const { data: clientPending } = useSWR<ClientPendingReviewsCount>(
+    !roleLoading && role === "client" ? "/api/client/pending-reviews" : null
   );
 
   const loading =
@@ -136,33 +143,9 @@ export default function DashboardPage() {
   // ── Client Dashboard ──────────────────────────────────────────────────
   if (role === "client") {
     const totalProjects = clientProjects.length;
-    const activeProjects = clientProjects.filter(
-      (p) => p.status === "active"
-    ).length;
     const completedProjects = clientProjects.filter(
       (p) => p.status === "completed"
     ).length;
-
-    const clientStats = [
-      {
-        label: tClient("totalProjects"),
-        value: String(totalProjects),
-        valueColor: "text-text-primary",
-        icon: FolderOpen,
-      },
-      {
-        label: tClient("pendingReview"),
-        value: String(activeProjects),
-        valueColor: "text-accent",
-        icon: ClipboardCheck,
-      },
-      {
-        label: tClient("reviewed"),
-        value: String(completedProjects),
-        valueColor: "text-success",
-        icon: CheckCircle2,
-      },
-    ];
 
     return (
       <div className="flex flex-col gap-7 max-w-[1200px]">
@@ -170,22 +153,22 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {clientStats.map((stat) => (
-            <div
-              key={stat.label}
-              className="flex flex-col gap-2 rounded-xl bg-bg-elevated p-5"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] text-text-muted">
-                  {stat.label}
-                </span>
-                <stat.icon className="w-4 h-4 text-text-muted" />
-              </div>
-              <span className={`text-[32px] font-bold ${stat.valueColor}`}>
-                {stat.value}
-              </span>
-            </div>
-          ))}
+          <StatCard
+            label={tClient("totalProjects")}
+            value={String(totalProjects)}
+            icon={FolderOpen}
+            href="/projects"
+          />
+          <ClientPendingReviewsPopover
+            label={tClient("pendingReview")}
+            count={clientPending?.total ?? 0}
+          />
+          <StatCard
+            label={tClient("reviewed")}
+            value={String(completedProjects)}
+            icon={CheckCircle2}
+            valueColor="text-success"
+          />
         </div>
 
         {/* Projects */}
