@@ -42,7 +42,9 @@ export const VISIBLE_BOQ_TABS = BOQ_TABS.filter((t) => t.enabled);
 
 /** Filter the visible tabs against the viewer's role. */
 export function tabsForRole(role: UserRole | null | undefined): BoqTab[] {
-  return VISIBLE_BOQ_TABS.filter((t) => !t.roles || (role && t.roles.includes(role)));
+  return VISIBLE_BOQ_TABS.filter(
+    (t) => !t.roles || (role && t.roles.includes(role))
+  );
 }
 
 /**
