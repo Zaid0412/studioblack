@@ -89,6 +89,120 @@ export async function getPendingBoqReviews(
   return rows as PendingBoqReviewRow[];
 }
 
+/**
+ * One row in the client dashboard's "Pending Reviews" popover.
+ *
+ * A file shows up when it's been sent to the client and the review_status
+ * is still 'pending' — i.e. the client owes a decision. Once they approve
+ * or request changes, `review_status` flips and the row drops out.
+ */
+export interface ClientPendingFileRow {
+  id: string;
+  project_id: string;
+  project_name: string;
+  file_name: string;
+  version: number;
+  sent_at: string;
+}
+
+/**
+ * One row in the "BOQs" section of the client's pending-reviews popover.
+ * A BOQ shows up while any of its items sits at `submitted_to_client`.
+ */
+export interface ClientPendingBoqRow {
+  id: string;
+  project_id: string;
+  project_name: string;
+  submitted_at: string;
+  items_in_review: number;
+}
+
+/**
+ * Files + BOQs awaiting the client's decision, scoped to the projects
+ * assigned to their email. Archived projects are excluded — matches the
+ * filter applied by `getProjectsByClientEmail` so the popover can't
+ * deep-link to a project the client wouldn't see anywhere else.
+ *
+ * `total` is the un-capped count of pending items (files + boqs) and
+ * powers the dashboard stat card; the row arrays are capped at `limit`
+ * so the popover doesn't render an unbounded list.
+ */
+export async function getClientPendingReviews(
+  email: string,
+  limit = 20
+): Promise<{
+  files: ClientPendingFileRow[];
+  boqs: ClientPendingBoqRow[];
+  total: number;
+}> {
+  const pool = getPool();
+  const [{ rows: files }, { rows: boqs }, { rows: totals }] = await Promise.all(
+    [
+      pool.query(
+        `SELECT
+         a.id,
+         a.project_id,
+         p.name AS project_name,
+         a.file_name,
+         a.version,
+         a.sent_to_client_at AS sent_at
+       FROM attachment a
+       JOIN project p ON p.id = a.project_id
+       WHERE p.client_email = $1
+         AND p.status != 'archived'
+         AND a.sent_to_client_at IS NOT NULL
+         AND a.review_status = 'pending'
+       ORDER BY a.sent_to_client_at DESC, a.id DESC
+       LIMIT $2`,
+        [email, limit]
+      ),
+      pool.query(
+        `SELECT
+         b.id,
+         b.project_id,
+         p.name AS project_name,
+         MAX(bi.updated_at) AS submitted_at,
+         COUNT(bi.id)::int AS items_in_review
+       FROM boq b
+       JOIN project p ON p.id = b.project_id
+       JOIN boq_item bi ON bi.boq_id = b.id
+       WHERE p.client_email = $1
+         AND p.status != 'archived'
+         AND bi.phase = 'submitted_to_client'
+       GROUP BY b.id, b.project_id, p.name
+       ORDER BY MAX(bi.updated_at) DESC NULLS LAST, b.id DESC
+       LIMIT $2`,
+        [email, limit]
+      ),
+      pool.query(
+        `SELECT
+         (SELECT COUNT(*)::int
+          FROM attachment a
+          JOIN project p ON p.id = a.project_id
+          WHERE p.client_email = $1
+            AND p.status != 'archived'
+            AND a.sent_to_client_at IS NOT NULL
+            AND a.review_status = 'pending')
+         +
+         (SELECT COUNT(DISTINCT bi.boq_id)::int
+          FROM boq_item bi
+          JOIN boq b ON b.id = bi.boq_id
+          JOIN project p ON p.id = b.project_id
+          WHERE p.client_email = $1
+            AND p.status != 'archived'
+            AND bi.phase = 'submitted_to_client')
+         AS total`,
+        [email]
+      ),
+    ]
+  );
+  return {
+    files: files as ClientPendingFileRow[],
+    boqs: boqs as ClientPendingBoqRow[],
+    total: totals[0]?.total ?? 0,
+  };
+}
+
 /** Get dashboard stats (active projects, reviews, team members, upcoming deadlines). */
 export async function getDashboardStats(orgId: string) {
   const pool = getPool();

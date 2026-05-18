@@ -104,6 +104,7 @@ export const API = {
 
   // ── Client Portal ──────────────────────────────
   clientProjects:        ()                            => "/api/client/projects",
+  clientPendingReviews:  ()                            => "/api/client/pending-reviews",
 
   // ── BOQ (Feature 4) ─────────────────────────────
   boq:                   (pid: string)                       => `/api/projects/${pid}/boq`,
