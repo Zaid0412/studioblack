@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { VISIBLE_BOQ_TABS } from "../_lib/tabs";
+import { useUserRole } from "@/hooks/useUserRole";
+import { tabsForRole } from "../_lib/tabs";
 
 interface BoqSubTabStripProps {
   projectId: string;
@@ -11,7 +12,8 @@ interface BoqSubTabStripProps {
 /**
  * Horizontal sub-tab strip under the BOQ workflow step. Driven entirely
  * by `VISIBLE_BOQ_TABS` in `_lib/tabs.ts` — flipping a tab's `enabled`
- * flag surfaces it here.
+ * flag surfaces it here. Tabs marked with a `roles` whitelist are filtered
+ * against the current viewer's role (e.g. RFQ is studio-only).
  *
  * Active tab is detected by prefix-matching the pathname against each
  * tab's full route, so future nested sub-routes (e.g. `/boq/rfq/new`)
@@ -19,14 +21,16 @@ interface BoqSubTabStripProps {
  */
 export function BoqSubTabStrip({ projectId }: BoqSubTabStripProps) {
   const pathname = usePathname();
+  const { role } = useUserRole();
   const baseHref = `/projects/${projectId}/boq`;
+  const visibleTabs = tabsForRole(role);
 
   return (
     <nav
       aria-label="BOQ sub-tabs"
       className="shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
     >
-      {VISIBLE_BOQ_TABS.map((tab) => {
+      {visibleTabs.map((tab) => {
         const tabHref = `${baseHref}/${tab.segment}`;
         const isActive =
           pathname === tabHref || pathname.startsWith(`${tabHref}/`);

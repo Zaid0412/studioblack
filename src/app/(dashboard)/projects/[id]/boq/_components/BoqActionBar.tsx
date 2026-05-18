@@ -18,12 +18,14 @@ interface BoqActionBarProps {
   onExport: () => void;
   exporting?: boolean;
   disabled?: boolean;
+  /** When false, only the bulk-select toggle renders (used by the client view). */
+  canEdit?: boolean;
   /** When provided, renders a "Select" toggle that flips the table into bulk-select mode. */
   selectionMode?: boolean;
   onToggleSelectionMode?: () => void;
 }
 
-/** Right-aligned PM action row above the BOQ table. */
+/** Right-aligned action row above the BOQ table. Edit buttons hide when `canEdit` is false. */
 export function BoqActionBar({
   onAddItem,
   onAddFromLibrary,
@@ -32,6 +34,7 @@ export function BoqActionBar({
   onExport,
   exporting,
   disabled,
+  canEdit = true,
   selectionMode,
   onToggleSelectionMode,
 }: BoqActionBarProps) {
@@ -54,55 +57,59 @@ export function BoqActionBar({
           </span>
         </Button>
       )}
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={onExport}
-        disabled={exporting}
-      >
-        <Download className="h-4 w-4" />
-        {exporting ? "Exporting…" : "Export Excel"}
-      </Button>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={onImport}
-        disabled={disabled}
-      >
-        <Upload className="h-4 w-4" />
-        Import Excel
-      </Button>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={onAddSection}
-        disabled={disabled}
-      >
-        <FolderPlus className="h-4 w-4" />
-        Add section
-      </Button>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={onAddItem}
-        disabled={disabled}
-      >
-        <Plus className="h-4 w-4" />
-        Add manual
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        onClick={onAddFromLibrary}
-        disabled={disabled}
-      >
-        <BookOpen className="h-4 w-4" />
-        Add from library
-      </Button>
+      {canEdit && (
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onExport}
+            disabled={exporting}
+          >
+            <Download className="h-4 w-4" />
+            {exporting ? "Exporting…" : "Export Excel"}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onImport}
+            disabled={disabled}
+          >
+            <Upload className="h-4 w-4" />
+            Import Excel
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onAddSection}
+            disabled={disabled}
+          >
+            <FolderPlus className="h-4 w-4" />
+            Add section
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={onAddItem}
+            disabled={disabled}
+          >
+            <Plus className="h-4 w-4" />
+            Add manual
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onAddFromLibrary}
+            disabled={disabled}
+          >
+            <BookOpen className="h-4 w-4" />
+            Add from library
+          </Button>
+        </>
+      )}
     </div>
   );
 }

@@ -308,6 +308,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const canEdit = role === "pm" || role === "architect";
   // External viewers (client + vendor) see the trimmed table + drawer.
   const isExternal = isExternalViewer(role);
+  // Clients get a Select toggle so they can batch-approve / request-changes;
+  // vendors don't (they have no bulk action they're allowed to fire).
+  const canSelect = canEdit || role === "client";
 
   const openAddItem = (sectionId: string | null) => {
     setCreateItemSection(sectionId);
@@ -417,8 +420,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         />
       )}
 
-      {canEdit && (
+      {canSelect && (
         <BoqActionBar
+          canEdit={canEdit}
           onAddItem={() => openAddItem(null)}
           onAddFromLibrary={() => openPickerForSection(null)}
           onAddSection={() => setCreateSectionOpen(true)}
@@ -568,6 +572,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           sharedSectionId={sharedSelectedSectionId}
           sharedPhase={sharedSelectedPhase}
           allowedPhases={bulkAllowedPhases}
+          canEdit={canEdit}
           onMove={handleBulkMove}
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}

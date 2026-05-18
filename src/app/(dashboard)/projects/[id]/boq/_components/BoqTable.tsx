@@ -164,6 +164,11 @@ const GRID_COLS_WITH_SELECT =
 const GRID_COLS_EXTERNAL =
   "grid-cols-[70px_minmax(160px,1fr)_50px_70px_100px_160px_32px]";
 
+// External-viewer variant with a leading 32px checkbox column for clients
+// who've entered bulk-select mode (e.g. to batch-approve items).
+const GRID_COLS_EXTERNAL_WITH_SELECT =
+  "grid-cols-[32px_70px_minmax(160px,1fr)_50px_70px_100px_160px_32px]";
+
 /**
  * Sum of the fixed column widths above (1159px) plus 12 inter-column gaps
  * (gap-2 = 96px) = 1255px. Applied as `min-w` on the table's scrollable
@@ -304,7 +309,9 @@ export function BoqTable({
   // Server already scrubs those numbers from the payload, but hiding the
   // columns avoids confusing zeros in the UI.
   const gridCols = isExternal
-    ? GRID_COLS_EXTERNAL
+    ? selection
+      ? GRID_COLS_EXTERNAL_WITH_SELECT
+      : GRID_COLS_EXTERNAL
     : selection
       ? GRID_COLS_WITH_SELECT
       : GRID_COLS;
@@ -325,7 +332,7 @@ export function BoqTable({
             <div
               className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
             >
-              {!isExternal && selection && (
+              {selection && (
                 <div className="flex items-center justify-center">
                   <Checkbox
                     checked={selection.tableState === "all"}
@@ -778,7 +785,9 @@ const BoqItemRow = memo(function BoqItemRow({
   };
 
   const rowGridCols = isExternal
-    ? GRID_COLS_EXTERNAL
+    ? selectionMode
+      ? GRID_COLS_EXTERNAL_WITH_SELECT
+      : GRID_COLS_EXTERNAL
     : selectionMode
       ? GRID_COLS_WITH_SELECT
       : GRID_COLS;
@@ -787,7 +796,7 @@ const BoqItemRow = memo(function BoqItemRow({
     <div
       className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
     >
-      {!isExternal && selectionMode && (
+      {selectionMode && (
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isSelected ?? false}

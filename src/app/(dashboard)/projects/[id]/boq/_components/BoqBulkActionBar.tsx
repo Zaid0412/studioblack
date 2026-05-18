@@ -21,6 +21,8 @@ interface BoqBulkActionBarProps {
   sharedPhase?: BoqItemPhase;
   /** Phases the viewer is permitted to fire, pre-filtered through the role matrix. */
   allowedPhases: readonly BoqItemPhase[];
+  /** Gates the move + delete buttons. Clients bulk-approve / request-changes only. */
+  canEdit?: boolean;
   onMove: (targetSectionId: string | null) => void;
   onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
@@ -43,6 +45,7 @@ export function BoqBulkActionBar({
   sharedSectionId,
   sharedPhase,
   allowedPhases,
+  canEdit = true,
   onMove,
   onSetPhase,
   onDelete,
@@ -70,19 +73,21 @@ export function BoqBulkActionBar({
 
       <span className="h-5 w-px bg-border-default" aria-hidden />
 
-      <BoqMoveTargetPopover
-        trigger={
-          <Button type="button" variant="secondary" size="sm">
-            Move to section…
-          </Button>
-        }
-        sections={sections}
-        onPick={onMove}
-        currentSectionId={sharedSectionId}
-        projectId={projectId}
-        boqId={boqId}
-        nextSortOrder={nextSortOrder}
-      />
+      {canEdit && (
+        <BoqMoveTargetPopover
+          trigger={
+            <Button type="button" variant="secondary" size="sm">
+              Move to section…
+            </Button>
+          }
+          sections={sections}
+          onPick={onMove}
+          currentSectionId={sharedSectionId}
+          projectId={projectId}
+          boqId={boqId}
+          nextSortOrder={nextSortOrder}
+        />
+      )}
 
       {allowedPhases.length > 0 && (
         <BoqPhasePickerPopover
@@ -97,10 +102,12 @@ export function BoqBulkActionBar({
         />
       )}
 
-      <Button type="button" variant="danger" size="sm" onClick={onDelete}>
-        <Trash2 className="h-3.5 w-3.5" />
-        Delete
-      </Button>
+      {canEdit && (
+        <Button type="button" variant="danger" size="sm" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </Button>
+      )}
 
       <span className="h-5 w-px bg-border-default" aria-hidden />
 
