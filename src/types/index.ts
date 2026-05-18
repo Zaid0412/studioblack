@@ -5,6 +5,7 @@ import type {
   BoqItemPhase,
   BoqItemPoStatus,
   BoqItemSource,
+  RfqStatus,
   VendorStatus,
   VendorProficiency,
   VendorKycStatus,
@@ -18,6 +19,7 @@ export type {
   VendorKycStatus,
   VendorKycDocumentType,
   RateContractStatus,
+  RfqStatus,
 };
 
 /** Roles available to authenticated users. */
@@ -924,4 +926,82 @@ export interface AvailableRate {
   rate: number;
   currency: string;
   end_date: string;
+}
+
+// ── RFQ (F9) ────────────────────────────────────────────────────────────────
+
+export interface Rfq {
+  id: string;
+  org_id: string;
+  project_id: string;
+  rfq_number: string;
+  title: string;
+  status: RfqStatus;
+  issued_date: string | null;
+  response_deadline: string | null;
+  award_date: string | null;
+  awarded_vendor_id: string | null;
+  scope_of_work: string | null;
+  terms_conditions: string | null;
+  attachments: unknown | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RfqItem {
+  id: string;
+  rfq_id: string;
+  boq_item_id: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  spec_notes: string | null;
+  sort_order: number;
+  awarded_vendor_id: string | null;
+  awarded_quote_item_id: string | null;
+}
+
+export interface RfqVendorInvite {
+  rfq_id: string;
+  vendor_id: string;
+  vendor_name: string;
+  vendor_code: string | null;
+  invited_at: string;
+  invited_by: string | null;
+}
+
+/**
+ * One row from the status timeline on the RFQ detail page. Sourced from
+ * `audit_event` and joined with the actor's display name. For vendor-facing
+ * responses, `actorId` and `actorName` are blanked.
+ */
+export interface RfqEvent {
+  id: string;
+  /** Audit action key, e.g. `"rfq.created" | "rfq.issued" | "rfq.cancelled"`. */
+  action: string;
+  createdAt: string;
+  actorId: string | null;
+  actorName: string | null;
+  metadata: Record<string, unknown> | null;
+}
+
+/** List-row shape: a compact RFQ summary with counts. */
+export interface RfqListRow {
+  id: string;
+  rfq_number: string;
+  title: string;
+  status: RfqStatus;
+  issued_date: string | null;
+  response_deadline: string | null;
+  item_count: number;
+  vendor_count: number;
+  created_at: string;
+}
+
+/** Full RFQ + items + invited vendors + audit timeline. Detail-view payload. */
+export interface RfqWithItems extends Rfq {
+  items: RfqItem[];
+  vendors: RfqVendorInvite[];
+  events: RfqEvent[];
 }

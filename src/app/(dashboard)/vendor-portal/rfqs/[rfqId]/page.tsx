@@ -1,0 +1,168 @@
+"use client";
+
+import { use } from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { ArrowLeft, FileText } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { formatDate } from "@/lib/formatDate";
+import { useVendorRfqDetail } from "@/hooks/useRfqs";
+import { RfqDetailRow } from "../../../projects/[id]/boq/rfq/_components/RfqDetailRow";
+import { RfqStatusBadge } from "../../../projects/[id]/boq/rfq/_components/RfqStatusBadge";
+import { RfqStatusTimeline } from "../../../projects/[id]/boq/rfq/[rfqId]/_components/RfqStatusTimeline";
+
+/**
+ * Vendor-portal RFQ detail. Read-only in F9 — the "Submit Quote" CTA is
+ * disabled with a tooltip pointing at F10. We deliberately don't show who
+ * else was invited (competitive info; the API strips it for vendor callers).
+ */
+export default function VendorPortalRfqDetailPage({
+  params,
+}: {
+  params: Promise<{ rfqId: string }>;
+}) {
+  const { rfqId } = use(params);
+  const t = useTranslations("vendorPortal.rfqDetail");
+
+  const { rfq, notFound, isLoading } = useVendorRfqDetail(rfqId);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col gap-6 max-w-[1100px]">
+        <Skeleton className="h-4 w-32" />
+        <div className="flex items-start justify-between gap-4 pb-2">
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-7 w-72" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-6 w-16 rounded-full" />
+            <Skeleton className="h-9 w-32" />
+          </div>
+        </div>
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    );
+  }
+  if (notFound || !rfq) {
+    return (
+      <div className="flex flex-col gap-6 max-w-[1100px]">
+        <Link
+          href="/vendor-portal/rfqs"
+          className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {t("back")}
+        </Link>
+        <EmptyState
+          icon={FileText}
+          title={t("notFound")}
+          description={t("notFoundHint")}
+          action={{ label: t("back"), href: "/vendor-portal/rfqs" }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6 max-w-[1100px]">
+      <Link
+        href="/vendor-portal/rfqs"
+        className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        {t("back")}
+      </Link>
+
+      <PageHeader
+        title={rfq.title}
+        subtitle={`${rfq.rfq_number} · ${
+          rfq.issued_date ? formatDate(rfq.issued_date) : ""
+        }`}
+        actions={
+          <>
+            <RfqStatusBadge status={rfq.status} />
+            <Button disabled title={t("submitComingSoon")}>
+              {t("submitBtn")}
+            </Button>
+          </>
+        }
+      />
+
+      <section className="rounded-xl border border-border-default bg-bg-secondary p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <RfqDetailRow
+          label={t("responseDeadline")}
+          value={
+            rfq.response_deadline ? formatDate(rfq.response_deadline) : "—"
+          }
+        />
+        <RfqDetailRow
+          label={t("scope")}
+          value={rfq.scope_of_work ?? "—"}
+          multiline
+        />
+        <RfqDetailRow
+          label={t("terms")}
+          value={rfq.terms_conditions ?? "—"}
+          multiline
+        />
+      </section>
+
+      <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-default">
+          <h2 className="text-sm font-semibold text-text-primary">
+            {t("itemsHeading", { count: rfq.items.length })}
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-bg-elevated text-text-muted">
+              <tr className="text-left">
+                <th className="px-4 py-2.5 font-medium">
+                  {t("col.description")}
+                </th>
+                <th className="px-4 py-2.5 font-medium">{t("col.unit")}</th>
+                <th className="px-4 py-2.5 font-medium text-right">
+                  {t("col.quantity")}
+                </th>
+                <th className="px-4 py-2.5 font-medium">
+                  {t("col.specNotes")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rfq.items.map((it) => (
+                <tr key={it.id} className="border-t border-border-default">
+                  <td className="px-4 py-3 text-text-primary">
+                    {it.description}
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
+                    {it.quantity}
+                  </td>
+                  <td className="px-4 py-3 text-text-muted">
+                    {it.spec_notes ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
+        <div className="px-6 py-4 border-b border-border-default">
+          <h2 className="text-sm font-semibold text-text-primary">
+            {t("timelineHeading")}
+          </h2>
+        </div>
+        <RfqStatusTimeline events={rfq.events} hideActor />
+      </section>
+    </div>
+  );
+}

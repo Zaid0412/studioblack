@@ -386,6 +386,51 @@ export async function sendInvitationEmail(
 }
 
 /**
+ * Notify a vendor contact that a new RFQ has been issued to them. Deep link
+ * lands on the vendor portal's RFQ detail; the contact must already have
+ * an account, otherwise the link bounces them through sign-in first.
+ *
+ * Fire-and-forget at the caller — never block the route on per-email SMTP
+ * latency. Per-send failures are logged inside `sendEmail`.
+ */
+export async function sendRfqIssuedEmail(
+  email: string,
+  args: {
+    contactName: string;
+    vendorName: string;
+    projectName: string;
+    rfqNumber: string;
+    rfqTitle: string;
+    responseDeadline: string | null;
+    deepLink: string;
+  }
+) {
+  const safeContact = escapeHtml(args.contactName);
+  const safeProject = escapeHtml(args.projectName);
+  const deadline = args.responseDeadline
+    ? `Response due by <strong style="color: ${colors.white};">${escapeHtml(args.responseDeadline)}</strong>.`
+    : "";
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} | New RFQ ${escapeHtml(args.rfqNumber)}`,
+    emailLayout(
+      "New RFQ Issued",
+      `${bodyText(`Hi ${safeContact}, you've been invited to submit a quote on <strong style="color: ${colors.white};">${safeProject}</strong>.`)}
+      <div style="text-align: center; margin: 0 0 24px;">
+        ${orgPill(`${args.rfqNumber} — ${args.rfqTitle}`)}
+      </div>
+      ${deadline ? bodyText(deadline) : ""}
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(args.deepLink, "View RFQ")}
+      </div>
+      ${hintText("Open the link to review the scope and submit your quote.")}`,
+      "If you weren't expecting this RFQ, you can safely ignore this email."
+    )
+  );
+}
+
+/**
  * Send a verification email for an email address change.
  */
 export async function sendChangeEmailVerification(

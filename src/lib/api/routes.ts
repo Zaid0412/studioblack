@@ -150,6 +150,18 @@ export const API = {
   vendorPortalContacts:        ()                       => "/api/vendor-portal/me/contacts",
   vendorPortalContact:         (contactId: string)      => `/api/vendor-portal/me/contacts/${contactId}`,
 
+  // ── RFQ (Feature 9) ─────────────────────────────
+  rfqs:                        (pid: string)                       => `/api/projects/${pid}/rfqs`,
+  rfq:                         (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}`,
+  rfqIssue:                    (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/issue`,
+  rfqInvite:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/invite`,
+  rfqItems:                    (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/items`,
+  rfqItem:                     (pid: string, rfqId: string, itemId: string) => `/api/projects/${pid}/rfqs/${rfqId}/items/${itemId}`,
+  rfqCancel:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/cancel`,
+  rfqSuggestedVendors:         (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/suggested-vendors`,
+  vendorPortalRfqs:            ()                                  => "/api/vendor-portal/rfqs",
+  vendorPortalRfq:             (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}`,
+
   // ── Rate Contracts (Feature 7.5) ────────────────
   rateContracts:               ()                                    => "/api/rate-contracts",
   rateContract:                (id: string)                          => `/api/rate-contracts/${id}`,

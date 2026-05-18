@@ -1110,6 +1110,172 @@
       "filterAll": "All"
     }
   },
+  "rfq": {
+    "title": "RFQs",
+    "subtitle": "Request quotes from vendors for picked BOQ items.",
+    "newRfq": "New RFQ",
+    "noRfqs": "No RFQs yet",
+    "noRfqsHint": "Create one from your BOQ items to request vendor quotes.",
+    "noResults": "No matches",
+    "noResultsHint": "Try clearing filters.",
+    "status": {
+      "draft": "Draft",
+      "issued": "Issued",
+      "quotes_received": "Quotes received",
+      "under_review": "Under review",
+      "awarded": "Awarded",
+      "cancelled": "Cancelled"
+    },
+    "columns": {
+      "number": "Number",
+      "title": "Title",
+      "status": "Status",
+      "items": "Items",
+      "vendors": "Vendors",
+      "deadline": "Deadline",
+      "created": "Created"
+    },
+    "filter": {
+      "searchPlaceholder": "Search by number or title",
+      "allStatuses": "All statuses",
+      "clear": "Clear"
+    },
+    "pagination": {
+      "showing": "Showing {from}-{to} of {total}"
+    },
+    "create": {
+      "title": "New RFQ",
+      "subtitle": "Pick BOQ items and prepare the package for vendors.",
+      "back": "Back to RFQs",
+      "headerFields": "Package details",
+      "titleField": "Title",
+      "titlePlaceholder": "e.g. Plumbing scope — Block A",
+      "scopeField": "Scope of work",
+      "scopePlaceholder": "Outline the deliverables vendors should quote against.",
+      "termsField": "Terms & conditions",
+      "termsPlaceholder": "Payment terms, validity, exclusions…",
+      "deadlineField": "Response deadline",
+      "deadlinePlaceholder": "Pick a date",
+      "itemsHeading": "BOQ items",
+      "itemsSelectedCount": "{selected} of {total} selected",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "noBoq": "This project has no BOQ items yet",
+      "noBoqHint": "Add items to the BOQ before raising an RFQ.",
+      "goToBoq": "Open BOQ",
+      "loadingBoq": "Loading BOQ items…",
+      "col": {
+        "code": "Code",
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty"
+      },
+      "cancel": "Cancel",
+      "save": "Save draft",
+      "successToast": "RFQ created",
+      "titleRequired": "Title is required",
+      "minItemsError": "Select at least one BOQ item"
+    },
+    "detail": {
+      "loading": "Loading RFQ…",
+      "notFound": "RFQ not found",
+      "notFoundHint": "This RFQ might have been cancelled, deleted, or it belongs to a different project.",
+      "back": "Back to RFQs",
+      "editBtn": "Edit",
+      "issueBtn": "Issue to vendors",
+      "inviteMoreBtn": "Invite more vendors",
+      "cancelBtn": "Cancel RFQ",
+      "issuedDate": "Issued",
+      "responseDeadline": "Response deadline",
+      "scope": "Scope of work",
+      "terms": "Terms & conditions",
+      "itemsHeading": "Items ({count})",
+      "addItemsBtn": "Add items",
+      "removeItem": "Remove item",
+      "vendorsHeading": "Invited vendors ({count})",
+      "vendorsEmpty": "No vendors invited yet. Click \"Issue to vendors\" to send this RFQ out.",
+      "invitedAt": "Invited",
+      "col": {
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty",
+        "specNotes": "Spec notes"
+      },
+      "timelineHeading": "Activity",
+      "cancelConfirmTitle": "Cancel this RFQ?",
+      "cancelConfirmDescription": "Issued RFQs become cancelled. BOQ items will be released back to \"none\" unless another live RFQ references them.",
+      "cancelConfirm": "Yes, cancel",
+      "keepRfq": "Keep it"
+    },
+    "timeline": {
+      "empty": "Nothing has happened yet.",
+      "someone": "Someone",
+      "createdVerb": "created the RFQ with",
+      "issuedVerb": "issued the RFQ to",
+      "vendorsAddedVerb": "invited",
+      "cancelledVerb": "cancelled the RFQ",
+      "itemsCount": "{count, plural, =1 {# item} other {# items}}",
+      "vendorsCount": "{count, plural, =1 {# vendor} other {# vendors}}"
+    },
+    "issue": {
+      "title": "Issue to vendors",
+      "description": "{count, plural, =0 {Pick vendors to invite.} =1 {1 vendor selected.} other {# vendors selected.}}",
+      "suggestedLabel": "Suggested (trade match)",
+      "allLabel": "All vendors",
+      "showAll": "Show all vendors",
+      "showSuggested": "Show suggested",
+      "showAllComingSoon": "Coming in F10",
+      "loading": "Loading vendors…",
+      "noVendors": "No matching vendors",
+      "noVendorsHint": "Register a vendor with a matching trade, or use the \"Show all\" option (coming soon).",
+      "emailWarning": "Each selected vendor's \"receives RFQ\" contacts will get an email immediately.",
+      "cancel": "Cancel",
+      "confirm": "{count, plural, =0 {Issue} =1 {Issue to 1 vendor} other {Issue to # vendors}}"
+    },
+    "invite": {
+      "title": "Invite more vendors",
+      "description": "{count, plural, =0 {Pick vendors to invite. Already-invited vendors are skipped.} =1 {1 vendor selected.} other {# vendors selected.}}",
+      "suggestedLabel": "Suggested (trade match)",
+      "allLabel": "All vendors",
+      "showAll": "Show all vendors",
+      "showSuggested": "Show suggested",
+      "showAllComingSoon": "Coming in F10",
+      "loading": "Loading vendors…",
+      "noVendors": "No matching vendors",
+      "noVendorsHint": "Register a vendor with a matching trade, or use the \"Show all\" option (coming soon).",
+      "emailWarning": "Each newly-invited vendor's \"receives RFQ\" contacts will get an email immediately. Vendors already on this RFQ are skipped silently.",
+      "cancel": "Cancel",
+      "confirm": "{count, plural, =0 {Invite} =1 {Invite 1 vendor} other {Invite # vendors}}"
+    },
+    "addItems": {
+      "title": "Add items",
+      "description": "{count, plural, =0 {Pick BOQ items to append.} =1 {1 item selected.} other {# items selected.}}",
+      "loading": "Loading BOQ items…",
+      "empty": "All BOQ items are already on this RFQ",
+      "emptyHint": "Add more items to the project's BOQ first, then come back here.",
+      "selectAll": "Select all",
+      "col": {
+        "code": "Code",
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty"
+      },
+      "cancel": "Cancel",
+      "confirm": "{count, plural, =0 {Add} =1 {Add 1 item} other {Add # items}}"
+    },
+    "edit": {
+      "title": "Edit RFQ",
+      "description": "Update the title, scope, terms, or response deadline.",
+      "postIssueWarning": "This RFQ has already been issued. Vendors will see the updated info on their next visit — they're not notified automatically.",
+      "titleField": "Title",
+      "scopeField": "Scope of work",
+      "termsField": "Terms & conditions",
+      "deadlineField": "Response deadline",
+      "deadlinePlaceholder": "Pick a date",
+      "cancel": "Cancel",
+      "save": "Save changes"
+    }
+  },
   "rateContracts": {
     "title": "Rate Contracts",
     "subtitle": "Vendor-scoped, time-bound element pricing",
@@ -1205,6 +1371,46 @@
     "overallCompletion": "Overall Completion",
     "noRfqs": "No open RFQs",
     "noRfqsHint": "RFQs assigned to your company will appear here.",
+    "rfqList": {
+      "subtitle": "RFQs your company has been invited to.",
+      "allStatuses": "All statuses",
+      "empty": "No RFQs yet",
+      "emptyHint": "Once you're invited to bid on a project, RFQs will appear here.",
+      "pagination": "Showing {from}-{to} of {total}",
+      "col": {
+        "number": "Number",
+        "title": "Title",
+        "status": "Status",
+        "items": "Items",
+        "issued": "Issued",
+        "deadline": "Deadline"
+      },
+      "status": {
+        "issued": "Open",
+        "quotes_received": "Quotes received",
+        "under_review": "Under review",
+        "awarded": "Awarded"
+      }
+    },
+    "rfqDetail": {
+      "loading": "Loading RFQ…",
+      "notFound": "RFQ not found",
+      "notFoundHint": "This RFQ might have been cancelled, withdrawn, or you weren't invited to it.",
+      "back": "Back to RFQs",
+      "submitBtn": "Submit quote",
+      "submitComingSoon": "Quote submission ships in F10",
+      "timelineHeading": "Activity",
+      "responseDeadline": "Response deadline",
+      "scope": "Scope of work",
+      "terms": "Terms & conditions",
+      "itemsHeading": "Items ({count})",
+      "col": {
+        "description": "Description",
+        "unit": "Unit",
+        "quantity": "Qty",
+        "specNotes": "Spec notes"
+      }
+    },
     "noPOs": "No active purchase orders",
     "noPOsHint": "POs issued to your company will appear here.",
     "noProgress": "Nothing to report",

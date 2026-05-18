@@ -1116,6 +1116,101 @@ export const listRateContractsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
 
+// ─── RFQ (F9) ───────────────────────────────────────────────────────────────
+
+export const RFQ_STATUSES = [
+  "draft",
+  "issued",
+  "quotes_received",
+  "under_review",
+  "awarded",
+  "cancelled",
+] as const;
+export type RfqStatus = (typeof RFQ_STATUSES)[number];
+
+/** Status set where the RFQ can still be edited or cancelled. */
+export const RFQ_TERMINAL_STATUSES = ["awarded", "cancelled"] as const;
+/** Status set where more vendors can be invited after the initial issue. */
+export const RFQ_INVITEABLE_STATUSES = [
+  "issued",
+  "quotes_received",
+  "under_review",
+] as const;
+
+export const listRfqsQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.enum(RFQ_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
+});
+
+const rfqItemInputSchema = z.object({
+  boqItemId: z.string().uuid(),
+  description: z.string().trim().min(1).max(2000),
+  unit: z.string().trim().min(1).max(30),
+  quantity: z.coerce.number().positive().finite(),
+  specNotes: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const createRfqSchema = z.object({
+  title: z.string().trim().min(1).max(255),
+  scopeOfWork: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
+  termsConditions: z
+    .string()
+    .trim()
+    .max(MAX_CONTENT_LENGTH)
+    .optional()
+    .nullable(),
+  responseDeadline: z.string().date().optional().nullable(),
+  items: z.array(rfqItemInputSchema).min(1).max(500),
+});
+
+/**
+ * Patch shape for a draft RFQ header. Items are not edited via this schema —
+ * Phase C will add explicit item add/remove endpoints. Once a RFQ leaves
+ * `draft`, the route returns 409.
+ */
+export const updateRfqSchema = z
+  .object({
+    title: z.string().trim().min(1).max(255).optional(),
+    scopeOfWork: z
+      .string()
+      .trim()
+      .max(MAX_CONTENT_LENGTH)
+      .nullable()
+      .optional(),
+    termsConditions: z
+      .string()
+      .trim()
+      .max(MAX_CONTENT_LENGTH)
+      .nullable()
+      .optional(),
+    responseDeadline: z.string().date().nullable().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, {
+    message: "No fields to update",
+  });
+
+export const issueRfqSchema = z.object({
+  vendorIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+/**
+ * Same shape as issueRfqSchema — exported separately so callers can read
+ * the intent at the import site (and so we can diverge later if needed).
+ */
+export const inviteRfqVendorsSchema = z.object({
+  vendorIds: z.array(z.string().uuid()).min(1).max(50),
+});
+
+export const addRfqItemsSchema = z.object({
+  items: z.array(rfqItemInputSchema).min(1).max(500),
+});
+
+export const cancelRfqSchema = z.object({
+  reason: z.string().trim().max(2000).optional().nullable(),
+});
+
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
 /** Parse a Zod schema against the request body, returning a 400 response on failure. */

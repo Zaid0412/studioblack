@@ -16,7 +16,7 @@ export interface BoqTab {
 
 export const BOQ_TABS: readonly BoqTab[] = [
   { label: "Scope", segment: "my-scope", enabled: true },
-  { label: "RFQ", segment: "rfq", enabled: false },
+  { label: "RFQ", segment: "rfq", enabled: true },
   { label: "Proposal For Client", segment: "client-proposal", enabled: false },
   { label: "Client Orders", segment: "client-orders", enabled: false },
   { label: "Client Invoices", segment: "client-invoices", enabled: false },
