@@ -66,6 +66,8 @@ export default function ProjectDetailLayout({
     return isProjectPm ? "pm" : role;
   }, [ctx, project?.members, role]);
 
+  const base = `/projects/${id}`;
+
   // The stepper sits in the shared layout so switching between Design and
   // BOQ doesn't unmount it. Clients see the same nav because PR-2 surfaces
   // BOQ items at `submitted_to_client+` to them — without the stepper they
@@ -73,18 +75,19 @@ export default function ProjectDetailLayout({
   // sub-tab (other BOQ sub-tabs render their own header).
   const showWorkflowSteps =
     boqEnabled &&
-    (pathname === `/projects/${id}/designs` ||
-      pathname === `/projects/${id}/boq/my-scope`);
+    (pathname === `${base}/designs` || pathname === `${base}/boq/my-scope`);
 
-  // RFQ sub-pages are deep workflow surfaces with their own chrome — project
-  // comments don't belong on them. Suppress the global comments section so
-  // it doesn't overlay the create/detail forms.
-  const showProjectComments = !pathname.startsWith(`/projects/${id}/boq/rfq`);
-
-  // The edit page renders the same project info as a form below — the read-only
-  // header + meta bar above it would just duplicate every field. Hide both so
-  // the edit experience is the form on its own.
-  const isEditPage = pathname === `/projects/${id}/edit`;
+  // ProjectHeader, MetaBar, and the project comments strip all share one
+  // visibility rule: overview, designs, and BoQ surfaces only. Upload,
+  // review, edit, and the BoQ/RFQ sub-routes render their own chrome and
+  // don't want the breadcrumb + meta + comments stack on top. The /boq/rfq
+  // carve-out preserves the previous behaviour of hiding the comments
+  // section on those deep workflow surfaces.
+  const showProjectInfo =
+    pathname === base ||
+    pathname.startsWith(`${base}/designs`) ||
+    (pathname.startsWith(`${base}/boq`) &&
+      !pathname.startsWith(`${base}/boq/rfq`));
 
   if (loading || roleLoading) {
     return (
@@ -136,7 +139,7 @@ export default function ProjectDetailLayout({
 
   const tree = (
     <div className="flex flex-col h-full">
-      {!isEditPage && (
+      {showProjectInfo && (
         <>
           <ProjectHeader
             projectName={project.name}
@@ -165,7 +168,7 @@ export default function ProjectDetailLayout({
         </>
       )}
 
-      {showWorkflowSteps && !isEditPage && (
+      {showWorkflowSteps && (
         <ProjectWorkflowSteps
           projectId={id}
           phaseCounts={phaseCounts}
@@ -175,7 +178,7 @@ export default function ProjectDetailLayout({
 
       {children}
 
-      {showProjectComments && !isEditPage && (
+      {showProjectInfo && (
         <>
           <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
           <CommentsSection comments={comments} submitComment={submitComment} />
