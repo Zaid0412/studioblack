@@ -24,6 +24,13 @@ export default function CreateProjectPage() {
   const tc = useTranslations("common");
   const { members: architects } = useOrgMembers();
   const { members: clients } = useOrgMembers({ roleFilter: "client" });
+  // PM candidate pool: every team member (owner, admin, architect). Studios
+  // run with fluid roles per project — any team member can be a PM on a
+  // specific project. The creator is auto-added server-side; client-side
+  // selection is purely additive.
+  const { members: pms } = useOrgMembers({
+    roleFilter: ["owner", "admin", "member"],
+  });
   const [phases, setPhases] = useState<{ id: string; name: string }[]>(
     PROJECT_PHASES.map((name) => ({
       id: Math.random().toString(36).slice(2),
@@ -73,6 +80,7 @@ export default function CreateProjectPage() {
         architectIds: data.selectedArchitects.length
           ? data.selectedArchitects
           : undefined,
+        pmIds: data.selectedPMs.length ? data.selectedPMs : undefined,
       });
       trackEvent("project_created", {
         project_id: created?.id,
@@ -114,6 +122,7 @@ export default function CreateProjectPage() {
       <ProjectForm
         mode="create"
         architects={architects}
+        pms={pms}
         clients={clients}
         onSubmit={handleSubmit}
         onCancel={() => router.push("/projects")}

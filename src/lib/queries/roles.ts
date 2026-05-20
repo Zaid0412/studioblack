@@ -17,6 +17,24 @@ export async function getMemberRole(
   return rows[0]?.role ?? null;
 }
 
+/**
+ * Check whether a user has been explicitly assigned as a PM on a specific
+ * project. Lets architects act as PMs on individual projects without holding
+ * org-wide PM (admin) authority. See `deriveEffectiveRole` for the call site.
+ */
+export async function isProjectPm(
+  projectId: string,
+  userId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT 1 FROM project_member
+     WHERE project_id = $1 AND user_id = $2 AND role = 'pm'`,
+    [projectId, userId]
+  );
+  return rows.length > 0;
+}
+
 /** Get a user's org role for a project (owner/admin/member or null). */
 export async function getOrgRole(
   projectId: string,
@@ -32,7 +50,15 @@ export async function getOrgRole(
   return rows[0]?.role ?? null;
 }
 
-/** Check if a user has access to a project (org member or client). */
+/**
+ * Check if a user has access to a project.
+ *
+ * Access rules:
+ * - Org owner: implicit access to every project in their org.
+ * - PM (org admin): must have an explicit `project_member` row with role='pm'.
+ * - Architect (org member): must have a `project_member` row with role='architect'.
+ * - Client: project's `client_email` must match.
+ */
 export async function hasProjectAccess(
   projectId: string,
   userId: string,
@@ -49,15 +75,23 @@ export async function hasProjectAccess(
     return rows.length > 0;
   }
 
-  // PM/Architect — check org membership (they can see all org projects)
-  // Note: better-auth member table uses camelCase columns
+  // Org owner short-circuit: owners see every project in their org regardless
+  // of project_member rows. Admins (also role 'pm') need an explicit assignment.
   const { rows } = await pool.query(
-    `SELECT 1 FROM project p
+    `SELECT m.role AS org_role,
+            EXISTS (
+              SELECT 1 FROM project_member pm
+              WHERE pm.project_id = p.id AND pm.user_id = $2
+            ) AS is_member
+     FROM project p
      JOIN member m ON m."organizationId" = p.org_id AND m."userId" = $2
      WHERE p.id = $1`,
     [projectId, userId]
   );
-  return rows.length > 0;
+  if (rows.length === 0) return false;
+  const { org_role, is_member } = rows[0];
+  if (org_role === "owner") return true;
+  return Boolean(is_member);
 }
 
 // ---------------------------------------------------------------------------

@@ -26,6 +26,7 @@ export function create<T>(data: {
   state?: string;
   phases?: { name: string }[];
   architectIds?: string[];
+  pmIds?: string[];
 }) {
   return apiPost<T>(API.projects(), data);
 }
@@ -45,6 +46,7 @@ export function update<T>(
     city?: string | null;
     state?: string | null;
     architectIds?: string[];
+    pmIds?: string[];
   }
 ) {
   return apiPatch<T>(API.project(id), data);

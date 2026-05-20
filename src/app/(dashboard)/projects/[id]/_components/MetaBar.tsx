@@ -130,6 +130,11 @@ export function MetaBar({
       .filter((m) => m.role === "architect")
       .map((m) => m.name)
       .join(", ") || "\u2014";
+  const pms =
+    members
+      .filter((m) => m.role === "pm")
+      .map((m) => m.name)
+      .join(", ") || "\u2014";
   const createdDate = formatDate(createdAt);
   return (
     <div className="px-4 lg:px-10 py-3">
@@ -141,6 +146,15 @@ export function MetaBar({
           </span>
           <span className="text-[14px] font-medium text-text-primary break-words">
             {client}
+          </span>
+        </div>
+        {/* PMs */}
+        <div className="flex flex-col gap-1 py-2 min-w-0">
+          <span className="text-[11px] font-medium text-text-muted tracking-[0.5px] uppercase">
+            {t("pms") || "PMs"}
+          </span>
+          <span className="text-[14px] font-medium text-text-primary break-words">
+            {pms}
           </span>
         </div>
         {/* Architects */}

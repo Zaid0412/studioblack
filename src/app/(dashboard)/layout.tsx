@@ -9,6 +9,7 @@ import { NotificationPanel } from "@/components/layout/NotificationPanel";
 import { MobileShell } from "@/components/layout/MobileShell";
 import { deriveInitials } from "@/lib/utils";
 import { deriveEffectiveRole } from "@/lib/effectiveRole";
+import { getMemberRole } from "@/lib/queries";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
@@ -52,8 +53,9 @@ export default async function DashboardLayout({
     }
   }
 
-  const [effectiveRole, fullOrg] = await Promise.all([
+  const [effectiveRole, orgRole, fullOrg] = await Promise.all([
     deriveEffectiveRole(session.user.id, orgId, session.user.role),
+    orgId ? getMemberRole(orgId, session.user.id) : Promise.resolve(null),
     orgId && !orgName
       ? auth.api.getFullOrganization({
           headers: reqHeaders,
@@ -88,7 +90,11 @@ export default async function DashboardLayout({
   return (
     <SWRProvider>
       <SidebarProvider>
-        <UserRoleProvider role={effectiveRole} userId={user.id}>
+        <UserRoleProvider
+          role={effectiveRole}
+          userId={user.id}
+          orgRole={orgRole}
+        >
           <PostHogIdentify
             userId={user.id}
             email={user.email}

@@ -14,6 +14,7 @@ import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
+import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import {
   ProjectForm,
   type ProjectFormData,
@@ -55,6 +56,14 @@ export default function EditProjectPage({
   const tc = useTranslations("common");
   const { members: architects } = useOrgMembers();
   const { members: clients } = useOrgMembers({ roleFilter: "client" });
+  const { members: pmCandidates } = useOrgMembers({
+    roleFilter: ["owner", "admin", "member"],
+  });
+  // Only org owners can change the PM list. Admins/architects see the form
+  // without the PM picker; their submit doesn't include `pmIds` so the API
+  // owner-only gate (PATCH) never trips.
+  const userRoleContext = useUserRoleContext();
+  const isOwner = userRoleContext?.orgRole === "owner";
 
   const { data: project, isLoading: loading } = useSWR<ProjectData>(
     API.project(id)
@@ -83,6 +92,11 @@ export default function EditProjectPage({
             .filter((m: ProjectMember) => m.role === "architect")
             .map((m: ProjectMember) => m.user_id)
         : [],
+      selectedPMs: project.members
+        ? project.members
+            .filter((m: ProjectMember) => m.role === "pm")
+            .map((m: ProjectMember) => m.user_id)
+        : [],
     };
   }, [project]);
 
@@ -102,6 +116,9 @@ export default function EditProjectPage({
         city: data.city.trim() || null,
         state: data.state.trim() || null,
         architectIds: data.selectedArchitects,
+        // Only include pmIds when the viewer is the org owner. The PATCH
+        // endpoint 403s any non-owner that sends this field.
+        ...(isOwner ? { pmIds: data.selectedPMs } : {}),
       });
       toast({
         title: t("updatedToast"),
@@ -190,6 +207,7 @@ export default function EditProjectPage({
         mode="edit"
         initialData={initialData}
         architects={architects}
+        pms={isOwner ? pmCandidates : undefined}
         clients={clients}
         onSubmit={handleSave}
         onCancel={() => router.push(`/projects/${id}`)}
@@ -202,7 +220,7 @@ export default function EditProjectPage({
             <Button
               type="button"
               variant="danger"
-              className="w-full lg:w-auto lg:ml-auto"
+              className="w-full lg:w-auto"
               onClick={() => setDeleteOpen(true)}
             >
               <Trash2 className="w-4 h-4" />

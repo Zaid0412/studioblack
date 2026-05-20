@@ -145,6 +145,11 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
 
     // Derive the effective role. Only query when the route actually needs
     // role info — avoids an extra DB round-trip on every request.
+    //
+    // When the route opts into `projectAccess`, pass the projectId so the
+    // derivation can promote architects-with-project-PM-rows to "pm" for
+    // this request. Non-project routes (e.g. POST /api/projects, /api/team)
+    // stay strictly org-scoped — project-PMs don't get global PM authority.
     let role: UserRole = (user.role as UserRole) ?? "pm";
     const needsRole =
       options.allowedRoles ||
@@ -152,7 +157,15 @@ export function withAuth(options: WithAuthOptions, handler: AuthHandler) {
       options.projectAccess ||
       options.fetchOrgRole;
     if (needsRole) {
-      role = await deriveEffectiveRole(user.id, orgId, user.role);
+      const scopedProjectId = options.projectAccess
+        ? (resolvedParams.id ?? null)
+        : null;
+      role = await deriveEffectiveRole(
+        user.id,
+        orgId,
+        user.role,
+        scopedProjectId
+      );
     }
 
     // Role checks (using effective role)
