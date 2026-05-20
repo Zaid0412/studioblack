@@ -12,7 +12,8 @@ interface BoqChangeRequestDialogProps {
   onSubmit: (comment: string) => void | Promise<void>;
 }
 
-const TEXTAREA_CLS =
+/** Shared textarea styling — matches other BOQ form fields. */
+export const TEXTAREA_CLS =
   "w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y";
 
 /**

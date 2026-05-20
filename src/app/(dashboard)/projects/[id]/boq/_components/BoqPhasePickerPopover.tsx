@@ -32,6 +32,12 @@ interface BoqPhasePickerPopoverProps {
    * item (or `undefined` when the selection is mixed).
    */
   currentPhase?: BoqItemPhase;
+  /**
+   * Bypass the inline comment dialog for destructive picks. Used by the bulk
+   * flow when the selection is mixed — the downstream preview dialog collects
+   * the comment instead, so prompting here would double up.
+   */
+  skipDestructivePrompt?: boolean;
 }
 
 /**
@@ -44,13 +50,14 @@ export function BoqPhasePickerPopover({
   allowedPhases,
   onPick,
   currentPhase,
+  skipDestructivePrompt = false,
 }: BoqPhasePickerPopoverProps) {
   const [open, setOpen] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
 
   const handlePick = (phase: BoqItemPhase) => {
     setOpen(false);
-    if (isDestructivePhase(phase)) {
+    if (isDestructivePhase(phase) && !skipDestructivePrompt) {
       setCommentOpen(true);
       return;
     }

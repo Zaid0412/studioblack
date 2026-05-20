@@ -1,4 +1,7 @@
-import type { BoqItemPhase } from "@/lib/validations";
+import {
+  BOQ_ITEM_PHASE_TRANSITIONS,
+  type BoqItemPhase,
+} from "@/lib/validations";
 import type { BadgeVariant } from "@/components/ui/badge";
 import type { UserRole } from "@/types";
 import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
@@ -40,14 +43,16 @@ export function isDestructivePhase(phase: BoqItemPhase): boolean {
   return phase === "change_requested";
 }
 
+export interface BoqPhaseTransitionCtx {
+  role: UserRole | null;
+  actorId: string | null;
+  boqCreatorId: string | null;
+}
+
 /** Adapts the shared phase matrix to the (role, actorId, boqCreatorId) shape. */
 export function canFireBoqItemPhaseTransition(
   target: BoqItemPhase,
-  ctx: {
-    role: UserRole | null;
-    actorId: string | null;
-    boqCreatorId: string | null;
-  }
+  ctx: BoqPhaseTransitionCtx
 ): boolean {
   return canFireBoqPhaseTransition({
     target,
@@ -59,6 +64,20 @@ export function canFireBoqItemPhaseTransition(
       ctx.actorId !== null &&
       ctx.actorId === ctx.boqCreatorId,
   });
+}
+
+/**
+ * Targets legal from `phase` for this actor — intersect of the state-machine
+ * matrix with the role-permission matrix. Used by every lifecycle picker
+ * surface (row menu, drawer, bulk preview).
+ */
+export function getLegalPhaseTransitions(
+  phase: BoqItemPhase,
+  ctx: BoqPhaseTransitionCtx
+): BoqItemPhase[] {
+  return (BOQ_ITEM_PHASE_TRANSITIONS[phase] ?? []).filter((t) =>
+    canFireBoqItemPhaseTransition(t, ctx)
+  );
 }
 
 export type MarginTier = "error" | "warning" | "success";
