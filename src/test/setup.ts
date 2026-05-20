@@ -87,6 +87,7 @@ vi.mock("@/lib/notifications", () => ({
   notifyUserByEmail: vi.fn(),
   notifyUserByEmailWithContext: vi.fn(),
   notifyTeamByEmail: vi.fn(),
+  notifyPmAssignment: vi.fn(),
 }));
 
 // ── Mock: @/lib/supabase ───────────────────────────────────────────────────
@@ -174,6 +175,7 @@ vi.mock("@/lib/queries", () => ({
   getOrgRole: vi.fn().mockResolvedValue("owner"),
   getProjectsByOrgId: vi.fn().mockResolvedValue([]),
   getProjectsByArchitectId: vi.fn().mockResolvedValue([]),
+  getProjectsByPmId: vi.fn().mockResolvedValue([]),
   getProjectById: vi.fn().mockResolvedValue(null),
   createProjectWithPhases: vi.fn(),
   updateProject: vi.fn(),
@@ -214,6 +216,7 @@ vi.mock("@/lib/queries", () => ({
   getTasks: vi.fn().mockResolvedValue({ tasks: [], total: 0 }),
   getTaskBucketCounts: vi.fn().mockResolvedValue({}),
   getMemberRole: vi.fn().mockResolvedValue("owner"),
+  isProjectPm: vi.fn().mockResolvedValue(false),
   validateOrgMembership: vi.fn().mockResolvedValue(true),
   validateProjectInOrg: vi.fn().mockResolvedValue(true),
   toggleTaskStar: vi.fn(),

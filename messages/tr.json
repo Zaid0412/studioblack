@@ -224,6 +224,7 @@
     "emptyDesignSections": "Henüz tasarım bölümü yok. Başlamak için ilk tasarımınızı yükleyin.",
     "breadcrumbProjects": "Projeler",
     "architects": "Mimarlar",
+    "pms": "PM'ler",
     "created": "Oluşturulma",
     "location": "Konum",
     "scope": "Kapsam",
@@ -358,6 +359,9 @@
     "assignTeam": "Ekip Ata",
     "assignTeamPlaceholder": "Ekip üyelerini seçin",
     "noArchitects": "Kuruluşunuzda henüz mimar yok. Önce üye davet edin.",
+    "assignPMs": "Proje Yöneticisi Ata",
+    "assignPMsPlaceholder": "Proje yöneticisi seçin…",
+    "noPMs": "PM olarak atanabilecek ekip üyesi yok.",
     "clientEmail": "Müşteri E-postası",
     "clientEmailPlaceholder": "musteri@ornek.com",
     "selectClient": "Müşteri seçin…",
@@ -409,7 +413,10 @@
     "deleteConfirm": "Projeyi Sil",
     "assignTeam": "Mimar Ata",
     "assignTeamPlaceholder": "Mimar seçin…",
-    "noArchitects": "Organizasyonunuzda mimar bulunmuyor."
+    "noArchitects": "Organizasyonunuzda mimar bulunmuyor.",
+    "assignPMs": "Proje Yöneticisi Ata",
+    "assignPMsPlaceholder": "Proje yöneticisi seçin…",
+    "noPMs": "PM olarak atanabilecek ekip üyesi yok."
   },
   "team": {
     "title": "Ekip Yönetimi",

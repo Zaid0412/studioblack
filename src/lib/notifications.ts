@@ -179,6 +179,65 @@ export function notifyTeamByEmail(
     );
 }
 
+/**
+ * Notify newly-assigned PMs that they were added to a project. Sends both an
+ * in-app notification and an email per user. Fire-and-forget — errors are
+ * logged, never thrown, so a notification hiccup never aborts the underlying
+ * project create/update.
+ *
+ * Pass only the *newly* added user IDs — pre-existing PMs shouldn't be
+ * re-notified on every PM list edit.
+ */
+export function notifyPmAssignment(
+  projectId: string,
+  newPmUserIds: string[],
+  projectName: string,
+  projectUrl: string,
+  excludeUserId?: string
+) {
+  const recipients = newPmUserIds.filter((id) => id !== excludeUserId);
+  if (recipients.length === 0) return;
+
+  const pool = getPool();
+  pool
+    .query(`SELECT id, email FROM "user" WHERE id = ANY($1)`, [recipients])
+    .then(async ({ rows }) => {
+      const title = `${projectName} | Assigned as Project Manager`;
+      const description = `You've been assigned as a PM on ${projectName}.`;
+      const html = `<p>You've been assigned as Project Manager on <strong>${projectName}</strong>.</p>
+        <p><a href="${projectUrl}">Open the project</a> to start managing.</p>`;
+
+      await Promise.allSettled(
+        rows.flatMap((u: { id: string; email: string }) => [
+          createNotification({
+            userId: u.id,
+            type: "project_pm_assigned",
+            title,
+            description,
+            projectId,
+          }).catch((err) =>
+            logger.error("notifyPmAssignment: in-app notif failed", {
+              userId: u.id,
+              error: err,
+            })
+          ),
+          sendNotificationEmail(u.email, title, html).catch((err) =>
+            logger.error("notifyPmAssignment: email failed", {
+              userId: u.id,
+              error: err,
+            })
+          ),
+        ])
+      );
+    })
+    .catch((err) =>
+      logger.error("notifyPmAssignment: lookup failed", {
+        projectId,
+        error: err,
+      })
+    );
+}
+
 /** Create a notification for the project client. */
 export async function createNotificationForClient(
   projectId: string,

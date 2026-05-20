@@ -224,6 +224,7 @@
     "emptyDesignSections": "No design sections yet. Upload your first design to get started.",
     "breadcrumbProjects": "Projects",
     "architects": "Architects",
+    "pms": "PMs",
     "created": "Created",
     "location": "Location",
     "scope": "Scope",
@@ -358,6 +359,9 @@
     "assignTeam": "Assign Team",
     "assignTeamPlaceholder": "Select team members",
     "noArchitects": "No architects in your organisation yet. Invite members first.",
+    "assignPMs": "Assign Project Managers",
+    "assignPMsPlaceholder": "Select project managers…",
+    "noPMs": "No team members available to assign as PMs.",
     "clientEmail": "Client Email",
     "clientEmailPlaceholder": "client@example.com",
     "selectClient": "Select a client…",
@@ -409,7 +413,10 @@
     "deleteConfirm": "Delete Project",
     "assignTeam": "Assign Architects",
     "assignTeamPlaceholder": "Select architects…",
-    "noArchitects": "No architects available in your organisation."
+    "noArchitects": "No architects available in your organisation.",
+    "assignPMs": "Assign Project Managers",
+    "assignPMsPlaceholder": "Select project managers…",
+    "noPMs": "No team members available to assign as PMs."
   },
   "team": {
     "title": "Team Management",

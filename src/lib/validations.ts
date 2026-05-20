@@ -233,6 +233,7 @@ export const createProjectSchema = z.object({
   state: optionalString,
   phases: z.array(z.string()).optional(),
   architectIds: z.array(z.string().min(1)).optional(),
+  pmIds: z.array(z.string().min(1)).optional(),
 });
 
 export const updateProjectSchema = z.object({
@@ -249,6 +250,8 @@ export const updateProjectSchema = z.object({
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
   architectIds: z.array(z.string().min(1)).optional(),
+  /** PM membership list. Min length enforced at route level (1+) for non-empty syncs. */
+  pmIds: z.array(z.string().min(1)).optional(),
 });
 
 // ─── Notifications (/api/notifications) ─────────────────────────────────────

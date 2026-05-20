@@ -1,9 +1,13 @@
 "use client";
 
-import { use } from "react";
+import { use, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useUserRole } from "@/hooks/useUserRole";
+import {
+  UserRoleProvider,
+  useUserRoleContext,
+} from "@/contexts/UserRoleContext";
 import { useFlag } from "@/hooks/useFlag";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -11,6 +15,7 @@ import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
 import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
+import type { DbMember } from "@/types";
 
 /**
  * Shared chrome for every project sub-route — header, meta bar, and the
@@ -32,6 +37,7 @@ export default function ProjectDetailLayout({
   const { id } = use(params);
   const tc = useTranslations("common");
   const { role, loading: roleLoading } = useUserRole();
+  const ctx = useUserRoleContext();
   const isClient = role === "client";
   const boqEnabled = useFlag("boq");
   const pathname = usePathname();
@@ -45,6 +51,20 @@ export default function ProjectDetailLayout({
     submitComment,
     refreshAll,
   } = useProjectDetail(id, { includeApprovals: isClient });
+
+  // Project-scoped PM authority: when the current user is an architect with a
+  // `project_member.role='pm'` row on this project, override the role context
+  // for everything rendered inside this layout. Sidebar/notifications/global
+  // surfaces stay on their original role because they're siblings of this
+  // provider in the dashboard tree.
+  const projectScopedRole = useMemo(() => {
+    if (!ctx || !project?.members) return role;
+    if (role !== "architect") return role;
+    const isProjectPm = project.members.some(
+      (m: DbMember) => m.user_id === ctx.userId && m.role === "pm"
+    );
+    return isProjectPm ? "pm" : role;
+  }, [ctx, project?.members, role]);
 
   // The stepper sits in the shared layout so switching between Design and
   // BOQ doesn't unmount it. Clients see the same nav because PR-2 surfaces
@@ -60,6 +80,11 @@ export default function ProjectDetailLayout({
   // comments don't belong on them. Suppress the global comments section so
   // it doesn't overlay the create/detail forms.
   const showProjectComments = !pathname.startsWith(`/projects/${id}/boq/rfq`);
+
+  // The edit page renders the same project info as a form below — the read-only
+  // header + meta bar above it would just duplicate every field. Hide both so
+  // the edit experience is the form on its own.
+  const isEditPage = pathname === `/projects/${id}/edit`;
 
   if (loading || roleLoading) {
     return (
@@ -109,34 +134,38 @@ export default function ProjectDetailLayout({
     );
   }
 
-  return (
+  const tree = (
     <div className="flex flex-col h-full">
-      <ProjectHeader
-        projectName={project.name}
-        description={undefined}
-        onRefresh={refreshAll}
-      />
+      {!isEditPage && (
+        <>
+          <ProjectHeader
+            projectName={project.name}
+            description={undefined}
+            onRefresh={refreshAll}
+          />
 
-      <MetaBar
-        variant={isClient ? "client" : "pm"}
-        clientName={project.client_name}
-        clientEmail={project.client_email}
-        members={project.members}
-        createdAt={project.created_at}
-        phases={project.phases}
-        phaseCounts={phaseCounts}
-        status={project.status}
-        category={project.category}
-        deadline={project.deadline}
-        scope={project.scope}
-        areaSqft={project.area_sqft}
-        estimationInr={project.estimation_inr}
-        address={project.address}
-        city={project.city}
-        state={project.state}
-      />
+          <MetaBar
+            variant={isClient ? "client" : "pm"}
+            clientName={project.client_name}
+            clientEmail={project.client_email}
+            members={project.members}
+            createdAt={project.created_at}
+            phases={project.phases}
+            phaseCounts={phaseCounts}
+            status={project.status}
+            category={project.category}
+            deadline={project.deadline}
+            scope={project.scope}
+            areaSqft={project.area_sqft}
+            estimationInr={project.estimation_inr}
+            address={project.address}
+            city={project.city}
+            state={project.state}
+          />
+        </>
+      )}
 
-      {showWorkflowSteps && (
+      {showWorkflowSteps && !isEditPage && (
         <ProjectWorkflowSteps
           projectId={id}
           phaseCounts={phaseCounts}
@@ -146,7 +175,7 @@ export default function ProjectDetailLayout({
 
       {children}
 
-      {showProjectComments && (
+      {showProjectComments && !isEditPage && (
         <>
           <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
           <CommentsSection comments={comments} submitComment={submitComment} />
@@ -154,4 +183,19 @@ export default function ProjectDetailLayout({
       )}
     </div>
   );
+
+  // Only wrap when we actually changed the role — keeps the existing dashboard
+  // provider as the single source of truth for everyone else.
+  if (ctx && projectScopedRole && projectScopedRole !== ctx.role) {
+    return (
+      <UserRoleProvider
+        role={projectScopedRole}
+        userId={ctx.userId}
+        orgRole={ctx.orgRole}
+      >
+        {tree}
+      </UserRoleProvider>
+    );
+  }
+  return tree;
 }

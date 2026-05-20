@@ -22,6 +22,8 @@ interface CreateProjectInput {
   orgId: string;
   createdBy: string;
   architectIds?: string[];
+  /** PMs assigned to the project. Caller is expected to dedupe + include the creator if they're a PM. */
+  pmIds?: string[];
 }
 
 /** Create a project + 6 phases + 7 steps + member assignments in a single transaction. */
@@ -96,6 +98,22 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
       );
     }
 
+    // Assign PMs (single multi-row INSERT).
+    //
+    // `project_member` is `UNIQUE(project_id, user_id)` — at most one row per
+    // (project, user), regardless of role. If the same user is in both
+    // architectIds and pmIds, PM wins: the architect INSERT above ran first
+    // and may have re-added them as architect; this clause flips that row to
+    // role='pm'.
+    if (input.pmIds?.length) {
+      await client.query(
+        `INSERT INTO project_member (project_id, user_id, role)
+         SELECT $1, unnest($2::text[]), 'pm'
+         ON CONFLICT (project_id, user_id) DO UPDATE SET role = 'pm'`,
+        [project.id, input.pmIds]
+      );
+    }
+
     await client.query("COMMIT");
     return project;
   } catch (err) {
@@ -106,12 +124,13 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
   }
 }
 
-/** Get all projects for an org (PM/Architect dashboard). */
+/** Get all projects for an org (org-owner dashboard — implicit access to everything). */
 export async function getProjectsByOrgId(orgId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT p.*,
-            array_agg(DISTINCT pm.user_id) FILTER (WHERE pm.user_id IS NOT NULL) AS architect_ids
+            array_agg(DISTINCT pm.user_id) FILTER (WHERE pm.role = 'architect') AS architect_ids,
+            array_agg(DISTINCT pm.user_id) FILTER (WHERE pm.role = 'pm') AS pm_ids
      FROM project p
      LEFT JOIN project_member pm ON pm.project_id = p.id
      WHERE p.org_id = $1 AND p.status != 'archived'
@@ -122,13 +141,37 @@ export async function getProjectsByOrgId(orgId: string) {
   return rows;
 }
 
-/** Get projects assigned to a specific architect. */
+/**
+ * Get projects an org member (architect) is assigned to, regardless of the
+ * role they hold on each one. Architects normally show up as `role='architect'`,
+ * but project-scoped PM authority promotes them to `role='pm'` on individual
+ * projects — they should still see those projects in their dashboard list.
+ */
 export async function getProjectsByArchitectId(userId: string, orgId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT p.*
      FROM project p
      JOIN project_member pm ON pm.project_id = p.id AND pm.user_id = $1
+     WHERE p.org_id = $2 AND p.status != 'archived'
+     ORDER BY p.created_at DESC`,
+    [userId, orgId]
+  );
+  return rows;
+}
+
+/**
+ * Get projects a PM (org admin) is explicitly assigned to. Org owners use
+ * `getProjectsByOrgId` instead — they have implicit access to all projects.
+ */
+export async function getProjectsByPmId(userId: string, orgId: string) {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT p.*
+     FROM project p
+     JOIN project_member pm ON pm.project_id = p.id
+       AND pm.user_id = $1
+       AND pm.role = 'pm'
      WHERE p.org_id = $2 AND p.status != 'archived'
      ORDER BY p.created_at DESC`,
     [userId, orgId]
@@ -218,11 +261,18 @@ const PROJECT_COLS = new Set([
   "state",
 ]);
 
-/** Update a project with dynamic fields + optional architect sync (transactional). */
+/**
+ * Update a project with dynamic fields + optional architect/PM sync (transactional).
+ *
+ * `architectIds` and `pmIds` use a delete-and-reinsert pattern per role. Passing
+ * an empty array clears that role; passing `undefined` leaves it untouched.
+ * Callers must enforce business rules (e.g. min 1 PM) before calling.
+ */
 export async function updateProject(
   projectId: string,
   fields: Record<string, unknown>,
-  architectIds?: string[]
+  architectIds?: string[],
+  pmIds?: string[]
 ) {
   const updates: string[] = [];
   const values: unknown[] = [];
@@ -235,15 +285,18 @@ export async function updateProject(
     idx++;
   }
 
-  if (updates.length === 0 && !architectIds) return null;
+  const hasArchitectSync = architectIds !== undefined;
+  const hasPmSync = pmIds !== undefined;
+
+  if (updates.length === 0 && !hasArchitectSync && !hasPmSync) return null;
 
   updates.push(`updated_at = now()`);
   values.push(projectId);
 
   const pool = getPool();
 
-  if (architectIds !== undefined) {
-    // Transaction: update project + sync architects
+  if (hasArchitectSync || hasPmSync) {
+    // Transaction: update project + sync member rows for each provided role.
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -267,17 +320,38 @@ export async function updateProject(
         updated = row;
       }
 
-      await client.query(
-        `DELETE FROM project_member WHERE project_id = $1 AND role = 'architect'`,
-        [projectId]
-      );
-      if (architectIds.length > 0) {
+      if (hasArchitectSync) {
         await client.query(
-          `INSERT INTO project_member (project_id, user_id, role)
-           SELECT $1, unnest($2::text[]), 'architect'
-           ON CONFLICT (project_id, user_id) DO NOTHING`,
-          [projectId, architectIds]
+          `DELETE FROM project_member WHERE project_id = $1 AND role = 'architect'`,
+          [projectId]
         );
+        if (architectIds!.length > 0) {
+          await client.query(
+            `INSERT INTO project_member (project_id, user_id, role)
+             SELECT $1, unnest($2::text[]), 'architect'
+             ON CONFLICT (project_id, user_id) DO NOTHING`,
+            [projectId, architectIds]
+          );
+        }
+      }
+
+      if (hasPmSync) {
+        await client.query(
+          `DELETE FROM project_member WHERE project_id = $1 AND role = 'pm'`,
+          [projectId]
+        );
+        if (pmIds!.length > 0) {
+          // PM wins on conflict: when the same user is also in architectIds
+          // (which gets synced first above), the existing row is already
+          // role='architect'. Without DO UPDATE the PM INSERT would silently
+          // no-op and the architect row would shadow the PM assignment.
+          await client.query(
+            `INSERT INTO project_member (project_id, user_id, role)
+             SELECT $1, unnest($2::text[]), 'pm'
+             ON CONFLICT (project_id, user_id) DO UPDATE SET role = 'pm'`,
+            [projectId, pmIds]
+          );
+        }
       }
 
       await client.query("COMMIT");
@@ -290,7 +364,7 @@ export async function updateProject(
     }
   }
 
-  // Simple update (no architect sync)
+  // Simple update (no member sync)
   const {
     rows: [updated],
   } = await pool.query(

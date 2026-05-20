@@ -5,10 +5,12 @@ import {
   createProjectWithPhases,
   getProjectsByOrgId,
   getProjectsByArchitectId,
+  getProjectsByPmId,
   getUsersByIds,
   checkUserExistsByEmail,
 } from "@/lib/queries";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import { notifyPmAssignment } from "@/lib/notifications";
 import { withAuth } from "@/lib/withAuth";
 import { env } from "@/env";
 import { parseRequest, createProjectSchema } from "@/lib/validations";
@@ -36,7 +38,10 @@ export const GET = withAuth({}, async (req, { session, user }) => {
     );
   }
 
-  // Derive effective role from org membership
+  // Derive scope from org membership:
+  // - owner → implicit access to every org project (getProjectsByOrgId)
+  // - admin → PM with explicit assignments only (getProjectsByPmId)
+  // - member → architect with explicit assignments only (getProjectsByArchitectId)
   const members = await auth.api.listMembers({
     headers: await headers(),
     query: { organizationId: orgId },
@@ -44,18 +49,20 @@ export const GET = withAuth({}, async (req, { session, user }) => {
   const me = members?.members?.find(
     (m: { userId: string }) => m.userId === user.id
   );
-  const effectiveRole =
-    me?.role === "owner" || me?.role === "admin" ? "pm" : "architect";
 
-  const projects =
-    effectiveRole === "architect"
-      ? await getProjectsByArchitectId(user.id, orgId)
-      : await getProjectsByOrgId(orgId);
+  let projects;
+  if (me?.role === "owner") {
+    projects = await getProjectsByOrgId(orgId);
+  } else if (me?.role === "admin") {
+    projects = await getProjectsByPmId(user.id, orgId);
+  } else {
+    projects = await getProjectsByArchitectId(user.id, orgId);
+  }
 
   return NextResponse.json(projects);
 });
 
-/** POST /api/projects — create a new project (PM only). */
+/** POST /api/projects — create a new project (org owner only). */
 export const POST = withAuth(
   { allowedRoles: ["pm"] },
   async (req, { session, user }) => {
@@ -64,6 +71,22 @@ export const POST = withAuth(
       return NextResponse.json(
         { error: "No active organization" },
         { status: 400 }
+      );
+    }
+
+    // Owner-only: admins (also effectiveRole='pm') can't create projects.
+    // PM assignment is an ownership operation.
+    const members = await auth.api.listMembers({
+      headers: await headers(),
+      query: { organizationId: orgId },
+    });
+    const me = members?.members?.find(
+      (m: { userId: string }) => m.userId === user.id
+    );
+    if (me?.role !== "owner") {
+      return NextResponse.json(
+        { error: "Only org owners can create projects" },
+        { status: 403 }
       );
     }
 
@@ -85,7 +108,14 @@ export const POST = withAuth(
       state,
       phases,
       architectIds,
+      pmIds,
     } = parsed.data;
+
+    // Always include the creator as a PM (deduped). The creator is the org
+    // owner — they already have implicit access — but keeping their row makes
+    // the membership list explicit and survives any future relaxation of the
+    // owner short-circuit.
+    const finalPmIds = Array.from(new Set([...(pmIds ?? []), user.id]));
 
     try {
       const project = await createProjectWithPhases({
@@ -104,10 +134,23 @@ export const POST = withAuth(
         orgId,
         createdBy: user.id,
         architectIds,
+        pmIds: finalPmIds,
       });
 
-      // Notify assigned architects (fire-and-forget, parallel)
+      // Notify newly-assigned PMs (in-app + email). Skip the creator —
+      // they're auto-added and don't need to be told they own their own
+      // project.
       const baseUrl = env().NEXT_PUBLIC_APP_URL;
+      const projectUrlPlain = `${baseUrl}/projects/${encodeURIComponent(project.id)}`;
+      notifyPmAssignment(
+        project.id,
+        finalPmIds,
+        name,
+        projectUrlPlain,
+        user.id
+      );
+
+      // Notify assigned architects (fire-and-forget, parallel)
       if (architectIds?.length) {
         const projectUrl = escapeHtml(
           `${baseUrl}/projects/${encodeURIComponent(project.id)}`

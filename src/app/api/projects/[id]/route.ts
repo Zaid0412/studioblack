@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
-import { getProjectById, updateProject, deleteProject } from "@/lib/queries";
+import {
+  getProjectById,
+  updateProject,
+  deleteProject,
+  getProjectName,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateProjectSchema } from "@/lib/validations";
+import { notifyPmAssignment } from "@/lib/notifications";
+import { env } from "@/env";
+import { getPool } from "@/lib/db";
 
 /** GET /api/projects/[id] — get project details. */
 export const GET = withAuth(
@@ -21,7 +29,7 @@ export const GET = withAuth(
 /** PATCH /api/projects/[id] — update project (PM: everything, Architect: limited, Client: forbidden). */
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true, fetchOrgRole: true },
-  async (req, { orgRole }, params) => {
+  async (req, { orgRole, effectiveRole, user }, params) => {
     const { id } = params;
 
     const parsed = await parseRequest(req, updateProjectSchema);
@@ -30,8 +38,14 @@ export const PATCH = withAuth(
     }
     const body = parsed.data;
 
-    // Only owners/admins (PMs) can change project status
-    const isPM = orgRole === "owner" || orgRole === "admin";
+    // PM authority drives the field allowlist. `effectiveRole` already
+    // accounts for project-scoped PMs (architects assigned via
+    // `project_member.role='pm'`), so architects acting as PM on this
+    // project see the full set.
+    const isPM = effectiveRole === "pm";
+    // Reassigning PMs stays strictly with the org owner regardless of
+    // project-level authority.
+    const isOwner = orgRole === "owner";
 
     // Build dynamic update fields
     const allowedFields = isPM
@@ -61,36 +75,82 @@ export const PATCH = withAuth(
     }
 
     const hasArchitectUpdate = isPM && Array.isArray(body.architectIds);
-    if (Object.keys(fields).length === 0 && !hasArchitectUpdate) {
+
+    // PM membership changes are owner-only. Reject when an admin/architect
+    // tries to write pmIds rather than silently dropping the field.
+    const pmIdsProvided = Array.isArray(body.pmIds);
+    if (pmIdsProvided && !isOwner) {
+      return NextResponse.json(
+        { error: "Only org owners can change project PMs" },
+        { status: 403 }
+      );
+    }
+    if (pmIdsProvided && body.pmIds!.length === 0) {
+      return NextResponse.json(
+        { error: "A project must have at least one PM" },
+        { status: 422 }
+      );
+    }
+    const hasPmUpdate = isOwner && pmIdsProvided;
+
+    if (
+      Object.keys(fields).length === 0 &&
+      !hasArchitectUpdate &&
+      !hasPmUpdate
+    ) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
       );
     }
 
+    // Capture the existing PM membership before the sync so we can compute
+    // the diff and notify only newly-added users. Done before updateProject
+    // — the update is delete-and-reinsert internally.
+    let existingPmIds: string[] = [];
+    if (hasPmUpdate) {
+      const pool = getPool();
+      const { rows } = await pool.query(
+        `SELECT user_id FROM project_member WHERE project_id = $1 AND role = 'pm'`,
+        [id]
+      );
+      existingPmIds = rows.map((r: { user_id: string }) => r.user_id);
+    }
+
     const updated = await updateProject(
       id,
       fields,
-      hasArchitectUpdate ? body.architectIds : undefined
+      hasArchitectUpdate ? body.architectIds : undefined,
+      hasPmUpdate ? body.pmIds : undefined
     );
+
+    if (hasPmUpdate) {
+      const existing = new Set(existingPmIds);
+      const newlyAdded = (body.pmIds ?? []).filter((u) => !existing.has(u));
+      if (newlyAdded.length > 0) {
+        const projectName = (await getProjectName(id)) ?? "your project";
+        const baseUrl = env().NEXT_PUBLIC_APP_URL;
+        const projectUrl = `${baseUrl}/projects/${encodeURIComponent(id)}`;
+        notifyPmAssignment(id, newlyAdded, projectName, projectUrl, user.id);
+      }
+    }
 
     return NextResponse.json(updated);
   }
 );
 
-/** DELETE /api/projects/[id] — delete project (PM only). */
+/**
+ * DELETE /api/projects/[id] — delete project (PM only).
+ *
+ * `allowedRoles: ["pm"]` plus `projectAccess: true` is enough: withAuth's role
+ * derivation already promotes project-PM architects to "pm" for this request,
+ * so they can delete the project they have authority over without holding
+ * org-wide admin.
+ */
 export const DELETE = withAuth(
-  { allowedRoles: ["pm"], projectAccess: true, fetchOrgRole: true },
-  async (req, { orgRole }, params) => {
+  { allowedRoles: ["pm"], projectAccess: true },
+  async (req, _ctx, params) => {
     const { id } = params;
-
-    // Only org owners/admins (PMs) can delete projects
-    if (!orgRole || (orgRole !== "owner" && orgRole !== "admin")) {
-      return NextResponse.json(
-        { error: "Only PMs can delete projects" },
-        { status: 403 }
-      );
-    }
 
     const deleted = await deleteProject(id);
 

@@ -9,8 +9,13 @@ import {
   parseResponse,
 } from "../helpers";
 
-const { getProjectById, updateProject, deleteProject, getOrgRole } =
-  await import("@/lib/queries");
+const {
+  getProjectById,
+  updateProject,
+  deleteProject,
+  getOrgRole,
+  getMemberRole,
+} = await import("@/lib/queries");
 
 const PARAMS = buildParams({ id: "proj-1" });
 
@@ -102,6 +107,10 @@ describe("PATCH /api/projects/[id]", () => {
 
   it("restricts architect to name-only updates", async () => {
     vi.mocked(getOrgRole).mockResolvedValue("member");
+    // Field allowlist now keys off `effectiveRole`, which is driven by
+    // `getMemberRole`. Drive it to "member" so the route treats the caller
+    // as an architect (no project-PM row).
+    vi.mocked(getMemberRole).mockResolvedValue("member");
     vi.mocked(updateProject).mockResolvedValueOnce({
       id: "proj-1",
       name: "New",
@@ -119,6 +128,7 @@ describe("PATCH /api/projects/[id]", () => {
     expect(updateProject).toHaveBeenCalledWith(
       "proj-1",
       { name: "New" },
+      undefined,
       undefined
     );
   });
@@ -129,6 +139,9 @@ describe("DELETE /api/projects/[id]", () => {
     vi.clearAllMocks();
     setupAuth(mocks.auth, mockSession());
     vi.mocked(getOrgRole).mockResolvedValue("owner");
+    // Re-pin getMemberRole because `vi.clearAllMocks()` doesn't restore
+    // implementations overridden by an earlier test in the file.
+    vi.mocked(getMemberRole).mockResolvedValue("owner");
   });
 
   it("returns 401 without session", async () => {
@@ -141,13 +154,16 @@ describe("DELETE /api/projects/[id]", () => {
   });
 
   it("returns 403 for non-PM roles", async () => {
-    vi.mocked(getOrgRole).mockResolvedValue("member");
+    // Effective role drives DELETE access via `allowedRoles: ["pm"]` now.
+    vi.mocked(getMemberRole).mockResolvedValue("member");
     const req = buildRequest("/api/projects/proj-1", { method: "DELETE" });
     const res = await DELETE(req, PARAMS);
     const { status, body } = await parseResponse(res);
 
     expect(status).toBe(403);
-    expect(body.error).toContain("Only PMs");
+    // Message is generic now — withAuth's role-gate returns "Forbidden"
+    // instead of the route's previous custom string.
+    expect(body.error).toBe("Forbidden");
   });
 
   it("returns 404 when project not found", async () => {

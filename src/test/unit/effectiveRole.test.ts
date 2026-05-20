@@ -1,12 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { deriveEffectiveRole } from "@/lib/effectiveRole";
-import { getMemberRole } from "@/lib/queries";
+import { getMemberRole, isProjectPm } from "@/lib/queries";
 
 const mockedGetMemberRole = vi.mocked(getMemberRole);
+const mockedIsProjectPm = vi.mocked(isProjectPm);
 
 describe("deriveEffectiveRole", () => {
   beforeEach(() => {
     mockedGetMemberRole.mockReset();
+    mockedIsProjectPm.mockReset();
+    mockedIsProjectPm.mockResolvedValue(false);
   });
 
   it("returns 'client' when DB role is 'client', regardless of org role", async () => {
@@ -45,5 +48,38 @@ describe("deriveEffectiveRole", () => {
     expect(await deriveEffectiveRole("u1", null, "pm")).toBe("pm");
     expect(await deriveEffectiveRole("u1", null, "vendor")).toBe("vendor");
     expect(await deriveEffectiveRole("u1", null, null)).toBe("pm");
+  });
+
+  // ── Project-scoped PM authority ───────────────────────────────────────────
+
+  it("promotes architect to 'pm' when assigned as project-PM and projectId is provided", async () => {
+    mockedGetMemberRole.mockResolvedValue("member");
+    mockedIsProjectPm.mockResolvedValue(true);
+    expect(await deriveEffectiveRole("u1", "org1", "pm", "proj-1")).toBe("pm");
+    expect(mockedIsProjectPm).toHaveBeenCalledWith("proj-1", "u1");
+  });
+
+  it("stays 'architect' when not a project-PM, even with projectId provided", async () => {
+    mockedGetMemberRole.mockResolvedValue("member");
+    mockedIsProjectPm.mockResolvedValue(false);
+    expect(await deriveEffectiveRole("u1", "org1", "pm", "proj-1")).toBe(
+      "architect"
+    );
+  });
+
+  it("does not query project-PM membership when projectId is omitted", async () => {
+    mockedGetMemberRole.mockResolvedValue("member");
+    expect(await deriveEffectiveRole("u1", "org1", "pm")).toBe("architect");
+    expect(mockedIsProjectPm).not.toHaveBeenCalled();
+  });
+
+  it("owners/admins skip the project-PM check (already PM)", async () => {
+    mockedGetMemberRole.mockResolvedValue("owner");
+    expect(await deriveEffectiveRole("u1", "org1", "pm", "proj-1")).toBe("pm");
+    expect(mockedIsProjectPm).not.toHaveBeenCalled();
+
+    mockedGetMemberRole.mockResolvedValue("admin");
+    expect(await deriveEffectiveRole("u1", "org1", "pm", "proj-1")).toBe("pm");
+    expect(mockedIsProjectPm).not.toHaveBeenCalled();
   });
 });
