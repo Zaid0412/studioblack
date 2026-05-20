@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
-import { MapPin, X, Loader2 } from "lucide-react";
+import { Circle, MapPin, Pencil, Square, X, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -16,11 +16,24 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import type { UserRole } from "@/types";
+import type { PinShape, UserRole } from "@/types";
+
+const SHAPE_LABEL: Record<PinShape["type"], string> = {
+  rectangle: "Rectangle",
+  circle: "Circle",
+  freehand: "Freehand",
+};
+
+function ShapeIcon({ type }: { type: PinShape["type"] }) {
+  if (type === "rectangle") return <Square className="w-3.5 h-3.5" />;
+  if (type === "circle") return <Circle className="w-3.5 h-3.5" />;
+  return <Pencil className="w-3.5 h-3.5" />;
+}
 
 /** Inline form shown at the top of the sidebar for a new comment. */
 export function NewPinForm({
   pendingPin,
+  pendingShape,
   members,
   defaultAssignee,
   role,
@@ -31,6 +44,8 @@ export function NewPinForm({
   onRequestPin,
 }: {
   pendingPin: { xPercent: number; yPercent: number; page: number } | null;
+  /** A shape annotation currently attached to the comment-in-progress. */
+  pendingShape?: { shape: PinShape; color: string; page: number } | null;
   members: { user_id: string; name: string }[];
   /** Default assignee (pre-selected in the dropdown). */
   defaultAssignee?: string;
@@ -45,9 +60,11 @@ export function NewPinForm({
     page?: number | null;
     requestChanges?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
+    shape?: PinShape;
+    shapeColor?: string;
   }) => void | Promise<void>;
   onCancel: () => void;
-  /** Clear the visual pending pin from the document. */
+  /** Clear the visual pending pin (or pending shape) from the document. */
   onClearPin?: () => void;
   /** Enter pin mode so the user can click the document to place a pin. */
   onRequestPin?: () => void;
@@ -91,6 +108,11 @@ export function NewPinForm({
       yPercent: pinAttached && pendingPin ? pendingPin.yPercent : null,
       page: pinAttached && pendingPin ? pendingPin.page : null,
     };
+    if (pendingShape) {
+      data.shape = pendingShape.shape;
+      data.shapeColor = pendingShape.color;
+      data.page = pendingShape.page;
+    }
     if (requestChanges) {
       data.requestChanges = true;
     }
@@ -166,6 +188,22 @@ export function NewPinForm({
                   onClearPin?.();
                 }}
                 className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          {pendingShape && (
+            <div className="px-2.5 pt-2 flex items-center gap-1.5 text-[11px] text-text-secondary">
+              <span style={{ color: pendingShape.color }}>
+                <ShapeIcon type={pendingShape.shape.type} />
+              </span>
+              <span>{SHAPE_LABEL[pendingShape.shape.type]}</span>
+              <button
+                type="button"
+                onClick={() => onClearPin?.()}
+                className="text-text-muted hover:text-text-primary transition-colors cursor-pointer ml-0.5"
+                aria-label="Detach shape"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

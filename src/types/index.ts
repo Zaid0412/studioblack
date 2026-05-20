@@ -230,6 +230,20 @@ export interface DbAttachmentReview {
   created_at: string;
 }
 
+/** Shape annotation geometry — all coordinates are percent-based (0–100). */
+export type PinShapeData =
+  | { x: number; y: number; w: number; h: number } // rectangle (top-left + size)
+  | { cx: number; cy: number; rx: number; ry: number } // circle (ellipse center + radii)
+  | { points: Array<[number, number]> }; // freehand path
+
+export type PinShapeType = "rectangle" | "circle" | "freehand";
+
+/** Shape annotation payload — discriminated union of geometry by `type`. */
+export type PinShape =
+  | { type: "rectangle"; x: number; y: number; w: number; h: number }
+  | { type: "circle"; cx: number; cy: number; rx: number; ry: number }
+  | { type: "freehand"; points: Array<[number, number]> };
+
 /** A pin comment placed on an attachment at a specific position. */
 export interface DbPinComment {
   id: string;
@@ -248,6 +262,9 @@ export interface DbPinComment {
   updated_at: string | null;
   reply_count: number;
   created_at: string;
+  shape_type: PinShapeType | null;
+  shape_data: PinShapeData | null;
+  shape_color: string | null;
 }
 
 /** DB notification row from the notifications API. */

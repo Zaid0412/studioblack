@@ -24,6 +24,7 @@ import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
 import { ReviewToolbar } from "@/components/review/ReviewToolbar";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
 import { PinOverlay } from "@/components/review/PinOverlay";
+import { ShapeDrawingLayer } from "@/components/review/ShapeDrawingLayer";
 import { PinSidebar } from "@/components/review/PinSidebar";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
@@ -31,7 +32,8 @@ import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
 import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
-import { isPdf } from "@/lib/fileUtils";
+import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
+import type { PinShape } from "@/types";
 import { useSidebar } from "@/components/layout/SidebarContext";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
@@ -80,6 +82,8 @@ export default function DesignReviewPage({
   const {
     setPinMode,
     setSelectedPinId,
+    setDrawTool,
+    setDrawColor,
     addPin,
     resolvePin,
     editPin,
@@ -107,6 +111,14 @@ export default function DesignReviewPage({
     page: number;
   } | null>(null);
 
+  // Pending shape: stores the drawn shape while the comment form is open.
+  // Mutually exclusive with pendingPin.
+  const [pendingShape, setPendingShape] = useState<{
+    shape: PinShape;
+    color: string;
+    page: number;
+  } | null>(null);
+
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
@@ -121,7 +133,9 @@ export default function DesignReviewPage({
   useEffect(() => {
     setRequestChangesMode(false); // eslint-disable-line react-hooks/set-state-in-effect -- sync reset on file switch
     setPendingPin(null);
-  }, [activeFileId]);
+    setPendingShape(null);
+    setDrawTool(null);
+  }, [activeFileId, setDrawTool]);
 
   // Auto-select pin comment from URL param (deep link from tasks)
   useEffect(() => {
@@ -162,21 +176,35 @@ export default function DesignReviewPage({
       } else if (e.key === "Escape") {
         e.preventDefault();
         setPinMode(false);
+        setDrawTool(null);
         setPendingPin(null);
+        setPendingShape(null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleTogglePinMode, setPinMode]);
+  }, [handleTogglePinMode, setPinMode, setDrawTool]);
 
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
       setPendingPin({ xPercent, yPercent, page });
+      setPendingShape(null);
       setCommentsOpen(true);
       // Exit pin mode — cursor goes back to normal after placing a pin
       setPinMode(false);
     },
     [setPinMode]
+  );
+
+  const handleShapeComplete = useCallback(
+    (shape: PinShape, page: number) => {
+      setPendingShape({ shape, color: pinState.drawColor, page });
+      setPendingPin(null);
+      setCommentsOpen(true);
+      // One-shot: leave shape tool active so the next stroke continues the same
+      // tool. Common pattern in design tools (Figma, Miro).
+    },
+    [pinState.drawColor]
   );
 
   const handlePinFormSubmit = useCallback(
@@ -187,9 +215,22 @@ export default function DesignReviewPage({
       page?: number | null;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
+      shape?: PinShape;
+      shapeColor?: string;
     }) => {
-      await addPin(data);
+      // If a shape is pending, fold its page in so the server can persist it.
+      const enriched =
+        pendingShape && !data.shape
+          ? {
+              ...data,
+              shape: pendingShape.shape,
+              shapeColor: pendingShape.color,
+              page: pendingShape.page,
+            }
+          : data;
+      await addPin(enriched);
       setPendingPin(null);
+      setPendingShape(null);
       setRequestChangesMode(false);
 
       if (data.requestChanges) {
@@ -204,15 +245,17 @@ export default function DesignReviewPage({
         );
       }
     },
-    [addPin, updateAttachment]
+    [addPin, pendingShape, updateAttachment]
   );
 
   const handlePinFormCancel = useCallback(() => {
     setPendingPin(null);
+    setPendingShape(null);
   }, []);
 
   const handleClearPendingPin = useCallback(() => {
     setPendingPin(null);
+    setPendingShape(null);
   }, []);
 
   const handleRepositionPendingPin = useCallback(
@@ -405,6 +448,11 @@ export default function DesignReviewPage({
             fileUrl={fileUrl}
             pinModeActive={pinState.pinMode}
             onTogglePinMode={handleTogglePinMode}
+            drawTool={pinState.drawTool}
+            onSelectDrawTool={setDrawTool}
+            drawColor={pinState.drawColor}
+            onSelectDrawColor={setDrawColor}
+            hideShapeTools={isSpreadsheet(fileName)}
             onDownload={handleDownload}
             onUploadNewVersion={
               !isClient && attachment?.version_group && !attachment?.frozen_at
@@ -502,34 +550,56 @@ export default function DesignReviewPage({
             renderPageOverlay={
               isPdf(fileName)
                 ? (page) => (
-                    <PinOverlay
-                      pins={pinState.pins}
-                      page={page}
-                      selectedPinId={pinState.selectedPinId}
-                      onSelectPin={setSelectedPinId}
-                      pendingPin={pendingPin}
-                      onRepositionPin={repositionPin}
-                      pinMode={pinState.pinMode}
-                      currentUserId={session?.user?.id ?? ""}
-                      onRepositionPendingPin={handleRepositionPendingPin}
-                    />
+                    <>
+                      <PinOverlay
+                        pins={pinState.pins}
+                        page={page}
+                        selectedPinId={pinState.selectedPinId}
+                        onSelectPin={setSelectedPinId}
+                        pendingPin={pendingPin}
+                        pendingShape={pendingShape}
+                        onRepositionPin={repositionPin}
+                        pinMode={pinState.pinMode}
+                        currentUserId={session?.user?.id ?? ""}
+                        onRepositionPendingPin={handleRepositionPendingPin}
+                      />
+                      {pinState.drawTool && (
+                        <ShapeDrawingLayer
+                          page={page}
+                          tool={pinState.drawTool}
+                          color={pinState.drawColor}
+                          onComplete={handleShapeComplete}
+                        />
+                      )}
+                    </>
                   )
                 : undefined
             }
           >
             {/* Pin markers overlay — for images (page 1) */}
             {!isPdf(fileName) && (
-              <PinOverlay
-                pins={pinState.pins}
-                page={1}
-                selectedPinId={pinState.selectedPinId}
-                onSelectPin={setSelectedPinId}
-                pendingPin={pendingPin}
-                onRepositionPin={repositionPin}
-                pinMode={pinState.pinMode}
-                currentUserId={session?.user?.id ?? ""}
-                onRepositionPendingPin={handleRepositionPendingPin}
-              />
+              <>
+                <PinOverlay
+                  pins={pinState.pins}
+                  page={1}
+                  selectedPinId={pinState.selectedPinId}
+                  onSelectPin={setSelectedPinId}
+                  pendingPin={pendingPin}
+                  pendingShape={pendingShape}
+                  onRepositionPin={repositionPin}
+                  pinMode={pinState.pinMode}
+                  currentUserId={session?.user?.id ?? ""}
+                  onRepositionPendingPin={handleRepositionPendingPin}
+                />
+                {pinState.drawTool && !isSpreadsheet(fileName) && (
+                  <ShapeDrawingLayer
+                    page={1}
+                    tool={pinState.drawTool}
+                    color={pinState.drawColor}
+                    onComplete={handleShapeComplete}
+                  />
+                )}
+              </>
             )}
           </DocumentViewer>
 
@@ -568,6 +638,7 @@ export default function DesignReviewPage({
             setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
+          pendingShape={pendingShape}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}
           onClearPendingPin={handleClearPendingPin}

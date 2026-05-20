@@ -521,6 +521,72 @@ describe("createPinSchema", () => {
     });
     expect(data.x_percent).toBeNull();
   });
+
+  it("accepts a rectangle shape", () => {
+    expectPass(createPinSchema, {
+      content: "fix corner",
+      shape: { type: "rectangle", x: 10, y: 20, w: 30, h: 40 },
+      shape_color: "#dc2626",
+    });
+  });
+
+  it("accepts a circle shape", () => {
+    expectPass(createPinSchema, {
+      content: "fix",
+      shape: { type: "circle", cx: 50, cy: 50, rx: 10, ry: 10 },
+      shape_color: "#16a34a",
+    });
+  });
+
+  it("accepts a freehand shape", () => {
+    expectPass(createPinSchema, {
+      content: "fix",
+      shape: {
+        type: "freehand",
+        points: [
+          [10, 10],
+          [20, 20],
+          [30, 30],
+        ],
+      },
+      shape_color: "#0284c7",
+    });
+  });
+
+  it("rejects freehand with fewer than 2 points", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape: { type: "freehand", points: [[10, 10]] },
+    });
+  });
+
+  it("rejects unknown shape type", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape: { type: "triangle", x: 0, y: 0, w: 10, h: 10 },
+    });
+  });
+
+  it("rejects rectangle with out-of-range coords", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape: { type: "rectangle", x: 10, y: 20, w: 30, h: 200 },
+    });
+  });
+
+  it("rejects malformed shape_color", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape_color: "red",
+    });
+  });
+
+  it("accepts uppercase hex shape_color", () => {
+    expectPass(createPinSchema, {
+      content: "x",
+      shape_color: "#ABCDEF",
+    });
+  });
 });
 
 // ── updatePinSchema ──────────────────────────────────────────────────────────

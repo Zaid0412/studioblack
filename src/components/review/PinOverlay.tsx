@@ -3,7 +3,61 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Check } from "lucide-react";
 import { sortPinsByDate, isPinned, buildPinIndexMap } from "@/lib/pinUtils";
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, PinShape, PinShapeData } from "@/types";
+
+/**
+ * SVG rendering for one shape annotation. Sized in the parent SVG's
+ * viewBox (0–100), `vector-effect="non-scaling-stroke"` keeps the stroke
+ * weight pixel-stable across zoom.
+ */
+function ShapePath({
+  shapeType,
+  shapeData,
+  color,
+  selected,
+}: {
+  shapeType: "rectangle" | "circle" | "freehand";
+  shapeData: PinShapeData;
+  color: string;
+  selected?: boolean;
+}) {
+  const strokeWidth = selected ? 3 : 2;
+  const common = {
+    stroke: color,
+    strokeWidth,
+    fill: "none",
+    vectorEffect: "non-scaling-stroke" as const,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    opacity: selected ? 1 : 0.85,
+  };
+  if (shapeType === "rectangle") {
+    const { x, y, w, h } = shapeData as {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    };
+    return <rect x={x} y={y} width={w} height={h} {...common} />;
+  }
+  if (shapeType === "circle") {
+    const { cx, cy, rx, ry } = shapeData as {
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+    };
+    return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...common} />;
+  }
+  const { points } = shapeData as { points: Array<[number, number]> };
+  if (points.length === 0) return null;
+  const d =
+    "M " +
+    points
+      .map(([px, py], i) => (i === 0 ? `${px} ${py}` : `L ${px} ${py}`))
+      .join(" ");
+  return <path d={d} {...common} />;
+}
 
 interface PinOverlayProps {
   pins: DbPinComment[];
@@ -12,6 +66,8 @@ interface PinOverlayProps {
   onSelectPin: (pinId: string) => void;
   /** Temporary pin shown while the user is typing a comment. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
+  /** Temporary shape shown while the user is typing a comment for a drawn annotation. */
+  pendingShape?: { shape: PinShape; color: string; page: number } | null;
   /** Callback when a pin is dragged to a new position. */
   onRepositionPin?: (
     pinId: string,
@@ -114,6 +170,7 @@ export function PinOverlay({
   selectedPinId,
   onSelectPin,
   pendingPin,
+  pendingShape,
   onRepositionPin,
   pinMode = false,
   currentUserId,
@@ -205,6 +262,32 @@ export function PinOverlay({
     setDragState(null);
   }, [onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
 
+  const shapePins = pagePins.filter(
+    (p) => p.shape_type !== null && p.shape_data !== null
+  );
+  const showPendingShape =
+    pendingShape != null && pendingShape.page === page;
+  // PinShape is a discriminated union with `type` + geometry mixed; split it
+  // here so it matches the (shape_type, shape_data) shape the renderer expects
+  // for persisted pins.
+  const pendingShapeData: PinShapeData | null = showPendingShape
+    ? pendingShape.shape.type === "rectangle"
+      ? {
+          x: pendingShape.shape.x,
+          y: pendingShape.shape.y,
+          w: pendingShape.shape.w,
+          h: pendingShape.shape.h,
+        }
+      : pendingShape.shape.type === "circle"
+        ? {
+            cx: pendingShape.shape.cx,
+            cy: pendingShape.shape.cy,
+            rx: pendingShape.shape.rx,
+            ry: pendingShape.shape.ry,
+          }
+        : { points: pendingShape.shape.points }
+    : null;
+
   return (
     <div
       ref={overlayRef}
@@ -212,6 +295,34 @@ export function PinOverlay({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
+      {(shapePins.length > 0 || showPendingShape) && (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          {shapePins.map((pin) => (
+            <ShapePath
+              key={`shape-${pin.id}`}
+              shapeType={pin.shape_type!}
+              shapeData={pin.shape_data!}
+              color={pin.shape_color ?? "#F5C518"}
+              selected={pin.id === selectedPinId}
+            />
+          ))}
+          {showPendingShape && pendingShapeData && (
+            <g className="animate-pulse">
+              <ShapePath
+                shapeType={pendingShape.shape.type}
+                shapeData={pendingShapeData}
+                color={pendingShape.color}
+                selected
+              />
+            </g>
+          )}
+        </svg>
+      )}
+
       {pagePins.map((pin) => {
         const index = indexMap.get(pin.id) ?? 0;
         const isSelected = pin.id === selectedPinId;

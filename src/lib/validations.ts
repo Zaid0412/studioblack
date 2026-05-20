@@ -299,10 +299,41 @@ export const submitReviewSchema = z.object({
 
 // ─── Pin Comments (/api/projects/[id]/attachments/[attachmentId]/pins) ──────
 
+const pct = z.number().min(0).max(100);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/**
+ * Shape geometry discriminated by `type`. All coords are percent-based so
+ * shapes survive viewer zoom / resolution changes.
+ */
+export const pinShapeSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("rectangle"),
+    x: pct,
+    y: pct,
+    w: pct,
+    h: pct,
+  }),
+  z.object({
+    type: z.literal("circle"),
+    cx: pct,
+    cy: pct,
+    rx: pct,
+    ry: pct,
+  }),
+  z.object({
+    type: z.literal("freehand"),
+    points: z
+      .array(z.tuple([pct, pct]))
+      .min(2)
+      .max(500),
+  }),
+]);
+
 export const createPinSchema = z.object({
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
-  x_percent: z.number().min(0).max(100).optional().nullable(),
-  y_percent: z.number().min(0).max(100).optional().nullable(),
+  x_percent: pct.optional().nullable(),
+  y_percent: pct.optional().nullable(),
   page: z.number().int().min(1).optional().nullable(),
   request_changes: z.boolean().optional(),
   assign_as_task: z
@@ -312,13 +343,15 @@ export const createPinSchema = z.object({
     })
     .optional(),
   parent_id: optionalUuid,
+  shape: pinShapeSchema.optional(),
+  shape_color: hexColor.optional(),
 });
 
 export const updatePinSchema = z.object({
   resolved: z.boolean().optional(),
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH).optional(),
-  x_percent: z.number().min(0).max(100).optional(),
-  y_percent: z.number().min(0).max(100).optional(),
+  x_percent: pct.optional(),
+  y_percent: pct.optional(),
   page: z.number().int().min(1).optional(),
 });
 

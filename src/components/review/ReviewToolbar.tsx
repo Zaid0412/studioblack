@@ -5,22 +5,36 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
+  Circle,
   Download,
   ExternalLink,
   Ellipsis,
   MapPin,
+  Pencil,
   Printer,
   Lock,
   Maximize,
   Send,
+  Square,
   Unlock,
   Upload,
 } from "lucide-react";
+import type { DrawTool } from "@/hooks/usePinComments";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
+
+/** Color palette offered for shape annotations — design-system tokens. */
+export const SHAPE_COLORS = [
+  "#dc2626", // red
+  "#ea580c", // orange
+  "#16a34a", // green
+  "#0284c7", // blue
+  "#7c3aed", // purple
+  "#f5c518", // yellow
+] as const;
 
 interface ReviewToolbarProps {
   backPath: string;
@@ -35,6 +49,15 @@ interface ReviewToolbarProps {
   onSendToClient?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
+  /** Active shape draw tool. `null` means no shape tool is active. */
+  drawTool?: DrawTool;
+  /** Switch the active shape tool. Passing the active tool turns drawing off. */
+  onSelectDrawTool?: (tool: DrawTool) => void;
+  /** Active draw color (hex). */
+  drawColor?: string;
+  onSelectDrawColor?: (color: string) => void;
+  /** Hide shape draw tools (e.g. spreadsheet viewer can't host shapes). */
+  hideShapeTools?: boolean;
 }
 
 /**
@@ -53,7 +76,14 @@ export function ReviewToolbar({
   onSendToClient,
   frozen,
   onToggleFreeze,
+  drawTool = null,
+  onSelectDrawTool,
+  drawColor,
+  onSelectDrawColor,
+  hideShapeTools = false,
 }: ReviewToolbarProps) {
+  const showShapeTools = !hideShapeTools && !!onSelectDrawTool;
+  const showColorRow = showShapeTools && drawTool !== null;
   const router = useRouter();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -110,6 +140,59 @@ export function ReviewToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">Pin comment</TooltipContent>
         </Tooltip>
+        {showShapeTools && (
+          <>
+            <ToolButton
+              active={drawTool === "rectangle"}
+              label="Rectangle"
+              onClick={() =>
+                onSelectDrawTool?.(
+                  drawTool === "rectangle" ? null : "rectangle"
+                )
+              }
+            >
+              <Square className="w-4 h-4" />
+            </ToolButton>
+            <ToolButton
+              active={drawTool === "circle"}
+              label="Circle"
+              onClick={() =>
+                onSelectDrawTool?.(drawTool === "circle" ? null : "circle")
+              }
+            >
+              <Circle className="w-4 h-4" />
+            </ToolButton>
+            <ToolButton
+              active={drawTool === "freehand"}
+              label="Freehand pen"
+              onClick={() =>
+                onSelectDrawTool?.(drawTool === "freehand" ? null : "freehand")
+              }
+            >
+              <Pencil className="w-4 h-4" />
+            </ToolButton>
+          </>
+        )}
+        {showColorRow && (
+          <div className="flex items-center gap-1 pl-1 ml-1 border-l border-border-default">
+            {SHAPE_COLORS.map((c) => {
+              const active = drawColor === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`Color ${c}`}
+                  onClick={() => onSelectDrawColor?.(c)}
+                  className={`w-4 h-4 rounded-full cursor-pointer transition-transform ${active ? "ring-2 ring-offset-1 ring-offset-bg-secondary scale-110" : "hover:scale-110"}`}
+                  style={{
+                    backgroundColor: c,
+                    boxShadow: active ? `0 0 0 1px ${c}` : undefined,
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -212,5 +295,33 @@ export function ReviewToolbar({
         </div>
       </div>
     </div>
+  );
+}
+
+function ToolButton({
+  active,
+  label,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-pressed={active}
+          className={`cursor-pointer transition-colors ${active ? "text-[#F5C518]" : "text-text-secondary hover:text-text-primary"}`}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }

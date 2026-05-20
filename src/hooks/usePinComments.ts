@@ -3,7 +3,22 @@ import useSWR from "swr";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, PinShape } from "@/types";
+import { centroidOf } from "@/lib/shapeUtils";
+
+/** Shape drawing tool currently selected in the review toolbar. */
+export type DrawTool = "rectangle" | "circle" | "freehand" | null;
+
+/** Default color used for new shape annotations. Reuses the accent yellow. */
+export const DEFAULT_SHAPE_COLOR = "#F5C518";
+
+function shapeCentroidXY(shape: PinShape): {
+  x: number | null;
+  y: number | null;
+} {
+  const [x, y] = centroidOf(shape);
+  return { x, y };
+}
 
 interface UsePinCommentsParams {
   projectId: string;
@@ -38,11 +53,30 @@ export function usePinComments({
   });
 
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
-  const [pinMode, setPinMode] = useState(false);
+  const [pinMode, setPinModeRaw] = useState(false);
+  const [drawTool, setDrawToolRaw] = useState<DrawTool>(null);
+  const [drawColor, setDrawColor] = useState<string>(DEFAULT_SHAPE_COLOR);
   /** Replies keyed by parent pin ID — lazily loaded. */
   const [repliesMap, setRepliesMap] = useState<Map<string, DbPinComment[]>>(
     new Map()
   );
+
+  /** Pin mode and shape tools are mutually exclusive. */
+  const setPinMode = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      setPinModeRaw((prev) => {
+        const on = typeof next === "function" ? next(prev) : next;
+        if (on) setDrawToolRaw(null);
+        return on;
+      });
+    },
+    []
+  );
+
+  const setDrawTool = useCallback((tool: DrawTool) => {
+    setDrawToolRaw(tool);
+    if (tool !== null) setPinModeRaw(false);
+  }, []);
 
   // ── Add pin (optimistic) ──────────────────────────────────────────────
 
@@ -54,16 +88,42 @@ export function usePinComments({
       content: string;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
+      shape?: PinShape;
+      shapeColor?: string;
     }) => {
       // Optimistic: insert a temp pin immediately
       const tempId = `temp-${Date.now()}`;
+      // For shape annotations the server derives x/y from the centroid; we
+      // mirror that on the optimistic pin so the marker pops in at the right
+      // spot before the server response arrives.
+      const optimisticXY = data.shape
+        ? shapeCentroidXY(data.shape)
+        : { x: data.xPercent ?? null, y: data.yPercent ?? null };
+      const shapeType = data.shape?.type ?? null;
+      const shapeData: DbPinComment["shape_data"] = data.shape
+        ? data.shape.type === "rectangle"
+          ? {
+              x: data.shape.x,
+              y: data.shape.y,
+              w: data.shape.w,
+              h: data.shape.h,
+            }
+          : data.shape.type === "circle"
+            ? {
+                cx: data.shape.cx,
+                cy: data.shape.cy,
+                rx: data.shape.rx,
+                ry: data.shape.ry,
+              }
+            : { points: data.shape.points }
+        : null;
       const tempPin: DbPinComment = {
         id: tempId,
         attachment_id: attachmentId,
         user_id: "",
         user_name: userName,
-        x_percent: data.xPercent ?? null,
-        y_percent: data.yPercent ?? null,
+        x_percent: optimisticXY.x,
+        y_percent: optimisticXY.y,
         page: data.page ?? null,
         content: data.content,
         resolved: false,
@@ -74,6 +134,9 @@ export function usePinComments({
         updated_at: null,
         reply_count: 0,
         created_at: new Date().toISOString(),
+        shape_type: shapeType,
+        shape_data: shapeData,
+        shape_color: data.shape ? (data.shapeColor ?? null) : null,
       };
       mutatePins((prev) => [...(prev ?? []), tempPin], { revalidate: false });
 
@@ -90,6 +153,8 @@ export function usePinComments({
                 due_date: data.assignAsTask.dueDate,
               }
             : undefined,
+          shape: data.shape,
+          shape_color: data.shape ? data.shapeColor : undefined,
         });
         // Replace temp with real
         mutatePins(
@@ -295,6 +360,10 @@ export function usePinComments({
     setSelectedPinId,
     pinMode,
     setPinMode,
+    drawTool,
+    setDrawTool,
+    drawColor,
+    setDrawColor,
     addPin,
     resolvePin,
     editPin,

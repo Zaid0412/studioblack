@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   Check,
+  Circle,
   Trash2,
   MessageCircle,
   CheckSquare,
@@ -11,6 +12,7 @@ import {
   Pencil,
   MessageSquare,
   Send,
+  Square,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { isPinned } from "@/lib/pinUtils";
@@ -146,6 +148,21 @@ export function PinCard({
           <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded shrink-0">
             <AlertTriangle className="w-2.5 h-2.5" />
             Changes
+          </span>
+        )}
+        {pin.shape_type && (
+          <span
+            className="shrink-0"
+            style={{ color: pin.shape_color ?? "currentColor" }}
+            aria-label={`${pin.shape_type} annotation`}
+          >
+            {pin.shape_type === "rectangle" ? (
+              <Square className="w-3 h-3" />
+            ) : pin.shape_type === "circle" ? (
+              <Circle className="w-3 h-3" />
+            ) : (
+              <Pencil className="w-3 h-3" />
+            )}
           </span>
         )}
         {pinHasCoords ? (
