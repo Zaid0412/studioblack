@@ -27,6 +27,11 @@ interface BoqBulkActionBarProps {
   onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
   onCancel: () => void;
+  /**
+   * Forwarded to the phase picker. True when the bulk preview dialog will
+   * handle destructive-comment capture — avoids prompting twice.
+   */
+  skipDestructivePrompt?: boolean;
 }
 
 /**
@@ -50,6 +55,7 @@ export function BoqBulkActionBar({
   onSetPhase,
   onDelete,
   onCancel,
+  skipDestructivePrompt = false,
 }: BoqBulkActionBarProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -99,6 +105,7 @@ export function BoqBulkActionBar({
           onPick={onSetPhase}
           currentPhase={sharedPhase}
           allowedPhases={allowedPhases}
+          skipDestructivePrompt={skipDestructivePrompt}
         />
       )}
 
