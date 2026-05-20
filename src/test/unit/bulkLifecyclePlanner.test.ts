@@ -18,7 +18,7 @@ describe("buildPhaseGroups", () => {
         item("d", "client_approved"),
       ],
       "submitted_to_client",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const byPhase = Object.fromEntries(groups.map((g) => [g.phase, g.itemIds]));
     expect(byPhase.draft).toEqual(["a", "b"]);
@@ -30,7 +30,7 @@ describe("buildPhaseGroups", () => {
     const groups = buildPhaseGroups(
       [item("a", "draft"), item("b", "internally_approved")],
       "submitted_to_client",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const primary = groups.filter((g) => g.primary).map((g) => g.phase);
     expect(primary).toEqual(["internally_approved"]);
@@ -46,7 +46,7 @@ describe("buildPhaseGroups", () => {
         item("c", "change_requested"),
       ],
       "submitted_to_client",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     expect(groups.every((g) => !g.primary)).toBe(true);
   });
@@ -56,7 +56,7 @@ describe("buildPhaseGroups", () => {
     // created — the 4-eyes rule blocks it.
     const groups = buildPhaseGroups([item("a", "internal_review")], "draft", {
       role: "pm",
-      currentUserId: "u-creator",
+      actorId: "u-creator",
       boqCreatorId: "u-creator",
     });
     expect(groups[0].legalTargets).not.toContain("internally_approved");
@@ -67,7 +67,7 @@ describe("buildPhaseGroups", () => {
     // creator OR PM. A non-creator architect gets zero legal targets.
     const groups = buildPhaseGroups([item("a", "draft")], "internal_review", {
       role: "architect",
-      currentUserId: "u-arch",
+      actorId: "u-arch",
       boqCreatorId: "u-other",
     });
     expect(groups[0].legalTargets).toEqual([]);
@@ -84,7 +84,7 @@ describe("buildPlanByTarget", () => {
         item("c", "draft"),
       ],
       "submitted_to_client",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const plan = buildPlanByTarget(groups, "submitted_to_client", {});
     expect(plan).toEqual([
@@ -100,7 +100,7 @@ describe("buildPlanByTarget", () => {
         item("c", "draft"),
       ],
       "submitted_to_client",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const plan = buildPlanByTarget(groups, "submitted_to_client", {
       draft: "internal_review",
@@ -121,7 +121,7 @@ describe("buildPlanByTarget", () => {
     const groups = buildPhaseGroups(
       [item("a", "draft"), item("b", "client_approved")],
       "submitted_to_client",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     expect(buildPlanByTarget(groups, "submitted_to_client", {})).toEqual([]);
   });
@@ -139,7 +139,7 @@ describe("buildPlanByTarget", () => {
         item("c", "internal_review"),
       ],
       "client_approved",
-      { role: "pm", currentUserId: "u-pm", boqCreatorId: "u-arch" }
+      { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const plan = buildPlanByTarget(groups, "client_approved", {
       change_requested: "draft",
@@ -154,7 +154,7 @@ describe("buildPlanByTarget", () => {
     // primary status wins — fallback entry for that phase is ignored.
     const groups = buildPhaseGroups([item("a", "internal_review")], "draft", {
       role: "pm",
-      currentUserId: "u-pm",
+      actorId: "u-pm",
       boqCreatorId: "u-arch",
     });
     const plan = buildPlanByTarget(groups, "draft", {

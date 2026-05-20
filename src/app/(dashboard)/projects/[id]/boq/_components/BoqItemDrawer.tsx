@@ -16,18 +16,17 @@ import {
 import { toast } from "@/components/ui/useToast";
 import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
 import type { BoqItemPhase } from "@/lib/validations";
-import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
-  canFireBoqItemPhaseTransition,
   formatCurrency,
   formatOptionalCurrency,
   formatPct,
   formatQty,
+  getLegalPhaseTransitions,
   isDestructivePhase,
   parseOptionalNumber,
   phaseToLabel,
@@ -198,14 +197,11 @@ export function BoqItemDrawer({
 
   // Show only transitions the viewer's role can actually fire — surfaces
   // Mark Client Approved to clients even though `canEdit` is false for them.
-  const allowedNext = (BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? []).filter(
-    (target) =>
-      canFireBoqItemPhaseTransition(target, {
-        role,
-        actorId: currentUserId,
-        boqCreatorId,
-      })
-  );
+  const allowedNext = getLegalPhaseTransitions(item.phase, {
+    role,
+    actorId: currentUserId,
+    boqCreatorId,
+  });
 
   return (
     <>

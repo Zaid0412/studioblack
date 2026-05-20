@@ -20,8 +20,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { type BoqItemPhase } from "@/lib/validations";
-import type { BoqItemWithComputed } from "@/types";
-import type { UserRole } from "@/types";
+import type { BoqItemWithComputed, UserRole } from "@/types";
 import {
   isDestructivePhase,
   phaseToLabel,
@@ -33,14 +32,13 @@ import {
   type BulkLifecyclePlanEntry,
   type PhaseGroup,
 } from "../_lib/bulkLifecyclePlanner";
-
-export type { BulkLifecyclePlanEntry };
+import { TEXTAREA_CLS } from "./BoqChangeRequestDialog";
 
 interface BoqBulkLifecyclePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Primary target the user picked from the bulk picker. */
-  target: BoqItemPhase | null;
+  target: BoqItemPhase;
   selectedItems: BoqItemWithComputed[];
   role: UserRole | null;
   currentUserId: string | null;
@@ -60,9 +58,6 @@ interface BoqBulkLifecyclePreviewDialogProps {
  * dropdown listing their own legal transitions so the PM can resolve them
  * without leaving the dialog. Confirm fires one API call per distinct target
  * in the resolved plan.
- *
- * Skipped entirely when the selection is homogeneous AND the picked target
- * is legal — the caller fires the action immediately in that case.
  */
 export function BoqBulkLifecyclePreviewDialog({
   open,
@@ -74,14 +69,12 @@ export function BoqBulkLifecyclePreviewDialog({
   boqCreatorId,
   onConfirm,
 }: BoqBulkLifecyclePreviewDialogProps) {
-  // Maps a current-phase → user-chosen fallback target for skipped groups.
   const [fallbacks, setFallbacks] = useState<
     Partial<Record<BoqItemPhase, BoqItemPhase>>
   >({});
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset on every open so state doesn't leak across opens.
   useEffect(() => {
     if (open) {
       setFallbacks({});
@@ -90,49 +83,39 @@ export function BoqBulkLifecyclePreviewDialog({
     }
   }, [open]);
 
-  const groups = useMemo<PhaseGroup[]>(() => {
-    if (!target) return [];
-    return buildPhaseGroups(selectedItems, target, {
-      role,
-      currentUserId,
-      boqCreatorId,
-    });
-  }, [target, selectedItems, role, currentUserId, boqCreatorId]);
+  const groups = useMemo<PhaseGroup[]>(
+    () =>
+      buildPhaseGroups(selectedItems, target, {
+        role,
+        actorId: currentUserId,
+        boqCreatorId,
+      }),
+    [target, selectedItems, role, currentUserId, boqCreatorId]
+  );
 
-  // Resolve each group to its actual fire-target (primary | chosen fallback | none).
-  const resolvedTargets = useMemo<
-    Map<BoqItemPhase, BoqItemPhase | null>
-  >(() => {
+  // Single pass: derive the per-group fire-target plus the running totals
+  // that drive the footer counter, the destructive-comment field, and the
+  // disabled state on the confirm button.
+  const { resolved, appliedCount, requiresComment } = useMemo(() => {
     const map = new Map<BoqItemPhase, BoqItemPhase | null>();
-    if (!target) return map;
+    let count = 0;
+    let destructive = false;
     for (const g of groups) {
-      map.set(g.phase, g.primary ? target : (fallbacks[g.phase] ?? null));
+      const r = g.primary ? target : (fallbacks[g.phase] ?? null);
+      map.set(g.phase, r);
+      if (r) {
+        count += g.itemIds.length;
+        if (isDestructivePhase(r)) destructive = true;
+      }
     }
-    return map;
+    return { resolved: map, appliedCount: count, requiresComment: destructive };
   }, [groups, target, fallbacks]);
-
-  // Items that will actually transition, summed across all resolved targets.
-  const appliedCount = useMemo(() => {
-    let n = 0;
-    for (const g of groups) {
-      if (resolvedTargets.get(g.phase)) n += g.itemIds.length;
-    }
-    return n;
-  }, [groups, resolvedTargets]);
-
-  // Reason field only appears when at least one resolved target is destructive.
-  const requiresComment = useMemo(() => {
-    for (const t of resolvedTargets.values()) {
-      if (t && isDestructivePhase(t)) return true;
-    }
-    return false;
-  }, [resolvedTargets]);
 
   const canConfirm =
     appliedCount > 0 && (!requiresComment || comment.trim().length > 0);
 
   const handleConfirm = async () => {
-    if (!canConfirm || !target) return;
+    if (!canConfirm) return;
     const plan = buildPlanByTarget(groups, target, fallbacks);
     setSubmitting(true);
     try {
@@ -143,9 +126,8 @@ export function BoqBulkLifecyclePreviewDialog({
     }
   };
 
-  // Header subtitle: "N items · M phases".
-  const phaseCount = groups.length;
   const itemCount = selectedItems.length;
+  const phaseCount = groups.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -153,7 +135,7 @@ export function BoqBulkLifecyclePreviewDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowUpFromLine className="h-4 w-4 text-warning" />
-            {target ? `Set phase to ${phaseToLabel(target)}?` : "Set phase"}
+            Set phase to {phaseToLabel(target)}?
           </DialogTitle>
           <DialogDescription>
             {itemCount} item{itemCount === 1 ? "" : "s"} selected
@@ -176,7 +158,6 @@ export function BoqBulkLifecyclePreviewDialog({
             </span>
           </div>
           {groups.map((group, idx) => {
-            const resolved = resolvedTargets.get(group.phase);
             const isLast = idx === groups.length - 1;
             return (
               <div
@@ -200,7 +181,7 @@ export function BoqBulkLifecyclePreviewDialog({
                 </div>
                 <GroupAction
                   group={group}
-                  resolved={resolved}
+                  resolved={resolved.get(group.phase) ?? null}
                   primaryTarget={target}
                   onChoose={(t) =>
                     setFallbacks((prev) => ({ ...prev, [group.phase]: t }))
@@ -224,7 +205,7 @@ export function BoqBulkLifecyclePreviewDialog({
               required
               autoFocus
               placeholder="What needs to change before this can be re-approved?"
-              className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y"
+              className={TEXTAREA_CLS}
             />
             <span className="text-[11px] text-text-muted">
               Shared across every group set to a destructive phase.
@@ -272,11 +253,11 @@ function GroupAction({
   onChoose,
 }: {
   group: PhaseGroup;
-  resolved: BoqItemPhase | null | undefined;
-  primaryTarget: BoqItemPhase | null;
+  resolved: BoqItemPhase | null;
+  primaryTarget: BoqItemPhase;
   onChoose: (target: BoqItemPhase) => void;
 }) {
-  if (group.primary && primaryTarget) {
+  if (group.primary) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-md border border-success/30 bg-success/10 px-2 py-1 text-xs font-medium text-success whitespace-nowrap">
         <Check className="h-3 w-3" />

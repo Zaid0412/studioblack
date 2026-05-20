@@ -37,10 +37,8 @@ import {
   type BoqItemPhase,
 } from "@/lib/validations";
 import { canFireBoqPhaseTransition } from "@/lib/boq/phasePermissions";
-import {
-  BoqBulkLifecyclePreviewDialog,
-  type BulkLifecyclePlanEntry,
-} from "../boq/_components/BoqBulkLifecyclePreviewDialog";
+import { BoqBulkLifecyclePreviewDialog } from "../boq/_components/BoqBulkLifecyclePreviewDialog";
+import type { BulkLifecyclePlanEntry } from "../boq/_lib/bulkLifecyclePlanner";
 
 interface BoqTabProps {
   projectId: string;
@@ -102,8 +100,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [createAndMoveTarget, setCreateAndMoveTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
-  // Preview dialog for mixed-phase bulk lifecycle changes. `null` = closed.
-  const [previewTarget, setPreviewTarget] = useState<BoqItemPhase | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTarget, setPreviewTarget] = useState<BoqItemPhase>("draft");
 
   // Selection mode (PR 2). Disabled when the BOQ is locked.
   const allItemIds = useMemo(
@@ -146,14 +144,21 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     [boq?.items, selection.selected]
   );
 
-  // Pre-filter the bulk lifecycle picker to role-fireable phases. `isCreator`
-  // is a BOQ-level property, so one boolean covers the whole batch.
-  //
-  // When the selection is homogeneous (`sharedSelectedPhase` defined), also
-  // intersect with phases legal from that source — otherwise the picker would
-  // offer transitions the server is guaranteed to reject (e.g. Draft →
-  // Internally Approved). Mixed selections keep the full role-fireable set;
-  // the preview dialog resolves per-group legality there.
+  // Resolved only while the preview is open — keeps the filter off the hot
+  // render path when the dialog is closed and stabilizes the array identity
+  // so the dialog's own memos don't re-run on unrelated BoqTab renders.
+  const previewSelectedItems = useMemo(
+    () =>
+      previewOpen
+        ? (boq?.items ?? []).filter((it) => selection.selected.has(it.id))
+        : [],
+    [previewOpen, boq?.items, selection.selected]
+  );
+
+  // For homogeneous selections, intersect with the legal sources for the
+  // shared phase — otherwise the picker would offer transitions the server
+  // is guaranteed to reject. Mixed selections keep the full role-fireable
+  // set; the preview dialog resolves per-group legality there.
   const bulkAllowedPhases = useMemo<readonly BoqItemPhase[]>(() => {
     const isPM = role === "pm";
     const isArchitect = role === "architect";
@@ -214,9 +219,6 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const handleBulkSetPhase = useCallback(
     async (phase: BoqItemPhase, comment?: string) => {
       if (!boq || selection.selected.size === 0) return;
-      // Homogeneous selection where the target is legal from the shared source
-      // → fire directly. Otherwise route through the preview so the user
-      // resolves the skipped groups before committing.
       if (sharedSelectedPhase) {
         try {
           await bulkSetItemPhase(
@@ -232,6 +234,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         return;
       }
       setPreviewTarget(phase);
+      setPreviewOpen(true);
     },
     [boq, bulkSetItemPhase, selection, sharedSelectedPhase]
   );
@@ -239,9 +242,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const handlePreviewConfirm = useCallback(
     async (plan: BulkLifecyclePlanEntry[], comment?: string) => {
       if (!boq) return;
-      // Fire one bulk call per distinct target. Each call retains its own
-      // atomic guarantee for its subset; the failures (if any) are surfaced
-      // via toast from useBoqMutations and don't abort the others.
+      // Each per-target call retains its own atomic guarantee for its subset;
+      // a partial failure doesn't abort siblings.
       const results = await Promise.allSettled(
         plan.map((entry) =>
           bulkSetItemPhase(
@@ -252,8 +254,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           )
         )
       );
-      const allOk = results.every((r) => r.status === "fulfilled");
-      if (allOk) selection.toggleMode();
+      if (results.every((r) => r.status === "fulfilled"))
+        selection.toggleMode();
     },
     [boq, bulkSetItemPhase, selection]
   );
@@ -629,21 +631,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}
           onCancel={selection.toggleMode}
-          // Mixed selection routes through the preview dialog, which owns
-          // the comment field — don't double-prompt inside the popover.
           skipDestructivePrompt={!sharedSelectedPhase}
         />
       )}
 
       <BoqBulkLifecyclePreviewDialog
-        open={previewTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setPreviewTarget(null);
-        }}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
         target={previewTarget}
-        selectedItems={(boq?.items ?? []).filter((it) =>
-          selection.selected.has(it.id)
-        )}
+        selectedItems={previewSelectedItems}
         role={role}
         currentUserId={currentUserId}
         boqCreatorId={boq?.created_by ?? null}

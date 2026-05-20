@@ -47,19 +47,16 @@ import type {
   BoqSummary,
   UserRole,
 } from "@/types";
-import {
-  BOQ_ITEM_PHASE_TRANSITIONS,
-  type BoqItemPhase,
-} from "@/lib/validations";
+import { type BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import {
   BOQ_NO_SECTION_ID,
-  canFireBoqItemPhaseTransition,
   formatCurrency,
   formatDimensions,
   formatOptionalCurrency,
   formatPct,
   formatQty,
+  getLegalPhaseTransitions,
   isDestructivePhase,
   parseOptionalNumber,
   phaseToLabel,
@@ -760,13 +757,11 @@ const BoqItemRow = memo(function BoqItemRow({
   // so a PM viewing `internal_review` doesn't see "Send to Client" (legal
   // for the role but not from that phase).
   const lifecycleTargets = onSetItemPhase
-    ? (BOQ_ITEM_PHASE_TRANSITIONS[item.phase] ?? []).filter((target) =>
-        canFireBoqItemPhaseTransition(target, {
-          role,
-          actorId: currentUserId,
-          boqCreatorId,
-        })
-      )
+    ? getLegalPhaseTransitions(item.phase, {
+        role,
+        actorId: currentUserId,
+        boqCreatorId,
+      })
     : [];
   const canChangeLifecycle = lifecycleTargets.length > 0;
   // Clients only get menu access for lifecycle actions; PMs/architects keep

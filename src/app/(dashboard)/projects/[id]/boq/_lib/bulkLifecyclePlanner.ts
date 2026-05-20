@@ -1,10 +1,9 @@
-import {
-  BOQ_ITEM_PHASE_TRANSITIONS,
-  type BoqItemPhase,
-} from "@/lib/validations";
+import { type BoqItemPhase } from "@/lib/validations";
 import type { BoqItemWithComputed } from "@/types";
-import type { UserRole } from "@/types";
-import { canFireBoqItemPhaseTransition } from "./formatters";
+import {
+  getLegalPhaseTransitions,
+  type BoqPhaseTransitionCtx,
+} from "./formatters";
 
 /** One bucket of selected items sharing a current phase. */
 export interface PhaseGroup {
@@ -21,12 +20,6 @@ export interface BulkLifecyclePlanEntry {
   itemIds: string[];
 }
 
-interface PermissionCtx {
-  role: UserRole | null;
-  currentUserId: string | null;
-  boqCreatorId: string | null;
-}
-
 /**
  * Group selected items by current phase and annotate each group with the
  * legal transitions the actor can fire from it. `primary === true` means the
@@ -36,7 +29,7 @@ interface PermissionCtx {
 export function buildPhaseGroups(
   selectedItems: ReadonlyArray<Pick<BoqItemWithComputed, "id" | "phase">>,
   target: BoqItemPhase,
-  ctx: PermissionCtx
+  ctx: BoqPhaseTransitionCtx
 ): PhaseGroup[] {
   const byPhase = new Map<BoqItemPhase, string[]>();
   for (const it of selectedItems) {
@@ -45,13 +38,7 @@ export function buildPhaseGroups(
     byPhase.set(it.phase, ids);
   }
   return Array.from(byPhase.entries()).map(([phase, itemIds]) => {
-    const legalTargets = (BOQ_ITEM_PHASE_TRANSITIONS[phase] ?? []).filter((t) =>
-      canFireBoqItemPhaseTransition(t, {
-        role: ctx.role,
-        actorId: ctx.currentUserId,
-        boqCreatorId: ctx.boqCreatorId,
-      })
-    );
+    const legalTargets = getLegalPhaseTransitions(phase, ctx);
     return {
       phase,
       itemIds,
