@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
-import { MapPin, X, Loader2 } from "lucide-react";
+import { MapPin, Shapes, X, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
@@ -16,11 +16,13 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import type { UserRole } from "@/types";
+import type { PinShape, UserRole } from "@/types";
 
 /** Inline form shown at the top of the sidebar for a new comment. */
 export function NewPinForm({
   pendingPin,
+  pendingShapes,
+  onClearShapes,
   members,
   defaultAssignee,
   role,
@@ -31,6 +33,10 @@ export function NewPinForm({
   onRequestPin,
 }: {
   pendingPin: { xPercent: number; yPercent: number; page: number } | null;
+  /** Shape annotations currently attached to the comment-in-progress, in draw order. */
+  pendingShapes?: ReadonlyArray<PinShape>;
+  /** Clear every pending shape from the comment-in-progress. */
+  onClearShapes?: () => void;
   members: { user_id: string; name: string }[];
   /** Default assignee (pre-selected in the dropdown). */
   defaultAssignee?: string;
@@ -47,7 +53,7 @@ export function NewPinForm({
     assignAsTask?: { assignedTo: string; dueDate?: string };
   }) => void | Promise<void>;
   onCancel: () => void;
-  /** Clear the visual pending pin from the document. */
+  /** Clear the visual pending pin (or pending shapes) from the document. */
   onClearPin?: () => void;
   /** Enter pin mode so the user can click the document to place a pin. */
   onRequestPin?: () => void;
@@ -169,6 +175,22 @@ export function NewPinForm({
               >
                 <X className="w-3.5 h-3.5" />
               </button>
+            </div>
+          )}
+          {pendingShapes && pendingShapes.length > 0 && (
+            <div className="px-2.5 pt-2 flex items-center gap-1.5 text-[11px] text-text-secondary">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-bg-secondary border border-border-default">
+                <Shapes className="w-3.5 h-3.5 text-accent" />
+                <span>Shape</span>
+                <button
+                  type="button"
+                  onClick={() => onClearShapes?.()}
+                  className="text-text-muted hover:text-text-primary transition-colors cursor-pointer ml-0.5"
+                  aria-label="Clear shapes"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
             </div>
           )}
 

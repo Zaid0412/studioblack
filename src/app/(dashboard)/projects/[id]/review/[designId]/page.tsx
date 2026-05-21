@@ -24,6 +24,8 @@ import { ThumbnailPanel } from "@/components/review/ThumbnailPanel";
 import { ReviewToolbar } from "@/components/review/ReviewToolbar";
 import { DocumentViewer } from "@/components/review/DocumentViewer";
 import { PinOverlay } from "@/components/review/PinOverlay";
+import { ShapeDrawingLayer } from "@/components/review/ShapeDrawingLayer";
+import { AnnotationRail } from "@/components/review/AnnotationRail";
 import { PinSidebar } from "@/components/review/PinSidebar";
 import { ReviewPanel } from "@/components/review/ReviewPanel";
 import { ReviewSubmitBar } from "@/components/review/ReviewSubmitBar";
@@ -31,8 +33,23 @@ import { UploadDialog } from "@/components/ui/UploadDialog";
 import { toast } from "@/components/ui/useToast";
 import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
-import { isPdf } from "@/lib/fileUtils";
+import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
+import { MAX_SHAPES_PER_PIN } from "@/lib/validations";
+import type { PinShape } from "@/types";
 import { useSidebar } from "@/components/layout/SidebarContext";
+
+/**
+ * Stable client-side id for items in the pending-shapes list. Uses
+ * `crypto.randomUUID` when available (modern browsers + Node 19+) and falls
+ * back to a base-36 random string for older runtimes. The id only needs to be
+ * unique within the pending batch — it never leaves the client.
+ */
+function makeShapeId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2);
+}
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
 export default function DesignReviewPage({
@@ -80,6 +97,11 @@ export default function DesignReviewPage({
   const {
     setPinMode,
     setSelectedPinId,
+    setDrawTool,
+    setDrawColor,
+    setDrawStrokeWidth,
+    setDrawOpacity,
+    setDrawFill,
     addPin,
     resolvePin,
     editPin,
@@ -107,6 +129,19 @@ export default function DesignReviewPage({
     page: number;
   } | null>(null);
 
+  // Pending shapes: stores the drawn shapes (in draw order) while the comment
+  // form is open. The shape tool stays active across draws so the user can
+  // attach multiple shapes to one comment. Mutually exclusive with pendingPin.
+  // All shapes in a single pending batch belong to the same `page`; drawing
+  // on a different page warns and preserves the current batch.
+  //
+  // Each item carries a stable client-side `id` so React keys in PinOverlay
+  // survive batch updates (the array reference changes on every append).
+  const [pendingShapes, setPendingShapes] = useState<{
+    shapes: Array<{ id: string; shape: PinShape }>;
+    page: number;
+  } | null>(null);
+
   const [reviewsOpen, setReviewsOpen] = useState(
     searchParams.get("reviews") === "open"
   );
@@ -121,7 +156,9 @@ export default function DesignReviewPage({
   useEffect(() => {
     setRequestChangesMode(false); // eslint-disable-line react-hooks/set-state-in-effect -- sync reset on file switch
     setPendingPin(null);
-  }, [activeFileId]);
+    setPendingShapes(null);
+    setDrawTool(null);
+  }, [activeFileId, setDrawTool]);
 
   // Auto-select pin comment from URL param (deep link from tasks)
   useEffect(() => {
@@ -162,22 +199,65 @@ export default function DesignReviewPage({
       } else if (e.key === "Escape") {
         e.preventDefault();
         setPinMode(false);
+        setDrawTool(null);
         setPendingPin(null);
+        setPendingShapes(null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleTogglePinMode, setPinMode]);
+  }, [handleTogglePinMode, setPinMode, setDrawTool]);
 
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
       setPendingPin({ xPercent, yPercent, page });
+      setPendingShapes(null);
       setCommentsOpen(true);
       // Exit pin mode — cursor goes back to normal after placing a pin
       setPinMode(false);
     },
     [setPinMode]
   );
+
+  const handleShapeComplete = useCallback((shape: PinShape, page: number) => {
+    const newItem = { id: makeShapeId(), shape };
+    setPendingShapes((prev) => {
+      // First draw — start a fresh batch.
+      if (!prev) {
+        return { shapes: [newItem], page };
+      }
+      // Drawing on a different page while a batch is in flight: warn and
+      // preserve the in-progress batch instead of silently dropping it.
+      if (prev.page !== page) {
+        if (prev.shapes.length > 0) {
+          toast({
+            title: "Shape ignored",
+            description: `Finish or cancel the comment on page ${prev.page} first.`,
+            variant: "warning",
+          });
+          return prev;
+        }
+        return { shapes: [newItem], page };
+      }
+      if (prev.shapes.length >= MAX_SHAPES_PER_PIN) {
+        toast({
+          title: "Shape limit reached",
+          description: `A single comment can hold up to ${MAX_SHAPES_PER_PIN} shapes.`,
+          variant: "warning",
+        });
+        return prev;
+      }
+      return { shapes: [...prev.shapes, newItem], page };
+    });
+    setPendingPin(null);
+    setCommentsOpen(true);
+    // Tool stays active so the user can keep drawing more shapes onto the
+    // same comment.
+  }, []);
+
+  const handleClearShapes = useCallback(() => {
+    setPendingShapes(null);
+  }, []);
 
   const handlePinFormSubmit = useCallback(
     async (data: {
@@ -188,8 +268,20 @@ export default function DesignReviewPage({
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {
-      await addPin(data);
+      // If shapes are pending, fold them into the addPin call so the server
+      // persists them in one transaction. Strip the client-side ids — the API
+      // contract only sees the raw PinShape geometry + style.
+      const enriched =
+        pendingShapes && pendingShapes.shapes.length > 0
+          ? {
+              ...data,
+              shapes: pendingShapes.shapes.map((item) => item.shape),
+              page: pendingShapes.page,
+            }
+          : data;
+      await addPin(enriched);
       setPendingPin(null);
+      setPendingShapes(null);
       setRequestChangesMode(false);
 
       if (data.requestChanges) {
@@ -204,15 +296,17 @@ export default function DesignReviewPage({
         );
       }
     },
-    [addPin, updateAttachment]
+    [addPin, pendingShapes, updateAttachment]
   );
 
   const handlePinFormCancel = useCallback(() => {
     setPendingPin(null);
+    setPendingShapes(null);
   }, []);
 
   const handleClearPendingPin = useCallback(() => {
     setPendingPin(null);
+    setPendingShapes(null);
   }, []);
 
   const handleRepositionPendingPin = useCallback(
@@ -403,8 +497,6 @@ export default function DesignReviewPage({
             backPath={`/projects/${id}`}
             fileName={fileName}
             fileUrl={fileUrl}
-            pinModeActive={pinState.pinMode}
-            onTogglePinMode={handleTogglePinMode}
             onDownload={handleDownload}
             onUploadNewVersion={
               !isClient && attachment?.version_group && !attachment?.frozen_at
@@ -475,14 +567,14 @@ export default function DesignReviewPage({
                         className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
                           reviewsOpen
                             ? "bg-[#F5C518]/15 text-[#F5C518]"
-                            : review.reviews.length > 0
+                            : (review.reviews ?? []).length > 0
                               ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
                               : "text-text-secondary hover:text-text-primary"
                         }`}
                       >
                         <ClipboardCheck className="w-3.5 h-3.5" />
-                        {review.reviews.length > 0 && (
-                          <span>{review.reviews.length}</span>
+                        {(review.reviews ?? []).length > 0 && (
+                          <span>{(review.reviews ?? []).length}</span>
                         )}
                       </button>
                     </TooltipTrigger>
@@ -493,45 +585,90 @@ export default function DesignReviewPage({
             }
           />
 
-          <DocumentViewer
-            activeFileId={activeFileId}
-            fileName={fileName}
-            fileUrl={fileUrl}
-            pinMode={pinState.pinMode}
-            onPinClick={handlePinClick}
-            renderPageOverlay={
-              isPdf(fileName)
-                ? (page) => (
-                    <PinOverlay
-                      pins={pinState.pins}
-                      page={page}
-                      selectedPinId={pinState.selectedPinId}
-                      onSelectPin={setSelectedPinId}
-                      pendingPin={pendingPin}
-                      onRepositionPin={repositionPin}
-                      pinMode={pinState.pinMode}
-                      currentUserId={session?.user?.id ?? ""}
-                      onRepositionPendingPin={handleRepositionPendingPin}
+          <div className="flex-1 flex min-h-0">
+            <AnnotationRail
+              pinModeActive={pinState.pinMode}
+              onTogglePinMode={handleTogglePinMode}
+              drawTool={pinState.drawTool}
+              onSelectDrawTool={setDrawTool}
+              drawColor={pinState.drawColor}
+              onSelectDrawColor={setDrawColor}
+              drawStrokeWidth={pinState.drawStrokeWidth}
+              onSelectDrawStrokeWidth={setDrawStrokeWidth}
+              drawOpacity={pinState.drawOpacity}
+              onSelectDrawOpacity={setDrawOpacity}
+              drawFill={pinState.drawFill}
+              onSelectDrawFill={setDrawFill}
+              hideShapeTools={isSpreadsheet(fileName)}
+            />
+            <DocumentViewer
+              activeFileId={activeFileId}
+              fileName={fileName}
+              fileUrl={fileUrl}
+              pinMode={pinState.pinMode}
+              onPinClick={handlePinClick}
+              renderPageOverlay={
+                isPdf(fileName)
+                  ? (page) => (
+                      <>
+                        <PinOverlay
+                          pins={pinState.pins}
+                          page={page}
+                          selectedPinId={pinState.selectedPinId}
+                          onSelectPin={setSelectedPinId}
+                          pendingPin={pendingPin}
+                          pendingShapes={pendingShapes}
+                          onRepositionPin={repositionPin}
+                          pinMode={pinState.pinMode}
+                          currentUserId={session?.user?.id ?? ""}
+                          onRepositionPendingPin={handleRepositionPendingPin}
+                        />
+                        {pinState.drawTool && (
+                          <ShapeDrawingLayer
+                            page={page}
+                            tool={pinState.drawTool}
+                            color={pinState.drawColor}
+                            strokeWidth={pinState.drawStrokeWidth}
+                            opacity={pinState.drawOpacity}
+                            fill={pinState.drawFill}
+                            onComplete={handleShapeComplete}
+                          />
+                        )}
+                      </>
+                    )
+                  : undefined
+              }
+            >
+              {/* Pin markers overlay — for images (page 1) */}
+              {!isPdf(fileName) && (
+                <>
+                  <PinOverlay
+                    pins={pinState.pins}
+                    page={1}
+                    selectedPinId={pinState.selectedPinId}
+                    onSelectPin={setSelectedPinId}
+                    pendingPin={pendingPin}
+                    pendingShapes={pendingShapes}
+                    onRepositionPin={repositionPin}
+                    pinMode={pinState.pinMode}
+                    currentUserId={session?.user?.id ?? ""}
+                    onRepositionPendingPin={handleRepositionPendingPin}
+                  />
+                  {pinState.drawTool && !isSpreadsheet(fileName) && (
+                    <ShapeDrawingLayer
+                      page={1}
+                      tool={pinState.drawTool}
+                      color={pinState.drawColor}
+                      strokeWidth={pinState.drawStrokeWidth}
+                      opacity={pinState.drawOpacity}
+                      fill={pinState.drawFill}
+                      onComplete={handleShapeComplete}
                     />
-                  )
-                : undefined
-            }
-          >
-            {/* Pin markers overlay — for images (page 1) */}
-            {!isPdf(fileName) && (
-              <PinOverlay
-                pins={pinState.pins}
-                page={1}
-                selectedPinId={pinState.selectedPinId}
-                onSelectPin={setSelectedPinId}
-                pendingPin={pendingPin}
-                onRepositionPin={repositionPin}
-                pinMode={pinState.pinMode}
-                currentUserId={session?.user?.id ?? ""}
-                onRepositionPendingPin={handleRepositionPendingPin}
-              />
-            )}
-          </DocumentViewer>
+                  )}
+                </>
+              )}
+            </DocumentViewer>
+          </div>
 
           {/* Client: Review Submit Bar */}
           {isClient && (
@@ -545,7 +682,7 @@ export default function DesignReviewPage({
         {/* PM: Reviews Panel — flex sibling, pushes document viewer */}
         {!isClient && reviewsOpen && (
           <ReviewPanel
-            reviews={review.reviews}
+            reviews={review.reviews ?? []}
             onClose={() => setReviewsOpen(false)}
           />
         )}
@@ -568,6 +705,8 @@ export default function DesignReviewPage({
             setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
+          pendingShapes={pendingShapes?.shapes.map((item) => item.shape) ?? []}
+          onClearShapes={handleClearShapes}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}
           onClearPendingPin={handleClearPendingPin}

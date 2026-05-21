@@ -1,9 +1,56 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, DbPinShape, PinShape, PinShapeType } from "@/types";
+import { centroidOf, geometryOf } from "@/lib/shapeUtils";
+
+/** Shape drawing tool currently selected in the review toolbar. */
+export type DrawTool = PinShapeType | null;
+
+/** Default color used for new shape annotations. Reuses the accent yellow. */
+export const DEFAULT_SHAPE_COLOR = "#F5C518";
+
+/** Default stroke thickness in screen pixels. */
+export const DEFAULT_SHAPE_STROKE_WIDTH = 2;
+
+/** Default opacity (fully opaque). */
+export const DEFAULT_SHAPE_OPACITY = 1;
+
+/** Whether new shapes are filled by default (outline-only). */
+export const DEFAULT_SHAPE_FILL = false;
+
+function shapeCentroidXY(shape: PinShape): {
+  x: number | null;
+  y: number | null;
+} {
+  const [x, y] = centroidOf(shape);
+  return { x, y };
+}
+
+/**
+ * Build a DbPinShape for optimistic rendering. Real ids replace it when the
+ * server response arrives.
+ */
+function toOptimisticDbShape(
+  shape: PinShape,
+  pinId: string,
+  index: number
+): DbPinShape {
+  return {
+    id: `temp-shape-${pinId}-${index}`,
+    pin_comment_id: pinId,
+    shape_type: shape.type,
+    shape_data: geometryOf(shape),
+    shape_color: shape.color,
+    shape_stroke_width: shape.strokeWidth,
+    shape_opacity: shape.opacity,
+    shape_fill: shape.fill,
+    order_index: index,
+    created_at: new Date().toISOString(),
+  };
+}
 
 interface UsePinCommentsParams {
   projectId: string;
@@ -38,11 +85,50 @@ export function usePinComments({
   });
 
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
-  const [pinMode, setPinMode] = useState(false);
+  const [pinMode, setPinModeRaw] = useState(false);
+  const [drawTool, setDrawToolRaw] = useState<DrawTool>(null);
+  const [drawColor, setDrawColor] = useState<string>(DEFAULT_SHAPE_COLOR);
+  const [drawStrokeWidth, setDrawStrokeWidth] = useState<number>(
+    DEFAULT_SHAPE_STROKE_WIDTH
+  );
+  const [drawOpacity, setDrawOpacity] = useState<number>(DEFAULT_SHAPE_OPACITY);
+  const [drawFill, setDrawFill] = useState<boolean>(DEFAULT_SHAPE_FILL);
   /** Replies keyed by parent pin ID — lazily loaded. */
   const [repliesMap, setRepliesMap] = useState<Map<string, DbPinComment[]>>(
     new Map()
   );
+
+  /**
+   * Pin mode and shape tools are mutually exclusive. The setPinMode setter
+   * must stay a pure forwarder — React invokes updater functions twice under
+   * StrictMode/concurrent rendering, so any setState side effect inside the
+   * updater fires twice. To evaluate function-form `next` against the latest
+   * pinMode without a stale closure (e.g. when consumers call setPinMode
+   * twice in the same handler), we track pinMode in a ref kept in sync via
+   * an effect and resolve `next` at the top of the setter.
+   */
+  const pinModeRef = useRef(pinMode);
+  useEffect(() => {
+    pinModeRef.current = pinMode;
+  }, [pinMode]);
+
+  const setPinMode = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const on = typeof next === "function" ? next(pinModeRef.current) : next;
+      pinModeRef.current = on;
+      setPinModeRaw(on);
+      if (on) setDrawToolRaw(null);
+    },
+    []
+  );
+
+  const setDrawTool = useCallback((tool: DrawTool) => {
+    setDrawToolRaw(tool);
+    if (tool !== null) {
+      pinModeRef.current = false;
+      setPinModeRaw(false);
+    }
+  }, []);
 
   // ── Add pin (optimistic) ──────────────────────────────────────────────
 
@@ -54,16 +140,24 @@ export function usePinComments({
       content: string;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
+      shapes?: ReadonlyArray<PinShape>;
     }) => {
-      // Optimistic: insert a temp pin immediately
       const tempId = `temp-${Date.now()}`;
+      const shapes = data.shapes ?? [];
+      const hasShapes = shapes.length > 0;
+      // For shape annotations the server derives x/y from the first shape's
+      // centroid; mirror that on the optimistic pin so the marker pops in at
+      // the right spot before the server response arrives.
+      const optimisticXY = hasShapes
+        ? shapeCentroidXY(shapes[0])
+        : { x: data.xPercent ?? null, y: data.yPercent ?? null };
       const tempPin: DbPinComment = {
         id: tempId,
         attachment_id: attachmentId,
         user_id: "",
         user_name: userName,
-        x_percent: data.xPercent ?? null,
-        y_percent: data.yPercent ?? null,
+        x_percent: optimisticXY.x,
+        y_percent: optimisticXY.y,
         page: data.page ?? null,
         content: data.content,
         resolved: false,
@@ -74,6 +168,7 @@ export function usePinComments({
         updated_at: null,
         reply_count: 0,
         created_at: new Date().toISOString(),
+        shapes: shapes.map((s, i) => toOptimisticDbShape(s, tempId, i)),
       };
       mutatePins((prev) => [...(prev ?? []), tempPin], { revalidate: false });
 
@@ -90,6 +185,7 @@ export function usePinComments({
                 due_date: data.assignAsTask.dueDate,
               }
             : undefined,
+          shapes: hasShapes ? [...shapes] : undefined,
         });
         // Replace temp with real
         mutatePins(
@@ -295,6 +391,16 @@ export function usePinComments({
     setSelectedPinId,
     pinMode,
     setPinMode,
+    drawTool,
+    setDrawTool,
+    drawColor,
+    setDrawColor,
+    drawStrokeWidth,
+    setDrawStrokeWidth,
+    drawOpacity,
+    setDrawOpacity,
+    drawFill,
+    setDrawFill,
     addPin,
     resolvePin,
     editPin,

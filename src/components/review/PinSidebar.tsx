@@ -8,7 +8,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { sortPinsByDate, buildPinIndexMap } from "@/lib/pinUtils";
-import type { DbPinComment, UserRole } from "@/types";
+import type { DbPinComment, PinShape, UserRole } from "@/types";
 import { useSlide } from "./useSlide";
 import { PinCard } from "./PinCard";
 import { NewPinForm } from "./NewPinForm";
@@ -29,6 +29,10 @@ interface PinSidebarProps {
   onClose: () => void;
   /** When set, the form for a new pin is shown at the top of the sidebar. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
+  /** Shape annotations attached to the comment-in-progress. */
+  pendingShapes?: ReadonlyArray<PinShape>;
+  /** Clear every pending shape from the comment-in-progress. */
+  onClearShapes?: () => void;
   onSubmitComment: (data: {
     content: string;
     xPercent?: number | null;
@@ -68,6 +72,8 @@ export function PinSidebar({
   open,
   onClose,
   pendingPin,
+  pendingShapes,
+  onClearShapes,
   onSubmitComment,
   onCancelPending,
   onClearPendingPin,
@@ -93,8 +99,10 @@ export function PinSidebar({
     }
   }, [selectedPinId]);
 
-  // Show form when pendingPin is set (from document click)
-  const formVisible = showNewForm || !!pendingPin || !!requestChangesMode;
+  // Show form when pendingPin / pendingShapes is set (from document click or draw)
+  const hasPendingShapes = !!pendingShapes && pendingShapes.length > 0;
+  const formVisible =
+    showNewForm || !!pendingPin || hasPendingShapes || !!requestChangesMode;
 
   const sorted = useMemo(() => sortPinsByDate(pins), [pins]);
   const pinIndexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
@@ -148,6 +156,8 @@ export function PinSidebar({
       {formVisible && (
         <NewPinForm
           pendingPin={pendingPin ?? null}
+          pendingShapes={pendingShapes}
+          onClearShapes={onClearShapes}
           members={members}
           defaultAssignee={defaultAssignee}
           role={role}

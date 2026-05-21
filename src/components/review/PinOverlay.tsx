@@ -1,9 +1,84 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Check } from "lucide-react";
 import { sortPinsByDate, isPinned, buildPinIndexMap } from "@/lib/pinUtils";
-import type { DbPinComment } from "@/types";
+import { geometryOf } from "@/lib/shapeUtils";
+import type {
+  DbPinComment,
+  PinShape,
+  PinShapeData,
+  PinShapeType,
+} from "@/types";
+import {
+  DEFAULT_SHAPE_COLOR,
+  DEFAULT_SHAPE_STROKE_WIDTH,
+} from "@/hooks/usePinComments";
+
+/**
+ * SVG rendering for one shape annotation. Sized in the parent SVG's
+ * viewBox (0–100), `vector-effect="non-scaling-stroke"` keeps the stroke
+ * weight pixel-stable across zoom.
+ */
+function ShapePath({
+  shapeType,
+  shapeData,
+  color,
+  selected,
+  strokeWidth,
+  opacity,
+  filled,
+}: {
+  shapeType: PinShapeType;
+  shapeData: PinShapeData;
+  color: string;
+  selected?: boolean;
+  /** Stroke thickness in screen pixels (defaults to 2). Selection bumps by 1. */
+  strokeWidth?: number | null;
+  /** Override opacity (0–1). Defaults to 1 when selected, 0.85 otherwise. */
+  opacity?: number | null;
+  /** When true, paint the shape's interior with `color` (not valid for freehand). */
+  filled?: boolean | null;
+}) {
+  const baseStroke = strokeWidth ?? DEFAULT_SHAPE_STROKE_WIDTH;
+  const sw = selected ? baseStroke + 1 : baseStroke;
+  const fillForShape = filled && shapeType !== "freehand" ? color : "none";
+  const common = {
+    stroke: color,
+    strokeWidth: sw,
+    fill: fillForShape,
+    vectorEffect: "non-scaling-stroke" as const,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    opacity: opacity ?? (selected ? 1 : 0.85),
+  };
+  if (shapeType === "rectangle") {
+    const { x, y, w, h } = shapeData as {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    };
+    return <rect x={x} y={y} width={w} height={h} {...common} />;
+  }
+  if (shapeType === "circle") {
+    const { cx, cy, rx, ry } = shapeData as {
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+    };
+    return <ellipse cx={cx} cy={cy} rx={rx} ry={ry} {...common} />;
+  }
+  const { points } = shapeData as { points: Array<[number, number]> };
+  if (points.length === 0) return null;
+  const d =
+    "M " +
+    points
+      .map(([px, py], i) => (i === 0 ? `${px} ${py}` : `L ${px} ${py}`))
+      .join(" ");
+  return <path d={d} {...common} />;
+}
 
 interface PinOverlayProps {
   pins: DbPinComment[];
@@ -12,6 +87,15 @@ interface PinOverlayProps {
   onSelectPin: (pinId: string) => void;
   /** Temporary pin shown while the user is typing a comment. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
+  /**
+   * Temporary shapes shown while the user is typing a comment. Each entry
+   * carries a stable client-side `id` so React keys survive batch updates
+   * (the parent appends to this array on every freehand stroke).
+   */
+  pendingShapes?: {
+    shapes: ReadonlyArray<{ id: string; shape: PinShape }>;
+    page: number;
+  } | null;
   /** Callback when a pin is dragged to a new position. */
   onRepositionPin?: (
     pinId: string,
@@ -114,6 +198,7 @@ export function PinOverlay({
   selectedPinId,
   onSelectPin,
   pendingPin,
+  pendingShapes,
   onRepositionPin,
   pinMode = false,
   currentUserId,
@@ -135,12 +220,12 @@ export function PinOverlay({
     dragStateRef.current = dragState;
   }, [dragState]);
 
-  const pagePins = sortPinsByDate(
-    pins.filter((p) => isPinned(p) && p.page === page)
+  const pagePins = useMemo(
+    () => sortPinsByDate(pins.filter((p) => isPinned(p) && p.page === page)),
+    [pins, page]
   );
-
-  const indexMap = buildPinIndexMap(pins);
-  const pinnedCount = pins.filter(isPinned).length;
+  const indexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
+  const pinnedCount = useMemo(() => pins.filter(isPinned).length, [pins]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, pin: DbPinComment) => {
@@ -205,6 +290,12 @@ export function PinOverlay({
     setDragState(null);
   }, [onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
 
+  const showPendingShapes =
+    pendingShapes != null && pendingShapes.page === page;
+  const anyShapesToRender =
+    pagePins.some((p) => p.shapes.length > 0) ||
+    (showPendingShapes && pendingShapes.shapes.length > 0);
+
   return (
     <div
       ref={overlayRef}
@@ -212,6 +303,45 @@ export function PinOverlay({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
+      {anyShapesToRender && (
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          {pagePins.flatMap((pin) =>
+            pin.shapes.map((s) => (
+              <ShapePath
+                key={`shape-${s.id}`}
+                shapeType={s.shape_type}
+                shapeData={s.shape_data}
+                color={s.shape_color ?? DEFAULT_SHAPE_COLOR}
+                selected={pin.id === selectedPinId}
+                strokeWidth={s.shape_stroke_width}
+                opacity={s.shape_opacity}
+                filled={s.shape_fill}
+              />
+            ))
+          )}
+          {showPendingShapes && (
+            <g className="animate-pulse">
+              {pendingShapes.shapes.map(({ id, shape: s }) => (
+                <ShapePath
+                  key={`pending-${id}`}
+                  shapeType={s.type}
+                  shapeData={geometryOf(s)}
+                  color={s.color}
+                  strokeWidth={s.strokeWidth}
+                  opacity={s.opacity}
+                  filled={s.fill}
+                  selected
+                />
+              ))}
+            </g>
+          )}
+        </svg>
+      )}
+
       {pagePins.map((pin) => {
         const index = indexMap.get(pin.id) ?? 0;
         const isSelected = pin.id === selectedPinId;

@@ -1,13 +1,66 @@
 import { getPool } from "@/lib/db";
+import type { PinShape } from "@/types";
+import { geometryOf } from "@/lib/shapeUtils";
 
 // ── Pin Comments ─────────────────────────────────
+
+/**
+ * Common SELECT clause: pin_comment row + user_name + reply_count +
+ *  aggregated `shapes` array sourced from pin_comment_shape.
+ */
+// TODO(perf): consider LEFT JOIN LATERAL if profiling shows the planner is
+// doing per-row scans instead of rewriting these correlated subqueries into
+// hash semi-joins.
+//
+// Columns are listed explicitly — `pc.*` would also pull the deprecated
+// `shape_type`, `shape_data`, `shape_color`, `shape_stroke_width`,
+// `shape_opacity`, `shape_fill` columns into every API payload (bloated by
+// `shape_data` JSON for migrated rows). Keeping the list explicit unblocks
+// the eventual cleanup migration that drops those columns from the DB.
+const PIN_SELECT = `pc.id,
+        pc.attachment_id,
+        pc.user_id,
+        pc.x_percent,
+        pc.y_percent,
+        pc.page,
+        pc.content,
+        pc.resolved,
+        pc.task_id,
+        pc.request_approval,
+        pc.request_changes,
+        pc.parent_id,
+        pc.updated_at,
+        pc.created_at,
+        u.name AS user_name,
+        (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', s.id,
+                'pin_comment_id', s.pin_comment_id,
+                'shape_type', s.shape_type,
+                'shape_data', s.shape_data,
+                'shape_color', s.shape_color,
+                'shape_stroke_width', s.shape_stroke_width,
+                'shape_opacity', s.shape_opacity,
+                'shape_fill', s.shape_fill,
+                'order_index', s.order_index,
+                'created_at', s.created_at
+              )
+              ORDER BY s.order_index
+            )
+            FROM pin_comment_shape s
+            WHERE s.pin_comment_id = pc.id
+          ),
+          '[]'::json
+        ) AS shapes`;
 
 /** Fetch top-level pin comments (no replies) for an attachment. */
 export async function getPinComments(attachmentId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT pc.*, u.name AS user_name,
-            (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count
+    `SELECT ${PIN_SELECT}
      FROM pin_comment pc
      JOIN "user" u ON u.id = pc.user_id
      WHERE pc.attachment_id = $1 AND pc.parent_id IS NULL
@@ -21,7 +74,7 @@ export async function getPinComments(attachmentId: string) {
 export async function getPinCommentReplies(parentId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT pc.*, u.name AS user_name, 0 AS reply_count
+    `SELECT ${PIN_SELECT}
      FROM pin_comment pc
      JOIN "user" u ON u.id = pc.user_id
      WHERE pc.parent_id = $1
@@ -35,8 +88,7 @@ export async function getPinCommentReplies(parentId: string) {
 export async function getPinCommentById(pinId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT pc.*, u.name AS user_name,
-            (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count
+    `SELECT ${PIN_SELECT}
      FROM pin_comment pc
      JOIN "user" u ON u.id = pc.user_id
      WHERE pc.id = $1`,
@@ -45,7 +97,41 @@ export async function getPinCommentById(pinId: string) {
   return rows[0] || null;
 }
 
-/** Insert a new pin comment (or reply) and return the created row. */
+/**
+ * Bulk-insert N shapes for a pin_comment in draw order using a single
+ * `unnest` query — N round-trips collapsed to 1. Caller owns the transaction
+ * client.
+ */
+async function insertShapesForPin(
+  client: import("pg").PoolClient,
+  pinId: string,
+  shapes: ReadonlyArray<PinShape>
+) {
+  if (shapes.length === 0) return;
+  const types = shapes.map((s) => s.type);
+  const datas = shapes.map((s) => JSON.stringify(geometryOf(s)));
+  const colors = shapes.map((s) => s.color);
+  const strokes = shapes.map((s) => s.strokeWidth);
+  const opacities = shapes.map((s) => s.opacity);
+  const fills = shapes.map((s) => s.fill);
+  // Explicit 0-based order_index — matches the v7 migration backfill and the
+  // optimistic-update indexing in usePinComments.toOptimisticDbShape. Avoid
+  // WITH ORDINALITY here because it would emit 1-based bigint values.
+  const orders = shapes.map((_, i) => i);
+  await client.query(
+    `INSERT INTO pin_comment_shape
+       (pin_comment_id, shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)
+     SELECT $1, t.shape_type, t.shape_data::jsonb, t.shape_color, t.shape_stroke_width, t.shape_opacity, t.shape_fill, t.order_index
+     FROM unnest($2::text[], $3::text[], $4::text[], $5::smallint[], $6::numeric[], $7::boolean[], $8::smallint[])
+       AS t(shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)`,
+    [pinId, types, datas, colors, strokes, opacities, fills, orders]
+  );
+}
+
+/**
+ * Insert a new pin comment (or reply) and return the created row with its
+ *  aggregated `shapes` array.
+ */
 export async function createPinComment(params: {
   attachmentId: string;
   userId: string;
@@ -57,31 +143,41 @@ export async function createPinComment(params: {
   requestChanges?: boolean;
   taskId?: string | null;
   parentId?: string | null;
+  shapes?: ReadonlyArray<PinShape>;
 }) {
   const pool = getPool();
-  const { rows } = await pool.query(
-    `WITH inserted AS (
-       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, parent_id)
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: pinRows } = await client.query(
+      `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, parent_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-       RETURNING *
-     )
-     SELECT i.*, u.name AS user_name, 0::int AS reply_count
-     FROM inserted i
-     JOIN "user" u ON u.id = i.user_id`,
-    [
-      params.attachmentId,
-      params.userId,
-      params.xPercent,
-      params.yPercent,
-      params.page,
-      params.content,
-      params.requestApproval ?? false,
-      params.requestChanges ?? false,
-      params.taskId ?? null,
-      params.parentId ?? null,
-    ]
-  );
-  return rows[0];
+       RETURNING id`,
+      [
+        params.attachmentId,
+        params.userId,
+        params.xPercent,
+        params.yPercent,
+        params.page,
+        params.content,
+        params.requestApproval ?? false,
+        params.requestChanges ?? false,
+        params.taskId ?? null,
+        params.parentId ?? null,
+      ]
+    );
+    const pinId = pinRows[0].id;
+    if (params.shapes && params.shapes.length > 0) {
+      await insertShapesForPin(client, pinId, params.shapes);
+    }
+    await client.query("COMMIT");
+    return (await getPinCommentById(pinId))!;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Update resolved status of a pin comment. */
@@ -139,6 +235,7 @@ export async function createPinWithTask(params: {
   requestChanges: boolean;
   assignedTo: string;
   dueDate: string | null;
+  shapes?: ReadonlyArray<PinShape>;
 }): Promise<{ pinId: string; taskId: string }> {
   const pool = getPool();
   const client = await pool.connect();
@@ -179,7 +276,7 @@ export async function createPinWithTask(params: {
     const { rows: pinRows } = await client.query(
       `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
+       RETURNING id`,
       [
         params.attachmentId,
         params.userId,
@@ -192,6 +289,11 @@ export async function createPinWithTask(params: {
         taskId,
       ]
     );
+    const pinId = pinRows[0].id;
+
+    if (params.shapes && params.shapes.length > 0) {
+      await insertShapesForPin(client, pinId, params.shapes);
+    }
 
     if (params.requestChanges) {
       await client.query(
@@ -201,7 +303,7 @@ export async function createPinWithTask(params: {
     }
 
     await client.query("COMMIT");
-    return { pinId: pinRows[0].id, taskId };
+    return { pinId, taskId };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -210,7 +312,7 @@ export async function createPinWithTask(params: {
   }
 }
 
-/** Delete a pin comment by ID (cascades to replies). */
+/** Delete a pin comment by ID (cascades to replies and shape rows). */
 export async function deletePinComment(pinId: string) {
   const pool = getPool();
   await pool.query(`DELETE FROM pin_comment WHERE id = $1`, [pinId]);

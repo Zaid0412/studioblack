@@ -521,6 +521,266 @@ describe("createPinSchema", () => {
     });
     expect(data.x_percent).toBeNull();
   });
+
+  // Shape annotation helpers — every shape carries its own style.
+  // Frozen so a future Zod transform on `pinShapeSchema` can't mutate
+  // the shared reference and bleed test state across cases.
+  const STYLE = Object.freeze({
+    color: "#dc2626",
+    strokeWidth: 2,
+    opacity: 1,
+    fill: false,
+  } as const);
+
+  it("accepts a rectangle shape", () => {
+    expectPass(createPinSchema, {
+      content: "fix corner",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 30, h: 40, ...STYLE }],
+    });
+  });
+
+  it("accepts a circle shape", () => {
+    expectPass(createPinSchema, {
+      content: "fix",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 10, ry: 10, ...STYLE }],
+    });
+  });
+
+  it("accepts a freehand shape", () => {
+    expectPass(createPinSchema, {
+      content: "fix",
+      shapes: [
+        {
+          type: "freehand",
+          points: [
+            [10, 10],
+            [20, 20],
+            [30, 30],
+          ],
+          ...STYLE,
+        },
+      ],
+    });
+  });
+
+  it("accepts multiple shapes with mixed types and styles", () => {
+    expectPass(createPinSchema, {
+      content: "look at these three things",
+      shapes: [
+        {
+          type: "rectangle",
+          x: 10,
+          y: 10,
+          w: 20,
+          h: 20,
+          color: "#dc2626",
+          strokeWidth: 2,
+          opacity: 1,
+          fill: true,
+        },
+        {
+          type: "circle",
+          cx: 50,
+          cy: 50,
+          rx: 10,
+          ry: 10,
+          color: "#16a34a",
+          strokeWidth: 4,
+          opacity: 0.5,
+          fill: false,
+        },
+        {
+          type: "freehand",
+          points: [
+            [70, 70],
+            [80, 80],
+          ],
+          color: "#0284c7",
+          strokeWidth: 1,
+          opacity: 1,
+          fill: false,
+        },
+      ],
+    });
+  });
+
+  it("rejects more than 20 shapes", () => {
+    const shape = {
+      type: "rectangle" as const,
+      x: 0,
+      y: 0,
+      w: 5,
+      h: 5,
+      ...STYLE,
+    };
+    expectFail(createPinSchema, {
+      content: "too many",
+      shapes: Array.from({ length: 21 }, () => shape),
+    });
+  });
+
+  it("accepts exactly 20 shapes", () => {
+    const shape = {
+      type: "rectangle" as const,
+      x: 0,
+      y: 0,
+      w: 5,
+      h: 5,
+      ...STYLE,
+    };
+    expectPass(createPinSchema, {
+      content: "max",
+      shapes: Array.from({ length: 20 }, () => shape),
+    });
+  });
+
+  it("rejects freehand with fewer than 2 points", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "freehand", points: [[10, 10]], ...STYLE }],
+    });
+  });
+
+  it("rejects unknown shape type", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "triangle", x: 0, y: 0, w: 10, h: 10, ...STYLE }],
+    });
+  });
+
+  it("rejects rectangle with out-of-range coords", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 30, h: 200, ...STYLE }],
+    });
+  });
+
+  it("rejects rectangle with both dimensions zero", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 0, h: 0, ...STYLE }],
+    });
+  });
+
+  it("accepts rectangle with only one non-zero dimension", () => {
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 5, h: 0, ...STYLE }],
+    });
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 0, h: 5, ...STYLE }],
+    });
+  });
+
+  it("rejects circle with both radii zero", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 0, ry: 0, ...STYLE }],
+    });
+  });
+
+  it("accepts circle with only one non-zero radius", () => {
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 5, ry: 0, ...STYLE }],
+    });
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 0, ry: 5, ...STYLE }],
+    });
+  });
+
+  it("rejects shape with malformed color", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [
+        {
+          type: "rectangle",
+          x: 0,
+          y: 0,
+          w: 10,
+          h: 10,
+          color: "red",
+          strokeWidth: 2,
+          opacity: 1,
+          fill: false,
+        },
+      ],
+    });
+  });
+
+  it("rejects shape with stroke width 0", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          strokeWidth: 0,
+        },
+      ],
+    });
+  });
+
+  it("rejects shape with stroke width above 10", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          strokeWidth: 11,
+        },
+      ],
+    });
+  });
+
+  it("rejects shape with non-integer stroke width", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          strokeWidth: 2.5,
+        },
+      ],
+    });
+  });
+
+  it("rejects shape with opacity of 0", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          opacity: 0,
+        },
+      ],
+    });
+  });
+
+  it("rejects shape with opacity above 1", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          opacity: 1.5,
+        },
+      ],
+    });
+  });
+
+  it("rejects shape missing style fields", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 }],
+    });
+  });
 });
 
 // ── updatePinSchema ──────────────────────────────────────────────────────────

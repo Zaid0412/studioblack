@@ -26,18 +26,24 @@ export function useDesignReview({
   const [activeFileId, setActiveFileId] = useState(designId);
 
   // -- Active attachment (SWR) --
+  // `keepPreviousData` keeps the previous attachment in `data` while the new
+  // one is in flight, so switching files doesn't drop `isLoading` back to true
+  // and unmount the rest of the page (file list, toolbar, comments).
   const {
     data: attachmentData,
     isLoading: loading,
     mutate: mutateAttachment,
   } = useSWR<DbAttachment>(
-    `/api/projects/${projectId}/attachments/${activeFileId}`
+    `/api/projects/${projectId}/attachments/${activeFileId}`,
+    { keepPreviousData: true }
   );
 
   const attachment = attachmentData ?? null;
 
   // -- Reviews (SWR, conditional) --
-  const { data: reviews = [] } = useSWR<DbAttachmentReview[]>(
+  // No `= []` default: callers should distinguish `undefined` (loading or
+  // not yet fetched) from `[]` (loaded, empty). Use `?? []` at read sites.
+  const { data: reviews } = useSWR<DbAttachmentReview[]>(
     fetchReviews
       ? `/api/projects/${projectId}/attachments/${activeFileId}/review`
       : null

@@ -230,6 +230,57 @@ export interface DbAttachmentReview {
   created_at: string;
 }
 
+/** Shape annotation geometry — all coordinates are percent-based (0–100). */
+export type PinShapeData =
+  | { x: number; y: number; w: number; h: number } // rectangle (top-left + size)
+  | { cx: number; cy: number; rx: number; ry: number } // circle (ellipse center + radii)
+  | { points: Array<[number, number]> }; // freehand path
+
+export type PinShapeType = "rectangle" | "circle" | "freehand";
+
+/** Per-shape styling — applied to a single shape, not the whole comment. */
+export interface PinShapeStyle {
+  color: string;
+  strokeWidth: number;
+  opacity: number;
+  fill: boolean;
+}
+
+/** Shape annotation payload — geometry + style, discriminated by `type`. */
+export type PinShape =
+  | ({
+      type: "rectangle";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    } & PinShapeStyle)
+  | ({
+      type: "circle";
+      cx: number;
+      cy: number;
+      rx: number;
+      ry: number;
+    } & PinShapeStyle)
+  | ({
+      type: "freehand";
+      points: Array<[number, number]>;
+    } & PinShapeStyle);
+
+/** A shape annotation as persisted in `pin_comment_shape`. */
+export interface DbPinShape {
+  id: string;
+  pin_comment_id: string;
+  shape_type: PinShapeType;
+  shape_data: PinShapeData;
+  shape_color: string | null;
+  shape_stroke_width: number | null;
+  shape_opacity: number | null;
+  shape_fill: boolean | null;
+  order_index: number;
+  created_at: string;
+}
+
 /** A pin comment placed on an attachment at a specific position. */
 export interface DbPinComment {
   id: string;
@@ -248,6 +299,22 @@ export interface DbPinComment {
   updated_at: string | null;
   reply_count: number;
   created_at: string;
+  /**
+   * Shape annotations attached to this comment, in draw order. Empty when
+   * the comment is pin-only or content-only.
+   */
+  shapes: DbPinShape[];
+  /**
+   * @deprecated Legacy single-shape fields — replaced by `shapes`. Present on
+   * the DB row only until the cleanup migration drops the columns. New code
+   * must read from `shapes`.
+   */
+  shape_type?: PinShapeType | null;
+  shape_data?: PinShapeData | null;
+  shape_color?: string | null;
+  shape_stroke_width?: number | null;
+  shape_opacity?: number | null;
+  shape_fill?: boolean | null;
 }
 
 /** DB notification row from the notifications API. */

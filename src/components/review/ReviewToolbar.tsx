@@ -8,7 +8,6 @@ import {
   Download,
   ExternalLink,
   Ellipsis,
-  MapPin,
   Printer,
   Lock,
   Maximize,
@@ -26,8 +25,6 @@ interface ReviewToolbarProps {
   backPath: string;
   fileName: string;
   fileUrl: string;
-  pinModeActive: boolean;
-  onTogglePinMode: () => void;
   onDownload: () => void;
   leftSlot?: ReactNode;
   rightSlot?: ReactNode;
@@ -44,8 +41,6 @@ export function ReviewToolbar({
   backPath,
   fileName,
   fileUrl,
-  pinModeActive,
-  onTogglePinMode,
   onDownload,
   leftSlot,
   rightSlot,
@@ -58,7 +53,8 @@ export function ReviewToolbar({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close more menu on click outside
+  // Close more menu on click outside or Escape — matches the keyboard
+  // behaviour of the popovers in ShapeSettingsPopover.
   useEffect(() => {
     if (!moreMenuOpen) return;
     function handleClick(e: MouseEvent) {
@@ -69,8 +65,15 @@ export function ReviewToolbar({
         setMoreMenuOpen(false);
       }
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [moreMenuOpen]);
 
   return (
@@ -102,14 +105,45 @@ export function ReviewToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={onTogglePinMode}
-              className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-text-secondary hover:text-text-primary"}`}
+              onClick={() => document.documentElement.requestFullscreen?.()}
+              className="text-text-secondary hover:text-text-primary cursor-pointer"
             >
-              <MapPin className="w-4 h-4" />
+              <Maximize className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Pin comment</TooltipContent>
+          <TooltipContent side="bottom">Fullscreen</TooltipContent>
         </Tooltip>
+
+        {onToggleFreeze && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleFreeze}
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                {frozen ? (
+                  <Unlock className="w-4 h-4" />
+                ) : (
+                  <Lock className="w-4 h-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {frozen ? "Unfreeze file" : "Freeze file"}
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {onSendToClient && (
+          <button
+            onClick={onSendToClient}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent text-text-on-accent text-[12px] font-semibold cursor-pointer hover:bg-accent-hover transition-colors"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Send to Client
+          </button>
+        )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -121,6 +155,20 @@ export function ReviewToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">Download file</TooltipContent>
         </Tooltip>
+
+        {onUploadNewVersion && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onUploadNewVersion}
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Upload new version</TooltipContent>
+          </Tooltip>
+        )}
 
         {/* More options dropdown */}
         <div className="relative" ref={moreMenuRef}>
@@ -147,56 +195,6 @@ export function ReviewToolbar({
                 <Printer className="w-4 h-4" />
                 Print
               </button>
-              <button
-                onClick={() => {
-                  document.documentElement.requestFullscreen?.();
-                  setMoreMenuOpen(false);
-                }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-              >
-                <Maximize className="w-4 h-4" />
-                Fullscreen
-              </button>
-              {onUploadNewVersion && (
-                <button
-                  onClick={() => {
-                    onUploadNewVersion();
-                    setMoreMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload New Version
-                </button>
-              )}
-              {onSendToClient && (
-                <button
-                  onClick={() => {
-                    onSendToClient();
-                    setMoreMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                  Send to Client
-                </button>
-              )}
-              {onToggleFreeze && (
-                <button
-                  onClick={() => {
-                    onToggleFreeze();
-                    setMoreMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  {frozen ? (
-                    <Unlock className="w-4 h-4" />
-                  ) : (
-                    <Lock className="w-4 h-4" />
-                  )}
-                  {frozen ? "Unfreeze File" : "Freeze File"}
-                </button>
-              )}
               <a
                 href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
                 target="_blank"

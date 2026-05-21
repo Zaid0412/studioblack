@@ -17,6 +17,7 @@ import {
   notifyTeamByEmail,
 } from "@/lib/notifications";
 import { parseRequest, createPinSchema } from "@/lib/validations";
+import { centroidOf } from "@/lib/shapeUtils";
 
 /** GET /api/projects/[id]/attachments/[attachmentId]/pins — list pin comments. */
 export const GET = withAuth(
@@ -53,6 +54,7 @@ export const POST = withAuth(
       request_changes,
       assign_as_task,
       parent_id,
+      shapes,
     } = parsed.data;
 
     // If this is a reply, validate parent exists and belongs to same attachment
@@ -76,26 +78,44 @@ export const POST = withAuth(
       return NextResponse.json(reply, { status: 201 });
     }
 
-    // Coordinate validation: all-or-nothing
-    const hasX = x_percent !== undefined && x_percent !== null;
-    const hasY = y_percent !== undefined && y_percent !== null;
-    const hasPage = page !== undefined && page !== null;
-    const hasAnyCoord = hasX || hasY || hasPage;
-    const hasAllCoords = hasX && hasY && hasPage;
+    // Shape annotations own their anchor (centroid of the first shape). For
+    // plain pins, x/y/page are all-or-nothing.
+    let xVal: number | null;
+    let yVal: number | null;
+    let pageVal: number | null;
 
-    if (hasAnyCoord && !hasAllCoords) {
-      return NextResponse.json(
-        {
-          error:
-            "x_percent, y_percent, and page must all be provided together or all omitted",
-        },
-        { status: 400 }
-      );
+    if (shapes && shapes.length > 0) {
+      if (page === undefined || page === null) {
+        return NextResponse.json(
+          { error: "page is required when posting shape annotations" },
+          { status: 400 }
+        );
+      }
+      const [cx, cy] = centroidOf(shapes[0]);
+      xVal = cx;
+      yVal = cy;
+      pageVal = page;
+    } else {
+      const hasX = x_percent !== undefined && x_percent !== null;
+      const hasY = y_percent !== undefined && y_percent !== null;
+      const hasPage = page !== undefined && page !== null;
+      const hasAnyCoord = hasX || hasY || hasPage;
+      const hasAllCoords = hasX && hasY && hasPage;
+
+      if (hasAnyCoord && !hasAllCoords) {
+        return NextResponse.json(
+          {
+            error:
+              "x_percent, y_percent, and page must all be provided together or all omitted",
+          },
+          { status: 400 }
+        );
+      }
+
+      xVal = hasAllCoords ? x_percent : null;
+      yVal = hasAllCoords ? y_percent : null;
+      pageVal = hasAllCoords ? page : null;
     }
-
-    const xVal = hasAllCoords ? x_percent : null;
-    const yVal = hasAllCoords ? y_percent : null;
-    const pageVal = hasAllCoords ? page : null;
     const reqChanges = request_changes === true;
 
     // Create pin + task in a single transaction if needed
@@ -119,6 +139,7 @@ export const POST = withAuth(
           requestChanges: reqChanges,
           assignedTo,
           dueDate,
+          shapes,
         });
       } catch (err) {
         if (err instanceof Error && err.message === "Project not found") {
@@ -214,6 +235,7 @@ export const POST = withAuth(
       page: pageVal,
       content: content.trim(),
       requestChanges: reqChanges,
+      shapes,
     });
 
     return NextResponse.json(pin, { status: 201 });

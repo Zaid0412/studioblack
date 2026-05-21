@@ -1,6 +1,6 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
 import { API } from "./routes";
-import type { DbPinComment } from "@/types";
+import type { DbPinComment, PinShape } from "@/types";
 
 /** Fetch all top-level pin comments for an attachment. */
 export function list(projectId: string, attachmentId: string) {
@@ -33,6 +33,7 @@ export function create(
       due_date?: string;
     };
     parent_id?: string;
+    shapes?: PinShape[];
   }
 ) {
   return apiPost<DbPinComment>(

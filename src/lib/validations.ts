@@ -299,10 +299,66 @@ export const submitReviewSchema = z.object({
 
 // ─── Pin Comments (/api/projects/[id]/attachments/[attachmentId]/pins) ──────
 
+const pct = z.number().min(0).max(100);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+const shapeStyleFields = {
+  color: hexColor,
+  strokeWidth: z.number().int().min(1).max(10),
+  opacity: z.number().gt(0).max(1),
+  fill: z.boolean(),
+};
+
+/**
+ * Shape geometry + style discriminated by `type`. All coords are
+ * percent-based so shapes survive viewer zoom / resolution changes. Each
+ * shape carries its own style so a comment can mix e.g. a red rectangle and
+ * a blue circle.
+ */
+export const pinShapeSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("rectangle"),
+      x: pct,
+      y: pct,
+      w: pct,
+      h: pct,
+      ...shapeStyleFields,
+    })
+    // The client filters zero-extent shapes via MIN_EXTENT_PCT, but a tampering
+    // client can still post `w: 0, h: 0` — reject the invisible shape here.
+    .refine((s) => s.w > 0 || s.h > 0, {
+      message: "rectangle must have non-zero width or height",
+    }),
+  z
+    .object({
+      type: z.literal("circle"),
+      cx: pct,
+      cy: pct,
+      rx: pct,
+      ry: pct,
+      ...shapeStyleFields,
+    })
+    .refine((s) => s.rx > 0 || s.ry > 0, {
+      message: "circle must have non-zero rx or ry",
+    }),
+  z.object({
+    type: z.literal("freehand"),
+    points: z
+      .array(z.tuple([pct, pct]))
+      .min(2)
+      .max(500),
+    ...shapeStyleFields,
+  }),
+]);
+
+/** Cap on shapes per comment — large enough that real usage never hits it. */
+export const MAX_SHAPES_PER_PIN = 20;
+
 export const createPinSchema = z.object({
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
-  x_percent: z.number().min(0).max(100).optional().nullable(),
-  y_percent: z.number().min(0).max(100).optional().nullable(),
+  x_percent: pct.optional().nullable(),
+  y_percent: pct.optional().nullable(),
   page: z.number().int().min(1).optional().nullable(),
   request_changes: z.boolean().optional(),
   assign_as_task: z
@@ -312,13 +368,14 @@ export const createPinSchema = z.object({
     })
     .optional(),
   parent_id: optionalUuid,
+  shapes: z.array(pinShapeSchema).max(MAX_SHAPES_PER_PIN).optional(),
 });
 
 export const updatePinSchema = z.object({
   resolved: z.boolean().optional(),
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH).optional(),
-  x_percent: z.number().min(0).max(100).optional(),
-  y_percent: z.number().min(0).max(100).optional(),
+  x_percent: pct.optional(),
+  y_percent: pct.optional(),
   page: z.number().int().min(1).optional(),
 });
 
