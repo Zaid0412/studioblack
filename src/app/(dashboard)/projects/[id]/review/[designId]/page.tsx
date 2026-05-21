@@ -38,6 +38,19 @@ import { MAX_SHAPES_PER_PIN } from "@/lib/validations";
 import type { PinShape } from "@/types";
 import { useSidebar } from "@/components/layout/SidebarContext";
 
+/**
+ * Stable client-side id for items in the pending-shapes list. Uses
+ * `crypto.randomUUID` when available (modern browsers + Node 19+) and falls
+ * back to a base-36 random string for older runtimes. The id only needs to be
+ * unique within the pending batch — it never leaves the client.
+ */
+function makeShapeId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2);
+}
+
 /** Unified design review workspace — adapts to PM/architect or client role. */
 export default function DesignReviewPage({
   params,
@@ -120,9 +133,12 @@ export default function DesignReviewPage({
   // form is open. The shape tool stays active across draws so the user can
   // attach multiple shapes to one comment. Mutually exclusive with pendingPin.
   // All shapes in a single pending batch belong to the same `page`; drawing
-  // on a different page replaces the batch.
+  // on a different page warns and preserves the current batch.
+  //
+  // Each item carries a stable client-side `id` so React keys in PinOverlay
+  // survive batch updates (the array reference changes on every append).
   const [pendingShapes, setPendingShapes] = useState<{
-    shapes: PinShape[];
+    shapes: Array<{ id: string; shape: PinShape }>;
     page: number;
   } | null>(null);
 
@@ -205,10 +221,24 @@ export default function DesignReviewPage({
 
   const handleShapeComplete = useCallback(
     (shape: PinShape, page: number) => {
+      const newItem = { id: makeShapeId(), shape };
       setPendingShapes((prev) => {
-        // Drawing on a different page (or first draw) starts a fresh batch.
-        if (!prev || prev.page !== page) {
-          return { shapes: [shape], page };
+        // First draw — start a fresh batch.
+        if (!prev) {
+          return { shapes: [newItem], page };
+        }
+        // Drawing on a different page while a batch is in flight: warn and
+        // preserve the in-progress batch instead of silently dropping it.
+        if (prev.page !== page) {
+          if (prev.shapes.length > 0) {
+            toast({
+              title: "Shape ignored",
+              description: `Finish or cancel the comment on page ${prev.page} first.`,
+              variant: "warning",
+            });
+            return prev;
+          }
+          return { shapes: [newItem], page };
         }
         if (prev.shapes.length >= MAX_SHAPES_PER_PIN) {
           toast({
@@ -218,7 +248,7 @@ export default function DesignReviewPage({
           });
           return prev;
         }
-        return { shapes: [...prev.shapes, shape], page };
+        return { shapes: [...prev.shapes, newItem], page };
       });
       setPendingPin(null);
       setCommentsOpen(true);
@@ -242,12 +272,13 @@ export default function DesignReviewPage({
       assignAsTask?: { assignedTo: string; dueDate?: string };
     }) => {
       // If shapes are pending, fold them into the addPin call so the server
-      // persists them in one transaction.
+      // persists them in one transaction. Strip the client-side ids — the API
+      // contract only sees the raw PinShape geometry + style.
       const enriched =
         pendingShapes && pendingShapes.shapes.length > 0
           ? {
               ...data,
-              shapes: pendingShapes.shapes,
+              shapes: pendingShapes.shapes.map((item) => item.shape),
               page: pendingShapes.page,
             }
           : data;
@@ -677,7 +708,9 @@ export default function DesignReviewPage({
             setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
-          pendingShapes={pendingShapes?.shapes ?? []}
+          pendingShapes={
+            pendingShapes?.shapes.map((item) => item.shape) ?? []
+          }
           onClearShapes={handleClearShapes}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}

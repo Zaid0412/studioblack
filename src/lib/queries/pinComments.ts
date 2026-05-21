@@ -8,6 +8,9 @@ import { geometryOf } from "@/lib/shapeUtils";
  * Common SELECT clause: pin_comment row + user_name + reply_count +
  *  aggregated `shapes` array sourced from pin_comment_shape.
  */
+// TODO(perf): consider LEFT JOIN LATERAL if profiling shows the planner is
+// doing per-row scans instead of rewriting these correlated subqueries into
+// hash semi-joins.
 const PIN_SELECT = `pc.*,
         u.name AS user_name,
         (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count,

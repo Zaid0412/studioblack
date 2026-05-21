@@ -5,58 +5,97 @@ import {
   simplifyPath,
   shapeMinExtent,
 } from "@/lib/shapeUtils";
-import type { PinShape } from "@/types";
+import type { PinShape, PinShapeStyle } from "@/types";
+
+/**
+ * Shared style fields every PinShape requires. Tests don't care about the
+ * actual values — they care about geometry — so we stamp the same baseline
+ * style onto every fixture and keep the test bodies focused on coordinates.
+ */
+const STYLE: PinShapeStyle = {
+  color: "#dc2626",
+  strokeWidth: 2,
+  opacity: 1,
+  fill: false,
+};
+
+const mkRect = (x: number, y: number, w: number, h: number): PinShape => ({
+  type: "rectangle",
+  x,
+  y,
+  w,
+  h,
+  ...STYLE,
+});
+
+const mkCircle = (
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number
+): PinShape => ({ type: "circle", cx, cy, rx, ry, ...STYLE });
+
+const mkPath = (points: Array<[number, number]>): PinShape => ({
+  type: "freehand",
+  points,
+  ...STYLE,
+});
 
 describe("centroidOf", () => {
   it("returns rectangle center", () => {
-    const shape: PinShape = { type: "rectangle", x: 10, y: 20, w: 30, h: 40 };
-    expect(centroidOf(shape)).toEqual([25, 40]);
+    expect(centroidOf(mkRect(10, 20, 30, 40))).toEqual([25, 40]);
   });
 
   it("returns circle center", () => {
-    const shape: PinShape = { type: "circle", cx: 50, cy: 60, rx: 5, ry: 5 };
-    expect(centroidOf(shape)).toEqual([50, 60]);
+    expect(centroidOf(mkCircle(50, 60, 5, 5))).toEqual([50, 60]);
   });
 
   it("returns freehand mean", () => {
-    const shape: PinShape = {
-      type: "freehand",
-      points: [
-        [0, 0],
-        [10, 20],
-        [20, 40],
-      ],
-    };
-    expect(centroidOf(shape)).toEqual([10, 20]);
+    expect(
+      centroidOf(
+        mkPath([
+          [0, 0],
+          [10, 20],
+          [20, 40],
+        ])
+      )
+    ).toEqual([10, 20]);
   });
 
-  it("returns [0,0] for empty freehand", () => {
-    const shape: PinShape = { type: "freehand", points: [] };
-    expect(centroidOf(shape)).toEqual([0, 0]);
+  it("throws for empty freehand", () => {
+    expect(() => centroidOf(mkPath([]))).toThrow();
   });
 });
 
 describe("boundingBoxOf", () => {
   it("returns rectangle as-is", () => {
-    const shape: PinShape = { type: "rectangle", x: 10, y: 20, w: 30, h: 40 };
-    expect(boundingBoxOf(shape)).toEqual({ x: 10, y: 20, w: 30, h: 40 });
+    expect(boundingBoxOf(mkRect(10, 20, 30, 40))).toEqual({
+      x: 10,
+      y: 20,
+      w: 30,
+      h: 40,
+    });
   });
 
   it("inflates circle to bounding box", () => {
-    const shape: PinShape = { type: "circle", cx: 50, cy: 60, rx: 5, ry: 8 };
-    expect(boundingBoxOf(shape)).toEqual({ x: 45, y: 52, w: 10, h: 16 });
+    expect(boundingBoxOf(mkCircle(50, 60, 5, 8))).toEqual({
+      x: 45,
+      y: 52,
+      w: 10,
+      h: 16,
+    });
   });
 
   it("computes freehand min/max", () => {
-    const shape: PinShape = {
-      type: "freehand",
-      points: [
-        [10, 20],
-        [30, 5],
-        [50, 80],
-      ],
-    };
-    expect(boundingBoxOf(shape)).toEqual({ x: 10, y: 5, w: 40, h: 75 });
+    expect(
+      boundingBoxOf(
+        mkPath([
+          [10, 20],
+          [30, 5],
+          [50, 80],
+        ])
+      )
+    ).toEqual({ x: 10, y: 5, w: 40, h: 75 });
   });
 });
 
@@ -108,12 +147,10 @@ describe("simplifyPath", () => {
 
 describe("shapeMinExtent", () => {
   it("returns min(w, h) for rectangle", () => {
-    const shape: PinShape = { type: "rectangle", x: 0, y: 0, w: 3, h: 8 };
-    expect(shapeMinExtent(shape)).toBe(3);
+    expect(shapeMinExtent(mkRect(0, 0, 3, 8))).toBe(3);
   });
 
   it("returns min diameter for ellipse", () => {
-    const shape: PinShape = { type: "circle", cx: 50, cy: 50, rx: 2, ry: 7 };
-    expect(shapeMinExtent(shape)).toBe(4);
+    expect(shapeMinExtent(mkCircle(50, 50, 2, 7))).toBe(4);
   });
 });

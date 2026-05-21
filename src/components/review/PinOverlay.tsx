@@ -12,6 +12,7 @@ import type {
 } from "@/types";
 import {
   DEFAULT_SHAPE_COLOR,
+  DEFAULT_SHAPE_STROKE_WIDTH,
 } from "@/hooks/usePinComments";
 
 /**
@@ -39,7 +40,7 @@ function ShapePath({
   /** When true, paint the shape's interior with `color` (not valid for freehand). */
   filled?: boolean | null;
 }) {
-  const baseStroke = strokeWidth ?? 2;
+  const baseStroke = strokeWidth ?? DEFAULT_SHAPE_STROKE_WIDTH;
   const sw = selected ? baseStroke + 1 : baseStroke;
   const fillForShape = filled && shapeType !== "freehand" ? color : "none";
   const common = {
@@ -86,9 +87,13 @@ interface PinOverlayProps {
   onSelectPin: (pinId: string) => void;
   /** Temporary pin shown while the user is typing a comment. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
-  /** Temporary shapes shown while the user is typing a comment. */
+  /**
+   * Temporary shapes shown while the user is typing a comment. Each entry
+   * carries a stable client-side `id` so React keys survive batch updates
+   * (the parent appends to this array on every freehand stroke).
+   */
   pendingShapes?: {
-    shapes: ReadonlyArray<PinShape>;
+    shapes: ReadonlyArray<{ id: string; shape: PinShape }>;
     page: number;
   } | null;
   /** Callback when a pin is dragged to a new position. */
@@ -327,9 +332,9 @@ export function PinOverlay({
           )}
           {showPendingShapes && (
             <g className="animate-pulse">
-              {pendingShapes.shapes.map((s, i) => (
+              {pendingShapes.shapes.map(({ id, shape: s }) => (
                 <ShapePath
-                  key={`pending-${i}`}
+                  key={`pending-${id}`}
                   shapeType={s.type}
                   shapeData={geometryOf(s)}
                   color={s.color}

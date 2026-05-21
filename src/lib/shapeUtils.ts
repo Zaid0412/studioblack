@@ -29,7 +29,12 @@ export function centroidOf(shape: PinShape): Point {
       return [shape.cx, shape.cy];
     case "freehand": {
       const { points } = shape;
-      if (points.length === 0) return [0, 0];
+      if (points.length === 0) {
+        // A freehand shape with zero points is malformed — the centroid is
+        // undefined. Returning [0, 0] silently anchors the pin at the top-left
+        // of the document, masking the bug. Fail loudly instead.
+        throw new Error("centroidOf: freehand shape has no points");
+      }
       let sx = 0;
       let sy = 0;
       for (const [px, py] of points) {
