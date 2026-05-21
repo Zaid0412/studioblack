@@ -89,7 +89,7 @@ export function NewSectionDialog({
                   type="button"
                   onClick={() => setIcon(key)}
                   className={cn(
-                    "flex items-center justify-center w-9 h-9 rounded-md border transition-colors",
+                    "flex items-center justify-center w-9 h-9 rounded-md border transition-colors cursor-pointer",
                     active
                       ? "bg-accent border-accent text-text-on-accent"
                       : "bg-bg-primary border-border-default text-text-secondary hover:bg-bg-elevated"
@@ -106,7 +106,7 @@ export function NewSectionDialog({
                 key={`custom-${icon}`}
                 type="button"
                 onClick={() => setBrowserOpen(true)}
-                className="flex items-center justify-center w-9 h-9 rounded-md border-2 border-accent bg-accent/10 text-accent"
+                className="flex items-center justify-center w-9 h-9 rounded-md border-2 border-accent bg-accent/10 text-accent cursor-pointer"
                 aria-pressed
                 aria-label={`Current icon: ${icon}`}
                 title={icon}

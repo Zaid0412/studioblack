@@ -59,7 +59,7 @@ export function DocumentRow({
       <button
         type="button"
         onClick={onDownload}
-        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors"
+        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer"
         aria-label="Download"
       >
         <Download className="w-4 h-4" />
@@ -69,7 +69,7 @@ export function DocumentRow({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors data-[state=open]:bg-bg-elevated data-[state=open]:text-text-primary"
+              className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors data-[state=open]:bg-bg-elevated data-[state=open]:text-text-primary cursor-pointer"
               aria-label="More"
             >
               <MoreHorizontal className="w-4 h-4" />

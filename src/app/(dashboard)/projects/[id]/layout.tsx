@@ -12,7 +12,7 @@ import { useFlag } from "@/hooks/useFlag";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
-import { FolderOpen } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
@@ -81,14 +81,13 @@ export default function ProjectDetailLayout({
     (pathname === `${base}/designs` || pathname === `${base}/boq/my-scope`);
 
   // ProjectHeader shows on every project surface that has the standard chrome
-  // (overview, designs, BoQ, documents). Upload, review, edit, and the
-  // BoQ/RFQ sub-routes render their own chrome.
+  // (overview, designs, BoQ — including /boq/rfq — and documents). Upload,
+  // review, and edit render their own chrome.
   const showHeader =
     pathname === base ||
     pathname.startsWith(`${base}/designs`) ||
     pathname.startsWith(`${base}/documents`) ||
-    (pathname.startsWith(`${base}/boq`) &&
-      !pathname.startsWith(`${base}/boq/rfq`));
+    pathname.startsWith(`${base}/boq`);
 
   // MetaBar is the project info card. We hide it on the documents surface so
   // the file list has the full vertical space.
@@ -147,15 +146,19 @@ export default function ProjectDetailLayout({
     );
   }
 
-  const documentsAction = (
+  const onDocuments = pathname.startsWith(`${base}/documents`);
+
+  // Right-side pill that takes the user to /documents. Hidden on /documents
+  // itself (the back-pill in the breadcrumb covers the round-trip).
+  const documentsAction = !onDocuments ? (
     <Link
-      href={`/projects/${id}/documents`}
-      className="inline-flex items-center gap-1.5 px-3 h-9 rounded-md border border-border-light text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-elevated transition-colors"
+      href={`${base}/documents`}
+      className="group inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border-default bg-bg-elevated text-[13px] font-medium text-text-primary hover:bg-bg-input hover:border-text-muted/40 transition-colors"
     >
-      <FolderOpen className="w-3.5 h-3.5" />
-      Documents
+      <span>Documents</span>
+      <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
     </Link>
-  );
+  ) : null;
 
   const tree = (
     <div className="flex flex-col h-full">
@@ -165,12 +168,8 @@ export default function ProjectDetailLayout({
           description={undefined}
           onRefresh={refreshAll}
           actions={documentsAction}
-          projectHref={
-            pathname.startsWith(`${base}/documents`) ? base : undefined
-          }
-          subSection={
-            pathname.startsWith(`${base}/documents`) ? "Documents" : undefined
-          }
+          projectHref={onDocuments ? base : undefined}
+          subSection={onDocuments ? "Documents" : undefined}
         />
       )}
 

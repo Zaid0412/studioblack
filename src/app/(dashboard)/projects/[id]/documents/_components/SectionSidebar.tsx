@@ -69,22 +69,35 @@ export function SectionSidebar({
         </p>
       </div>
       <nav className="flex flex-col gap-0.5 px-3 pb-2">
-        <button
-          type="button"
-          onClick={() => onSelect(null)}
-          aria-current={allActive ? "page" : undefined}
-          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left transition-colors ${
-            allActive
-              ? "bg-bg-elevated text-text-primary font-semibold"
-              : "text-text-secondary hover:bg-bg-elevated"
+        <div
+          className={`relative flex items-center rounded-md transition-colors ${
+            allActive ? "bg-bg-elevated" : "hover:bg-bg-elevated"
           }`}
         >
-          <LayoutGrid
-            className={`w-4 h-4 shrink-0 ${allActive ? "text-text-primary" : "text-text-muted"}`}
-          />
-          <span className="text-[13px] truncate flex-1">All documents</span>
-          <span className="text-xs text-text-muted">{totalCount}</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            aria-current={allActive ? "page" : undefined}
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left flex-1 min-w-0 cursor-pointer ${
+              allActive
+                ? "text-text-primary font-semibold"
+                : "text-text-secondary"
+            }`}
+          >
+            <LayoutGrid
+              className={`w-4 h-4 shrink-0 ${allActive ? "text-text-primary" : "text-text-muted"}`}
+            />
+            <span className="text-[13px] truncate flex-1">All documents</span>
+            <span className="text-xs text-text-muted">{totalCount}</span>
+          </button>
+          {canEdit && (
+            // Invisible placeholder matching the section "..." menu so the
+            // count column aligns across all rows.
+            <span aria-hidden className="p-1.5 mr-1 invisible">
+              <MoreHorizontal className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </div>
         {sortedSections.map((section, idx) => {
           const Icon = getSectionIcon(section.icon);
           const active = section.id === activeSectionId;
@@ -101,7 +114,7 @@ export function SectionSidebar({
                 type="button"
                 onClick={() => onSelect(section.id)}
                 aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left flex-1 min-w-0 ${
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left flex-1 min-w-0 cursor-pointer ${
                   active
                     ? "text-text-primary font-semibold"
                     : "text-text-secondary"
@@ -123,7 +136,7 @@ export function SectionSidebar({
                     <button
                       type="button"
                       onClick={(e) => e.stopPropagation()}
-                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 p-1.5 mr-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-primary transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 p-1.5 mr-1 rounded text-text-muted hover:text-text-primary hover:bg-bg-primary transition-opacity cursor-pointer"
                       aria-label={`More actions for ${section.name}`}
                     >
                       <MoreHorizontal className="w-3.5 h-3.5" />
@@ -166,7 +179,7 @@ export function SectionSidebar({
           <button
             type="button"
             onClick={onCreate}
-            className="flex items-center gap-2 px-3 py-2.5 rounded-md text-left text-text-primary hover:bg-bg-elevated transition-colors mt-1"
+            className="flex items-center gap-2 px-3 py-2.5 rounded-md text-left text-text-primary hover:bg-bg-elevated transition-colors mt-1 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="text-[13px] font-medium">New section</span>

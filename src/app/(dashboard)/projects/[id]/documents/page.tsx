@@ -399,7 +399,7 @@ export default function DocumentsPage({
                   s === "recent" ? "name" : s === "name" ? "size" : "recent"
                 )
               }
-              className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors"
+              className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
               title="Cycle sort"
             >
               <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />

@@ -139,7 +139,7 @@ export function UploadDocumentDialog({
               setDragOver(false);
               handleSelect(e.dataTransfer.files?.[0] ?? null);
             }}
-            className={`flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors ${
+            className={`flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
               dragOver
                 ? "border-accent bg-accent/5"
                 : "border-border-light bg-bg-secondary hover:bg-bg-elevated"
@@ -173,7 +173,7 @@ export function UploadDocumentDialog({
               <button
                 type="button"
                 onClick={() => setFile(null)}
-                className="p-1.5 text-text-muted hover:text-text-primary"
+                className="p-1.5 text-text-muted hover:text-text-primary cursor-pointer"
                 aria-label="Remove"
               >
                 <X className="w-4 h-4" />
