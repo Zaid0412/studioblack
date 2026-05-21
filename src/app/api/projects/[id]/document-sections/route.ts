@@ -3,6 +3,16 @@ import { withAuth } from "@/lib/withAuth";
 import { listDocumentSections, createDocumentSection } from "@/lib/queries";
 import { createDocumentSectionSchema, parseRequest } from "@/lib/validations";
 
+/** Postgres unique_violation. */
+function isUniqueNameViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
 /** GET /api/projects/[id]/document-sections — list (auto-seeds defaults on first visit). */
 export const GET = withAuth(
   { projectAccess: true },
@@ -24,12 +34,22 @@ export const POST = withAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const section = await createDocumentSection({
-      projectId: params.id,
-      name: parsed.data.name,
-      icon: parsed.data.icon ?? "Folder",
-      createdBy: user.id,
-    });
-    return NextResponse.json(section, { status: 201 });
+    try {
+      const section = await createDocumentSection({
+        projectId: params.id,
+        name: parsed.data.name,
+        icon: parsed.data.icon ?? "Folder",
+        createdBy: user.id,
+      });
+      return NextResponse.json(section, { status: 201 });
+    } catch (err) {
+      if (isUniqueNameViolation(err)) {
+        return NextResponse.json(
+          { error: "A section with this name already exists." },
+          { status: 409 }
+        );
+      }
+      throw err;
+    }
   }
 );

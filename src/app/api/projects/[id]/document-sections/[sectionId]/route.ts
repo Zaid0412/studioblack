@@ -10,6 +10,16 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { logger } from "@/lib/logger";
 
+/** Postgres unique_violation. */
+function isUniqueNameViolation(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: string }).code === "23505"
+  );
+}
+
 /** PATCH /api/projects/[id]/document-sections/[sectionId] — rename / re-icon / reorder. */
 export const PATCH = withAuth(
   {
@@ -27,12 +37,22 @@ export const PATCH = withAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    const section = await updateDocumentSection({
-      sectionId,
-      projectId: id,
-      ...parsed.data,
-    });
-    return NextResponse.json(section);
+    try {
+      const section = await updateDocumentSection({
+        sectionId,
+        projectId: id,
+        ...parsed.data,
+      });
+      return NextResponse.json(section);
+    } catch (err) {
+      if (isUniqueNameViolation(err)) {
+        return NextResponse.json(
+          { error: "A section with this name already exists." },
+          { status: 409 }
+        );
+      }
+      throw err;
+    }
   }
 );
 

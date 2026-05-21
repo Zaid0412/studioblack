@@ -9,11 +9,13 @@ CREATE TABLE IF NOT EXISTS project_document_section (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id   uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
   name         text NOT NULL,
-  icon         text NOT NULL DEFAULT 'folder',
+  icon         text NOT NULL DEFAULT 'Folder',
   position     integer NOT NULL DEFAULT 0,
   created_by   text NOT NULL,
   created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now()
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT project_document_section_unique_name
+    UNIQUE (project_id, name)
 );
 
 CREATE INDEX IF NOT EXISTS project_document_section_project_idx

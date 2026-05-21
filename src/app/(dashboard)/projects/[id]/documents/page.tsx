@@ -22,6 +22,7 @@ import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
 import { SectionSidebar } from "./_components/SectionSidebar";
 import { DocumentRow } from "./_components/DocumentRow";
 import { NewSectionDialog } from "./_components/NewSectionDialog";
+import { RenameSectionDialog } from "./_components/RenameSectionDialog";
 import { UploadDocumentDialog } from "./_components/UploadDocumentDialog";
 import { relativeTime } from "@/lib/formatTime";
 
@@ -49,11 +50,19 @@ export default function DocumentsPage({
   const [newSectionOpen, setNewSectionOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
+  // Bumped on every drop so the upload dialog remount key still changes
+  // when the user drops the same file twice in a row.
+  const [dropCount, setDropCount] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [docToDelete, setDocToDelete] = useState<DbProjectDocument | null>(
     null
   );
   const [deleting, setDeleting] = useState(false);
+  const [sectionToRename, setSectionToRename] =
+    useState<DbProjectDocumentSection | null>(null);
+  const [sectionToDelete, setSectionToDelete] =
+    useState<DbProjectDocumentSection | null>(null);
+  const [deletingSection, setDeletingSection] = useState(false);
   // dragenter/leave fire on every child border crossing, so a counter is the
   // simplest reliable way to know "is a drag still hovering my zone".
   const dragCounter = useRef(0);
@@ -126,8 +135,17 @@ export default function DocumentsPage({
     return copy;
   }, [docs, search, sort]);
 
-  // Server returns docs `ORDER BY created_at DESC`, so the head is the latest.
-  const lastUpdated = docs?.[0] ? relativeTime(docs[0].created_at) : null;
+  // Defensive max-scan: server currently sorts DESC, but we don't want a
+  // future ORDER BY tweak to silently break the "Updated …" label.
+  const lastUpdated = useMemo(() => {
+    if (!docs || docs.length === 0) return null;
+    let latestMs = 0;
+    for (const d of docs) {
+      const ms = new Date(d.created_at).getTime();
+      if (ms > latestMs) latestMs = ms;
+    }
+    return latestMs > 0 ? relativeTime(new Date(latestMs).toISOString()) : null;
+  }, [docs]);
 
   async function handleCreateSection(data: { name: string; icon: string }) {
     try {
@@ -140,6 +158,76 @@ export default function DocumentsPage({
       toast({
         title:
           err instanceof ApiError ? err.message : "Could not create section.",
+        variant: "error",
+      });
+    }
+  }
+
+  async function handleRenameSection(data: { name: string; icon: string }) {
+    if (!sectionToRename) return;
+    try {
+      await projectDocuments.updateSection(projectId, sectionToRename.id, data);
+      await mutate(sectionsKey);
+      setSectionToRename(null);
+      toast({ title: "Section updated." });
+    } catch (err) {
+      toast({
+        title:
+          err instanceof ApiError ? err.message : "Could not rename section.",
+        variant: "error",
+      });
+    }
+  }
+
+  async function handleMoveSection(
+    section: DbProjectDocumentSection,
+    direction: "up" | "down"
+  ) {
+    if (!sections) return;
+    const sorted = [...sections].sort(
+      (a, b) =>
+        a.position - b.position || a.created_at.localeCompare(b.created_at)
+    );
+    const idx = sorted.findIndex((s) => s.id === section.id);
+    if (idx === -1) return;
+    const otherIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (otherIdx < 0 || otherIdx >= sorted.length) return;
+    const other = sorted[otherIdx];
+    try {
+      // Swap positions in parallel. If one fails we may end up with both
+      // sections briefly sharing a position; the next list fetch sorts it
+      // out via the `created_at` tiebreaker.
+      await Promise.all([
+        projectDocuments.updateSection(projectId, section.id, {
+          position: other.position,
+        }),
+        projectDocuments.updateSection(projectId, other.id, {
+          position: section.position,
+        }),
+      ]);
+      await mutate(sectionsKey);
+    } catch (err) {
+      toast({
+        title: err instanceof ApiError ? err.message : "Could not reorder.",
+        variant: "error",
+      });
+    }
+  }
+
+  async function performSectionDelete(section: DbProjectDocumentSection) {
+    try {
+      await projectDocuments.deleteSection(projectId, section.id);
+      // If we were viewing this section, fall back to "All documents".
+      if (activeSectionId === section.id) setActiveSectionId(null);
+      await Promise.all([
+        mutate(sectionsKey),
+        mutate(API.projectDocumentsAll(projectId)),
+      ]);
+      toast({ title: `Deleted "${section.name}".` });
+    } catch (err) {
+      toast({
+        title:
+          err instanceof ApiError ? err.message : "Could not delete section.",
         variant: "error",
       });
     }
@@ -233,6 +321,7 @@ export default function DocumentsPage({
     const dropped = e.dataTransfer.files?.[0];
     if (!dropped) return;
     setDroppedFile(dropped);
+    setDropCount((c) => c + 1);
     setUploadOpen(true);
   }
 
@@ -243,6 +332,9 @@ export default function DocumentsPage({
         activeSectionId={activeSectionId}
         onSelect={setActiveSectionId}
         onCreate={() => setNewSectionOpen(true)}
+        onRename={setSectionToRename}
+        onDelete={setSectionToDelete}
+        onMove={handleMoveSection}
         canEdit={canEdit}
       />
 
@@ -370,11 +462,9 @@ export default function DocumentsPage({
         <UploadDocumentDialog
           // Remount on each drop so `initialFile` seeds via useState init —
           // avoids a mirror-prop useEffect and stale state on consecutive drops.
-          key={
-            droppedFile
-              ? `${droppedFile.name}-${droppedFile.size}-${droppedFile.lastModified}`
-              : "manual"
-          }
+          // `dropCount` makes the key change even when the same file is
+          // dropped twice in a row.
+          key={droppedFile ? `drop-${dropCount}` : "manual"}
           open={uploadOpen}
           onOpenChange={(v) => {
             setUploadOpen(v);
@@ -416,6 +506,54 @@ export default function DocumentsPage({
           } finally {
             setDeleting(false);
             setDocToDelete(null);
+          }
+        }}
+      />
+      {sectionToRename && (
+        <RenameSectionDialog
+          // Re-mount per target so the inputs seed fresh on each open.
+          key={sectionToRename.id}
+          open
+          initialName={sectionToRename.name}
+          initialIcon={sectionToRename.icon}
+          onOpenChange={(v) => !v && setSectionToRename(null)}
+          onSubmit={handleRenameSection}
+        />
+      )}
+      <ConfirmDialog
+        open={!!sectionToDelete}
+        onOpenChange={(v) => !v && setSectionToDelete(null)}
+        title="Delete section"
+        description={
+          sectionToDelete && (
+            <>
+              Delete the <strong>{sectionToDelete.name}</strong> section
+              {sectionToDelete.doc_count > 0 ? (
+                <>
+                  {" "}
+                  and its <strong>{sectionToDelete.doc_count}</strong> document
+                  {sectionToDelete.doc_count === 1 ? "" : "s"}
+                </>
+              ) : null}
+              ? This cannot be undone.
+            </>
+          )
+        }
+        confirmLabel={
+          sectionToDelete && sectionToDelete.doc_count > 0
+            ? `Delete section and ${sectionToDelete.doc_count} file${sectionToDelete.doc_count === 1 ? "" : "s"}`
+            : "Delete section"
+        }
+        destructive
+        submitting={deletingSection}
+        onConfirm={async () => {
+          if (!sectionToDelete) return;
+          setDeletingSection(true);
+          try {
+            await performSectionDelete(sectionToDelete);
+          } finally {
+            setDeletingSection(false);
+            setSectionToDelete(null);
           }
         }}
       />

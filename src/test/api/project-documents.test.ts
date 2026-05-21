@@ -163,6 +163,25 @@ describe("POST .../document-sections", () => {
     expect(createDocumentSection).not.toHaveBeenCalled();
   });
 
+  it("returns 409 on duplicate name (unique violation)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const err = Object.assign(new Error("duplicate"), { code: "23505" });
+    vi.mocked(createDocumentSection).mockRejectedValue(err);
+
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "Contracts" },
+      }),
+      buildParams(baseParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/already exists/i),
+    });
+  });
+
   it("forbids clients from creating sections", async () => {
     setupAuth(mocks.auth, mockSession({ role: "client" }));
     const res = await POST_SECTIONS(
@@ -210,6 +229,26 @@ describe("PATCH .../document-sections/[sectionId]", () => {
       buildParams(sectionParams)
     );
     expect((await parseResponse(res)).status).toBe(404);
+  });
+
+  it("returns 409 on rename collision (unique violation)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    const err = Object.assign(new Error("duplicate"), { code: "23505" });
+    vi.mocked(updateDocumentSection).mockRejectedValue(err);
+
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { name: "Contracts" },
+      }),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/already exists/i),
+    });
   });
 });
 
