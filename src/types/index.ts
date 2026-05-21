@@ -305,16 +305,16 @@ export interface DbPinComment {
    */
   shapes: DbPinShape[];
   /**
-   * @deprecated Legacy single-shape fields — replaced by `shapes`. New code
-   * reads from `shapes`. These remain on the DB row only because the cleanup
-   * migration that drops the columns hasn't run yet.
+   * @deprecated Legacy single-shape fields — replaced by `shapes`. Present on
+   * the DB row only until the cleanup migration drops the columns. New code
+   * must read from `shapes`.
    */
-  shape_type: PinShapeType | null;
-  shape_data: PinShapeData | null;
-  shape_color: string | null;
-  shape_stroke_width: number | null;
-  shape_opacity: number | null;
-  shape_fill: boolean | null;
+  shape_type?: PinShapeType | null;
+  shape_data?: PinShapeData | null;
+  shape_color?: string | null;
+  shape_stroke_width?: number | null;
+  shape_opacity?: number | null;
+  shape_fill?: boolean | null;
 }
 
 /** DB notification row from the notifications API. */

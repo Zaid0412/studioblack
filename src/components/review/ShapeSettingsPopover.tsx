@@ -7,6 +7,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { PinShapeType } from "@/types";
 
 /** Six-swatch palette offered for shape annotations — design-system tokens. */
 export const SHAPE_COLORS = [
@@ -21,7 +22,7 @@ export const SHAPE_COLORS = [
 /** Stroke thickness presets in screen pixels. */
 const STROKE_PRESETS = [1, 2, 4] as const;
 
-const TOOL_LABEL: Record<"rectangle" | "circle" | "freehand", string> = {
+const TOOL_LABEL: Record<PinShapeType, string> = {
   rectangle: "Rectangle",
   circle: "Circle",
   freehand: "Pen",
@@ -29,7 +30,7 @@ const TOOL_LABEL: Record<"rectangle" | "circle" | "freehand", string> = {
 
 interface ShapeSettingsPopoverProps {
   /** Tool whose settings are being edited. Drives the popover header label. */
-  tool: "rectangle" | "circle" | "freehand";
+  tool: PinShapeType;
   /** Whether the parent toolbar button is currently active. */
   active: boolean;
   /** Toggle the tool on/off. Pop-up opens automatically when active. */

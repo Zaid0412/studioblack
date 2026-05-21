@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import type { PinShape } from "@/types";
+import type { PinShape, PinShapeType } from "@/types";
 import { simplifyPath } from "@/lib/shapeUtils";
 
 /** Minimum smaller-dimension extent (percent) before we accept a drawing. */
@@ -12,7 +12,7 @@ const RDP_EPSILON = 0.2;
 
 interface ShapeDrawingLayerProps {
   page: number;
-  tool: "rectangle" | "circle" | "freehand";
+  tool: PinShapeType;
   color: string;
   /** Stroke thickness in screen pixels for the live preview (defaults to 2). */
   strokeWidth?: number;

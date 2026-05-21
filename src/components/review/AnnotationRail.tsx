@@ -8,6 +8,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import type { DrawTool } from "@/hooks/usePinComments";
+import type { PinShapeType } from "@/types";
 import { ShapeSettingsPopover } from "./ShapeSettingsPopover";
 
 interface AnnotationRailProps {
@@ -31,7 +32,7 @@ interface AnnotationRailProps {
 }
 
 const SHAPE_TOOLS: Array<{
-  tool: "rectangle" | "circle" | "freehand";
+  tool: PinShapeType;
   label: string;
   Icon: LucideIcon;
 }> = [

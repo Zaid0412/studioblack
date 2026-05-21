@@ -1,7 +1,20 @@
-import type { PinShape } from "@/types";
+import type { PinShape, PinShapeData } from "@/types";
 
 /** Percent-based 2D point. */
 export type Point = readonly [number, number];
+
+/**
+ * Strip the geometry out of a wire-format `PinShape` (geometry + style mixed)
+ * into the bare `PinShapeData` shape used by the `shape_data` column and the
+ * SVG renderer.
+ */
+export function geometryOf(shape: PinShape): PinShapeData {
+  if (shape.type === "rectangle")
+    return { x: shape.x, y: shape.y, w: shape.w, h: shape.h };
+  if (shape.type === "circle")
+    return { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry };
+  return { points: shape.points };
+}
 
 /**
  * Centroid of a shape in percent coords. Used as the anchor point we store in

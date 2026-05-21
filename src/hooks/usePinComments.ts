@@ -3,16 +3,11 @@ import useSWR from "swr";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
-import type {
-  DbPinComment,
-  DbPinShape,
-  PinShape,
-  PinShapeData,
-} from "@/types";
-import { centroidOf } from "@/lib/shapeUtils";
+import type { DbPinComment, DbPinShape, PinShape, PinShapeType } from "@/types";
+import { centroidOf, geometryOf } from "@/lib/shapeUtils";
 
 /** Shape drawing tool currently selected in the review toolbar. */
-export type DrawTool = "rectangle" | "circle" | "freehand" | null;
+export type DrawTool = PinShapeType | null;
 
 /** Default color used for new shape annotations. Reuses the accent yellow. */
 export const DEFAULT_SHAPE_COLOR = "#F5C518";
@@ -35,25 +30,19 @@ function shapeCentroidXY(shape: PinShape): {
 }
 
 /**
- * Build a DbPinShape-shaped object for optimistic rendering. Uses a fake id
- *  that the server-returned shapes will replace once the request resolves.
+ * Build a DbPinShape for optimistic rendering. Real ids replace it when the
+ * server response arrives.
  */
 function toOptimisticDbShape(
   shape: PinShape,
   pinId: string,
   index: number
 ): DbPinShape {
-  const geometry: PinShapeData =
-    shape.type === "rectangle"
-      ? { x: shape.x, y: shape.y, w: shape.w, h: shape.h }
-      : shape.type === "circle"
-        ? { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry }
-        : { points: shape.points };
   return {
     id: `temp-shape-${pinId}-${index}`,
     pin_comment_id: pinId,
     shape_type: shape.type,
-    shape_data: geometry,
+    shape_data: geometryOf(shape),
     shape_color: shape.color,
     shape_stroke_width: shape.strokeWidth,
     shape_opacity: shape.opacity,
@@ -138,18 +127,15 @@ export function usePinComments({
       assignAsTask?: { assignedTo: string; dueDate?: string };
       shapes?: ReadonlyArray<PinShape>;
     }) => {
-      // Optimistic: insert a temp pin immediately
       const tempId = `temp-${Date.now()}`;
-      const hasShapes = !!data.shapes && data.shapes.length > 0;
+      const shapes = data.shapes ?? [];
+      const hasShapes = shapes.length > 0;
       // For shape annotations the server derives x/y from the first shape's
-      // centroid; we mirror that on the optimistic pin so the marker pops in
-      // at the right spot before the server response arrives.
+      // centroid; mirror that on the optimistic pin so the marker pops in at
+      // the right spot before the server response arrives.
       const optimisticXY = hasShapes
-        ? shapeCentroidXY(data.shapes![0])
+        ? shapeCentroidXY(shapes[0])
         : { x: data.xPercent ?? null, y: data.yPercent ?? null };
-      const tempShapes: DbPinShape[] = hasShapes
-        ? data.shapes!.map((s, i) => toOptimisticDbShape(s, tempId, i))
-        : [];
       const tempPin: DbPinComment = {
         id: tempId,
         attachment_id: attachmentId,
@@ -167,15 +153,7 @@ export function usePinComments({
         updated_at: null,
         reply_count: 0,
         created_at: new Date().toISOString(),
-        shapes: tempShapes,
-        // Legacy single-shape columns are no longer written by the API; mirror
-        // null so reads consistent with the server payload.
-        shape_type: null,
-        shape_data: null,
-        shape_color: null,
-        shape_stroke_width: null,
-        shape_opacity: null,
-        shape_fill: null,
+        shapes: shapes.map((s, i) => toOptimisticDbShape(s, tempId, i)),
       };
       mutatePins((prev) => [...(prev ?? []), tempPin], { revalidate: false });
 
@@ -192,7 +170,7 @@ export function usePinComments({
                 due_date: data.assignAsTask.dueDate,
               }
             : undefined,
-          shapes: hasShapes ? [...data.shapes!] : undefined,
+          shapes: hasShapes ? [...shapes] : undefined,
         });
         // Replace temp with real
         mutatePins(

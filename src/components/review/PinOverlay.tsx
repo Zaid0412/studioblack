@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Check } from "lucide-react";
 import { sortPinsByDate, isPinned, buildPinIndexMap } from "@/lib/pinUtils";
-import type { DbPinComment, PinShape, PinShapeData } from "@/types";
+import { geometryOf } from "@/lib/shapeUtils";
+import type {
+  DbPinComment,
+  PinShape,
+  PinShapeData,
+  PinShapeType,
+} from "@/types";
+import {
+  DEFAULT_SHAPE_COLOR,
+} from "@/hooks/usePinComments";
 
 /**
  * SVG rendering for one shape annotation. Sized in the parent SVG's
@@ -19,7 +28,7 @@ function ShapePath({
   opacity,
   filled,
 }: {
-  shapeType: "rectangle" | "circle" | "freehand";
+  shapeType: PinShapeType;
   shapeData: PinShapeData;
   color: string;
   selected?: boolean;
@@ -206,12 +215,19 @@ export function PinOverlay({
     dragStateRef.current = dragState;
   }, [dragState]);
 
-  const pagePins = sortPinsByDate(
-    pins.filter((p) => isPinned(p) && p.page === page)
+  const pagePins = useMemo(
+    () => sortPinsByDate(pins.filter((p) => isPinned(p) && p.page === page)),
+    [pins, page]
   );
-
-  const indexMap = buildPinIndexMap(pins);
-  const pinnedCount = pins.filter(isPinned).length;
+  const indexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
+  const pinnedCount = useMemo(
+    () => pins.filter(isPinned).length,
+    [pins]
+  );
+  const pinsWithShapes = useMemo(
+    () => pagePins.filter((p) => p.shapes.length > 0),
+    [pagePins]
+  );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, pin: DbPinComment) => {
@@ -276,21 +292,11 @@ export function PinOverlay({
     setDragState(null);
   }, [onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
 
-  const pinsWithShapes = pagePins.filter((p) => p.shapes.length > 0);
   const showPendingShapes =
     pendingShapes != null && pendingShapes.page === page;
   const anyShapesToRender =
     pinsWithShapes.length > 0 ||
     (showPendingShapes && pendingShapes.shapes.length > 0);
-
-  // PinShape on the wire carries type + geometry + style; split into the
-  // (shape_type, shape_data) shape the renderer expects for persisted pins.
-  function pendingShapeGeometry(s: PinShape): PinShapeData {
-    if (s.type === "rectangle") return { x: s.x, y: s.y, w: s.w, h: s.h };
-    if (s.type === "circle")
-      return { cx: s.cx, cy: s.cy, rx: s.rx, ry: s.ry };
-    return { points: s.points };
-  }
 
   return (
     <div
@@ -311,7 +317,7 @@ export function PinOverlay({
                 key={`shape-${s.id}`}
                 shapeType={s.shape_type}
                 shapeData={s.shape_data}
-                color={s.shape_color ?? "#F5C518"}
+                color={s.shape_color ?? DEFAULT_SHAPE_COLOR}
                 selected={pin.id === selectedPinId}
                 strokeWidth={s.shape_stroke_width}
                 opacity={s.shape_opacity}
@@ -325,7 +331,7 @@ export function PinOverlay({
                 <ShapePath
                   key={`pending-${i}`}
                   shapeType={s.type}
-                  shapeData={pendingShapeGeometry(s)}
+                  shapeData={geometryOf(s)}
                   color={s.color}
                   strokeWidth={s.strokeWidth}
                   opacity={s.opacity}

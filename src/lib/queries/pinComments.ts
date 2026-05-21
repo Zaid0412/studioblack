@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
-import type { PinShape, PinShapeData, PinShapeType } from "@/types";
+import type { PinShape } from "@/types";
+import { geometryOf } from "@/lib/shapeUtils";
 
 // ── Pin Comments ─────────────────────────────────
 
@@ -75,60 +76,30 @@ export async function getPinCommentById(pinId: string) {
 }
 
 /**
- * Split a wire-format `PinShape` (geometry + style) into the column
- *  layout used by `pin_comment_shape`.
- */
-function splitShape(shape: PinShape): {
-  shape_type: PinShapeType;
-  shape_data: PinShapeData;
-  shape_color: string;
-  shape_stroke_width: number;
-  shape_opacity: number;
-  shape_fill: boolean;
-} {
-  const { color, strokeWidth, opacity, fill } = shape;
-  const shape_data: PinShapeData =
-    shape.type === "rectangle"
-      ? { x: shape.x, y: shape.y, w: shape.w, h: shape.h }
-      : shape.type === "circle"
-        ? { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry }
-        : { points: shape.points };
-  return {
-    shape_type: shape.type,
-    shape_data,
-    shape_color: color,
-    shape_stroke_width: strokeWidth,
-    shape_opacity: opacity,
-    shape_fill: fill,
-  };
-}
-
-/**
- * Insert N shapes for a pin_comment, in draw order. Caller owns the
- *  transaction client.
+ * Bulk-insert N shapes for a pin_comment in draw order using a single
+ * `unnest` query — N round-trips collapsed to 1. Caller owns the transaction
+ * client.
  */
 async function insertShapesForPin(
   client: import("pg").PoolClient,
   pinId: string,
   shapes: ReadonlyArray<PinShape>
 ) {
-  for (let i = 0; i < shapes.length; i++) {
-    const s = splitShape(shapes[i]);
-    await client.query(
-      `INSERT INTO pin_comment_shape (pin_comment_id, shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        pinId,
-        s.shape_type,
-        s.shape_data,
-        s.shape_color,
-        s.shape_stroke_width,
-        s.shape_opacity,
-        s.shape_fill,
-        i,
-      ]
-    );
-  }
+  if (shapes.length === 0) return;
+  const types = shapes.map((s) => s.type);
+  const datas = shapes.map((s) => JSON.stringify(geometryOf(s)));
+  const colors = shapes.map((s) => s.color);
+  const strokes = shapes.map((s) => s.strokeWidth);
+  const opacities = shapes.map((s) => s.opacity);
+  const fills = shapes.map((s) => s.fill);
+  await client.query(
+    `INSERT INTO pin_comment_shape
+       (pin_comment_id, shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)
+     SELECT $1, t.shape_type, t.shape_data::jsonb, t.shape_color, t.shape_stroke_width, t.shape_opacity, t.shape_fill, t.order_index
+     FROM unnest($2::text[], $3::text[], $4::text[], $5::smallint[], $6::numeric[], $7::boolean[])
+       WITH ORDINALITY AS t(shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)`,
+    [pinId, types, datas, colors, strokes, opacities, fills]
+  );
 }
 
 /**

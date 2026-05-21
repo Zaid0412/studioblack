@@ -34,10 +34,8 @@ import { toast } from "@/components/ui/useToast";
 import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
+import { MAX_SHAPES_PER_PIN } from "@/lib/validations";
 import type { PinShape } from "@/types";
-
-/** Cap on shapes per comment — mirrors the Zod schema's max. */
-const MAX_PENDING_SHAPES = 20;
 import { useSidebar } from "@/components/layout/SidebarContext";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
@@ -212,10 +210,10 @@ export default function DesignReviewPage({
         if (!prev || prev.page !== page) {
           return { shapes: [shape], page };
         }
-        if (prev.shapes.length >= MAX_PENDING_SHAPES) {
+        if (prev.shapes.length >= MAX_SHAPES_PER_PIN) {
           toast({
             title: "Shape limit reached",
-            description: `A single comment can hold up to ${MAX_PENDING_SHAPES} shapes.`,
+            description: `A single comment can hold up to ${MAX_SHAPES_PER_PIN} shapes.`,
             variant: "warning",
           });
           return prev;
