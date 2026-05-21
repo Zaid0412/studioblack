@@ -418,6 +418,89 @@ export async function getQuoteComparison(
   };
 }
 
+/**
+ * Studio-side notification recipients for "quote received" / "quote
+ * revised" events. Returns the RFQ creator (when they have a valid email)
+ * plus all org owners/admins on the same org as the RFQ — the people who
+ * actually drive procurement decisions on the project. Empty list when no
+ * recipient can be resolved (caller skips fan-out).
+ */
+export interface QuoteStudioRecipient {
+  email: string;
+  name: string;
+  userId: string;
+}
+export async function getQuoteStudioRecipients(
+  rfqId: string
+): Promise<QuoteStudioRecipient[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    user_id: string;
+    name: string;
+    email: string;
+  }>(
+    `WITH rfq_meta AS (
+       SELECT created_by, org_id FROM rfq WHERE id = $1
+     )
+     SELECT DISTINCT u.id AS user_id, u.name, u.email
+       FROM rfq_meta rm
+       JOIN "user" u ON u.id = rm.created_by
+      WHERE u.email IS NOT NULL
+     UNION
+     SELECT DISTINCT u.id AS user_id, u.name, u.email
+       FROM rfq_meta rm
+       JOIN member m ON m."organizationId" = rm.org_id
+       JOIN "user" u ON u.id = m."userId"
+      WHERE m.role IN ('owner','admin')
+        AND u.email IS NOT NULL`,
+    [rfqId]
+  );
+  return rows.map((r) => ({
+    email: r.email,
+    name: r.name,
+    userId: r.user_id,
+  }));
+}
+
+/**
+ * Vendor portal contacts to email on award — `receives_rfq=true` contacts
+ * of a single vendor on this RFQ. Mirrors `getRfqContactsForEmail` but
+ * narrows to one vendor (the winner). Used by both single + split awards.
+ */
+export async function getQuoteAwardContacts(
+  rfqId: string,
+  vendorId: string
+): Promise<
+  Array<{
+    contactId: string;
+    contactName: string;
+    contactEmail: string;
+    vendorName: string;
+  }>
+> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT vc.id AS contact_id, vc.name AS contact_name, vc.email AS contact_email,
+            v.company_name AS vendor_name
+       FROM rfq_vendor rv
+       JOIN vendor v ON v.id = rv.vendor_id
+       JOIN vendor_contact vc ON vc.vendor_id = v.id
+      WHERE rv.rfq_id = $1
+        AND rv.vendor_id = $2
+        AND vc.receives_rfq = true
+        AND vc.email IS NOT NULL
+        AND v.status = 'active'
+      ORDER BY vc.is_primary DESC, lower(vc.name)`,
+    [rfqId, vendorId]
+  );
+  return rows.map((r) => ({
+    contactId: r.contact_id,
+    contactName: r.contact_name,
+    contactEmail: r.contact_email,
+    vendorName: r.vendor_name,
+  }));
+}
+
 // ── Mutations ───────────────────────────────────────────────────────────────
 
 export interface SubmitQuoteInputItem {
@@ -456,7 +539,15 @@ export async function submitOrUpdateQuote(
   vendorId: string,
   input: SubmitQuoteInput
 ): Promise<
-  | { ok: true; quote: VendorQuote; isNew: boolean }
+  | {
+      ok: true;
+      quote: VendorQuote;
+      isNew: boolean;
+      orgId: string;
+      projectId: string;
+      rfqNumber: string;
+      rfqTitle: string;
+    }
   | {
       ok: false;
       reason:
@@ -475,10 +566,15 @@ export async function submitOrUpdateQuote(
 
     const { rows: rfqRows } = await client.query<{
       id: string;
-      status: VendorQuoteStatus extends never ? never : Rfq["status"];
+      status: Rfq["status"];
       response_deadline: string | null;
+      org_id: string;
+      project_id: string;
+      rfq_number: string;
+      title: string;
     }>(
-      `SELECT id, status, response_deadline FROM rfq WHERE id = $1 FOR UPDATE`,
+      `SELECT id, status, response_deadline, org_id, project_id, rfq_number, title
+         FROM rfq WHERE id = $1 FOR UPDATE`,
       [rfqId]
     );
     const rfq = rfqRows[0];
@@ -636,7 +732,15 @@ export async function submitOrUpdateQuote(
     }
 
     await client.query("COMMIT");
-    return { ok: true, quote: quoteRow, isNew };
+    return {
+      ok: true,
+      quote: quoteRow,
+      isNew,
+      orgId: rfq.org_id,
+      projectId: rfq.project_id,
+      rfqNumber: rfq.rfq_number,
+      rfqTitle: rfq.title,
+    };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

@@ -25,6 +25,9 @@ import {
   updateElementSchema,
   listElementsQuerySchema,
   ALLOWED_UNITS,
+  submitQuoteSchema,
+  awardRfqSingleSchema,
+  awardRfqSplitSchema,
   parseBody,
   parseRequest,
   TASK_STATUSES,
@@ -1427,5 +1430,64 @@ describe("ALLOWED_UNITS", () => {
       "box",
       "pallet",
     ]);
+  });
+});
+
+describe("submitQuoteSchema (F10)", () => {
+  it("accepts a minimal valid quote and defaults currency to USD", () => {
+    const data = expectPass(submitQuoteSchema, {
+      items: [{ rfqItemId: VALID_UUID, unitPrice: 50 }],
+    });
+    expect(data.currency).toBe("USD");
+  });
+
+  it("rejects empty items array", () => {
+    expectFail(submitQuoteSchema, { items: [] });
+  });
+
+  it("rejects negative unit_price", () => {
+    expectFail(submitQuoteSchema, {
+      items: [{ rfqItemId: VALID_UUID, unitPrice: -1 }],
+    });
+  });
+
+  it("rejects non-uuid rfqItemId", () => {
+    expectFail(submitQuoteSchema, {
+      items: [{ rfqItemId: "abc", unitPrice: 50 }],
+    });
+  });
+
+  it("coerces string unit_price to number", () => {
+    const data = expectPass(submitQuoteSchema, {
+      items: [{ rfqItemId: VALID_UUID, unitPrice: "75.50" }],
+    });
+    expect(data.items[0].unitPrice).toBe(75.5);
+  });
+});
+
+describe("awardRfqSingleSchema (F10)", () => {
+  it("accepts a uuid", () => {
+    expectPass(awardRfqSingleSchema, { quoteId: VALID_UUID });
+  });
+
+  it("rejects non-uuid", () => {
+    expectFail(awardRfqSingleSchema, { quoteId: "abc" });
+  });
+});
+
+describe("awardRfqSplitSchema (F10)", () => {
+  it("accepts a list of (rfqItemId, quoteItemId) pairs", () => {
+    expectPass(awardRfqSplitSchema, {
+      awards: [
+        {
+          rfqItemId: VALID_UUID,
+          quoteItemId: "22222222-2222-4222-8222-222222222222",
+        },
+      ],
+    });
+  });
+
+  it("rejects empty awards array", () => {
+    expectFail(awardRfqSplitSchema, { awards: [] });
   });
 });
