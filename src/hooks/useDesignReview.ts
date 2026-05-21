@@ -41,7 +41,9 @@ export function useDesignReview({
   const attachment = attachmentData ?? null;
 
   // -- Reviews (SWR, conditional) --
-  const { data: reviews = [] } = useSWR<DbAttachmentReview[]>(
+  // No `= []` default: callers should distinguish `undefined` (loading or
+  // not yet fetched) from `[]` (loaded, empty). Use `?? []` at read sites.
+  const { data: reviews } = useSWR<DbAttachmentReview[]>(
     fetchReviews
       ? `/api/projects/${projectId}/attachments/${activeFileId}/review`
       : null

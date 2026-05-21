@@ -523,12 +523,14 @@ describe("createPinSchema", () => {
   });
 
   // Shape annotation helpers — every shape carries its own style.
-  const STYLE = {
+  // Frozen so a future Zod transform on `pinShapeSchema` can't mutate
+  // the shared reference and bleed test state across cases.
+  const STYLE = Object.freeze({
     color: "#dc2626",
     strokeWidth: 2,
     opacity: 1,
     fill: false,
-  };
+  } as const);
 
   it("accepts a rectangle shape", () => {
     expectPass(createPinSchema, {
@@ -653,6 +655,42 @@ describe("createPinSchema", () => {
     });
   });
 
+  it("rejects rectangle with both dimensions zero", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 0, h: 0, ...STYLE }],
+    });
+  });
+
+  it("accepts rectangle with only one non-zero dimension", () => {
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 5, h: 0, ...STYLE }],
+    });
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "rectangle", x: 10, y: 20, w: 0, h: 5, ...STYLE }],
+    });
+  });
+
+  it("rejects circle with both radii zero", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 0, ry: 0, ...STYLE }],
+    });
+  });
+
+  it("accepts circle with only one non-zero radius", () => {
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 5, ry: 0, ...STYLE }],
+    });
+    expectPass(createPinSchema, {
+      content: "x",
+      shapes: [{ type: "circle", cx: 50, cy: 50, rx: 0, ry: 5, ...STYLE }],
+    });
+  });
+
   it("rejects shape with malformed color", () => {
     expectFail(createPinSchema, {
       content: "x",
@@ -675,35 +713,65 @@ describe("createPinSchema", () => {
   it("rejects shape with stroke width 0", () => {
     expectFail(createPinSchema, {
       content: "x",
-      shapes: [{ ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 }, ...STYLE, strokeWidth: 0 }],
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          strokeWidth: 0,
+        },
+      ],
     });
   });
 
   it("rejects shape with stroke width above 10", () => {
     expectFail(createPinSchema, {
       content: "x",
-      shapes: [{ ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 }, ...STYLE, strokeWidth: 11 }],
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          strokeWidth: 11,
+        },
+      ],
     });
   });
 
   it("rejects shape with non-integer stroke width", () => {
     expectFail(createPinSchema, {
       content: "x",
-      shapes: [{ ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 }, ...STYLE, strokeWidth: 2.5 }],
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          strokeWidth: 2.5,
+        },
+      ],
     });
   });
 
   it("rejects shape with opacity of 0", () => {
     expectFail(createPinSchema, {
       content: "x",
-      shapes: [{ ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 }, ...STYLE, opacity: 0 }],
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          opacity: 0,
+        },
+      ],
     });
   });
 
   it("rejects shape with opacity above 1", () => {
     expectFail(createPinSchema, {
       content: "x",
-      shapes: [{ ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 }, ...STYLE, opacity: 1.5 }],
+      shapes: [
+        {
+          ...{ type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+          ...STYLE,
+          opacity: 1.5,
+        },
+      ],
     });
   });
 

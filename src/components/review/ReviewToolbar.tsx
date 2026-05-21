@@ -53,7 +53,8 @@ export function ReviewToolbar({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close more menu on click outside
+  // Close more menu on click outside or Escape — matches the keyboard
+  // behaviour of the popovers in ShapeSettingsPopover.
   useEffect(() => {
     if (!moreMenuOpen) return;
     function handleClick(e: MouseEvent) {
@@ -64,8 +65,15 @@ export function ReviewToolbar({
         setMoreMenuOpen(false);
       }
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [moreMenuOpen]);
 
   return (

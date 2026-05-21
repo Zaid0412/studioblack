@@ -11,7 +11,26 @@ import { geometryOf } from "@/lib/shapeUtils";
 // TODO(perf): consider LEFT JOIN LATERAL if profiling shows the planner is
 // doing per-row scans instead of rewriting these correlated subqueries into
 // hash semi-joins.
-const PIN_SELECT = `pc.*,
+//
+// Columns are listed explicitly — `pc.*` would also pull the deprecated
+// `shape_type`, `shape_data`, `shape_color`, `shape_stroke_width`,
+// `shape_opacity`, `shape_fill` columns into every API payload (bloated by
+// `shape_data` JSON for migrated rows). Keeping the list explicit unblocks
+// the eventual cleanup migration that drops those columns from the DB.
+const PIN_SELECT = `pc.id,
+        pc.attachment_id,
+        pc.user_id,
+        pc.x_percent,
+        pc.y_percent,
+        pc.page,
+        pc.content,
+        pc.resolved,
+        pc.task_id,
+        pc.request_approval,
+        pc.request_changes,
+        pc.parent_id,
+        pc.updated_at,
+        pc.created_at,
         u.name AS user_name,
         (SELECT COUNT(*) FROM pin_comment r WHERE r.parent_id = pc.id)::int AS reply_count,
         COALESCE(

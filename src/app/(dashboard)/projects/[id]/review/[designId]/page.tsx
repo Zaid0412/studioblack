@@ -219,44 +219,41 @@ export default function DesignReviewPage({
     [setPinMode]
   );
 
-  const handleShapeComplete = useCallback(
-    (shape: PinShape, page: number) => {
-      const newItem = { id: makeShapeId(), shape };
-      setPendingShapes((prev) => {
-        // First draw — start a fresh batch.
-        if (!prev) {
-          return { shapes: [newItem], page };
-        }
-        // Drawing on a different page while a batch is in flight: warn and
-        // preserve the in-progress batch instead of silently dropping it.
-        if (prev.page !== page) {
-          if (prev.shapes.length > 0) {
-            toast({
-              title: "Shape ignored",
-              description: `Finish or cancel the comment on page ${prev.page} first.`,
-              variant: "warning",
-            });
-            return prev;
-          }
-          return { shapes: [newItem], page };
-        }
-        if (prev.shapes.length >= MAX_SHAPES_PER_PIN) {
+  const handleShapeComplete = useCallback((shape: PinShape, page: number) => {
+    const newItem = { id: makeShapeId(), shape };
+    setPendingShapes((prev) => {
+      // First draw — start a fresh batch.
+      if (!prev) {
+        return { shapes: [newItem], page };
+      }
+      // Drawing on a different page while a batch is in flight: warn and
+      // preserve the in-progress batch instead of silently dropping it.
+      if (prev.page !== page) {
+        if (prev.shapes.length > 0) {
           toast({
-            title: "Shape limit reached",
-            description: `A single comment can hold up to ${MAX_SHAPES_PER_PIN} shapes.`,
+            title: "Shape ignored",
+            description: `Finish or cancel the comment on page ${prev.page} first.`,
             variant: "warning",
           });
           return prev;
         }
-        return { shapes: [...prev.shapes, newItem], page };
-      });
-      setPendingPin(null);
-      setCommentsOpen(true);
-      // Tool stays active so the user can keep drawing more shapes onto the
-      // same comment.
-    },
-    []
-  );
+        return { shapes: [newItem], page };
+      }
+      if (prev.shapes.length >= MAX_SHAPES_PER_PIN) {
+        toast({
+          title: "Shape limit reached",
+          description: `A single comment can hold up to ${MAX_SHAPES_PER_PIN} shapes.`,
+          variant: "warning",
+        });
+        return prev;
+      }
+      return { shapes: [...prev.shapes, newItem], page };
+    });
+    setPendingPin(null);
+    setCommentsOpen(true);
+    // Tool stays active so the user can keep drawing more shapes onto the
+    // same comment.
+  }, []);
 
   const handleClearShapes = useCallback(() => {
     setPendingShapes(null);
@@ -570,14 +567,14 @@ export default function DesignReviewPage({
                         className={`cursor-pointer transition-colors flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-medium ${
                           reviewsOpen
                             ? "bg-[#F5C518]/15 text-[#F5C518]"
-                            : review.reviews.length > 0
+                            : (review.reviews ?? []).length > 0
                               ? "bg-bg-elevated text-text-secondary hover:text-text-primary"
                               : "text-text-secondary hover:text-text-primary"
                         }`}
                       >
                         <ClipboardCheck className="w-3.5 h-3.5" />
-                        {review.reviews.length > 0 && (
-                          <span>{review.reviews.length}</span>
+                        {(review.reviews ?? []).length > 0 && (
+                          <span>{(review.reviews ?? []).length}</span>
                         )}
                       </button>
                     </TooltipTrigger>
@@ -685,7 +682,7 @@ export default function DesignReviewPage({
         {/* PM: Reviews Panel — flex sibling, pushes document viewer */}
         {!isClient && reviewsOpen && (
           <ReviewPanel
-            reviews={review.reviews}
+            reviews={review.reviews ?? []}
             onClose={() => setReviewsOpen(false)}
           />
         )}
@@ -708,9 +705,7 @@ export default function DesignReviewPage({
             setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
-          pendingShapes={
-            pendingShapes?.shapes.map((item) => item.shape) ?? []
-          }
+          pendingShapes={pendingShapes?.shapes.map((item) => item.shape) ?? []}
           onClearShapes={handleClearShapes}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}

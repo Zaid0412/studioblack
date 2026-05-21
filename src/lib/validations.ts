@@ -316,22 +316,32 @@ const shapeStyleFields = {
  * a blue circle.
  */
 export const pinShapeSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("rectangle"),
-    x: pct,
-    y: pct,
-    w: pct,
-    h: pct,
-    ...shapeStyleFields,
-  }),
-  z.object({
-    type: z.literal("circle"),
-    cx: pct,
-    cy: pct,
-    rx: pct,
-    ry: pct,
-    ...shapeStyleFields,
-  }),
+  z
+    .object({
+      type: z.literal("rectangle"),
+      x: pct,
+      y: pct,
+      w: pct,
+      h: pct,
+      ...shapeStyleFields,
+    })
+    // The client filters zero-extent shapes via MIN_EXTENT_PCT, but a tampering
+    // client can still post `w: 0, h: 0` — reject the invisible shape here.
+    .refine((s) => s.w > 0 || s.h > 0, {
+      message: "rectangle must have non-zero width or height",
+    }),
+  z
+    .object({
+      type: z.literal("circle"),
+      cx: pct,
+      cy: pct,
+      rx: pct,
+      ry: pct,
+      ...shapeStyleFields,
+    })
+    .refine((s) => s.rx > 0 || s.ry > 0, {
+      message: "circle must have non-zero rx or ry",
+    }),
   z.object({
     type: z.literal("freehand"),
     points: z

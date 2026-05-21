@@ -225,14 +225,7 @@ export function PinOverlay({
     [pins, page]
   );
   const indexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
-  const pinnedCount = useMemo(
-    () => pins.filter(isPinned).length,
-    [pins]
-  );
-  const pinsWithShapes = useMemo(
-    () => pagePins.filter((p) => p.shapes.length > 0),
-    [pagePins]
-  );
+  const pinnedCount = useMemo(() => pins.filter(isPinned).length, [pins]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, pin: DbPinComment) => {
@@ -300,7 +293,7 @@ export function PinOverlay({
   const showPendingShapes =
     pendingShapes != null && pendingShapes.page === page;
   const anyShapesToRender =
-    pinsWithShapes.length > 0 ||
+    pagePins.some((p) => p.shapes.length > 0) ||
     (showPendingShapes && pendingShapes.shapes.length > 0);
 
   return (
@@ -316,7 +309,7 @@ export function PinOverlay({
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
-          {pinsWithShapes.flatMap((pin) =>
+          {pagePins.flatMap((pin) =>
             pin.shapes.map((s) => (
               <ShapePath
                 key={`shape-${s.id}`}
