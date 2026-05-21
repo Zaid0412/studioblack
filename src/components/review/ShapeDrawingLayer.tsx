@@ -14,6 +14,12 @@ interface ShapeDrawingLayerProps {
   page: number;
   tool: "rectangle" | "circle" | "freehand";
   color: string;
+  /** Stroke thickness in screen pixels for the live preview (defaults to 2). */
+  strokeWidth?: number;
+  /** Preview opacity 0–1 (defaults to 1). */
+  opacity?: number;
+  /** When true, fill the preview interior with `color`. */
+  fill?: boolean;
   onComplete: (shape: PinShape, page: number) => void;
   /** Called when the user cancels a drag (e.g. tiny accidental click). */
   onDismiss?: () => void;
@@ -28,6 +34,9 @@ export function ShapeDrawingLayer({
   page,
   tool,
   color,
+  strokeWidth = 2,
+  opacity = 1,
+  fill = false,
   onComplete,
   onDismiss,
 }: ShapeDrawingLayerProps) {
@@ -132,14 +141,16 @@ export function ShapeDrawingLayer({
   // ── Live preview ─────────────────────────────────────────────────────
   let preview: React.ReactNode = null;
   if (start && current) {
+    const previewFill = fill && tool !== "freehand" ? color : "none";
     const common = {
       stroke: color,
-      strokeWidth: 2,
-      fill: "none",
+      strokeWidth,
+      fill: previewFill,
       vectorEffect: "non-scaling-stroke" as const,
       strokeLinecap: "round" as const,
       strokeLinejoin: "round" as const,
       strokeDasharray: "0.6 0.4",
+      opacity,
     };
     if (tool === "rectangle") {
       const x = Math.min(start[0], current[0]);

@@ -35,6 +35,9 @@ export function create(
     parent_id?: string;
     shape?: PinShape;
     shape_color?: string;
+    shape_stroke_width?: number;
+    shape_opacity?: number;
+    shape_fill?: boolean;
   }
 ) {
   return apiPost<DbPinComment>(

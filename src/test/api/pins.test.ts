@@ -263,6 +263,37 @@ describe("POST .../pins", () => {
     );
   });
 
+  it("threads shape styling (stroke width / opacity / fill) through to the query", async () => {
+    const session = mockSession();
+    setupAuth(mocks.auth, session);
+    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
+    vi.mocked(createPinComment).mockResolvedValue(samplePin as never);
+
+    const req = buildRequest(basePath, {
+      method: "POST",
+      body: {
+        content: "styled",
+        page: 1,
+        shape: { type: "rectangle", x: 10, y: 20, w: 30, h: 40 },
+        shape_color: "#7c3aed",
+        shape_stroke_width: 4,
+        shape_opacity: 0.5,
+        shape_fill: true,
+      },
+    });
+    const res = await POST(req, buildParams(baseParams));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(201);
+    expect(createPinComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shapeStrokeWidth: 4,
+        shapeOpacity: 0.5,
+        shapeFill: true,
+      })
+    );
+  });
+
   it("rejects shape without page", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);

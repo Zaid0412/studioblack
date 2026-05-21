@@ -587,6 +587,51 @@ describe("createPinSchema", () => {
       shape_color: "#ABCDEF",
     });
   });
+
+  it("accepts shape styling fields", () => {
+    expectPass(createPinSchema, {
+      content: "x",
+      shape: { type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+      shape_stroke_width: 4,
+      shape_opacity: 0.75,
+      shape_fill: true,
+    });
+  });
+
+  it("rejects stroke width below 1", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape_stroke_width: 0,
+    });
+  });
+
+  it("rejects stroke width above 10", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape_stroke_width: 11,
+    });
+  });
+
+  it("rejects non-integer stroke width", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape_stroke_width: 2.5,
+    });
+  });
+
+  it("rejects opacity of 0", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape_opacity: 0,
+    });
+  });
+
+  it("rejects opacity above 1", () => {
+    expectFail(createPinSchema, {
+      content: "x",
+      shape_opacity: 1.5,
+    });
+  });
 });
 
 // ── updatePinSchema ──────────────────────────────────────────────────────────

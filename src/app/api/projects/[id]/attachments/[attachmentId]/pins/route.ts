@@ -57,6 +57,9 @@ export const POST = withAuth(
       parent_id,
       shape,
       shape_color,
+      shape_stroke_width,
+      shape_opacity,
+      shape_fill,
     } = parsed.data;
 
     // If this is a reply, validate parent exists and belongs to same attachment
@@ -129,6 +132,9 @@ export const POST = withAuth(
     }
     const reqChanges = request_changes === true;
     const shapeColorVal = shape ? (shape_color ?? null) : null;
+    const shapeStrokeWidthVal = shape ? (shape_stroke_width ?? null) : null;
+    const shapeOpacityVal = shape ? (shape_opacity ?? null) : null;
+    const shapeFillVal = shape ? (shape_fill ?? null) : null;
 
     // Create pin + task in a single transaction if needed
     const needsTask = assign_as_task || (reqChanges && !assign_as_task);
@@ -154,6 +160,9 @@ export const POST = withAuth(
           shapeType,
           shapeData,
           shapeColor: shapeColorVal,
+          shapeStrokeWidth: shapeStrokeWidthVal,
+          shapeOpacity: shapeOpacityVal,
+          shapeFill: shapeFillVal,
         });
       } catch (err) {
         if (err instanceof Error && err.message === "Project not found") {
@@ -252,6 +261,9 @@ export const POST = withAuth(
       shapeType,
       shapeData,
       shapeColor: shapeColorVal,
+      shapeStrokeWidth: shapeStrokeWidthVal,
+      shapeOpacity: shapeOpacityVal,
+      shapeFill: shapeFillVal,
     });
 
     return NextResponse.json(pin, { status: 201 });

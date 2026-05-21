@@ -61,12 +61,15 @@ export async function createPinComment(params: {
   shapeType?: PinShapeType | null;
   shapeData?: PinShapeData | null;
   shapeColor?: string | null;
+  shapeStrokeWidth?: number | null;
+  shapeOpacity?: number | null;
+  shapeFill?: boolean | null;
 }) {
   const pool = getPool();
   const { rows } = await pool.query(
     `WITH inserted AS (
-       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, parent_id, shape_type, shape_data, shape_color)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, parent_id, shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *
      )
      SELECT i.*, u.name AS user_name, 0::int AS reply_count
@@ -86,6 +89,9 @@ export async function createPinComment(params: {
       params.shapeType ?? null,
       params.shapeData ?? null,
       params.shapeColor ?? null,
+      params.shapeStrokeWidth ?? null,
+      params.shapeOpacity ?? null,
+      params.shapeFill ?? null,
     ]
   );
   return rows[0];
@@ -149,6 +155,9 @@ export async function createPinWithTask(params: {
   shapeType?: PinShapeType | null;
   shapeData?: PinShapeData | null;
   shapeColor?: string | null;
+  shapeStrokeWidth?: number | null;
+  shapeOpacity?: number | null;
+  shapeFill?: boolean | null;
 }): Promise<{ pinId: string; taskId: string }> {
   const pool = getPool();
   const client = await pool.connect();
@@ -187,8 +196,8 @@ export async function createPinWithTask(params: {
     const taskId = taskRows[0].id;
 
     const { rows: pinRows } = await client.query(
-      `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, shape_type, shape_data, shape_color)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO pin_comment (attachment_id, user_id, x_percent, y_percent, page, content, request_approval, request_changes, task_id, shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         params.attachmentId,
@@ -203,6 +212,9 @@ export async function createPinWithTask(params: {
         params.shapeType ?? null,
         params.shapeData ?? null,
         params.shapeColor ?? null,
+        params.shapeStrokeWidth ?? null,
+        params.shapeOpacity ?? null,
+        params.shapeFill ?? null,
       ]
     );
 

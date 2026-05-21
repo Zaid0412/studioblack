@@ -345,6 +345,9 @@ export const createPinSchema = z.object({
   parent_id: optionalUuid,
   shape: pinShapeSchema.optional(),
   shape_color: hexColor.optional(),
+  shape_stroke_width: z.number().int().min(1).max(10).optional(),
+  shape_opacity: z.number().gt(0).max(1).optional(),
+  shape_fill: z.boolean().optional(),
 });
 
 export const updatePinSchema = z.object({

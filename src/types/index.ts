@@ -265,6 +265,12 @@ export interface DbPinComment {
   shape_type: PinShapeType | null;
   shape_data: PinShapeData | null;
   shape_color: string | null;
+  /** Stroke thickness in screen pixels, 1–10. */
+  shape_stroke_width: number | null;
+  /** Fill/stroke opacity 0–1. */
+  shape_opacity: number | null;
+  /** When true, paint the shape's interior with `shape_color` (otherwise outline-only). */
+  shape_fill: boolean | null;
 }
 
 /** DB notification row from the notifications API. */

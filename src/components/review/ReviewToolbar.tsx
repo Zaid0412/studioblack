@@ -5,43 +5,26 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowLeft,
-  Circle,
   Download,
   ExternalLink,
   Ellipsis,
-  MapPin,
-  Pencil,
   Printer,
   Lock,
   Maximize,
   Send,
-  Square,
   Unlock,
   Upload,
 } from "lucide-react";
-import type { DrawTool } from "@/hooks/usePinComments";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
 
-/** Color palette offered for shape annotations — design-system tokens. */
-export const SHAPE_COLORS = [
-  "#dc2626", // red
-  "#ea580c", // orange
-  "#16a34a", // green
-  "#0284c7", // blue
-  "#7c3aed", // purple
-  "#f5c518", // yellow
-] as const;
-
 interface ReviewToolbarProps {
   backPath: string;
   fileName: string;
   fileUrl: string;
-  pinModeActive: boolean;
-  onTogglePinMode: () => void;
   onDownload: () => void;
   leftSlot?: ReactNode;
   rightSlot?: ReactNode;
@@ -49,15 +32,6 @@ interface ReviewToolbarProps {
   onSendToClient?: () => void;
   frozen?: boolean;
   onToggleFreeze?: () => void;
-  /** Active shape draw tool. `null` means no shape tool is active. */
-  drawTool?: DrawTool;
-  /** Switch the active shape tool. Passing the active tool turns drawing off. */
-  onSelectDrawTool?: (tool: DrawTool) => void;
-  /** Active draw color (hex). */
-  drawColor?: string;
-  onSelectDrawColor?: (color: string) => void;
-  /** Hide shape draw tools (e.g. spreadsheet viewer can't host shapes). */
-  hideShapeTools?: boolean;
 }
 
 /**
@@ -67,8 +41,6 @@ export function ReviewToolbar({
   backPath,
   fileName,
   fileUrl,
-  pinModeActive,
-  onTogglePinMode,
   onDownload,
   leftSlot,
   rightSlot,
@@ -76,14 +48,7 @@ export function ReviewToolbar({
   onSendToClient,
   frozen,
   onToggleFreeze,
-  drawTool = null,
-  onSelectDrawTool,
-  drawColor,
-  onSelectDrawColor,
-  hideShapeTools = false,
 }: ReviewToolbarProps) {
-  const showShapeTools = !hideShapeTools && !!onSelectDrawTool;
-  const showColorRow = showShapeTools && drawTool !== null;
   const router = useRouter();
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -132,67 +97,45 @@ export function ReviewToolbar({
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              onClick={onTogglePinMode}
-              className={`cursor-pointer transition-colors ${pinModeActive ? "text-[#F5C518]" : "text-text-secondary hover:text-text-primary"}`}
+              onClick={() => document.documentElement.requestFullscreen?.()}
+              className="text-text-secondary hover:text-text-primary cursor-pointer"
             >
-              <MapPin className="w-4 h-4" />
+              <Maximize className="w-4 h-4" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Pin comment</TooltipContent>
+          <TooltipContent side="bottom">Fullscreen</TooltipContent>
         </Tooltip>
-        {showShapeTools && (
-          <>
-            <ToolButton
-              active={drawTool === "rectangle"}
-              label="Rectangle"
-              onClick={() =>
-                onSelectDrawTool?.(
-                  drawTool === "rectangle" ? null : "rectangle"
-                )
-              }
-            >
-              <Square className="w-4 h-4" />
-            </ToolButton>
-            <ToolButton
-              active={drawTool === "circle"}
-              label="Circle"
-              onClick={() =>
-                onSelectDrawTool?.(drawTool === "circle" ? null : "circle")
-              }
-            >
-              <Circle className="w-4 h-4" />
-            </ToolButton>
-            <ToolButton
-              active={drawTool === "freehand"}
-              label="Freehand pen"
-              onClick={() =>
-                onSelectDrawTool?.(drawTool === "freehand" ? null : "freehand")
-              }
-            >
-              <Pencil className="w-4 h-4" />
-            </ToolButton>
-          </>
+
+        {onToggleFreeze && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onToggleFreeze}
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                {frozen ? (
+                  <Unlock className="w-4 h-4" />
+                ) : (
+                  <Lock className="w-4 h-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {frozen ? "Unfreeze file" : "Freeze file"}
+            </TooltipContent>
+          </Tooltip>
         )}
-        {showColorRow && (
-          <div className="flex items-center gap-1 pl-1 ml-1 border-l border-border-default">
-            {SHAPE_COLORS.map((c) => {
-              const active = drawColor === c;
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  aria-label={`Color ${c}`}
-                  onClick={() => onSelectDrawColor?.(c)}
-                  className={`w-4 h-4 rounded-full cursor-pointer transition-transform ${active ? "ring-2 ring-offset-1 ring-offset-bg-secondary scale-110" : "hover:scale-110"}`}
-                  style={{
-                    backgroundColor: c,
-                    boxShadow: active ? `0 0 0 1px ${c}` : undefined,
-                  }}
-                />
-              );
-            })}
-          </div>
+
+        {onSendToClient && (
+          <button
+            onClick={onSendToClient}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent text-text-on-accent text-[12px] font-semibold cursor-pointer hover:bg-accent-hover transition-colors"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Send to Client
+          </button>
         )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <button
@@ -204,6 +147,20 @@ export function ReviewToolbar({
           </TooltipTrigger>
           <TooltipContent side="bottom">Download file</TooltipContent>
         </Tooltip>
+
+        {onUploadNewVersion && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onUploadNewVersion}
+                className="text-text-secondary hover:text-text-primary cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Upload new version</TooltipContent>
+          </Tooltip>
+        )}
 
         {/* More options dropdown */}
         <div className="relative" ref={moreMenuRef}>
@@ -230,56 +187,6 @@ export function ReviewToolbar({
                 <Printer className="w-4 h-4" />
                 Print
               </button>
-              <button
-                onClick={() => {
-                  document.documentElement.requestFullscreen?.();
-                  setMoreMenuOpen(false);
-                }}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-              >
-                <Maximize className="w-4 h-4" />
-                Fullscreen
-              </button>
-              {onUploadNewVersion && (
-                <button
-                  onClick={() => {
-                    onUploadNewVersion();
-                    setMoreMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  <Upload className="w-4 h-4" />
-                  Upload New Version
-                </button>
-              )}
-              {onSendToClient && (
-                <button
-                  onClick={() => {
-                    onSendToClient();
-                    setMoreMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                  Send to Client
-                </button>
-              )}
-              {onToggleFreeze && (
-                <button
-                  onClick={() => {
-                    onToggleFreeze();
-                    setMoreMenuOpen(false);
-                  }}
-                  className="flex items-center gap-2.5 w-full px-3 py-2 text-[13px] text-text-secondary hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer"
-                >
-                  {frozen ? (
-                    <Unlock className="w-4 h-4" />
-                  ) : (
-                    <Lock className="w-4 h-4" />
-                  )}
-                  {frozen ? "Unfreeze File" : "Freeze File"}
-                </button>
-              )}
               <a
                 href={`/api/proxy-file?url=${encodeURIComponent(fileUrl)}`}
                 target="_blank"
@@ -295,33 +202,5 @@ export function ReviewToolbar({
         </div>
       </div>
     </div>
-  );
-}
-
-function ToolButton({
-  active,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          aria-pressed={active}
-          className={`cursor-pointer transition-colors ${active ? "text-[#F5C518]" : "text-text-secondary hover:text-text-primary"}`}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
   );
 }

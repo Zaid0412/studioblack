@@ -15,21 +15,32 @@ function ShapePath({
   shapeData,
   color,
   selected,
+  strokeWidth,
+  opacity,
+  filled,
 }: {
   shapeType: "rectangle" | "circle" | "freehand";
   shapeData: PinShapeData;
   color: string;
   selected?: boolean;
+  /** Stroke thickness in screen pixels (defaults to 2). Selection bumps by 1. */
+  strokeWidth?: number | null;
+  /** Override opacity (0–1). Defaults to 1 when selected, 0.85 otherwise. */
+  opacity?: number | null;
+  /** When true, paint the shape's interior with `color` (not valid for freehand). */
+  filled?: boolean | null;
 }) {
-  const strokeWidth = selected ? 3 : 2;
+  const baseStroke = strokeWidth ?? 2;
+  const sw = selected ? baseStroke + 1 : baseStroke;
+  const fillForShape = filled && shapeType !== "freehand" ? color : "none";
   const common = {
     stroke: color,
-    strokeWidth,
-    fill: "none",
+    strokeWidth: sw,
+    fill: fillForShape,
     vectorEffect: "non-scaling-stroke" as const,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    opacity: selected ? 1 : 0.85,
+    opacity: opacity ?? (selected ? 1 : 0.85),
   };
   if (shapeType === "rectangle") {
     const { x, y, w, h } = shapeData as {
@@ -67,7 +78,14 @@ interface PinOverlayProps {
   /** Temporary pin shown while the user is typing a comment. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
   /** Temporary shape shown while the user is typing a comment for a drawn annotation. */
-  pendingShape?: { shape: PinShape; color: string; page: number } | null;
+  pendingShape?: {
+    shape: PinShape;
+    color: string;
+    strokeWidth: number;
+    opacity: number;
+    fill: boolean;
+    page: number;
+  } | null;
   /** Callback when a pin is dragged to a new position. */
   onRepositionPin?: (
     pinId: string,
@@ -265,8 +283,7 @@ export function PinOverlay({
   const shapePins = pagePins.filter(
     (p) => p.shape_type !== null && p.shape_data !== null
   );
-  const showPendingShape =
-    pendingShape != null && pendingShape.page === page;
+  const showPendingShape = pendingShape != null && pendingShape.page === page;
   // PinShape is a discriminated union with `type` + geometry mixed; split it
   // here so it matches the (shape_type, shape_data) shape the renderer expects
   // for persisted pins.
@@ -308,6 +325,9 @@ export function PinOverlay({
               shapeData={pin.shape_data!}
               color={pin.shape_color ?? "#F5C518"}
               selected={pin.id === selectedPinId}
+              strokeWidth={pin.shape_stroke_width}
+              opacity={pin.shape_opacity}
+              filled={pin.shape_fill}
             />
           ))}
           {showPendingShape && pendingShapeData && (
@@ -316,6 +336,9 @@ export function PinOverlay({
                 shapeType={pendingShape.shape.type}
                 shapeData={pendingShapeData}
                 color={pendingShape.color}
+                strokeWidth={pendingShape.strokeWidth}
+                opacity={pendingShape.opacity}
+                filled={pendingShape.fill}
                 selected
               />
             </g>

@@ -12,6 +12,15 @@ export type DrawTool = "rectangle" | "circle" | "freehand" | null;
 /** Default color used for new shape annotations. Reuses the accent yellow. */
 export const DEFAULT_SHAPE_COLOR = "#F5C518";
 
+/** Default stroke thickness in screen pixels. */
+export const DEFAULT_SHAPE_STROKE_WIDTH = 2;
+
+/** Default opacity (fully opaque). */
+export const DEFAULT_SHAPE_OPACITY = 1;
+
+/** Whether new shapes are filled by default (outline-only). */
+export const DEFAULT_SHAPE_FILL = false;
+
 function shapeCentroidXY(shape: PinShape): {
   x: number | null;
   y: number | null;
@@ -56,6 +65,11 @@ export function usePinComments({
   const [pinMode, setPinModeRaw] = useState(false);
   const [drawTool, setDrawToolRaw] = useState<DrawTool>(null);
   const [drawColor, setDrawColor] = useState<string>(DEFAULT_SHAPE_COLOR);
+  const [drawStrokeWidth, setDrawStrokeWidth] = useState<number>(
+    DEFAULT_SHAPE_STROKE_WIDTH
+  );
+  const [drawOpacity, setDrawOpacity] = useState<number>(DEFAULT_SHAPE_OPACITY);
+  const [drawFill, setDrawFill] = useState<boolean>(DEFAULT_SHAPE_FILL);
   /** Replies keyed by parent pin ID — lazily loaded. */
   const [repliesMap, setRepliesMap] = useState<Map<string, DbPinComment[]>>(
     new Map()
@@ -90,6 +104,9 @@ export function usePinComments({
       assignAsTask?: { assignedTo: string; dueDate?: string };
       shape?: PinShape;
       shapeColor?: string;
+      shapeStrokeWidth?: number;
+      shapeOpacity?: number;
+      shapeFill?: boolean;
     }) => {
       // Optimistic: insert a temp pin immediately
       const tempId = `temp-${Date.now()}`;
@@ -137,6 +154,9 @@ export function usePinComments({
         shape_type: shapeType,
         shape_data: shapeData,
         shape_color: data.shape ? (data.shapeColor ?? null) : null,
+        shape_stroke_width: data.shape ? (data.shapeStrokeWidth ?? null) : null,
+        shape_opacity: data.shape ? (data.shapeOpacity ?? null) : null,
+        shape_fill: data.shape ? (data.shapeFill ?? null) : null,
       };
       mutatePins((prev) => [...(prev ?? []), tempPin], { revalidate: false });
 
@@ -155,6 +175,9 @@ export function usePinComments({
             : undefined,
           shape: data.shape,
           shape_color: data.shape ? data.shapeColor : undefined,
+          shape_stroke_width: data.shape ? data.shapeStrokeWidth : undefined,
+          shape_opacity: data.shape ? data.shapeOpacity : undefined,
+          shape_fill: data.shape ? data.shapeFill : undefined,
         });
         // Replace temp with real
         mutatePins(
@@ -364,6 +387,12 @@ export function usePinComments({
     setDrawTool,
     drawColor,
     setDrawColor,
+    drawStrokeWidth,
+    setDrawStrokeWidth,
+    drawOpacity,
+    setDrawOpacity,
+    drawFill,
+    setDrawFill,
     addPin,
     resolvePin,
     editPin,
