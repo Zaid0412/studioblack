@@ -92,13 +92,17 @@ async function insertShapesForPin(
   const strokes = shapes.map((s) => s.strokeWidth);
   const opacities = shapes.map((s) => s.opacity);
   const fills = shapes.map((s) => s.fill);
+  // Explicit 0-based order_index — matches the v7 migration backfill and the
+  // optimistic-update indexing in usePinComments.toOptimisticDbShape. Avoid
+  // WITH ORDINALITY here because it would emit 1-based bigint values.
+  const orders = shapes.map((_, i) => i);
   await client.query(
     `INSERT INTO pin_comment_shape
        (pin_comment_id, shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)
      SELECT $1, t.shape_type, t.shape_data::jsonb, t.shape_color, t.shape_stroke_width, t.shape_opacity, t.shape_fill, t.order_index
-     FROM unnest($2::text[], $3::text[], $4::text[], $5::smallint[], $6::numeric[], $7::boolean[])
-       WITH ORDINALITY AS t(shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)`,
-    [pinId, types, datas, colors, strokes, opacities, fills]
+     FROM unnest($2::text[], $3::text[], $4::text[], $5::smallint[], $6::numeric[], $7::boolean[], $8::smallint[])
+       AS t(shape_type, shape_data, shape_color, shape_stroke_width, shape_opacity, shape_fill, order_index)`,
+    [pinId, types, datas, colors, strokes, opacities, fills, orders]
   );
 }
 

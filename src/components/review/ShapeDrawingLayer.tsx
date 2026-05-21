@@ -44,6 +44,14 @@ export function ShapeDrawingLayer({
   const [start, setStart] = useState<[number, number] | null>(null);
   const [current, setCurrent] = useState<[number, number] | null>(null);
   const [points, setPoints] = useState<Array<[number, number]>>([]);
+  /**
+   * Tracks the element + pointerId we called setPointerCapture on, so cancel()
+   * can release it. The element may be detached by the time we release (e.g.
+   * unmount), so the release is wrapped in try/catch.
+   */
+  const captureRef = useRef<{ target: HTMLElement; pointerId: number } | null>(
+    null
+  );
 
   const toPct = useCallback(
     (e: React.PointerEvent): [number, number] | null => {
@@ -68,7 +76,9 @@ export function ShapeDrawingLayer({
     if (!pt) return;
     e.preventDefault();
     e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const target = e.target as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    captureRef.current = { target, pointerId: e.pointerId };
     setStart(pt);
     setCurrent(pt);
     if (tool === "freehand") setPoints([pt]);
@@ -83,10 +93,27 @@ export function ShapeDrawingLayer({
   };
 
   const cancel = useCallback(() => {
+    if (captureRef.current) {
+      const { target, pointerId } = captureRef.current;
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        // Element may already be detached (unmount) or capture already
+        // released — safe to ignore.
+      }
+      captureRef.current = null;
+    }
     setStart(null);
     setCurrent(null);
     setPoints([]);
   }, []);
+
+  const handlePointerCancel = () => {
+    // Browser-initiated cancellation (touch palm rejection, gesture
+    // interruption). Drop the in-progress drag — pointer position is no
+    // longer meaningful.
+    cancel();
+  };
 
   const handlePointerUp = () => {
     if (!start || !current) {
@@ -145,7 +172,13 @@ export function ShapeDrawingLayer({
       if (e.key === "Escape") cancel();
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      // Unmount cleanup — releases pointer capture and clears drag state if
+      // the component is torn down mid-drag (e.g. parent switches files and
+      // resets drawTool).
+      cancel();
+    };
   }, [cancel]);
 
   // ── Live preview ─────────────────────────────────────────────────────
@@ -192,6 +225,7 @@ export function ShapeDrawingLayer({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
     >
       {preview && (
         <svg

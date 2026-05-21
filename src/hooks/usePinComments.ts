@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useSWR from "swr";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
@@ -98,21 +98,37 @@ export function usePinComments({
     new Map()
   );
 
-  /** Pin mode and shape tools are mutually exclusive. */
+  /**
+   * Pin mode and shape tools are mutually exclusive. The setPinMode setter
+   * must stay a pure forwarder — React invokes updater functions twice under
+   * StrictMode/concurrent rendering, so any setState side effect inside the
+   * updater fires twice. To evaluate function-form `next` against the latest
+   * pinMode without a stale closure (e.g. when consumers call setPinMode
+   * twice in the same handler), we track pinMode in a ref kept in sync via
+   * an effect and resolve `next` at the top of the setter.
+   */
+  const pinModeRef = useRef(pinMode);
+  useEffect(() => {
+    pinModeRef.current = pinMode;
+  }, [pinMode]);
+
   const setPinMode = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
-      setPinModeRaw((prev) => {
-        const on = typeof next === "function" ? next(prev) : next;
-        if (on) setDrawToolRaw(null);
-        return on;
-      });
+      const on =
+        typeof next === "function" ? next(pinModeRef.current) : next;
+      pinModeRef.current = on;
+      setPinModeRaw(on);
+      if (on) setDrawToolRaw(null);
     },
     []
   );
 
   const setDrawTool = useCallback((tool: DrawTool) => {
     setDrawToolRaw(tool);
-    if (tool !== null) setPinModeRaw(false);
+    if (tool !== null) {
+      pinModeRef.current = false;
+      setPinModeRaw(false);
+    }
   }, []);
 
   // ── Add pin (optimistic) ──────────────────────────────────────────────
