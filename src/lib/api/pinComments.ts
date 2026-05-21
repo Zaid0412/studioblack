@@ -33,11 +33,7 @@ export function create(
       due_date?: string;
     };
     parent_id?: string;
-    shape?: PinShape;
-    shape_color?: string;
-    shape_stroke_width?: number;
-    shape_opacity?: number;
-    shape_fill?: boolean;
+    shapes?: PinShape[];
   }
 ) {
   return apiPost<DbPinComment>(

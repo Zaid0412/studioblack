@@ -160,7 +160,14 @@ describe("POST .../pins", () => {
     expect(body).toHaveProperty("error");
   });
 
-  it("creates a rectangle annotation and derives centroid into x/y", async () => {
+  const STYLE = {
+    color: "#dc2626",
+    strokeWidth: 2,
+    opacity: 1,
+    fill: false,
+  };
+
+  it("creates a rectangle annotation and derives centroid from shapes[0]", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);
     vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
@@ -171,8 +178,9 @@ describe("POST .../pins", () => {
       body: {
         content: "highlight corner",
         page: 2,
-        shape: { type: "rectangle", x: 10, y: 20, w: 30, h: 40 },
-        shape_color: "#dc2626",
+        shapes: [
+          { type: "rectangle", x: 10, y: 20, w: 30, h: 40, ...STYLE },
+        ],
       },
     });
     const res = await POST(req, buildParams(baseParams));
@@ -185,14 +193,21 @@ describe("POST .../pins", () => {
         page: 2,
         xPercent: 25, // 10 + 30/2
         yPercent: 40, // 20 + 40/2
-        shapeType: "rectangle",
-        shapeData: { x: 10, y: 20, w: 30, h: 40 },
-        shapeColor: "#dc2626",
+        shapes: [
+          expect.objectContaining({
+            type: "rectangle",
+            x: 10,
+            y: 20,
+            w: 30,
+            h: 40,
+            color: "#dc2626",
+          }),
+        ],
       })
     );
   });
 
-  it("creates a circle annotation using cx/cy as centroid", async () => {
+  it("persists multiple shapes with distinct styles in one comment", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);
     vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
@@ -201,10 +216,43 @@ describe("POST .../pins", () => {
     const req = buildRequest(basePath, {
       method: "POST",
       body: {
-        content: "circle here",
+        content: "three things",
         page: 1,
-        shape: { type: "circle", cx: 60, cy: 70, rx: 5, ry: 8 },
-        shape_color: "#0284c7",
+        shapes: [
+          {
+            type: "rectangle",
+            x: 0,
+            y: 0,
+            w: 10,
+            h: 10,
+            color: "#dc2626",
+            strokeWidth: 2,
+            opacity: 1,
+            fill: true,
+          },
+          {
+            type: "circle",
+            cx: 50,
+            cy: 50,
+            rx: 8,
+            ry: 8,
+            color: "#16a34a",
+            strokeWidth: 4,
+            opacity: 0.6,
+            fill: false,
+          },
+          {
+            type: "freehand",
+            points: [
+              [70, 70],
+              [80, 80],
+            ],
+            color: "#0284c7",
+            strokeWidth: 1,
+            opacity: 1,
+            fill: false,
+          },
+        ],
       },
     });
     const res = await POST(req, buildParams(baseParams));
@@ -213,88 +261,20 @@ describe("POST .../pins", () => {
     expect(status).toBe(201);
     expect(createPinComment).toHaveBeenCalledWith(
       expect.objectContaining({
-        xPercent: 60,
-        yPercent: 70,
-        shapeType: "circle",
-        shapeData: { cx: 60, cy: 70, rx: 5, ry: 8 },
+        xPercent: 5, // rectangle centroid (0 + 10/2)
+        yPercent: 5,
+        shapes: expect.arrayContaining([
+          expect.objectContaining({ type: "rectangle", color: "#dc2626" }),
+          expect.objectContaining({ type: "circle", color: "#16a34a" }),
+          expect.objectContaining({ type: "freehand", color: "#0284c7" }),
+        ]),
       })
     );
+    const callArg = vi.mocked(createPinComment).mock.calls[0][0];
+    expect(callArg.shapes).toHaveLength(3);
   });
 
-  it("creates a freehand annotation with mean centroid", async () => {
-    const session = mockSession();
-    setupAuth(mocks.auth, session);
-    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-    vi.mocked(createPinComment).mockResolvedValue(samplePin as never);
-
-    const req = buildRequest(basePath, {
-      method: "POST",
-      body: {
-        content: "scribble",
-        page: 1,
-        shape: {
-          type: "freehand",
-          points: [
-            [0, 0],
-            [10, 20],
-            [20, 40],
-          ],
-        },
-      },
-    });
-    const res = await POST(req, buildParams(baseParams));
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(201);
-    expect(createPinComment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        xPercent: 10, // (0+10+20)/3
-        yPercent: 20, // (0+20+40)/3
-        shapeType: "freehand",
-        shapeData: {
-          points: [
-            [0, 0],
-            [10, 20],
-            [20, 40],
-          ],
-        },
-        shapeColor: null,
-      })
-    );
-  });
-
-  it("threads shape styling (stroke width / opacity / fill) through to the query", async () => {
-    const session = mockSession();
-    setupAuth(mocks.auth, session);
-    vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
-    vi.mocked(createPinComment).mockResolvedValue(samplePin as never);
-
-    const req = buildRequest(basePath, {
-      method: "POST",
-      body: {
-        content: "styled",
-        page: 1,
-        shape: { type: "rectangle", x: 10, y: 20, w: 30, h: 40 },
-        shape_color: "#7c3aed",
-        shape_stroke_width: 4,
-        shape_opacity: 0.5,
-        shape_fill: true,
-      },
-    });
-    const res = await POST(req, buildParams(baseParams));
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(201);
-    expect(createPinComment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        shapeStrokeWidth: 4,
-        shapeOpacity: 0.5,
-        shapeFill: true,
-      })
-    );
-  });
-
-  it("rejects shape without page", async () => {
+  it("rejects shapes array without page", async () => {
     const session = mockSession();
     setupAuth(mocks.auth, session);
     vi.mocked(getAttachmentById).mockResolvedValue(sampleAttachment as never);
@@ -303,7 +283,7 @@ describe("POST .../pins", () => {
       method: "POST",
       body: {
         content: "no page",
-        shape: { type: "rectangle", x: 0, y: 0, w: 10, h: 10 },
+        shapes: [{ type: "rectangle", x: 0, y: 0, w: 10, h: 10, ...STYLE }],
       },
     });
     const res = await POST(req, buildParams(baseParams));
@@ -311,7 +291,7 @@ describe("POST .../pins", () => {
 
     expect(status).toBe(400);
     expect(body).toMatchObject({
-      error: "page is required when posting a shape annotation",
+      error: "page is required when posting shape annotations",
     });
   });
 });

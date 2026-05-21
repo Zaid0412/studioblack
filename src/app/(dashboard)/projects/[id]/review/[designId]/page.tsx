@@ -35,6 +35,9 @@ import { attachments as attachmentsApi, upload, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/authClient";
 import { isPdf, isSpreadsheet } from "@/lib/fileUtils";
 import type { PinShape } from "@/types";
+
+/** Cap on shapes per comment — mirrors the Zod schema's max. */
+const MAX_PENDING_SHAPES = 20;
 import { useSidebar } from "@/components/layout/SidebarContext";
 
 /** Unified design review workspace — adapts to PM/architect or client role. */
@@ -115,14 +118,13 @@ export default function DesignReviewPage({
     page: number;
   } | null>(null);
 
-  // Pending shape: stores the drawn shape while the comment form is open.
-  // Mutually exclusive with pendingPin.
-  const [pendingShape, setPendingShape] = useState<{
-    shape: PinShape;
-    color: string;
-    strokeWidth: number;
-    opacity: number;
-    fill: boolean;
+  // Pending shapes: stores the drawn shapes (in draw order) while the comment
+  // form is open. The shape tool stays active across draws so the user can
+  // attach multiple shapes to one comment. Mutually exclusive with pendingPin.
+  // All shapes in a single pending batch belong to the same `page`; drawing
+  // on a different page replaces the batch.
+  const [pendingShapes, setPendingShapes] = useState<{
+    shapes: PinShape[];
     page: number;
   } | null>(null);
 
@@ -140,7 +142,7 @@ export default function DesignReviewPage({
   useEffect(() => {
     setRequestChangesMode(false); // eslint-disable-line react-hooks/set-state-in-effect -- sync reset on file switch
     setPendingPin(null);
-    setPendingShape(null);
+    setPendingShapes(null);
     setDrawTool(null);
   }, [activeFileId, setDrawTool]);
 
@@ -185,7 +187,7 @@ export default function DesignReviewPage({
         setPinMode(false);
         setDrawTool(null);
         setPendingPin(null);
-        setPendingShape(null);
+        setPendingShapes(null);
       }
     }
     document.addEventListener("keydown", handleKeyDown);
@@ -195,7 +197,7 @@ export default function DesignReviewPage({
   const handlePinClick = useCallback(
     (xPercent: number, yPercent: number, page: number) => {
       setPendingPin({ xPercent, yPercent, page });
-      setPendingShape(null);
+      setPendingShapes(null);
       setCommentsOpen(true);
       // Exit pin mode — cursor goes back to normal after placing a pin
       setPinMode(false);
@@ -205,26 +207,32 @@ export default function DesignReviewPage({
 
   const handleShapeComplete = useCallback(
     (shape: PinShape, page: number) => {
-      setPendingShape({
-        shape,
-        color: pinState.drawColor,
-        strokeWidth: pinState.drawStrokeWidth,
-        opacity: pinState.drawOpacity,
-        fill: pinState.drawFill,
-        page,
+      setPendingShapes((prev) => {
+        // Drawing on a different page (or first draw) starts a fresh batch.
+        if (!prev || prev.page !== page) {
+          return { shapes: [shape], page };
+        }
+        if (prev.shapes.length >= MAX_PENDING_SHAPES) {
+          toast({
+            title: "Shape limit reached",
+            description: `A single comment can hold up to ${MAX_PENDING_SHAPES} shapes.`,
+            variant: "warning",
+          });
+          return prev;
+        }
+        return { shapes: [...prev.shapes, shape], page };
       });
       setPendingPin(null);
       setCommentsOpen(true);
-      // One-shot: leave shape tool active so the next stroke continues the same
-      // tool. Common pattern in design tools (Figma, Miro).
+      // Tool stays active so the user can keep drawing more shapes onto the
+      // same comment.
     },
-    [
-      pinState.drawColor,
-      pinState.drawStrokeWidth,
-      pinState.drawOpacity,
-      pinState.drawFill,
-    ]
+    []
   );
+
+  const handleClearShapes = useCallback(() => {
+    setPendingShapes(null);
+  }, []);
 
   const handlePinFormSubmit = useCallback(
     async (data: {
@@ -234,28 +242,20 @@ export default function DesignReviewPage({
       page?: number | null;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
-      shape?: PinShape;
-      shapeColor?: string;
-      shapeStrokeWidth?: number;
-      shapeOpacity?: number;
-      shapeFill?: boolean;
     }) => {
-      // If a shape is pending, fold its styling in so the server can persist it.
+      // If shapes are pending, fold them into the addPin call so the server
+      // persists them in one transaction.
       const enriched =
-        pendingShape && !data.shape
+        pendingShapes && pendingShapes.shapes.length > 0
           ? {
               ...data,
-              shape: pendingShape.shape,
-              shapeColor: pendingShape.color,
-              shapeStrokeWidth: pendingShape.strokeWidth,
-              shapeOpacity: pendingShape.opacity,
-              shapeFill: pendingShape.fill,
-              page: pendingShape.page,
+              shapes: pendingShapes.shapes,
+              page: pendingShapes.page,
             }
           : data;
       await addPin(enriched);
       setPendingPin(null);
-      setPendingShape(null);
+      setPendingShapes(null);
       setRequestChangesMode(false);
 
       if (data.requestChanges) {
@@ -270,17 +270,17 @@ export default function DesignReviewPage({
         );
       }
     },
-    [addPin, pendingShape, updateAttachment]
+    [addPin, pendingShapes, updateAttachment]
   );
 
   const handlePinFormCancel = useCallback(() => {
     setPendingPin(null);
-    setPendingShape(null);
+    setPendingShapes(null);
   }, []);
 
   const handleClearPendingPin = useCallback(() => {
     setPendingPin(null);
-    setPendingShape(null);
+    setPendingShapes(null);
   }, []);
 
   const handleRepositionPendingPin = useCallback(
@@ -591,7 +591,7 @@ export default function DesignReviewPage({
                           selectedPinId={pinState.selectedPinId}
                           onSelectPin={setSelectedPinId}
                           pendingPin={pendingPin}
-                          pendingShape={pendingShape}
+                          pendingShapes={pendingShapes}
                           onRepositionPin={repositionPin}
                           pinMode={pinState.pinMode}
                           currentUserId={session?.user?.id ?? ""}
@@ -622,7 +622,7 @@ export default function DesignReviewPage({
                     selectedPinId={pinState.selectedPinId}
                     onSelectPin={setSelectedPinId}
                     pendingPin={pendingPin}
-                    pendingShape={pendingShape}
+                    pendingShapes={pendingShapes}
                     onRepositionPin={repositionPin}
                     pinMode={pinState.pinMode}
                     currentUserId={session?.user?.id ?? ""}
@@ -679,7 +679,8 @@ export default function DesignReviewPage({
             setRequestChangesMode(false);
           }}
           pendingPin={pendingPin}
-          pendingShape={pendingShape}
+          pendingShapes={pendingShapes?.shapes ?? []}
+          onClearShapes={handleClearShapes}
           onSubmitComment={handlePinFormSubmit}
           onCancelPending={handlePinFormCancel}
           onClearPendingPin={handleClearPendingPin}

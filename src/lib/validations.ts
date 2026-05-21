@@ -302,9 +302,18 @@ export const submitReviewSchema = z.object({
 const pct = z.number().min(0).max(100);
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
+const shapeStyleFields = {
+  color: hexColor,
+  strokeWidth: z.number().int().min(1).max(10),
+  opacity: z.number().gt(0).max(1),
+  fill: z.boolean(),
+};
+
 /**
- * Shape geometry discriminated by `type`. All coords are percent-based so
- * shapes survive viewer zoom / resolution changes.
+ * Shape geometry + style discriminated by `type`. All coords are
+ * percent-based so shapes survive viewer zoom / resolution changes. Each
+ * shape carries its own style so a comment can mix e.g. a red rectangle and
+ * a blue circle.
  */
 export const pinShapeSchema = z.discriminatedUnion("type", [
   z.object({
@@ -313,6 +322,7 @@ export const pinShapeSchema = z.discriminatedUnion("type", [
     y: pct,
     w: pct,
     h: pct,
+    ...shapeStyleFields,
   }),
   z.object({
     type: z.literal("circle"),
@@ -320,6 +330,7 @@ export const pinShapeSchema = z.discriminatedUnion("type", [
     cy: pct,
     rx: pct,
     ry: pct,
+    ...shapeStyleFields,
   }),
   z.object({
     type: z.literal("freehand"),
@@ -327,8 +338,12 @@ export const pinShapeSchema = z.discriminatedUnion("type", [
       .array(z.tuple([pct, pct]))
       .min(2)
       .max(500),
+    ...shapeStyleFields,
   }),
 ]);
+
+/** Cap on shapes per comment — large enough that real usage never hits it. */
+export const MAX_SHAPES_PER_PIN = 20;
 
 export const createPinSchema = z.object({
   content: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
@@ -343,11 +358,7 @@ export const createPinSchema = z.object({
     })
     .optional(),
   parent_id: optionalUuid,
-  shape: pinShapeSchema.optional(),
-  shape_color: hexColor.optional(),
-  shape_stroke_width: z.number().int().min(1).max(10).optional(),
-  shape_opacity: z.number().gt(0).max(1).optional(),
-  shape_fill: z.boolean().optional(),
+  shapes: z.array(pinShapeSchema).max(MAX_SHAPES_PER_PIN).optional(),
 });
 
 export const updatePinSchema = z.object({

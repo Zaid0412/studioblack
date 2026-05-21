@@ -94,6 +94,15 @@ export function ShapeDrawingLayer({
       return;
     }
 
+    // Style stamped onto every shape this layer emits — captured here so it
+    // travels with the geometry into the pending list / API.
+    const style = {
+      color,
+      strokeWidth,
+      opacity,
+      fill,
+    } as const;
+
     let shape: PinShape | null = null;
     if (tool === "rectangle") {
       const x = Math.min(start[0], current[0]);
@@ -103,7 +112,7 @@ export function ShapeDrawingLayer({
       // Accept as long as the user actually dragged in some direction — a flat
       // rectangle is still intentional, only a pure click should be dropped.
       if (Math.max(w, h) >= MIN_EXTENT_PCT) {
-        shape = { type: "rectangle", x, y, w, h };
+        shape = { type: "rectangle", x, y, w, h, ...style };
       }
     } else if (tool === "circle") {
       const cx = (start[0] + current[0]) / 2;
@@ -111,7 +120,7 @@ export function ShapeDrawingLayer({
       const rx = Math.abs(current[0] - start[0]) / 2;
       const ry = Math.abs(current[1] - start[1]) / 2;
       if (Math.max(rx * 2, ry * 2) >= MIN_EXTENT_PCT) {
-        shape = { type: "circle", cx, cy, rx, ry };
+        shape = { type: "circle", cx, cy, rx, ry, ...style };
       }
     } else {
       if (points.length >= 2) {
@@ -120,6 +129,7 @@ export function ShapeDrawingLayer({
           shape = {
             type: "freehand",
             points: simplified.map(([x, y]) => [x, y] as [number, number]),
+            ...style,
           };
         }
       }

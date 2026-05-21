@@ -77,13 +77,9 @@ interface PinOverlayProps {
   onSelectPin: (pinId: string) => void;
   /** Temporary pin shown while the user is typing a comment. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
-  /** Temporary shape shown while the user is typing a comment for a drawn annotation. */
-  pendingShape?: {
-    shape: PinShape;
-    color: string;
-    strokeWidth: number;
-    opacity: number;
-    fill: boolean;
+  /** Temporary shapes shown while the user is typing a comment. */
+  pendingShapes?: {
+    shapes: ReadonlyArray<PinShape>;
     page: number;
   } | null;
   /** Callback when a pin is dragged to a new position. */
@@ -188,7 +184,7 @@ export function PinOverlay({
   selectedPinId,
   onSelectPin,
   pendingPin,
-  pendingShape,
+  pendingShapes,
   onRepositionPin,
   pinMode = false,
   currentUserId,
@@ -280,30 +276,21 @@ export function PinOverlay({
     setDragState(null);
   }, [onRepositionPin, onRepositionPendingPin, onSelectPin, page]);
 
-  const shapePins = pagePins.filter(
-    (p) => p.shape_type !== null && p.shape_data !== null
-  );
-  const showPendingShape = pendingShape != null && pendingShape.page === page;
-  // PinShape is a discriminated union with `type` + geometry mixed; split it
-  // here so it matches the (shape_type, shape_data) shape the renderer expects
-  // for persisted pins.
-  const pendingShapeData: PinShapeData | null = showPendingShape
-    ? pendingShape.shape.type === "rectangle"
-      ? {
-          x: pendingShape.shape.x,
-          y: pendingShape.shape.y,
-          w: pendingShape.shape.w,
-          h: pendingShape.shape.h,
-        }
-      : pendingShape.shape.type === "circle"
-        ? {
-            cx: pendingShape.shape.cx,
-            cy: pendingShape.shape.cy,
-            rx: pendingShape.shape.rx,
-            ry: pendingShape.shape.ry,
-          }
-        : { points: pendingShape.shape.points }
-    : null;
+  const pinsWithShapes = pagePins.filter((p) => p.shapes.length > 0);
+  const showPendingShapes =
+    pendingShapes != null && pendingShapes.page === page;
+  const anyShapesToRender =
+    pinsWithShapes.length > 0 ||
+    (showPendingShapes && pendingShapes.shapes.length > 0);
+
+  // PinShape on the wire carries type + geometry + style; split into the
+  // (shape_type, shape_data) shape the renderer expects for persisted pins.
+  function pendingShapeGeometry(s: PinShape): PinShapeData {
+    if (s.type === "rectangle") return { x: s.x, y: s.y, w: s.w, h: s.h };
+    if (s.type === "circle")
+      return { cx: s.cx, cy: s.cy, rx: s.rx, ry: s.ry };
+    return { points: s.points };
+  }
 
   return (
     <div
@@ -312,35 +299,40 @@ export function PinOverlay({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {(shapePins.length > 0 || showPendingShape) && (
+      {anyShapesToRender && (
         <svg
           className="absolute inset-0 w-full h-full pointer-events-none"
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
-          {shapePins.map((pin) => (
-            <ShapePath
-              key={`shape-${pin.id}`}
-              shapeType={pin.shape_type!}
-              shapeData={pin.shape_data!}
-              color={pin.shape_color ?? "#F5C518"}
-              selected={pin.id === selectedPinId}
-              strokeWidth={pin.shape_stroke_width}
-              opacity={pin.shape_opacity}
-              filled={pin.shape_fill}
-            />
-          ))}
-          {showPendingShape && pendingShapeData && (
-            <g className="animate-pulse">
+          {pinsWithShapes.flatMap((pin) =>
+            pin.shapes.map((s) => (
               <ShapePath
-                shapeType={pendingShape.shape.type}
-                shapeData={pendingShapeData}
-                color={pendingShape.color}
-                strokeWidth={pendingShape.strokeWidth}
-                opacity={pendingShape.opacity}
-                filled={pendingShape.fill}
-                selected
+                key={`shape-${s.id}`}
+                shapeType={s.shape_type}
+                shapeData={s.shape_data}
+                color={s.shape_color ?? "#F5C518"}
+                selected={pin.id === selectedPinId}
+                strokeWidth={s.shape_stroke_width}
+                opacity={s.shape_opacity}
+                filled={s.shape_fill}
               />
+            ))
+          )}
+          {showPendingShapes && (
+            <g className="animate-pulse">
+              {pendingShapes.shapes.map((s, i) => (
+                <ShapePath
+                  key={`pending-${i}`}
+                  shapeType={s.type}
+                  shapeData={pendingShapeGeometry(s)}
+                  color={s.color}
+                  strokeWidth={s.strokeWidth}
+                  opacity={s.opacity}
+                  filled={s.fill}
+                  selected
+                />
+              ))}
             </g>
           )}
         </svg>

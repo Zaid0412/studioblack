@@ -29,8 +29,10 @@ interface PinSidebarProps {
   onClose: () => void;
   /** When set, the form for a new pin is shown at the top of the sidebar. */
   pendingPin?: { xPercent: number; yPercent: number; page: number } | null;
-  /** Shape annotation attached to the comment-in-progress. */
-  pendingShape?: { shape: PinShape; color: string; page: number } | null;
+  /** Shape annotations attached to the comment-in-progress. */
+  pendingShapes?: ReadonlyArray<PinShape>;
+  /** Clear every pending shape from the comment-in-progress. */
+  onClearShapes?: () => void;
   onSubmitComment: (data: {
     content: string;
     xPercent?: number | null;
@@ -38,8 +40,6 @@ interface PinSidebarProps {
     page?: number | null;
     requestChanges?: boolean;
     assignAsTask?: { assignedTo: string; dueDate?: string };
-    shape?: PinShape;
-    shapeColor?: string;
   }) => void | Promise<void>;
   onCancelPending?: () => void;
   /** Clear the visual pending pin from the document without closing the form. */
@@ -72,7 +72,8 @@ export function PinSidebar({
   open,
   onClose,
   pendingPin,
-  pendingShape,
+  pendingShapes,
+  onClearShapes,
   onSubmitComment,
   onCancelPending,
   onClearPendingPin,
@@ -98,9 +99,10 @@ export function PinSidebar({
     }
   }, [selectedPinId]);
 
-  // Show form when pendingPin / pendingShape is set (from document click or draw)
+  // Show form when pendingPin / pendingShapes is set (from document click or draw)
+  const hasPendingShapes = !!pendingShapes && pendingShapes.length > 0;
   const formVisible =
-    showNewForm || !!pendingPin || !!pendingShape || !!requestChangesMode;
+    showNewForm || !!pendingPin || hasPendingShapes || !!requestChangesMode;
 
   const sorted = useMemo(() => sortPinsByDate(pins), [pins]);
   const pinIndexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
@@ -154,7 +156,8 @@ export function PinSidebar({
       {formVisible && (
         <NewPinForm
           pendingPin={pendingPin ?? null}
-          pendingShape={pendingShape ?? null}
+          pendingShapes={pendingShapes}
+          onClearShapes={onClearShapes}
           members={members}
           defaultAssignee={defaultAssignee}
           role={role}

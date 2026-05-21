@@ -3,7 +3,12 @@ import useSWR from "swr";
 import { pinComments } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
-import type { DbPinComment, PinShape } from "@/types";
+import type {
+  DbPinComment,
+  DbPinShape,
+  PinShape,
+  PinShapeData,
+} from "@/types";
 import { centroidOf } from "@/lib/shapeUtils";
 
 /** Shape drawing tool currently selected in the review toolbar. */
@@ -27,6 +32,35 @@ function shapeCentroidXY(shape: PinShape): {
 } {
   const [x, y] = centroidOf(shape);
   return { x, y };
+}
+
+/**
+ * Build a DbPinShape-shaped object for optimistic rendering. Uses a fake id
+ *  that the server-returned shapes will replace once the request resolves.
+ */
+function toOptimisticDbShape(
+  shape: PinShape,
+  pinId: string,
+  index: number
+): DbPinShape {
+  const geometry: PinShapeData =
+    shape.type === "rectangle"
+      ? { x: shape.x, y: shape.y, w: shape.w, h: shape.h }
+      : shape.type === "circle"
+        ? { cx: shape.cx, cy: shape.cy, rx: shape.rx, ry: shape.ry }
+        : { points: shape.points };
+  return {
+    id: `temp-shape-${pinId}-${index}`,
+    pin_comment_id: pinId,
+    shape_type: shape.type,
+    shape_data: geometry,
+    shape_color: shape.color,
+    shape_stroke_width: shape.strokeWidth,
+    shape_opacity: shape.opacity,
+    shape_fill: shape.fill,
+    order_index: index,
+    created_at: new Date().toISOString(),
+  };
 }
 
 interface UsePinCommentsParams {
@@ -102,38 +136,20 @@ export function usePinComments({
       content: string;
       requestChanges?: boolean;
       assignAsTask?: { assignedTo: string; dueDate?: string };
-      shape?: PinShape;
-      shapeColor?: string;
-      shapeStrokeWidth?: number;
-      shapeOpacity?: number;
-      shapeFill?: boolean;
+      shapes?: ReadonlyArray<PinShape>;
     }) => {
       // Optimistic: insert a temp pin immediately
       const tempId = `temp-${Date.now()}`;
-      // For shape annotations the server derives x/y from the centroid; we
-      // mirror that on the optimistic pin so the marker pops in at the right
-      // spot before the server response arrives.
-      const optimisticXY = data.shape
-        ? shapeCentroidXY(data.shape)
+      const hasShapes = !!data.shapes && data.shapes.length > 0;
+      // For shape annotations the server derives x/y from the first shape's
+      // centroid; we mirror that on the optimistic pin so the marker pops in
+      // at the right spot before the server response arrives.
+      const optimisticXY = hasShapes
+        ? shapeCentroidXY(data.shapes![0])
         : { x: data.xPercent ?? null, y: data.yPercent ?? null };
-      const shapeType = data.shape?.type ?? null;
-      const shapeData: DbPinComment["shape_data"] = data.shape
-        ? data.shape.type === "rectangle"
-          ? {
-              x: data.shape.x,
-              y: data.shape.y,
-              w: data.shape.w,
-              h: data.shape.h,
-            }
-          : data.shape.type === "circle"
-            ? {
-                cx: data.shape.cx,
-                cy: data.shape.cy,
-                rx: data.shape.rx,
-                ry: data.shape.ry,
-              }
-            : { points: data.shape.points }
-        : null;
+      const tempShapes: DbPinShape[] = hasShapes
+        ? data.shapes!.map((s, i) => toOptimisticDbShape(s, tempId, i))
+        : [];
       const tempPin: DbPinComment = {
         id: tempId,
         attachment_id: attachmentId,
@@ -151,12 +167,15 @@ export function usePinComments({
         updated_at: null,
         reply_count: 0,
         created_at: new Date().toISOString(),
-        shape_type: shapeType,
-        shape_data: shapeData,
-        shape_color: data.shape ? (data.shapeColor ?? null) : null,
-        shape_stroke_width: data.shape ? (data.shapeStrokeWidth ?? null) : null,
-        shape_opacity: data.shape ? (data.shapeOpacity ?? null) : null,
-        shape_fill: data.shape ? (data.shapeFill ?? null) : null,
+        shapes: tempShapes,
+        // Legacy single-shape columns are no longer written by the API; mirror
+        // null so reads consistent with the server payload.
+        shape_type: null,
+        shape_data: null,
+        shape_color: null,
+        shape_stroke_width: null,
+        shape_opacity: null,
+        shape_fill: null,
       };
       mutatePins((prev) => [...(prev ?? []), tempPin], { revalidate: false });
 
@@ -173,11 +192,7 @@ export function usePinComments({
                 due_date: data.assignAsTask.dueDate,
               }
             : undefined,
-          shape: data.shape,
-          shape_color: data.shape ? data.shapeColor : undefined,
-          shape_stroke_width: data.shape ? data.shapeStrokeWidth : undefined,
-          shape_opacity: data.shape ? data.shapeOpacity : undefined,
-          shape_fill: data.shape ? data.shapeFill : undefined,
+          shapes: hasShapes ? [...data.shapes!] : undefined,
         });
         // Replace temp with real
         mutatePins(

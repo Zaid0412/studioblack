@@ -150,18 +150,28 @@ export function PinCard({
             Changes
           </span>
         )}
-        {pin.shape_type && (
+        {pin.shapes.length > 0 && (
           <span
-            className="shrink-0"
-            style={{ color: pin.shape_color ?? "currentColor" }}
-            aria-label={`${pin.shape_type} annotation`}
+            className="shrink-0 inline-flex items-center gap-0.5"
+            style={{ color: pin.shapes[0].shape_color ?? "currentColor" }}
+            aria-label={
+              pin.shapes.length === 1
+                ? `${pin.shapes[0].shape_type} annotation`
+                : `${pin.shapes.length} shape annotations`
+            }
+            title={pin.shapes.map((s) => s.shape_type).join(", ")}
           >
-            {pin.shape_type === "rectangle" ? (
+            {pin.shapes[0].shape_type === "rectangle" ? (
               <Square className="w-3 h-3" />
-            ) : pin.shape_type === "circle" ? (
+            ) : pin.shapes[0].shape_type === "circle" ? (
               <Circle className="w-3 h-3" />
             ) : (
               <Pencil className="w-3 h-3" />
+            )}
+            {pin.shapes.length > 1 && (
+              <span className="text-[10px] font-medium text-text-secondary">
+                +{pin.shapes.length - 1}
+              </span>
             )}
           </span>
         )}
