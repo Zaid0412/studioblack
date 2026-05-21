@@ -37,6 +37,14 @@ export const AUDIT_ACTIONS = {
   RFQ_ISSUED: "rfq.issued",
   RFQ_VENDORS_ADDED: "rfq.vendors_added",
   RFQ_CANCELLED: "rfq.cancelled",
+  RFQ_AWARDED: "rfq.awarded",
+  // ── Vendor Quotes (F10) ────────────────────────────────────────────────
+  QUOTE_SUBMITTED: "quote.submitted",
+  QUOTE_REVISED: "quote.revised",
+  QUOTE_UNDER_REVIEW: "quote.under_review",
+  QUOTE_AWARDED: "quote.awarded",
+  QUOTE_REJECTED: "quote.rejected",
+  QUOTE_EXPIRED: "quote.expired",
   // ── BOQ per-item lifecycle ─────────────────────────────────────────────
   BOQ_ITEM_PHASE_CHANGED: "boq.item.phase_changed",
   // ── Tasks (rendered in /tasks/[id] timeline) ────────────────────────────

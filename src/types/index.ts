@@ -11,6 +11,7 @@ import type {
   VendorKycStatus,
   VendorKycDocumentType,
   RateContractStatus,
+  VendorQuoteStatus,
 } from "@/lib/validations";
 
 export type {
@@ -20,6 +21,7 @@ export type {
   VendorKycDocumentType,
   RateContractStatus,
   RfqStatus,
+  VendorQuoteStatus,
 };
 
 /** Roles available to authenticated users. */
@@ -1103,4 +1105,94 @@ export interface RfqWithItems extends Rfq {
   items: RfqItem[];
   vendors: RfqVendorInvite[];
   events: RfqEvent[];
+}
+
+// ── Vendor Quotes (F10) ─────────────────────────────────────────────────────
+
+export interface VendorQuote {
+  id: string;
+  rfq_id: string;
+  vendor_id: string;
+  status: VendorQuoteStatus;
+  submitted_at: string;
+  valid_until: string | null;
+  currency: string;
+  delivery_period: string | null;
+  payment_terms: string | null;
+  inclusions: string | null;
+  exclusions: string | null;
+  notes: string | null;
+  attachments: unknown | null;
+  is_late: boolean;
+  awarded_at: string | null;
+  awarded_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VendorQuoteItem {
+  id: string;
+  quote_id: string;
+  rfq_item_id: string;
+  unit_price: number;
+  notes: string | null;
+  alternative_spec: string | null;
+}
+
+/** Quote detail with line items + vendor display fields joined. */
+export interface VendorQuoteWithItems extends VendorQuote {
+  items: VendorQuoteItem[];
+  vendor_name: string;
+  vendor_code: string | null;
+}
+
+/**
+ * One row in the side-by-side comparison table. Maps `vendor_id` → that
+ * vendor's line for this RFQ item (or absent if they did not bid on it).
+ */
+export interface QuoteComparisonRow {
+  rfq_item_id: string;
+  boq_item_id: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  spec_notes: string | null;
+  sort_order: number;
+  vendor_prices: Record<
+    string,
+    {
+      quote_id: string;
+      quote_item_id: string;
+      unit_price: number;
+      line_total: number;
+      notes: string | null;
+      alternative_spec: string | null;
+      is_lowest: boolean;
+    }
+  >;
+}
+
+export interface QuoteComparisonVendorColumn {
+  vendor_id: string;
+  vendor_name: string;
+  vendor_code: string | null;
+  quote_id: string;
+  quote_status: VendorQuoteStatus;
+  is_late: boolean;
+  valid_until: string | null;
+  delivery_period: string | null;
+  payment_terms: string | null;
+  inclusions: string | null;
+  exclusions: string | null;
+  currency: string;
+  grand_total: number;
+  submitted_at: string;
+}
+
+/** Denormalised shape consumed by the comparison page. */
+export interface QuoteComparison {
+  rfq_id: string;
+  items: QuoteComparisonRow[];
+  vendors: QuoteComparisonVendorColumn[];
+  invited_no_response: { vendor_id: string; vendor_name: string }[];
 }
