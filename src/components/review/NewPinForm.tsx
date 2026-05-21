@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/tooltip";
 import type { PinShape, UserRole } from "@/types";
 
-
 /** Inline form shown at the top of the sidebar for a new comment. */
 export function NewPinForm({
   pendingPin,

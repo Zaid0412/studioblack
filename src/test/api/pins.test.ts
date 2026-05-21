@@ -178,9 +178,7 @@ describe("POST .../pins", () => {
       body: {
         content: "highlight corner",
         page: 2,
-        shapes: [
-          { type: "rectangle", x: 10, y: 20, w: 30, h: 40, ...STYLE },
-        ],
+        shapes: [{ type: "rectangle", x: 10, y: 20, w: 30, h: 40, ...STYLE }],
       },
     });
     const res = await POST(req, buildParams(baseParams));

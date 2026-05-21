@@ -114,8 +114,7 @@ export function usePinComments({
 
   const setPinMode = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
-      const on =
-        typeof next === "function" ? next(pinModeRef.current) : next;
+      const on = typeof next === "function" ? next(pinModeRef.current) : next;
       pinModeRef.current = on;
       setPinModeRaw(on);
       if (on) setDrawToolRaw(null);
