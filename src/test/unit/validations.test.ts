@@ -1339,6 +1339,73 @@ describe("listElementsQuerySchema", () => {
   });
 });
 
+// ── Project Documents schemas ────────────────────────────────────────────────
+
+describe("createDocumentSectionSchema", () => {
+  it("accepts a normal name + icon", async () => {
+    const { createDocumentSectionSchema } = await import("@/lib/validations");
+    expectPass(createDocumentSectionSchema, {
+      name: "Minutes of Meeting",
+      icon: "Folder",
+    });
+  });
+
+  it("accepts a name without an icon (defaults applied at the route)", async () => {
+    const { createDocumentSectionSchema } = await import("@/lib/validations");
+    expectPass(createDocumentSectionSchema, { name: "MoM" });
+  });
+
+  it("rejects empty / whitespace names", async () => {
+    const { createDocumentSectionSchema } = await import("@/lib/validations");
+    expectFail(createDocumentSectionSchema, { name: "" });
+    expectFail(createDocumentSectionSchema, { name: "   " });
+  });
+
+  it("rejects icons that don't look like lucide names", async () => {
+    const { createDocumentSectionSchema } = await import("@/lib/validations");
+    expectFail(createDocumentSectionSchema, {
+      name: "x",
+      icon: "Folder Open",
+    });
+    expectFail(createDocumentSectionSchema, { name: "x", icon: "WAY/TOO_BAD" });
+    expectFail(createDocumentSectionSchema, { name: "x", icon: "lowercase" });
+    expectFail(createDocumentSectionSchema, { name: "x", icon: "file-text" });
+  });
+});
+
+describe("createDocumentSchema", () => {
+  it("accepts a typical upload payload", async () => {
+    const { createDocumentSchema } = await import("@/lib/validations");
+    expectPass(createDocumentSchema, {
+      fileName: "report.pdf",
+      fileSize: 12345,
+      mimeType: "application/pdf",
+      storagePath: "projects/abc/documents/foo.pdf",
+    });
+  });
+
+  it("rejects files larger than the 50 MB cap", async () => {
+    const { createDocumentSchema } = await import("@/lib/validations");
+    const { MAX_UPLOAD_SIZE } = await import("@/lib/fileUtils");
+    expectFail(createDocumentSchema, {
+      fileName: "x.pdf",
+      fileSize: MAX_UPLOAD_SIZE + 1,
+      mimeType: "application/pdf",
+      storagePath: "projects/abc/documents/x.pdf",
+    });
+  });
+
+  it("rejects zero / negative sizes", async () => {
+    const { createDocumentSchema } = await import("@/lib/validations");
+    expectFail(createDocumentSchema, {
+      fileName: "x.pdf",
+      fileSize: 0,
+      mimeType: "application/pdf",
+      storagePath: "projects/abc/documents/x.pdf",
+    });
+  });
+});
+
 // ── ALLOWED_UNITS constant ───────────────────────────────────────────────────
 
 describe("ALLOWED_UNITS", () => {

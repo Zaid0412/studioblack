@@ -2,6 +2,7 @@
 export const BUCKETS = {
   attachments: "attachments",
   avatars: "avatars",
+  documents: "documents",
 } as const;
 
 export type BucketName = (typeof BUCKETS)[keyof typeof BUCKETS];

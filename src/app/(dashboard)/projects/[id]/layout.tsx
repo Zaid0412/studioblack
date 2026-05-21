@@ -11,6 +11,8 @@ import {
 import { useFlag } from "@/hooks/useFlag";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
@@ -72,22 +74,29 @@ export default function ProjectDetailLayout({
   // BOQ doesn't unmount it. Clients see the same nav because PR-2 surfaces
   // BOQ items at `submitted_to_client+` to them — without the stepper they
   // would have no tab switcher. On BOQ side only visible on the my-scope
-  // sub-tab (other BOQ sub-tabs render their own header).
+  // sub-tab (other BOQ sub-tabs render their own header). Documents is a
+  // separate surface entered via MetaBar — no stepper there.
   const showWorkflowSteps =
     boqEnabled &&
     (pathname === `${base}/designs` || pathname === `${base}/boq/my-scope`);
 
-  // ProjectHeader, MetaBar, and the project comments strip all share one
-  // visibility rule: overview, designs, and BoQ surfaces only. Upload,
-  // review, edit, and the BoQ/RFQ sub-routes render their own chrome and
-  // don't want the breadcrumb + meta + comments stack on top. The /boq/rfq
-  // carve-out preserves the previous behaviour of hiding the comments
-  // section on those deep workflow surfaces.
-  const showProjectInfo =
+  // ProjectHeader shows on every project surface that has the standard chrome
+  // (overview, designs, BoQ — including /boq/rfq — and documents). Upload,
+  // review, and edit render their own chrome.
+  const showHeader =
     pathname === base ||
     pathname.startsWith(`${base}/designs`) ||
-    (pathname.startsWith(`${base}/boq`) &&
-      !pathname.startsWith(`${base}/boq/rfq`));
+    pathname.startsWith(`${base}/documents`) ||
+    pathname.startsWith(`${base}/boq`);
+
+  // MetaBar is the project info card. We hide it on the documents surface so
+  // the file list has the full vertical space.
+  const showMetaBar = showHeader && !pathname.startsWith(`${base}/documents`);
+
+  // The project comments strip is only relevant on design/BOQ surfaces —
+  // documents has its own context so comments-about-the-project would just
+  // be noise there.
+  const showComments = showMetaBar;
 
   if (loading || roleLoading) {
     return (
@@ -137,35 +146,52 @@ export default function ProjectDetailLayout({
     );
   }
 
+  const onDocuments = pathname.startsWith(`${base}/documents`);
+
+  // Right-side pill that takes the user to /documents. Hidden on /documents
+  // itself (the back-pill in the breadcrumb covers the round-trip).
+  const documentsAction = !onDocuments ? (
+    <Link
+      href={`${base}/documents`}
+      className="group inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border-default bg-bg-elevated text-[13px] font-medium text-text-primary hover:bg-bg-input hover:border-text-muted/40 transition-colors"
+    >
+      <span>Documents</span>
+      <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  ) : null;
+
   const tree = (
     <div className="flex flex-col h-full">
-      {showProjectInfo && (
-        <>
-          <ProjectHeader
-            projectName={project.name}
-            description={undefined}
-            onRefresh={refreshAll}
-          />
+      {showHeader && (
+        <ProjectHeader
+          projectName={project.name}
+          description={undefined}
+          onRefresh={refreshAll}
+          actions={documentsAction}
+          projectHref={onDocuments ? base : undefined}
+          subSection={onDocuments ? "Documents" : undefined}
+        />
+      )}
 
-          <MetaBar
-            variant={isClient ? "client" : "pm"}
-            clientName={project.client_name}
-            clientEmail={project.client_email}
-            members={project.members}
-            createdAt={project.created_at}
-            phases={project.phases}
-            phaseCounts={phaseCounts}
-            status={project.status}
-            category={project.category}
-            deadline={project.deadline}
-            scope={project.scope}
-            areaSqft={project.area_sqft}
-            estimationInr={project.estimation_inr}
-            address={project.address}
-            city={project.city}
-            state={project.state}
-          />
-        </>
+      {showMetaBar && (
+        <MetaBar
+          variant={isClient ? "client" : "pm"}
+          clientName={project.client_name}
+          clientEmail={project.client_email}
+          members={project.members}
+          createdAt={project.created_at}
+          phases={project.phases}
+          phaseCounts={phaseCounts}
+          status={project.status}
+          category={project.category}
+          deadline={project.deadline}
+          scope={project.scope}
+          areaSqft={project.area_sqft}
+          estimationInr={project.estimation_inr}
+          address={project.address}
+          city={project.city}
+          state={project.state}
+        />
       )}
 
       {showWorkflowSteps && (
@@ -178,7 +204,7 @@ export default function ProjectDetailLayout({
 
       {children}
 
-      {showProjectInfo && (
+      {showComments && (
         <>
           <div className="mx-4 lg:mx-10 border-t border-border-default mt-2 mb-8" />
           <CommentsSection comments={comments} submitComment={submitComment} />

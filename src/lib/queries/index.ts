@@ -29,3 +29,4 @@ export * from "./vendors";
 export * from "./rateContracts";
 export * from "./rfqs";
 export * from "./audit";
+export * from "./projectDocuments";

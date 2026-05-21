@@ -1,0 +1,545 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import {
+  listDocumentSections,
+  createDocumentSection,
+  getDocumentSectionById,
+  updateDocumentSection,
+  deleteDocumentSection,
+  listSectionDocuments,
+  listProjectDocuments,
+  createDocument,
+  getDocumentById,
+  deleteDocument,
+} from "@/lib/queries";
+import {
+  GET as GET_SECTIONS,
+  POST as POST_SECTIONS,
+} from "@/app/api/projects/[id]/document-sections/route";
+import {
+  PATCH as PATCH_SECTION,
+  DELETE as DELETE_SECTION,
+} from "@/app/api/projects/[id]/document-sections/[sectionId]/route";
+import {
+  GET as GET_DOCS,
+  POST as POST_DOC,
+} from "@/app/api/projects/[id]/document-sections/[sectionId]/documents/route";
+import { GET as GET_ALL_DOCS } from "@/app/api/projects/[id]/documents/route";
+import { POST as POST_UPLOAD_URL } from "@/app/api/projects/[id]/document-sections/[sectionId]/documents/upload-url/route";
+import { DELETE as DELETE_DOC } from "@/app/api/projects/[id]/documents/[documentId]/route";
+import { GET as GET_DOWNLOAD } from "@/app/api/projects/[id]/documents/[documentId]/download/route";
+import {
+  buildRequest,
+  buildParams,
+  mockSession,
+  setupAuth,
+  parseResponse,
+  TEST_USER_ID,
+} from "../helpers";
+import { mocks } from "../setup";
+
+const PROJECT_ID = "proj-1";
+const SECTION_ID = "sec-1";
+const DOC_ID = "doc-1";
+
+const basePath = `/api/projects/${PROJECT_ID}/document-sections`;
+const sectionPath = `${basePath}/${SECTION_ID}`;
+const docsPath = `${sectionPath}/documents`;
+const uploadUrlPath = `${docsPath}/upload-url`;
+const docPath = `/api/projects/${PROJECT_ID}/documents/${DOC_ID}`;
+const downloadPath = `${docPath}/download`;
+
+const baseParams = { id: PROJECT_ID };
+const sectionParams = { id: PROJECT_ID, sectionId: SECTION_ID };
+const docParams = { id: PROJECT_ID, documentId: DOC_ID };
+
+const sampleSection = {
+  id: SECTION_ID,
+  project_id: PROJECT_ID,
+  name: "Minutes of Meeting",
+  icon: "folder",
+  position: 0,
+  created_by: TEST_USER_ID,
+  created_at: "2024-06-01T00:00:00Z",
+  updated_at: "2024-06-01T00:00:00Z",
+  doc_count: 0,
+};
+
+const sampleDoc = {
+  id: DOC_ID,
+  project_id: PROJECT_ID,
+  section_id: SECTION_ID,
+  file_name: "kickoff.pdf",
+  file_size: 1234,
+  mime_type: "application/pdf",
+  storage_path: `projects/${PROJECT_ID}/documents/abc-kickoff.pdf`,
+  uploaded_by: TEST_USER_ID,
+  uploaded_by_name: "Test PM",
+  created_at: "2024-06-01T00:00:00Z",
+};
+
+// ── GET sections ────────────────────────────────────────────────────────────
+
+describe("GET .../document-sections", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the section list", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(listDocumentSections).mockResolvedValue([sampleSection] as never);
+
+    const res = await GET_SECTIONS(
+      buildRequest(basePath),
+      buildParams(baseParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body).toEqual([sampleSection]);
+    expect(listDocumentSections).toHaveBeenCalledWith(PROJECT_ID, TEST_USER_ID);
+  });
+
+  it("returns 401 without a session", async () => {
+    setupAuth(mocks.auth, null);
+    const res = await GET_SECTIONS(
+      buildRequest(basePath),
+      buildParams(baseParams)
+    );
+    expect((await parseResponse(res)).status).toBe(401);
+  });
+});
+
+// ── POST sections ───────────────────────────────────────────────────────────
+
+describe("POST .../document-sections", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a section with name + icon", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(createDocumentSection).mockResolvedValue(sampleSection as never);
+
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "Site Visits", icon: "Image" },
+      }),
+      buildParams(baseParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(201);
+    expect(body).toEqual(sampleSection);
+    expect(createDocumentSection).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Site Visits", icon: "Image" })
+    );
+  });
+
+  it("defaults icon to 'folder' when not supplied", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(createDocumentSection).mockResolvedValue(sampleSection as never);
+
+    await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "Other" },
+      }),
+      buildParams(baseParams)
+    );
+    expect(createDocumentSection).toHaveBeenCalledWith(
+      expect.objectContaining({ icon: "Folder" })
+    );
+  });
+
+  it("rejects an empty name", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "" },
+      }),
+      buildParams(baseParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(createDocumentSection).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 on duplicate name (unique violation)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const err = Object.assign(new Error("duplicate"), { code: "23505" });
+    vi.mocked(createDocumentSection).mockRejectedValue(err);
+
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "Contracts" },
+      }),
+      buildParams(baseParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/already exists/i),
+    });
+  });
+
+  it("forbids clients from creating sections", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "client" }));
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "Sneaky" },
+      }),
+      buildParams(baseParams)
+    );
+    expect((await parseResponse(res)).status).toBe(403);
+    expect(createDocumentSection).not.toHaveBeenCalled();
+  });
+});
+
+// ── PATCH section ───────────────────────────────────────────────────────────
+
+describe("PATCH .../document-sections/[sectionId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renames a section", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    const renamed = { ...sampleSection, name: "MoM" };
+    vi.mocked(updateDocumentSection).mockResolvedValue(renamed as never);
+
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, { method: "PATCH", body: { name: "MoM" } }),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body).toEqual(renamed);
+    expect(updateDocumentSection).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: SECTION_ID, name: "MoM" })
+    );
+  });
+
+  it("returns 404 when the section does not exist", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(null);
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, { method: "PATCH", body: { name: "MoM" } }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(404);
+  });
+
+  it("returns 409 on rename collision (unique violation)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    const err = Object.assign(new Error("duplicate"), { code: "23505" });
+    vi.mocked(updateDocumentSection).mockRejectedValue(err);
+
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { name: "Contracts" },
+      }),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/already exists/i),
+    });
+  });
+});
+
+// ── DELETE section ──────────────────────────────────────────────────────────
+
+describe("DELETE .../document-sections/[sectionId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("deletes the section and cleans up storage paths", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(deleteDocumentSection).mockResolvedValue([
+      `projects/${PROJECT_ID}/documents/a-file.pdf`,
+    ]);
+
+    const res = await DELETE_SECTION(
+      buildRequest(sectionPath, { method: "DELETE" }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(200);
+    expect(deleteDocumentSection).toHaveBeenCalledWith(SECTION_ID, PROJECT_ID);
+    expect(mocks.supabase.remove).toHaveBeenCalledWith([
+      `projects/${PROJECT_ID}/documents/a-file.pdf`,
+    ]);
+  });
+
+  it("skips storage cleanup when the section is empty", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(deleteDocumentSection).mockResolvedValue([]);
+
+    await DELETE_SECTION(
+      buildRequest(sectionPath, { method: "DELETE" }),
+      buildParams(sectionParams)
+    );
+    expect(deleteDocumentSection).toHaveBeenCalledWith(SECTION_ID, PROJECT_ID);
+    expect(mocks.supabase.remove).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the section doesn't exist", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(deleteDocumentSection).mockResolvedValue(null);
+
+    const res = await DELETE_SECTION(
+      buildRequest(sectionPath, { method: "DELETE" }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(404);
+    expect(mocks.supabase.remove).not.toHaveBeenCalled();
+  });
+});
+
+// ── GET documents ───────────────────────────────────────────────────────────
+
+describe("GET .../sections/[sectionId]/documents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the document list", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    vi.mocked(listSectionDocuments).mockResolvedValue([sampleDoc] as never);
+
+    const res = await GET_DOCS(
+      buildRequest(docsPath),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body).toEqual([sampleDoc]);
+  });
+
+  it("returns 404 when the section is missing", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(null);
+    const res = await GET_DOCS(
+      buildRequest(docsPath),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(404);
+  });
+});
+
+// ── GET all documents ───────────────────────────────────────────────────────
+
+describe("GET .../projects/[id]/documents (All view)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns every document in the project", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const docWithSection = { ...sampleDoc, section_name: "Minutes of Meeting" };
+    vi.mocked(listProjectDocuments).mockResolvedValue([
+      docWithSection,
+    ] as never);
+
+    const res = await GET_ALL_DOCS(
+      buildRequest(`/api/projects/${PROJECT_ID}/documents`),
+      buildParams(baseParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body).toEqual([docWithSection]);
+    expect(listProjectDocuments).toHaveBeenCalledWith(PROJECT_ID);
+  });
+
+  it("returns 401 without a session", async () => {
+    setupAuth(mocks.auth, null);
+    const res = await GET_ALL_DOCS(
+      buildRequest(`/api/projects/${PROJECT_ID}/documents`),
+      buildParams(baseParams)
+    );
+    expect((await parseResponse(res)).status).toBe(401);
+  });
+});
+
+// ── POST upload-url ─────────────────────────────────────────────────────────
+
+describe("POST .../documents/upload-url", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns a signed URL and storage path under the project prefix", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+
+    const res = await POST_UPLOAD_URL(
+      buildRequest(uploadUrlPath, {
+        method: "POST",
+        body: { fileName: "kickoff.pdf", fileSize: 1234 },
+      }),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse<{
+      signedUrl: string;
+      storagePath: string;
+    }>(res);
+    expect(status).toBe(200);
+    expect(
+      body.storagePath.startsWith(`projects/${PROJECT_ID}/documents/`)
+    ).toBe(true);
+    expect(body.signedUrl).toBeTruthy();
+  });
+
+  it("rejects file extensions not in the allow-list", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+
+    const res = await POST_UPLOAD_URL(
+      buildRequest(uploadUrlPath, {
+        method: "POST",
+        body: { fileName: "malware.exe", fileSize: 1234 },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+  });
+});
+
+// ── POST document ───────────────────────────────────────────────────────────
+
+describe("POST .../sections/[sectionId]/documents", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates a document row with the issued storage path", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    vi.mocked(createDocument).mockResolvedValue(sampleDoc as never);
+
+    const res = await POST_DOC(
+      buildRequest(docsPath, {
+        method: "POST",
+        body: {
+          fileName: "kickoff.pdf",
+          fileSize: 1234,
+          mimeType: "application/pdf",
+          storagePath: `projects/${PROJECT_ID}/documents/abc-kickoff.pdf`,
+        },
+      }),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(201);
+    expect(body).toEqual(sampleDoc);
+  });
+
+  it("refuses a storagePath that doesn't belong to this project", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+
+    const res = await POST_DOC(
+      buildRequest(docsPath, {
+        method: "POST",
+        body: {
+          fileName: "stolen.pdf",
+          fileSize: 1234,
+          mimeType: "application/pdf",
+          storagePath: `projects/other-project/documents/stolen.pdf`,
+        },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(createDocument).not.toHaveBeenCalled();
+  });
+
+  it("forbids clients from uploading", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "client" }));
+    const res = await POST_DOC(
+      buildRequest(docsPath, {
+        method: "POST",
+        body: {
+          fileName: "x.pdf",
+          fileSize: 1,
+          mimeType: "application/pdf",
+          storagePath: `projects/${PROJECT_ID}/documents/x.pdf`,
+        },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(403);
+  });
+});
+
+// ── GET download ────────────────────────────────────────────────────────────
+
+describe("GET .../documents/[documentId]/download", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns a short-lived signed URL", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentById).mockResolvedValue(sampleDoc as never);
+
+    const res = await GET_DOWNLOAD(
+      buildRequest(downloadPath),
+      buildParams(docParams)
+    );
+    const { status, body } = await parseResponse<{ url: string }>(res);
+    expect(status).toBe(200);
+    expect(body.url).toBeTruthy();
+    expect(mocks.supabase.createSignedUrl).toHaveBeenCalled();
+  });
+
+  it("works for client viewers", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "client" }));
+    vi.mocked(getDocumentById).mockResolvedValue(sampleDoc as never);
+
+    const res = await GET_DOWNLOAD(
+      buildRequest(downloadPath),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(200);
+  });
+});
+
+// ── DELETE document ─────────────────────────────────────────────────────────
+
+describe("DELETE .../documents/[documentId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("removes the row and the storage object", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(deleteDocument).mockResolvedValue(sampleDoc.storage_path);
+
+    const res = await DELETE_DOC(
+      buildRequest(docPath, { method: "DELETE" }),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(200);
+    expect(deleteDocument).toHaveBeenCalledWith(DOC_ID, PROJECT_ID);
+    expect(mocks.supabase.remove).toHaveBeenCalledWith([
+      sampleDoc.storage_path,
+    ]);
+  });
+
+  it("forbids clients from deleting", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "client" }));
+    const res = await DELETE_DOC(
+      buildRequest(docPath, { method: "DELETE" }),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(403);
+    expect(deleteDocument).not.toHaveBeenCalled();
+  });
+});

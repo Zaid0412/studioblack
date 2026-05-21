@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_CONTENT_LENGTH } from "@/lib/constants";
+import { MAX_UPLOAD_SIZE } from "@/lib/fileUtils";
 
 // ─── Shared constants ───────────────────────────────────────────────────────
 
@@ -1269,6 +1270,34 @@ export const addRfqItemsSchema = z.object({
 
 export const cancelRfqSchema = z.object({
   reason: z.string().trim().max(2000).optional().nullable(),
+});
+
+// ─── Project Documents ──────────────────────────────────────────────────────
+
+/** Lucide icon name — PascalCase, matching lucide-react's `icons` export. */
+const lucideIcon = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .regex(/^[A-Z][A-Za-z0-9]*$/, "must be a PascalCase lucide icon name");
+
+export const createDocumentSectionSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  icon: lucideIcon.optional(),
+});
+
+export const updateDocumentSectionSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  icon: lucideIcon.optional(),
+  position: z.number().int().min(0).optional(),
+});
+
+export const createDocumentSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  fileSize: z.number().int().positive().max(MAX_UPLOAD_SIZE),
+  mimeType: z.string().trim().min(1).max(150),
+  storagePath: z.string().trim().min(1).max(500),
 });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
