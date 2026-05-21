@@ -1,18 +1,21 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
+import { useVendorQuote, useVendorSubmitQuote } from "@/hooks/useQuotes";
 import { RfqDetailRow } from "../../../projects/[id]/boq/rfq/_components/RfqDetailRow";
 import { RfqStatusBadge } from "../../../projects/[id]/boq/rfq/_components/RfqStatusBadge";
+import { QuoteStatusBadge } from "../../../projects/[id]/boq/rfq/_components/QuoteStatusBadge";
 import { RfqStatusTimeline } from "../../../projects/[id]/boq/rfq/[rfqId]/_components/RfqStatusTimeline";
+import { VendorQuoteSubmitDialog } from "./_components/VendorQuoteSubmitDialog";
 
 /**
  * Vendor-portal RFQ detail. Read-only in F9 — the "Submit Quote" CTA is
@@ -28,6 +31,17 @@ export default function VendorPortalRfqDetailPage({
   const t = useTranslations("vendorPortal.rfqDetail");
 
   const { rfq, notFound, isLoading } = useVendorRfqDetail(rfqId);
+  const { quote } = useVendorQuote(rfqId);
+  const submitQuote = useVendorSubmitQuote(rfqId);
+  const [submitOpen, setSubmitOpen] = useState(false);
+
+  const canSubmit =
+    rfq != null &&
+    ["issued", "quotes_received", "under_review"].includes(rfq.status) &&
+    (quote == null || quote.status === "submitted");
+  const isAwardedToMe = quote?.status === "awarded";
+  const isAwardedToOther =
+    rfq?.status === "awarded" && quote?.status !== "awarded";
 
   if (isLoading) {
     return (
@@ -87,12 +101,46 @@ export default function VendorPortalRfqDetailPage({
         actions={
           <>
             <RfqStatusBadge status={rfq.status} />
-            <Button disabled title={t("submitComingSoon")}>
-              {t("submitBtn")}
-            </Button>
+            {quote && <QuoteStatusBadge status={quote.status} />}
+            {canSubmit && (
+              <Button
+                onClick={() => setSubmitOpen(true)}
+                className="cursor-pointer"
+              >
+                {quote ? "Update quote" : "Submit quote"}
+              </Button>
+            )}
           </>
         }
       />
+
+      {isAwardedToMe && (
+        <div className="flex items-start gap-3 rounded-xl border border-status-success/40 bg-status-success/10 px-4 py-3 text-sm">
+          <CheckCircle2 className="w-5 h-5 mt-0.5 text-status-success shrink-0" />
+          <div>
+            <div className="font-medium text-text-primary">
+              Your quote was awarded
+            </div>
+            <div className="text-text-secondary text-xs">
+              The studio will follow up with a purchase order shortly.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAwardedToOther && (
+        <div className="flex items-start gap-3 rounded-xl border border-border-default bg-bg-secondary px-4 py-3 text-sm">
+          <XCircle className="w-5 h-5 mt-0.5 text-text-muted shrink-0" />
+          <div>
+            <div className="font-medium text-text-primary">
+              This RFQ has been awarded
+            </div>
+            <div className="text-text-secondary text-xs">
+              Thank you for quoting — a different vendor was selected this time.
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="rounded-xl border border-border-default bg-bg-secondary p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
         <RfqDetailRow
@@ -163,6 +211,16 @@ export default function VendorPortalRfqDetailPage({
         </div>
         <RfqStatusTimeline events={rfq.events} hideActor />
       </section>
+
+      <VendorQuoteSubmitDialog
+        rfq={rfq}
+        existing={quote}
+        open={submitOpen}
+        onOpenChange={setSubmitOpen}
+        onSubmit={async (payload) => {
+          await submitQuote(payload);
+        }}
+      />
     </div>
   );
 }

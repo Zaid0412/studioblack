@@ -163,6 +163,15 @@ export const API = {
   vendorPortalRfqs:            ()                                  => "/api/vendor-portal/rfqs",
   vendorPortalRfq:             (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}`,
 
+  // ── Vendor Quotes (Feature 10) ──────────────────
+  rfqQuotes:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/quotes`,
+  rfqQuote:                    (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}`,
+  rfqQuoteReview:              (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}/review`,
+  rfqComparison:               (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/comparison`,
+  rfqAward:                    (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/award`,
+  rfqAwardSplit:               (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/award-split`,
+  vendorPortalRfqQuote:        (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}/quote`,
+
   // ── Project Documents ───────────────────────────
   projectDocumentSections:        (pid: string)                       => `/api/projects/${pid}/document-sections`,
   projectDocumentSection:         (pid: string, sid: string)          => `/api/projects/${pid}/document-sections/${sid}`,
