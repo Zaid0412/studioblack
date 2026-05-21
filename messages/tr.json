@@ -1221,6 +1221,11 @@
       "issuedVerb": "talebi şunlara gönderdi:",
       "vendorsAddedVerb": "şunları davet etti:",
       "cancelledVerb": "talebi iptal etti",
+      "quoteSubmittedVerb": "şu firmadan teklif aldı:",
+      "quoteRevisedVerb": "şu firmanın teklifini güncelledi:",
+      "rfqAwardedVerb": "talebi sonuçlandırdı",
+      "quoteAwardedVerb": "şuna ihale verdi:",
+      "splitAward": "kalem bazlı ihale",
       "itemsCount": "{count, plural, =1 {# kalem} other {# kalem}}",
       "vendorsCount": "{count, plural, =1 {# tedarikçi} other {# tedarikçi}}"
     },

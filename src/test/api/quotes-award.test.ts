@@ -216,9 +216,7 @@ describe("POST /api/projects/[id]/rfqs/[rfqId]/award (single)", () => {
       }),
       buildParams({ id: PROJECT_ID, rfqId: RFQ_ID })
     );
-    const actions = vi
-      .mocked(logAuditSafe)
-      .mock.calls.map((c) => c[0].action);
+    const actions = vi.mocked(logAuditSafe).mock.calls.map((c) => c[0].action);
     expect(actions).toContain("rfq.awarded");
     expect(actions).toContain("quote.awarded");
   });

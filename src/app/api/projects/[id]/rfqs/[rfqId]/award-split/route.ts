@@ -99,7 +99,8 @@ export const POST = withAuth(
           actorId: user.id,
           action: AUDIT_ACTIONS.QUOTE_AWARDED,
           targetTable: "vendor_quote",
-          targetId: allQuotes.find((q) => q.vendor_id === v.vendor_id)?.id ?? "",
+          targetId:
+            allQuotes.find((q) => q.vendor_id === v.vendor_id)?.id ?? "",
           metadata: {
             rfq_id: resolved.rfqId,
             vendor_id: v.vendor_id,

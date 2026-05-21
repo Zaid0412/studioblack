@@ -1,7 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Ban, FilePlus2, Mail, UserPlus2 } from "lucide-react";
+import {
+  Award,
+  Ban,
+  FilePlus2,
+  Mail,
+  MessageSquareReply,
+  UserPlus2,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/formatTime";
@@ -22,6 +29,10 @@ const ICONS: Record<string, LucideIcon> = {
   "rfq.issued": Mail,
   "rfq.vendors_added": UserPlus2,
   "rfq.cancelled": Ban,
+  "rfq.awarded": Award,
+  "quote.submitted": MessageSquareReply,
+  "quote.revised": MessageSquareReply,
+  "quote.awarded": Award,
 };
 
 /**
@@ -150,6 +161,48 @@ function EventBody({
         </>
       ) : (
         <span>{t("cancelledVerb")}</span>
+      );
+    }
+    case "quote.submitted":
+    case "quote.revised": {
+      const vendorName =
+        typeof m.vendor_name === "string" ? m.vendor_name : null;
+      const verb =
+        event.action === "quote.submitted"
+          ? t("quoteSubmittedVerb")
+          : t("quoteRevisedVerb");
+      return (
+        <>
+          <span>{verb}</span>
+          {vendorName && <Pill>{vendorName}</Pill>}
+        </>
+      );
+    }
+    case "rfq.awarded": {
+      const awardType = typeof m.award_type === "string" ? m.award_type : null;
+      const winningName =
+        typeof m.winning_vendor_name === "string"
+          ? m.winning_vendor_name
+          : null;
+      return (
+        <>
+          <span>{t("rfqAwardedVerb")}</span>
+          {awardType === "split" ? (
+            <Pill>{t("splitAward")}</Pill>
+          ) : (
+            winningName && <Pill>{winningName}</Pill>
+          )}
+        </>
+      );
+    }
+    case "quote.awarded": {
+      const vendorName =
+        typeof m.vendor_name === "string" ? m.vendor_name : null;
+      return (
+        <>
+          <span>{t("quoteAwardedVerb")}</span>
+          {vendorName && <Pill>{vendorName}</Pill>}
+        </>
       );
     }
     default:

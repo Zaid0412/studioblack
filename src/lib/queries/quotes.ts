@@ -418,6 +418,13 @@ export async function getQuoteComparison(
   };
 }
 
+/** Recipient row for studio-side quote notifications. */
+export interface QuoteStudioRecipient {
+  email: string;
+  name: string;
+  userId: string;
+}
+
 /**
  * Studio-side notification recipients for "quote received" / "quote
  * revised" events. Returns the RFQ creator (when they have a valid email)
@@ -425,11 +432,6 @@ export async function getQuoteComparison(
  * actually drive procurement decisions on the project. Empty list when no
  * recipient can be resolved (caller skips fan-out).
  */
-export interface QuoteStudioRecipient {
-  email: string;
-  name: string;
-  userId: string;
-}
 export async function getQuoteStudioRecipients(
   rfqId: string
 ): Promise<QuoteStudioRecipient[]> {
