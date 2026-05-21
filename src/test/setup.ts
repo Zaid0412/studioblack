@@ -109,12 +109,20 @@ const mockCreateSignedUploadUrl = vi.fn().mockResolvedValue({
   },
   error: null,
 });
+const mockCreateSignedUrl = vi.fn().mockResolvedValue({
+  data: {
+    signedUrl:
+      "https://test.supabase.co/storage/v1/object/sign/documents/test-path?token=signed-token",
+  },
+  error: null,
+});
 
 const mockStorageFrom = vi.fn(() => ({
   upload: mockUpload,
   remove: mockRemove,
   getPublicUrl: mockGetPublicUrl,
   createSignedUploadUrl: mockCreateSignedUploadUrl,
+  createSignedUrl: mockCreateSignedUrl,
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -484,6 +492,17 @@ vi.mock("@/lib/queries", () => ({
     SELF_SERVICE: "self_service",
   } as const,
   getAuditEvents: vi.fn().mockResolvedValue([]),
+  // Project Documents
+  listDocumentSections: vi.fn().mockResolvedValue([]),
+  getDocumentSectionById: vi.fn().mockResolvedValue(null),
+  createDocumentSection: vi.fn(),
+  updateDocumentSection: vi.fn().mockResolvedValue(null),
+  deleteDocumentSection: vi.fn().mockResolvedValue([]),
+  listSectionDocuments: vi.fn().mockResolvedValue([]),
+  listProjectDocuments: vi.fn().mockResolvedValue([]),
+  getDocumentById: vi.fn().mockResolvedValue(null),
+  createDocument: vi.fn(),
+  deleteDocument: vi.fn().mockResolvedValue(null),
 }));
 
 // ── Export mock handles for test files ───────────────────────────────────────
@@ -503,5 +522,6 @@ export const mocks = {
     remove: mockRemove,
     getPublicUrl: mockGetPublicUrl,
     createSignedUploadUrl: mockCreateSignedUploadUrl,
+    createSignedUrl: mockCreateSignedUrl,
   },
 };

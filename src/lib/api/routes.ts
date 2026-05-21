@@ -163,6 +163,15 @@ export const API = {
   vendorPortalRfqs:            ()                                  => "/api/vendor-portal/rfqs",
   vendorPortalRfq:             (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}`,
 
+  // ── Project Documents ───────────────────────────
+  projectDocumentSections:        (pid: string)                       => `/api/projects/${pid}/document-sections`,
+  projectDocumentSection:         (pid: string, sid: string)          => `/api/projects/${pid}/document-sections/${sid}`,
+  projectDocuments:               (pid: string, sid: string)          => `/api/projects/${pid}/document-sections/${sid}/documents`,
+  projectDocumentsAll:            (pid: string)                       => `/api/projects/${pid}/documents`,
+  projectDocumentUploadUrl:       (pid: string, sid: string)          => `/api/projects/${pid}/document-sections/${sid}/documents/upload-url`,
+  projectDocument:                (pid: string, did: string)          => `/api/projects/${pid}/documents/${did}`,
+  projectDocumentDownload:        (pid: string, did: string)          => `/api/projects/${pid}/documents/${did}/download`,
+
   // ── Rate Contracts (Feature 7.5) ────────────────
   rateContracts:               ()                                    => "/api/rate-contracts",
   rateContract:                (id: string)                          => `/api/rate-contracts/${id}`,

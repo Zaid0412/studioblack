@@ -129,6 +129,38 @@ export interface DbComment {
   created_at: string;
 }
 
+/** Per-project document section (folder), e.g. "Minutes of Meeting". */
+export interface DbProjectDocumentSection {
+  id: string;
+  project_id: string;
+  name: string;
+  /** Lucide icon name. */
+  icon: string;
+  position: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  /** Number of documents in this section — joined in `listDocumentSections`. */
+  doc_count: number;
+}
+
+/** A document file uploaded to a project document section. */
+export interface DbProjectDocument {
+  id: string;
+  project_id: string;
+  section_id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  storage_path: string;
+  uploaded_by: string;
+  /** Joined from `user.name`; null when the uploader has been deleted. */
+  uploaded_by_name?: string | null;
+  /** Joined section name — only populated by `listProjectDocuments` (All view). */
+  section_name?: string | null;
+  created_at: string;
+}
+
 /** Phase record from the database. */
 export interface DbPhase {
   id: string;
