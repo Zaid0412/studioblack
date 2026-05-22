@@ -1303,9 +1303,12 @@ const submitQuoteItemSchema = z.object({
   alternativeSpec: z.string().trim().max(2000).optional().nullable(),
 });
 
+export const QUOTE_CURRENCIES = ["USD", "EUR", "TRY", "GBP", "INR"] as const;
+export type QuoteCurrency = (typeof QUOTE_CURRENCIES)[number];
+
 export const submitQuoteSchema = z.object({
   validUntil: z.string().date().optional().nullable(),
-  currency: z.string().trim().length(3).default("USD"),
+  currency: z.enum(QUOTE_CURRENCIES).default("USD"),
   deliveryPeriod: z.string().trim().max(100).optional().nullable(),
   paymentTerms: z.string().trim().max(100).optional().nullable(),
   inclusions: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),

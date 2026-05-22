@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { formatDate } from "@/lib/formatDate";
 import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
+import type { QuoteCurrency } from "@/lib/validations";
 
 interface Props {
   rfq: Pick<
@@ -30,7 +31,7 @@ interface Props {
 
 export interface SubmitPayload {
   validUntil?: string | null;
-  currency?: string;
+  currency?: QuoteCurrency;
   deliveryPeriod?: string | null;
   paymentTerms?: string | null;
   inclusions?: string | null;

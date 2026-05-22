@@ -47,16 +47,26 @@ export default function VendorPortalRfqDetailPage({
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem(`quote-award-banner-dismissed-${rfqId}`) === "1") {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(`quote-award-banner-dismissed-${rfqId}`);
+    } catch {
+      // localStorage disabled (Safari private mode, etc.) — degrade silently.
+    }
+    if (stored === "1") {
       setDismissed(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync from localStorage on mount
     }
   }, [rfqId]);
 
   function dismissBanner() {
     if (closing) return;
-    localStorage.setItem(`quote-award-banner-dismissed-${rfqId}`, "1");
+    try {
+      localStorage.setItem(`quote-award-banner-dismissed-${rfqId}`, "1");
+    } catch {
+      // Quota exceeded or disabled — best-effort only.
+    }
     setClosing(true);
-    window.setTimeout(() => setDismissed(true), 300);
+    setTimeout(() => setDismissed(true), 300);
   }
 
   const canSubmit =
@@ -149,7 +159,7 @@ export default function VendorPortalRfqDetailPage({
 
       {isAwardedToMe && !dismissed && (
         <div
-          className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+          className={`grid motion-safe:transition-[grid-template-rows,opacity,margin] motion-safe:duration-300 ease-out ${
             closing
               ? "grid-rows-[0fr] opacity-0 -my-3"
               : "grid-rows-[1fr] opacity-100"

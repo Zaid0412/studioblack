@@ -14,15 +14,25 @@ import { useEffect, useState } from "react";
 export function useRfqLastViewed(rfqId: string): string | null {
   const [frozenAt] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(`rfq-last-viewed-${rfqId}`);
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(`rfq-last-viewed-${rfqId}`);
+    } catch {
+      // localStorage disabled (Safari private mode, etc.) — degrade silently.
+    }
+    return stored;
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem(
-      `rfq-last-viewed-${rfqId}`,
-      new Date().toISOString()
-    );
+    try {
+      window.localStorage.setItem(
+        `rfq-last-viewed-${rfqId}`,
+        new Date().toISOString()
+      );
+    } catch {
+      // Quota exceeded or disabled — best-effort only.
+    }
   }, [rfqId]);
 
   return frozenAt;
@@ -35,7 +45,13 @@ export function useRfqLastViewed(rfqId: string): string | null {
 export function useRfqLastViewedReadOnly(rfqId: string): string | null {
   const [val] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(`rfq-last-viewed-${rfqId}`);
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(`rfq-last-viewed-${rfqId}`);
+    } catch {
+      // localStorage disabled (Safari private mode, etc.) — degrade silently.
+    }
+    return stored;
   });
   return val;
 }

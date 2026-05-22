@@ -35,13 +35,7 @@ import {
  */
 async function expireStaleQuotes(
   rfqId: string,
-  client:
-    | import("pg").PoolClient
-    | {
-        query: typeof getPool extends never
-          ? never
-          : import("pg").Pool["query"];
-      }
+  client: import("pg").PoolClient | import("pg").Pool
 ): Promise<void> {
   await client.query(
     `UPDATE vendor_quote
@@ -520,8 +514,10 @@ export async function submitOrUpdateQuote(
       project_id: string;
       rfq_number: string;
       title: string;
+      is_late_now: boolean;
     }>(
-      `SELECT id, status, response_deadline, org_id, project_id, rfq_number, title
+      `SELECT id, status, response_deadline, org_id, project_id, rfq_number, title,
+              (response_deadline IS NOT NULL AND CURRENT_DATE > response_deadline) AS is_late_now
          FROM rfq WHERE id = $1 FOR UPDATE`,
       [rfqId]
     );
@@ -591,9 +587,7 @@ export async function submitOrUpdateQuote(
       return { ok: false, reason: "quote_locked" };
     }
 
-    const isLate =
-      rfq.response_deadline !== null &&
-      new Date().toISOString().slice(0, 10) > rfq.response_deadline;
+    const isLate = rfq.is_late_now;
 
     let quoteId: string;
     let quoteRow: VendorQuote;
@@ -727,7 +721,13 @@ export async function setQuoteUnderReview(
 
 // ── Award flows ─────────────────────────────────────────────────────────────
 
-interface AwardResult {
+interface SingleAwardResult {
+  ok: true;
+  rfq: Rfq;
+  winningVendorId: string;
+  winningVendorName: string;
+}
+interface SplitAwardResult {
   ok: true;
   rfq: Rfq;
 }
@@ -754,7 +754,7 @@ export async function awardRfqSingle(
   rfqId: string,
   winningQuoteId: string,
   actorId: string
-): Promise<AwardResult | AwardFailure> {
+): Promise<SingleAwardResult | AwardFailure> {
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -783,9 +783,13 @@ export async function awardRfqSingle(
       id: string;
       vendor_id: string;
       status: VendorQuoteStatus;
+      vendor_name: string;
     }>(
-      `SELECT id, vendor_id, status FROM vendor_quote
-        WHERE id = $1 AND rfq_id = $2 FOR UPDATE`,
+      `SELECT vq.id, vq.vendor_id, vq.status, v.company_name AS vendor_name
+         FROM vendor_quote vq
+         JOIN vendor v ON v.id = vq.vendor_id
+        WHERE vq.id = $1 AND vq.rfq_id = $2
+        FOR UPDATE OF vq`,
       [winningQuoteId, rfqId]
     );
     const winner = quoteRows[0];
@@ -842,7 +846,12 @@ export async function awardRfqSingle(
     );
 
     await client.query("COMMIT");
-    return { ok: true, rfq: updatedRfq[0] };
+    return {
+      ok: true,
+      rfq: updatedRfq[0],
+      winningVendorId: winner.vendor_id,
+      winningVendorName: winner.vendor_name,
+    };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -866,7 +875,7 @@ export async function awardRfqSplit(
   rfqId: string,
   awards: readonly SplitAward[],
   actorId: string
-): Promise<AwardResult | AwardFailure> {
+): Promise<SplitAwardResult | AwardFailure> {
   const pool = getPool();
   const client = await pool.connect();
   try {

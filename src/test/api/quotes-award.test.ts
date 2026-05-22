@@ -97,6 +97,8 @@ beforeEach(() => {
   vi.mocked(awardRfqSingle).mockResolvedValue({
     ok: true,
     rfq: updatedRfqFixture(),
+    winningVendorId: "v-1",
+    winningVendorName: "Hansgrohe",
   });
   vi.mocked(awardRfqSplit).mockResolvedValue({
     ok: true,

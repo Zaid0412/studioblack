@@ -45,9 +45,7 @@ export const POST = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    // Resolve the winning quote's vendor + line-item count for audit
-    // metadata. Probe runs before the award so we can 404 cross-RFQ
-    // quote ids without firing the mutation.
+    // Probe the quote cross-RFQ guard before firing the mutation.
     const winningQuote = await getQuoteDetail(parsed.data.quoteId);
     if (!winningQuote || winningQuote.rfq_id !== resolved.rfqId) {
       return NextResponse.json({ error: "Quote not found" }, { status: 404 });
@@ -82,8 +80,8 @@ export const POST = withAuth(
         targetId: parsed.data.quoteId,
         metadata: {
           rfq_id: resolved.rfqId,
-          vendor_id: winningQuote.vendor_id,
-          vendor_name: winningQuote.vendor_name,
+          vendor_id: result.winningVendorId,
+          vendor_name: result.winningVendorName,
           award_type: "single",
         },
       });
@@ -95,8 +93,8 @@ export const POST = withAuth(
         targetId: resolved.rfqId,
         metadata: {
           award_type: "single",
-          winning_vendor_id: winningQuote.vendor_id,
-          winning_vendor_name: winningQuote.vendor_name,
+          winning_vendor_id: result.winningVendorId,
+          winning_vendor_name: result.winningVendorName,
         },
       });
     }
@@ -104,7 +102,7 @@ export const POST = withAuth(
     // Email the winning vendor (fire-and-forget). Scope F9's contact
     // resolver to just the winning vendor so the shape matches.
     const [contacts, projectName] = await Promise.all([
-      getRfqContactsForEmail(resolved.rfqId, [winningQuote.vendor_id]),
+      getRfqContactsForEmail(resolved.rfqId, [result.winningVendorId]),
       getProjectName(params.id),
     ]);
     notifyQuoteAwarded(contacts, {
