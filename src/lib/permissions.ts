@@ -37,11 +37,13 @@ export const admin = ac.newRole({
 });
 
 /**
- * member — Architects. Can update projects/designs but not create or
- *          delete them. Only PMs (owner/admin) can create projects.
+ * member — Architects. Can work on designs/tasks within a project but cannot
+ *          edit, create, or delete the project itself. Project edits are
+ *          PM-only (org admins/owners, or architects promoted via
+ *          `project_member.role='pm'`).
  */
 export const member = ac.newRole({
-  project: ["update"],
+  project: [],
   ...memberAc.statements,
 });
 

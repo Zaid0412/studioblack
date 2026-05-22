@@ -47,27 +47,27 @@ export function ProjectDropdown({
           <Eye className="w-4 h-4" />
           {t("viewProject")}
         </DropdownMenuItem>
+        {isPm && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/projects/${project.id}/edit`);
+            }}
+          >
+            <Edit className="w-4 h-4" />
+            {t("editProject")}
+          </DropdownMenuItem>
+        )}
         {isStaff && (
-          <>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/projects/${project.id}/edit`);
-              }}
-            >
-              <Edit className="w-4 h-4" />
-              {t("editProject")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/projects/${project.id}/upload`);
-              }}
-            >
-              <Upload className="w-4 h-4" />
-              {t("uploadDesign")}
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/projects/${project.id}/upload`);
+            }}
+          >
+            <Upload className="w-4 h-4" />
+            {t("uploadDesign")}
+          </DropdownMenuItem>
         )}
         {isPm && (
           <>

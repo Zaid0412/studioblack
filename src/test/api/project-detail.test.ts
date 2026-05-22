@@ -105,32 +105,20 @@ describe("PATCH /api/projects/[id]", () => {
     expect(body.name).toBe("Updated");
   });
 
-  it("restricts architect to name-only updates", async () => {
+  it("blocks architect from editing the project", async () => {
     vi.mocked(getOrgRole).mockResolvedValue("member");
-    // Field allowlist now keys off `effectiveRole`, which is driven by
-    // `getMemberRole`. Drive it to "member" so the route treats the caller
-    // as an architect (no project-PM row).
+    // `effectiveRole` is driven by `getMemberRole`. Drive it to "member" with
+    // no project-PM row so the route rejects the architect with 403.
     vi.mocked(getMemberRole).mockResolvedValue("member");
-    vi.mocked(updateProject).mockResolvedValueOnce({
-      id: "proj-1",
-      name: "New",
-    });
 
     const req = buildRequest("/api/projects/proj-1", {
       method: "PATCH",
       body: { name: "New", status: "completed" },
     });
     const res = await PATCH(req, PARAMS);
-    const { status } = await parseResponse(res);
 
-    expect(status).toBe(200);
-    // updateProject should only receive name, not status
-    expect(updateProject).toHaveBeenCalledWith(
-      "proj-1",
-      { name: "New" },
-      undefined,
-      undefined
-    );
+    expect(res.status).toBe(403);
+    expect(updateProject).not.toHaveBeenCalled();
   });
 });
 
