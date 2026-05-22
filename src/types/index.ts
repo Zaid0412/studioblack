@@ -1098,6 +1098,7 @@ export interface RfqListRow {
   item_count: number;
   vendor_count: number;
   created_at: string;
+  latest_quote_submitted_at: string | null;
 }
 
 /** Full RFQ + items + invited vendors + audit timeline. Detail-view payload. */

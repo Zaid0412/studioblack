@@ -1,12 +1,13 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, CheckCircle2, FileText, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, X, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
@@ -30,10 +31,33 @@ export default function VendorPortalRfqDetailPage({
   const { rfqId } = use(params);
   const t = useTranslations("vendorPortal.rfqDetail");
 
-  const { rfq, notFound, isLoading } = useVendorRfqDetail(rfqId);
-  const { quote } = useVendorQuote(rfqId);
+  const {
+    rfq,
+    notFound,
+    isLoading,
+    mutate: mutateRfq,
+  } = useVendorRfqDetail(rfqId);
+  const { quote, mutate: mutateQuote } = useVendorQuote(rfqId);
   const submitQuote = useVendorSubmitQuote(rfqId);
   const [submitOpen, setSubmitOpen] = useState(false);
+  // Two-phase dismiss: `closing` plays the collapse animation, then
+  // `dismissed` unmounts the banner so it doesn't leave a flex gap.
+  // localStorage persists across refreshes.
+  const [closing, setClosing] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem(`quote-award-banner-dismissed-${rfqId}`) === "1") {
+      setDismissed(true); // eslint-disable-line react-hooks/set-state-in-effect -- sync from localStorage on mount
+    }
+  }, [rfqId]);
+
+  function dismissBanner() {
+    if (closing) return;
+    localStorage.setItem(`quote-award-banner-dismissed-${rfqId}`, "1");
+    setClosing(true);
+    window.setTimeout(() => setDismissed(true), 300);
+  }
 
   const canSubmit =
     rfq != null &&
@@ -101,7 +125,11 @@ export default function VendorPortalRfqDetailPage({
         actions={
           <>
             <RfqStatusBadge status={rfq.status} />
-            {quote && <QuoteStatusBadge status={quote.status} />}
+            {/* Skip the duplicate "Awarded" badge once the RFQ badge
+                already says Awarded — the two would otherwise stack. */}
+            {quote && quote.status !== "awarded" && (
+              <QuoteStatusBadge status={quote.status} />
+            )}
             {canSubmit && (
               <Button
                 onClick={() => setSubmitOpen(true)}
@@ -110,19 +138,42 @@ export default function VendorPortalRfqDetailPage({
                 {quote ? "Update quote" : "Submit quote"}
               </Button>
             )}
+            <RefreshButton
+              onRefresh={async () => {
+                await Promise.all([mutateRfq(), mutateQuote()]);
+              }}
+            />
           </>
         }
       />
 
-      {isAwardedToMe && (
-        <div className="flex items-start gap-3 rounded-xl border border-status-success/40 bg-status-success/10 px-4 py-3 text-sm">
-          <CheckCircle2 className="w-5 h-5 mt-0.5 text-status-success shrink-0" />
-          <div>
-            <div className="font-medium text-text-primary">
-              Your quote was awarded
-            </div>
-            <div className="text-text-secondary text-xs">
-              The studio will follow up with a purchase order shortly.
+      {isAwardedToMe && !dismissed && (
+        <div
+          className={`grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out ${
+            closing
+              ? "grid-rows-[0fr] opacity-0 -my-3"
+              : "grid-rows-[1fr] opacity-100"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="relative flex items-start gap-3 rounded-xl border border-status-approved-arch/40 bg-status-approved-arch/10 px-4 py-3 text-sm">
+              <CheckCircle2 className="w-5 h-5 mt-0.5 text-status-approved-arch shrink-0" />
+              <div className="pr-6">
+                <div className="font-medium text-text-primary">
+                  Your quote was awarded
+                </div>
+                <div className="text-text-secondary text-xs">
+                  The studio will follow up with a purchase order shortly.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={dismissBanner}
+                aria-label="Dismiss"
+                className="absolute top-2 right-2 p-1 rounded text-text-muted hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -209,7 +260,7 @@ export default function VendorPortalRfqDetailPage({
             {t("timelineHeading")}
           </h2>
         </div>
-        <RfqStatusTimeline events={rfq.events} hideActor />
+        <RfqStatusTimeline events={rfq.events} />
       </section>
 
       <VendorQuoteSubmitDialog

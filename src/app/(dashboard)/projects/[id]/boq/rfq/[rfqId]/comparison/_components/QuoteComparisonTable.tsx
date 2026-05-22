@@ -54,7 +54,7 @@ export function QuoteComparisonTable({ comparison }: Props) {
                     <div className="flex items-center gap-1.5">
                       <QuoteStatusBadge status={v.quote_status} />
                       {v.is_late && (
-                        <span className="text-[10px] font-medium text-status-warning bg-status-warning/10 px-1 py-0.5 rounded">
+                        <span className="text-[10px] font-medium text-warning bg-warning/10 px-1 py-0.5 rounded">
                           Late
                         </span>
                       )}
@@ -101,13 +101,13 @@ export function QuoteComparisonTable({ comparison }: Props) {
                         dim ? "opacity-60" : ""
                       } ${
                         line.is_lowest && !dim
-                          ? "bg-status-success/5 border-l-status-success/30"
+                          ? "bg-status-approved-arch/5 border-l-status-approved-arch/30"
                           : ""
                       }`}
                     >
                       <div className="flex items-center justify-end gap-1.5">
                         {line.is_lowest && !dim && (
-                          <Star className="w-3 h-3 text-status-success fill-status-success" />
+                          <Star className="w-3 h-3 text-status-approved-arch fill-status-approved-arch" />
                         )}
                         <span className="text-text-primary">
                           {line.unit_price.toLocaleString(undefined, {

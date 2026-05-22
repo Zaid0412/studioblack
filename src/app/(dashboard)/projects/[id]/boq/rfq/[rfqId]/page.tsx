@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useRfqLastViewed } from "@/hooks/useRfqLastViewed";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
 import {
   useAwardRfq,
@@ -55,6 +56,7 @@ export default function BoqRfqDetailPage({
   const isPM = role === "pm";
   const canManage = role === "pm" || role === "architect";
 
+  const lastViewedAt = useRfqLastViewed(rfqId);
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
   // `addItems` is called inside RfqAddItemsDialog, not directly here.
   const { issue, invite, removeItem, cancel } = useRfqMutations(projectId);
@@ -339,6 +341,7 @@ export default function BoqRfqDetailPage({
           invitedCount={rfq.vendors.length}
           canAward={canAward}
           isPM={isPM}
+          lastViewedAt={lastViewedAt}
           onAwardClick={(quoteId) => {
             setPreselectedQuoteId(quoteId);
             setAwardOpen(true);

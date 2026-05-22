@@ -83,6 +83,9 @@ export async function getRfqsByProject(
        r.issued_date, r.response_deadline, r.created_at,
        (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
        (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
+       (SELECT MAX(vq.submitted_at)
+        FROM vendor_quote vq
+        WHERE vq.rfq_id = r.id) AS latest_quote_submitted_at,
        COUNT(*) OVER ()::int AS total
      FROM rfq r
      WHERE ${where}
@@ -103,6 +106,7 @@ export async function getRfqsByProject(
       item_count: r.item_count,
       vendor_count: r.vendor_count,
       created_at: r.created_at,
+      latest_quote_submitted_at: r.latest_quote_submitted_at ?? null,
     })),
     total,
   };
@@ -362,6 +366,8 @@ export async function getRfqsForVendor(
       item_count: r.item_count,
       vendor_count: r.vendor_count,
       created_at: r.created_at,
+      // Vendor-portal list doesn't surface quote newness — not needed.
+      latest_quote_submitted_at: null,
     })),
     total: rows[0]?.total ?? 0,
   };

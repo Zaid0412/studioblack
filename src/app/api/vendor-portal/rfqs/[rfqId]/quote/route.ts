@@ -14,6 +14,7 @@ import {
 } from "@/lib/vendorPortalGuards";
 import { parseRequest, submitQuoteSchema } from "@/lib/validations";
 import { notifyQuoteReceived } from "@/app/api/projects/[id]/rfqs/_quoteEmails";
+import { createNotification } from "@/lib/notifications";
 import { logger } from "@/lib/logger";
 
 /**
@@ -131,6 +132,26 @@ export const PUT = withAuth(
         err: String(err),
       });
     });
+
+    // In-app notifications — fire-and-forget, one per studio recipient.
+    const vendorName = fresh?.vendor_name ?? "Vendor";
+    const notifTitle = result.isNew ? "Quote received" : "Quote revised";
+    const notifDescription = `${vendorName} ${result.isNew ? "submitted" : "revised"} a quote on ${result.rfqNumber}`;
+    for (const recipient of recipients) {
+      void createNotification({
+        userId: recipient.userId,
+        type: "rfq_issued",
+        title: notifTitle,
+        description: notifDescription,
+        projectId: result.projectId,
+      }).catch((err: unknown) => {
+        logger.warn("Quote received in-app notification failed", {
+          rfqId: params.rfqId,
+          userId: recipient.userId,
+          err: String(err),
+        });
+      });
+    }
 
     return NextResponse.json({ quote: fresh, isNew: result.isNew });
   }

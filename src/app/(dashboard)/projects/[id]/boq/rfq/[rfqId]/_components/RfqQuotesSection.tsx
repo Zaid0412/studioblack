@@ -14,6 +14,7 @@ interface Props {
   invitedCount: number;
   canAward: boolean;
   isPM: boolean;
+  lastViewedAt: string | null;
   onAwardClick: (quoteId: string) => void;
 }
 
@@ -30,6 +31,7 @@ export function RfqQuotesSection({
   invitedCount,
   canAward,
   isPM,
+  lastViewedAt,
   onAwardClick,
 }: Props) {
   const responseRate = `${quotes.length} of ${invitedCount}`;
@@ -74,6 +76,8 @@ export function RfqQuotesSection({
               (sum, i) => sum + Number(i.unit_price),
               0
             );
+            const isNew =
+              lastViewedAt === null || q.submitted_at > lastViewedAt;
             return (
               <li
                 key={q.id}
@@ -85,8 +89,13 @@ export function RfqQuotesSection({
                       {q.vendor_name}
                     </span>
                     <QuoteStatusBadge status={q.status} />
+                    {isNew && (
+                      <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
+                        New
+                      </span>
+                    )}
                     {q.is_late && (
-                      <span className="text-xs font-medium text-status-warning bg-status-warning/10 px-1.5 py-0.5 rounded">
+                      <span className="text-xs font-medium text-warning bg-warning/10 px-1.5 py-0.5 rounded">
                         Late
                       </span>
                     )}

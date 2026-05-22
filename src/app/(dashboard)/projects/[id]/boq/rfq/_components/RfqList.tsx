@@ -18,9 +18,58 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { RFQ_STATUSES } from "@/lib/validations";
 import type { RfqListRow, RfqStatus } from "@/types";
 import { formatDate } from "@/lib/formatDate";
+import { useRfqLastViewedReadOnly } from "@/hooks/useRfqLastViewed";
 import { RfqStatusBadge } from "./RfqStatusBadge";
 
 const ALL = "__all__";
+
+/** Per-row subcomponent so we can call a hook per row (hooks can't be called inside .map). */
+function RfqRow({
+  row,
+  onNavigate,
+}: {
+  row: RfqListRow;
+  onNavigate: (id: string) => void;
+}) {
+  const lastViewedAt = useRfqLastViewedReadOnly(row.id);
+  const hasNewQuote =
+    row.latest_quote_submitted_at !== null &&
+    (lastViewedAt === null || row.latest_quote_submitted_at > lastViewedAt);
+
+  return (
+    <tr
+      className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
+      onClick={() => onNavigate(row.id)}
+    >
+      <td className="px-4 py-3 font-mono text-xs text-text-secondary">
+        <span className="inline-flex items-center gap-1.5">
+          {row.rfq_number}
+          {hasNewQuote && (
+            <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
+              New quote
+            </span>
+          )}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-text-primary">{row.title}</td>
+      <td className="px-4 py-3">
+        <RfqStatusBadge status={row.status} />
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
+        {row.item_count}
+      </td>
+      <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
+        {row.vendor_count}
+      </td>
+      <td className="px-4 py-3 text-text-secondary">
+        {row.response_deadline ? formatDate(row.response_deadline) : "—"}
+      </td>
+      <td className="px-4 py-3 text-text-muted">
+        {formatDate(row.created_at)}
+      </td>
+    </tr>
+  );
+}
 
 export interface RfqListState {
   search: string;
@@ -155,35 +204,13 @@ export function RfqList({
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr
+                  <RfqRow
                     key={row.id}
-                    className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
-                    onClick={() =>
-                      router.push(`/projects/${projectId}/boq/rfq/${row.id}`)
+                    row={row}
+                    onNavigate={(id) =>
+                      router.push(`/projects/${projectId}/boq/rfq/${id}`)
                     }
-                  >
-                    <td className="px-4 py-3 font-mono text-xs text-text-secondary">
-                      {row.rfq_number}
-                    </td>
-                    <td className="px-4 py-3 text-text-primary">{row.title}</td>
-                    <td className="px-4 py-3">
-                      <RfqStatusBadge status={row.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-                      {row.item_count}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-                      {row.vendor_count}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">
-                      {row.response_deadline
-                        ? formatDate(row.response_deadline)
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-text-muted">
-                      {formatDate(row.created_at)}
-                    </td>
-                  </tr>
+                  />
                 ))
               )}
             </tbody>

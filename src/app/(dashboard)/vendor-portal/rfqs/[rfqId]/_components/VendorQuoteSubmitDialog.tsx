@@ -157,8 +157,8 @@ export function VendorQuoteSubmitDialog({
         </DialogHeader>
 
         {isLate && (
-          <div className="flex items-start gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 px-3 py-2 text-xs text-text-primary">
-            <AlertTriangle className="w-4 h-4 mt-0.5 text-status-warning" />
+          <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-primary">
+            <AlertTriangle className="w-4 h-4 mt-0.5 text-warning" />
             <div>
               <p className="font-medium">Late submission</p>
               <p className="text-text-secondary">

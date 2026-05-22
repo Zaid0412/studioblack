@@ -320,7 +320,7 @@ export function useVendorRfqs(params: UseRfqListParams) {
 /** Vendor-portal RFQ detail (no invited-vendors list — competitive info). */
 export function useVendorRfqDetail(rfqId: string) {
   const key = API.vendorPortalRfq(rfqId);
-  const { data, error, isLoading } = useSWR<Omit<
+  const { data, error, isLoading, mutate } = useSWR<Omit<
     RfqWithItems,
     "vendors"
   > | null>(key, async () => {
@@ -336,5 +336,6 @@ export function useVendorRfqDetail(rfqId: string) {
     notFound: data === null && !error && !isLoading,
     isLoading,
     error,
+    mutate,
   };
 }

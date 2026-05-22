@@ -16,12 +16,6 @@ import type { RfqEvent } from "@/types";
 
 interface Props {
   events: readonly RfqEvent[];
-  /**
-   * When true, the timeline renders without actor names AND vendor names
-   * (used by the vendor portal where both fields are competitive info and
-   * are stripped server-side).
-   */
-  hideActor?: boolean;
 }
 
 const ICONS: Record<string, LucideIcon> = {
@@ -41,10 +35,10 @@ const ICONS: Record<string, LucideIcon> = {
  * drawn behind the bullets via an absolute child on the `<ol>`.
  *
  * Studio side shows full actor names and vendor pills on "Issued" rows.
- * Vendor side gets `hideActor` and the metadata already arrives with
- * `vendor_ids` / `vendor_names` stripped by `getRfqDetailForVendor`.
+ * Vendor side receives actor info intact (server strips competitive vendor
+ * identifiers but preserves studio actor names via `getRfqDetailForVendor`).
  */
-export function RfqStatusTimeline({ events, hideActor }: Props) {
+export function RfqStatusTimeline({ events }: Props) {
   const t = useTranslations("rfq.timeline");
 
   if (events.length === 0) {
@@ -63,7 +57,7 @@ export function RfqStatusTimeline({ events, hideActor }: Props) {
         className="absolute left-[36px] top-7 bottom-7 w-px bg-border-default"
       />
       {events.map((ev) => (
-        <EventRow key={ev.id} event={ev} hideActor={hideActor} t={t} />
+        <EventRow key={ev.id} event={ev} t={t} />
       ))}
     </ol>
   );
@@ -71,15 +65,13 @@ export function RfqStatusTimeline({ events, hideActor }: Props) {
 
 function EventRow({
   event,
-  hideActor,
   t,
 }: {
   event: RfqEvent;
-  hideActor?: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   const Icon = ICONS[event.action] ?? FilePlus2;
-  const actor = !hideActor && event.actorName ? event.actorName : t("someone");
+  const actor = event.actorName ?? t("someone");
 
   return (
     <li className="relative pl-10">
