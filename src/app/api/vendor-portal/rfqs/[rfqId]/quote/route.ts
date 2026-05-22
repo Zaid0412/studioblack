@@ -86,11 +86,6 @@ export const PUT = withAuth(
       return NextResponse.json({ error, ...(code && { code }) }, { status });
     }
 
-    const itemsTotal = parsed.data.items.reduce(
-      (sum, i) => sum + i.unitPrice,
-      0
-    );
-
     // Reload the full quote (with vendor name joined + line items) for
     // both the response payload and the email fan-out below.
     const [fresh, recipients, projectName] = await Promise.all([
@@ -111,7 +106,6 @@ export const PUT = withAuth(
         rfq_id: params.rfqId,
         vendor_id: vendorId,
         item_count: parsed.data.items.length,
-        items_subtotal: itemsTotal,
         is_late: result.quote.is_late,
         currency: result.quote.currency,
       },
@@ -137,10 +131,11 @@ export const PUT = withAuth(
     const vendorName = fresh?.vendor_name ?? "Vendor";
     const notifTitle = result.isNew ? "Quote received" : "Quote revised";
     const notifDescription = `${vendorName} ${result.isNew ? "submitted" : "revised"} a quote on ${result.rfqNumber}`;
+    const notifType = result.isNew ? "quote_received" : "quote_revised";
     for (const recipient of recipients) {
       void createNotification({
         userId: recipient.userId,
-        type: "rfq_issued",
+        type: notifType,
         title: notifTitle,
         description: notifDescription,
         projectId: result.projectId,

@@ -3,8 +3,8 @@ import {
   AUDIT_ACTIONS,
   awardRfqSplit,
   getProjectName,
-  getQuoteAwardContacts,
   getQuotesByRfq,
+  getRfqContactsForEmail,
   logAuditSafe,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
@@ -69,8 +69,12 @@ export const POST = withAuth(
 
     // Identify winning vendors by reading the post-award quote list. The
     // award flow flipped winners to `awarded` and others to `rejected`
-    // inside the tx, so a single read here is sufficient.
-    const allQuotes = await getQuotesByRfq(resolved.rfqId);
+    // inside the tx, so a single read here is sufficient. Fetch the
+    // project name in parallel since neither depends on the other.
+    const [allQuotes, projectName] = await Promise.all([
+      getQuotesByRfq(resolved.rfqId),
+      getProjectName(params.id),
+    ]);
     const winningVendors = allQuotes
       .filter((q) => q.status === "awarded")
       .map((q) => ({
@@ -113,14 +117,12 @@ export const POST = withAuth(
 
     // Email every winning vendor in parallel-by-vendor (sequential within
     // a vendor's contacts via notifyQuoteAwarded).
-    const projectName = await getProjectName(params.id);
     for (const v of winningVendors) {
       void (async () => {
         try {
-          const contacts = await getQuoteAwardContacts(
-            resolved.rfqId,
-            v.vendor_id
-          );
+          const contacts = await getRfqContactsForEmail(resolved.rfqId, [
+            v.vendor_id,
+          ]);
           await notifyQuoteAwarded(contacts, {
             rfqId: resolved.rfqId,
             rfqNumber: result.rfq.rfq_number,

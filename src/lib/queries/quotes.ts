@@ -227,65 +227,51 @@ export async function getQuoteComparison(
   const pool = getPool();
   await expireStaleQuotes(rfqId, pool);
 
-  const [itemRes, vendorRes, quoteRes, quoteItemRes, invitedRes] =
-    await Promise.all([
-      pool.query<{
-        id: string;
-        boq_item_id: string;
-        description: string;
-        unit: string;
-        quantity: string;
-        spec_notes: string | null;
-        sort_order: number;
-      }>(
-        `SELECT id, boq_item_id, description, unit, quantity, spec_notes, sort_order
-           FROM rfq_item
-          WHERE rfq_id = $1
-          ORDER BY sort_order, description`,
-        [rfqId]
-      ),
-      pool.query<{
-        vendor_id: string;
-        vendor_name: string;
-        vendor_code: string | null;
-      }>(
-        `SELECT rv.vendor_id, v.company_name AS vendor_name, v.vendor_code
-           FROM rfq_vendor rv
-           JOIN vendor v ON v.id = rv.vendor_id
-          WHERE rv.rfq_id = $1
-          ORDER BY lower(v.company_name)`,
-        [rfqId]
-      ),
-      pool.query<QuoteRow>(
-        `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
-           FROM vendor_quote vq
-           JOIN vendor v ON v.id = vq.vendor_id
-          WHERE vq.rfq_id = $1`,
-        [rfqId]
-      ),
-      pool.query<VendorQuoteItem & { rfq_item_id: string; quote_id: string }>(
-        `SELECT vqi.id, vqi.quote_id, vqi.rfq_item_id, vqi.unit_price,
-                vqi.notes, vqi.alternative_spec
-           FROM vendor_quote_item vqi
-           JOIN vendor_quote vq ON vq.id = vqi.quote_id
-          WHERE vq.rfq_id = $1`,
-        [rfqId]
-      ),
-      pool.query<{ vendor_id: string; vendor_name: string }>(
-        // Vendors invited but who haven't submitted any quote yet.
-        `SELECT rv.vendor_id, v.company_name AS vendor_name
-           FROM rfq_vendor rv
-           JOIN vendor v ON v.id = rv.vendor_id
-          WHERE rv.rfq_id = $1
-            AND NOT EXISTS (
-              SELECT 1 FROM vendor_quote vq
-               WHERE vq.rfq_id = rv.rfq_id
-                 AND vq.vendor_id = rv.vendor_id
-            )
-          ORDER BY lower(v.company_name)`,
-        [rfqId]
-      ),
-    ]);
+  const [itemRes, quoteRes, quoteItemRes, invitedRes] = await Promise.all([
+    pool.query<{
+      id: string;
+      boq_item_id: string;
+      description: string;
+      unit: string;
+      quantity: string;
+      spec_notes: string | null;
+      sort_order: number;
+    }>(
+      `SELECT id, boq_item_id, description, unit, quantity, spec_notes, sort_order
+         FROM rfq_item
+        WHERE rfq_id = $1
+        ORDER BY sort_order, description`,
+      [rfqId]
+    ),
+    pool.query<QuoteRow>(
+      `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
+         FROM vendor_quote vq
+         JOIN vendor v ON v.id = vq.vendor_id
+        WHERE vq.rfq_id = $1`,
+      [rfqId]
+    ),
+    pool.query<VendorQuoteItem & { rfq_item_id: string; quote_id: string }>(
+      `SELECT vqi.id, vqi.quote_id, vqi.rfq_item_id, vqi.unit_price,
+              vqi.notes, vqi.alternative_spec
+         FROM vendor_quote_item vqi
+         JOIN vendor_quote vq ON vq.id = vqi.quote_id
+        WHERE vq.rfq_id = $1`,
+      [rfqId]
+    ),
+    pool.query<{ vendor_id: string; vendor_name: string }>(
+      `SELECT rv.vendor_id, v.company_name AS vendor_name
+         FROM rfq_vendor rv
+         JOIN vendor v ON v.id = rv.vendor_id
+        WHERE rv.rfq_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM vendor_quote vq
+             WHERE vq.rfq_id = rv.rfq_id
+               AND vq.vendor_id = rv.vendor_id
+          )
+        ORDER BY lower(v.company_name)`,
+      [rfqId]
+    ),
+  ]);
 
   // Index quote items by (rfq_item_id, vendor_id) via quote_id → vendor_id.
   const vendorByQuoteId = new Map<string, string>();
@@ -408,7 +394,6 @@ export async function getQuoteComparison(
   const invited_no_response = invitedRes.rows
     .filter((v) => !respondedVendorIds.has(v.vendor_id))
     .map((v) => ({ vendor_id: v.vendor_id, vendor_name: v.vendor_name }));
-  void vendorRes; // suppress: kept in query list for parallelism
 
   return {
     rfq_id: rfqId,
@@ -461,45 +446,6 @@ export async function getQuoteStudioRecipients(
     email: r.email,
     name: r.name,
     userId: r.user_id,
-  }));
-}
-
-/**
- * Vendor portal contacts to email on award — `receives_rfq=true` contacts
- * of a single vendor on this RFQ. Mirrors `getRfqContactsForEmail` but
- * narrows to one vendor (the winner). Used by both single + split awards.
- */
-export async function getQuoteAwardContacts(
-  rfqId: string,
-  vendorId: string
-): Promise<
-  Array<{
-    contactId: string;
-    contactName: string;
-    contactEmail: string;
-    vendorName: string;
-  }>
-> {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT vc.id AS contact_id, vc.name AS contact_name, vc.email AS contact_email,
-            v.company_name AS vendor_name
-       FROM rfq_vendor rv
-       JOIN vendor v ON v.id = rv.vendor_id
-       JOIN vendor_contact vc ON vc.vendor_id = v.id
-      WHERE rv.rfq_id = $1
-        AND rv.vendor_id = $2
-        AND vc.receives_rfq = true
-        AND vc.email IS NOT NULL
-        AND v.status = 'active'
-      ORDER BY vc.is_primary DESC, lower(vc.name)`,
-    [rfqId, vendorId]
-  );
-  return rows.map((r) => ({
-    contactId: r.contact_id,
-    contactName: r.contact_name,
-    contactEmail: r.contact_email,
-    vendorName: r.vendor_name,
   }));
 }
 
@@ -831,15 +777,7 @@ export async function awardRfqSingle(
     }
 
     // Sweep expiry inside the tx so we can't race a vendor's valid_until.
-    await client.query(
-      `UPDATE vendor_quote
-          SET status = 'expired', updated_at = now()
-        WHERE rfq_id = $1
-          AND status = 'submitted'
-          AND valid_until IS NOT NULL
-          AND valid_until < CURRENT_DATE`,
-      [rfqId]
-    );
+    await expireStaleQuotes(rfqId, client);
 
     const { rows: quoteRows } = await client.query<{
       id: string;
@@ -950,15 +888,7 @@ export async function awardRfqSplit(
       return { ok: false, reason: "rfq_wrong_status" };
     }
 
-    await client.query(
-      `UPDATE vendor_quote
-          SET status = 'expired', updated_at = now()
-        WHERE rfq_id = $1
-          AND status = 'submitted'
-          AND valid_until IS NOT NULL
-          AND valid_until < CURRENT_DATE`,
-      [rfqId]
-    );
+    await expireStaleQuotes(rfqId, client);
 
     // Fetch all RFQ items to enforce full coverage.
     const { rows: rfqItemRows } = await client.query<{ id: string }>(
@@ -1021,17 +951,23 @@ export async function awardRfqSplit(
       }
     }
 
-    // Apply per-item awards.
-    for (const award of awards) {
-      const qi = qiById.get(award.quoteItemId)!;
-      await client.query(
-        `UPDATE rfq_item
-            SET awarded_quote_item_id = $1,
-                awarded_vendor_id = $2
-          WHERE id = $3 AND rfq_id = $4`,
-        [award.quoteItemId, qi.vendor_id, award.rfqItemId, rfqId]
-      );
-    }
+    // Apply per-item awards via a single bulk UPDATE — keeps the tx
+    // round-trip count constant regardless of N.
+    await client.query(
+      `UPDATE rfq_item ri
+          SET awarded_quote_item_id = t.quote_item_id,
+              awarded_vendor_id     = t.vendor_id
+         FROM UNNEST($1::uuid[], $2::uuid[], $3::uuid[])
+              AS t(rfq_item_id, quote_item_id, vendor_id)
+        WHERE ri.id     = t.rfq_item_id
+          AND ri.rfq_id = $4`,
+      [
+        awards.map((a) => a.rfqItemId),
+        awards.map((a) => a.quoteItemId),
+        awards.map((a) => qiById.get(a.quoteItemId)!.vendor_id),
+        rfqId,
+      ]
+    );
 
     // Mark winning quotes as awarded — dedup by quote_id.
     const winningQuoteIds = Array.from(new Set(qiRows.map((r) => r.quote_id)));

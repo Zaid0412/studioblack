@@ -9,9 +9,9 @@ import {
   awardRfqSingle,
   awardRfqSplit,
   getOrgRole,
-  getQuoteAwardContacts,
   getQuoteDetail,
   getQuotesByRfq,
+  getRfqContactsForEmail,
   logAuditSafe,
   verifyRfqOwnership,
 } from "@/lib/queries";
@@ -102,12 +102,14 @@ beforeEach(() => {
     ok: true,
     rfq: updatedRfqFixture(),
   });
-  vi.mocked(getQuoteAwardContacts).mockResolvedValue([
+  vi.mocked(getRfqContactsForEmail).mockResolvedValue([
     {
+      vendorId: "v-1",
+      vendorName: "Hansgrohe",
       contactId: "c-1",
       contactName: "Vendor Contact",
       contactEmail: "vendor@test.com",
-      vendorName: "Hansgrohe",
+      contactUserId: null,
     },
   ]);
   vi.mocked(getQuotesByRfq).mockResolvedValue([

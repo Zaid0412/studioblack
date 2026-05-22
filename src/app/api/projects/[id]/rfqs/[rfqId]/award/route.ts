@@ -3,8 +3,8 @@ import {
   AUDIT_ACTIONS,
   awardRfqSingle,
   getProjectName,
-  getQuoteAwardContacts,
   getQuoteDetail,
+  getRfqContactsForEmail,
   logAuditSafe,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
@@ -73,11 +73,6 @@ export const POST = withAuth(
       return NextResponse.json({ error }, { status });
     }
 
-    const grandTotal = winningQuote.items.reduce(
-      (sum, i) => sum + Number(i.unit_price),
-      0
-    );
-
     if (orgId) {
       void logAuditSafe({
         orgId,
@@ -89,7 +84,6 @@ export const POST = withAuth(
           rfq_id: resolved.rfqId,
           vendor_id: winningQuote.vendor_id,
           vendor_name: winningQuote.vendor_name,
-          items_subtotal: grandTotal,
           award_type: "single",
         },
       });
@@ -107,9 +101,10 @@ export const POST = withAuth(
       });
     }
 
-    // Email the winning vendor (fire-and-forget).
+    // Email the winning vendor (fire-and-forget). Scope F9's contact
+    // resolver to just the winning vendor so the shape matches.
     const [contacts, projectName] = await Promise.all([
-      getQuoteAwardContacts(resolved.rfqId, winningQuote.vendor_id),
+      getRfqContactsForEmail(resolved.rfqId, [winningQuote.vendor_id]),
       getProjectName(params.id),
     ]);
     notifyQuoteAwarded(contacts, {

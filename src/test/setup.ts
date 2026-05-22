@@ -479,7 +479,6 @@ vi.mock("@/lib/queries", () => ({
     invited_no_response: [],
   }),
   getQuoteStudioRecipients: vi.fn().mockResolvedValue([]),
-  getQuoteAwardContacts: vi.fn().mockResolvedValue([]),
   submitOrUpdateQuote: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "rfq_not_found" }),
