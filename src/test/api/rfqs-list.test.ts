@@ -36,6 +36,7 @@ const sampleRow: RfqListRow = {
   item_count: 5,
   vendor_count: 0,
   created_at: "2026-05-14T00:00:00Z",
+  latest_quote_submitted_at: null,
 };
 
 beforeEach(() => {

@@ -1,7 +1,14 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Ban, FilePlus2, Mail, UserPlus2 } from "lucide-react";
+import {
+  Award,
+  Ban,
+  FilePlus2,
+  Mail,
+  MessageSquareReply,
+  UserPlus2,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/formatTime";
@@ -9,12 +16,6 @@ import type { RfqEvent } from "@/types";
 
 interface Props {
   events: readonly RfqEvent[];
-  /**
-   * When true, the timeline renders without actor names AND vendor names
-   * (used by the vendor portal where both fields are competitive info and
-   * are stripped server-side).
-   */
-  hideActor?: boolean;
 }
 
 const ICONS: Record<string, LucideIcon> = {
@@ -22,6 +23,10 @@ const ICONS: Record<string, LucideIcon> = {
   "rfq.issued": Mail,
   "rfq.vendors_added": UserPlus2,
   "rfq.cancelled": Ban,
+  "rfq.awarded": Award,
+  "quote.submitted": MessageSquareReply,
+  "quote.revised": MessageSquareReply,
+  "quote.awarded": Award,
 };
 
 /**
@@ -30,10 +35,10 @@ const ICONS: Record<string, LucideIcon> = {
  * drawn behind the bullets via an absolute child on the `<ol>`.
  *
  * Studio side shows full actor names and vendor pills on "Issued" rows.
- * Vendor side gets `hideActor` and the metadata already arrives with
- * `vendor_ids` / `vendor_names` stripped by `getRfqDetailForVendor`.
+ * Vendor side receives actor info intact (server strips competitive vendor
+ * identifiers but preserves studio actor names via `getRfqDetailForVendor`).
  */
-export function RfqStatusTimeline({ events, hideActor }: Props) {
+export function RfqStatusTimeline({ events }: Props) {
   const t = useTranslations("rfq.timeline");
 
   if (events.length === 0) {
@@ -52,7 +57,7 @@ export function RfqStatusTimeline({ events, hideActor }: Props) {
         className="absolute left-[36px] top-7 bottom-7 w-px bg-border-default"
       />
       {events.map((ev) => (
-        <EventRow key={ev.id} event={ev} hideActor={hideActor} t={t} />
+        <EventRow key={ev.id} event={ev} t={t} />
       ))}
     </ol>
   );
@@ -60,15 +65,13 @@ export function RfqStatusTimeline({ events, hideActor }: Props) {
 
 function EventRow({
   event,
-  hideActor,
   t,
 }: {
   event: RfqEvent;
-  hideActor?: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   const Icon = ICONS[event.action] ?? FilePlus2;
-  const actor = !hideActor && event.actorName ? event.actorName : t("someone");
+  const actor = event.actorName ?? t("someone");
 
   return (
     <li className="relative pl-10">
@@ -150,6 +153,48 @@ function EventBody({
         </>
       ) : (
         <span>{t("cancelledVerb")}</span>
+      );
+    }
+    case "quote.submitted":
+    case "quote.revised": {
+      const vendorName =
+        typeof m.vendor_name === "string" ? m.vendor_name : null;
+      const verb =
+        event.action === "quote.submitted"
+          ? t("quoteSubmittedVerb")
+          : t("quoteRevisedVerb");
+      return (
+        <>
+          <span>{verb}</span>
+          {vendorName && <Pill>{vendorName}</Pill>}
+        </>
+      );
+    }
+    case "rfq.awarded": {
+      const awardType = typeof m.award_type === "string" ? m.award_type : null;
+      const winningName =
+        typeof m.winning_vendor_name === "string"
+          ? m.winning_vendor_name
+          : null;
+      return (
+        <>
+          <span>{t("rfqAwardedVerb")}</span>
+          {awardType === "split" ? (
+            <Pill>{t("splitAward")}</Pill>
+          ) : (
+            winningName && <Pill>{winningName}</Pill>
+          )}
+        </>
+      );
+    }
+    case "quote.awarded": {
+      const vendorName =
+        typeof m.vendor_name === "string" ? m.vendor_name : null;
+      return (
+        <>
+          <span>{t("quoteAwardedVerb")}</span>
+          {vendorName && <Pill>{vendorName}</Pill>}
+        </>
       );
     }
     default:

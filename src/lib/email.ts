@@ -431,6 +431,88 @@ export async function sendRfqIssuedEmail(
 }
 
 /**
+ * Notify studio (RFQ creator / PMs on the project) that a vendor has just
+ * submitted (or revised) a quote. Deep link lands on the architect's
+ * RFQ detail page where they can view it inline and open the comparison.
+ */
+export async function sendQuoteReceivedEmail(
+  email: string,
+  args: {
+    recipientName: string;
+    vendorName: string;
+    projectName: string;
+    rfqNumber: string;
+    rfqTitle: string;
+    isRevision: boolean;
+    isLate: boolean;
+    deepLink: string;
+  }
+) {
+  const safeRecipient = escapeHtml(args.recipientName);
+  const safeVendor = escapeHtml(args.vendorName);
+  const safeProject = escapeHtml(args.projectName);
+  const verb = args.isRevision ? "revised their" : "submitted a";
+  const lateBadge = args.isLate
+    ? `<div style="text-align: center; margin: 0 0 16px;">${orgPill("Late submission")}</div>`
+    : "";
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} | Quote received on ${escapeHtml(args.rfqNumber)}`,
+    emailLayout(
+      args.isRevision ? "Quote Revised" : "Quote Received",
+      `${bodyText(`Hi ${safeRecipient}, <strong style="color: ${colors.white};">${safeVendor}</strong> has ${verb} quote on <strong style="color: ${colors.white};">${safeProject}</strong>.`)}
+      <div style="text-align: center; margin: 0 0 24px;">
+        ${orgPill(`${args.rfqNumber} — ${args.rfqTitle}`)}
+      </div>
+      ${lateBadge}
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(args.deepLink, "View RFQ")}
+      </div>
+      ${hintText("Open the link to review the quote and compare with others.")}`,
+      "You're receiving this because you created or own this RFQ."
+    )
+  );
+}
+
+/**
+ * Notify the winning vendor that their quote has been awarded. Deep link
+ * lands on the vendor portal's RFQ detail page so they can see the award
+ * confirmation alongside the original scope.
+ */
+export async function sendQuoteAwardedEmail(
+  email: string,
+  args: {
+    contactName: string;
+    vendorName: string;
+    projectName: string;
+    rfqNumber: string;
+    rfqTitle: string;
+    deepLink: string;
+  }
+) {
+  const safeContact = escapeHtml(args.contactName);
+  const safeProject = escapeHtml(args.projectName);
+  await sendEmail(
+    email,
+    `${getEnvTag()}${branding.appName} | Quote awarded on ${escapeHtml(args.rfqNumber)}`,
+    emailLayout(
+      "Quote Awarded",
+      `${bodyText(`Hi ${safeContact}, your quote on <strong style="color: ${colors.white};">${safeProject}</strong> has been awarded.`)}
+      <div style="text-align: center; margin: 0 0 24px;">
+        ${orgPill(`${args.rfqNumber} — ${args.rfqTitle}`)}
+      </div>
+      ${divider()}
+      <div style="padding-top: 24px;">
+        ${ctaButton(args.deepLink, "View RFQ")}
+      </div>
+      ${hintText("You'll receive a purchase order once the studio finalises the paperwork.")}`,
+      "Congratulations — and thank you for quoting."
+    )
+  );
+}
+
+/**
  * Send a verification email for an email address change.
  */
 export async function sendChangeEmailVerification(

@@ -83,6 +83,9 @@ export async function getRfqsByProject(
        r.issued_date, r.response_deadline, r.created_at,
        (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
        (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
+       (SELECT MAX(vq.submitted_at)
+        FROM vendor_quote vq
+        WHERE vq.rfq_id = r.id) AS latest_quote_submitted_at,
        COUNT(*) OVER ()::int AS total
      FROM rfq r
      WHERE ${where}
@@ -103,6 +106,7 @@ export async function getRfqsByProject(
       item_count: r.item_count,
       vendor_count: r.vendor_count,
       created_at: r.created_at,
+      latest_quote_submitted_at: r.latest_quote_submitted_at ?? null,
     })),
     total,
   };
@@ -167,11 +171,17 @@ export async function getRfqDetail(
  * the issue route couldn't capture a name (vendor without a receives_rfq
  * contact) both get resolved here.
  */
-const TIMELINE_ACTIONS = [
+const RFQ_TIMELINE_ACTIONS = [
   AUDIT_ACTIONS.RFQ_CREATED,
   AUDIT_ACTIONS.RFQ_ISSUED,
   AUDIT_ACTIONS.RFQ_VENDORS_ADDED,
   AUDIT_ACTIONS.RFQ_CANCELLED,
+  AUDIT_ACTIONS.RFQ_AWARDED,
+] as const;
+const QUOTE_TIMELINE_ACTIONS = [
+  AUDIT_ACTIONS.QUOTE_SUBMITTED,
+  AUDIT_ACTIONS.QUOTE_REVISED,
+  AUDIT_ACTIONS.QUOTE_AWARDED,
 ] as const;
 const VENDOR_BEARING_ACTIONS = new Set<string>([
   AUDIT_ACTIONS.RFQ_ISSUED,
@@ -180,16 +190,25 @@ const VENDOR_BEARING_ACTIONS = new Set<string>([
 
 async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
   const pool = getPool();
+  // Pulls rfq.* events targeting this RFQ AND quote.* events whose
+  // metadata.rfq_id matches (we don't have a target_id on quote rows
+  // that points back at the rfq, so the join is via JSONB metadata).
   const { rows } = await pool.query(
     `SELECT ae.id, ae.action, ae.created_at, ae.actor_id, u.name AS actor_name,
             ae.metadata
      FROM audit_event ae
      LEFT JOIN "user" u ON u.id = ae.actor_id
-     WHERE ae.target_table = 'rfq'
-       AND ae.target_id = $1::uuid
-       AND ae.action = ANY($2::text[])
+     WHERE (
+        (ae.target_table = 'rfq'
+         AND ae.target_id = $1::uuid
+         AND ae.action = ANY($2::text[]))
+        OR
+        (ae.target_table = 'vendor_quote'
+         AND ae.action = ANY($3::text[])
+         AND ae.metadata->>'rfq_id' = $1::text)
+     )
      ORDER BY ae.created_at ASC`,
-    [rfqId, TIMELINE_ACTIONS]
+    [rfqId, RFQ_TIMELINE_ACTIONS, QUOTE_TIMELINE_ACTIONS]
   );
 
   // Collect vendor IDs across all events with vendor metadata that are
@@ -347,6 +366,8 @@ export async function getRfqsForVendor(
       item_count: r.item_count,
       vendor_count: r.vendor_count,
       created_at: r.created_at,
+      // Vendor-portal list doesn't surface quote newness — not needed.
+      latest_quote_submitted_at: null,
     })),
     total: rows[0]?.total ?? 0,
   };
@@ -388,19 +409,39 @@ export async function getRfqDetailForVendor(
   ]);
   const itemRows = itemRes.rows;
 
-  // Vendors get a sanitised event list: actor names AND vendor names
-  // stripped (competitive info — they shouldn't see other vendors'
-  // identities on issued events, nor which studio user did what).
-  const events: RfqEvent[] = studioEvents.map((e) => {
-    const metadata = e.metadata
-      ? Object.fromEntries(
-          Object.entries(e.metadata).filter(
-            ([key]) => key !== "vendor_names" && key !== "vendor_ids"
+  // Vendors get a sanitised event list:
+  //  - studio user identities stripped (actorId / actorName)
+  //  - other vendors' identities stripped from RFQ events (vendor_names /
+  //    vendor_ids on rfq.issued / rfq.vendors_added)
+  //  - quote.* events filtered to ONLY this vendor's own submissions, so
+  //    they don't see competitors' submission activity at all
+  const events: RfqEvent[] = studioEvents
+    .filter((e) => {
+      if (
+        e.action === "quote.submitted" ||
+        e.action === "quote.revised" ||
+        e.action === "quote.awarded" ||
+        e.action === "quote.rejected" ||
+        e.action === "quote.under_review"
+      ) {
+        const meta = e.metadata as Record<string, unknown> | null;
+        return meta?.vendor_id === vendorId;
+      }
+      return true;
+    })
+    .map((e) => {
+      const metadata = e.metadata
+        ? Object.fromEntries(
+            Object.entries(e.metadata).filter(
+              ([key]) =>
+                key !== "vendor_names" &&
+                key !== "vendor_ids" &&
+                key !== "winning_vendor_names"
+            )
           )
-        )
-      : null;
-    return { ...e, actorId: null, actorName: null, metadata };
-  });
+        : null;
+      return { ...e, actorId: null, actorName: null, metadata };
+    });
 
   return {
     ...rfq,

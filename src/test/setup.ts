@@ -75,6 +75,8 @@ vi.mock("@/lib/email", () => ({
   sendInvitationEmail: vi.fn(),
   sendChangeEmailVerification: vi.fn(),
   sendRfqIssuedEmail: vi.fn().mockResolvedValue(undefined),
+  sendQuoteReceivedEmail: vi.fn().mockResolvedValue(undefined),
+  sendQuoteAwardedEmail: vi.fn().mockResolvedValue(undefined),
   escapeHtml: vi.fn((s: string) => s),
 }));
 
@@ -466,6 +468,29 @@ vi.mock("@/lib/queries", () => ({
   addRfqItems: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   removeRfqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   cancelRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  // Vendor Quotes (Feature 10)
+  getQuotesByRfq: vi.fn().mockResolvedValue([]),
+  getQuoteDetail: vi.fn().mockResolvedValue(null),
+  getQuoteForVendor: vi.fn().mockResolvedValue(null),
+  getQuoteComparison: vi.fn().mockResolvedValue({
+    rfq_id: "",
+    items: [],
+    vendors: [],
+    invited_no_response: [],
+  }),
+  getQuoteStudioRecipients: vi.fn().mockResolvedValue([]),
+  submitOrUpdateQuote: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "rfq_not_found" }),
+  setQuoteUnderReview: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
+  awardRfqSingle: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "rfq_not_found" }),
+  awardRfqSplit: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "rfq_not_found" }),
   // Audit (introduced with F7, reused by F21)
   logAudit: vi.fn().mockResolvedValue(undefined),
   logAuditSafe: vi.fn().mockResolvedValue(undefined),
@@ -487,6 +512,13 @@ vi.mock("@/lib/queries", () => ({
     RFQ_ISSUED: "rfq.issued",
     RFQ_VENDORS_ADDED: "rfq.vendors_added",
     RFQ_CANCELLED: "rfq.cancelled",
+    RFQ_AWARDED: "rfq.awarded",
+    QUOTE_SUBMITTED: "quote.submitted",
+    QUOTE_REVISED: "quote.revised",
+    QUOTE_UNDER_REVIEW: "quote.under_review",
+    QUOTE_AWARDED: "quote.awarded",
+    QUOTE_REJECTED: "quote.rejected",
+    QUOTE_EXPIRED: "quote.expired",
   } as const,
   AUDIT_SOURCES: {
     SELF_SERVICE: "self_service",

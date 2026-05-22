@@ -1272,6 +1272,67 @@ export const cancelRfqSchema = z.object({
   reason: z.string().trim().max(2000).optional().nullable(),
 });
 
+// ─── Vendor Quotes (F10) ────────────────────────────────────────────────────
+
+export const VENDOR_QUOTE_STATUSES = [
+  "submitted",
+  "under_review",
+  "awarded",
+  "rejected",
+  "expired",
+] as const;
+export type VendorQuoteStatus = (typeof VENDOR_QUOTE_STATUSES)[number];
+
+/** RFQ statuses where a vendor can still submit / revise a quote. */
+export const QUOTE_SUBMITTABLE_RFQ_STATUSES = [
+  "issued",
+  "quotes_received",
+  "under_review",
+] as const;
+
+/** RFQ statuses where an architect can award. */
+export const QUOTE_AWARDABLE_RFQ_STATUSES = [
+  "quotes_received",
+  "under_review",
+] as const;
+
+const submitQuoteItemSchema = z.object({
+  rfqItemId: z.string().uuid(),
+  unitPrice: z.coerce.number().nonnegative().finite(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+  alternativeSpec: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const QUOTE_CURRENCIES = ["USD", "EUR", "TRY", "GBP", "INR"] as const;
+export type QuoteCurrency = (typeof QUOTE_CURRENCIES)[number];
+
+export const submitQuoteSchema = z.object({
+  validUntil: z.string().date().optional().nullable(),
+  currency: z.enum(QUOTE_CURRENCIES).default("USD"),
+  deliveryPeriod: z.string().trim().max(100).optional().nullable(),
+  paymentTerms: z.string().trim().max(100).optional().nullable(),
+  inclusions: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
+  exclusions: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
+  notes: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
+  items: z.array(submitQuoteItemSchema).min(1).max(500),
+});
+
+export const awardRfqSingleSchema = z.object({
+  quoteId: z.string().uuid(),
+});
+
+export const awardRfqSplitSchema = z.object({
+  awards: z
+    .array(
+      z.object({
+        rfqItemId: z.string().uuid(),
+        quoteItemId: z.string().uuid(),
+      })
+    )
+    .min(1)
+    .max(500),
+});
+
 // ─── Project Documents ──────────────────────────────────────────────────────
 
 /** Lucide icon name — PascalCase, matching lucide-react's `icons` export. */

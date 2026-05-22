@@ -18,9 +18,16 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useRfqLastViewed } from "@/hooks/useRfqLastViewed";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
+import {
+  useAwardRfq,
+  useQuoteComparison,
+  useQuotesForRfq,
+} from "@/hooks/useQuotes";
 import { formatDate } from "@/lib/formatDate";
 import {
+  QUOTE_AWARDABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
 } from "@/lib/validations";
@@ -30,6 +37,8 @@ import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
 import { RfqStatusTimeline } from "./_components/RfqStatusTimeline";
+import { RfqQuotesSection } from "./_components/RfqQuotesSection";
+import { QuoteAwardDialog } from "./_components/QuoteAwardDialog";
 
 /**
  * Studio RFQ detail page — header (title + status badge + actions),
@@ -47,9 +56,13 @@ export default function BoqRfqDetailPage({
   const isPM = role === "pm";
   const canManage = role === "pm" || role === "architect";
 
+  const lastViewedAt = useRfqLastViewed(rfqId);
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
   // `addItems` is called inside RfqAddItemsDialog, not directly here.
   const { issue, invite, removeItem, cancel } = useRfqMutations(projectId);
+  const { quotes } = useQuotesForRfq(projectId, rfqId);
+  const { comparison } = useQuoteComparison(projectId, rfqId);
+  const { awardSingle, awardSplit } = useAwardRfq(projectId, rfqId);
 
   const [issueOpen, setIssueOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -58,6 +71,10 @@ export default function BoqRfqDetailPage({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [awardOpen, setAwardOpen] = useState(false);
+  const [preselectedQuoteId, setPreselectedQuoteId] = useState<
+    string | undefined
+  >();
 
   if (isLoading) {
     return (
@@ -112,6 +129,9 @@ export default function BoqRfqDetailPage({
   const isTerminal = (RFQ_TERMINAL_STATUSES as readonly string[]).includes(
     rfq.status
   );
+  const canAward =
+    (QUOTE_AWARDABLE_RFQ_STATUSES as readonly string[]).includes(rfq.status) &&
+    quotes.some((q) => q.status !== "expired");
   // Edit + Cancel are both gated on non-terminal status. Edits post-issue
   // are intentional (typo fixes / deadline extensions); a warning banner
   // inside the edit dialog tells the PM vendors will see the change.
@@ -195,6 +215,17 @@ export default function BoqRfqDetailPage({
             <Button onClick={() => setInviteOpen(true)}>
               <UserPlus2 className="w-4 h-4" />
               {t("inviteMoreBtn")}
+            </Button>
+          )}
+          {isPM && canAward && (
+            <Button
+              onClick={() => {
+                setPreselectedQuoteId(undefined);
+                setAwardOpen(true);
+              }}
+              className="cursor-pointer"
+            >
+              Award
             </Button>
           )}
           {isPM && isCancellable && (
@@ -301,6 +332,23 @@ export default function BoqRfqDetailPage({
         </div>
       </section>
 
+      {/* Quotes received */}
+      {!isDraft && (
+        <RfqQuotesSection
+          projectId={projectId}
+          rfqId={rfqId}
+          quotes={quotes}
+          invitedCount={rfq.vendors.length}
+          canAward={canAward}
+          isPM={isPM}
+          lastViewedAt={lastViewedAt}
+          onAwardClick={(quoteId) => {
+            setPreselectedQuoteId(quoteId);
+            setAwardOpen(true);
+          }}
+        />
+      )}
+
       {/* Invited vendors */}
       <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
         <div className="px-6 py-4 border-b border-border-default">
@@ -391,6 +439,24 @@ export default function BoqRfqDetailPage({
         destructive
         submitting={cancelling}
         onConfirm={handleCancel}
+      />
+
+      <QuoteAwardDialog
+        rfqTitle={rfq.title}
+        rfqNumber={rfq.rfq_number}
+        quotes={quotes}
+        comparison={comparison}
+        preselectedQuoteId={preselectedQuoteId}
+        open={awardOpen}
+        onOpenChange={setAwardOpen}
+        onAwardSingle={async (quoteId) => {
+          await awardSingle({ quoteId });
+          await mutate();
+        }}
+        onAwardSplit={async (awards) => {
+          await awardSplit({ awards });
+          await mutate();
+        }}
       />
     </div>
   );
