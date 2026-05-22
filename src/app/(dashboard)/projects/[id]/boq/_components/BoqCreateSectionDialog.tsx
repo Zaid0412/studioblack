@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
-import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
@@ -31,14 +30,12 @@ export function BoqCreateSectionDialog({
   const { createSection } = useBoqMutations(projectId);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [visibleToClient, setVisibleToClient] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle("");
       setDescription("");
-      setVisibleToClient(true);
     }
   }, [open]);
 
@@ -60,7 +57,7 @@ export function BoqCreateSectionDialog({
         title: trimmed,
         description: description.trim() || null,
         sortOrder: nextSortOrder,
-        isVisibleToClient: visibleToClient,
+        isVisibleToClient: true,
       });
       toast({ title: "Section added", variant: "success" });
       onOpenChange(false);
@@ -77,7 +74,7 @@ export function BoqCreateSectionDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="Add section"
-      description='Group items like "Civil Works" or "MEP". Internal sections are hidden from client BOQ exports.'
+      description='Group items like "Civil Works" or "MEP".'
       onSubmit={handleSubmit}
       submitting={submitting}
       submitLabel="Add section"
@@ -106,18 +103,6 @@ export function BoqCreateSectionDialog({
           placeholder="Short summary of what this section covers"
         />
       </label>
-
-      <div className="flex items-center justify-between rounded-lg border border-border-default bg-bg-elevated px-3 py-2">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium text-text-primary">
-            Visible to client
-          </span>
-          <span className="text-xs text-text-muted">
-            Off = internal only (excluded from client BOQ).
-          </span>
-        </div>
-        <ToggleSwitch checked={visibleToClient} onChange={setVisibleToClient} />
-      </div>
     </FormDialog>
   );
 }
