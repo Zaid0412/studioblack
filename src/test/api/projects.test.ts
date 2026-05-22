@@ -366,34 +366,24 @@ describe("PATCH /api/projects/[id]", () => {
     );
   });
 
-  it("architect can only update name", async () => {
+  it("architect cannot edit the project (403)", async () => {
     const session = mockSession({ role: "architect" });
     setupAuth(mocks.auth, session);
-    const { getOrgRole, getMemberRole } = await import("@/lib/queries");
+    const { getOrgRole, getMemberRole, isProjectPm } =
+      await import("@/lib/queries");
     vi.mocked(getOrgRole).mockResolvedValue("member");
-    // Effective role drives the field allowlist now (project-PMs are also PM).
-    // Mock the member-role lookup so deriveEffectiveRole returns "architect"
-    // and isProjectPm returns false (no project-PM row).
+    // No project-PM row → effective role stays "architect" → 403.
     vi.mocked(getMemberRole).mockResolvedValue("member");
-    const updated = { ...sampleProject, name: "Renamed" };
-    vi.mocked(updateProject).mockResolvedValue(updated as never);
+    vi.mocked(isProjectPm).mockResolvedValue(false);
 
     const req = buildRequest("/api/projects/proj-1", {
       method: "PATCH",
       body: { name: "Renamed", status: "completed" },
     });
     const res = await PATCH(req, buildParams({ id: "proj-1" }));
-    const { status, body } = await parseResponse(res);
 
-    expect(status).toBe(200);
-    expect(body).toEqual(updated);
-    // Only name should be passed, not status
-    expect(updateProject).toHaveBeenCalledWith(
-      "proj-1",
-      { name: "Renamed" },
-      undefined,
-      undefined
-    );
+    expect(res.status).toBe(403);
+    expect(updateProject).not.toHaveBeenCalled();
   });
 
   it("architect-PM-on-this-project can update full project fields", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useMemo } from "react";
+import { use, useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
@@ -64,6 +64,16 @@ export default function EditProjectPage({
   // owner-only gate (PATCH) never trips.
   const userRoleContext = useUserRoleContext();
   const isOwner = userRoleContext?.orgRole === "owner";
+  // `role` is the project-scoped role from the layout's UserRoleProvider —
+  // architects promoted to project-PM see `role === "pm"` here, pure
+  // architects/clients do not. Pure architects/clients are bounced back to
+  // the project page; the PATCH endpoint also 403s them as a backstop.
+  const role = userRoleContext?.role;
+  useEffect(() => {
+    if (role && role !== "pm") {
+      router.replace(`/projects/${id}`);
+    }
+  }, [role, id, router]);
 
   const { data: project, isLoading: loading } = useSWR<ProjectData>(
     API.project(id)

@@ -26,11 +26,23 @@ export const GET = withAuth(
   }
 );
 
-/** PATCH /api/projects/[id] — update project (PM: everything, Architect: limited, Client: forbidden). */
+/** PATCH /api/projects/[id] — update project (PM only; Architect/Client: forbidden). */
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true, fetchOrgRole: true },
   async (req, { orgRole, effectiveRole, user }, params) => {
     const { id } = params;
+
+    // PM authority gates the entire endpoint. `effectiveRole` already accounts
+    // for project-scoped PMs (architects assigned via `project_member.role='pm'`),
+    // so architects acting as PM on this project keep edit access. Pure
+    // architects without project-PM elevation are rejected.
+    const isPM = effectiveRole === "pm";
+    if (!isPM) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    // Reassigning PMs stays strictly with the org owner regardless of
+    // project-level authority.
+    const isOwner = orgRole === "owner";
 
     const parsed = await parseRequest(req, updateProjectSchema);
     if (!parsed.success) {
@@ -38,32 +50,20 @@ export const PATCH = withAuth(
     }
     const body = parsed.data;
 
-    // PM authority drives the field allowlist. `effectiveRole` already
-    // accounts for project-scoped PMs (architects assigned via
-    // `project_member.role='pm'`), so architects acting as PM on this
-    // project see the full set.
-    const isPM = effectiveRole === "pm";
-    // Reassigning PMs stays strictly with the org owner regardless of
-    // project-level authority.
-    const isOwner = orgRole === "owner";
-
-    // Build dynamic update fields
-    const allowedFields = isPM
-      ? [
-          "name",
-          "client_name",
-          "client_email",
-          "category",
-          "status",
-          "deadline",
-          "scope",
-          "area_sqft",
-          "estimation_inr",
-          "address",
-          "city",
-          "state",
-        ]
-      : ["name"];
+    const allowedFields = [
+      "name",
+      "client_name",
+      "client_email",
+      "category",
+      "status",
+      "deadline",
+      "scope",
+      "area_sqft",
+      "estimation_inr",
+      "address",
+      "city",
+      "state",
+    ];
 
     const fields: Record<string, unknown> = {};
     const bodyRecord = body as Record<string, unknown>;
@@ -74,7 +74,7 @@ export const PATCH = withAuth(
       }
     }
 
-    const hasArchitectUpdate = isPM && Array.isArray(body.architectIds);
+    const hasArchitectUpdate = Array.isArray(body.architectIds);
 
     // PM membership changes are owner-only. Reject when an admin/architect
     // tries to write pmIds rather than silently dropping the field.
