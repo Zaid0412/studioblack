@@ -67,13 +67,19 @@ describe("canFireBoqPhaseTransition — internally_approved (4-eyes)", () => {
   });
 });
 
-describe("canFireBoqPhaseTransition — submitted_to_client", () => {
+describe("canFireBoqPhaseTransition — sent_to_client", () => {
   it("only PM can send to client", () => {
-    expect(fire("submitted_to_client", actor({ isPM: true }))).toBe(true);
-    expect(fire("submitted_to_client", actor({ isArchitect: true }))).toBe(
-      false
-    );
-    expect(fire("submitted_to_client", actor({ isClient: true }))).toBe(false);
+    expect(fire("sent_to_client", actor({ isPM: true }))).toBe(true);
+    expect(fire("sent_to_client", actor({ isArchitect: true }))).toBe(false);
+    expect(fire("sent_to_client", actor({ isClient: true }))).toBe(false);
+  });
+});
+
+describe("canFireBoqPhaseTransition — client_reviewing", () => {
+  it("nobody can fire it manually — auto-set on first client open", () => {
+    expect(fire("client_reviewing", actor({ isPM: true }))).toBe(false);
+    expect(fire("client_reviewing", actor({ isArchitect: true }))).toBe(false);
+    expect(fire("client_reviewing", actor({ isClient: true }))).toBe(false);
   });
 });
 
@@ -85,13 +91,29 @@ describe("canFireBoqPhaseTransition — client_approved", () => {
   });
 });
 
-describe("canFireBoqPhaseTransition — change_requested", () => {
-  it("PM or client can request changes", () => {
-    expect(fire("change_requested", actor({ isPM: true }))).toBe(true);
-    expect(fire("change_requested", actor({ isClient: true }))).toBe(true);
+describe("canFireBoqPhaseTransition — client_changes_requested", () => {
+  it("only client can fire it", () => {
+    expect(fire("client_changes_requested", actor({ isClient: true }))).toBe(
+      true
+    );
+    expect(fire("client_changes_requested", actor({ isPM: true }))).toBe(false);
+    expect(fire("client_changes_requested", actor({ isArchitect: true }))).toBe(
+      false
+    );
   });
-  it("architect alone cannot request changes", () => {
-    expect(fire("change_requested", actor({ isArchitect: true }))).toBe(false);
+});
+
+describe("canFireBoqPhaseTransition — internal_changes_requested", () => {
+  it("only PM can fire it (covers both internal kick-back and pull-back)", () => {
+    expect(fire("internal_changes_requested", actor({ isPM: true }))).toBe(
+      true
+    );
+    expect(
+      fire("internal_changes_requested", actor({ isArchitect: true }))
+    ).toBe(false);
+    expect(fire("internal_changes_requested", actor({ isClient: true }))).toBe(
+      false
+    );
   });
 });
 

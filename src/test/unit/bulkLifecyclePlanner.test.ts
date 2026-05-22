@@ -17,7 +17,7 @@ describe("buildPhaseGroups", () => {
         item("c", "internally_approved"),
         item("d", "client_approved"),
       ],
-      "submitted_to_client",
+      "sent_to_client",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const byPhase = Object.fromEntries(groups.map((g) => [g.phase, g.itemIds]));
@@ -29,7 +29,7 @@ describe("buildPhaseGroups", () => {
   it("marks the group whose phase reaches the target as primary", () => {
     const groups = buildPhaseGroups(
       [item("a", "draft"), item("b", "internally_approved")],
-      "submitted_to_client",
+      "sent_to_client",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const primary = groups.filter((g) => g.primary).map((g) => g.phase);
@@ -43,9 +43,9 @@ describe("buildPhaseGroups", () => {
       [
         item("a", "draft"),
         item("b", "client_approved"),
-        item("c", "change_requested"),
+        item("c", "internal_changes_requested"),
       ],
-      "submitted_to_client",
+      "sent_to_client",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     expect(groups.every((g) => !g.primary)).toBe(true);
@@ -83,13 +83,11 @@ describe("buildPlanByTarget", () => {
         item("b", "internally_approved"),
         item("c", "draft"),
       ],
-      "submitted_to_client",
+      "sent_to_client",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
-    const plan = buildPlanByTarget(groups, "submitted_to_client", {});
-    expect(plan).toEqual([
-      { target: "submitted_to_client", itemIds: ["a", "b"] },
-    ]);
+    const plan = buildPlanByTarget(groups, "sent_to_client", {});
+    expect(plan).toEqual([{ target: "sent_to_client", itemIds: ["a", "b"] }]);
   });
 
   it("includes skipped groups when a fallback is chosen", () => {
@@ -99,16 +97,16 @@ describe("buildPlanByTarget", () => {
         item("b", "draft"),
         item("c", "draft"),
       ],
-      "submitted_to_client",
+      "sent_to_client",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
-    const plan = buildPlanByTarget(groups, "submitted_to_client", {
+    const plan = buildPlanByTarget(groups, "sent_to_client", {
       draft: "internal_review",
     });
     // Order is iteration order of the groups (draft sits AFTER internally_approved
     // in `byPhase` map insertion order — first occurrence of each phase).
     expect(plan).toContainEqual({
-      target: "submitted_to_client",
+      target: "sent_to_client",
       itemIds: ["a"],
     });
     expect(plan).toContainEqual({
@@ -120,10 +118,10 @@ describe("buildPlanByTarget", () => {
   it("returns an empty plan when nothing qualifies and no fallbacks are picked", () => {
     const groups = buildPhaseGroups(
       [item("a", "draft"), item("b", "client_approved")],
-      "submitted_to_client",
+      "sent_to_client",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
-    expect(buildPlanByTarget(groups, "submitted_to_client", {})).toEqual([]);
+    expect(buildPlanByTarget(groups, "sent_to_client", {})).toEqual([]);
   });
 
   it("merges multiple groups sharing the same fallback target", () => {
@@ -134,15 +132,15 @@ describe("buildPlanByTarget", () => {
     // that resolves to it).
     const groups = buildPhaseGroups(
       [
-        item("a", "change_requested"),
-        item("b", "change_requested"),
+        item("a", "internal_changes_requested"),
+        item("b", "internal_changes_requested"),
         item("c", "internal_review"),
       ],
       "client_approved",
       { role: "pm", actorId: "u-pm", boqCreatorId: "u-arch" }
     );
     const plan = buildPlanByTarget(groups, "client_approved", {
-      change_requested: "draft",
+      internal_changes_requested: "draft",
       internal_review: "draft",
     });
     const draft = plan.find((p) => p.target === "draft");

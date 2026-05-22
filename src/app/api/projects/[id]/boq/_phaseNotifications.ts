@@ -81,7 +81,8 @@ export async function notifyPhaseRecipients(opts: {
       return;
     }
     case "client_approved":
-    case "change_requested": {
+    case "client_changes_requested":
+    case "internal_changes_requested": {
       if (!boqCreatorId || boqCreatorId === actor.id) return;
       await fanOutToUsers([boqCreatorId], {
         notificationType: `boq_item_${target}`,
@@ -91,7 +92,7 @@ export async function notifyPhaseRecipients(opts: {
       });
       return;
     }
-    case "submitted_to_client": {
+    case "sent_to_client": {
       const client = await getProjectClientInfo(projectId);
       if (!client?.client_email) return;
       const html = `<p>${escapeHtml(actorName)} sent ${escapeHtml(noun)} on <strong>${escapeHtml(boqTitle)}</strong> for your review.</p>${
@@ -102,7 +103,10 @@ export async function notifyPhaseRecipients(opts: {
       );
       return;
     }
-    default:
+    // `client_reviewing` is set automatically when the client opens the
+    // BOQ — no notification fires. `draft` is a silent rollback.
+    case "client_reviewing":
+    case "draft":
       return;
   }
 }
@@ -150,11 +154,15 @@ function phaseTitle(
       return `BOQ ${noun} submitted for review: ${boqTitle}`;
     case "internally_approved":
       return `BOQ ${noun} internally approved: ${boqTitle}`;
-    case "submitted_to_client":
+    case "sent_to_client":
       return `BOQ ${noun} sent to client: ${boqTitle}`;
+    case "client_reviewing":
+      return `BOQ ${noun} now under client review: ${boqTitle}`;
     case "client_approved":
       return `BOQ ${noun} approved by client: ${boqTitle}`;
-    case "change_requested":
+    case "client_changes_requested":
+      return `BOQ ${noun} — client requested changes: ${boqTitle}`;
+    case "internal_changes_requested":
       return `BOQ ${noun} — changes requested: ${boqTitle}`;
     case "draft":
       return `BOQ ${noun} moved back to draft: ${boqTitle}`;

@@ -26,10 +26,12 @@ interface BoqHeaderProps {
 const PHASE_ORDER: BoqItemPhase[] = [
   "draft",
   "internal_review",
+  "internal_changes_requested",
   "internally_approved",
-  "submitted_to_client",
+  "sent_to_client",
+  "client_reviewing",
+  "client_changes_requested",
   "client_approved",
-  "change_requested",
 ];
 
 /** Sticky title row showing BOQ identity + per-phase item counts. */

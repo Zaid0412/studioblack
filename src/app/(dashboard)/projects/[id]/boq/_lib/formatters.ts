@@ -15,13 +15,21 @@ const PHASE_DISPLAY: Record<
 > = {
   draft: { label: "Draft", variant: "draft" },
   internal_review: { label: "Internal Review", variant: "in-review" },
+  internal_changes_requested: {
+    label: "Changes Requested",
+    variant: "changes-requested",
+  },
   internally_approved: {
     label: "Internally Approved",
     variant: "approved-arch",
   },
-  submitted_to_client: { label: "Submitted to Client", variant: "submitted" },
+  sent_to_client: { label: "Sent to Client", variant: "submitted" },
+  client_reviewing: { label: "Client Reviewing", variant: "in-review" },
+  client_changes_requested: {
+    label: "Client Changes Requested",
+    variant: "changes-requested",
+  },
   client_approved: { label: "Client Approved", variant: "approved-client" },
-  change_requested: { label: "Change Requested", variant: "changes-requested" },
 };
 
 /** Map a BOQ item's phase to a Badge variant. */
@@ -36,11 +44,13 @@ export function phaseToLabel(phase: BoqItemPhase): string {
 
 /**
  * Phases that need a mandatory comment from the actor (server-side schema
- * requires it). Centralises the rule so UI surfaces don't hand-roll the
- * `phase === "change_requested"` check.
+ * requires it). Both kick-back states (internal + client) qualify.
  */
 export function isDestructivePhase(phase: BoqItemPhase): boolean {
-  return phase === "change_requested";
+  return (
+    phase === "internal_changes_requested" ||
+    phase === "client_changes_requested"
+  );
 }
 
 export interface BoqPhaseTransitionCtx {

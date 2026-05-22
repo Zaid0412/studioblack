@@ -7,9 +7,11 @@
  * Both routes share the same permission rules via `canFirePhaseTransition`:
  *   - internal_review        — creator or PM
  *   - internally_approved    — PM or architect, AND NOT creator (4-eyes)
- *   - submitted_to_client    — PM
- *   - client_approved        — client
- *   - change_requested       — PM or client
+ *   - sent_to_client              — PM
+ *   - client_reviewing            — auto-set on first client read (no manual fire)
+ *   - client_approved             — client
+ *   - client_changes_requested    — client
+ *   - internal_changes_requested  — PM (covers internal kick-back + pull-back)
  *   - draft                  — creator or PM
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -199,11 +201,70 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
     expect(res.status).toBe(403);
   });
 
-  it("client can approve a submitted-to-client item", async () => {
+  // PM pull-back: from any client-visible phase, PM can fire
+  // internal_changes_requested → item leaves the client's view.
+  for (const fromPhase of [
+    "sent_to_client",
+    "client_reviewing",
+    "client_changes_requested",
+    "client_approved",
+  ] as const) {
+    it(`PM can pull back from ${fromPhase} to internal_changes_requested`, async () => {
+      vi.mocked(getBoqItemContext).mockResolvedValue(ctx({ phase: fromPhase }));
+      vi.mocked(setBoqItemPhase).mockResolvedValue({
+        ok: true,
+        item: { ...baseItem, phase: "internal_changes_requested" },
+      });
+
+      const req = buildRequest(
+        `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+        {
+          method: "POST",
+          body: {
+            phase: "internal_changes_requested",
+            comment: "needs revision",
+          },
+        }
+      );
+      const res = await PATCH_PHASE(
+        req,
+        buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+      );
+      expect(res.status).toBe(200);
+      expect(setBoqItemPhase).toHaveBeenCalledWith(
+        ITEM_ID,
+        "internal_changes_requested"
+      );
+    });
+  }
+
+  it("client cannot pull back to internal_changes_requested (403)", async () => {
     setupAuth(mocks.auth, clientSession);
     vi.mocked(getOrgRole).mockResolvedValue(null);
     vi.mocked(getBoqItemContext).mockResolvedValue(
-      ctx({ phase: "submitted_to_client" })
+      ctx({ phase: "client_reviewing" })
+    );
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      {
+        method: "POST",
+        body: { phase: "internal_changes_requested", comment: "no" },
+      }
+    );
+    const res = await PATCH_PHASE(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(403);
+    expect(setBoqItemPhase).not.toHaveBeenCalled();
+  });
+
+  it("client can approve a sent-to-client item", async () => {
+    setupAuth(mocks.auth, clientSession);
+    vi.mocked(getOrgRole).mockResolvedValue(null);
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "client_reviewing" })
     );
     vi.mocked(setBoqItemPhase).mockResolvedValue({
       ok: true,
@@ -239,14 +300,14 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/lifecycle", () => {
     expect(res.status).toBe(403);
   });
 
-  it("requires comment for change_requested (400)", async () => {
+  it("requires comment for internal_changes_requested (400)", async () => {
     vi.mocked(getBoqItemContext).mockResolvedValue(
       ctx({ phase: "internal_review" })
     );
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
-      { method: "POST", body: { phase: "change_requested" } }
+      { method: "POST", body: { phase: "internal_changes_requested" } }
     );
     const res = await PATCH_PHASE(
       req,
@@ -400,7 +461,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
     expect(res.status).toBe(404);
   });
 
-  it("requires comment for bulk change_requested (400)", async () => {
+  it("requires comment for bulk internal_changes_requested (400)", async () => {
     vi.mocked(getBoq).mockResolvedValue({ ...baseBoq } as unknown as Boq);
 
     const req = buildRequest(
@@ -410,7 +471,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
         body: {
           boqId: BOQ_ID,
           itemIds: [ITEM_ID],
-          phase: "change_requested",
+          phase: "internal_changes_requested",
         },
       }
     );
@@ -539,13 +600,13 @@ describe("phase notification fan-out", () => {
     expect(getUsersByIds).toHaveBeenCalledWith([CREATOR_ID]);
   });
 
-  it("submitted_to_client → looks up project's client email", async () => {
+  it("sent_to_client → looks up project's client email", async () => {
     vi.mocked(getBoqItemContext).mockResolvedValue(
       ctx({ phase: "internally_approved" })
     );
     vi.mocked(setBoqItemPhase).mockResolvedValue({
       ok: true,
-      item: { ...baseItem, phase: "submitted_to_client" },
+      item: { ...baseItem, phase: "sent_to_client" },
     });
     vi.mocked(getProjectClientInfo).mockResolvedValue({
       project_name: "Test Project",
@@ -554,7 +615,7 @@ describe("phase notification fan-out", () => {
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
-      { method: "POST", body: { phase: "submitted_to_client" } }
+      { method: "POST", body: { phase: "sent_to_client" } }
     );
     await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
     await flushFanOut();

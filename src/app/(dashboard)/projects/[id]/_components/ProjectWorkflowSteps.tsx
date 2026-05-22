@@ -58,7 +58,7 @@ export function ProjectWorkflowSteps({
   // start filling it. Notfound = pending (no BOQ yet).
   //
   // Note: for client viewers, `boq.items` is already filtered server-side
-  // to `submitted_to_client+`. So a client whose items are all `client_approved`
+  // to client-visible phases. So a client whose items are all `client_approved`
   // sees the green "completed" dot even when the studio still has items in
   // `draft` for the same BOQ. That's intentional — from the client's POV
   // every item they care about IS approved — but it means the same dot can

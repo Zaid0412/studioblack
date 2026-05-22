@@ -62,10 +62,12 @@ interface BoqItemDrawerProps {
 const PHASE_ACTION_LABEL: Record<BoqItemPhase, string> = {
   draft: "Move to Draft",
   internal_review: "Submit for Review",
+  internal_changes_requested: "Request Changes",
   internally_approved: "Approve",
-  submitted_to_client: "Send to Client",
+  sent_to_client: "Send to Client",
+  client_reviewing: "Mark Client Reviewing",
+  client_changes_requested: "Request Changes",
   client_approved: "Mark Client Approved",
-  change_requested: "Request Changes",
 };
 
 const NOTES_TEXTAREA_CLS =
@@ -97,7 +99,10 @@ export function BoqItemDrawer({
   // silently-lost edit).
   const [savingField, setSavingField] = useState(false);
   const [transitioning, setTransitioning] = useState<BoqItemPhase | null>(null);
-  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
+  // Carries which destructive variant was picked so the dialog submits with
+  // the right phase (internal vs client kick-back).
+  const [pendingDestructive, setPendingDestructive] =
+    useState<BoqItemPhase | null>(null);
 
   // Seed notes only when a new drawer opens — revalidations must not clobber edits.
   useEffect(() => {
@@ -136,7 +141,7 @@ export function BoqItemDrawer({
 
   const handleTransition = (next: BoqItemPhase) => {
     if (isDestructivePhase(next)) {
-      setChangeRequestOpen(true);
+      setPendingDestructive(next);
       return;
     }
     void fireTransition(next);
@@ -443,7 +448,7 @@ export function BoqItemDrawer({
                       key={next}
                       type="button"
                       variant={
-                        next === "change_requested" ? "danger" : "secondary"
+                        isDestructivePhase(next) ? "danger" : "secondary"
                       }
                       size="sm"
                       disabled={transitioning !== null}
@@ -500,9 +505,16 @@ export function BoqItemDrawer({
       </Sheet>
 
       <BoqChangeRequestDialog
-        open={changeRequestOpen}
-        onOpenChange={setChangeRequestOpen}
-        onSubmit={(comment) => fireTransition("change_requested", comment)}
+        open={pendingDestructive !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingDestructive(null);
+        }}
+        onSubmit={(comment) => {
+          if (pendingDestructive) {
+            void fireTransition(pendingDestructive, comment);
+          }
+          setPendingDestructive(null);
+        }}
       />
     </>
   );
