@@ -128,7 +128,9 @@ export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
  * during internal review OR pulls back an item already visible to the
  * client) and `client_changes_requested` (client kicks back during review).
  * Both exit to `draft` so the creator reworks and the item walks the chain
- * again.
+ * again. From `internal_changes_requested` the creator can also jump
+ * straight back to `internal_review` once the fix is in — saves a click
+ * versus the draft → internal_review path.
  *
  * `client_reviewing` is auto-set at the read path the first time a client
  * opens the BOQ — items sitting in `sent_to_client` flip to `client_reviewing`
@@ -148,7 +150,7 @@ export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
       "internal_changes_requested",
       "draft",
     ],
-    internal_changes_requested: ["draft"],
+    internal_changes_requested: ["draft", "internal_review"],
     internally_approved: [
       "sent_to_client",
       "internal_changes_requested",

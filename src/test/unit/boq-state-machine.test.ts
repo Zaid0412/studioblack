@@ -60,6 +60,12 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
     );
   });
 
+  it("internal_changes_requested → internal_review (creator resubmits after fix)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.internal_changes_requested).toContain(
+      "internal_review"
+    );
+  });
+
   it("client_changes_requested → draft (creator reworks)", () => {
     expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
       "draft"
