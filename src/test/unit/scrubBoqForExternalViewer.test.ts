@@ -1,7 +1,7 @@
 /**
  * Pin the BOQ payload-scrub contract for external viewers (client + vendor).
  *
- * `getBoq` filters out items in pre-`submitted_to_client` phases at the SQL
+ * `getBoq` filters out items in pre-client phases at the SQL
  * level — but the items it does return still carry cost / margin / budget
  * columns. This scrub is the second line of defence: it zeroes/nulls every
  * studio-internal field BEFORE the response leaves the server, so opening
@@ -59,7 +59,7 @@ const baseItem: BoqItemWithComputed = {
   height: null,
   source: "custom",
   rate_contract_item_id: null,
-  phase: "submitted_to_client",
+  phase: "sent_to_client",
   sent_to_client_at: null,
   client_decided_at: null,
   element_archived: false,

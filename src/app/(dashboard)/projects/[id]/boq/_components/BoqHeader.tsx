@@ -2,6 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import type { BoqItemPhase } from "@/lib/validations";
 import { phaseToLabel, phaseToVariant } from "../_lib/formatters";
 
@@ -26,10 +27,12 @@ interface BoqHeaderProps {
 const PHASE_ORDER: BoqItemPhase[] = [
   "draft",
   "internal_review",
+  "internal_changes_requested",
   "internally_approved",
-  "submitted_to_client",
+  "sent_to_client",
+  "client_reviewing",
+  "client_changes_requested",
   "client_approved",
-  "change_requested",
 ];
 
 /** Sticky title row showing BOQ identity + per-phase item counts. */
@@ -41,6 +44,7 @@ export function BoqHeader({
   marginBleedCount,
   phaseCounts,
 }: BoqHeaderProps) {
+  const role = useUserRoleContext()?.role ?? null;
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
       <div className="flex flex-col gap-2 min-w-0">
@@ -66,7 +70,7 @@ export function BoqHeader({
             className="gap-1 !px-2"
           >
             <span className="tabular-nums">{phaseCounts[phase]}</span>
-            <span>{phaseToLabel(phase)}</span>
+            <span>{phaseToLabel(phase, role)}</span>
           </Badge>
         ))}
         {marginBleedCount > 0 && (

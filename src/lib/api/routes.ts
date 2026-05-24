@@ -123,6 +123,7 @@ export const API = {
 
   // ── Per-item lifecycle phase ────────────────────
   boqItemLifecycle:      (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/lifecycle`,
+  boqItemLatestChangeRequest: (pid: string, iid: string)     => `/api/projects/${pid}/boq/items/${iid}/latest-change-request`,
   boqItemsBulkLifecycle: (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-lifecycle`,
 
   // ── BOQ Excel Import / Export (Feature 6) ───────

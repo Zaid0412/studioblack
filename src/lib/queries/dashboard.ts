@@ -107,7 +107,8 @@ export interface ClientPendingFileRow {
 
 /**
  * One row in the "BOQs" section of the client's pending-reviews popover.
- * A BOQ shows up while any of its items sits at `submitted_to_client`.
+ * A BOQ shows up while any of its items sits at `sent_to_client` or
+ * `client_reviewing` — i.e. the client still owes a decision.
  */
 export interface ClientPendingBoqRow {
   id: string;
@@ -168,7 +169,7 @@ export async function getClientPendingReviews(
        JOIN boq_item bi ON bi.boq_id = b.id
        WHERE p.client_email = $1
          AND p.status != 'archived'
-         AND bi.phase = 'submitted_to_client'
+         AND bi.phase IN ('sent_to_client', 'client_reviewing')
        GROUP BY b.id, b.project_id, p.name
        ORDER BY MAX(bi.updated_at) DESC NULLS LAST, b.id DESC
        LIMIT $2`,
@@ -190,7 +191,7 @@ export async function getClientPendingReviews(
           JOIN project p ON p.id = b.project_id
           WHERE p.client_email = $1
             AND p.status != 'archived'
-            AND bi.phase = 'submitted_to_client')
+            AND bi.phase IN ('sent_to_client', 'client_reviewing'))
          AS total`,
         [email]
       ),

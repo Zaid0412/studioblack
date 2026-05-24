@@ -5,6 +5,7 @@ import { mapPgError } from "./_pgErrors";
 import type {
   Boq,
   BoqElementLite,
+  BoqItemChangeRequest,
   BoqSection,
   BoqItemWithComputed,
   BoqSummary,
@@ -213,28 +214,63 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   return rows[0] ?? null;
 }
 
-/** Phases visible to client viewers — items earlier than `submitted_to_client` are hidden. */
+/** Phases visible to client viewers — anything else is filtered out server-side. */
 const CLIENT_VISIBLE_PHASES = [
-  "submitted_to_client",
+  "sent_to_client",
+  "client_reviewing",
+  "client_changes_requested",
   "client_approved",
-  "change_requested",
 ] as const;
+
+/**
+ * Promote any `sent_to_client` items in this BOQ to `client_reviewing`. Called
+ * from the client read path before the SELECT — once a client opens the BOQ
+ * the rows they see flip to `client_reviewing` so PM-side surfaces can tell
+ * "sent but unseen" apart from "client is looking at it".
+ *
+ * Idempotent: rows already past `sent_to_client` are untouched.
+ */
+export async function bumpSentToClientToReviewing(
+  boqId: string
+): Promise<void> {
+  const pool = getPool();
+  await pool.query(
+    `UPDATE boq_item
+       SET phase = 'client_reviewing'
+     WHERE boq_id = $1
+       AND phase = 'sent_to_client'`,
+    [boqId]
+  );
+}
 
 /**
  * Fetch a BOQ with its sections, items (with computed cost columns), and
  * rolled-up summary in one round-trip.
  *
- * When `viewerIsExternal` is true (client or vendor), only items in
- * `submitted_to_client` / `client_approved` / `change_requested` are
- * returned, AND every studio-internal cost/margin field is scrubbed
- * from the payload before it leaves the server. Drafts and items still
- * under internal review never leave the studio.
+ * When `viewerIsExternal` is true (client or vendor), only items in the
+ * client-visible phase set are returned, AND every studio-internal
+ * cost/margin field is scrubbed from the payload before it leaves the
+ * server. Drafts and items still under internal review never leave the
+ * studio.
  */
 export async function getBoq(
   boqId: string,
-  opts: { viewerIsExternal?: boolean } = {}
+  opts: { viewerIsExternal?: boolean; viewerIsClient?: boolean } = {}
 ): Promise<BoqWithDetails | null> {
   const pool = getPool();
+  // Auto-bump sent_to_client → client_reviewing the first time a client
+  // opens the BOQ. Vendors don't trigger this — they're external but not
+  // the approving party. The bump piggybacks on the boq SELECT via a CTE
+  // so client reads stay at one DB round-trip instead of two.
+  const boqBumpCte = opts.viewerIsClient
+    ? `WITH bump AS (
+         UPDATE boq_item
+            SET phase = 'client_reviewing'
+          WHERE boq_id = $1
+            AND phase = 'sent_to_client'
+         RETURNING 1
+       ) `
+    : ``;
   const itemFilter = opts.viewerIsExternal
     ? `AND bi.phase = ANY($2::text[])`
     : ``;
@@ -243,7 +279,9 @@ export async function getBoq(
     : [boqId];
 
   const [boqRes, sectionsRes, itemsRes, summary] = await Promise.all([
-    pool.query<Boq>(`SELECT b.* FROM boq b WHERE b.id = $1`, [boqId]),
+    pool.query<Boq>(`${boqBumpCte}SELECT b.* FROM boq b WHERE b.id = $1`, [
+      boqId,
+    ]),
     pool.query<BoqSection>(
       `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
       [boqId]
@@ -393,6 +431,68 @@ export async function getEligibleReviewers(opts: {
     [opts.orgId, opts.creatorId]
   );
   return rows.map((r) => r.userId);
+}
+
+/**
+ * Find the most recent change-request event for a single BOQ item — covers
+ * both single-item audit rows (target_table='boq_item', target_id=$itemId)
+ * and bulk rows (target_table='boq' with metadata.item_ids @> [$itemId]).
+ *
+ * Returns null when the item has never been kicked back. The drawer banner
+ * uses this so a viewer can see the reason for the current
+ * `*_changes_requested` phase.
+ */
+export async function getLatestBoqItemChangeRequest(
+  itemId: string
+): Promise<BoqItemChangeRequest | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    actor_id: string;
+    actor_name: string | null;
+    to_phase: BoqItemChangeRequest["to_phase"];
+    comment: string | null;
+    created_at: string;
+  }>(
+    `SELECT
+       ae.actor_id,
+       u.name AS actor_name,
+       (ae.metadata ->> 'to')::text AS to_phase,
+       NULLIF(ae.metadata ->> 'comment', '') AS comment,
+       ae.created_at
+     FROM audit_event ae
+     LEFT JOIN "user" u ON u.id = ae.actor_id
+     WHERE ae.action = 'boq.item.phase_changed'
+       AND ae.metadata ->> 'to' IN ('internal_changes_requested', 'client_changes_requested')
+       AND (
+         (ae.target_table = 'boq_item' AND ae.target_id = $1::uuid)
+         OR (
+           ae.target_table = 'boq'
+           AND ae.metadata @> jsonb_build_object('item_ids', jsonb_build_array($1::text))
+         )
+       )
+     ORDER BY ae.created_at DESC
+     LIMIT 1`,
+    [itemId]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Project-scoped staff: every user with a `project_member` row on this
+ * project whose role is `pm` or `architect`. Used by phase notifications so
+ * the whole studio team on the project hears about a client decision (or a
+ * kick-back), not just the BOQ's original creator.
+ */
+export async function getProjectStaffIds(projectId: string): Promise<string[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ user_id: string }>(
+    `SELECT DISTINCT user_id
+     FROM project_member
+     WHERE project_id = $1
+       AND role IN ('pm', 'architect')`,
+    [projectId]
+  );
+  return rows.map((r) => r.user_id);
 }
 
 export interface CreateBoqSectionInput {
@@ -678,7 +778,7 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
 /**
  * Fields that represent a material change to a client-approved item.
  * Editing any of these auto-flips `phase = 'client_approved'` back to
- * `submitted_to_client` so the client re-decides on the fresh value.
+ * `sent_to_client` so the client re-decides on the fresh value.
  */
 const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   "description",
@@ -713,7 +813,7 @@ export type UpdateBoqItemOutcome =
  *
  * If the item is currently in phase `client_approved` and the caller edits
  * any material field (cost / description / section / dimensions / clientRate),
- * the phase auto-flips back to `submitted_to_client` — the client sees the
+ * the phase auto-flips back to `sent_to_client` — the client sees the
  * fresh value in their queue on next visit. No notification fires for this
  * implicit transition.
  *
@@ -749,7 +849,7 @@ export async function updateBoqItem(
 
   if (changedMaterialField) {
     setClauses.push(
-      `phase = CASE WHEN phase = 'client_approved' THEN 'submitted_to_client' ELSE phase END`
+      `phase = CASE WHEN phase = 'client_approved' THEN 'sent_to_client' ELSE phase END`
     );
   }
 
@@ -1173,8 +1273,10 @@ export type SetPhaseBulkOutcome =
  * Move a single BOQ item to a new phase.
  *
  * Validates the source→target transition against `BOQ_ITEM_PHASE_TRANSITIONS`.
- * On `submitted_to_client` / `client_approved` / `change_requested` entry,
- * stamps the relevant timestamp column so the timeline view has dates.
+ * On `sent_to_client` entry stamps `sent_to_client_at`; on any client
+ * decision (`client_approved`, `client_changes_requested`, or PM pull-back
+ * via `internal_changes_requested` from a client-visible phase) stamps
+ * `client_decided_at`.
  *
  * Routes are responsible for the actor-level permission check (who can
  * fire which transition). This query enforces only the state machine.
@@ -1190,13 +1292,13 @@ export async function setBoqItemPhase(
        UPDATE boq_item bi
        SET phase = $2::text,
            sent_to_client_at = CASE
-             WHEN $2::text = 'submitted_to_client' THEN now()
+             WHEN $2::text = 'sent_to_client' THEN now()
              ELSE bi.sent_to_client_at
            END,
            client_decided_at = CASE
-             WHEN $2::text = 'client_approved' THEN now()
-             WHEN $2::text = 'change_requested'
-                  AND bi.phase IN ('submitted_to_client', 'client_approved')
+             WHEN $2::text IN ('client_approved', 'client_changes_requested') THEN now()
+             WHEN $2::text = 'internal_changes_requested'
+                  AND bi.phase IN ('sent_to_client', 'client_reviewing', 'client_changes_requested', 'client_approved')
                THEN now()
              ELSE bi.client_decided_at
            END,
@@ -1273,13 +1375,13 @@ export async function setBoqItemsPhase(
       `UPDATE boq_item
        SET phase = $2::text,
            sent_to_client_at = CASE
-             WHEN $2::text = 'submitted_to_client' THEN now()
+             WHEN $2::text = 'sent_to_client' THEN now()
              ELSE sent_to_client_at
            END,
            client_decided_at = CASE
-             WHEN $2::text = 'client_approved' THEN now()
-             WHEN $2::text = 'change_requested'
-                  AND phase IN ('submitted_to_client', 'client_approved')
+             WHEN $2::text IN ('client_approved', 'client_changes_requested') THEN now()
+             WHEN $2::text = 'internal_changes_requested'
+                  AND phase IN ('sent_to_client', 'client_reviewing', 'client_changes_requested', 'client_approved')
                THEN now()
              ELSE client_decided_at
            END,
@@ -1324,7 +1426,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
-         COUNT(*) FILTER (WHERE bi.phase IN ('internal_review', 'submitted_to_client')) AS pending_approvals,
+         COUNT(*) FILTER (WHERE bi.phase IN ('internal_review', 'sent_to_client', 'client_reviewing')) AS pending_approvals,
          COUNT(*) FILTER (
            WHERE bi.budget_rate IS NOT NULL
              AND bi.budget_rate > 0

@@ -72,7 +72,7 @@ export default function ProjectDetailLayout({
 
   // The stepper sits in the shared layout so switching between Design and
   // BOQ doesn't unmount it. Clients see the same nav because PR-2 surfaces
-  // BOQ items at `submitted_to_client+` to them — without the stepper they
+  // BOQ items at `sent_to_client+` to them — without the stepper they
   // would have no tab switcher. On BOQ side only visible on the my-scope
   // sub-tab (other BOQ sub-tabs render their own header). Documents is a
   // separate surface entered via MetaBar — no stepper there.

@@ -6,6 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import { cn } from "@/lib/utils";
 import type { BoqItemPhase } from "@/lib/validations";
 import { isDestructivePhase, phaseToLabel } from "../_lib/formatters";
@@ -22,7 +23,7 @@ interface BoqPhasePickerPopoverProps {
   allowedPhases: readonly BoqItemPhase[];
   /**
    * Called with the chosen phase + optional comment. A destructive phase
-   * (`change_requested`) opens the comment dialog before firing; other
+   * (`*_changes_requested`) opens the comment dialog before firing; other
    * phases pass `undefined`.
    */
   onPick: (phase: BoqItemPhase, comment?: string) => void;
@@ -52,13 +53,18 @@ export function BoqPhasePickerPopover({
   currentPhase,
   skipDestructivePrompt = false,
 }: BoqPhasePickerPopoverProps) {
+  const role = useUserRoleContext()?.role ?? null;
   const [open, setOpen] = useState(false);
-  const [commentOpen, setCommentOpen] = useState(false);
+  // Carry the chosen destructive target so the comment dialog can submit
+  // with the right phase — there are two destructive variants now
+  // (`internal_changes_requested`, `client_changes_requested`).
+  const [pendingDestructive, setPendingDestructive] =
+    useState<BoqItemPhase | null>(null);
 
   const handlePick = (phase: BoqItemPhase) => {
     setOpen(false);
     if (isDestructivePhase(phase) && !skipDestructivePrompt) {
-      setCommentOpen(true);
+      setPendingDestructive(phase);
       return;
     }
     onPick(phase);
@@ -91,7 +97,7 @@ export function BoqPhasePickerPopover({
                     )}
                   >
                     <span className="flex-1 truncate">
-                      {phaseToLabel(phase)}
+                      {phaseToLabel(phase, role)}
                     </span>
                     {isCurrent && (
                       <span className="ml-2 text-[10px] uppercase tracking-wide text-text-muted">
@@ -107,9 +113,14 @@ export function BoqPhasePickerPopover({
       </Popover>
 
       <BoqChangeRequestDialog
-        open={commentOpen}
-        onOpenChange={setCommentOpen}
-        onSubmit={(comment) => onPick("change_requested", comment)}
+        open={pendingDestructive !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingDestructive(null);
+        }}
+        onSubmit={(comment) => {
+          if (pendingDestructive) onPick(pendingDestructive, comment);
+          setPendingDestructive(null);
+        }}
       />
     </>
   );

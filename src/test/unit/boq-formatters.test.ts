@@ -45,21 +45,56 @@ describe("phaseToVariant", () => {
   it("maps every phase to a badge variant", () => {
     expect(phaseToVariant("draft")).toBe("draft");
     expect(phaseToVariant("internal_review")).toBe("in-review");
+    expect(phaseToVariant("internal_changes_requested")).toBe(
+      "changes-requested"
+    );
     expect(phaseToVariant("internally_approved")).toBe("approved-arch");
-    expect(phaseToVariant("submitted_to_client")).toBe("submitted");
+    expect(phaseToVariant("sent_to_client")).toBe("submitted");
+    expect(phaseToVariant("client_reviewing")).toBe("in-review");
+    expect(phaseToVariant("client_changes_requested")).toBe(
+      "changes-requested"
+    );
     expect(phaseToVariant("client_approved")).toBe("approved-client");
-    expect(phaseToVariant("change_requested")).toBe("changes-requested");
   });
 });
 
 describe("phaseToLabel", () => {
-  it("renders title-case labels for every phase", () => {
+  it("renders the user-facing label for every phase", () => {
     expect(phaseToLabel("draft")).toBe("Draft");
     expect(phaseToLabel("internal_review")).toBe("Internal Review");
+    expect(phaseToLabel("internal_changes_requested")).toBe(
+      "Changes Requested"
+    );
     expect(phaseToLabel("internally_approved")).toBe("Internally Approved");
-    expect(phaseToLabel("submitted_to_client")).toBe("Submitted to Client");
+    expect(phaseToLabel("sent_to_client")).toBe("Sent to Client");
+    expect(phaseToLabel("client_reviewing")).toBe("Client Reviewing");
+    expect(phaseToLabel("client_changes_requested")).toBe(
+      "Client Changes Requested"
+    );
     expect(phaseToLabel("client_approved")).toBe("Client Approved");
-    expect(phaseToLabel("change_requested")).toBe("Change Requested");
+  });
+
+  it("shortens client-side labels for client viewers", () => {
+    expect(phaseToLabel("client_approved", "client")).toBe("Approved");
+    expect(phaseToLabel("client_changes_requested", "client")).toBe(
+      "Changes Requested"
+    );
+    expect(phaseToLabel("client_reviewing", "client")).toBe("Reviewing");
+  });
+
+  it("keeps studio labels for non-client viewers", () => {
+    expect(phaseToLabel("client_approved", "pm")).toBe("Client Approved");
+    expect(phaseToLabel("client_approved", "architect")).toBe(
+      "Client Approved"
+    );
+    expect(phaseToLabel("client_approved", null)).toBe("Client Approved");
+  });
+
+  it("leaves studio-internal phases unchanged for clients", () => {
+    expect(phaseToLabel("internal_review", "client")).toBe("Internal Review");
+    expect(phaseToLabel("internally_approved", "client")).toBe(
+      "Internally Approved"
+    );
   });
 });
 

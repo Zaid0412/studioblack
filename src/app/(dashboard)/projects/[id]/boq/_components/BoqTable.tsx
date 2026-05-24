@@ -103,7 +103,7 @@ interface BoqTableProps {
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
   /**
    * Fire a phase transition on a single item from the row's "..." menu.
-   * `comment` is required for destructive phases (`change_requested`);
+   * `comment` is required for destructive phases (`*_changes_requested`);
    * the menu captures it via `BoqChangeRequestDialog` before calling.
    */
   onSetItemPhase?: (
@@ -206,9 +206,12 @@ export function BoqTable({
 }: BoqTableProps) {
   const t = useTranslations("boq.table");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  // One dialog per table, not per row — `change_requested` capture state.
-  const [changeRequestTarget, setChangeRequestTarget] =
-    useState<BoqItemWithComputed | null>(null);
+  // One dialog per table, not per row — captures both the row and which
+  // destructive phase was picked (internal vs client variant).
+  const [changeRequestTarget, setChangeRequestTarget] = useState<{
+    item: BoqItemWithComputed;
+    target: BoqItemPhase;
+  } | null>(null);
   const marginFloor = toNum(minimumMarginPct) || undefined;
   const rowsEditable = canEdit && !!onUpdateItem;
   const sectionsEditable = canEdit;
@@ -372,7 +375,9 @@ export function BoqTable({
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
-              onRequestChangeComment={setChangeRequestTarget}
+              onRequestChangeComment={(item, target) =>
+                setChangeRequestTarget({ item, target })
+              }
               selection={selection}
               onOpenItem={onOpenItem}
               onAddItemToSection={onAddItemToSection}
@@ -391,9 +396,9 @@ export function BoqTable({
           if (!open) setChangeRequestTarget(null);
         }}
         onSubmit={async (comment) => {
-          const target = changeRequestTarget;
-          if (!target || !onSetItemPhase) return;
-          await onSetItemPhase(target, "change_requested", comment);
+          const pending = changeRequestTarget;
+          if (!pending || !onSetItemPhase) return;
+          await onSetItemPhase(pending.item, pending.target, comment);
           setChangeRequestTarget(null);
         }}
       />
@@ -421,7 +426,10 @@ interface SectionListProps {
   onMoveItem?: BoqTableProps["onMoveItem"];
   onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
   onSetItemPhase?: BoqTableProps["onSetItemPhase"];
-  onRequestChangeComment?: (item: BoqItemWithComputed) => void;
+  onRequestChangeComment?: (
+    item: BoqItemWithComputed,
+    target: BoqItemPhase
+  ) => void;
   selection?: BoqTableProps["selection"];
   onOpenItem?: BoqTableProps["onOpenItem"];
   onAddItemToSection?: BoqTableProps["onAddItemToSection"];
@@ -699,7 +707,10 @@ interface BoqItemRowProps {
    * for destructive transitions so the dialog is mounted once at the table
    * level instead of once per row.
    */
-  onRequestChangeComment?: (item: BoqItemWithComputed) => void;
+  onRequestChangeComment?: (
+    item: BoqItemWithComputed,
+    target: BoqItemPhase
+  ) => void;
   onOpen?: (item: BoqItemWithComputed) => void;
 }
 
@@ -773,7 +784,7 @@ const BoqItemRow = memo(function BoqItemRow({
   const handlePickLifecycle = (target: BoqItemPhase) => {
     if (!onSetItemPhase) return;
     if (isDestructivePhase(target)) {
-      onRequestChangeComment?.(item);
+      onRequestChangeComment?.(item, target);
       return;
     }
     void onSetItemPhase(item, target);
@@ -954,7 +965,7 @@ const BoqItemRow = memo(function BoqItemRow({
           variant={phaseToVariant(item.phase)}
           className="!px-2 truncate max-w-full"
         >
-          {phaseToLabel(item.phase)}
+          {phaseToLabel(item.phase, role)}
         </Badge>
       </span>
       <span className="flex justify-end pr-3">
@@ -1024,7 +1035,9 @@ const BoqItemRow = memo(function BoqItemRow({
                             : undefined
                         }
                       >
-                        <span className="flex-1">{phaseToLabel(phase)}</span>
+                        <span className="flex-1">
+                          {phaseToLabel(phase, role)}
+                        </span>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuSubContent>

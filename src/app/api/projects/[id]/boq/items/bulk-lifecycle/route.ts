@@ -23,7 +23,7 @@ export const POST = withAuth(
   {
     projectAccess: true,
     fetchOrgRole: true,
-    // `submitted_to_client` fans out an email per affected item; cap the
+    // `sent_to_client` fans out an email per affected item; cap the
     // blast radius if an insider fires the route in a loop.
     rateLimit: { limit: 10, windowMs: 60_000 },
   },

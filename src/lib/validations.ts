@@ -111,31 +111,64 @@ export const APPROVAL_DECISIONS = ["approved", "changes_requested"] as const;
 export const BOQ_ITEM_PHASES = [
   "draft",
   "internal_review",
+  "internal_changes_requested",
   "internally_approved",
-  "submitted_to_client",
+  "sent_to_client",
+  "client_reviewing",
+  "client_changes_requested",
   "client_approved",
-  "change_requested",
 ] as const;
 export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
 
 /**
  * Allowed phase transitions. Any other src→dst pair is rejected at the route
- * layer. `change_requested` is the catch-all "kick back" — it returns the
- * item to `draft` so the creator can rework + resubmit.
+ * layer.
  *
- * `client_approved` has no `locked` terminal: the 6 phases are the entire
- * vocabulary. Once the client approves, the only way out is `change_requested`
- * (e.g. a late scope change). If we later need a true "frozen, no more edits"
- * terminal, add `locked` as a 7th state.
+ * Two kick-back states exist: `internal_changes_requested` (PM kicks back
+ * during internal review OR pulls back an item already visible to the
+ * client) and `client_changes_requested` (client kicks back during review).
+ * Both exit to `draft` so the creator reworks and the item walks the chain
+ * again.
+ *
+ * `client_reviewing` is auto-set at the read path the first time a client
+ * opens the BOQ — items sitting in `sent_to_client` flip to `client_reviewing`
+ * before the SELECT returns. No role can fire it manually (see
+ * `phasePermissions.ts`).
+ *
+ * PM "pull-back": from any client-visible phase (`sent_to_client`,
+ * `client_reviewing`, `client_changes_requested`, `client_approved`) the PM
+ * can fire `internal_changes_requested`, which drops the row out of
+ * `CLIENT_VISIBLE_PHASES` so the client loses sight of it on next refetch.
  */
 export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
   {
     draft: ["internal_review"],
-    internal_review: ["internally_approved", "change_requested", "draft"],
-    internally_approved: ["submitted_to_client", "change_requested", "draft"],
-    submitted_to_client: ["client_approved", "change_requested", "draft"],
-    client_approved: ["change_requested"],
-    change_requested: ["draft"],
+    internal_review: [
+      "internally_approved",
+      "internal_changes_requested",
+      "draft",
+    ],
+    internal_changes_requested: ["draft"],
+    internally_approved: [
+      "sent_to_client",
+      "internal_changes_requested",
+      "draft",
+    ],
+    sent_to_client: ["client_reviewing", "internal_changes_requested"],
+    client_reviewing: [
+      "client_approved",
+      "client_changes_requested",
+      "internal_changes_requested",
+    ],
+    // `client_approved` is the undo path: if the client hit Request Changes
+    // by accident (or changes their mind), they can flip straight to
+    // approved without waiting for the studio to bounce it through draft.
+    client_changes_requested: [
+      "draft",
+      "client_approved",
+      "internal_changes_requested",
+    ],
+    client_approved: ["client_changes_requested", "internal_changes_requested"],
   };
 
 export const BOQ_ITEM_PO_STATUSES = [
@@ -688,9 +721,16 @@ export const updateBoqSchema = z.object({
   clientNotes: z.string().nullable().optional(),
 });
 
+/** Phases that require a non-empty `comment` from the actor. */
+const PHASES_REQUIRING_COMMENT: readonly BoqItemPhase[] = [
+  "internal_changes_requested",
+  "client_changes_requested",
+];
+
 /**
  * Move a single item to a new phase. `comment` is optional except when the
- * target is `change_requested` (creator needs to know what to fix).
+ * target is a kick-back (`*_changes_requested`) — the creator needs to know
+ * what to fix.
  */
 export const setItemPhaseSchema = z
   .object({
@@ -699,7 +739,8 @@ export const setItemPhaseSchema = z
   })
   .refine(
     (v) =>
-      v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
+      !PHASES_REQUIRING_COMMENT.includes(v.phase) ||
+      (v.comment !== undefined && v.comment.length > 0),
     {
       message: "Comment is required when requesting changes.",
       path: ["comment"],
@@ -715,7 +756,8 @@ export const setItemsPhaseSchema = z
   })
   .refine(
     (v) =>
-      v.phase !== "change_requested" || (v.comment && v.comment.length > 0),
+      !PHASES_REQUIRING_COMMENT.includes(v.phase) ||
+      (v.comment !== undefined && v.comment.length > 0),
     {
       message: "Comment is required when requesting changes.",
       path: ["comment"],

@@ -2,6 +2,7 @@ import {
   getEligibleReviewers,
   getLastPhaseActors,
   getProjectClientInfo,
+  getProjectStaffIds,
   getUsersByIds,
 } from "@/lib/queries";
 import { createNotification } from "@/lib/notifications";
@@ -65,14 +66,11 @@ export async function notifyPhaseRecipients(opts: {
     case "internally_approved": {
       // Notify the BOQ creator AND whoever fired `internal_review` on each
       // item — the submitter may not be the creator (any PM can submit).
-      // De-dup the recipient set and skip the acting approver.
       const submitters = await getLastPhaseActors(itemIds, "internal_review");
-      const recipients = new Set<string>();
-      if (boqCreatorId) recipients.add(boqCreatorId);
-      for (const userId of submitters.values()) recipients.add(userId);
-      recipients.delete(actor.id);
-      if (recipients.size === 0) return;
-      await fanOutToUsers([...recipients], {
+      await fanOutWithCreator({
+        base: submitters.values(),
+        creatorId: boqCreatorId,
+        actorId: actor.id,
         notificationType: `boq_item_${target}`,
         projectId,
         title,
@@ -81,9 +79,16 @@ export async function notifyPhaseRecipients(opts: {
       return;
     }
     case "client_approved":
-    case "change_requested": {
-      if (!boqCreatorId || boqCreatorId === actor.id) return;
-      await fanOutToUsers([boqCreatorId], {
+    case "client_changes_requested":
+    case "internal_changes_requested": {
+      // Whole studio team on the project (every PM + architect in
+      // `project_member`) plus the BOQ creator if they're somehow not a
+      // member. Actor excluded.
+      const staffIds = await getProjectStaffIds(projectId);
+      await fanOutWithCreator({
+        base: staffIds,
+        creatorId: boqCreatorId,
+        actorId: actor.id,
         notificationType: `boq_item_${target}`,
         projectId,
         title,
@@ -91,7 +96,7 @@ export async function notifyPhaseRecipients(opts: {
       });
       return;
     }
-    case "submitted_to_client": {
+    case "sent_to_client": {
       const client = await getProjectClientInfo(projectId);
       if (!client?.client_email) return;
       const html = `<p>${escapeHtml(actorName)} sent ${escapeHtml(noun)} on <strong>${escapeHtml(boqTitle)}</strong> for your review.</p>${
@@ -102,9 +107,37 @@ export async function notifyPhaseRecipients(opts: {
       );
       return;
     }
-    default:
+    // `client_reviewing` is set automatically when the client opens the
+    // BOQ — no notification fires. `draft` is a silent rollback.
+    case "client_reviewing":
+    case "draft":
       return;
   }
+}
+
+/**
+ * De-dup recipients (creator + base set, minus actor), then fan out.
+ * No-op when the resulting set is empty.
+ */
+async function fanOutWithCreator(opts: {
+  base: Iterable<string>;
+  creatorId: string | null;
+  actorId: string;
+  notificationType: string;
+  projectId: string;
+  title: string;
+  desc: string;
+}): Promise<void> {
+  const recipients = new Set<string>(opts.base);
+  if (opts.creatorId) recipients.add(opts.creatorId);
+  recipients.delete(opts.actorId);
+  if (recipients.size === 0) return;
+  await fanOutToUsers([...recipients], {
+    notificationType: opts.notificationType,
+    projectId: opts.projectId,
+    title: opts.title,
+    desc: opts.desc,
+  });
 }
 
 /** Single batched DB lookup, then one in-app + email per recipient. */
@@ -150,11 +183,15 @@ function phaseTitle(
       return `BOQ ${noun} submitted for review: ${boqTitle}`;
     case "internally_approved":
       return `BOQ ${noun} internally approved: ${boqTitle}`;
-    case "submitted_to_client":
+    case "sent_to_client":
       return `BOQ ${noun} sent to client: ${boqTitle}`;
+    case "client_reviewing":
+      return `BOQ ${noun} now under client review: ${boqTitle}`;
     case "client_approved":
       return `BOQ ${noun} approved by client: ${boqTitle}`;
-    case "change_requested":
+    case "client_changes_requested":
+      return `BOQ ${noun} — client requested changes: ${boqTitle}`;
+    case "internal_changes_requested":
       return `BOQ ${noun} — changes requested: ${boqTitle}`;
     case "draft":
       return `BOQ ${noun} moved back to draft: ${boqTitle}`;

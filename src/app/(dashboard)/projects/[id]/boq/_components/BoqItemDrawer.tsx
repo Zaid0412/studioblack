@@ -19,6 +19,7 @@ import type { BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
+import { BoqChangeRequestBanner } from "./BoqChangeRequestBanner";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
@@ -58,15 +59,32 @@ interface BoqItemDrawerProps {
   onDelete?: (item: BoqItemWithComputed) => void;
 }
 
-/** Action-button label for each target phase. */
-const PHASE_ACTION_LABEL: Record<BoqItemPhase, string> = {
+const ACTION_LABEL: Record<BoqItemPhase, string> = {
   draft: "Move to Draft",
   internal_review: "Submit for Review",
+  internal_changes_requested: "Request Changes",
   internally_approved: "Approve",
-  submitted_to_client: "Send to Client",
+  sent_to_client: "Send to Client",
+  client_reviewing: "Mark Client Reviewing",
+  client_changes_requested: "Request Changes",
   client_approved: "Mark Client Approved",
-  change_requested: "Request Changes",
 };
+
+/** Clients drop the "Mark Client" prefix — they're the client. */
+const CLIENT_ACTION_LABEL: Partial<Record<BoqItemPhase, string>> = {
+  client_approved: "Approve",
+  client_changes_requested: "Request Changes",
+};
+
+function phaseActionLabel(
+  target: BoqItemPhase,
+  viewerRole: UserRole | null
+): string {
+  if (viewerRole === "client") {
+    return CLIENT_ACTION_LABEL[target] ?? ACTION_LABEL[target];
+  }
+  return ACTION_LABEL[target];
+}
 
 const NOTES_TEXTAREA_CLS =
   "rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y disabled:opacity-60";
@@ -97,7 +115,10 @@ export function BoqItemDrawer({
   // silently-lost edit).
   const [savingField, setSavingField] = useState(false);
   const [transitioning, setTransitioning] = useState<BoqItemPhase | null>(null);
-  const [changeRequestOpen, setChangeRequestOpen] = useState(false);
+  // Carries which destructive variant was picked so the dialog submits with
+  // the right phase (internal vs client kick-back).
+  const [pendingDestructive, setPendingDestructive] =
+    useState<BoqItemPhase | null>(null);
 
   // Seed notes only when a new drawer opens — revalidations must not clobber edits.
   useEffect(() => {
@@ -126,7 +147,7 @@ export function BoqItemDrawer({
     try {
       await setItemPhase(item.id, next, comment ? { comment } : undefined);
       toast({
-        title: `Marked ${phaseToLabel(next)}`,
+        title: `Marked ${phaseToLabel(next, role)}`,
         variant: "success",
       });
     } finally {
@@ -136,7 +157,7 @@ export function BoqItemDrawer({
 
   const handleTransition = (next: BoqItemPhase) => {
     if (isDestructivePhase(next)) {
-      setChangeRequestOpen(true);
+      setPendingDestructive(next);
       return;
     }
     void fireTransition(next);
@@ -219,7 +240,7 @@ export function BoqItemDrawer({
             </SheetDescription>
             <div className="flex flex-wrap gap-2 pt-2">
               <Badge variant={phaseToVariant(item.phase)}>
-                {phaseToLabel(item.phase)}
+                {phaseToLabel(item.phase, role)}
               </Badge>
               {item.is_provisional && (
                 <Badge variant="warning">provisional</Badge>
@@ -242,6 +263,9 @@ export function BoqItemDrawer({
           </SheetHeader>
 
           <SheetBody className="flex flex-col gap-5">
+            {isDestructivePhase(item.phase) && (
+              <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
+            )}
             <section className="flex flex-col gap-3">
               <EditableField
                 label="Description"
@@ -443,7 +467,7 @@ export function BoqItemDrawer({
                       key={next}
                       type="button"
                       variant={
-                        next === "change_requested" ? "danger" : "secondary"
+                        isDestructivePhase(next) ? "danger" : "secondary"
                       }
                       size="sm"
                       disabled={transitioning !== null}
@@ -451,7 +475,7 @@ export function BoqItemDrawer({
                     >
                       {transitioning === next
                         ? "Working..."
-                        : PHASE_ACTION_LABEL[next]}
+                        : phaseActionLabel(next, role)}
                     </Button>
                   ))}
                 </div>
@@ -500,9 +524,16 @@ export function BoqItemDrawer({
       </Sheet>
 
       <BoqChangeRequestDialog
-        open={changeRequestOpen}
-        onOpenChange={setChangeRequestOpen}
-        onSubmit={(comment) => fireTransition("change_requested", comment)}
+        open={pendingDestructive !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingDestructive(null);
+        }}
+        onSubmit={(comment) => {
+          if (pendingDestructive) {
+            void fireTransition(pendingDestructive, comment);
+          }
+          setPendingDestructive(null);
+        }}
       />
     </>
   );

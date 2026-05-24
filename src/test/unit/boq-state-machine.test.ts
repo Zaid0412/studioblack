@@ -18,32 +18,73 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
     expect(BOQ_ITEM_PHASE_TRANSITIONS.internal_review).toEqual(
       expect.arrayContaining([
         "internally_approved",
-        "change_requested",
+        "internal_changes_requested",
         "draft",
       ])
     );
   });
 
-  it("internally_approved → submitted_to_client unlocks Send to client", () => {
+  it("internally_approved → sent_to_client unlocks Send to client", () => {
     expect(BOQ_ITEM_PHASE_TRANSITIONS.internally_approved).toContain(
-      "submitted_to_client"
+      "sent_to_client"
     );
   });
 
-  it("submitted_to_client → client_approved (client decision)", () => {
-    expect(BOQ_ITEM_PHASE_TRANSITIONS.submitted_to_client).toContain(
+  it("sent_to_client → client_reviewing (auto-bump target)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.sent_to_client).toContain(
+      "client_reviewing"
+    );
+  });
+
+  it("client_reviewing → client_approved (client decision)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_reviewing).toContain(
       "client_approved"
     );
   });
 
-  it("client_approved only exits via change_requested (no terminal)", () => {
-    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_approved).toEqual([
-      "change_requested",
-    ]);
+  it("client_reviewing → client_changes_requested (client kick-back)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_reviewing).toContain(
+      "client_changes_requested"
+    );
   });
 
-  it("change_requested → draft (creator reworks)", () => {
-    expect(BOQ_ITEM_PHASE_TRANSITIONS.change_requested).toEqual(["draft"]);
+  it("client_approved can be re-opened via client_changes_requested", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_approved).toContain(
+      "client_changes_requested"
+    );
+  });
+
+  it("internal_changes_requested → draft (creator reworks)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.internal_changes_requested).toContain(
+      "draft"
+    );
+  });
+
+  it("client_changes_requested → draft (creator reworks)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
+      "draft"
+    );
+  });
+
+  it("client_changes_requested → client_approved (client undo path)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
+      "client_approved"
+    );
+  });
+
+  it("PM pull-back: every client-visible phase can fire internal_changes_requested", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.sent_to_client).toContain(
+      "internal_changes_requested"
+    );
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_reviewing).toContain(
+      "internal_changes_requested"
+    );
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
+      "internal_changes_requested"
+    );
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_approved).toContain(
+      "internal_changes_requested"
+    );
   });
 
   it("does NOT allow draft → internally_approved (self-approval bypass)", () => {
@@ -52,19 +93,23 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
     );
   });
 
-  it("does NOT allow draft → submitted_to_client (gate skip)", () => {
-    expect(BOQ_ITEM_PHASE_TRANSITIONS.draft).not.toContain(
-      "submitted_to_client"
-    );
+  it("does NOT allow draft → sent_to_client (gate skip)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.draft).not.toContain("sent_to_client");
   });
 
   it("every key in the map is a valid BoqItemPhase", () => {
     const keys = Object.keys(BOQ_ITEM_PHASE_TRANSITIONS) as BoqItemPhase[];
-    expect(keys).toContain("draft");
-    expect(keys).toContain("internal_review");
-    expect(keys).toContain("internally_approved");
-    expect(keys).toContain("submitted_to_client");
-    expect(keys).toContain("client_approved");
-    expect(keys).toContain("change_requested");
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "draft",
+        "internal_review",
+        "internal_changes_requested",
+        "internally_approved",
+        "sent_to_client",
+        "client_reviewing",
+        "client_changes_requested",
+        "client_approved",
+      ])
+    );
   });
 });

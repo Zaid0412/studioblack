@@ -20,14 +20,24 @@ export function canFireBoqPhaseTransition(opts: {
   switch (target) {
     case "internal_review":
       return isCreator || isPM;
+    case "internal_changes_requested":
+      // PM owns the kick-back end-to-end: both internal QA rejections AND
+      // the "pull-back" path from any client-visible phase. Client uses
+      // `client_changes_requested` instead.
+      return isPM;
     case "internally_approved":
       return (isPM || isArchitect) && !isCreator;
-    case "submitted_to_client":
+    case "sent_to_client":
       return isPM;
+    case "client_reviewing":
+      // Auto-set on the client's first read of the BOQ (see
+      // bumpSentToClientToReviewing in queries/boq.ts). Never fireable
+      // through the manual transition matrix.
+      return false;
+    case "client_changes_requested":
+      return isClient;
     case "client_approved":
       return isClient;
-    case "change_requested":
-      return isPM || isClient;
     case "draft":
       return isCreator || isPM;
   }

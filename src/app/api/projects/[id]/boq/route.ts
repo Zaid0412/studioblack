@@ -20,6 +20,7 @@ export const GET = withAuth(
     }
     const full = await getBoq(header.id, {
       viewerIsExternal: isExternalViewer(effectiveRole),
+      viewerIsClient: effectiveRole === "client",
     });
     return NextResponse.json(full);
   }
