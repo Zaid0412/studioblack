@@ -1108,6 +1108,9 @@
     "table": {
       "columnSource": "Kaynak",
       "columnServiceCharge": "Hizmet Bedeli %",
+      "columnProposedPrice": "Önerilen Fiyat",
+      "fieldProposedPrice": "Önerilen fiyat",
+      "totalProposedPrice": "Toplam Önerilen Fiyat",
       "sectionTotal": "Bölüm toplamı",
       "sourceCustom": "Özel",
       "sourceLibrary": "Kütüphane",

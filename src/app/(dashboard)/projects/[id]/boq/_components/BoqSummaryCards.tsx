@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export function BoqSummaryCards({
   currency,
   minimumMarginPct,
 }: BoqSummaryCardsProps) {
+  const t = useTranslations("boq.table");
   const avgMargin = toNum(summary.average_margin_pct);
   const marginFloor = toNum(minimumMarginPct);
   const tier = marginTier(avgMargin, marginFloor || undefined);
@@ -43,7 +45,7 @@ export function BoqSummaryCards({
         value={formatCurrency(summary.total_cost, currency)}
       />
       <MetricCard
-        label="Total Sell"
+        label={t("totalProposedPrice")}
         value={formatCurrency(summary.total_sell_price, currency)}
       />
       <MetricCard
