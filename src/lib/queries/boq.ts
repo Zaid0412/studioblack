@@ -19,9 +19,19 @@ import type {
   BoqItemPhase,
   BoqItemSource,
 } from "@/lib/validations";
-import { BOQ_ITEM_PHASE_TRANSITIONS } from "@/lib/validations";
+import {
+  BOQ_ITEM_PHASES,
+  BOQ_ITEM_PHASE_TRANSITIONS,
+} from "@/lib/validations";
 import { toIso } from "@/lib/formatTime";
 import { memberRoleToUserRole } from "@/lib/roles";
+
+const VALID_BOQ_PHASES = new Set<string>(BOQ_ITEM_PHASES);
+function asBoqItemPhase(value: unknown): BoqItemPhase | null {
+  return typeof value === "string" && VALID_BOQ_PHASES.has(value)
+    ? (value as BoqItemPhase)
+    : null;
+}
 import type { z } from "zod";
 import type { boqImportRowSchema } from "@/lib/validations";
 
@@ -515,11 +525,13 @@ export async function getBoqItemHistory(opts: {
     member_role: string | null;
     target_table: "boq_item" | "boq";
     metadata: {
-      from?: BoqItemPhase | null;
-      to: BoqItemPhase;
+      from?: string | null;
+      to?: string | null;
+      from_phase?: string | null;
+      to_phase?: string | null;
       comment?: string | null;
       item_count?: number;
-      item_phases?: Record<string, BoqItemPhase>;
+      item_phases?: Record<string, string>;
     };
     created_at: string | Date;
   }>(
@@ -550,30 +562,39 @@ export async function getBoqItemHistory(opts: {
     [itemId, boqId, orgId]
   );
 
-  return rows.map((r): BoqItemHistoryEvent => {
+  const events: BoqItemHistoryEvent[] = [];
+  for (const r of rows) {
     const isBulk = r.target_table === "boq";
-    const fromFromBulk = isBulk
+    // Legacy audit rows (pre-lifecycle-8) used `from_phase`/`to_phase`
+    // keys, then the migration rewrote values without renaming the keys.
+    // New writers use `from`/`to`. Read either shape so the timeline
+    // doesn't crash on rows that pre-date the current writer.
+    const toRaw = r.metadata.to ?? r.metadata.to_phase ?? null;
+    const fromRaw = isBulk
       ? (r.metadata.item_phases?.[itemId] ?? null)
-      : null;
+      : (r.metadata.from ?? r.metadata.from_phase ?? null);
+    const toPhase = asBoqItemPhase(toRaw);
+    if (toPhase === null) continue;
     const role: UserRole =
       r.actor_email !== null &&
       clientEmail !== null &&
       r.actor_email === clientEmail
         ? "client"
         : memberRoleToUserRole(r.member_role);
-    return {
+    events.push({
       id: r.id,
       actor_id: r.actor_id,
       actor_name: r.actor_name ?? "Someone",
       actor_role: role,
-      from_phase: isBulk ? fromFromBulk : (r.metadata.from ?? null),
-      to_phase: r.metadata.to,
+      from_phase: asBoqItemPhase(fromRaw),
+      to_phase: toPhase,
       comment: r.metadata.comment ?? null,
       is_bulk: isBulk,
       bulk_item_count: isBulk ? (r.metadata.item_count ?? null) : null,
       created_at: toIso(r.created_at),
-    };
-  });
+    });
+  }
+  return events;
 }
 
 /**
