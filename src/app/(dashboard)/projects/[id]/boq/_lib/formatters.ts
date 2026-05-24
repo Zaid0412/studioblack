@@ -32,13 +32,34 @@ const PHASE_DISPLAY: Record<
   client_approved: { label: "Client Approved", variant: "approved-client" },
 };
 
+/**
+ * Shortened labels rendered to clients. We strip the "Client" prefix on the
+ * client side because the client only sees client-side phases — the prefix
+ * is internal context that's noise to them. Studio keeps the prefix so the
+ * internal vs client distinction is visible at a glance.
+ */
+const CLIENT_PHASE_LABEL: Partial<Record<BoqItemPhase, string>> = {
+  client_reviewing: "Reviewing",
+  client_changes_requested: "Changes Requested",
+  client_approved: "Approved",
+};
+
 /** Map a BOQ item's phase to a Badge variant. */
 export function phaseToVariant(phase: BoqItemPhase): BadgeVariant {
   return PHASE_DISPLAY[phase].variant;
 }
 
-/** Human-readable label for a phase (title-case, space-separated). */
-export function phaseToLabel(phase: BoqItemPhase): string {
+/**
+ * Human-readable label for a phase. Clients see shortened forms (no
+ * "Client" prefix) — see CLIENT_PHASE_LABEL for the overrides.
+ */
+export function phaseToLabel(
+  phase: BoqItemPhase,
+  viewerRole?: UserRole | null
+): string {
+  if (viewerRole === "client") {
+    return CLIENT_PHASE_LABEL[phase] ?? PHASE_DISPLAY[phase].label;
+  }
   return PHASE_DISPLAY[phase].label;
 }
 
