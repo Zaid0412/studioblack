@@ -5,6 +5,7 @@ import { mapPgError } from "./_pgErrors";
 import type {
   Boq,
   BoqElementLite,
+  BoqItemChangeRequest,
   BoqSection,
   BoqItemWithComputed,
   BoqSummary,
@@ -421,14 +422,6 @@ export async function getEligibleReviewers(opts: {
     [opts.orgId, opts.creatorId]
   );
   return rows.map((r) => r.userId);
-}
-
-export interface BoqItemChangeRequest {
-  actor_id: string;
-  actor_name: string | null;
-  to_phase: "internal_changes_requested" | "client_changes_requested";
-  comment: string | null;
-  created_at: string;
 }
 
 /**

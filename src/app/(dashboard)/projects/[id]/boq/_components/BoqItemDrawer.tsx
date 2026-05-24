@@ -59,37 +59,31 @@ interface BoqItemDrawerProps {
   onDelete?: (item: BoqItemWithComputed) => void;
 }
 
-/**
- * Action-button label for each target phase. Clients see shortened forms —
- * we drop the "Mark Client" prefix because they're the client, that context
- * is obvious to them.
- */
+const ACTION_LABEL: Record<BoqItemPhase, string> = {
+  draft: "Move to Draft",
+  internal_review: "Submit for Review",
+  internal_changes_requested: "Request Changes",
+  internally_approved: "Approve",
+  sent_to_client: "Send to Client",
+  client_reviewing: "Mark Client Reviewing",
+  client_changes_requested: "Request Changes",
+  client_approved: "Mark Client Approved",
+};
+
+/** Clients drop the "Mark Client" prefix — they're the client. */
+const CLIENT_ACTION_LABEL: Partial<Record<BoqItemPhase, string>> = {
+  client_approved: "Approve",
+  client_changes_requested: "Request Changes",
+};
+
 function phaseActionLabel(
   target: BoqItemPhase,
   viewerRole: UserRole | null
 ): string {
   if (viewerRole === "client") {
-    if (target === "client_approved") return "Approve";
-    if (target === "client_changes_requested") return "Request Changes";
+    return CLIENT_ACTION_LABEL[target] ?? ACTION_LABEL[target];
   }
-  switch (target) {
-    case "draft":
-      return "Move to Draft";
-    case "internal_review":
-      return "Submit for Review";
-    case "internal_changes_requested":
-      return "Request Changes";
-    case "internally_approved":
-      return "Approve";
-    case "sent_to_client":
-      return "Send to Client";
-    case "client_reviewing":
-      return "Mark Client Reviewing";
-    case "client_changes_requested":
-      return "Request Changes";
-    case "client_approved":
-      return "Mark Client Approved";
-  }
+  return ACTION_LABEL[target];
 }
 
 const NOTES_TEXTAREA_CLS =

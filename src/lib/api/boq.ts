@@ -260,13 +260,7 @@ export function getSummary(projectId: string) {
 
 // ── Per-item lifecycle phase ───────────────────────────────────────────────
 
-export interface BoqItemChangeRequestEvent {
-  actor_id: string;
-  actor_name: string | null;
-  to_phase: "internal_changes_requested" | "client_changes_requested";
-  comment: string | null;
-  created_at: string;
-}
+export type BoqItemChangeRequestEvent = import("@/types").BoqItemChangeRequest;
 
 /**
  * Most recent change-request event for an item — drives the drawer banner.

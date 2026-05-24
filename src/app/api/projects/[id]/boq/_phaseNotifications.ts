@@ -66,14 +66,11 @@ export async function notifyPhaseRecipients(opts: {
     case "internally_approved": {
       // Notify the BOQ creator AND whoever fired `internal_review` on each
       // item — the submitter may not be the creator (any PM can submit).
-      // De-dup the recipient set and skip the acting approver.
       const submitters = await getLastPhaseActors(itemIds, "internal_review");
-      const recipients = new Set<string>();
-      if (boqCreatorId) recipients.add(boqCreatorId);
-      for (const userId of submitters.values()) recipients.add(userId);
-      recipients.delete(actor.id);
-      if (recipients.size === 0) return;
-      await fanOutToUsers([...recipients], {
+      await fanOutWithCreator({
+        base: submitters.values(),
+        creatorId: boqCreatorId,
+        actorId: actor.id,
         notificationType: `boq_item_${target}`,
         projectId,
         title,
@@ -84,16 +81,14 @@ export async function notifyPhaseRecipients(opts: {
     case "client_approved":
     case "client_changes_requested":
     case "internal_changes_requested": {
-      // Notify the whole studio team on the project (every PM + architect
-      // in `project_member`) plus the BOQ creator if they're somehow not a
-      // member. The actor is excluded so an architect requesting changes
-      // doesn't notify themselves.
+      // Whole studio team on the project (every PM + architect in
+      // `project_member`) plus the BOQ creator if they're somehow not a
+      // member. Actor excluded.
       const staffIds = await getProjectStaffIds(projectId);
-      const recipients = new Set<string>(staffIds);
-      if (boqCreatorId) recipients.add(boqCreatorId);
-      recipients.delete(actor.id);
-      if (recipients.size === 0) return;
-      await fanOutToUsers([...recipients], {
+      await fanOutWithCreator({
+        base: staffIds,
+        creatorId: boqCreatorId,
+        actorId: actor.id,
         notificationType: `boq_item_${target}`,
         projectId,
         title,
@@ -118,6 +113,31 @@ export async function notifyPhaseRecipients(opts: {
     case "draft":
       return;
   }
+}
+
+/**
+ * De-dup recipients (creator + base set, minus actor), then fan out.
+ * No-op when the resulting set is empty.
+ */
+async function fanOutWithCreator(opts: {
+  base: Iterable<string>;
+  creatorId: string | null;
+  actorId: string;
+  notificationType: string;
+  projectId: string;
+  title: string;
+  desc: string;
+}): Promise<void> {
+  const recipients = new Set<string>(opts.base);
+  if (opts.creatorId) recipients.add(opts.creatorId);
+  recipients.delete(opts.actorId);
+  if (recipients.size === 0) return;
+  await fanOutToUsers([...recipients], {
+    notificationType: opts.notificationType,
+    projectId: opts.projectId,
+    title: opts.title,
+    desc: opts.desc,
+  });
 }
 
 /** Single batched DB lookup, then one in-app + email per recipient. */

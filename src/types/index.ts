@@ -727,6 +727,19 @@ export interface BoqWithDetails extends Boq {
   summary: BoqSummary;
 }
 
+/**
+ * Audit-event row for the most recent change-request on a BOQ item.
+ * Shared between the server query (`@/lib/queries/boq.ts`) and the
+ * client-side fetcher (`@/lib/api/boq.ts`) so the shape only lives once.
+ */
+export interface BoqItemChangeRequest {
+  actor_id: string;
+  actor_name: string | null;
+  to_phase: "internal_changes_requested" | "client_changes_requested";
+  comment: string | null;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // BOQ Excel Import (Feature 6)
 // ---------------------------------------------------------------------------
