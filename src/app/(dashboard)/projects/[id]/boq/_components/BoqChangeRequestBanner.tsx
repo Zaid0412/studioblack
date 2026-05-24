@@ -24,11 +24,22 @@ export function BoqChangeRequestBanner({
   projectId,
   itemId,
 }: BoqChangeRequestBannerProps) {
-  const { data, isLoading } = useSWR<BoqItemChangeRequestEvent | null>(
+  const { data, isLoading, error } = useSWR<BoqItemChangeRequestEvent | null>(
     API.boqItemLatestChangeRequest(projectId, itemId)
   );
 
   if (isLoading) return null;
+  if (error) {
+    return (
+      <div
+        className="flex gap-3 rounded-md border-l-4 border-l-border-default bg-bg-subtle px-4 py-3 text-text-muted"
+        role="status"
+      >
+        <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+        <p className="text-sm">Couldn&apos;t load change-request context.</p>
+      </div>
+    );
+  }
   if (!data) return null;
 
   const who = data.actor_name?.trim() || "Someone";
