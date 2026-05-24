@@ -28,7 +28,7 @@ export function canFireBoqPhaseTransition(opts: {
     case "internally_approved":
       return (isPM || isArchitect) && !isCreator;
     case "sent_to_client":
-      return isPM;
+      return isPM || isArchitect;
     case "client_reviewing":
       // Auto-set on the client's first read of the BOQ (see
       // bumpSentToClientToReviewing in queries/boq.ts). Never fireable

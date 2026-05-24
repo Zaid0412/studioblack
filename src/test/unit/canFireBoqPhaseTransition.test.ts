@@ -68,9 +68,13 @@ describe("canFireBoqPhaseTransition — internally_approved (4-eyes)", () => {
 });
 
 describe("canFireBoqPhaseTransition — sent_to_client", () => {
-  it("only PM can send to client", () => {
+  it("PM can send to client", () => {
     expect(fire("sent_to_client", actor({ isPM: true }))).toBe(true);
-    expect(fire("sent_to_client", actor({ isArchitect: true }))).toBe(false);
+  });
+  it("architect can send to client", () => {
+    expect(fire("sent_to_client", actor({ isArchitect: true }))).toBe(true);
+  });
+  it("client cannot send to client", () => {
     expect(fire("sent_to_client", actor({ isClient: true }))).toBe(false);
   });
 });
