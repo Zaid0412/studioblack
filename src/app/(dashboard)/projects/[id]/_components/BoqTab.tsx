@@ -461,7 +461,6 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         // Margin bleed is a studio-only metric — never expose count to clients.
         marginBleedCount={isExternal ? 0 : boq.summary.margin_bleed_count}
         phaseCounts={phaseCounts}
-        role={role}
       />
 
       {/* Summary KPI cards expose cost / margin / over-budget aggregates —
@@ -628,7 +627,6 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           sharedPhase={sharedSelectedPhase}
           allowedPhases={bulkAllowedPhases}
           canEdit={canEdit}
-          role={role}
           onMove={handleBulkMove}
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}

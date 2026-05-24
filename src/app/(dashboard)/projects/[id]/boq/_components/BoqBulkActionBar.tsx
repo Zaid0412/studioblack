@@ -23,8 +23,6 @@ interface BoqBulkActionBarProps {
   allowedPhases: readonly BoqItemPhase[];
   /** Gates the move + delete buttons. Clients bulk-approve / request-changes only. */
   canEdit?: boolean;
-  /** Viewer role — forwarded to the phase picker for client-friendly labels. */
-  role?: import("@/types").UserRole | null;
   onMove: (targetSectionId: string | null) => void;
   onSetPhase: (phase: BoqItemPhase, comment?: string) => void;
   onDelete: () => void;
@@ -53,7 +51,6 @@ export function BoqBulkActionBar({
   sharedPhase,
   allowedPhases,
   canEdit = true,
-  role,
   onMove,
   onSetPhase,
   onDelete,
@@ -109,7 +106,6 @@ export function BoqBulkActionBar({
           currentPhase={sharedPhase}
           allowedPhases={allowedPhases}
           skipDestructivePrompt={skipDestructivePrompt}
-          role={role}
         />
       )}
 
