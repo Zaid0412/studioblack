@@ -352,6 +352,13 @@ vi.mock("@/lib/queries", () => ({
   getProjectStaffIds: vi.fn().mockResolvedValue([]),
   getLatestBoqItemChangeRequest: vi.fn().mockResolvedValue(null),
   getBoqItemContext: vi.fn().mockResolvedValue(null),
+  getBoqItemHistory: vi.fn().mockResolvedValue([]),
+  CLIENT_VISIBLE_PHASES: [
+    "sent_to_client",
+    "client_reviewing",
+    "client_changes_requested",
+    "client_approved",
+  ],
   setBoqItemPhase: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),

@@ -6,11 +6,13 @@ import type {
   Boq,
   BoqElementLite,
   BoqItemChangeRequest,
+  BoqItemHistoryEvent,
   BoqSection,
   BoqItemWithComputed,
   BoqSummary,
   BoqWithDetails,
   BulkBoqImportResult,
+  UserRole,
 } from "@/types";
 import type {
   BoqImportStrategy,
@@ -215,7 +217,7 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
 }
 
 /** Phases visible to client viewers — anything else is filtered out server-side. */
-const CLIENT_VISIBLE_PHASES = [
+export const CLIENT_VISIBLE_PHASES = [
   "sent_to_client",
   "client_reviewing",
   "client_changes_requested",
@@ -475,6 +477,105 @@ export async function getLatestBoqItemChangeRequest(
     [itemId]
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Per-item phase-change timeline. Pulls both single-item audit rows
+ * (`target_table='boq_item'`) AND bulk rows whose `metadata.item_ids`
+ * contains this item id (`target_table='boq'`) — bulk rows attribute the
+ * same event to every affected item.
+ *
+ * Actor role is derived per row from the org `member` row (PM for
+ * owner/admin, architect for member) with a client override when the
+ * actor's email matches the project's `client_email`. Old events whose
+ * actor has since left the org degrade to "pm" rather than failing — the
+ * timeline is a viewer, not an authoritative source.
+ *
+ * Caller is expected to apply the external-viewer scrub on top of this
+ * (drop events with no client-visible endpoint). Kept out of the query so
+ * the same fetch can serve internal callers too.
+ */
+export async function getBoqItemHistory(
+  itemId: string,
+  boqId: string,
+  orgId: string
+): Promise<BoqItemHistoryEvent[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    id: string;
+    actor_id: string;
+    actor_name: string | null;
+    actor_email: string | null;
+    member_role: string | null;
+    client_email: string | null;
+    target_table: "boq_item" | "boq";
+    metadata: {
+      from?: BoqItemPhase | null;
+      to: BoqItemPhase;
+      comment?: string | null;
+      item_count?: number;
+      item_phases?: Record<string, BoqItemPhase>;
+    };
+    created_at: string | Date;
+  }>(
+    `SELECT
+       ae.id::text       AS id,
+       ae.actor_id       AS actor_id,
+       u.name            AS actor_name,
+       u.email           AS actor_email,
+       m.role            AS member_role,
+       p.client_email    AS client_email,
+       ae.target_table   AS target_table,
+       ae.metadata       AS metadata,
+       ae.created_at     AS created_at
+     FROM audit_event ae
+     LEFT JOIN "user" u ON u.id = ae.actor_id
+     LEFT JOIN member m ON m."userId" = ae.actor_id AND m."organizationId" = ae.org_id
+     LEFT JOIN boq b ON b.id = $2::uuid
+     LEFT JOIN project p ON p.id = b.project_id
+     WHERE ae.org_id = $3
+       AND ae.action = 'boq.item.phase_changed'
+       AND (
+         (ae.target_table = 'boq_item' AND ae.target_id = $1::uuid)
+         OR (
+           ae.target_table = 'boq'
+           AND ae.target_id = $2::uuid
+           AND ae.metadata @> jsonb_build_object('item_ids', jsonb_build_array($1::text))
+         )
+       )
+     ORDER BY ae.created_at DESC, ae.id DESC`,
+    [itemId, boqId, orgId]
+  );
+
+  return rows.map((r): BoqItemHistoryEvent => {
+    const isBulk = r.target_table === "boq";
+    const fromFromBulk = isBulk
+      ? (r.metadata.item_phases?.[itemId] ?? null)
+      : null;
+    const role: UserRole =
+      r.actor_email && r.client_email && r.actor_email === r.client_email
+        ? "client"
+        : r.member_role === "owner" || r.member_role === "admin"
+          ? "pm"
+          : r.member_role === "member"
+            ? "architect"
+            : "pm";
+    return {
+      id: r.id,
+      actor_id: r.actor_id,
+      actor_name: r.actor_name ?? "Someone",
+      actor_role: role,
+      from_phase: isBulk ? fromFromBulk : (r.metadata.from ?? null),
+      to_phase: r.metadata.to,
+      comment: r.metadata.comment ?? null,
+      is_bulk: isBulk,
+      bulk_item_count: isBulk ? (r.metadata.item_count ?? null) : null,
+      created_at:
+        r.created_at instanceof Date
+          ? (r.created_at as Date).toISOString()
+          : String(r.created_at),
+    };
+  });
 }
 
 /**
@@ -1262,7 +1363,15 @@ export type SetPhaseOutcome =
     };
 
 export type SetPhaseBulkOutcome =
-  | { ok: true; items: BoqItemWithComputed[] }
+  | {
+      ok: true;
+      items: BoqItemWithComputed[];
+      /**
+       * Per-item source phase, keyed by item id — used to record bulk audit
+       * history so the per-item timeline can show each item's own from→to.
+       */
+      fromPhases: Record<string, BoqItemPhase>;
+    }
   | {
       ok: false;
       reason: "not_found" | "wrong_boq" | "invalid_transition";
@@ -1339,7 +1448,7 @@ export async function setBoqItemsPhase(
   boqId: string,
   target: BoqItemPhase
 ): Promise<SetPhaseBulkOutcome> {
-  if (itemIds.length === 0) return { ok: true, items: [] };
+  if (itemIds.length === 0) return { ok: true, items: [], fromPhases: {} };
 
   const allowedSources = PHASE_SOURCES[target];
   const pool = getPool();
@@ -1398,8 +1507,11 @@ export async function setBoqItemsPhase(
       [itemIds]
     );
 
+    const fromPhases: Record<string, BoqItemPhase> = {};
+    for (const r of ownership) fromPhases[r.id] = r.phase;
+
     await client.query("COMMIT");
-    return { ok: true, items: rows };
+    return { ok: true, items: rows, fromPhases };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

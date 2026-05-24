@@ -367,6 +367,10 @@ describe("POST /api/projects/[id]/boq/items/bulk-lifecycle", () => {
         { ...baseItem, id: ITEM_ID, phase: "internally_approved" },
         { ...baseItem, id: ITEM_ID_2, phase: "internally_approved" },
       ],
+      fromPhases: {
+        [ITEM_ID]: "internal_review",
+        [ITEM_ID_2]: "internal_review",
+      },
     });
 
     const req = buildRequest(

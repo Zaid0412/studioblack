@@ -79,6 +79,9 @@ export const POST = withAuth(
       // Per-item history is reconstructed by scanning metadata.item_ids —
       // avoids logging N rows for a single user action. Single-item
       // transitions still log against target_table = "boq_item".
+      // `item_phases` captures each item's source phase so the per-item
+      // timeline can render an accurate from→to even though one bulk row
+      // covers many items at different start phases.
       logAuditSafe({
         orgId,
         actorId: user.id,
@@ -91,6 +94,7 @@ export const POST = withAuth(
           to: target,
           item_count: itemIds.length,
           item_ids: itemIds,
+          item_phases: outcome.fromPhases,
           comment: comment ?? null,
         },
       });

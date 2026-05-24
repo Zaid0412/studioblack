@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle, FileText, History, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/useToast";
+import { cn } from "@/lib/utils";
 import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
 import type { BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
@@ -22,6 +23,7 @@ import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestBanner } from "./BoqChangeRequestBanner";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
+import { BoqItemActivity } from "./BoqItemActivity";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   formatCurrency,
@@ -121,12 +123,16 @@ export function BoqItemDrawer({
   // the right phase (internal vs client kick-back).
   const [pendingDestructive, setPendingDestructive] =
     useState<BoqItemPhase | null>(null);
+  const [tab, setTab] = useState<"details" | "activity">("details");
 
   // Seed notes only when a new drawer opens — revalidations must not clobber edits.
+  // Also reset to Details so opening a different item doesn't keep an
+  // unrelated Activity feed in view.
   useEffect(() => {
     if (!open || !item) return;
     setNotes(item.notes ?? "");
     setClientNotes(item.client_notes ?? "");
+    setTab("details");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id]);
 
@@ -264,7 +270,31 @@ export function BoqItemDrawer({
             </div>
           </SheetHeader>
 
-          <SheetBody className="flex flex-col gap-5">
+          <div
+            role="tablist"
+            aria-label="Item view"
+            className="flex gap-1 px-5 -mt-1 border-b border-border-default"
+          >
+            <DrawerTab
+              icon={FileText}
+              label="Details"
+              active={tab === "details"}
+              onClick={() => setTab("details")}
+            />
+            <DrawerTab
+              icon={History}
+              label="Activity"
+              active={tab === "activity"}
+              onClick={() => setTab("activity")}
+            />
+          </div>
+
+          <SheetBody
+            className={cn(
+              "flex flex-col gap-5",
+              tab === "activity" && "hidden"
+            )}
+          >
             {isDestructivePhase(item.phase) && (
               <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
             )}
@@ -490,6 +520,16 @@ export function BoqItemDrawer({
             </section>
           </SheetBody>
 
+          {tab === "activity" && (
+            <SheetBody className="flex flex-col">
+              <BoqItemActivity
+                projectId={projectId}
+                itemId={item.id}
+                viewerRole={role}
+              />
+            </SheetBody>
+          )}
+
           <SheetFooter className="!justify-between">
             {canEdit && onDelete ? (
               <Button
@@ -538,6 +578,36 @@ export function BoqItemDrawer({
         }}
       />
     </>
+  );
+}
+
+function DrawerTab({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors cursor-pointer",
+        active
+          ? "border-accent text-text-primary"
+          : "border-transparent text-text-muted hover:text-text-secondary"
+      )}
+    >
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+    </button>
   );
 }
 

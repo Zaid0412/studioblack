@@ -740,6 +740,28 @@ export interface BoqItemChangeRequest {
   created_at: string;
 }
 
+/**
+ * One row in the per-item phase-change timeline. Sourced from `audit_event`
+ * (single-item rows + bulk rows whose `metadata.item_ids` contains this id).
+ *
+ * Old single-item rows that pre-date the lifecycle-8 work may lack a `from`
+ * in their metadata — those render with `from_phase: null` ("→ X" only).
+ * Bulk rows carry per-item `from_phase` via `metadata.item_phases`, which
+ * was added alongside the timeline endpoint.
+ */
+export interface BoqItemHistoryEvent {
+  id: string;
+  actor_id: string;
+  actor_name: string;
+  actor_role: UserRole;
+  from_phase: import("@/lib/validations").BoqItemPhase | null;
+  to_phase: import("@/lib/validations").BoqItemPhase;
+  comment: string | null;
+  is_bulk: boolean;
+  bulk_item_count: number | null;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // BOQ Excel Import (Feature 6)
 // ---------------------------------------------------------------------------
