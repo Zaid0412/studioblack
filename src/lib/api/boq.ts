@@ -260,6 +260,24 @@ export function getSummary(projectId: string) {
 
 // ── Per-item lifecycle phase ───────────────────────────────────────────────
 
+export interface BoqItemChangeRequestEvent {
+  actor_id: string;
+  actor_name: string | null;
+  to_phase: "internal_changes_requested" | "client_changes_requested";
+  comment: string | null;
+  created_at: string;
+}
+
+/**
+ * Most recent change-request event for an item — drives the drawer banner.
+ * Returns `null` when the item has never been kicked back.
+ */
+export function getItemLatestChangeRequest(projectId: string, itemId: string) {
+  return apiGet<BoqItemChangeRequestEvent | null>(
+    API.boqItemLatestChangeRequest(projectId, itemId)
+  );
+}
+
 /** Move a single BOQ item to a new phase. */
 export function setItemPhase(
   projectId: string,

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { BoqItemPhase } from "@/lib/validations";
+import type { UserRole } from "@/types";
 import { isDestructivePhase, phaseToLabel } from "../_lib/formatters";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 
@@ -38,6 +39,8 @@ interface BoqPhasePickerPopoverProps {
    * the comment instead, so prompting here would double up.
    */
   skipDestructivePrompt?: boolean;
+  /** Viewer role — drives client-friendly short phase labels. */
+  role?: UserRole | null;
 }
 
 /**
@@ -51,6 +54,7 @@ export function BoqPhasePickerPopover({
   onPick,
   currentPhase,
   skipDestructivePrompt = false,
+  role,
 }: BoqPhasePickerPopoverProps) {
   const [open, setOpen] = useState(false);
   // Carry the chosen destructive target so the comment dialog can submit
@@ -95,7 +99,7 @@ export function BoqPhasePickerPopover({
                     )}
                   >
                     <span className="flex-1 truncate">
-                      {phaseToLabel(phase)}
+                      {phaseToLabel(phase, role)}
                     </span>
                     {isCurrent && (
                       <span className="ml-2 text-[10px] uppercase tracking-wide text-text-muted">

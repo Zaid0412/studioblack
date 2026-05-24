@@ -160,7 +160,14 @@ export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
       "client_changes_requested",
       "internal_changes_requested",
     ],
-    client_changes_requested: ["draft", "internal_changes_requested"],
+    // `client_approved` is the undo path: if the client hit Request Changes
+    // by accident (or changes their mind), they can flip straight to
+    // approved without waiting for the studio to bounce it through draft.
+    client_changes_requested: [
+      "draft",
+      "client_approved",
+      "internal_changes_requested",
+    ],
     client_approved: ["client_changes_requested", "internal_changes_requested"],
   };
 

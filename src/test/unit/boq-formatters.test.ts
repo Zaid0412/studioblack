@@ -73,6 +73,29 @@ describe("phaseToLabel", () => {
     );
     expect(phaseToLabel("client_approved")).toBe("Client Approved");
   });
+
+  it("shortens client-side labels for client viewers", () => {
+    expect(phaseToLabel("client_approved", "client")).toBe("Approved");
+    expect(phaseToLabel("client_changes_requested", "client")).toBe(
+      "Changes Requested"
+    );
+    expect(phaseToLabel("client_reviewing", "client")).toBe("Reviewing");
+  });
+
+  it("keeps studio labels for non-client viewers", () => {
+    expect(phaseToLabel("client_approved", "pm")).toBe("Client Approved");
+    expect(phaseToLabel("client_approved", "architect")).toBe(
+      "Client Approved"
+    );
+    expect(phaseToLabel("client_approved", null)).toBe("Client Approved");
+  });
+
+  it("leaves studio-internal phases unchanged for clients", () => {
+    expect(phaseToLabel("internal_review", "client")).toBe("Internal Review");
+    expect(phaseToLabel("internally_approved", "client")).toBe(
+      "Internally Approved"
+    );
+  });
 });
 
 describe("toNum", () => {

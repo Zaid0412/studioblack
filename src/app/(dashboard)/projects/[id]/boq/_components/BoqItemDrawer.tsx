@@ -19,6 +19,7 @@ import type { BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
+import { BoqChangeRequestBanner } from "./BoqChangeRequestBanner";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
@@ -58,17 +59,38 @@ interface BoqItemDrawerProps {
   onDelete?: (item: BoqItemWithComputed) => void;
 }
 
-/** Action-button label for each target phase. */
-const PHASE_ACTION_LABEL: Record<BoqItemPhase, string> = {
-  draft: "Move to Draft",
-  internal_review: "Submit for Review",
-  internal_changes_requested: "Request Changes",
-  internally_approved: "Approve",
-  sent_to_client: "Send to Client",
-  client_reviewing: "Mark Client Reviewing",
-  client_changes_requested: "Request Changes",
-  client_approved: "Mark Client Approved",
-};
+/**
+ * Action-button label for each target phase. Clients see shortened forms —
+ * we drop the "Mark Client" prefix because they're the client, that context
+ * is obvious to them.
+ */
+function phaseActionLabel(
+  target: BoqItemPhase,
+  viewerRole: UserRole | null
+): string {
+  if (viewerRole === "client") {
+    if (target === "client_approved") return "Approve";
+    if (target === "client_changes_requested") return "Request Changes";
+  }
+  switch (target) {
+    case "draft":
+      return "Move to Draft";
+    case "internal_review":
+      return "Submit for Review";
+    case "internal_changes_requested":
+      return "Request Changes";
+    case "internally_approved":
+      return "Approve";
+    case "sent_to_client":
+      return "Send to Client";
+    case "client_reviewing":
+      return "Mark Client Reviewing";
+    case "client_changes_requested":
+      return "Request Changes";
+    case "client_approved":
+      return "Mark Client Approved";
+  }
+}
 
 const NOTES_TEXTAREA_CLS =
   "rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y disabled:opacity-60";
@@ -131,7 +153,7 @@ export function BoqItemDrawer({
     try {
       await setItemPhase(item.id, next, comment ? { comment } : undefined);
       toast({
-        title: `Marked ${phaseToLabel(next)}`,
+        title: `Marked ${phaseToLabel(next, role)}`,
         variant: "success",
       });
     } finally {
@@ -224,7 +246,7 @@ export function BoqItemDrawer({
             </SheetDescription>
             <div className="flex flex-wrap gap-2 pt-2">
               <Badge variant={phaseToVariant(item.phase)}>
-                {phaseToLabel(item.phase)}
+                {phaseToLabel(item.phase, role)}
               </Badge>
               {item.is_provisional && (
                 <Badge variant="warning">provisional</Badge>
@@ -247,6 +269,9 @@ export function BoqItemDrawer({
           </SheetHeader>
 
           <SheetBody className="flex flex-col gap-5">
+            {isDestructivePhase(item.phase) && (
+              <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
+            )}
             <section className="flex flex-col gap-3">
               <EditableField
                 label="Description"
@@ -456,7 +481,7 @@ export function BoqItemDrawer({
                     >
                       {transitioning === next
                         ? "Working..."
-                        : PHASE_ACTION_LABEL[next]}
+                        : phaseActionLabel(next, role)}
                     </Button>
                   ))}
                 </div>

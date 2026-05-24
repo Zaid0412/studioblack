@@ -66,6 +66,12 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
     );
   });
 
+  it("client_changes_requested → client_approved (client undo path)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
+      "client_approved"
+    );
+  });
+
   it("PM pull-back: every client-visible phase can fire internal_changes_requested", () => {
     expect(BOQ_ITEM_PHASE_TRANSITIONS.sent_to_client).toContain(
       "internal_changes_requested"

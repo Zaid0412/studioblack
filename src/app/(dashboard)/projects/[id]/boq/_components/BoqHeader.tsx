@@ -3,6 +3,7 @@
 import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { BoqItemPhase } from "@/lib/validations";
+import type { UserRole } from "@/types";
 import { phaseToLabel, phaseToVariant } from "../_lib/formatters";
 
 interface BoqHeaderProps {
@@ -17,6 +18,8 @@ interface BoqHeaderProps {
    * `boq.items` so it stays in sync with optimistic mutations.
    */
   phaseCounts: Record<BoqItemPhase, number>;
+  /** Viewer role — drives client-friendly short labels on phase chips. */
+  role: UserRole | null;
 }
 
 /**
@@ -42,6 +45,7 @@ export function BoqHeader({
   itemCount,
   marginBleedCount,
   phaseCounts,
+  role,
 }: BoqHeaderProps) {
   return (
     <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -68,7 +72,7 @@ export function BoqHeader({
             className="gap-1 !px-2"
           >
             <span className="tabular-nums">{phaseCounts[phase]}</span>
-            <span>{phaseToLabel(phase)}</span>
+            <span>{phaseToLabel(phase, role)}</span>
           </Badge>
         ))}
         {marginBleedCount > 0 && (

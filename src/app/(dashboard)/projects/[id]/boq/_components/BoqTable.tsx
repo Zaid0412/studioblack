@@ -965,7 +965,7 @@ const BoqItemRow = memo(function BoqItemRow({
           variant={phaseToVariant(item.phase)}
           className="!px-2 truncate max-w-full"
         >
-          {phaseToLabel(item.phase)}
+          {phaseToLabel(item.phase, role)}
         </Badge>
       </span>
       <span className="flex justify-end pr-3">
@@ -1035,7 +1035,9 @@ const BoqItemRow = memo(function BoqItemRow({
                             : undefined
                         }
                       >
-                        <span className="flex-1">{phaseToLabel(phase)}</span>
+                        <span className="flex-1">
+                          {phaseToLabel(phase, role)}
+                        </span>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuSubContent>

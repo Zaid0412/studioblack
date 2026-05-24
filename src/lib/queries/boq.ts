@@ -423,6 +423,76 @@ export async function getEligibleReviewers(opts: {
   return rows.map((r) => r.userId);
 }
 
+export interface BoqItemChangeRequest {
+  actor_id: string;
+  actor_name: string | null;
+  to_phase: "internal_changes_requested" | "client_changes_requested";
+  comment: string | null;
+  created_at: string;
+}
+
+/**
+ * Find the most recent change-request event for a single BOQ item — covers
+ * both single-item audit rows (target_table='boq_item', target_id=$itemId)
+ * and bulk rows (target_table='boq' with metadata.item_ids @> [$itemId]).
+ *
+ * Returns null when the item has never been kicked back. The drawer banner
+ * uses this so a viewer can see the reason for the current
+ * `*_changes_requested` phase.
+ */
+export async function getLatestBoqItemChangeRequest(
+  itemId: string
+): Promise<BoqItemChangeRequest | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    actor_id: string;
+    actor_name: string | null;
+    to_phase: BoqItemChangeRequest["to_phase"];
+    comment: string | null;
+    created_at: string;
+  }>(
+    `SELECT
+       ae.actor_id,
+       u.name AS actor_name,
+       (ae.metadata ->> 'to')::text AS to_phase,
+       NULLIF(ae.metadata ->> 'comment', '') AS comment,
+       ae.created_at
+     FROM audit_event ae
+     LEFT JOIN "user" u ON u.id = ae.actor_id
+     WHERE ae.action = 'boq.item.phase_changed'
+       AND ae.metadata ->> 'to' IN ('internal_changes_requested', 'client_changes_requested')
+       AND (
+         (ae.target_table = 'boq_item' AND ae.target_id = $1::uuid)
+         OR (
+           ae.target_table = 'boq'
+           AND ae.metadata @> jsonb_build_object('item_ids', jsonb_build_array($1::text))
+         )
+       )
+     ORDER BY ae.created_at DESC
+     LIMIT 1`,
+    [itemId]
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Project-scoped staff: every user with a `project_member` row on this
+ * project whose role is `pm` or `architect`. Used by phase notifications so
+ * the whole studio team on the project hears about a client decision (or a
+ * kick-back), not just the BOQ's original creator.
+ */
+export async function getProjectStaffIds(projectId: string): Promise<string[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ user_id: string }>(
+    `SELECT DISTINCT user_id
+     FROM project_member
+     WHERE project_id = $1
+       AND role IN ('pm', 'architect')`,
+    [projectId]
+  );
+  return rows.map((r) => r.user_id);
+}
+
 export interface CreateBoqSectionInput {
   title: string;
   description?: string | null;

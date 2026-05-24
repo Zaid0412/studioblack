@@ -25,6 +25,7 @@ import {
   getEligibleReviewers,
   getLastPhaseActors,
   getProjectClientInfo,
+  getProjectStaffIds,
   getUsersByIds,
 } from "@/lib/queries";
 import { POST as PATCH_PHASE } from "@/app/api/projects/[id]/boq/items/[itemId]/lifecycle/route";
@@ -598,6 +599,82 @@ describe("phase notification fan-out", () => {
     await flushFanOut();
 
     expect(getUsersByIds).toHaveBeenCalledWith([CREATOR_ID]);
+  });
+
+  it("client_changes_requested → fans out to every project PM + architect (not just BOQ creator)", async () => {
+    setupAuth(mocks.auth, clientSession);
+    vi.mocked(getOrgRole).mockResolvedValue(null);
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "client_reviewing" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "client_changes_requested" },
+    });
+    vi.mocked(getProjectStaffIds).mockResolvedValue([
+      PM_ID,
+      ARCHITECT_ID,
+      CREATOR_ID, // creator may also be in project_member; should be de-duped
+    ]);
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: PM_ID, email: "pm@test.com", name: "PM" },
+      { id: ARCHITECT_ID, email: "arch@test.com", name: "Arch" },
+      { id: CREATOR_ID, email: "creator@test.com", name: "Creator" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      {
+        method: "POST",
+        body: {
+          phase: "client_changes_requested",
+          comment: "Lower the marble price",
+        },
+      }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getProjectStaffIds).toHaveBeenCalledWith(PROJECT_ID);
+    expect(getUsersByIds).toHaveBeenCalledTimes(1);
+    const recipientIds = vi.mocked(getUsersByIds).mock.calls[0][0] as string[];
+    expect(recipientIds.sort()).toEqual(
+      [PM_ID, ARCHITECT_ID, CREATOR_ID].sort()
+    );
+  });
+
+  it("internal_changes_requested → excludes the actor from recipients", async () => {
+    // Actor IS the BOQ creator AND a project PM. Should still not notify
+    // themselves.
+    setupAuth(mocks.auth, mockSession({ id: PM_ID }));
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internal_review", boqCreatorId: PM_ID })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "internal_changes_requested" },
+    });
+    vi.mocked(getProjectStaffIds).mockResolvedValue([PM_ID, ARCHITECT_ID]);
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: ARCHITECT_ID, email: "arch@test.com", name: "Arch" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      {
+        method: "POST",
+        body: {
+          phase: "internal_changes_requested",
+          comment: "needs revision",
+        },
+      }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    const recipientIds = vi.mocked(getUsersByIds).mock.calls[0][0] as string[];
+    expect(recipientIds).toEqual([ARCHITECT_ID]);
+    expect(recipientIds).not.toContain(PM_ID);
   });
 
   it("sent_to_client → looks up project's client email", async () => {

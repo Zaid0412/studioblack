@@ -2,6 +2,7 @@ import {
   getEligibleReviewers,
   getLastPhaseActors,
   getProjectClientInfo,
+  getProjectStaffIds,
   getUsersByIds,
 } from "@/lib/queries";
 import { createNotification } from "@/lib/notifications";
@@ -83,8 +84,16 @@ export async function notifyPhaseRecipients(opts: {
     case "client_approved":
     case "client_changes_requested":
     case "internal_changes_requested": {
-      if (!boqCreatorId || boqCreatorId === actor.id) return;
-      await fanOutToUsers([boqCreatorId], {
+      // Notify the whole studio team on the project (every PM + architect
+      // in `project_member`) plus the BOQ creator if they're somehow not a
+      // member. The actor is excluded so an architect requesting changes
+      // doesn't notify themselves.
+      const staffIds = await getProjectStaffIds(projectId);
+      const recipients = new Set<string>(staffIds);
+      if (boqCreatorId) recipients.add(boqCreatorId);
+      recipients.delete(actor.id);
+      if (recipients.size === 0) return;
+      await fanOutToUsers([...recipients], {
         notificationType: `boq_item_${target}`,
         projectId,
         title,
