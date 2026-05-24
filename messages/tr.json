@@ -1105,6 +1105,14 @@
     "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil."
   },
   "boq": {
+    "tabs": {
+      "scope": "Kapsam",
+      "rfq": "Teklif Talebi",
+      "clientProposal": "Müşteri Teklifi",
+      "clientOrders": "Müşteri Siparişleri",
+      "clientInvoices": "Müşteri Faturaları",
+      "payments": "Müşteriden Ödemeler"
+    },
     "table": {
       "columnSource": "Kaynak",
       "columnServiceCharge": "Hizmet Bedeli %",

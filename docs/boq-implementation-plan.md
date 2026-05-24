@@ -36,7 +36,7 @@ Tabs 5 (client BOQ sub-nav) and 6 (end-to-end operational logic + state machines
 ### Changes to existing features
 
 - **F4** — hard-block edits on items whose `client_approval_status = 'approved'` (tab 6 Rule 3). The current auto-flip to `requires_reapproval = true` is pending review — see Open decisions.
-- **F12** — client BOQ sub-nav becomes **My Scope · Proposals · Orders · Client Invoices · Payments** (tab 5). Change Orders and Progress are no longer top-level client tabs; clients see them via notifications and inline badges on BOQ items.
+- **F12** — client BOQ sub-nav becomes **Scope · Proposals · Orders · Client Invoices · Payments** (tab 5). Change Orders and Progress are no longer top-level client tabs; clients see them via notifications and inline badges on BOQ items.
 - **F13** — CO implementation bumps `boq.version` and writes `boq.snapshot` before applying changes (tab 6 Rule 4). Previously only the lock step snapshotted.
 - **F14** — reject `POST /purchase-orders` if any referenced `boq_item.client_approval_status ≠ 'approved'` (tab 6 Rule 1). Same gate on PATCH when items are swapped in.
 - **F15** — scoped to vendor invoices only. Client-facing invoice routes move to F22. Same approval gate applies: no vendor invoice for unapproved BOQ scope (tab 6 Rule 2).
@@ -1701,7 +1701,7 @@ Add `template_id UUID REFERENCES proposal_template(id)` to the `client_proposal`
 
 **Client BOQ sub-nav** (per PRD tab 5 + Table 43):
 
-- **My Scope**: Filtered BOQ view — item descriptions, quantities, units, sell prices only (NO costs, margins, overheads). Client can Approve/Reject/Query per item.
+- **Scope**: Filtered BOQ view — item descriptions, quantities, units, proposed prices only (NO costs, margins, overheads). Client can Approve/Reject/Query per item.
 - **Proposals**: List of proposals with status badges. View PDF, approve, reject.
 - **Orders**: Read-only log of approved BOQ items — see F24.
 - **Client Invoices**: Bills the org has issued to the client — see F22.
@@ -2639,14 +2639,14 @@ CREATE INDEX idx_client_payment_date ON client_payment(payment_date);
 
 - Shows each BOQ item where `client_approval_status = 'approved'`, grouped by approval date (most recent first)
 - Columns: Item code, description, unit, quantity, sell price, approved-on date, status chip (Ordered / In Progress / Delivered / Invoiced — derived from `po_status`, `installed_qty`, and F22 invoice linkage)
-- Clicking a row deep-links into the BOQ item drawer (same drawer as F12 "My Scope")
+- Clicking a row deep-links into the BOQ item drawer (same drawer as F12 "Scope")
 - No mutations — purely a different slice of the same data
 
 **API Routes**:
 
 - `GET /api/client/projects/[id]/orders` — returns approved items with derived status chips, ordered by `client_approved_at DESC`
 
-**UI**: New "Orders" sub-page in client portal, alongside My Scope / Proposals / Client Invoices / Payments.
+**UI**: New "Orders" sub-page in client portal, alongside Scope / Proposals / Client Invoices / Payments.
 
 **Files to create/modify**:
 

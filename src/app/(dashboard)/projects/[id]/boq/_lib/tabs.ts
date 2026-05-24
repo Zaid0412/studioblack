@@ -9,7 +9,8 @@ import type { UserRole } from "@/types";
  * folder + content) is a one-line change.
  */
 export interface BoqTab {
-  label: string;
+  /** i18n key under the `boq.tabs` namespace — resolved by the strip component. */
+  labelKey: string;
   /** kebab-case URL segment under /boq/ — also used as the React key. */
   segment: string;
   /** When false, the tab is invisible in the UI. The route directory may not exist. */
@@ -23,19 +24,19 @@ export interface BoqTab {
 }
 
 export const BOQ_TABS: readonly BoqTab[] = [
-  { label: "Scope", segment: "my-scope", enabled: true },
+  { labelKey: "scope", segment: "my-scope", enabled: true },
   {
-    label: "RFQ",
+    labelKey: "rfq",
     segment: "rfq",
     enabled: true,
     // RFQ is studio↔vendor procurement — clients and vendors must not see
     // the tab. API routes additionally `blockedRoles: ["client", "vendor"]`.
     roles: ["pm", "architect"],
   },
-  { label: "Proposal For Client", segment: "client-proposal", enabled: false },
-  { label: "Client Orders", segment: "client-orders", enabled: false },
-  { label: "Client Invoices", segment: "client-invoices", enabled: false },
-  { label: "Payments From Client", segment: "payments", enabled: false },
+  { labelKey: "clientProposal", segment: "client-proposal", enabled: false },
+  { labelKey: "clientOrders", segment: "client-orders", enabled: false },
+  { labelKey: "clientInvoices", segment: "client-invoices", enabled: false },
+  { labelKey: "payments", segment: "payments", enabled: false },
 ];
 
 export const VISIBLE_BOQ_TABS = BOQ_TABS.filter((t) => t.enabled);

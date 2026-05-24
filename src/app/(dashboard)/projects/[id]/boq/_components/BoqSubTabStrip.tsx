@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useUserRole } from "@/hooks/useUserRole";
 import { tabsForRole } from "../_lib/tabs";
 
@@ -22,6 +23,7 @@ interface BoqSubTabStripProps {
 export function BoqSubTabStrip({ projectId }: BoqSubTabStripProps) {
   const pathname = usePathname();
   const { role } = useUserRole();
+  const t = useTranslations("boq.tabs");
   const baseHref = `/projects/${projectId}/boq`;
   const visibleTabs = tabsForRole(role);
 
@@ -45,7 +47,7 @@ export function BoqSubTabStrip({ projectId }: BoqSubTabStripProps) {
                 : "font-medium text-text-muted hover:text-text-primary"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
             {isActive && (
               <span
                 aria-hidden="true"

@@ -22,7 +22,7 @@ import type { DbMember } from "@/types";
 /**
  * Shared chrome for every project sub-route — header, meta bar, and the
  * comments section pinned below tab content. The active tab page (Design
- * / BOQ My Scope / future) renders as `children`.
+ * / BOQ Scope / future) renders as `children`.
  *
  * `useProjectDetail` is called both here and in child pages — SWR
  * dedupes the network calls, and the local UI state (`activePhaseId`,
