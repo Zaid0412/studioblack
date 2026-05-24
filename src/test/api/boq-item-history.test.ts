@@ -42,6 +42,7 @@ const baseCtx = {
   orgId: ORG_ID,
   projectId: PROJECT_ID,
   phase: "draft" as const,
+  clientEmail: null,
 };
 
 function ev(overrides: Partial<BoqItemHistoryEvent>): BoqItemHistoryEvent {
@@ -97,7 +98,12 @@ describe("GET boq item history", () => {
 
     expect(status).toBe(200);
     expect(body.events).toEqual(events);
-    expect(getBoqItemHistory).toHaveBeenCalledWith(ITEM_ID, BOQ_ID, ORG_ID);
+    expect(getBoqItemHistory).toHaveBeenCalledWith({
+      itemId: ITEM_ID,
+      boqId: BOQ_ID,
+      orgId: ORG_ID,
+      clientEmail: null,
+    });
   });
 
   it("404s when the item is not found in this project", async () => {

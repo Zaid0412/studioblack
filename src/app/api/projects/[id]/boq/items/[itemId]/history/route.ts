@@ -6,10 +6,7 @@ import {
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { isExternalViewer } from "@/lib/roles";
-import type { BoqItemPhase } from "@/lib/validations";
 import type { BoqItemHistoryEvent } from "@/types";
-
-const clientVisible = new Set<BoqItemPhase>(CLIENT_VISIBLE_PHASES);
 
 /**
  * GET /api/projects/[id]/boq/items/[itemId]/history
@@ -32,13 +29,19 @@ export const GET = withAuth(
       );
     }
 
-    const events = await getBoqItemHistory(itemId, ctx.boqId, ctx.orgId);
+    const events = await getBoqItemHistory({
+      itemId,
+      boqId: ctx.boqId,
+      orgId: ctx.orgId,
+      clientEmail: ctx.clientEmail,
+    });
 
     const visible = isExternalViewer(effectiveRole)
       ? events.filter(
           (e) =>
-            (e.from_phase !== null && clientVisible.has(e.from_phase)) ||
-            clientVisible.has(e.to_phase)
+            (e.from_phase !== null &&
+              CLIENT_VISIBLE_PHASES.includes(e.from_phase)) ||
+            CLIENT_VISIBLE_PHASES.includes(e.to_phase)
         )
       : events;
 

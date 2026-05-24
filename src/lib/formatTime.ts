@@ -59,6 +59,16 @@ export function timeAgo(dateStr: string): string {
   return `${months}mo ago`;
 }
 
+/**
+ * Normalize a value coming from `pg` (Date for `timestamptz` columns) or a
+ * pre-serialized string into an ISO string. Centralises the
+ * `instanceof Date ? .toISOString() : String(...)` ladder that otherwise
+ * duplicates across every audit-feed mapper.
+ */
+export function toIso(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
 /** Compact relative time using Intl.RelativeTimeFormat (locale-aware). */
 export function relativeTime(dateStr: string, locale?: string): string {
   const now = Date.now();

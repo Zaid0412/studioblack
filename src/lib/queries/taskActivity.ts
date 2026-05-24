@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { toIso } from "@/lib/formatTime";
 import type { TaskActivityEntry, TaskCommentAttachment } from "@/types";
 import { logAuditSafe, AUDIT_ACTIONS, TASK_AUDIT_ACTIONS } from "./audit";
 
@@ -194,14 +195,8 @@ export async function getTaskActivity(
         author_name: r.actor_name ?? "Unknown",
         body: r.body,
         attachments: (r.attachments ?? []) as TaskCommentAttachment[],
-        created_at:
-          r.created_at instanceof Date
-            ? r.created_at.toISOString()
-            : String(r.created_at),
-        updated_at:
-          r.updated_at instanceof Date
-            ? r.updated_at.toISOString()
-            : (r.updated_at ?? null),
+        created_at: toIso(r.created_at),
+        updated_at: r.updated_at === null ? null : toIso(r.updated_at),
       };
     }
     return {
@@ -211,10 +206,7 @@ export async function getTaskActivity(
       actor_name: r.actor_name,
       action: r.action,
       metadata: r.metadata ?? null,
-      created_at:
-        r.created_at instanceof Date
-          ? r.created_at.toISOString()
-          : String(r.created_at),
+      created_at: toIso(r.created_at),
     };
   });
 }
