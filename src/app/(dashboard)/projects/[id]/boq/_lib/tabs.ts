@@ -1,6 +1,20 @@
 import type { UserRole } from "@/types";
 
 /**
+ * Closed union of i18n keys under the `boq.tabs` namespace. Keeping this
+ * here (rather than typing off the message JSON) means a typo in
+ * `BOQ_TABS` is caught at compile time without coupling the tab file to
+ * the messages bundle.
+ */
+export type BoqTabLabelKey =
+  | "scope"
+  | "rfq"
+  | "clientProposal"
+  | "clientOrders"
+  | "clientInvoices"
+  | "payments";
+
+/**
  * BOQ sub-tab definitions.
  *
  * The BOQ surface is becoming a tab container with six sub-tabs. Today
@@ -10,7 +24,7 @@ import type { UserRole } from "@/types";
  */
 export interface BoqTab {
   /** i18n key under the `boq.tabs` namespace — resolved by the strip component. */
-  labelKey: string;
+  labelKey: BoqTabLabelKey;
   /** kebab-case URL segment under /boq/ — also used as the React key. */
   segment: string;
   /** When false, the tab is invisible in the UI. The route directory may not exist. */

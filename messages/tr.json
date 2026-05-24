@@ -1108,7 +1108,7 @@
     "tabs": {
       "scope": "Kapsam",
       "rfq": "Teklif Talebi",
-      "clientProposal": "Müşteri Teklifi",
+      "clientProposal": "Müşteriye Teklif",
       "clientOrders": "Müşteri Siparişleri",
       "clientInvoices": "Müşteri Faturaları",
       "payments": "Müşteriden Ödemeler"
@@ -1119,6 +1119,7 @@
       "columnProposedPrice": "Önerilen Fiyat",
       "fieldProposedPrice": "Önerilen fiyat",
       "totalProposedPrice": "Toplam Önerilen Fiyat",
+      "totalLabel": "Toplam",
       "sectionTotal": "Bölüm toplamı",
       "sourceCustom": "Özel",
       "sourceLibrary": "Kütüphane",

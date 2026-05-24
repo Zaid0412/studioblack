@@ -1119,6 +1119,7 @@
       "columnProposedPrice": "Proposed Price",
       "fieldProposedPrice": "Proposed price",
       "totalProposedPrice": "Total Proposed Price",
+      "totalLabel": "Total",
       "sectionTotal": "Section total",
       "sourceCustom": "Custom",
       "sourceLibrary": "Library",

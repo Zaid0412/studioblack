@@ -306,7 +306,7 @@ export function BoqItemDrawer({
                 onSave={(next) => saveField({ quantity: parseFloat(next) })}
               />
               <DetailField
-                label={isExternal ? "Total" : t("fieldProposedPrice")}
+                label={isExternal ? t("totalLabel") : t("fieldProposedPrice")}
                 value={formatCurrency(item.sell_price, currency)}
               />
               {!isExternal && (

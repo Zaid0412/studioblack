@@ -2638,7 +2638,7 @@ CREATE INDEX idx_client_payment_date ON client_payment(payment_date);
 **Behaviour**:
 
 - Shows each BOQ item where `client_approval_status = 'approved'`, grouped by approval date (most recent first)
-- Columns: Item code, description, unit, quantity, sell price, approved-on date, status chip (Ordered / In Progress / Delivered / Invoiced — derived from `po_status`, `installed_qty`, and F22 invoice linkage)
+- Columns: Item code, description, unit, quantity, proposed price, approved-on date, status chip (Ordered / In Progress / Delivered / Invoiced — derived from `po_status`, `installed_qty`, and F22 invoice linkage)
 - Clicking a row deep-links into the BOQ item drawer (same drawer as F12 "Scope")
 - No mutations — purely a different slice of the same data
 
