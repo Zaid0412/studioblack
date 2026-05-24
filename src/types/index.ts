@@ -749,6 +749,16 @@ export interface BoqItemChangeRequest {
  * Bulk rows carry per-item `from_phase` via `metadata.item_phases`, which
  * was added alongside the timeline endpoint.
  */
+/**
+ * Minimal BOQ item reference used by surfaces that list items by id (e.g.
+ * the "items in this batch" popover on the activity timeline).
+ */
+export interface BoqBulkItemRef {
+  id: string;
+  item_code: string;
+  description: string;
+}
+
 export interface BoqItemHistoryEvent {
   id: string;
   actor_id: string;
@@ -759,6 +769,13 @@ export interface BoqItemHistoryEvent {
   comment: string | null;
   is_bulk: boolean;
   bulk_item_count: number | null;
+  /**
+   * Every item the bulk action touched (including the one being viewed),
+   * resolved server-side from `metadata.item_ids` against `boq_item`.
+   * Populated only when `is_bulk` is true; null otherwise. Drives the
+   * "items in this batch" popover on the activity timeline.
+   */
+  bulk_items: BoqBulkItemRef[] | null;
   created_at: string;
 }
 

@@ -5,6 +5,8 @@ import { AlertTriangle } from "lucide-react";
 import { API } from "@/lib/api/routes";
 import type { BoqItemChangeRequestEvent } from "@/lib/api/boq";
 import { relativeTime } from "@/lib/formatTime";
+import { cn } from "@/lib/utils";
+import { kickbackPalette } from "../_lib/formatters";
 
 interface BoqChangeRequestBannerProps {
   projectId: string;
@@ -44,17 +46,20 @@ export function BoqChangeRequestBanner({
 
   const who = data.actor_name?.trim() || "Someone";
   const fromClient = data.to_phase === "client_changes_requested";
-  const accent = fromClient
-    ? "border-l-warning bg-warning/10"
-    : "border-l-error bg-error/10";
-  const iconColor = fromClient ? "text-warning" : "text-error";
+  const palette = kickbackPalette(data.to_phase);
 
   return (
     <div
-      className={`flex gap-3 rounded-md border-l-4 ${accent} px-4 py-3`}
+      className={cn(
+        "flex gap-3 rounded-md border-l-4 px-4 py-3",
+        palette.leftBorder,
+        palette.bgTint
+      )}
       role="status"
     >
-      <AlertTriangle className={`h-5 w-5 shrink-0 mt-0.5 ${iconColor}`} />
+      <AlertTriangle
+        className={cn("h-5 w-5 shrink-0 mt-0.5", palette.iconText)}
+      />
       <div className="flex flex-col gap-1 min-w-0">
         <p className="text-sm font-semibold text-text-primary">
           {fromClient ? "Client requested changes" : "Changes requested"} ·{" "}

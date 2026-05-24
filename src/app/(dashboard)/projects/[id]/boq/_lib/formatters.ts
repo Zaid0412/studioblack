@@ -64,10 +64,48 @@ export function phaseToLabel(
 }
 
 /**
- * Phases that need a mandatory comment from the actor (server-side schema
- * requires it). Both kick-back states (internal + client) qualify.
+ * Tone classes for a kick-back transition. Client-initiated kick-backs use
+ * the warning (amber) palette; PM-initiated internal ones use error (red).
+ * Single source of truth for both the Details-tab `BoqChangeRequestBanner`
+ * and the Activity-tab `KickbackCard` so they stay visually aligned.
+ *
+ * Strings are written in full (not interpolated) so Tailwind's JIT keeps
+ * them in the build.
  */
-export function isDestructivePhase(phase: BoqItemPhase): boolean {
+export type KickbackPhase =
+  | "internal_changes_requested"
+  | "client_changes_requested";
+
+/** Returns the Tailwind class set keyed to the kick-back's origin tone. */
+export function kickbackPalette(phase: KickbackPhase): {
+  leftBorder: string;
+  bgTint: string;
+  iconText: string;
+  timeText: string;
+} {
+  return phase === "client_changes_requested"
+    ? {
+        leftBorder: "border-l-warning",
+        bgTint: "bg-warning/10",
+        iconText: "text-warning",
+        timeText: "text-warning",
+      }
+    : {
+        leftBorder: "border-l-error",
+        bgTint: "bg-error/10",
+        iconText: "text-error",
+        timeText: "text-error",
+      };
+}
+
+/**
+ * Phases that need a mandatory comment from the actor (server-side schema
+ * requires it). Both kick-back states (internal + client) qualify. Acts
+ * as a type predicate so callers get `KickbackPhase` narrowing for free.
+ */
+export function isDestructivePhase(
+  phase: BoqItemPhase
+): phase is KickbackPhase {
   return (
     phase === "internal_changes_requested" ||
     phase === "client_changes_requested"

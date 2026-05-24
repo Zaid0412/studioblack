@@ -11,6 +11,14 @@ const SheetTrigger = DialogPrimitive.Trigger;
 const SheetPortal = DialogPrimitive.Portal;
 const SheetClose = DialogPrimitive.Close;
 
+/**
+ * Slide animation duration in ms — kept in sync with the `duration-500`
+ * Tailwind class on `SheetContent`. Exported so callers that need to
+ * sequence state changes around the close animation (e.g. swap drawer
+ * contents *after* the slide-out finishes) don't have to hardcode it.
+ */
+export const SHEET_TRANSITION_MS = 500;
+
 /** Re-export for legacy imports; new code should use `ModalOverlay`. */
 const SheetOverlay = ModalOverlay;
 
@@ -33,7 +41,7 @@ const SheetContent = React.forwardRef<
         side === "right"
           ? "right-0 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
           : "left-0 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out duration-300",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out duration-500 ease-in-out",
         className
       )}
       {...props}

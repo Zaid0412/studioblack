@@ -60,6 +60,11 @@ interface BoqItemDrawerProps {
    * emits the request; parent decides whether to close + show confirm.
    */
   onDelete?: (item: BoqItemWithComputed) => void;
+  /**
+   * Click handler for sibling items inside the Activity tab's bulk-batch
+   * popover. Parent should swap the open drawer to the clicked item.
+   */
+  onOpenOtherItem?: (itemId: string) => void;
 }
 
 const ACTION_LABEL: Record<BoqItemPhase, string> = {
@@ -106,6 +111,7 @@ export function BoqItemDrawer({
   currentUserId,
   boqCreatorId,
   onDelete,
+  onOpenOtherItem,
 }: BoqItemDrawerProps) {
   const t = useTranslations("boq.table");
   const { updateItem, setItemPhase } = useBoqMutations(projectId);
@@ -526,6 +532,7 @@ export function BoqItemDrawer({
                 projectId={projectId}
                 itemId={item.id}
                 viewerRole={role}
+                onOpenOtherItem={onOpenOtherItem}
               />
             </SheetBody>
           )}
@@ -599,13 +606,13 @@ function DrawerTab({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors cursor-pointer",
+        "inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold border-b-[3px] -mb-px transition-colors cursor-pointer",
         active
           ? "border-accent text-text-primary"
           : "border-transparent text-text-muted hover:text-text-secondary"
       )}
     >
-      <Icon className="w-3.5 h-3.5" />
+      <Icon className="w-4 h-4" />
       {label}
     </button>
   );

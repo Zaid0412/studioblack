@@ -528,6 +528,7 @@ export async function getBoqItemHistory(opts: {
       to_phase?: string | null;
       comment?: string | null;
       item_count?: number;
+      item_ids?: string[];
       item_phases?: Record<string, string>;
     };
     created_at: string | Date;
@@ -559,6 +560,33 @@ export async function getBoqItemHistory(opts: {
     [itemId, boqId, orgId]
   );
 
+  // Single follow-up SELECT against boq_item for every id referenced by any
+  // bulk row in the result set — feeds the "items in this batch" popover.
+  // One round-trip regardless of how many bulk events the item has.
+  const bulkItemIds = new Set<string>();
+  for (const r of rows) {
+    if (r.target_table === "boq" && Array.isArray(r.metadata.item_ids)) {
+      for (const id of r.metadata.item_ids) bulkItemIds.add(id);
+    }
+  }
+  const itemLookup = new Map<
+    string,
+    { id: string; item_code: string; description: string }
+  >();
+  if (bulkItemIds.size > 0) {
+    const { rows: itemRows } = await pool.query<{
+      id: string;
+      item_code: string;
+      description: string;
+    }>(
+      `SELECT id::text, item_code, description
+       FROM boq_item
+       WHERE id = ANY($1::uuid[])`,
+      [Array.from(bulkItemIds)]
+    );
+    for (const it of itemRows) itemLookup.set(it.id, it);
+  }
+
   const events: BoqItemHistoryEvent[] = [];
   for (const r of rows) {
     const isBulk = r.target_table === "boq";
@@ -578,6 +606,13 @@ export async function getBoqItemHistory(opts: {
       r.actor_email === clientEmail
         ? "client"
         : memberRoleToUserRole(r.member_role);
+    // Preserve the order recorded at write time; drop ids the lookup
+    // couldn't resolve (e.g. items deleted since the bulk action).
+    const bulkItems = isBulk
+      ? (r.metadata.item_ids ?? [])
+          .map((id) => itemLookup.get(id))
+          .filter((it): it is NonNullable<typeof it> => it !== undefined)
+      : null;
     events.push({
       id: r.id,
       actor_id: r.actor_id,
@@ -588,6 +623,7 @@ export async function getBoqItemHistory(opts: {
       comment: r.metadata.comment ?? null,
       is_bulk: isBulk,
       bulk_item_count: isBulk ? (r.metadata.item_count ?? null) : null,
+      bulk_items: bulkItems,
       created_at: toIso(r.created_at),
     });
   }

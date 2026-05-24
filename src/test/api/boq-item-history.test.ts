@@ -56,6 +56,7 @@ function ev(overrides: Partial<BoqItemHistoryEvent>): BoqItemHistoryEvent {
     comment: null,
     is_bulk: false,
     bulk_item_count: null,
+    bulk_items: null,
     created_at: "2026-05-20T09:00:00.000Z",
     ...overrides,
   };
