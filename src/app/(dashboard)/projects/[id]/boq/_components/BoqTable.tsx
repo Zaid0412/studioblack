@@ -146,8 +146,8 @@ interface SectionGroup {
 }
 
 // The Source column is narrow on purpose — it carries a single short badge.
-// Client Rate + Budget Rate are 90px each, sitting between Sell Price (cost
-// build-up output) and Phase (single unified workflow badge).
+// Client Rate + Budget Rate are 90px each, sitting between Proposed Price
+// (cost build-up output) and Phase (single unified workflow badge).
 export const GRID_COLS =
   "grid-cols-[70px_minmax(160px,1fr)_72px_50px_70px_90px_100px_75px_100px_90px_90px_160px_32px]";
 
@@ -157,7 +157,7 @@ const GRID_COLS_WITH_SELECT =
 
 // External-viewer variant (client + vendor) — drops Source / Unit Cost /
 // Total Cost / Margin / Budget Rate / Client Rate. Leaves Code, Description,
-// Unit, Qty, Sell Price, Phase, Actions.
+// Unit, Qty, Proposed Price, Phase, Actions.
 const GRID_COLS_EXTERNAL =
   "grid-cols-[70px_minmax(160px,1fr)_50px_70px_100px_160px_32px]";
 
@@ -350,7 +350,7 @@ export function BoqTable({
               {!isExternal && <div className="text-right">Unit Cost</div>}
               {!isExternal && <div className="text-right">Total Cost</div>}
               {!isExternal && <div className="text-right">Margin</div>}
-              <div className="text-right">Sell Price</div>
+              <div className="text-right">{t("columnProposedPrice")}</div>
               {!isExternal && <div className="text-right">Client Rate</div>}
               {!isExternal && <div className="text-right">Budget Rate</div>}
               <div className="text-center pl-3">Phase</div>

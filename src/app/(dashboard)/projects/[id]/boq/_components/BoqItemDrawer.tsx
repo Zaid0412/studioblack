@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,7 @@ export function BoqItemDrawer({
   boqCreatorId,
   onDelete,
 }: BoqItemDrawerProps) {
+  const t = useTranslations("boq.table");
   const { updateItem, setItemPhase } = useBoqMutations(projectId);
   const isExternal = isExternalViewer(role);
   const [notes, setNotes] = useState("");
@@ -304,7 +306,7 @@ export function BoqItemDrawer({
                 onSave={(next) => saveField({ quantity: parseFloat(next) })}
               />
               <DetailField
-                label={isExternal ? "Total" : "Sell price"}
+                label={isExternal ? t("totalLabel") : t("fieldProposedPrice")}
                 value={formatCurrency(item.sell_price, currency)}
               />
               {!isExternal && (

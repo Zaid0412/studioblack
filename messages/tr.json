@@ -1105,9 +1105,21 @@
     "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil."
   },
   "boq": {
+    "tabs": {
+      "scope": "Kapsam",
+      "rfq": "Teklif Talebi",
+      "clientProposal": "Müşteriye Teklif",
+      "clientOrders": "Müşteri Siparişleri",
+      "clientInvoices": "Müşteri Faturaları",
+      "payments": "Müşteriden Ödemeler"
+    },
     "table": {
       "columnSource": "Kaynak",
       "columnServiceCharge": "Hizmet Bedeli %",
+      "columnProposedPrice": "Önerilen Fiyat",
+      "fieldProposedPrice": "Önerilen fiyat",
+      "totalProposedPrice": "Toplam Önerilen Fiyat",
+      "totalLabel": "Toplam",
       "sectionTotal": "Bölüm toplamı",
       "sourceCustom": "Özel",
       "sourceLibrary": "Kütüphane",

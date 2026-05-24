@@ -1,6 +1,20 @@
 import type { UserRole } from "@/types";
 
 /**
+ * Closed union of i18n keys under the `boq.tabs` namespace. Keeping this
+ * here (rather than typing off the message JSON) means a typo in
+ * `BOQ_TABS` is caught at compile time without coupling the tab file to
+ * the messages bundle.
+ */
+export type BoqTabLabelKey =
+  | "scope"
+  | "rfq"
+  | "clientProposal"
+  | "clientOrders"
+  | "clientInvoices"
+  | "payments";
+
+/**
  * BOQ sub-tab definitions.
  *
  * The BOQ surface is becoming a tab container with six sub-tabs. Today
@@ -9,7 +23,8 @@ import type { UserRole } from "@/types";
  * folder + content) is a one-line change.
  */
 export interface BoqTab {
-  label: string;
+  /** i18n key under the `boq.tabs` namespace — resolved by the strip component. */
+  labelKey: BoqTabLabelKey;
   /** kebab-case URL segment under /boq/ — also used as the React key. */
   segment: string;
   /** When false, the tab is invisible in the UI. The route directory may not exist. */
@@ -23,19 +38,19 @@ export interface BoqTab {
 }
 
 export const BOQ_TABS: readonly BoqTab[] = [
-  { label: "Scope", segment: "my-scope", enabled: true },
+  { labelKey: "scope", segment: "my-scope", enabled: true },
   {
-    label: "RFQ",
+    labelKey: "rfq",
     segment: "rfq",
     enabled: true,
     // RFQ is studio↔vendor procurement — clients and vendors must not see
     // the tab. API routes additionally `blockedRoles: ["client", "vendor"]`.
     roles: ["pm", "architect"],
   },
-  { label: "Proposal For Client", segment: "client-proposal", enabled: false },
-  { label: "Client Orders", segment: "client-orders", enabled: false },
-  { label: "Client Invoices", segment: "client-invoices", enabled: false },
-  { label: "Payments From Client", segment: "payments", enabled: false },
+  { labelKey: "clientProposal", segment: "client-proposal", enabled: false },
+  { labelKey: "clientOrders", segment: "client-orders", enabled: false },
+  { labelKey: "clientInvoices", segment: "client-invoices", enabled: false },
+  { labelKey: "payments", segment: "payments", enabled: false },
 ];
 
 export const VISIBLE_BOQ_TABS = BOQ_TABS.filter((t) => t.enabled);

@@ -1105,9 +1105,21 @@
     "featureDisabled": "Vendor management feature is not yet enabled."
   },
   "boq": {
+    "tabs": {
+      "scope": "Scope",
+      "rfq": "RFQ",
+      "clientProposal": "Proposal For Client",
+      "clientOrders": "Client Orders",
+      "clientInvoices": "Client Invoices",
+      "payments": "Payments From Client"
+    },
     "table": {
       "columnSource": "Source",
       "columnServiceCharge": "Service Charge %",
+      "columnProposedPrice": "Proposed Price",
+      "fieldProposedPrice": "Proposed price",
+      "totalProposedPrice": "Total Proposed Price",
+      "totalLabel": "Total",
       "sectionTotal": "Section total",
       "sourceCustom": "Custom",
       "sourceLibrary": "Library",
