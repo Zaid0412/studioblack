@@ -260,10 +260,17 @@ export async function getBoq(
   const pool = getPool();
   // Auto-bump sent_to_client → client_reviewing the first time a client
   // opens the BOQ. Vendors don't trigger this — they're external but not
-  // the approving party.
-  if (opts.viewerIsClient) {
-    await bumpSentToClientToReviewing(boqId);
-  }
+  // the approving party. The bump piggybacks on the boq SELECT via a CTE
+  // so client reads stay at one DB round-trip instead of two.
+  const boqBumpCte = opts.viewerIsClient
+    ? `WITH bump AS (
+         UPDATE boq_item
+            SET phase = 'client_reviewing'
+          WHERE boq_id = $1
+            AND phase = 'sent_to_client'
+         RETURNING 1
+       ) `
+    : ``;
   const itemFilter = opts.viewerIsExternal
     ? `AND bi.phase = ANY($2::text[])`
     : ``;
@@ -272,7 +279,9 @@ export async function getBoq(
     : [boqId];
 
   const [boqRes, sectionsRes, itemsRes, summary] = await Promise.all([
-    pool.query<Boq>(`SELECT b.* FROM boq b WHERE b.id = $1`, [boqId]),
+    pool.query<Boq>(`${boqBumpCte}SELECT b.* FROM boq b WHERE b.id = $1`, [
+      boqId,
+    ]),
     pool.query<BoqSection>(
       `SELECT * FROM boq_section WHERE boq_id = $1 ORDER BY sort_order, created_at`,
       [boqId]

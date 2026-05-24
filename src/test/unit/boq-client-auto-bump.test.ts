@@ -82,13 +82,15 @@ describe("getBoq — client_reviewing auto-bump", () => {
     vi.clearAllMocks();
   });
 
-  it("fires the bump before the SELECT when viewerIsClient=true", async () => {
-    mocks.db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // the bump
+  it("fires the bump as a CTE on the boq SELECT when viewerIsClient=true", async () => {
     mockBoqRowOnce();
     await getBoq(BOQ_ID, { viewerIsExternal: true, viewerIsClient: true });
+    // The bump now piggybacks on the boq SELECT (first parallel query) as a
+    // CTE — one round-trip instead of two. The regex matches the combined
+    // statement: `WITH bump AS (UPDATE … client_reviewing …) SELECT b.* …`.
     const firstCall = mocks.db.query.mock.calls[0];
     expect(firstCall[0]).toMatch(
-      /UPDATE boq_item[\s\S]*SET phase = 'client_reviewing'/
+      /UPDATE boq_item[\s\S]*SET phase = 'client_reviewing'[\s\S]*SELECT b\.\*/
     );
   });
 
