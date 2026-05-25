@@ -2,15 +2,7 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import {
-  Download,
-  FileText,
-  Loader2,
-  Pencil,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Download, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import {
   Sheet,
   SheetBody,
@@ -20,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { FilePreview, isFilePreviewable } from "@/components/ui/FilePreview";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/useToast";
 import { projectDocuments } from "@/lib/api";
@@ -28,8 +21,6 @@ import { API } from "@/lib/api/routes";
 import {
   formatFileSize,
   getFileExtension,
-  isImageMime,
-  isPdfMime,
   joinFileName,
   splitFileName,
 } from "@/lib/fileUtils";
@@ -97,12 +88,11 @@ export function DocumentDetailSheet({
     [doc]
   );
 
-  const previewable =
-    doc && (isImageMime(doc.mime_type) || isPdfMime(doc.mime_type));
-  const { data: previewData, isLoading: previewLoading } = useSWR<{
-    url: string;
-  }>(
-    doc && previewable ? API.projectDocumentDownload(projectId, doc.id) : null,
+  // Only mint a signed URL for file types `FilePreview` can render —
+  // saves a wasted request for `.docx`/`.zip`/etc.
+  const previewable = doc && isFilePreviewable(doc.mime_type, doc.file_name);
+  const { data: previewData } = useSWR<{ url: string }>(
+    previewable ? API.projectDocumentDownload(projectId, doc.id) : null,
     { revalidateOnFocus: false, revalidateIfStale: false }
   );
 
@@ -184,10 +174,10 @@ export function DocumentDetailSheet({
 
         {doc && (
           <SheetBody className="flex flex-col gap-5">
-            <DocumentPreview
-              doc={doc}
+            <FilePreview
               url={previewData?.url}
-              loading={previewLoading}
+              fileName={doc.file_name}
+              mimeType={doc.mime_type}
             />
 
             <section className="flex flex-col gap-1.5">
@@ -367,60 +357,6 @@ function DetailField({
     <div className={`flex flex-col gap-0.5 ${className ?? ""}`}>
       <span className="text-xs text-text-muted">{label}</span>
       <span className="text-sm text-text-primary truncate">{value}</span>
-    </div>
-  );
-}
-
-function DocumentPreview({
-  doc,
-  url,
-  loading,
-}: {
-  doc: DbProjectDocument;
-  url: string | undefined;
-  loading: boolean;
-}) {
-  if (isImageMime(doc.mime_type)) {
-    return (
-      <div className="rounded-lg border border-border-default bg-bg-elevated overflow-hidden">
-        {loading || !url ? (
-          <div className="aspect-[4/3] flex items-center justify-center">
-            <Loader2 className="w-5 h-5 text-text-muted animate-spin" />
-          </div>
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={doc.file_name}
-            className="w-full max-h-[400px] object-contain bg-bg-primary"
-          />
-        )}
-      </div>
-    );
-  }
-  if (isPdfMime(doc.mime_type)) {
-    return (
-      <div className="rounded-lg border border-border-default overflow-hidden bg-bg-elevated">
-        {loading || !url ? (
-          <div className="aspect-[4/3] flex items-center justify-center">
-            <Loader2 className="w-5 h-5 text-text-muted animate-spin" />
-          </div>
-        ) : (
-          <iframe
-            src={url}
-            title={doc.file_name}
-            className="w-full h-[400px] bg-bg-primary"
-          />
-        )}
-      </div>
-    );
-  }
-  return (
-    <div className="rounded-lg border border-border-default bg-bg-elevated px-4 py-8 flex flex-col items-center gap-2 text-center">
-      <FileText className="w-8 h-8 text-text-muted" />
-      <span className="text-xs text-text-muted">
-        No inline preview for this file type.
-      </span>
     </div>
   );
 }
