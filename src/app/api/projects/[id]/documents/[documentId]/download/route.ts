@@ -5,13 +5,19 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { logger } from "@/lib/logger";
 
-const SIGNED_URL_TTL_SECONDS = 60 * 5;
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
 
 /**
  * GET /api/projects/[id]/documents/[documentId]/download
  *
- * Returns a short-lived (5 min) signed URL the client can use to GET the
- * file directly from Supabase. Clients are allowed because they're viewers.
+ * Returns a signed URL (1 hour TTL) the client can use to GET the file
+ * directly from Supabase. Clients (viewers) are allowed.
+ *
+ * Intentionally NOT minted with `{ download: fileName }` — that would set
+ * `Content-Disposition: attachment` and force every consumer (inline
+ * `<img>`/`<iframe>`, "open in new tab") to download instead of view.
+ * The `download` action in `FilePreview` appends `?download=...` to this
+ * URL client-side, so the disposition only applies to that one action.
  */
 export const GET = withAuth(
   { projectAccess: true, rateLimit: { limit: 120, windowMs: 60_000 } },
@@ -24,9 +30,7 @@ export const GET = withAuth(
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase.storage
       .from(BUCKETS.documents)
-      .createSignedUrl(doc.storage_path, SIGNED_URL_TTL_SECONDS, {
-        download: doc.file_name,
-      });
+      .createSignedUrl(doc.storage_path, SIGNED_URL_TTL_SECONDS);
     if (error || !data) {
       logger.error("document createSignedUrl failed", {
         documentId,
