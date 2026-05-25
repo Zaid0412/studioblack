@@ -67,7 +67,16 @@ const ITEM_COMPUTED_COLS = `
   END AS budget_variance_pct
 `;
 
-const ITEM_SELECT = `SELECT bi.*, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id`;
+/**
+ * Library-join columns + join clause. Pulled into a pair so callers can't
+ * select `element_name`/`element_archived` without also adding the join,
+ * and vice-versa. Used by `ITEM_SELECT` and the four mutation queries that
+ * return a fresh item row (create / update / move / lifecycle).
+ */
+const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived`;
+const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id`;
+
+const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN}`;
 
 /** Confirm a BOQ exists and belongs to the given project. Used for project-scope guards in API routes. */
 export async function verifyBoqOwnership(
@@ -844,9 +853,10 @@ export async function createBoqItem(
        )
        RETURNING *
      )
-     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM inserted bi
-     JOIN boq b ON b.id = bi.boq_id`,
+     JOIN boq b ON b.id = bi.boq_id
+     ${ITEM_LIBRARY_JOIN}`,
     [
       boqId,
       input.sectionId ?? null,
@@ -1020,9 +1030,10 @@ export async function updateBoqItem(
              = date_trunc('milliseconds', $${i + 1}::timestamptz)
        RETURNING *
      )
-     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM updated bi
-     JOIN boq b ON b.id = bi.boq_id`,
+     JOIN boq b ON b.id = bi.boq_id
+     ${ITEM_LIBRARY_JOIN}`,
     [...values, itemId, expectedUpdatedAt]
   );
 
@@ -1110,9 +1121,10 @@ export async function moveBoqItem(
              = date_trunc('milliseconds', $3::timestamptz)
        RETURNING *
      )
-     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM updated bi
-     JOIN boq b ON b.id = bi.boq_id`,
+     JOIN boq b ON b.id = bi.boq_id
+     ${ITEM_LIBRARY_JOIN}`,
     [targetSectionId, itemId, expectedUpdatedAt]
   );
 
@@ -1467,9 +1479,10 @@ export async function setBoqItemPhase(
        WHERE bi.id = $1 AND bi.phase = ANY($3::text[])
        RETURNING *
      )
-     SELECT bi.*, ${ITEM_COMPUTED_COLS}
+     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM updated bi
-     JOIN boq b ON b.id = bi.boq_id`,
+     JOIN boq b ON b.id = bi.boq_id
+     ${ITEM_LIBRARY_JOIN}`,
     [itemId, target, allowedSources]
   );
 
