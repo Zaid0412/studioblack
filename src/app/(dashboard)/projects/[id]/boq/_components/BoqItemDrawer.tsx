@@ -27,6 +27,7 @@ import { BoqItemActivity } from "./BoqItemActivity";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   formatCurrency,
+  formatLibraryName,
   formatOptionalCurrency,
   formatPct,
   formatQty,
@@ -305,6 +306,15 @@ export function BoqItemDrawer({
               <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
             )}
             <section className="flex flex-col gap-3">
+              {item.element_name && (
+                <DetailField
+                  label="Name"
+                  value={formatLibraryName(
+                    item.element_name,
+                    item.element_archived
+                  )}
+                />
+              )}
               <EditableField
                 label="Description"
                 disabled={fieldsDisabled}
@@ -449,13 +459,6 @@ export function BoqItemDrawer({
                 onSave={(next) => saveDimension("height", next)}
               />
             </section>
-
-            {item.element_id && (
-              <section className="rounded-lg border border-border-default bg-bg-elevated px-3 py-2 text-xs text-text-muted">
-                Linked to library element
-                {item.element_archived ? " (archived)" : ""}.
-              </section>
-            )}
 
             <section className="flex flex-col gap-2">
               {!isExternal && (

@@ -676,6 +676,8 @@ export interface BoqItem {
   sent_to_client_at: string | null;
   client_decided_at: string | null;
   element_archived: boolean;
+  /** Library element's `name` (null when item isn't library-linked, or the link is broken). */
+  element_name: string | null;
   installed_qty: string;
   has_snag: boolean;
   po_status: BoqItemPoStatus;

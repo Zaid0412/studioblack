@@ -244,3 +244,8 @@ export function formatPct(value: string | number): string {
   const n = toNum(value);
   return `${n.toFixed(1)}%`;
 }
+
+/** Append an "(archived)" suffix when the linked library element is archived. */
+export function formatLibraryName(name: string, archived: boolean): string {
+  return archived ? `${name} (archived)` : name;
+}

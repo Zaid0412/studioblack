@@ -53,6 +53,7 @@ import {
   BOQ_NO_SECTION_ID,
   formatCurrency,
   formatDimensions,
+  formatLibraryName,
   formatOptionalCurrency,
   formatPct,
   formatQty,
@@ -852,6 +853,12 @@ const BoqItemRow = memo(function BoqItemRow({
             ariaLabel={`Description for ${item.item_code}`}
           />
         </span>
+        {item.element_name && item.element_name !== item.description && (
+          <span className="text-[11px] text-text-muted truncate">
+            <span className="opacity-70">From library:</span>{" "}
+            {formatLibraryName(item.element_name, item.element_archived)}
+          </span>
+        )}
         {dimensionsLabel && (
           <span className="text-[11px] italic text-text-muted truncate">
             {dimensionsLabel}
