@@ -543,6 +543,7 @@ vi.mock("@/lib/queries", () => ({
   listProjectDocuments: vi.fn().mockResolvedValue([]),
   getDocumentById: vi.fn().mockResolvedValue(null),
   createDocument: vi.fn(),
+  updateDocument: vi.fn().mockResolvedValue(null),
   deleteDocument: vi.fn().mockResolvedValue(null),
 }));
 

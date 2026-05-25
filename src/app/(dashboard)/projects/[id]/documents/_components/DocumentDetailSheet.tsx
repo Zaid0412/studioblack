@@ -167,9 +167,23 @@ export function DocumentDetailSheet({
     <Sheet open={!!doc} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle className="truncate pr-8">
-            {doc?.file_name ?? ""}
-          </SheetTitle>
+          {/* Title + Edit button on the same row. `pr-10` keeps both clear
+              of the sheet's absolute-positioned close X. */}
+          <div className="flex items-center justify-between gap-3 pr-10">
+            <SheetTitle className="truncate min-w-0">
+              {doc?.file_name ?? ""}
+            </SheetTitle>
+            {doc && canEdit && !editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="flex shrink-0 items-center gap-1 text-xs text-text-muted hover:text-text-primary cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            )}
+          </div>
         </SheetHeader>
 
         {doc && (
@@ -178,24 +192,26 @@ export function DocumentDetailSheet({
               url={previewData?.url}
               fileName={doc.file_name}
               mimeType={doc.mime_type}
+              // SheetBody is a flex column; without `shrink-0` the preview
+              // gets compressed when edit-mode adds extra inputs, instead
+              // of overflowing into the body's scroll area.
+              className="shrink-0"
+              // Mint a fresh signed URL right before each action — the
+              // SWR-cached URL above only lasts an hour, but a sheet can
+              // stay open longer than that.
+              refreshUrl={async () => {
+                const { url } = await projectDocuments.getDownloadUrl(
+                  projectId,
+                  doc.id
+                );
+                return url;
+              }}
             />
 
             <section className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-text-secondary">
-                  Description
-                </span>
-                {canEdit && !editing && (
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary cursor-pointer"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Edit
-                  </button>
-                )}
-              </div>
+              <span className="text-xs font-medium text-text-secondary">
+                Description
+              </span>
               {editing ? (
                 <textarea
                   value={description}
@@ -253,14 +269,19 @@ export function DocumentDetailSheet({
             )}
 
             <section className="grid grid-cols-2 gap-3 text-sm">
-              <DetailField
-                label="Section"
-                value={
-                  doc.section_name ??
-                  sections.find((s) => s.id === doc.section_id)?.name ??
-                  "—"
-                }
-              />
+              {/* In edit mode the SectionSelect above is the live section
+                  picker, so the read-only Section field here would be
+                  redundant (and confusing — two "Section" labels). */}
+              {!editing && (
+                <DetailField
+                  label="Section"
+                  value={
+                    doc.section_name ??
+                    sections.find((s) => s.id === doc.section_id)?.name ??
+                    "—"
+                  }
+                />
+              )}
               <DetailField
                 label="Type"
                 value={getFileExtension(doc.file_name).toUpperCase() || "—"}

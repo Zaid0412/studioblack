@@ -114,6 +114,14 @@ interface FilePreviewProps {
    * can't render inline (no preview to enlarge).
    */
   actions?: FilePreviewAction[];
+  /**
+   * Optional async callback to mint a fresh URL right before an action
+   * fires. Use when `url` is short-lived (e.g. signed URLs that may
+   * expire while the user has the preview open). The fresh URL is also
+   * used for the fullscreen overlay. Falls back to the inline `url`
+   * on error.
+   */
+  refreshUrl?: () => Promise<string>;
 }
 
 /**
@@ -139,8 +147,12 @@ export function FilePreview({
   className,
   fallback,
   actions = DEFAULT_ACTIONS,
+  refreshUrl,
 }: FilePreviewProps) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [fullscreenUrl, setFullscreenUrl] = useState<string | undefined>(
+    undefined
+  );
 
   const height = maxHeight ?? SIZE_HEIGHTS[size];
   const wrapperClass = cn(
@@ -161,8 +173,13 @@ export function FilePreview({
 
   async function runAction(action: ToolbarAction) {
     if (!url) return;
+    // Mint a fresh URL right before consuming it — the inline preview's
+    // URL may be stale (long-open sheets). Falls back to the cached URL
+    // on error so the action still has a chance to succeed.
+    const liveUrl = refreshUrl ? await refreshUrl().catch(() => url) : url;
     switch (action) {
       case "fullscreen":
+        setFullscreenUrl(liveUrl);
         setFullscreenOpen(true);
         return;
       case "minimize":
@@ -170,13 +187,13 @@ export function FilePreview({
         // there. Defensive no-op for the inline toolbar.
         return;
       case "openInNewTab":
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.open(liveUrl, "_blank", "noopener,noreferrer");
         return;
       case "copy":
-        await copyFile({ url, fileName, isImageType });
+        await copyFile({ url: liveUrl, fileName, isImageType });
         return;
       case "download":
-        await downloadFile({ url, fileName });
+        downloadFile({ url: liveUrl, fileName });
         return;
     }
   }
@@ -237,11 +254,14 @@ export function FilePreview({
         )}
       </div>
 
-      {supported && url && (
+      {supported && (
         <FullscreenDialog
           open={fullscreenOpen}
           onOpenChange={setFullscreenOpen}
-          url={url}
+          // Use the freshly-minted URL captured when the action fired,
+          // falling back to the inline `url` so the dialog still works
+          // if `refreshUrl` isn't provided.
+          url={fullscreenUrl ?? url ?? ""}
           fileName={fileName}
           isImageType={isImageType}
           // Fullscreen view skips its own fullscreen button — already there.
@@ -389,6 +409,12 @@ function FullscreenDialog({
  *
  * On any failure we fall back to URL-copy so the action always succeeds at
  * something. The toast describes what was actually copied.
+ *
+ * Performance note: the canvas conversion path runs synchronously on the
+ * main thread. Acceptable because uploads are capped at `MAX_UPLOAD_SIZE`
+ * (50MB) — a single decode + redraw fits comfortably under the
+ * "long task" budget. Raise the cap or add streaming if that ever
+ * changes.
  */
 async function copyFile({
   url,
@@ -452,33 +478,21 @@ async function convertToPng(blob: Blob): Promise<Blob> {
 }
 
 /**
- * Trigger a download. Fetch → blob → object-URL → anchor click forces the
- * file to land on disk with the right name. We append `?download=<name>`
- * to the source URL too (Supabase signed URLs respect this query param by
- * setting `Content-Disposition: attachment`) so the fallback branch — used
- * when the cross-origin fetch fails — still triggers a download instead
- * of opening inline in a new tab.
+ * Trigger a download via a direct anchor click — no fetch + blob round-trip,
+ * so the file streams from Supabase to disk without ever sitting in browser
+ * memory. We append `?download=<name>` to the URL so Supabase sets
+ * `Content-Disposition: attachment` for that one request, which forces the
+ * browser to save instead of navigate, even for cross-origin URLs where the
+ * `<a download>` attribute alone is best-effort.
  */
-async function downloadFile({
-  url,
-  fileName,
-}: {
-  url: string;
-  fileName: string;
-}) {
+function downloadFile({ url, fileName }: { url: string; fileName: string }) {
   const sep = url.includes("?") ? "&" : "?";
   const downloadUrl = `${url}${sep}download=${encodeURIComponent(fileName)}`;
-  try {
-    const blob = await fetch(downloadUrl).then((r) => r.blob());
-    const objUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objUrl;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objUrl);
-  } catch {
-    window.open(downloadUrl, "_blank", "noopener,noreferrer");
-  }
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = fileName;
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
