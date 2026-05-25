@@ -6,13 +6,63 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModalOverlay } from "@/components/ui/ModalOverlay";
 
-const Sheet = DialogPrimitive.Root;
 const SheetTrigger = DialogPrimitive.Trigger;
 const SheetPortal = DialogPrimitive.Portal;
 const SheetClose = DialogPrimitive.Close;
 
+/**
+ * Slide animation duration in ms — kept in sync with the close keyframe
+ * timing in `globals.css` (the actual animation, not via Tailwind).
+ * Exported so callers that need to sequence state changes around the
+ * close animation (e.g. swap drawer contents *after* the slide-out
+ * finishes) don't have to hardcode it.
+ */
+export const SHEET_TRANSITION_MS = 600;
+
 /** Re-export for legacy imports; new code should use `ModalOverlay`. */
 const SheetOverlay = ModalOverlay;
+
+/**
+ * Radix `Presence` misses our custom `[data-state]` keyframes and unmounts
+ * the content before the close animation plays. We `forceMount` instead
+ * and gate first render on `hasBeenOpen` so the closed-state CSS doesn't
+ * flash before the user has actually opened the sheet.
+ *
+ * Default `hasBeenOpen: true` so `SheetContent` rendered outside a
+ * `Sheet` still shows (defensive — not expected, but easy to support).
+ */
+const SheetGate = React.createContext<{ hasBeenOpen: boolean }>({
+  hasBeenOpen: true,
+});
+
+type SheetProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>;
+
+/** Drop-in for Radix `Dialog.Root` — wraps it with a `SheetGate`. */
+function Sheet({ open, onOpenChange, defaultOpen, ...props }: SheetProps) {
+  const [hasBeenOpen, setHasBeenOpen] = React.useState(
+    () => !!defaultOpen || !!open
+  );
+
+  React.useEffect(() => {
+    if (open) setHasBeenOpen(true);
+  }, [open]);
+
+  const handleOpenChange = (next: boolean) => {
+    if (next) setHasBeenOpen(true);
+    onOpenChange?.(next);
+  };
+
+  return (
+    <SheetGate.Provider value={{ hasBeenOpen }}>
+      <DialogPrimitive.Root
+        open={open}
+        defaultOpen={defaultOpen}
+        onOpenChange={handleOpenChange}
+        {...props}
+      />
+    </SheetGate.Provider>
+  );
+}
 
 interface SheetContentProps extends React.ComponentPropsWithoutRef<
   typeof DialogPrimitive.Content
@@ -23,29 +73,34 @@ interface SheetContentProps extends React.ComponentPropsWithoutRef<
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(({ className, children, side = "right", ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed top-0 bottom-0 z-50 flex flex-col w-full sm:max-w-md lg:max-w-lg bg-bg-secondary shadow-2xl border-border-default",
-        side === "right"
-          ? "right-0 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right"
-          : "left-0 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out duration-300",
-        className
-      )}
-      {...props}
-    >
-      {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-bg-primary transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:pointer-events-none">
-        <X className="h-4 w-4 text-text-muted" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </SheetPortal>
-));
+>(({ className, children, side = "right", ...props }, ref) => {
+  const { hasBeenOpen } = React.useContext(SheetGate);
+  if (!hasBeenOpen) return null;
+  return (
+    <SheetPortal forceMount>
+      <SheetOverlay forceMount />
+      <DialogPrimitive.Content
+        ref={ref}
+        forceMount
+        data-sheet-slide
+        data-sheet-side={side}
+        className={cn(
+          "fixed top-0 bottom-0 z-50 flex flex-col w-full sm:max-w-md lg:max-w-lg bg-bg-secondary shadow-2xl border-border-default",
+          side === "right" ? "right-0 border-l" : "left-0 border-r",
+          "data-[state=closed]:pointer-events-none",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-bg-primary transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:pointer-events-none">
+          <X className="h-4 w-4 text-text-muted" />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      </DialogPrimitive.Content>
+    </SheetPortal>
+  );
+});
 SheetContent.displayName = "SheetContent";
 
 /** Header area of a Sheet — sticky top padding matches content. */

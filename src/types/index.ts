@@ -740,6 +740,45 @@ export interface BoqItemChangeRequest {
   created_at: string;
 }
 
+/**
+ * One row in the per-item phase-change timeline. Sourced from `audit_event`
+ * (single-item rows + bulk rows whose `metadata.item_ids` contains this id).
+ *
+ * Old single-item rows that pre-date the lifecycle-8 work may lack a `from`
+ * in their metadata — those render with `from_phase: null` ("→ X" only).
+ * Bulk rows carry per-item `from_phase` via `metadata.item_phases`, which
+ * was added alongside the timeline endpoint.
+ */
+/**
+ * Minimal BOQ item reference used by surfaces that list items by id (e.g.
+ * the "items in this batch" popover on the activity timeline).
+ */
+export interface BoqBulkItemRef {
+  id: string;
+  item_code: string;
+  description: string;
+}
+
+export interface BoqItemHistoryEvent {
+  id: string;
+  actor_id: string;
+  actor_name: string;
+  actor_role: UserRole;
+  from_phase: import("@/lib/validations").BoqItemPhase | null;
+  to_phase: import("@/lib/validations").BoqItemPhase;
+  comment: string | null;
+  is_bulk: boolean;
+  bulk_item_count: number | null;
+  /**
+   * Every item the bulk action touched (including the one being viewed),
+   * resolved server-side from `metadata.item_ids` against `boq_item`.
+   * Populated only when `is_bulk` is true; null otherwise. Drives the
+   * "items in this batch" popover on the activity timeline.
+   */
+  bulk_items: BoqBulkItemRef[] | null;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // BOQ Excel Import (Feature 6)
 // ---------------------------------------------------------------------------

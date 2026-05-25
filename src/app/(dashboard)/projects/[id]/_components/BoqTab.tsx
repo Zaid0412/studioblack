@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BoqTabSkeleton } from "../boq/_components/BoqTabSkeleton";
@@ -24,6 +24,7 @@ import { BoqDeleteSectionDialog } from "../boq/_components/BoqDeleteSectionDialo
 import { BoqBulkActionBar } from "../boq/_components/BoqBulkActionBar";
 import { useBoqSelection } from "@/hooks/useBoqSelection";
 import { BoqItemDrawer } from "../boq/_components/BoqItemDrawer";
+import { SHEET_TRANSITION_MS } from "@/components/ui/sheet";
 import { BoqImportDialog } from "../boq/_components/BoqImportDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
@@ -88,6 +89,16 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [deletingItem, setDeletingItem] = useState(false);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
+  );
+  // Tracks the slide-close-then-reopen swap when the user clicks an item in
+  // the bulk-batch popover. Cleared on unmount so the deferred `setState`
+  // never fires on an unmounted component.
+  const drawerSwapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (drawerSwapTimer.current) clearTimeout(drawerSwapTimer.current);
+    },
+    []
   );
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -675,6 +686,19 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           // on top of the open sheet — single modal layer at a time.
           setDrawerItem(null);
           setDeleteItemTarget(item);
+        }}
+        onOpenOtherItem={(itemId) => {
+          const next = boq.items.find((it) => it.id === itemId);
+          if (!next) return;
+          // Let the current drawer play its slide-out before slotting the
+          // new item, otherwise the contents would swap mid-sheet without
+          // any close animation.
+          setDrawerItem(null);
+          if (drawerSwapTimer.current) clearTimeout(drawerSwapTimer.current);
+          drawerSwapTimer.current = setTimeout(
+            () => setDrawerItem(next),
+            SHEET_TRANSITION_MS
+          );
         }}
       />
 

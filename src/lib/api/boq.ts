@@ -272,6 +272,17 @@ export function getItemLatestChangeRequest(projectId: string, itemId: string) {
   );
 }
 
+/**
+ * Per-item phase-change timeline — single-item + bulk audit rows combined,
+ * newest first. External viewers receive only events whose endpoints touch a
+ * client-visible phase.
+ */
+export function getItemHistory(projectId: string, itemId: string) {
+  return apiGet<{ events: import("@/types").BoqItemHistoryEvent[] }>(
+    API.boqItemHistory(projectId, itemId)
+  );
+}
+
 /** Move a single BOQ item to a new phase. */
 export function setItemPhase(
   projectId: string,

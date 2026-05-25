@@ -30,3 +30,17 @@ export function deriveRoleFlags(
     isClient: effectiveRole === "client",
   };
 }
+
+/**
+ * Map a better-auth `member.role` (owner/admin/member) onto the app's
+ * `UserRole`. Anyone outside the org (no row) falls back to "pm" — used
+ * by read-only historical surfaces (e.g. the BOQ item activity timeline)
+ * where it's better to over-attribute than to fail rendering.
+ */
+export function memberRoleToUserRole(
+  memberRole: string | null | undefined
+): UserRole {
+  if (memberRole === "owner" || memberRole === "admin") return "pm";
+  if (memberRole === "member") return "architect";
+  return "pm";
+}

@@ -44,6 +44,15 @@
 
   /* ─── Radix / shadcn animation tokens ─── */
   --radius: 0.75rem;
+
+  /* Sheet / overlay slide + fade. Durations are mirrored on the JS side
+   * by `SHEET_TRANSITION_MS` in `components/ui/sheet.tsx` — keep them
+   * in lockstep. The asymmetric durations (slower close than open) make
+   * the dismissal feel intentional rather than snappy. */
+  --sheet-duration-in: 500ms;
+  --sheet-duration-out: 600ms;
+  --sheet-ease-in: cubic-bezier(0.16, 1, 0.3, 1);
+  --sheet-ease-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─── Dark theme overrides — keep in sync with src/config/themes/default.ts ─── */
@@ -237,6 +246,92 @@ select:focus-visible {
 ::selection {
   background-color: var(--accent);
   color: var(--text-on-accent);
+}
+
+/* ─── Sheet slide animations ───
+ * Defined explicitly (not via tailwindcss-animate) because the plugin's
+ * `animate-in`/`animate-out` keyframes ignore Tailwind v4 `duration-*`
+ * utilities — those only set `transition-duration` in v4. Hardcoding
+ * the animation here gives us a deliberate, controllable slide. The JS
+ * side reads `SHEET_TRANSITION_MS` from `components/ui/sheet.tsx` to
+ * sequence drawer-swap behaviour against the close animation; keep the
+ * close duration here in lockstep with that constant. */
+@keyframes sheet-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sheet-slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes sheet-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sheet-slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+[data-sheet-slide][data-state="open"][data-sheet-side="right"] {
+  animation: sheet-slide-in-right var(--sheet-duration-in) var(--sheet-ease-in)
+    both;
+}
+[data-sheet-slide][data-state="closed"][data-sheet-side="right"] {
+  animation: sheet-slide-out-right var(--sheet-duration-out)
+    var(--sheet-ease-out) both;
+}
+[data-sheet-slide][data-state="open"][data-sheet-side="left"] {
+  animation: sheet-slide-in-left var(--sheet-duration-in) var(--sheet-ease-in)
+    both;
+}
+[data-sheet-slide][data-state="closed"][data-sheet-side="left"] {
+  animation: sheet-slide-out-left var(--sheet-duration-out)
+    var(--sheet-ease-out) both;
+}
+
+/* Backdrop fade — duration matched to the sheet slide so the dim layer
+ * doesn't disappear before the sheet has finished sliding away. The
+ * `animate-in/animate-out` Tailwind classes on `ModalOverlay` ignore
+ * Tailwind v4 duration utilities, so we override the animation here. */
+@keyframes sheet-backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-backdrop-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+[data-modal-overlay][data-state="open"] {
+  animation: sheet-backdrop-fade-in var(--sheet-duration-in)
+    var(--sheet-ease-in) both;
+}
+[data-modal-overlay][data-state="closed"] {
+  animation: sheet-backdrop-fade-out var(--sheet-duration-out)
+    var(--sheet-ease-out) both;
 }
 
 /* ─── Task highlight glow ─── */
