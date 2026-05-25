@@ -72,6 +72,12 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
     );
   });
 
+  it("client_changes_requested → internal_review (creator resubmits after fix, skipping draft)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
+      "internal_review"
+    );
+  });
+
   it("client_changes_requested → client_approved (client undo path)", () => {
     expect(BOQ_ITEM_PHASE_TRANSITIONS.client_changes_requested).toContain(
       "client_approved"
