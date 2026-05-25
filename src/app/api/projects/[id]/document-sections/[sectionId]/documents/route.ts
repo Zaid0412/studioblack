@@ -62,6 +62,7 @@ export const POST = withAuth(
       mimeType: parsed.data.mimeType,
       storagePath: parsed.data.storagePath,
       uploadedBy: user.id,
+      description: parsed.data.description ?? null,
     });
     return NextResponse.json(doc, { status: 201 });
   }

@@ -156,6 +156,7 @@ export interface DbProjectDocument {
   mime_type: string;
   storage_path: string;
   uploaded_by: string;
+  description: string | null;
   /** Joined from `user.name`; null when the uploader has been deleted. */
   uploaded_by_name?: string | null;
   /** Joined section name — only populated by `listProjectDocuments` (All view). */

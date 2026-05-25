@@ -35,6 +35,39 @@ export function isPdf(fileName: string): boolean {
   return getFileExtension(fileName) === "pdf";
 }
 
+/** Mime-type variant of `isImage` — matches any `image/*` type. */
+export function isImageMime(mime: string): boolean {
+  return mime.startsWith("image/");
+}
+
+/** Mime-type variant of `isPdf` — matches `application/pdf`. */
+export function isPdfMime(mime: string): boolean {
+  return mime === "application/pdf";
+}
+
+/**
+ * Split a file name into its base and extension parts. The extension keeps
+ * its leading dot so it can be re-joined verbatim. Dotfiles (e.g. `.env`)
+ * keep their leading dot as part of the base, with no extension.
+ *
+ * Examples:
+ *   "site-plan.pdf"    → { base: "site-plan",    ext: ".pdf" }
+ *   "draft.v2.png"     → { base: "draft.v2",     ext: ".png" }
+ *   "no-extension"     → { base: "no-extension", ext: ""     }
+ *   ".env"             → { base: ".env",         ext: ""     }
+ */
+export function splitFileName(name: string): { base: string; ext: string } {
+  if (!name) return { base: "", ext: "" };
+  const lastDot = name.lastIndexOf(".");
+  if (lastDot <= 0) return { base: name, ext: "" };
+  return { base: name.slice(0, lastDot), ext: name.slice(lastDot) };
+}
+
+/** Inverse of `splitFileName`. */
+export function joinFileName(base: string, ext: string): string {
+  return `${base}${ext}`;
+}
+
 /** Returns true if the filename has a spreadsheet extension (.xls, .xlsx, .csv). */
 export function isSpreadsheet(fileName: string): boolean {
   return SPREADSHEET_EXTENSIONS.includes(getFileExtension(fileName));

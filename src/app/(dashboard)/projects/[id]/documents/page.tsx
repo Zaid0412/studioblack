@@ -24,6 +24,7 @@ import { DocumentRow } from "./_components/DocumentRow";
 import { NewSectionDialog } from "./_components/NewSectionDialog";
 import { RenameSectionDialog } from "./_components/RenameSectionDialog";
 import { UploadDocumentDialog } from "./_components/UploadDocumentDialog";
+import { DocumentDetailSheet } from "./_components/DocumentDetailSheet";
 import { relativeTime } from "@/lib/formatTime";
 
 type SortMode = "recent" | "name" | "size";
@@ -57,6 +58,13 @@ export default function DocumentsPage({
   const [docToDelete, setDocToDelete] = useState<DbProjectDocument | null>(
     null
   );
+  // Single state for "which doc is open and how" — merging avoids a flicker
+  // where opening a doc via Edit briefly renders the sheet in view mode
+  // because `openDocEdit` lagged a render behind `openDoc`.
+  const [openDoc, setOpenDoc] = useState<{
+    doc: DbProjectDocument;
+    edit: boolean;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [sectionToRename, setSectionToRename] =
     useState<DbProjectDocumentSection | null>(null);
@@ -147,13 +155,26 @@ export default function DocumentsPage({
     return latestMs > 0 ? relativeTime(new Date(latestMs).toISOString()) : null;
   }, [docs]);
 
+  /**
+   * Create a section, revalidate the SWR cache, toast on success.
+   * Returns the new row so callers can wire it into their own UI (e.g. the
+   * upload dialog's section picker auto-selects it). Errors bubble.
+   */
+  async function createSection(data: {
+    name: string;
+    icon: string;
+  }): Promise<DbProjectDocumentSection> {
+    const created = await projectDocuments.createSection(projectId, data);
+    await mutate(sectionsKey);
+    toast({ title: `Section "${data.name}" created.` });
+    return created;
+  }
+
   async function handleCreateSection(data: { name: string; icon: string }) {
     try {
-      const created = await projectDocuments.createSection(projectId, data);
-      await mutate(sectionsKey);
+      const created = await createSection(data);
       setActiveSectionId(created.id);
       setNewSectionOpen(false);
-      toast({ title: `Section "${data.name}" created.` });
     } catch (err) {
       toast({
         title:
@@ -245,6 +266,32 @@ export default function DocumentsPage({
     }
   }
 
+  async function moveDocument(doc: DbProjectDocument, targetSectionId: string) {
+    try {
+      const updated = await projectDocuments.updateDocument(projectId, doc.id, {
+        sectionId: targetSectionId,
+      });
+      await Promise.all([
+        mutate(API.projectDocumentsAll(projectId)),
+        mutate(sectionsKey),
+        mutate(API.projectDocuments(projectId, doc.section_id)),
+        mutate(API.projectDocuments(projectId, targetSectionId)),
+      ]);
+      const target = sections?.find((s) => s.id === targetSectionId);
+      toast({
+        title: target ? `Moved to "${target.name}".` : "Moved.",
+      });
+      // If the sheet is open on this doc, refresh its in-place copy.
+      if (openDoc?.doc.id === updated.id)
+        setOpenDoc({ doc: updated, edit: openDoc.edit });
+    } catch (err) {
+      toast({
+        title: err instanceof ApiError ? err.message : "Move failed.",
+        variant: "error",
+      });
+    }
+  }
+
   async function performDelete(doc: DbProjectDocument) {
     try {
       await projectDocuments.deleteDocument(projectId, doc.id);
@@ -279,7 +326,7 @@ export default function DocumentsPage({
     );
   }
 
-  const canDrop = canEdit && !!activeSection;
+  const canDrop = canEdit;
   const clearDrag = () => {
     dragCounter.current = 0;
     setDragOver(false);
@@ -311,13 +358,7 @@ export default function DocumentsPage({
     e.preventDefault();
     e.stopPropagation();
     clearDrag();
-    if (!canDrop) {
-      toast({
-        title: "Pick a section first to upload.",
-        variant: "error",
-      });
-      return;
-    }
+    if (!canDrop) return;
     const dropped = e.dataTransfer.files?.[0];
     if (!dropped) return;
     setDroppedFile(dropped);
@@ -362,8 +403,10 @@ export default function DocumentsPage({
               }`}
             >
               {canDrop
-                ? `Drop to upload to ${activeSection?.name}`
-                : "Pick a section first to upload"}
+                ? activeSection
+                  ? `Drop to upload to ${activeSection.name}`
+                  : "Drop to upload"
+                : "You don't have permission to upload."}
             </p>
           </div>
         )}
@@ -405,7 +448,7 @@ export default function DocumentsPage({
               <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
               {sort === "recent" ? "Recent" : sort === "name" ? "Name" : "Size"}
             </button>
-            {canEdit && activeSection && (
+            {canEdit && (
               <Button onClick={() => setUploadOpen(true)} size="sm">
                 <Upload className="w-3.5 h-3.5" />
                 Upload
@@ -427,7 +470,7 @@ export default function DocumentsPage({
                   ? "No documents match your search."
                   : "No documents yet."}
               </p>
-              {!search && canEdit && activeSection && (
+              {!search && canEdit && (
                 <Button
                   onClick={() => setUploadOpen(true)}
                   size="sm"
@@ -443,6 +486,10 @@ export default function DocumentsPage({
               <DocumentRow
                 key={doc.id}
                 doc={doc}
+                sections={sections ?? []}
+                onOpen={() => setOpenDoc({ doc, edit: false })}
+                onEdit={() => setOpenDoc({ doc, edit: true })}
+                onMove={(sectionId) => void moveDocument(doc, sectionId)}
                 onDownload={() => handleDownload(doc)}
                 onDelete={() => setDocToDelete(doc)}
                 canEdit={canEdit}
@@ -458,31 +505,65 @@ export default function DocumentsPage({
         onOpenChange={setNewSectionOpen}
         onSubmit={handleCreateSection}
       />
-      {activeSection && (
-        <UploadDocumentDialog
-          // Remount on each drop so `initialFile` seeds via useState init —
-          // avoids a mirror-prop useEffect and stale state on consecutive drops.
-          // `dropCount` makes the key change even when the same file is
-          // dropped twice in a row.
-          key={droppedFile ? `drop-${dropCount}` : "manual"}
-          open={uploadOpen}
-          onOpenChange={(v) => {
-            setUploadOpen(v);
-            if (!v) setDroppedFile(null);
-          }}
-          projectId={projectId}
-          sectionId={activeSection.id}
-          sectionName={activeSection.name}
-          initialFile={droppedFile}
-          onSuccess={() =>
-            Promise.all([
-              mutate(API.projectDocuments(projectId, activeSection.id)),
-              mutate(API.projectDocumentsAll(projectId)),
-              mutate(sectionsKey),
-            ])
+      <UploadDocumentDialog
+        // Remount on each drop so `initialFile` seeds via useState init —
+        // avoids a mirror-prop useEffect and stale state on consecutive drops.
+        // `dropCount` makes the key change even when the same file is
+        // dropped twice in a row.
+        key={droppedFile ? `drop-${dropCount}` : "manual"}
+        open={uploadOpen}
+        onOpenChange={(v) => {
+          setUploadOpen(v);
+          if (!v) setDroppedFile(null);
+        }}
+        projectId={projectId}
+        sections={sections ?? []}
+        initialSectionId={activeSectionId}
+        initialFile={droppedFile}
+        onCreateSection={createSection}
+        onSuccess={(created) =>
+          Promise.all([
+            mutate(API.projectDocumentsAll(projectId)),
+            mutate(sectionsKey),
+            mutate(API.projectDocuments(projectId, created.section_id)),
+          ])
+        }
+      />
+      <DocumentDetailSheet
+        // Remount per doc id so the sheet's lazy-init useState picks up the
+        // fresh doc's fields (no mirror useEffect — see DocumentDetailSheet).
+        key={openDoc?.doc.id ?? "closed"}
+        projectId={projectId}
+        doc={openDoc?.doc ?? null}
+        startInEditMode={openDoc?.edit}
+        sections={sections ?? []}
+        canEdit={canEdit}
+        onOpenChange={(v) => {
+          if (!v) setOpenDoc(null);
+        }}
+        onUpdated={(updated) => {
+          // Section change → mutate both the old and new section's listings
+          // plus the All-view. Mutating every section is wasteful: SWR
+          // would refetch any key still bound to a hook, which today is
+          // just the active view.
+          const prev = openDoc?.doc;
+          const keys = new Set<string>([
+            API.projectDocumentsAll(projectId),
+            sectionsKey,
+            API.projectDocuments(projectId, updated.section_id),
+          ]);
+          if (prev && prev.section_id !== updated.section_id) {
+            keys.add(API.projectDocuments(projectId, prev.section_id));
           }
-        />
-      )}
+          void Promise.all([...keys].map((k) => mutate(k)));
+          setOpenDoc({ doc: updated, edit: openDoc?.edit ?? false });
+        }}
+        onCreateSection={createSection}
+        onDeleteRequest={(doc) => {
+          setOpenDoc(null);
+          setDocToDelete(doc);
+        }}
+      />
       <ConfirmDialog
         open={!!docToDelete}
         onOpenChange={(v) => !v && setDocToDelete(null)}

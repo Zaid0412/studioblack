@@ -74,10 +74,30 @@ export function createDocument(
     fileSize: number;
     mimeType: string;
     storagePath: string;
+    description?: string | null;
   }
 ) {
   return apiPost<DbProjectDocument>(
     API.projectDocuments(projectId, sectionId),
+    data
+  );
+}
+
+/**
+ * Rename / edit description / move to a different section. Empty-string
+ * description clears the field server-side.
+ */
+export function updateDocument(
+  projectId: string,
+  documentId: string,
+  data: {
+    fileName?: string;
+    description?: string | null;
+    sectionId?: string;
+  }
+) {
+  return apiPatch<DbProjectDocument>(
+    API.projectDocument(projectId, documentId),
     data
   );
 }
