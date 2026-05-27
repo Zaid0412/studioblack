@@ -1,13 +1,16 @@
 "use client";
 
+import { memo } from "react";
 import {
-  FileText,
+  Check,
   Download,
+  FileText,
   FolderInput,
   MoreHorizontal,
   Pencil,
   Trash2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
 import {
   DropdownMenu,
@@ -36,6 +39,12 @@ interface DocumentRowProps {
   showSectionBadge?: boolean;
   /** Filename + description matches get highlighted when this is non-empty. */
   searchQuery?: string;
+  /** This row is part of the current bulk-selection set. */
+  isSelected?: boolean;
+  /** Any row is selected — "selection mode" is active. Forces checkbox visible. */
+  hasSelection?: boolean;
+  /** Toggles `doc.id` membership in the parent's selected set. */
+  onToggleSelect?: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }
 
 /**
@@ -44,7 +53,7 @@ interface DocumentRowProps {
  * sheet. Description (when present) renders as a one-line muted preview
  * beneath the filename.
  */
-export function DocumentRow({
+function DocumentRowInner({
   doc,
   sections,
   onOpen,
@@ -55,23 +64,84 @@ export function DocumentRow({
   canEdit,
   showSectionBadge,
   searchQuery = "",
+  isSelected = false,
+  hasSelection = false,
+  onToggleSelect,
 }: DocumentRowProps) {
   const otherSections = sections.filter((s) => s.id !== doc.section_id);
+  const selectable = canEdit && !!onToggleSelect;
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      onClick={(e) =>
+        hasSelection && onToggleSelect ? onToggleSelect(e) : onOpen()
+      }
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpen();
+          if (hasSelection && onToggleSelect) onToggleSelect(e);
+          else onOpen();
         }
       }}
-      className="flex items-center gap-3.5 px-4 py-3.5 bg-bg-primary border border-border-default rounded-[10px] hover:bg-bg-elevated/50 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className={cn(
+        "group flex items-center gap-3.5 px-4 py-3.5 bg-bg-primary border rounded-[10px] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        isSelected
+          ? "border-accent/60 bg-accent/[0.06] hover:bg-accent/[0.1]"
+          : "border-border-default hover:bg-bg-elevated/50"
+      )}
     >
-      <div className="p-2 bg-error/10 rounded-lg shrink-0">
-        <FileText className="w-[18px] h-[18px] text-error" />
+      {/* Icon-as-checkbox swap — mirrors the design-files FileRow pattern.
+          Idle: file-icon visible. Hover (selectable & not in selection
+          mode): icon dims out, checkbox fades in. `hasSelection` anywhere:
+          checkbox stays permanent on every row. */}
+      <div
+        className="relative w-9 h-9 shrink-0"
+        onClick={
+          selectable
+            ? (e) => {
+                e.stopPropagation();
+                onToggleSelect?.(e);
+              }
+            : undefined
+        }
+      >
+        <div
+          className={cn(
+            "absolute inset-1 rounded-lg bg-error/10 flex items-center justify-center transition-opacity",
+            selectable && hasSelection
+              ? "opacity-0"
+              : selectable
+                ? "opacity-100 group-hover:opacity-0"
+                : "opacity-100"
+          )}
+        >
+          <FileText className="w-[18px] h-[18px] text-error" />
+        </div>
+        {selectable && (
+          <div
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-label={
+              isSelected
+                ? `Deselect ${doc.file_name}`
+                : `Select ${doc.file_name}`
+            }
+            tabIndex={-1}
+            className={cn(
+              "absolute inset-2 rounded-[4px] flex items-center justify-center transition-opacity",
+              isSelected
+                ? "bg-accent opacity-100"
+                : hasSelection
+                  ? "border-[1.5px] border-text-muted opacity-100"
+                  : "border-[1.5px] border-text-muted opacity-0 group-hover:opacity-100"
+            )}
+          >
+            {isSelected && (
+              <Check className="w-3 h-3 text-black" strokeWidth={3} />
+            )}
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-center gap-2 min-w-0">
@@ -162,3 +232,27 @@ export function DocumentRow({
     </div>
   );
 }
+
+/**
+ * Memoized with a custom comparator that **ignores callback identity** —
+ * the parent inevitably re-creates `onOpen` / `onMove` / etc. as new
+ * closures per render (each binds the current row's `doc`), so default
+ * shallow equality would always fail. Comparing only the data props means
+ * a single selection toggle re-renders just the affected row, not all N.
+ *
+ * Stale-closure risk: callbacks the row holds reference the previous
+ * render's `doc` until a data prop changes. Safe in practice because the
+ * data props (`doc`, `isSelected`, `searchQuery`, …) cover every scenario
+ * where the row would consume a callback against fresh state.
+ */
+export const DocumentRow = memo(DocumentRowInner, (prev, next) => {
+  return (
+    prev.doc === next.doc &&
+    prev.sections === next.sections &&
+    prev.canEdit === next.canEdit &&
+    prev.showSectionBadge === next.showSectionBadge &&
+    prev.searchQuery === next.searchQuery &&
+    prev.isSelected === next.isSelected &&
+    prev.hasSelection === next.hasSelection
+  );
+});

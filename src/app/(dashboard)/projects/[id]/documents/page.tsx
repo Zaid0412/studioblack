@@ -4,14 +4,15 @@ import { use, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
-  Search,
   ArrowUpDown,
-  Upload,
   FolderOpen,
+  Search,
+  Upload,
   UploadCloud,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -26,6 +27,8 @@ import { NewSectionDialog } from "./_components/NewSectionDialog";
 import { RenameSectionDialog } from "./_components/RenameSectionDialog";
 import { UploadDocumentDialog } from "./_components/UploadDocumentDialog";
 import { DocumentDetailSheet } from "./_components/DocumentDetailSheet";
+import { DocumentBulkActions } from "./_components/DocumentBulkActions";
+import { runSettledWithConcurrency } from "@/lib/concurrency";
 import { relativeTime } from "@/lib/formatTime";
 
 type SortMode = "recent" | "name" | "size";
@@ -72,6 +75,10 @@ export default function DocumentsPage({
     edit: boolean;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkActing, setBulkActing] = useState(false);
+  const hasSelection = selectedIds.size > 0;
   const [sectionToRename, setSectionToRename] =
     useState<DbProjectDocumentSection | null>(null);
   const [sectionToDelete, setSectionToDelete] =
@@ -110,6 +117,13 @@ export default function DocumentsPage({
       window.removeEventListener("dragover", onWindowDragOver);
     };
   }, []);
+
+  // Selection follows the visible-doc set. Switching sections / typing in
+  // search shouldn't leave a phantom "N selected" badge active for docs that
+  // are no longer on screen.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeSectionId]);
 
   const activeSection = useMemo(
     () =>
@@ -288,17 +302,11 @@ export default function DocumentsPage({
       const updated = await projectDocuments.updateDocument(projectId, doc.id, {
         sectionId: targetSectionId,
       });
-      await Promise.all([
-        mutate(API.projectDocumentsAll(projectId)),
-        mutate(sectionsKey),
-        mutate(API.projectDocuments(projectId, doc.section_id)),
-        mutate(API.projectDocuments(projectId, targetSectionId)),
-      ]);
+      await invalidateDocCaches([doc.section_id, targetSectionId]);
       const target = sections?.find((s) => s.id === targetSectionId);
       toast({
         title: target ? `Moved to "${target.name}".` : "Moved.",
       });
-      // If the sheet is open on this doc, refresh its in-place copy.
       if (openDoc?.doc.id === updated.id)
         setOpenDoc({ doc: updated, edit: openDoc.edit });
     } catch (err) {
@@ -312,11 +320,7 @@ export default function DocumentsPage({
   async function performDelete(doc: DbProjectDocument) {
     try {
       await projectDocuments.deleteDocument(projectId, doc.id);
-      await Promise.all([
-        mutate(API.projectDocumentsAll(projectId)),
-        mutate(API.projectDocuments(projectId, doc.section_id)),
-        mutate(sectionsKey),
-      ]);
+      await invalidateDocCaches([doc.section_id]);
       toast({ title: "Document deleted." });
     } catch (err) {
       toast({
@@ -324,6 +328,108 @@ export default function DocumentsPage({
         variant: "error",
       });
     }
+  }
+
+  // Hard cap on bulk-select size — prevents a "Select All" on a 500-doc
+  // section from firing 500 sequential PATCH/DELETE requests at concurrency
+  // 5. Adjust upward once a server-side bulk endpoint exists.
+  const BULK_SELECTION_LIMIT = 100;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (next.size >= BULK_SELECTION_LIMIT) {
+          toast({
+            title: `Selection limited to ${BULK_SELECTION_LIMIT} documents.`,
+            variant: "warning",
+          });
+          return prev;
+        }
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  /**
+   * Invalidate the documents-related SWR keys for the given sections plus
+   * the always-affected All-view and sections-with-counts keys. Used by
+   * single-doc moves, bulk operations, and upload success — they all need
+   * the same shape of cache fan-out.
+   */
+  function invalidateDocCaches(sectionIds: Iterable<string>) {
+    const keys = new Set<string>([
+      API.projectDocumentsAll(projectId),
+      sectionsKey,
+      ...Array.from(sectionIds).map((sid) =>
+        API.projectDocuments(projectId, sid)
+      ),
+    ]);
+    return Promise.all([...keys].map((k) => mutate(k)));
+  }
+
+  /**
+   * Shared scaffolding for bulk-move / bulk-delete: snapshots the selection,
+   * runs the per-doc action concurrently, invalidates caches, clears the
+   * selection, and toasts the outcome. Concurrency is bounded to keep the
+   * browser from opening N simultaneous requests.
+   */
+  async function runBulkAction(opts: {
+    action: (doc: DbProjectDocument) => Promise<unknown>;
+    extraSectionIds?: string[];
+    successCopy: (n: number) => string;
+    failCopy: (n: number) => string;
+  }) {
+    if (selectedIds.size === 0 || bulkActing) return { ok: 0, fail: 0 };
+    const docs = (sortedDocs ?? []).filter((d) => selectedIds.has(d.id));
+    setBulkActing(true);
+    const sourceSections = docs.map((d) => d.section_id);
+    const results = await runSettledWithConcurrency(docs.length, 5, (i) =>
+      opts.action(docs[i])
+    );
+    const okCount = results.filter((r) => r.ok).length;
+    const failCount = results.length - okCount;
+    await invalidateDocCaches([
+      ...sourceSections,
+      ...(opts.extraSectionIds ?? []),
+    ]);
+    setBulkActing(false);
+    clearSelection();
+    if (okCount > 0) toast({ title: opts.successCopy(okCount) });
+    if (failCount > 0)
+      toast({ title: opts.failCopy(failCount), variant: "error" });
+    return { ok: okCount, fail: failCount };
+  }
+
+  async function performBulkMove(targetSectionId: string) {
+    const target = sections?.find((s) => s.id === targetSectionId);
+    await runBulkAction({
+      action: (doc) =>
+        projectDocuments.updateDocument(projectId, doc.id, {
+          sectionId: targetSectionId,
+        }),
+      extraSectionIds: [targetSectionId],
+      successCopy: (n) =>
+        target ? `Moved ${n} to "${target.name}".` : `Moved ${n} documents.`,
+      failCopy: (n) => `${n} file${n === 1 ? "" : "s"} couldn't be moved.`,
+    });
+  }
+
+  async function performBulkDelete() {
+    await runBulkAction({
+      action: (doc) => projectDocuments.deleteDocument(projectId, doc.id),
+      successCopy: (n) =>
+        n === 1 ? "Document deleted." : `Deleted ${n} documents.`,
+      failCopy: (n) => `${n} file${n === 1 ? "" : "s"} couldn't be deleted.`,
+    });
+    setBulkDeleteOpen(false);
   }
 
   if (sectionsLoading) {
@@ -442,36 +548,95 @@ export default function DocumentsPage({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative w-[240px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search documents"
-                className="pl-9 h-9"
+          {hasSelection ? (
+            // Toolbar morph — replaces search + sort + Upload with selection
+            // controls + bulk actions until the user clears the selection.
+            <div className="flex items-center gap-3 shrink-0">
+              {(() => {
+                const visibleIds = (sortedDocs ?? []).map((d) => d.id);
+                const allSelected =
+                  visibleIds.length > 0 &&
+                  visibleIds.every((id) => selectedIds.has(id));
+                const someSelected = !allSelected && selectedIds.size > 0;
+                const handleToggleAll = () => {
+                  if (allSelected) {
+                    setSelectedIds(new Set());
+                    return;
+                  }
+                  if (visibleIds.length > BULK_SELECTION_LIMIT) {
+                    toast({
+                      title: `Selection limited to ${BULK_SELECTION_LIMIT} documents.`,
+                      variant: "warning",
+                    });
+                    setSelectedIds(
+                      new Set(visibleIds.slice(0, BULK_SELECTION_LIMIT))
+                    );
+                    return;
+                  }
+                  setSelectedIds(new Set(visibleIds));
+                };
+                return (
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    aria-label="Select all documents"
+                    onCheckedChange={handleToggleAll}
+                  />
+                );
+              })()}
+              <span className="text-[13px] font-semibold text-accent">
+                {selectedIds.size} selected
+              </span>
+              <button
+                onClick={clearSelection}
+                className="text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+              <DocumentBulkActions
+                sections={(sections ?? []).filter(
+                  (s) => s.id !== activeSectionId
+                )}
+                onMove={(sectionId) => void performBulkMove(sectionId)}
+                onDelete={() => setBulkDeleteOpen(true)}
               />
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                setSort((s) =>
-                  s === "recent" ? "name" : s === "name" ? "size" : "recent"
-                )
-              }
-              className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
-              title="Cycle sort"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
-              {sort === "recent" ? "Recent" : sort === "name" ? "Name" : "Size"}
-            </button>
-            {canEdit && (
-              <Button onClick={() => setUploadOpen(true)} size="sm">
-                <Upload className="w-3.5 h-3.5" />
-                Upload
-              </Button>
-            )}
-          </div>
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative w-[240px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search documents"
+                  className="pl-9 h-9"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSort((s) =>
+                    s === "recent" ? "name" : s === "name" ? "size" : "recent"
+                  )
+                }
+                className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
+                title="Cycle sort"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
+                {sort === "recent"
+                  ? "Recent"
+                  : sort === "name"
+                    ? "Name"
+                    : "Size"}
+              </button>
+              {canEdit && (
+                <Button onClick={() => setUploadOpen(true)} size="sm">
+                  <Upload className="w-3.5 h-3.5" />
+                  Upload
+                </Button>
+              )}
+            </div>
+          )}
         </header>
 
         <div className="flex-1 px-7 pb-8 flex flex-col gap-3">
@@ -539,6 +704,9 @@ export default function DocumentsPage({
                   canEdit={canEdit}
                   showSectionBadge={!activeSection}
                   searchQuery={search}
+                  isSelected={selectedIds.has(doc.id)}
+                  hasSelection={hasSelection}
+                  onToggleSelect={() => toggleSelect(doc.id)}
                 />
               ))}
             </div>
@@ -574,12 +742,8 @@ export default function DocumentsPage({
           if (created.length === 0) return;
           // Every doc in a single batch lands in the same section (v1 has no
           // per-file section override) — derive the destination from the
-          // first created row and invalidate just that key + the All view.
-          void Promise.all([
-            mutate(API.projectDocumentsAll(projectId)),
-            mutate(sectionsKey),
-            mutate(API.projectDocuments(projectId, created[0].section_id)),
-          ]);
+          // first created row.
+          void invalidateDocCaches([created[0].section_id]);
         }}
       />
       <DocumentDetailSheet
@@ -595,20 +759,14 @@ export default function DocumentsPage({
           if (!v) setOpenDoc(null);
         }}
         onUpdated={(updated) => {
-          // Section change → mutate both the old and new section's listings
-          // plus the All-view. Mutating every section is wasteful: SWR
-          // would refetch any key still bound to a hook, which today is
-          // just the active view.
+          // Section change → invalidate both the old and new section's
+          // listings; otherwise just the destination + always-affected keys.
           const prev = openDoc?.doc;
-          const keys = new Set<string>([
-            API.projectDocumentsAll(projectId),
-            sectionsKey,
-            API.projectDocuments(projectId, updated.section_id),
-          ]);
-          if (prev && prev.section_id !== updated.section_id) {
-            keys.add(API.projectDocuments(projectId, prev.section_id));
-          }
-          void Promise.all([...keys].map((k) => mutate(k)));
+          const touched =
+            prev && prev.section_id !== updated.section_id
+              ? [prev.section_id, updated.section_id]
+              : [updated.section_id];
+          void invalidateDocCaches(touched);
           setOpenDoc({ doc: updated, edit: openDoc?.edit ?? false });
         }}
         onCreateSection={createSection}
@@ -642,6 +800,21 @@ export default function DocumentsPage({
             setDocToDelete(null);
           }
         }}
+      />
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(v) => !v && setBulkDeleteOpen(false)}
+        title={`Delete ${selectedIds.size} document${selectedIds.size === 1 ? "" : "s"}`}
+        description={
+          <>
+            Delete <strong>{selectedIds.size}</strong> document
+            {selectedIds.size === 1 ? "" : "s"}? This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        destructive
+        submitting={bulkActing}
+        onConfirm={performBulkDelete}
       />
       {sectionToRename && (
         <RenameSectionDialog
