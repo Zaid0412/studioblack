@@ -1387,6 +1387,17 @@ describe("createDocumentSchema", () => {
     });
   });
 
+  it("accepts an optional description", async () => {
+    const { createDocumentSchema } = await import("@/lib/validations");
+    expectPass(createDocumentSchema, {
+      fileName: "report.pdf",
+      fileSize: 12345,
+      mimeType: "application/pdf",
+      storagePath: "projects/abc/documents/foo.pdf",
+      description: "Quarterly site walkthrough notes.",
+    });
+  });
+
   it("rejects files larger than the 50 MB cap", async () => {
     const { createDocumentSchema } = await import("@/lib/validations");
     const { MAX_UPLOAD_SIZE } = await import("@/lib/fileUtils");
@@ -1406,6 +1417,41 @@ describe("createDocumentSchema", () => {
       mimeType: "application/pdf",
       storagePath: "projects/abc/documents/x.pdf",
     });
+  });
+});
+
+describe("updateDocumentSchema", () => {
+  it("accepts a filename-only update", async () => {
+    const { updateDocumentSchema } = await import("@/lib/validations");
+    expectPass(updateDocumentSchema, { fileName: "new-name.pdf" });
+  });
+
+  it("accepts a description-only update (including null to clear)", async () => {
+    const { updateDocumentSchema } = await import("@/lib/validations");
+    expectPass(updateDocumentSchema, { description: "Updated notes." });
+    expectPass(updateDocumentSchema, { description: null });
+  });
+
+  it("accepts a sectionId-only update with a UUID", async () => {
+    const { updateDocumentSchema } = await import("@/lib/validations");
+    expectPass(updateDocumentSchema, {
+      sectionId: "11111111-1111-4111-8111-111111111111",
+    });
+  });
+
+  it("rejects an empty body — at least one field must be supplied", async () => {
+    const { updateDocumentSchema } = await import("@/lib/validations");
+    expectFail(updateDocumentSchema, {});
+  });
+
+  it("rejects a non-UUID sectionId", async () => {
+    const { updateDocumentSchema } = await import("@/lib/validations");
+    expectFail(updateDocumentSchema, { sectionId: "not-a-uuid" });
+  });
+
+  it("rejects an empty filename", async () => {
+    const { updateDocumentSchema } = await import("@/lib/validations");
+    expectFail(updateDocumentSchema, { fileName: "" });
   });
 });
 

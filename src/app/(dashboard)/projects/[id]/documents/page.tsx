@@ -2,15 +2,17 @@
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
-  Search,
   ArrowUpDown,
-  Upload,
   FolderOpen,
+  Search,
+  Upload,
   UploadCloud,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -24,6 +26,9 @@ import { DocumentRow } from "./_components/DocumentRow";
 import { NewSectionDialog } from "./_components/NewSectionDialog";
 import { RenameSectionDialog } from "./_components/RenameSectionDialog";
 import { UploadDocumentDialog } from "./_components/UploadDocumentDialog";
+import { DocumentDetailSheet } from "./_components/DocumentDetailSheet";
+import { DocumentBulkActions } from "./_components/DocumentBulkActions";
+import { runSettledWithConcurrency } from "@/lib/concurrency";
 import { relativeTime } from "@/lib/formatTime";
 
 type SortMode = "recent" | "name" | "size";
@@ -45,19 +50,35 @@ export default function DocumentsPage({
 
   // null = the "All documents" pseudo-section; string = a real section id.
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  // auto-animate ref for the doc list — smooth add / remove / reorder when
+  // the search filter changes or rows arrive after upload.
+  const [docListRef] = useAutoAnimate<HTMLDivElement>();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("recent");
   const [newSectionOpen, setNewSectionOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [droppedFile, setDroppedFile] = useState<File | null>(null);
-  // Bumped on every drop so the upload dialog remount key still changes
-  // when the user drops the same file twice in a row.
-  const [dropCount, setDropCount] = useState(0);
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  // Token paired with `droppedFiles` so the upload dialog remounts on each
+  // drop even if the same files are dropped twice in a row. `null` means
+  // "no drop, use the manual click flow" — the dialog uses a stable key
+  // for that branch.
+  const [dropToken, setDropToken] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [docToDelete, setDocToDelete] = useState<DbProjectDocument | null>(
     null
   );
+  // Single state for "which doc is open and how" — merging avoids a flicker
+  // where opening a doc via Edit briefly renders the sheet in view mode
+  // because `openDocEdit` lagged a render behind `openDoc`.
+  const [openDoc, setOpenDoc] = useState<{
+    doc: DbProjectDocument;
+    edit: boolean;
+  } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkActing, setBulkActing] = useState(false);
+  const hasSelection = selectedIds.size > 0;
   const [sectionToRename, setSectionToRename] =
     useState<DbProjectDocumentSection | null>(null);
   const [sectionToDelete, setSectionToDelete] =
@@ -97,6 +118,13 @@ export default function DocumentsPage({
     };
   }, []);
 
+  // Selection follows the visible-doc set. Switching sections / typing in
+  // search shouldn't leave a phantom "N selected" badge active for docs that
+  // are no longer on screen.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeSectionId]);
+
   const activeSection = useMemo(
     () =>
       activeSectionId
@@ -114,8 +142,13 @@ export default function DocumentsPage({
   const sortedDocs = useMemo(() => {
     if (!docs) return null;
     const q = search.trim().toLowerCase();
+    // Match against filename + description so users can find docs by either.
     const filtered = q
-      ? docs.filter((d) => d.file_name.toLowerCase().includes(q))
+      ? docs.filter(
+          (d) =>
+            d.file_name.toLowerCase().includes(q) ||
+            (d.description?.toLowerCase().includes(q) ?? false)
+        )
       : docs;
     const copy = [...filtered];
     switch (sort) {
@@ -147,13 +180,26 @@ export default function DocumentsPage({
     return latestMs > 0 ? relativeTime(new Date(latestMs).toISOString()) : null;
   }, [docs]);
 
+  /**
+   * Create a section, revalidate the SWR cache, toast on success.
+   * Returns the new row so callers can wire it into their own UI (e.g. the
+   * upload dialog's section picker auto-selects it). Errors bubble.
+   */
+  async function createSection(data: {
+    name: string;
+    icon: string;
+  }): Promise<DbProjectDocumentSection> {
+    const created = await projectDocuments.createSection(projectId, data);
+    await mutate(sectionsKey);
+    toast({ title: `Section "${data.name}" created.` });
+    return created;
+  }
+
   async function handleCreateSection(data: { name: string; icon: string }) {
     try {
-      const created = await projectDocuments.createSection(projectId, data);
-      await mutate(sectionsKey);
+      const created = await createSection(data);
       setActiveSectionId(created.id);
       setNewSectionOpen(false);
-      toast({ title: `Section "${data.name}" created.` });
     } catch (err) {
       toast({
         title:
@@ -179,38 +225,44 @@ export default function DocumentsPage({
     }
   }
 
-  async function handleMoveSection(
-    section: DbProjectDocumentSection,
-    direction: "up" | "down"
-  ) {
+  async function handleReorderSections(orderedIds: string[]) {
     if (!sections) return;
-    const sorted = [...sections].sort(
-      (a, b) =>
-        a.position - b.position || a.created_at.localeCompare(b.created_at)
-    );
-    const idx = sorted.findIndex((s) => s.id === section.id);
-    if (idx === -1) return;
-    const otherIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (otherIdx < 0 || otherIdx >= sorted.length) return;
-    const other = sorted[otherIdx];
+    const byId = new Map(sections.map((s) => [s.id, s]));
+    // Only PATCH sections whose new index differs from the stored position —
+    // a 5-section drop usually moves 2-3 of them, not all 5.
+    const changed = orderedIds
+      .map((id, newPosition) => ({ section: byId.get(id), newPosition }))
+      .filter(
+        (e): e is { section: DbProjectDocumentSection; newPosition: number } =>
+          !!e.section && e.section.position !== e.newPosition
+      );
+    if (changed.length === 0) return;
+
+    // Optimistic update — SWR cache flips to the new order before the network
+    // round-trip lands so the sidebar doesn't snap back during the request.
+    const optimistic = orderedIds.map((id, position) => {
+      const existing = byId.get(id);
+      if (!existing) throw new Error(`Section ${id} not in cache`);
+      return { ...existing, position };
+    });
+    void mutate(sectionsKey, optimistic, { revalidate: false });
+
     try {
-      // Swap positions in parallel. If one fails we may end up with both
-      // sections briefly sharing a position; the next list fetch sorts it
-      // out via the `created_at` tiebreaker.
-      await Promise.all([
-        projectDocuments.updateSection(projectId, section.id, {
-          position: other.position,
-        }),
-        projectDocuments.updateSection(projectId, other.id, {
-          position: section.position,
-        }),
-      ]);
+      await Promise.all(
+        changed.map((e) =>
+          projectDocuments.updateSection(projectId, e.section.id, {
+            position: e.newPosition,
+          })
+        )
+      );
       await mutate(sectionsKey);
     } catch (err) {
       toast({
         title: err instanceof ApiError ? err.message : "Could not reorder.",
         variant: "error",
       });
+      // Roll back the optimistic write by forcing a refetch.
+      await mutate(sectionsKey);
     }
   }
 
@@ -245,14 +297,30 @@ export default function DocumentsPage({
     }
   }
 
+  async function moveDocument(doc: DbProjectDocument, targetSectionId: string) {
+    try {
+      const updated = await projectDocuments.updateDocument(projectId, doc.id, {
+        sectionId: targetSectionId,
+      });
+      await invalidateDocCaches([doc.section_id, targetSectionId]);
+      const target = sections?.find((s) => s.id === targetSectionId);
+      toast({
+        title: target ? `Moved to "${target.name}".` : "Moved.",
+      });
+      if (openDoc?.doc.id === updated.id)
+        setOpenDoc({ doc: updated, edit: openDoc.edit });
+    } catch (err) {
+      toast({
+        title: err instanceof ApiError ? err.message : "Move failed.",
+        variant: "error",
+      });
+    }
+  }
+
   async function performDelete(doc: DbProjectDocument) {
     try {
       await projectDocuments.deleteDocument(projectId, doc.id);
-      await Promise.all([
-        mutate(API.projectDocumentsAll(projectId)),
-        mutate(API.projectDocuments(projectId, doc.section_id)),
-        mutate(sectionsKey),
-      ]);
+      await invalidateDocCaches([doc.section_id]);
       toast({ title: "Document deleted." });
     } catch (err) {
       toast({
@@ -260,6 +328,108 @@ export default function DocumentsPage({
         variant: "error",
       });
     }
+  }
+
+  // Hard cap on bulk-select size — prevents a "Select All" on a 500-doc
+  // section from firing 500 sequential PATCH/DELETE requests at concurrency
+  // 5. Adjust upward once a server-side bulk endpoint exists.
+  const BULK_SELECTION_LIMIT = 100;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        if (next.size >= BULK_SELECTION_LIMIT) {
+          toast({
+            title: `Selection limited to ${BULK_SELECTION_LIMIT} documents.`,
+            variant: "warning",
+          });
+          return prev;
+        }
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  /**
+   * Invalidate the documents-related SWR keys for the given sections plus
+   * the always-affected All-view and sections-with-counts keys. Used by
+   * single-doc moves, bulk operations, and upload success — they all need
+   * the same shape of cache fan-out.
+   */
+  function invalidateDocCaches(sectionIds: Iterable<string>) {
+    const keys = new Set<string>([
+      API.projectDocumentsAll(projectId),
+      sectionsKey,
+      ...Array.from(sectionIds).map((sid) =>
+        API.projectDocuments(projectId, sid)
+      ),
+    ]);
+    return Promise.all([...keys].map((k) => mutate(k)));
+  }
+
+  /**
+   * Shared scaffolding for bulk-move / bulk-delete: snapshots the selection,
+   * runs the per-doc action concurrently, invalidates caches, clears the
+   * selection, and toasts the outcome. Concurrency is bounded to keep the
+   * browser from opening N simultaneous requests.
+   */
+  async function runBulkAction(opts: {
+    action: (doc: DbProjectDocument) => Promise<unknown>;
+    extraSectionIds?: string[];
+    successCopy: (n: number) => string;
+    failCopy: (n: number) => string;
+  }) {
+    if (selectedIds.size === 0 || bulkActing) return { ok: 0, fail: 0 };
+    const docs = (sortedDocs ?? []).filter((d) => selectedIds.has(d.id));
+    setBulkActing(true);
+    const sourceSections = docs.map((d) => d.section_id);
+    const results = await runSettledWithConcurrency(docs.length, 5, (i) =>
+      opts.action(docs[i])
+    );
+    const okCount = results.filter((r) => r.ok).length;
+    const failCount = results.length - okCount;
+    await invalidateDocCaches([
+      ...sourceSections,
+      ...(opts.extraSectionIds ?? []),
+    ]);
+    setBulkActing(false);
+    clearSelection();
+    if (okCount > 0) toast({ title: opts.successCopy(okCount) });
+    if (failCount > 0)
+      toast({ title: opts.failCopy(failCount), variant: "error" });
+    return { ok: okCount, fail: failCount };
+  }
+
+  async function performBulkMove(targetSectionId: string) {
+    const target = sections?.find((s) => s.id === targetSectionId);
+    await runBulkAction({
+      action: (doc) =>
+        projectDocuments.updateDocument(projectId, doc.id, {
+          sectionId: targetSectionId,
+        }),
+      extraSectionIds: [targetSectionId],
+      successCopy: (n) =>
+        target ? `Moved ${n} to "${target.name}".` : `Moved ${n} documents.`,
+      failCopy: (n) => `${n} file${n === 1 ? "" : "s"} couldn't be moved.`,
+    });
+  }
+
+  async function performBulkDelete() {
+    await runBulkAction({
+      action: (doc) => projectDocuments.deleteDocument(projectId, doc.id),
+      successCopy: (n) =>
+        n === 1 ? "Document deleted." : `Deleted ${n} documents.`,
+      failCopy: (n) => `${n} file${n === 1 ? "" : "s"} couldn't be deleted.`,
+    });
+    setBulkDeleteOpen(false);
   }
 
   if (sectionsLoading) {
@@ -279,7 +449,7 @@ export default function DocumentsPage({
     );
   }
 
-  const canDrop = canEdit && !!activeSection;
+  const canDrop = canEdit;
   const clearDrag = () => {
     dragCounter.current = 0;
     setDragOver(false);
@@ -311,17 +481,11 @@ export default function DocumentsPage({
     e.preventDefault();
     e.stopPropagation();
     clearDrag();
-    if (!canDrop) {
-      toast({
-        title: "Pick a section first to upload.",
-        variant: "error",
-      });
-      return;
-    }
-    const dropped = e.dataTransfer.files?.[0];
-    if (!dropped) return;
-    setDroppedFile(dropped);
-    setDropCount((c) => c + 1);
+    if (!canDrop) return;
+    const dropped = Array.from(e.dataTransfer.files ?? []);
+    if (dropped.length === 0) return;
+    setDroppedFiles(dropped);
+    setDropToken(crypto.randomUUID());
     setUploadOpen(true);
   }
 
@@ -334,7 +498,7 @@ export default function DocumentsPage({
         onCreate={() => setNewSectionOpen(true)}
         onRename={setSectionToRename}
         onDelete={setSectionToDelete}
-        onMove={handleMoveSection}
+        onReorder={(orderedIds) => void handleReorderSections(orderedIds)}
         canEdit={canEdit}
       />
 
@@ -362,8 +526,10 @@ export default function DocumentsPage({
               }`}
             >
               {canDrop
-                ? `Drop to upload to ${activeSection?.name}`
-                : "Pick a section first to upload"}
+                ? activeSection
+                  ? `Drop to upload to ${activeSection.name}`
+                  : "Drop to upload"
+                : "You don't have permission to upload."}
             </p>
           </div>
         )}
@@ -382,36 +548,95 @@ export default function DocumentsPage({
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="relative w-[240px]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search documents"
-                className="pl-9 h-9"
+          {hasSelection ? (
+            // Toolbar morph — replaces search + sort + Upload with selection
+            // controls + bulk actions until the user clears the selection.
+            <div className="flex items-center gap-3 shrink-0">
+              {(() => {
+                const visibleIds = (sortedDocs ?? []).map((d) => d.id);
+                const allSelected =
+                  visibleIds.length > 0 &&
+                  visibleIds.every((id) => selectedIds.has(id));
+                const someSelected = !allSelected && selectedIds.size > 0;
+                const handleToggleAll = () => {
+                  if (allSelected) {
+                    setSelectedIds(new Set());
+                    return;
+                  }
+                  if (visibleIds.length > BULK_SELECTION_LIMIT) {
+                    toast({
+                      title: `Selection limited to ${BULK_SELECTION_LIMIT} documents.`,
+                      variant: "warning",
+                    });
+                    setSelectedIds(
+                      new Set(visibleIds.slice(0, BULK_SELECTION_LIMIT))
+                    );
+                    return;
+                  }
+                  setSelectedIds(new Set(visibleIds));
+                };
+                return (
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    aria-label="Select all documents"
+                    onCheckedChange={handleToggleAll}
+                  />
+                );
+              })()}
+              <span className="text-[13px] font-semibold text-accent">
+                {selectedIds.size} selected
+              </span>
+              <button
+                onClick={clearSelection}
+                className="text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+              <DocumentBulkActions
+                sections={(sections ?? []).filter(
+                  (s) => s.id !== activeSectionId
+                )}
+                onMove={(sectionId) => void performBulkMove(sectionId)}
+                onDelete={() => setBulkDeleteOpen(true)}
               />
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                setSort((s) =>
-                  s === "recent" ? "name" : s === "name" ? "size" : "recent"
-                )
-              }
-              className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
-              title="Cycle sort"
-            >
-              <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
-              {sort === "recent" ? "Recent" : sort === "name" ? "Name" : "Size"}
-            </button>
-            {canEdit && activeSection && (
-              <Button onClick={() => setUploadOpen(true)} size="sm">
-                <Upload className="w-3.5 h-3.5" />
-                Upload
-              </Button>
-            )}
-          </div>
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative w-[240px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search documents"
+                  className="pl-9 h-9"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSort((s) =>
+                    s === "recent" ? "name" : s === "name" ? "size" : "recent"
+                  )
+                }
+                className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
+                title="Cycle sort"
+              >
+                <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
+                {sort === "recent"
+                  ? "Recent"
+                  : sort === "name"
+                    ? "Name"
+                    : "Size"}
+              </button>
+              {canEdit && (
+                <Button onClick={() => setUploadOpen(true)} size="sm">
+                  <Upload className="w-3.5 h-3.5" />
+                  Upload
+                </Button>
+              )}
+            </div>
+          )}
         </header>
 
         <div className="flex-1 px-7 pb-8 flex flex-col gap-3">
@@ -420,35 +645,71 @@ export default function DocumentsPage({
               <Skeleton key={i} className="h-14 w-full rounded-[10px]" />
             ))
           ) : !sortedDocs || sortedDocs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-              <FolderOpen className="w-10 h-10 text-text-muted/50" />
-              <p className="text-sm font-medium text-text-secondary">
-                {search
-                  ? "No documents match your search."
-                  : "No documents yet."}
-              </p>
-              {!search && canEdit && activeSection && (
-                <Button
-                  onClick={() => setUploadOpen(true)}
-                  size="sm"
-                  variant="secondary"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload first document
-                </Button>
-              )}
-            </div>
+            // Big drop card for an empty real section (gives the drop target a
+            // visual identity that hovering files can land on); narrow fallback
+            // for the "All documents" view (no section to upload into directly)
+            // and for empty search results.
+            search || !activeSection || !canEdit ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+                <FolderOpen className="w-10 h-10 text-text-muted/50" />
+                <p className="text-sm font-medium text-text-secondary">
+                  {search
+                    ? "No documents match your search."
+                    : "No documents yet."}
+                </p>
+                {!search && !activeSection && canEdit && (
+                  <Button
+                    onClick={() => setUploadOpen(true)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload first document
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setUploadOpen(true)}
+                className="group flex flex-col items-center justify-center gap-3 py-20 border-2 border-dashed border-border-default rounded-xl bg-bg-primary hover:border-accent/60 hover:bg-bg-elevated/40 transition-colors cursor-pointer text-center"
+              >
+                <UploadCloud className="w-12 h-12 text-text-muted group-hover:text-accent transition-colors" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-base font-semibold text-text-primary">
+                    Drop files here or click to upload
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    Drag in from your desktop, or browse to add files to{" "}
+                    <span className="text-text-secondary">
+                      {activeSection.name}
+                    </span>
+                    .
+                  </p>
+                </div>
+              </button>
+            )
           ) : (
-            sortedDocs.map((doc) => (
-              <DocumentRow
-                key={doc.id}
-                doc={doc}
-                onDownload={() => handleDownload(doc)}
-                onDelete={() => setDocToDelete(doc)}
-                canEdit={canEdit}
-                showSectionBadge={!activeSection}
-              />
-            ))
+            <div ref={docListRef} className="flex flex-col gap-3">
+              {sortedDocs.map((doc) => (
+                <DocumentRow
+                  key={doc.id}
+                  doc={doc}
+                  sections={sections ?? []}
+                  onOpen={() => setOpenDoc({ doc, edit: false })}
+                  onEdit={() => setOpenDoc({ doc, edit: true })}
+                  onMove={(sectionId) => void moveDocument(doc, sectionId)}
+                  onDownload={() => handleDownload(doc)}
+                  onDelete={() => setDocToDelete(doc)}
+                  canEdit={canEdit}
+                  showSectionBadge={!activeSection}
+                  searchQuery={search}
+                  isSelected={selectedIds.has(doc.id)}
+                  hasSelection={hasSelection}
+                  onToggleSelect={() => toggleSelect(doc.id)}
+                />
+              ))}
+            </div>
           )}
         </div>
       </main>
@@ -458,31 +719,62 @@ export default function DocumentsPage({
         onOpenChange={setNewSectionOpen}
         onSubmit={handleCreateSection}
       />
-      {activeSection && (
-        <UploadDocumentDialog
-          // Remount on each drop so `initialFile` seeds via useState init —
-          // avoids a mirror-prop useEffect and stale state on consecutive drops.
-          // `dropCount` makes the key change even when the same file is
-          // dropped twice in a row.
-          key={droppedFile ? `drop-${dropCount}` : "manual"}
-          open={uploadOpen}
-          onOpenChange={(v) => {
-            setUploadOpen(v);
-            if (!v) setDroppedFile(null);
-          }}
-          projectId={projectId}
-          sectionId={activeSection.id}
-          sectionName={activeSection.name}
-          initialFile={droppedFile}
-          onSuccess={() =>
-            Promise.all([
-              mutate(API.projectDocuments(projectId, activeSection.id)),
-              mutate(API.projectDocumentsAll(projectId)),
-              mutate(sectionsKey),
-            ])
+      <UploadDocumentDialog
+        // Remount on each drop so `initialFiles` seed via useState init —
+        // avoids a mirror-prop useEffect and stale state on consecutive
+        // drops. A fresh `dropToken` per drop guarantees a key change even
+        // when the same files are dropped twice in a row.
+        key={dropToken ?? "manual"}
+        open={uploadOpen}
+        onOpenChange={(v) => {
+          setUploadOpen(v);
+          if (!v) {
+            setDroppedFiles([]);
+            setDropToken(null);
           }
-        />
-      )}
+        }}
+        projectId={projectId}
+        sections={sections ?? []}
+        initialSectionId={activeSectionId}
+        initialFiles={droppedFiles}
+        onCreateSection={createSection}
+        onSuccess={(created) => {
+          if (created.length === 0) return;
+          // Every doc in a single batch lands in the same section (v1 has no
+          // per-file section override) — derive the destination from the
+          // first created row.
+          void invalidateDocCaches([created[0].section_id]);
+        }}
+      />
+      <DocumentDetailSheet
+        // Remount per doc id so the sheet's lazy-init useState picks up the
+        // fresh doc's fields (no mirror useEffect — see DocumentDetailSheet).
+        key={openDoc?.doc.id ?? "closed"}
+        projectId={projectId}
+        doc={openDoc?.doc ?? null}
+        startInEditMode={openDoc?.edit}
+        sections={sections ?? []}
+        canEdit={canEdit}
+        onOpenChange={(v) => {
+          if (!v) setOpenDoc(null);
+        }}
+        onUpdated={(updated) => {
+          // Section change → invalidate both the old and new section's
+          // listings; otherwise just the destination + always-affected keys.
+          const prev = openDoc?.doc;
+          const touched =
+            prev && prev.section_id !== updated.section_id
+              ? [prev.section_id, updated.section_id]
+              : [updated.section_id];
+          void invalidateDocCaches(touched);
+          setOpenDoc({ doc: updated, edit: openDoc?.edit ?? false });
+        }}
+        onCreateSection={createSection}
+        onDeleteRequest={(doc) => {
+          setOpenDoc(null);
+          setDocToDelete(doc);
+        }}
+      />
       <ConfirmDialog
         open={!!docToDelete}
         onOpenChange={(v) => !v && setDocToDelete(null)}
@@ -508,6 +800,21 @@ export default function DocumentsPage({
             setDocToDelete(null);
           }
         }}
+      />
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(v) => !v && setBulkDeleteOpen(false)}
+        title={`Delete ${selectedIds.size} document${selectedIds.size === 1 ? "" : "s"}`}
+        description={
+          <>
+            Delete <strong>{selectedIds.size}</strong> document
+            {selectedIds.size === 1 ? "" : "s"}? This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        destructive
+        submitting={bulkActing}
+        onConfirm={performBulkDelete}
       />
       {sectionToRename && (
         <RenameSectionDialog

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
-import { Plus, Trash2, FileText, ExternalLink } from "lucide-react";
+import { Plus, Trash2, FileText } from "lucide-react";
 import { formatDate } from "@/lib/formatDate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { FilePreview } from "@/components/ui/FilePreview";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -89,51 +90,55 @@ export function KycDocumentList({
             return (
               <li
                 key={d.id}
-                className="rounded-lg border border-border-default bg-bg-input p-3 flex items-start justify-between gap-3"
+                className="rounded-lg border border-border-default bg-bg-input p-3 flex flex-col gap-2"
               >
-                <div className="flex flex-col gap-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="info">
-                      {t(`kycDocType_${d.doc_type}`)}
-                    </Badge>
-                    {expired && (
-                      <Badge variant="error">{t("kycExpired")}</Badge>
-                    )}
-                    {expiringSoon && !expired && (
-                      <Badge variant="warning">{t("kycExpiringSoon")}</Badge>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="info">
+                        {t(`kycDocType_${d.doc_type}`)}
+                      </Badge>
+                      {expired && (
+                        <Badge variant="error">{t("kycExpired")}</Badge>
+                      )}
+                      {expiringSoon && !expired && (
+                        <Badge variant="warning">{t("kycExpiringSoon")}</Badge>
+                      )}
+                    </div>
+                    <p
+                      className="inline-flex items-center gap-1.5 text-sm text-text-primary truncate"
+                      title={d.file_name}
+                    >
+                      <FileText className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{d.file_name}</span>
+                    </p>
+                    <p className="text-xs text-text-muted">
+                      {t("kycUploadedAt")}: {formatDate(d.uploaded_at)}
+                      {d.expires_at &&
+                        ` · ${t("kycExpiresAt")}: ${formatDate(d.expires_at)}`}
+                    </p>
+                    {d.notes && (
+                      <p className="text-xs text-text-secondary whitespace-pre-line">
+                        {d.notes}
+                      </p>
                     )}
                   </div>
-                  <a
-                    href={d.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm text-text-primary hover:text-accent truncate"
-                  >
-                    <FileText className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{d.file_name}</span>
-                    <ExternalLink className="w-3 h-3 shrink-0 opacity-60" />
-                  </a>
-                  <p className="text-xs text-text-muted">
-                    {t("kycUploadedAt")}: {formatDate(d.uploaded_at)}
-                    {d.expires_at &&
-                      ` · ${t("kycExpiresAt")}: ${formatDate(d.expires_at)}`}
-                  </p>
-                  {d.notes && (
-                    <p className="text-xs text-text-secondary whitespace-pre-line">
-                      {d.notes}
-                    </p>
+                  {!readOnly && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmDelete(d.id)}
+                      aria-label={t("kycRemove")}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   )}
                 </div>
-                {!readOnly && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmDelete(d.id)}
-                    aria-label={t("kycRemove")}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
+                <FilePreview
+                  url={d.file_url}
+                  fileName={d.file_name}
+                  size="sm"
+                />
               </li>
             );
           })}

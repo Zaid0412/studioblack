@@ -244,14 +244,15 @@ export async function createDocument(args: {
   mimeType: string;
   storagePath: string;
   uploadedBy: string;
+  description?: string | null;
 }): Promise<DbProjectDocument> {
   const pool = getPool();
   const {
     rows: [row],
   } = await pool.query<DbProjectDocument>(
     `INSERT INTO project_document
-       (project_id, section_id, file_name, file_size, mime_type, storage_path, uploaded_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (project_id, section_id, file_name, file_size, mime_type, storage_path, uploaded_by, description)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING *`,
     [
       args.projectId,
@@ -261,9 +262,57 @@ export async function createDocument(args: {
       args.mimeType,
       args.storagePath,
       args.uploadedBy,
+      args.description ?? null,
     ]
   );
   return row;
+}
+
+/**
+ * Update one or more of `file_name`, `description`, `section_id` on a
+ * document. Empty-string descriptions are clamped to NULL so the DB doesn't
+ * end up holding meaningless empty strings.
+ *
+ * Caller is expected to have verified that any `sectionId` belongs to the
+ * same project (e.g. via `getDocumentSectionById`). Returns null when the
+ * document doesn't exist or doesn't belong to the project.
+ */
+export async function updateDocument(args: {
+  documentId: string;
+  projectId: string;
+  fileName?: string;
+  description?: string | null;
+  sectionId?: string;
+}): Promise<DbProjectDocument | null> {
+  const pool = getPool();
+  const sets: string[] = [];
+  const params: (string | null)[] = [];
+  if (args.fileName !== undefined) {
+    params.push(args.fileName);
+    sets.push(`file_name = $${params.length}`);
+  }
+  if (args.description !== undefined) {
+    params.push(args.description === "" ? null : args.description);
+    sets.push(`description = $${params.length}`);
+  }
+  if (args.sectionId !== undefined) {
+    params.push(args.sectionId);
+    sets.push(`section_id = $${params.length}`);
+  }
+  if (sets.length === 0) {
+    return getDocumentById(args.documentId, args.projectId);
+  }
+  params.push(args.documentId, args.projectId);
+  const {
+    rows: [row],
+  } = await pool.query<DbProjectDocument>(
+    `UPDATE project_document
+     SET ${sets.join(", ")}
+     WHERE id = $${params.length - 1} AND project_id = $${params.length}
+     RETURNING *`,
+    params
+  );
+  return row ?? null;
 }
 
 /**

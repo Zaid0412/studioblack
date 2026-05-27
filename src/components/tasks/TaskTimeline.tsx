@@ -20,6 +20,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { FilePreview } from "@/components/ui/FilePreview";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   DropdownMenu,
@@ -493,20 +494,17 @@ export function CommentCard({
               {comment.body}
             </ReactMarkdown>
             {comment.attachments.length > 0 && (
-              <ul className="mt-3 space-y-1 not-prose">
+              <div className="mt-3 flex flex-col gap-2 not-prose">
                 {comment.attachments.map((att, i) => (
-                  <li key={`${att.url}-${i}`}>
-                    <a
-                      href={att.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-info hover:underline"
-                    >
-                      {att.name}
-                    </a>
-                  </li>
+                  <FilePreview
+                    key={`${att.url}-${i}`}
+                    url={att.url}
+                    fileName={att.name}
+                    mimeType={att.contentType}
+                    size="sm"
+                  />
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         )}

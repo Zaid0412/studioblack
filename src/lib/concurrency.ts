@@ -34,3 +34,67 @@ export async function runWithConcurrency<T>(
   await Promise.all(Array.from({ length: n }, runOne));
   if (firstError !== null) throw firstError;
 }
+
+export type SettledResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: unknown };
+
+/**
+ * Run N async tasks with bounded concurrency and collect *every* outcome —
+ * unlike `runWithConcurrency`, a single failure doesn't abort siblings.
+ * Each task is called with its index, and `onSettled` (if provided) fires
+ * as each individual task resolves so callers can update per-task UI
+ * mid-flight (progress counters, status icons).
+ *
+ * When the optional `signal` aborts, workers stop claiming new indices.
+ * Already-running tasks must wire the signal into their own fetch / await
+ * calls — `runSettledWithConcurrency` can't cancel work it doesn't own.
+ * Indices that hadn't started yet land as `{ ok: false, error: <abort> }`
+ * so result-array slots stay in input order.
+ *
+ * Results are returned in input order, one per index.
+ */
+export async function runSettledWithConcurrency<T>(
+  count: number,
+  limit: number,
+  task: (index: number) => Promise<T>,
+  onSettled?: (index: number, result: SettledResult<T>) => void,
+  signal?: AbortSignal
+): Promise<SettledResult<T>[]> {
+  if (count <= 0) return [];
+  if (!Number.isFinite(limit) || limit < 1) {
+    throw new Error("runSettledWithConcurrency: limit must be >= 1");
+  }
+  const results = new Array<SettledResult<T>>(count);
+  let cursor = 0;
+
+  const runOne = async () => {
+    while (true) {
+      if (signal?.aborted) return;
+      const i = cursor++;
+      if (i >= count) return;
+      let result: SettledResult<T>;
+      try {
+        result = { ok: true, value: await task(i) };
+      } catch (error) {
+        result = { ok: false, error };
+      }
+      results[i] = result;
+      onSettled?.(i, result);
+    }
+  };
+
+  const n = Math.min(limit, count);
+  await Promise.all(Array.from({ length: n }, runOne));
+
+  // Fill any never-claimed slots with abort errors so callers can rely on
+  // `results.length === count` and one entry per index.
+  if (signal?.aborted) {
+    const abortError = signal.reason ?? new Error("Aborted");
+    for (let i = 0; i < count; i++) {
+      if (!results[i]) results[i] = { ok: false, error: abortError };
+    }
+  }
+
+  return results;
+}

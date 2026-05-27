@@ -1406,7 +1406,23 @@ export const createDocumentSchema = z.object({
   fileSize: z.number().int().positive().max(MAX_UPLOAD_SIZE),
   mimeType: z.string().trim().min(1).max(150),
   storagePath: z.string().trim().min(1).max(500),
+  description: z.string().trim().max(2000).nullable().optional(),
 });
+
+/**
+ * PATCH /api/projects/:id/documents/:docId — rename, edit description, or move
+ * to a different section. All keys optional; at least one must be present.
+ * `description` accepts an empty string to clear the field.
+ */
+export const updateDocumentSchema = z
+  .object({
+    fileName: z.string().trim().min(1).max(255).optional(),
+    description: z.string().trim().max(2000).nullable().optional(),
+    sectionId: z.string().uuid().optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, {
+    message: "At least one field must be supplied",
+  });
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 

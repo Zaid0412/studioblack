@@ -8,3 +8,4 @@ src/lib/api/routes.ts
 public/*.mjs
 *.sql
 .prettierignore
+.gitignore

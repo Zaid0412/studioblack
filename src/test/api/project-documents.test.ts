@@ -9,6 +9,7 @@ import {
   listProjectDocuments,
   createDocument,
   getDocumentById,
+  updateDocument,
   deleteDocument,
 } from "@/lib/queries";
 import {
@@ -25,7 +26,10 @@ import {
 } from "@/app/api/projects/[id]/document-sections/[sectionId]/documents/route";
 import { GET as GET_ALL_DOCS } from "@/app/api/projects/[id]/documents/route";
 import { POST as POST_UPLOAD_URL } from "@/app/api/projects/[id]/document-sections/[sectionId]/documents/upload-url/route";
-import { DELETE as DELETE_DOC } from "@/app/api/projects/[id]/documents/[documentId]/route";
+import {
+  DELETE as DELETE_DOC,
+  PATCH as PATCH_DOC,
+} from "@/app/api/projects/[id]/documents/[documentId]/route";
 import { GET as GET_DOWNLOAD } from "@/app/api/projects/[id]/documents/[documentId]/download/route";
 import {
   buildRequest,
@@ -541,5 +545,150 @@ describe("DELETE .../documents/[documentId]", () => {
     );
     expect((await parseResponse(res)).status).toBe(403);
     expect(deleteDocument).not.toHaveBeenCalled();
+  });
+});
+
+// ── PATCH document ──────────────────────────────────────────────────────────
+
+const TARGET_SECTION_ID = "11111111-1111-4111-8111-111111111111";
+
+describe("PATCH .../documents/[documentId]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renames the document", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const renamed = { ...sampleDoc, file_name: "renamed.pdf" };
+    vi.mocked(updateDocument).mockResolvedValue(renamed as never);
+
+    const res = await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { fileName: "renamed.pdf" },
+      }),
+      buildParams(docParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(200);
+    expect(body).toEqual(renamed);
+    expect(updateDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: DOC_ID,
+        projectId: PROJECT_ID,
+        fileName: "renamed.pdf",
+      })
+    );
+  });
+
+  it("updates the description (and clears it via empty string)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(updateDocument).mockResolvedValue(sampleDoc as never);
+
+    await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { description: "Updated notes." },
+      }),
+      buildParams(docParams)
+    );
+    expect(updateDocument).toHaveBeenLastCalledWith(
+      expect.objectContaining({ description: "Updated notes." })
+    );
+
+    await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { description: null },
+      }),
+      buildParams(docParams)
+    );
+    expect(updateDocument).toHaveBeenLastCalledWith(
+      expect.objectContaining({ description: null })
+    );
+  });
+
+  it("moves the document to a different section after validating ownership", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue({
+      ...sampleSection,
+      id: TARGET_SECTION_ID,
+    } as never);
+    vi.mocked(updateDocument).mockResolvedValue({
+      ...sampleDoc,
+      section_id: TARGET_SECTION_ID,
+    } as never);
+
+    const res = await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { sectionId: TARGET_SECTION_ID },
+      }),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(200);
+    expect(getDocumentSectionById).toHaveBeenCalledWith(
+      TARGET_SECTION_ID,
+      PROJECT_ID
+    );
+    expect(updateDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: TARGET_SECTION_ID })
+    );
+  });
+
+  it("rejects a sectionId that doesn't belong to this project (400)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(null);
+
+    const res = await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { sectionId: TARGET_SECTION_ID },
+      }),
+      buildParams(docParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/target section/i),
+    });
+    expect(updateDocument).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the document doesn't exist", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(updateDocument).mockResolvedValue(null);
+
+    const res = await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { fileName: "anything.pdf" },
+      }),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(404);
+  });
+
+  it("rejects an empty body (no fields supplied)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const res = await PATCH_DOC(
+      buildRequest(docPath, { method: "PATCH", body: {} }),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+    expect(updateDocument).not.toHaveBeenCalled();
+  });
+
+  it("forbids clients from editing documents", async () => {
+    setupAuth(mocks.auth, mockSession({ role: "client" }));
+    const res = await PATCH_DOC(
+      buildRequest(docPath, {
+        method: "PATCH",
+        body: { fileName: "x.pdf" },
+      }),
+      buildParams(docParams)
+    );
+    expect((await parseResponse(res)).status).toBe(403);
+    expect(updateDocument).not.toHaveBeenCalled();
   });
 });

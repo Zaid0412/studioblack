@@ -73,6 +73,11 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://cdn.fontshare.com",
               `connect-src 'self' https://*.supabase.co ${POSTHOG_HOST} ${POSTHOG_ASSETS_HOST}`,
               "worker-src 'self' blob:",
+              // Allow `blob:` iframes so `FilePreview` can render PDFs via a
+              // client-side object URL (Supabase serves PDFs with
+              // `X-Frame-Options: DENY`, so we fetch + blob the bytes on
+              // the client and iframe the same-origin blob URL).
+              "frame-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
