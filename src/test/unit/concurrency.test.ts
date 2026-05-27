@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 
-import { runWithConcurrency } from "@/lib/concurrency";
+import {
+  runWithConcurrency,
+  runSettledWithConcurrency,
+} from "@/lib/concurrency";
 
 describe("runWithConcurrency", () => {
   it("resolves immediately for empty input", async () => {
@@ -95,5 +98,109 @@ describe("runWithConcurrency", () => {
     // Worker that was already in-flight when the error occurred must have
     // finished before the function rejected.
     expect(settled).toContain(1);
+  });
+});
+
+describe("runSettledWithConcurrency", () => {
+  it("returns empty results for count=0", async () => {
+    const task = vi.fn();
+    const results = await runSettledWithConcurrency(0, 3, task);
+    expect(results).toEqual([]);
+    expect(task).not.toHaveBeenCalled();
+  });
+
+  it("throws when limit is less than 1", async () => {
+    await expect(
+      runSettledWithConcurrency(3, 0, async () => 1)
+    ).rejects.toThrow(/limit must be >= 1/);
+  });
+
+  it("returns ok results in input order even when completion order differs", async () => {
+    const results = await runSettledWithConcurrency(4, 2, async (i) => {
+      await new Promise((r) => setTimeout(r, (4 - i) * 4));
+      return `v${i}`;
+    });
+    expect(results).toEqual([
+      { ok: true, value: "v0" },
+      { ok: true, value: "v1" },
+      { ok: true, value: "v2" },
+      { ok: true, value: "v3" },
+    ]);
+  });
+
+  it("collects partial failures without aborting siblings", async () => {
+    const results = await runSettledWithConcurrency(5, 3, async (i) => {
+      if (i === 1 || i === 3) throw new Error(`fail-${i}`);
+      return i * 10;
+    });
+    expect(results.map((r) => r.ok)).toEqual([true, false, true, false, true]);
+    expect(results[0]).toEqual({ ok: true, value: 0 });
+    expect((results[1] as { ok: false; error: Error }).error.message).toBe(
+      "fail-1"
+    );
+    expect(results[2]).toEqual({ ok: true, value: 20 });
+    expect(results[4]).toEqual({ ok: true, value: 40 });
+  });
+
+  it("fires onSettled exactly once per index with the matching result", async () => {
+    const settled: Array<[number, boolean]> = [];
+    await runSettledWithConcurrency(
+      4,
+      2,
+      async (i) => {
+        if (i === 2) throw new Error("nope");
+        return i;
+      },
+      (i, r) => {
+        settled.push([i, r.ok]);
+      }
+    );
+    settled.sort(([a], [b]) => a - b);
+    expect(settled).toEqual([
+      [0, true],
+      [1, true],
+      [2, false],
+      [3, true],
+    ]);
+  });
+
+  it("respects the concurrency limit", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    await runSettledWithConcurrency(6, 2, async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return null;
+    });
+    expect(peak).toBeLessThanOrEqual(2);
+  });
+
+  it("stops claiming new work after the signal aborts", async () => {
+    const controller = new AbortController();
+    const claimed: number[] = [];
+    // Abort mid-batch — the first two start, then abort fires, then the
+    // remaining four indices should be reported as aborted without ever
+    // calling `task`.
+    const promise = runSettledWithConcurrency(
+      6,
+      2,
+      async (i) => {
+        claimed.push(i);
+        await new Promise((r) => setTimeout(r, 5));
+        return i;
+      },
+      undefined,
+      controller.signal
+    );
+    await new Promise((r) => setTimeout(r, 1));
+    controller.abort();
+    const results = await promise;
+    expect(results).toHaveLength(6);
+    expect(claimed.length).toBeLessThan(6);
+    // Slots that never ran are filled with the abort error.
+    const unstarted = results.filter((r) => !r.ok).length;
+    expect(unstarted).toBeGreaterThan(0);
   });
 });

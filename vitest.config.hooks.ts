@@ -18,6 +18,7 @@ export default defineConfig({
       "src/test/unit/SearchableDropdown.test.tsx",
       "src/test/unit/BoqEditableCell.test.tsx",
       "src/test/unit/FilePreview.test.tsx",
+      "src/test/unit/UploadDocumentDialog.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

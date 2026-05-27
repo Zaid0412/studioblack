@@ -1,13 +1,21 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
-import { Upload, FileText, X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Check,
+  FileText,
+  Loader2,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +28,25 @@ import {
   joinFileName,
   splitFileName,
 } from "@/lib/fileUtils";
+import { runSettledWithConcurrency } from "@/lib/concurrency";
+import { cn } from "@/lib/utils";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
 import { SectionSelect } from "./SectionSelect";
 import { NewSectionDialog } from "./NewSectionDialog";
+
+const UPLOAD_CONCURRENCY = 5;
+
+type EntryStatus = "pending" | "uploading" | "done" | "error";
+
+interface FileEntry {
+  /** Stable id — survives reorders / removes. */
+  id: string;
+  file: File;
+  baseName: string;
+  description: string;
+  status: EntryStatus;
+  errorMessage?: string;
+}
 
 interface UploadDocumentDialogProps {
   open: boolean;
@@ -31,36 +55,27 @@ interface UploadDocumentDialogProps {
   sections: DbProjectDocumentSection[];
   /** Pre-fills the section picker (e.g. the currently active sidebar section). */
   initialSectionId?: string | null;
-  /** Optional file to pre-populate (used for drag-and-drop into the page). */
-  initialFile?: File | null;
-  /**
-   * Creates a new section and returns its row. The page handles SWR cache
-   * revalidation + success toast so the side-effects stay consistent with
-   * sidebar-driven creates.
-   */
+  /** Optional files to pre-populate (used for drag-and-drop into the page). */
+  initialFiles?: File[];
+  /** See note on `UploadDocumentDialog`. */
   onCreateSection: (data: {
     name: string;
     icon: string;
   }) => Promise<DbProjectDocumentSection>;
   /**
-   * Called after the document is persisted. Receives the created row so
-   * the parent can target only the affected section's SWR cache instead
-   * of revalidating every section.
+   * Called once with every successfully-created document row in the batch.
+   * Empty array means everything failed; never called with `null`.
    */
-  onSuccess: (created: DbProjectDocument) => void;
+  onSuccess: (created: DbProjectDocument[]) => void;
 }
 
 /**
- * Upload a single document via signed-URL PUT then register the row.
+ * Multi-file upload with a master-detail layout: a sidebar lists every file
+ * in the batch (with status badge), and the right pane shows the currently-
+ * selected file's editable fields (filename + description).
  *
- * Three editable fields on top of the file picker:
- *   - File name (extension preserved on save — only the base name is editable)
- *   - Description (optional)
- *   - Section (required to enable Upload — defaults to `initialSectionId`)
- *
- * Section creation is delegated upward: clicking "+ New section" in the picker
- * fires `onCreateSectionRequest` so the parent's existing NewSectionDialog
- * stays the single source of truth for that flow.
+ * Section is shared across the batch. Concurrency is bounded so the browser
+ * doesn't fire N simultaneous PUTs to Supabase.
  */
 export function UploadDocumentDialog({
   open,
@@ -68,18 +83,21 @@ export function UploadDocumentDialog({
   projectId,
   sections,
   initialSectionId,
-  initialFile,
+  initialFiles,
   onCreateSection,
   onSuccess,
 }: UploadDocumentDialogProps) {
-  // Lazy initial state: seeded from `initialFile` once at mount. Callers that
-  // need to feed a new dropped file should remount via React `key` rather
-  // than rely on a mirror effect (which would clobber the user's manual X).
-  const [file, setFile] = useState<File | null>(() => initialFile ?? null);
-  const [baseName, setBaseName] = useState<string>(
-    () => splitFileName(initialFile?.name ?? "").base
+  // Filter oversized files silently at mount — the caller (page-level drop
+  // handler) is responsible for surfacing rejection toasts. The dialog
+  // applies the same cap to user-added files inside `addFiles`, where it
+  // can toast directly.
+  const [entries, setEntries] = useState<FileEntry[]>(() =>
+    (initialFiles ?? []).filter((f) => f.size <= MAX_UPLOAD_SIZE).map(makeEntry)
   );
-  const [description, setDescription] = useState("");
+  // Selection isn't seeded explicitly — `selected` below derives from the
+  // current entries so the first file is shown by default and a removal
+  // automatically picks the next one without an effect.
+  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
   const [sectionId, setSectionId] = useState<string | null>(
     initialSectionId ?? null
   );
@@ -87,97 +105,183 @@ export function UploadDocumentDialog({
   const [dragOver, setDragOver] = useState(false);
   const [createSectionOpen, setCreateSectionOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // AbortController for the in-flight upload batch. Aborted on Cancel / close
+  // so in-flight signed-URL fetches, PUTs, and createDocument writes don't
+  // continue after the user navigated away.
+  const abortRef = useRef<AbortController | null>(null);
 
-  const extension = useMemo(
-    () => (file ? splitFileName(file.name).ext : ""),
-    [file]
-  );
+  // Derive selection from current entries so the dialog stays consistent
+  // when the selected file is removed. First-entry fallback keeps the
+  // detail pane populated as long as anything is in the batch. Inline
+  // because `entries` is small (<50 in practice) — the useMemo bookkeeping
+  // costs more than the lookup.
+  const selected =
+    entries.length === 0
+      ? undefined
+      : (entries.find((e) => e.id === selectedId) ?? entries[0]);
+  const successCount = entries.filter((e) => e.status === "done").length;
+  const errorCount = entries.filter((e) => e.status === "error").length;
 
   const reset = useCallback(() => {
-    setFile(null);
-    setBaseName("");
-    setDescription("");
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setEntries([]);
+    setSelectedId(undefined);
     setSectionId(initialSectionId ?? null);
     setUploading(false);
     setDragOver(false);
   }, [initialSectionId]);
 
-  function handleSelect(picked: File | null) {
+  function addFiles(picked: FileList | File[] | null) {
     if (!picked) return;
-    if (picked.size > MAX_UPLOAD_SIZE) {
+    const arr = Array.from(picked);
+    const rejected: string[] = [];
+    const accepted = arr.filter((f) => {
+      if (f.size > MAX_UPLOAD_SIZE) {
+        rejected.push(f.name);
+        return false;
+      }
+      return true;
+    });
+    if (rejected.length > 0) {
       toast({
-        title: `File is larger than ${formatFileSize(MAX_UPLOAD_SIZE)}.`,
+        title: `${rejected.length} file${rejected.length === 1 ? "" : "s"} exceeded ${formatFileSize(MAX_UPLOAD_SIZE)}.`,
         variant: "error",
       });
-      return;
     }
-    setFile(picked);
-    setBaseName(splitFileName(picked.name).base);
+    if (accepted.length === 0) return;
+    const additions = accepted.map(makeEntry);
+    // Surface the first-added file in the detail pane if the batch was
+    // empty before. Selecting an entry that already exists is a no-op via
+    // the `?? entries[0]` fallback, so always-set is also fine — but
+    // we'd lose the user's current selection when adding more files.
+    if (entries.length === 0) setSelectedId(additions[0].id);
+    setEntries((prev) => [...prev, ...additions]);
   }
+
+  function updateEntry(id: string, patch: Partial<FileEntry>) {
+    setEntries((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...patch } : e))
+    );
+  }
+
+  function removeEntry(id: string) {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setSelectedId((cur) => (cur === id ? undefined : cur));
+  }
+
+  const canUpload =
+    entries.length > 0 &&
+    !!sectionId &&
+    entries.every((e) => e.baseName.trim().length > 0);
 
   async function handleUpload() {
-    if (!file || uploading) return;
-    if (!sectionId) {
-      toast({ title: "Pick a section.", variant: "error" });
-      return;
-    }
-    const trimmed = baseName.trim();
-    if (!trimmed) {
-      toast({ title: "File name can't be empty.", variant: "error" });
-      return;
-    }
-    const finalName = joinFileName(trimmed, extension);
+    if (uploading || !canUpload || !sectionId) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setUploading(true);
-    try {
-      const { signedUrl, storagePath } = await projectDocuments.getUploadUrl(
-        projectId,
-        sectionId,
-        { fileName: finalName, fileSize: file.size }
-      );
+    // Snapshot the queue + mark every member as "uploading" in one render —
+    // status updates after this come from `onSettled` per finished task, so
+    // the user sees live progress (spinner → check / error) one at a time.
+    const queue = entries.filter((e) => e.status !== "done");
+    setEntries((prev) =>
+      prev.map((e) => (e.status === "done" ? e : { ...e, status: "uploading" }))
+    );
 
-      // PUT directly to Supabase. The content-type matters for downloads.
-      const put = await fetch(signedUrl, {
-        method: "PUT",
-        body: file,
-        headers: {
-          "content-type": file.type || "application/octet-stream",
-        },
+    const results = await runSettledWithConcurrency(
+      queue.length,
+      UPLOAD_CONCURRENCY,
+      async (i) => {
+        const entry = queue[i];
+        const ext = splitFileName(entry.file.name).ext;
+        const finalName = joinFileName(entry.baseName.trim(), ext);
+        const { signedUrl, storagePath } = await projectDocuments.getUploadUrl(
+          projectId,
+          sectionId,
+          { fileName: finalName, fileSize: entry.file.size },
+          { signal: controller.signal }
+        );
+        const put = await fetch(signedUrl, {
+          method: "PUT",
+          body: entry.file,
+          headers: {
+            "content-type": entry.file.type || "application/octet-stream",
+          },
+          signal: controller.signal,
+        });
+        if (!put.ok) throw new Error(`PUT failed (${put.status})`);
+        const trimmedDesc = entry.description.trim();
+        return projectDocuments.createDocument(
+          projectId,
+          sectionId,
+          {
+            fileName: finalName,
+            fileSize: entry.file.size,
+            mimeType: entry.file.type || "application/octet-stream",
+            storagePath,
+            description: trimmedDesc || null,
+          },
+          { signal: controller.signal }
+        );
+      },
+      (i, result) => {
+        if (controller.signal.aborted) return;
+        const id = queue[i].id;
+        setEntries((prev) =>
+          prev.map((e) => {
+            if (e.id !== id) return e;
+            return result.ok
+              ? { ...e, status: "done" }
+              : {
+                  ...e,
+                  status: "error",
+                  errorMessage: extractErrorMessage(result.error),
+                };
+          })
+        );
+      },
+      controller.signal
+    );
+
+    // If aborted, `reset()` already cleared state — skip the toast/onSuccess
+    // dance since the user explicitly walked away from the batch.
+    if (controller.signal.aborted) return;
+
+    abortRef.current = null;
+    setUploading(false);
+
+    const created = results.flatMap((r) => (r.ok ? [r.value] : []));
+    const okCount = created.length;
+    const failCount = results.length - okCount;
+    if (okCount > 0) {
+      onSuccess(created);
+      toast({
+        title:
+          okCount === 1
+            ? "Document uploaded."
+            : `Uploaded ${okCount} documents.`,
       });
-      if (!put.ok) {
-        throw new Error(`Upload failed (${put.status})`);
-      }
-
-      const trimmedDesc = description.trim();
-      const created = await projectDocuments.createDocument(
-        projectId,
-        sectionId,
-        {
-          fileName: finalName,
-          fileSize: file.size,
-          mimeType: file.type || "application/octet-stream",
-          storagePath,
-          description: trimmedDesc || null,
-        }
-      );
-
-      toast({ title: "Document uploaded." });
+    }
+    if (failCount === 0) {
       reset();
       onOpenChange(false);
-      onSuccess(created);
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Upload failed.";
-      toast({ title: message, variant: "error" });
-    } finally {
-      setUploading(false);
+    } else if (okCount > 0) {
+      toast({
+        title: `${failCount} file${failCount === 1 ? "" : "s"} failed. See the list for details.`,
+        variant: "error",
+      });
     }
   }
 
-  const canUpload = !!file && !!sectionId && baseName.trim().length > 0;
+  const dialogTitle =
+    entries.length > 1
+      ? `Upload ${entries.length} documents`
+      : "Upload document";
+  const uploadLabel = uploading
+    ? "Uploading…"
+    : entries.length > 1
+      ? `Upload ${entries.length} files`
+      : "Upload";
 
   return (
     <Dialog
@@ -187,114 +291,25 @@ export function UploadDocumentDialog({
         onOpenChange(v);
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Upload document</DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
           <DialogDescription>
-            Max {formatFileSize(MAX_UPLOAD_SIZE)}. PDFs, images, Office files.
+            Max {formatFileSize(MAX_UPLOAD_SIZE)} per file. PDFs, images, Office
+            files.
           </DialogDescription>
         </DialogHeader>
 
-        {!file ? (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              handleSelect(e.dataTransfer.files?.[0] ?? null);
-            }}
-            className={`flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
-              dragOver
-                ? "border-accent bg-accent/5"
-                : "border-border-light bg-bg-secondary hover:bg-bg-elevated"
-            }`}
-          >
-            <Upload className="w-6 h-6 text-text-muted" />
-            <p className="text-sm font-medium text-text-primary">
-              Drop a file here or click to browse
-            </p>
-            <input
-              ref={inputRef}
-              type="file"
-              className="hidden"
-              onChange={(e) => handleSelect(e.target.files?.[0] ?? null)}
-            />
-          </button>
+        {entries.length === 0 ? (
+          <DropZone
+            dragOver={dragOver}
+            setDragOver={setDragOver}
+            onPick={() => inputRef.current?.click()}
+            onFiles={addFiles}
+            inputRef={inputRef}
+          />
         ) : (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 p-3 border border-border-light rounded-lg min-w-0">
-              <div className="p-2 bg-error/10 rounded-md shrink-0">
-                <FileText className="w-5 h-5 text-error" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p
-                  className="text-sm font-medium text-text-primary truncate"
-                  title={file.name}
-                >
-                  {file.name}
-                </p>
-                <p className="text-xs text-text-muted">
-                  {formatFileSize(file.size)}
-                </p>
-              </div>
-              {!uploading && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFile(null);
-                    setBaseName("");
-                  }}
-                  className="shrink-0 p-1.5 text-text-muted hover:text-text-primary cursor-pointer"
-                  aria-label="Remove"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-text-secondary">
-                File name<span className="text-error ml-0.5">*</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <Input
-                    value={baseName}
-                    onChange={(e) => setBaseName(e.target.value)}
-                    placeholder="Rename before uploading"
-                    maxLength={245}
-                    disabled={uploading}
-                  />
-                </div>
-                {extension && (
-                  <span className="text-xs text-text-muted shrink-0 select-none">
-                    {extension}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-text-secondary">
-                Description <span className="text-text-muted">(optional)</span>
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Add a note about this document"
-                rows={3}
-                maxLength={2000}
-                disabled={uploading}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
-              />
-            </div>
-
+          <div className="flex flex-col gap-4">
             <SectionSelect
               label="Section"
               required
@@ -304,20 +319,56 @@ export function UploadDocumentDialog({
               onCreateNew={() => setCreateSectionOpen(true)}
               disabled={uploading}
             />
+
+            <div className="flex gap-3 h-[360px]">
+              <FileTabList
+                entries={entries}
+                selectedId={selected?.id}
+                onSelect={setSelectedId}
+                onRemove={removeEntry}
+                onAddMore={() => inputRef.current?.click()}
+                disabled={uploading}
+              />
+              {selected && (
+                <FileDetailPane
+                  key={selected.id}
+                  entry={selected}
+                  onChange={(patch) => updateEntry(selected.id, patch)}
+                  disabled={uploading}
+                />
+              )}
+            </div>
+
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => addFiles(e.target.files)}
+            />
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button
-            variant="secondary"
-            onClick={() => onOpenChange(false)}
-            disabled={uploading}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleUpload} disabled={!canUpload || uploading}>
-            {uploading ? "Uploading…" : "Upload"}
-          </Button>
+        <div className="flex items-center justify-between pt-2">
+          <div className="text-xs text-text-muted">
+            {uploading
+              ? `${successCount + errorCount} of ${entries.length} done…`
+              : errorCount > 0
+                ? `${errorCount} failed`
+                : null}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              disabled={uploading}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleUpload} disabled={!canUpload || uploading}>
+              {uploadLabel}
+            </Button>
+          </div>
         </div>
       </DialogContent>
       <NewSectionDialog
@@ -330,5 +381,278 @@ export function UploadDocumentDialog({
         }}
       />
     </Dialog>
+  );
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof Error) return error.message;
+  return "Upload failed";
+}
+
+function makeEntry(file: File): FileEntry {
+  return {
+    id: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+    file,
+    baseName: splitFileName(file.name).base,
+    description: "",
+    status: "pending",
+  };
+}
+
+// ─── Drop zone ──────────────────────────────────────────────────────────────
+
+function DropZone({
+  dragOver,
+  setDragOver,
+  onPick,
+  onFiles,
+  inputRef,
+}: {
+  dragOver: boolean;
+  setDragOver: (v: boolean) => void;
+  onPick: () => void;
+  onFiles: (files: FileList | File[] | null) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        onFiles(e.dataTransfer.files);
+      }}
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 px-6 py-10 border-2 border-dashed rounded-lg transition-colors cursor-pointer",
+        dragOver
+          ? "border-accent bg-accent/5"
+          : "border-border-light bg-bg-secondary hover:bg-bg-elevated"
+      )}
+    >
+      <Upload className="w-6 h-6 text-text-muted" />
+      <p className="text-sm font-medium text-text-primary">
+        Drop files here or click to browse
+      </p>
+      <p className="text-xs text-text-muted">
+        Multiple files supported — each goes into the batch you can review
+        before uploading.
+      </p>
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => onFiles(e.target.files)}
+      />
+    </button>
+  );
+}
+
+// ─── File tab list (left pane) ──────────────────────────────────────────────
+
+function FileTabList({
+  entries,
+  selectedId,
+  onSelect,
+  onRemove,
+  onAddMore,
+  disabled,
+}: {
+  entries: FileEntry[];
+  selectedId: string | undefined;
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+  onAddMore: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="w-[220px] shrink-0 flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated p-2 overflow-y-auto">
+      {entries.map((e) => (
+        <FileTab
+          key={e.id}
+          entry={e}
+          selected={e.id === selectedId}
+          onSelect={() => onSelect(e.id)}
+          onRemove={() => onRemove(e.id)}
+          disabled={disabled}
+        />
+      ))}
+      <button
+        type="button"
+        onClick={onAddMore}
+        disabled={disabled}
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-md text-text-muted hover:text-text-primary hover:bg-bg-input transition-colors cursor-pointer",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <Plus className="w-3.5 h-3.5" />
+        Add more files
+      </button>
+    </div>
+  );
+}
+
+function FileTab({
+  entry,
+  selected,
+  onSelect,
+  onRemove,
+  disabled,
+}: {
+  entry: FileEntry;
+  selected: boolean;
+  onSelect: () => void;
+  onRemove: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
+      className={cn(
+        "group flex items-center gap-2 rounded-md px-2.5 py-2 cursor-pointer transition-colors",
+        selected
+          ? "bg-accent/10 border border-accent/40"
+          : "border border-transparent hover:bg-bg-input"
+      )}
+    >
+      <StatusIcon status={entry.status} selected={selected} />
+      <div className="flex-1 min-w-0">
+        <p
+          className={cn(
+            "text-xs truncate",
+            selected ? "text-text-primary font-semibold" : "text-text-secondary"
+          )}
+          title={entry.file.name}
+        >
+          {entry.baseName.trim() || entry.file.name}
+        </p>
+        <p className="text-[10px] text-text-muted">
+          {formatFileSize(entry.file.size)}
+        </p>
+      </div>
+      {!disabled && entry.status !== "done" && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="p-1 text-error hover:opacity-80 cursor-pointer transition-opacity"
+          aria-label="Remove from batch"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function StatusIcon({
+  status,
+  selected,
+}: {
+  status: EntryStatus;
+  selected: boolean;
+}) {
+  if (status === "uploading")
+    return (
+      <Loader2 className="w-3.5 h-3.5 text-accent animate-spin shrink-0" />
+    );
+  if (status === "done")
+    return <Check className="w-3.5 h-3.5 text-success shrink-0" />;
+  if (status === "error")
+    return <AlertTriangle className="w-3.5 h-3.5 text-error shrink-0" />;
+  return (
+    <FileText
+      className={cn(
+        "w-3.5 h-3.5 shrink-0",
+        selected ? "text-accent" : "text-text-muted"
+      )}
+    />
+  );
+}
+
+// ─── Detail pane (right) ────────────────────────────────────────────────────
+
+function FileDetailPane({
+  entry,
+  onChange,
+  disabled,
+}: {
+  entry: FileEntry;
+  onChange: (patch: Partial<FileEntry>) => void;
+  disabled: boolean;
+}) {
+  const extension = useMemo(
+    () => splitFileName(entry.file.name).ext,
+    [entry.file.name]
+  );
+  return (
+    <div className="flex-1 min-w-0 flex flex-col gap-3 rounded-lg border border-border-default p-4 overflow-y-auto">
+      {entry.status === "error" && (
+        <div className="rounded-md border border-error/40 bg-error/10 px-3 py-2 text-xs text-error">
+          {entry.errorMessage ?? "Upload failed."}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-text-secondary">
+          File name<span className="text-error ml-0.5">*</span>
+        </label>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <Input
+              value={entry.baseName}
+              onChange={(e) => onChange({ baseName: e.target.value })}
+              maxLength={245}
+              disabled={disabled || entry.status === "done"}
+            />
+          </div>
+          {extension && (
+            <span className="text-xs text-text-muted shrink-0 select-none">
+              {extension}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-text-secondary">
+          Description <span className="text-text-muted">(optional)</span>
+        </label>
+        <textarea
+          value={entry.description}
+          onChange={(e) => onChange({ description: e.target.value })}
+          placeholder="Add a note about this document"
+          rows={6}
+          maxLength={2000}
+          disabled={disabled || entry.status === "done"}
+          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted resize-none focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+        />
+      </div>
+
+      <div className="text-xs text-text-muted pt-1 mt-auto border-t border-border-default">
+        <p className="pt-2 truncate" title={entry.file.name}>
+          Original: {entry.file.name}
+        </p>
+        <p>{formatFileSize(entry.file.size)}</p>
+      </div>
+    </div>
   );
 }

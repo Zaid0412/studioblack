@@ -57,11 +57,13 @@ export function listAllDocuments(projectId: string) {
 export function getUploadUrl(
   projectId: string,
   sectionId: string,
-  data: { fileName: string; fileSize: number }
+  data: { fileName: string; fileSize: number },
+  opts?: { signal?: AbortSignal }
 ) {
   return apiPost<{ signedUrl: string; storagePath: string }>(
     API.projectDocumentUploadUrl(projectId, sectionId),
-    data
+    data,
+    opts
   );
 }
 
@@ -75,11 +77,13 @@ export function createDocument(
     mimeType: string;
     storagePath: string;
     description?: string | null;
-  }
+  },
+  opts?: { signal?: AbortSignal }
 ) {
   return apiPost<DbProjectDocument>(
     API.projectDocuments(projectId, sectionId),
-    data
+    data,
+    opts
   );
 }
 

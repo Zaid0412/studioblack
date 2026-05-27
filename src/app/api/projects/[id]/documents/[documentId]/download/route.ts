@@ -5,13 +5,20 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { logger } from "@/lib/logger";
 
-const SIGNED_URL_TTL_SECONDS = 60 * 60;
+const SIGNED_URL_TTL_SECONDS = 60 * 60 * 4;
 
 /**
  * GET /api/projects/[id]/documents/[documentId]/download
  *
- * Returns a signed URL (1 hour TTL) the client can use to GET the file
+ * Returns a signed URL (4 hour TTL) the client can use to GET the file
  * directly from Supabase. Clients (viewers) are allowed.
+ *
+ * The TTL covers the realistic worst case (a workday with the detail sheet
+ * left open). Auto-refreshing the URL mid-session would swap the iframe
+ * `src` and reload an in-progress PDF reader — we'd rather have the user
+ * close + reopen on the extremely rare >4h case than reload on every
+ * cadence. Action toolbar buttons mint a fresh URL on click via
+ * `refreshUrl`, so they don't depend on this TTL.
  *
  * Intentionally NOT minted with `{ download: fileName }` — that would set
  * `Content-Disposition: attachment` and force every consumer (inline

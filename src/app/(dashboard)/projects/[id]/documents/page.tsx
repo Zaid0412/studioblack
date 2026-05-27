@@ -50,10 +50,12 @@ export default function DocumentsPage({
   const [sort, setSort] = useState<SortMode>("recent");
   const [newSectionOpen, setNewSectionOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [droppedFile, setDroppedFile] = useState<File | null>(null);
-  // Bumped on every drop so the upload dialog remount key still changes
-  // when the user drops the same file twice in a row.
-  const [dropCount, setDropCount] = useState(0);
+  const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
+  // Token paired with `droppedFiles` so the upload dialog remounts on each
+  // drop even if the same files are dropped twice in a row. `null` means
+  // "no drop, use the manual click flow" — the dialog uses a stable key
+  // for that branch.
+  const [dropToken, setDropToken] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [docToDelete, setDocToDelete] = useState<DbProjectDocument | null>(
     null
@@ -359,10 +361,10 @@ export default function DocumentsPage({
     e.stopPropagation();
     clearDrag();
     if (!canDrop) return;
-    const dropped = e.dataTransfer.files?.[0];
-    if (!dropped) return;
-    setDroppedFile(dropped);
-    setDropCount((c) => c + 1);
+    const dropped = Array.from(e.dataTransfer.files ?? []);
+    if (dropped.length === 0) return;
+    setDroppedFiles(dropped);
+    setDropToken(crypto.randomUUID());
     setUploadOpen(true);
   }
 
@@ -506,28 +508,35 @@ export default function DocumentsPage({
         onSubmit={handleCreateSection}
       />
       <UploadDocumentDialog
-        // Remount on each drop so `initialFile` seeds via useState init —
-        // avoids a mirror-prop useEffect and stale state on consecutive drops.
-        // `dropCount` makes the key change even when the same file is
-        // dropped twice in a row.
-        key={droppedFile ? `drop-${dropCount}` : "manual"}
+        // Remount on each drop so `initialFiles` seed via useState init —
+        // avoids a mirror-prop useEffect and stale state on consecutive
+        // drops. A fresh `dropToken` per drop guarantees a key change even
+        // when the same files are dropped twice in a row.
+        key={dropToken ?? "manual"}
         open={uploadOpen}
         onOpenChange={(v) => {
           setUploadOpen(v);
-          if (!v) setDroppedFile(null);
+          if (!v) {
+            setDroppedFiles([]);
+            setDropToken(null);
+          }
         }}
         projectId={projectId}
         sections={sections ?? []}
         initialSectionId={activeSectionId}
-        initialFile={droppedFile}
+        initialFiles={droppedFiles}
         onCreateSection={createSection}
-        onSuccess={(created) =>
-          Promise.all([
+        onSuccess={(created) => {
+          if (created.length === 0) return;
+          // Every doc in a single batch lands in the same section (v1 has no
+          // per-file section override) — derive the destination from the
+          // first created row and invalidate just that key + the All view.
+          void Promise.all([
             mutate(API.projectDocumentsAll(projectId)),
             mutate(sectionsKey),
-            mutate(API.projectDocuments(projectId, created.section_id)),
-          ])
-        }
+            mutate(API.projectDocuments(projectId, created[0].section_id)),
+          ]);
+        }}
       />
       <DocumentDetailSheet
         // Remount per doc id so the sheet's lazy-init useState picks up the
