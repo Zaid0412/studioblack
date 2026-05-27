@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { formatFileSize, getFileExtension } from "@/lib/fileUtils";
 import { relativeTime } from "@/lib/formatTime";
+import { HighlightedText } from "./HighlightedText";
 import { SectionIcon } from "./SectionIcon";
 
 interface DocumentRowProps {
@@ -33,6 +34,8 @@ interface DocumentRowProps {
   canEdit: boolean;
   /** When true, render the doc's section name as a small badge. Used in All view. */
   showSectionBadge?: boolean;
+  /** Filename + description matches get highlighted when this is non-empty. */
+  searchQuery?: string;
 }
 
 /**
@@ -51,6 +54,7 @@ export function DocumentRow({
   onDelete,
   canEdit,
   showSectionBadge,
+  searchQuery = "",
 }: DocumentRowProps) {
   const otherSections = sections.filter((s) => s.id !== doc.section_id);
   return (
@@ -72,7 +76,7 @@ export function DocumentRow({
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-center gap-2 min-w-0">
           <p className="text-sm font-semibold text-text-primary truncate">
-            {doc.file_name}
+            <HighlightedText text={doc.file_name} query={searchQuery} />
           </p>
           {showSectionBadge && doc.section_name && (
             <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full bg-bg-elevated text-[10px] font-medium text-text-secondary">
@@ -82,7 +86,7 @@ export function DocumentRow({
         </div>
         {doc.description && (
           <p className="text-xs text-text-secondary line-clamp-1">
-            {doc.description}
+            <HighlightedText text={doc.description} query={searchQuery} />
           </p>
         )}
         <div className="flex items-center gap-2 text-xs text-text-muted truncate">

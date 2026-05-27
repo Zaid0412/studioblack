@@ -2,6 +2,7 @@
 
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import {
   Search,
   ArrowUpDown,
@@ -46,6 +47,9 @@ export default function DocumentsPage({
 
   // null = the "All documents" pseudo-section; string = a real section id.
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  // auto-animate ref for the doc list — smooth add / remove / reorder when
+  // the search filter changes or rows arrive after upload.
+  const [docListRef] = useAutoAnimate<HTMLDivElement>();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("recent");
   const [newSectionOpen, setNewSectionOpen] = useState(false);
@@ -124,8 +128,13 @@ export default function DocumentsPage({
   const sortedDocs = useMemo(() => {
     if (!docs) return null;
     const q = search.trim().toLowerCase();
+    // Match against filename + description so users can find docs by either.
     const filtered = q
-      ? docs.filter((d) => d.file_name.toLowerCase().includes(q))
+      ? docs.filter(
+          (d) =>
+            d.file_name.toLowerCase().includes(q) ||
+            (d.description?.toLowerCase().includes(q) ?? false)
+        )
       : docs;
     const copy = [...filtered];
     switch (sort) {
@@ -471,39 +480,68 @@ export default function DocumentsPage({
               <Skeleton key={i} className="h-14 w-full rounded-[10px]" />
             ))
           ) : !sortedDocs || sortedDocs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-              <FolderOpen className="w-10 h-10 text-text-muted/50" />
-              <p className="text-sm font-medium text-text-secondary">
-                {search
-                  ? "No documents match your search."
-                  : "No documents yet."}
-              </p>
-              {!search && canEdit && (
-                <Button
-                  onClick={() => setUploadOpen(true)}
-                  size="sm"
-                  variant="secondary"
-                >
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload first document
-                </Button>
-              )}
-            </div>
+            // Big drop card for an empty real section (gives the drop target a
+            // visual identity that hovering files can land on); narrow fallback
+            // for the "All documents" view (no section to upload into directly)
+            // and for empty search results.
+            search || !activeSection || !canEdit ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+                <FolderOpen className="w-10 h-10 text-text-muted/50" />
+                <p className="text-sm font-medium text-text-secondary">
+                  {search
+                    ? "No documents match your search."
+                    : "No documents yet."}
+                </p>
+                {!search && !activeSection && canEdit && (
+                  <Button
+                    onClick={() => setUploadOpen(true)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload first document
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setUploadOpen(true)}
+                className="group flex flex-col items-center justify-center gap-3 py-20 border-2 border-dashed border-border-default rounded-xl bg-bg-primary hover:border-accent/60 hover:bg-bg-elevated/40 transition-colors cursor-pointer text-center"
+              >
+                <UploadCloud className="w-12 h-12 text-text-muted group-hover:text-accent transition-colors" />
+                <div className="flex flex-col gap-1">
+                  <p className="text-base font-semibold text-text-primary">
+                    Drop files here or click to upload
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    Drag in from your desktop, or browse to add files to{" "}
+                    <span className="text-text-secondary">
+                      {activeSection.name}
+                    </span>
+                    .
+                  </p>
+                </div>
+              </button>
+            )
           ) : (
-            sortedDocs.map((doc) => (
-              <DocumentRow
-                key={doc.id}
-                doc={doc}
-                sections={sections ?? []}
-                onOpen={() => setOpenDoc({ doc, edit: false })}
-                onEdit={() => setOpenDoc({ doc, edit: true })}
-                onMove={(sectionId) => void moveDocument(doc, sectionId)}
-                onDownload={() => handleDownload(doc)}
-                onDelete={() => setDocToDelete(doc)}
-                canEdit={canEdit}
-                showSectionBadge={!activeSection}
-              />
-            ))
+            <div ref={docListRef} className="flex flex-col gap-3">
+              {sortedDocs.map((doc) => (
+                <DocumentRow
+                  key={doc.id}
+                  doc={doc}
+                  sections={sections ?? []}
+                  onOpen={() => setOpenDoc({ doc, edit: false })}
+                  onEdit={() => setOpenDoc({ doc, edit: true })}
+                  onMove={(sectionId) => void moveDocument(doc, sectionId)}
+                  onDownload={() => handleDownload(doc)}
+                  onDelete={() => setDocToDelete(doc)}
+                  canEdit={canEdit}
+                  showSectionBadge={!activeSection}
+                  searchQuery={search}
+                />
+              ))}
+            </div>
           )}
         </div>
       </main>
