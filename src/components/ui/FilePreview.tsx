@@ -489,6 +489,38 @@ function downloadFile({ url, fileName }: { url: string; fileName: string }) {
 }
 
 /**
+ * Module-level LRU cache of fetched PDF Blobs, keyed by URL. Reopening the
+ * same document inside its signed-URL lifetime (1h) skips the network
+ * round-trip and re-mints a fresh object URL from the cached bytes. Capped
+ * by entry count because each entry can be up to `MAX_UPLOAD_SIZE` (50MB).
+ *
+ * Object URLs themselves aren't cached — they're per-iframe and revoked on
+ * unmount. The Blob is the shared resource.
+ */
+const PDF_BLOB_CACHE = new Map<string, Blob>();
+const PDF_CACHE_MAX = 5;
+
+function readPdfCache(url: string): Blob | undefined {
+  const blob = PDF_BLOB_CACHE.get(url);
+  if (blob) {
+    // Refresh LRU position
+    PDF_BLOB_CACHE.delete(url);
+    PDF_BLOB_CACHE.set(url, blob);
+  }
+  return blob;
+}
+
+function writePdfCache(url: string, blob: Blob): void {
+  PDF_BLOB_CACHE.delete(url);
+  PDF_BLOB_CACHE.set(url, blob);
+  while (PDF_BLOB_CACHE.size > PDF_CACHE_MAX) {
+    const oldest = PDF_BLOB_CACHE.keys().next().value;
+    if (oldest === undefined) break;
+    PDF_BLOB_CACHE.delete(oldest);
+  }
+}
+
+/**
  * Renders a PDF in an iframe via a client-side blob URL, not the signed URL
  * directly. Supabase Storage serves PDFs with `X-Frame-Options` headers
  * that block cross-origin iframe embedding — Chrome shows "This content is
@@ -508,12 +540,24 @@ function PdfIframe({
   height?: number;
   fillParent?: boolean;
 }) {
-  const [blobUrl, setBlobUrl] = useState<string | undefined>(undefined);
+  // Cache-hit path runs in lazy useState init so the URL is ready on the
+  // first render — avoids a setState-in-effect that the React lint rule
+  // would (correctly) flag as a synchronous cascade.
+  const [blobUrl, setBlobUrl] = useState<string | undefined>(() => {
+    const cached = readPdfCache(url);
+    return cached ? URL.createObjectURL(cached) : undefined;
+  });
   const [errored, setErrored] = useState(false);
 
   // Caller remounts per URL via `key={url}`, so this effect only ever runs
-  // once for a given URL. No mid-effect setState resets needed.
+  // once for a given URL. Cache-miss path fetches + mints the blob URL.
   useEffect(() => {
+    // Cache hit: blobUrl is already set from useState init. The cleanup
+    // closure captures it for revoke on unmount.
+    if (blobUrl) {
+      return () => URL.revokeObjectURL(blobUrl);
+    }
+
     let cancelled = false;
     let created: string | undefined;
     fetch(url)
@@ -523,6 +567,7 @@ function PdfIframe({
       })
       .then((blob) => {
         if (cancelled) return;
+        writePdfCache(url, blob);
         created = URL.createObjectURL(blob);
         setBlobUrl(created);
       })
@@ -533,6 +578,7 @@ function PdfIframe({
       cancelled = true;
       if (created) URL.revokeObjectURL(created);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   const sizeClass = fillParent ? "w-full h-full" : "w-full";
