@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/useToast";
+import { downloadFromSignedUrl } from "@/lib/download";
 import { isImage, isImageMime, isPdf, isPdfMime } from "@/lib/fileUtils";
 import { cn } from "@/lib/utils";
 
@@ -193,7 +194,7 @@ export function FilePreview({
         await copyFile({ url: liveUrl, fileName, isImageType });
         return;
       case "download":
-        downloadFile({ url: liveUrl, fileName });
+        downloadFromSignedUrl(liveUrl, fileName);
         return;
     }
   }
@@ -226,13 +227,17 @@ export function FilePreview({
     }
     if (isImageType) {
       return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={url}
-          alt={fileName}
-          className="w-full object-contain bg-bg-primary"
-          style={{ maxHeight: height }}
-        />
+        <div
+          className="flex items-center justify-center w-full bg-bg-primary"
+          style={{ height }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={fileName}
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
       );
     }
     return (
@@ -466,26 +471,6 @@ async function convertToPng(blob: Blob): Promise<Blob> {
   } finally {
     URL.revokeObjectURL(objUrl);
   }
-}
-
-/**
- * Trigger a download via a direct anchor click — no fetch + blob round-trip,
- * so the file streams from Supabase to disk without ever sitting in browser
- * memory. We append `?download=<name>` to the URL so Supabase sets
- * `Content-Disposition: attachment` for that one request, which forces the
- * browser to save instead of navigate, even for cross-origin URLs where the
- * `<a download>` attribute alone is best-effort.
- */
-function downloadFile({ url, fileName }: { url: string; fileName: string }) {
-  const sep = url.includes("?") ? "&" : "?";
-  const downloadUrl = `${url}${sep}download=${encodeURIComponent(fileName)}`;
-  const a = document.createElement("a");
-  a.href = downloadUrl;
-  a.download = fileName;
-  a.rel = "noopener noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
 }
 
 /**

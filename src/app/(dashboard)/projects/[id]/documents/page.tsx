@@ -77,6 +77,8 @@ export default function DocumentsPage({
   const [deleting, setDeleting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [newVersionOfDoc, setNewVersionOfDoc] =
+    useState<DbProjectDocument | null>(null);
   const [bulkActing, setBulkActing] = useState(false);
   const hasSelection = selectedIds.size > 0;
   const [sectionToRename, setSectionToRename] =
@@ -701,6 +703,7 @@ export default function DocumentsPage({
                   onMove={(sectionId) => void moveDocument(doc, sectionId)}
                   onDownload={() => handleDownload(doc)}
                   onDelete={() => setDocToDelete(doc)}
+                  onUploadNewVersion={() => setNewVersionOfDoc(doc)}
                   canEdit={canEdit}
                   showSectionBadge={!activeSection}
                   searchQuery={search}
@@ -746,6 +749,25 @@ export default function DocumentsPage({
           void invalidateDocCaches([created[0].section_id]);
         }}
       />
+      {newVersionOfDoc && (
+        <UploadDocumentDialog
+          key={`version-${newVersionOfDoc.id}`}
+          open={!!newVersionOfDoc}
+          onOpenChange={(v) => !v && setNewVersionOfDoc(null)}
+          projectId={projectId}
+          sections={sections ?? []}
+          onCreateSection={createSection}
+          versionOf={{
+            documentId: newVersionOfDoc.id,
+            fileName: newVersionOfDoc.file_name,
+            currentVersion: newVersionOfDoc.version,
+          }}
+          onSuccess={(created) => {
+            if (created.length === 0) return;
+            void invalidateDocCaches([created[0].section_id]);
+          }}
+        />
+      )}
       <DocumentDetailSheet
         // Remount per doc id so the sheet's lazy-init useState picks up the
         // fresh doc's fields (no mirror useEffect — see DocumentDetailSheet).

@@ -1455,6 +1455,33 @@ describe("updateDocumentSchema", () => {
   });
 });
 
+describe("document version schemas", () => {
+  it("documentUploadUrlSchema accepts the basic shape", async () => {
+    const { documentUploadUrlSchema } = await import("@/lib/validations");
+    expectPass(documentUploadUrlSchema, {
+      fileName: "rev2.pdf",
+      fileSize: 12345,
+    });
+  });
+
+  it("documentUploadUrlSchema rejects oversized fileSize", async () => {
+    const { documentUploadUrlSchema } = await import("@/lib/validations");
+    expectFail(documentUploadUrlSchema, {
+      fileName: "rev2.pdf",
+      fileSize: 10 ** 12,
+    });
+  });
+
+  it("revertDocumentSchema requires a positive integer targetVersion", async () => {
+    const { revertDocumentSchema } = await import("@/lib/validations");
+    expectPass(revertDocumentSchema, { targetVersion: 1 });
+    expectFail(revertDocumentSchema, { targetVersion: 0 });
+    expectFail(revertDocumentSchema, { targetVersion: 1.5 });
+    expectFail(revertDocumentSchema, { targetVersion: -1 });
+    expectFail(revertDocumentSchema, {});
+  });
+});
+
 // ── ALLOWED_UNITS constant ───────────────────────────────────────────────────
 
 describe("ALLOWED_UNITS", () => {

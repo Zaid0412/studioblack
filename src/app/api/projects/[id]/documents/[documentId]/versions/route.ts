@@ -1,33 +1,36 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import {
-  getDocumentSectionById,
+  createDocumentVersion,
+  getDocumentVersionHistory,
   isStoragePathInUse,
-  listSectionDocuments,
-  createDocument,
 } from "@/lib/queries";
 import { createDocumentSchema, parseRequest } from "@/lib/validations";
 
-/** GET /api/projects/[id]/document-sections/[sectionId]/documents */
+/**
+ * GET /api/projects/[id]/documents/[documentId]/versions
+ *
+ * Returns every row in the document's version group oldest-first — matches
+ * the timeline render order in the detail sheet.
+ */
 export const GET = withAuth(
   { projectAccess: true },
   async (_req, _ctx, params) => {
-    const { id, sectionId } = params;
-    const section = await getDocumentSectionById(sectionId, id);
-    if (!section) {
+    const { id, documentId } = params;
+    const rows = await getDocumentVersionHistory(documentId, id);
+    if (!rows) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    const docs = await listSectionDocuments(sectionId, id);
-    return NextResponse.json(docs);
+    return NextResponse.json(rows);
   }
 );
 
 /**
- * POST /api/projects/[id]/document-sections/[sectionId]/documents
+ * POST /api/projects/[id]/documents/[documentId]/versions
  *
- * Registers a document AFTER the client has PUT the bytes to the signed
- * upload URL (see ./upload-url/route.ts). PM / architect only — clients
- * are read-only on documents.
+ * Registers a new version row AFTER the bytes have been PUT to the signed
+ * URL minted by `./upload-url`. Section is inherited from the current
+ * latest row. PM / architect only.
  */
 export const POST = withAuth(
   {
@@ -36,18 +39,11 @@ export const POST = withAuth(
     rateLimit: { limit: 30, windowMs: 60_000 },
   },
   async (req, { user }, params) => {
-    const { id, sectionId } = params;
-    const section = await getDocumentSectionById(sectionId, id);
-    if (!section) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
+    const { id, documentId } = params;
     const parsed = await parseRequest(req, createDocumentSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
-    // The storage path was issued by upload-url for this project. Refuse any
-    // payload that didn't come from that flow — otherwise a user could register
-    // an arbitrary key in the bucket.
     const expectedPrefix = `projects/${id}/documents/`;
     if (!parsed.data.storagePath.startsWith(expectedPrefix)) {
       return NextResponse.json(
@@ -61,9 +57,9 @@ export const POST = withAuth(
         { status: 409 }
       );
     }
-    const doc = await createDocument({
+    const row = await createDocumentVersion({
       projectId: id,
-      sectionId,
+      documentId,
       fileName: parsed.data.fileName,
       fileSize: parsed.data.fileSize,
       mimeType: parsed.data.mimeType,
@@ -71,6 +67,9 @@ export const POST = withAuth(
       uploadedBy: user.id,
       description: parsed.data.description ?? null,
     });
-    return NextResponse.json(doc, { status: 201 });
+    if (!row) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json(row, { status: 201 });
   }
 );

@@ -182,6 +182,10 @@ export const API = {
   projectDocumentUploadUrl:       (pid: string, sid: string)          => `/api/projects/${pid}/document-sections/${sid}/documents/upload-url`,
   projectDocument:                (pid: string, did: string)          => `/api/projects/${pid}/documents/${did}`,
   projectDocumentDownload:        (pid: string, did: string)          => `/api/projects/${pid}/documents/${did}/download`,
+  projectDocumentVersions:        (pid: string, did: string)          => `/api/projects/${pid}/documents/${did}/versions`,
+  projectDocumentVersion:         (pid: string, did: string, vid: string) => `/api/projects/${pid}/documents/${did}/versions/${vid}`,
+  projectDocumentVersionUploadUrl:(pid: string, did: string)          => `/api/projects/${pid}/documents/${did}/versions/upload-url`,
+  projectDocumentRevert:          (pid: string, did: string)          => `/api/projects/${pid}/documents/${did}/revert`,
 
   // ── Rate Contracts (Feature 7.5) ────────────────
   rateContracts:               ()                                    => "/api/rate-contracts",
