@@ -202,38 +202,44 @@ export default function DocumentsPage({
     }
   }
 
-  async function handleMoveSection(
-    section: DbProjectDocumentSection,
-    direction: "up" | "down"
-  ) {
+  async function handleReorderSections(orderedIds: string[]) {
     if (!sections) return;
-    const sorted = [...sections].sort(
-      (a, b) =>
-        a.position - b.position || a.created_at.localeCompare(b.created_at)
-    );
-    const idx = sorted.findIndex((s) => s.id === section.id);
-    if (idx === -1) return;
-    const otherIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (otherIdx < 0 || otherIdx >= sorted.length) return;
-    const other = sorted[otherIdx];
+    const byId = new Map(sections.map((s) => [s.id, s]));
+    // Only PATCH sections whose new index differs from the stored position —
+    // a 5-section drop usually moves 2-3 of them, not all 5.
+    const changed = orderedIds
+      .map((id, newPosition) => ({ section: byId.get(id), newPosition }))
+      .filter(
+        (e): e is { section: DbProjectDocumentSection; newPosition: number } =>
+          !!e.section && e.section.position !== e.newPosition
+      );
+    if (changed.length === 0) return;
+
+    // Optimistic update — SWR cache flips to the new order before the network
+    // round-trip lands so the sidebar doesn't snap back during the request.
+    const optimistic = orderedIds.map((id, position) => {
+      const existing = byId.get(id);
+      if (!existing) throw new Error(`Section ${id} not in cache`);
+      return { ...existing, position };
+    });
+    void mutate(sectionsKey, optimistic, { revalidate: false });
+
     try {
-      // Swap positions in parallel. If one fails we may end up with both
-      // sections briefly sharing a position; the next list fetch sorts it
-      // out via the `created_at` tiebreaker.
-      await Promise.all([
-        projectDocuments.updateSection(projectId, section.id, {
-          position: other.position,
-        }),
-        projectDocuments.updateSection(projectId, other.id, {
-          position: section.position,
-        }),
-      ]);
+      await Promise.all(
+        changed.map((e) =>
+          projectDocuments.updateSection(projectId, e.section.id, {
+            position: e.newPosition,
+          })
+        )
+      );
       await mutate(sectionsKey);
     } catch (err) {
       toast({
         title: err instanceof ApiError ? err.message : "Could not reorder.",
         variant: "error",
       });
+      // Roll back the optimistic write by forcing a refetch.
+      await mutate(sectionsKey);
     }
   }
 
@@ -377,7 +383,7 @@ export default function DocumentsPage({
         onCreate={() => setNewSectionOpen(true)}
         onRename={setSectionToRename}
         onDelete={setSectionToDelete}
-        onMove={handleMoveSection}
+        onReorder={(orderedIds) => void handleReorderSections(orderedIds)}
         canEdit={canEdit}
       />
 
