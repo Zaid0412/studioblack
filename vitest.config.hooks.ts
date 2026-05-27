@@ -20,6 +20,7 @@ export default defineConfig({
       "src/test/unit/FilePreview.test.tsx",
       "src/test/unit/UploadDocumentDialog.test.tsx",
       "src/test/unit/DocumentBulkActions.test.tsx",
+      "src/test/unit/DocumentVersionList.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

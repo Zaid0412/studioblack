@@ -385,6 +385,27 @@ export async function getDocumentVersionHistory(
   return rows.length === 0 ? null : rows;
 }
 
+/**
+ * True when `storagePath` is already registered against any row in this
+ * project. Used by upload-registration routes to reject a malicious caller
+ * who tries to "steal" another doc's bytes as a new version of an unrelated
+ * doc. Revert reuses the path on purpose and bypasses this query.
+ */
+export async function isStoragePathInUse(
+  storagePath: string,
+  projectId: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM project_document
+       WHERE storage_path = $1 AND project_id = $2
+     ) AS exists`,
+    [storagePath, projectId]
+  );
+  return rows[0]?.exists ?? false;
+}
+
 /** Resolve the highest `version` for a row's group. Null when the row's gone. */
 export async function getLatestVersionForDocument(
   documentId: string,
@@ -400,7 +421,7 @@ export async function getLatestVersionForDocument(
      )
      SELECT t.version_group,
             (SELECT MAX(version) FROM project_document
-             WHERE version_group = t.version_group) AS max
+             WHERE version_group = t.version_group AND project_id = $2) AS max
      FROM target t`,
     [documentId, projectId]
   );
@@ -585,6 +606,7 @@ export async function revertDocumentToVersion(args: {
  *     should fall back to `deleteDocument`.
  */
 export async function deleteDocumentVersion(args: {
+  documentId: string;
   versionId: string;
   projectId: string;
 }): Promise<
@@ -596,19 +618,37 @@ export async function deleteDocumentVersion(args: {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // The inner subquery scopes the target's version_group to the document
+    // segment in the URL — a mismatched documentId/versionId pair returns no
+    // row (→ 404), preventing a caller from deleting V2 of doc A via the URL
+    // for doc B.
+    //
+    // Fetch target row + group size + "do other rows share this storage_path"
+    // in one shot. siblings_same_path excludes the target itself, so 0 means
+    // we own the storage object and can safely remove it after the DELETE.
     const {
       rows: [target],
     } = await client.query<{
       version_group: string;
       storage_path: string;
       group_count: string;
+      siblings_same_path: string;
     }>(
-      `SELECT version_group, storage_path,
-              COUNT(*) OVER (PARTITION BY version_group)::text AS group_count
-       FROM project_document
-       WHERE id = $1 AND project_id = $2
+      `SELECT pd.version_group, pd.storage_path,
+              COUNT(*) OVER (PARTITION BY pd.version_group)::text AS group_count,
+              (SELECT COUNT(*)::text FROM project_document
+               WHERE version_group = pd.version_group
+                 AND project_id = pd.project_id
+                 AND storage_path = pd.storage_path
+                 AND id <> pd.id) AS siblings_same_path
+       FROM project_document pd
+       WHERE pd.id = $1 AND pd.project_id = $2
+         AND pd.version_group = (
+           SELECT version_group FROM project_document
+           WHERE id = $3 AND project_id = $2
+         )
        FOR UPDATE`,
-      [args.versionId, args.projectId]
+      [args.versionId, args.projectId, args.documentId]
     );
     if (!target) {
       await client.query("ROLLBACK");
@@ -618,25 +658,15 @@ export async function deleteDocumentVersion(args: {
       await client.query("ROLLBACK");
       return "last_version";
     }
-    const {
-      rows: [{ ref_count: refCount }],
-    } = await client.query<{ ref_count: string }>(
-      `WITH del AS (
-         DELETE FROM project_document WHERE id = $1 AND project_id = $2
-       )
-       SELECT COUNT(*)::text AS ref_count FROM project_document
-       WHERE version_group = $3 AND project_id = $2 AND storage_path = $4`,
-      [
-        args.versionId,
-        args.projectId,
-        target.version_group,
-        target.storage_path,
-      ]
+    await client.query(
+      `DELETE FROM project_document WHERE id = $1 AND project_id = $2`,
+      [args.versionId, args.projectId]
     );
     await client.query("COMMIT");
     return {
       kind: "deleted",
-      storagePathToRemove: Number(refCount) > 0 ? null : target.storage_path,
+      storagePathToRemove:
+        Number(target.siblings_same_path) > 0 ? null : target.storage_path,
     };
   } catch (e) {
     await client.query("ROLLBACK");

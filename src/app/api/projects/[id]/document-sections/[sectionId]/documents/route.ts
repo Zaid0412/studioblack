@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import {
   getDocumentSectionById,
+  isStoragePathInUse,
   listSectionDocuments,
   createDocument,
 } from "@/lib/queries";
@@ -52,6 +53,12 @@ export const POST = withAuth(
       return NextResponse.json(
         { error: "storagePath does not belong to this project" },
         { status: 400 }
+      );
+    }
+    if (await isStoragePathInUse(parsed.data.storagePath, id)) {
+      return NextResponse.json(
+        { error: "storagePath is already registered" },
+        { status: 409 }
       );
     }
     const doc = await createDocument({

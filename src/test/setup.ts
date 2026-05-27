@@ -550,6 +550,7 @@ vi.mock("@/lib/queries", () => ({
   createDocumentVersion: vi.fn().mockResolvedValue(null),
   revertDocumentToVersion: vi.fn().mockResolvedValue(null),
   deleteDocumentVersion: vi.fn().mockResolvedValue(null),
+  isStoragePathInUse: vi.fn().mockResolvedValue(false),
 }));
 
 // ── Export mock handles for test files ───────────────────────────────────────

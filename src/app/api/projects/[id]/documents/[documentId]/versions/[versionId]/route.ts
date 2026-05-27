@@ -18,8 +18,9 @@ export const DELETE = withAuth(
     rateLimit: { limit: 30, windowMs: 60_000 },
   },
   async (_req, _ctx, params) => {
-    const { id, versionId } = params;
+    const { id, documentId, versionId } = params;
     const result = await deleteDocumentVersion({
+      documentId,
       versionId,
       projectId: id,
     });

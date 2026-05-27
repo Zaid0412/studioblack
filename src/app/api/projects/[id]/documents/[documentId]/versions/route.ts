@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/withAuth";
 import {
   createDocumentVersion,
   getDocumentVersionHistory,
+  isStoragePathInUse,
 } from "@/lib/queries";
 import { createDocumentSchema, parseRequest } from "@/lib/validations";
 
@@ -48,6 +49,12 @@ export const POST = withAuth(
       return NextResponse.json(
         { error: "storagePath does not belong to this project" },
         { status: 400 }
+      );
+    }
+    if (await isStoragePathInUse(parsed.data.storagePath, id)) {
+      return NextResponse.json(
+        { error: "storagePath is already registered" },
+        { status: 409 }
       );
     }
     const row = await createDocumentVersion({
