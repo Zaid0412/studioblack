@@ -1,5 +1,6 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from "./client";
+import { apiGet, apiPost, apiPatch, apiDelete, ApiError } from "./client";
 import { API } from "./routes";
+import { toast } from "@/components/ui/useToast";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
 
 // ── Sections ───────────────────────────────────────────────────────────────
@@ -113,7 +114,96 @@ export function getDownloadUrl(projectId: string, documentId: string) {
   );
 }
 
+/**
+ * Fetch a fresh signed URL and pass it to `onUrl`. Errors surface as a toast
+ * with `fallbackMessage` (unless the server returned a richer `ApiError`).
+ * Shared by every "Download / Open / Copy link" handler that operates on a
+ * document or one of its versions.
+ */
+export async function withSignedUrl(
+  projectId: string,
+  documentId: string,
+  fallbackMessage: string,
+  onUrl: (url: string) => void | Promise<void>
+): Promise<void> {
+  try {
+    const { url } = await getDownloadUrl(projectId, documentId);
+    await onUrl(url);
+  } catch (err) {
+    toast({
+      title: err instanceof ApiError ? err.message : fallbackMessage,
+      variant: "error",
+    });
+  }
+}
+
 /** Delete a document (row + storage object). */
 export function deleteDocument(projectId: string, documentId: string) {
   return apiDelete(API.projectDocument(projectId, documentId));
+}
+
+// ── Version history ────────────────────────────────────────────────────────
+
+/** Fetch every row in the document's version group, oldest first. */
+export function getVersionHistory(projectId: string, documentId: string) {
+  return apiGet<DbProjectDocument[]>(
+    API.projectDocumentVersions(projectId, documentId)
+  );
+}
+
+/** Mint a signed PUT URL for a new version's bytes. */
+export function getNewVersionUploadUrl(
+  projectId: string,
+  documentId: string,
+  data: { fileName: string; fileSize: number },
+  opts?: { signal?: AbortSignal }
+) {
+  return apiPost<{ signedUrl: string; storagePath: string }>(
+    API.projectDocumentVersionUploadUrl(projectId, documentId),
+    data,
+    opts
+  );
+}
+
+/** Register a new version row after the bytes are in storage. */
+export function createNewVersion(
+  projectId: string,
+  documentId: string,
+  data: {
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    storagePath: string;
+    description?: string | null;
+  },
+  opts?: { signal?: AbortSignal }
+) {
+  return apiPost<DbProjectDocument>(
+    API.projectDocumentVersions(projectId, documentId),
+    data,
+    opts
+  );
+}
+
+/** Revert to an older version (appends a new row at MAX+1 with the target's bytes). */
+export function revertToVersion(
+  projectId: string,
+  documentId: string,
+  targetVersion: number
+) {
+  return apiPost<DbProjectDocument>(
+    API.projectDocumentRevert(projectId, documentId),
+    { targetVersion }
+  );
+}
+
+/** Delete a single version row. Refused server-side when it's the last one. */
+export function deleteVersion(
+  projectId: string,
+  documentId: string,
+  versionId: string
+) {
+  return apiDelete(
+    API.projectDocumentVersion(projectId, documentId, versionId)
+  );
 }

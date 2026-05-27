@@ -1401,6 +1401,16 @@ export const updateDocumentSectionSchema = z.object({
   position: z.number().int().min(0).optional(),
 });
 
+/**
+ * Shared body for both upload-url routes — the section-level one and the
+ * per-document new-version one. Storage-path generation and the bytes-PUT
+ * step are identical between the two flows.
+ */
+export const documentUploadUrlSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  fileSize: z.number().int().positive().max(MAX_UPLOAD_SIZE),
+});
+
 export const createDocumentSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
   fileSize: z.number().int().positive().max(MAX_UPLOAD_SIZE),
@@ -1423,6 +1433,11 @@ export const updateDocumentSchema = z
   .refine((v) => Object.keys(v).length > 0, {
     message: "At least one field must be supplied",
   });
+
+/** POST /api/projects/:id/documents/:docId/revert */
+export const revertDocumentSchema = z.object({
+  targetVersion: z.number().int().positive(),
+});
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 

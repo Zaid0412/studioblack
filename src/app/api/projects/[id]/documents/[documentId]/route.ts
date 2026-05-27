@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
 import {
   deleteDocument,
+  getDocumentById,
   getDocumentSectionById,
+  getLatestVersionForDocument,
   updateDocument,
 } from "@/lib/queries";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -10,7 +12,13 @@ import { BUCKETS } from "@/lib/storage/buckets";
 import { logger } from "@/lib/logger";
 import { parseRequest, updateDocumentSchema } from "@/lib/validations";
 
-/** DELETE /api/projects/[id]/documents/[documentId] — remove the doc row + storage object. */
+/**
+ * DELETE /api/projects/[id]/documents/[documentId]
+ *
+ * Removes the entire version group (every historical row for the document)
+ * and all distinct storage objects in one shot. Single-version deletes live
+ * under `/versions/[versionId]`.
+ */
 export const DELETE = withAuth(
   {
     projectAccess: true,
@@ -19,19 +27,21 @@ export const DELETE = withAuth(
   },
   async (_req, _ctx, params) => {
     const { id, documentId } = params;
-    const storagePath = await deleteDocument(documentId, id);
-    if (!storagePath) {
+    const storagePaths = await deleteDocument(documentId, id);
+    if (!storagePaths) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    const supabase = getSupabaseAdmin();
-    const { error } = await supabase.storage
-      .from(BUCKETS.documents)
-      .remove([storagePath]);
-    if (error) {
-      logger.error("document storage cleanup failed", {
-        documentId,
-        error: error.message,
-      });
+    if (storagePaths.length > 0) {
+      const supabase = getSupabaseAdmin();
+      const { error } = await supabase.storage
+        .from(BUCKETS.documents)
+        .remove(storagePaths);
+      if (error) {
+        logger.error("document storage cleanup failed", {
+          documentId,
+          error: error.message,
+        });
+      }
     }
     return NextResponse.json({ ok: true });
   }
@@ -53,11 +63,22 @@ export const PATCH = withAuth(
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
+    // Old versions are immutable — edits always retarget the current row.
+    const [existing, latest] = await Promise.all([
+      getDocumentById(documentId, id),
+      getLatestVersionForDocument(documentId, id),
+    ]);
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (latest && existing.version !== latest.latestVersion) {
+      return NextResponse.json(
+        { error: "Only the latest version can be edited." },
+        { status: 409 }
+      );
+    }
     // Bound the target section to this project before the UPDATE — without
     // it, a malicious caller could move docs into another project's section.
-    // The doc's own existence + project ownership is enforced by the UPDATE's
-    // WHERE clause (returns null on miss), so a separate getDocumentById
-    // round-trip is redundant.
     if (parsed.data.sectionId) {
       const section = await getDocumentSectionById(parsed.data.sectionId, id);
       if (!section) {

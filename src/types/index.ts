@@ -157,6 +157,10 @@ export interface DbProjectDocument {
   storage_path: string;
   uploaded_by: string;
   description: string | null;
+  /** 1-indexed; latest row in a `version_group` has the highest value. */
+  version: number;
+  /** Shared UUID for every row in a document's version history. */
+  version_group: string;
   /** Joined from `user.name`; null when the uploader has been deleted. */
   uploaded_by_name?: string | null;
   /** Joined section name — only populated by `listProjectDocuments` (All view). */

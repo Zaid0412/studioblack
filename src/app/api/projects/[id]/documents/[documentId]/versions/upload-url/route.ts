@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { getDocumentSectionById } from "@/lib/queries";
+import { getDocumentById } from "@/lib/queries";
 import { documentUploadUrlSchema, parseRequest } from "@/lib/validations";
+import { getFileExtension } from "@/lib/fileUtils";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { BUCKETS } from "@/lib/storage/buckets";
 import { ATTACHMENT_EXTENSIONS, sanitizeFilename } from "@/lib/upload/validate";
-import { getFileExtension } from "@/lib/fileUtils";
 import { logger } from "@/lib/logger";
 
 /**
- * POST /api/projects/[id]/document-sections/[sectionId]/documents/upload-url
+ * POST /api/projects/[id]/documents/[documentId]/versions/upload-url
  *
- * Mints a short-lived signed PUT URL into the (private) documents bucket.
- * Client PUTs the file, then registers the row via POST .../documents with
- * the returned `storagePath`.
+ * Mints a signed PUT URL for a new version's bytes. Validates that the
+ * caller-supplied document exists in this project before allocating a
+ * storage path. Section is inherited from the current row at version
+ * creation time, so it's not part of this body.
  */
 export const POST = withAuth(
   {
@@ -22,9 +23,9 @@ export const POST = withAuth(
     rateLimit: { limit: 20, windowMs: 60_000 },
   },
   async (req, _ctx, params) => {
-    const { id, sectionId } = params;
-    const section = await getDocumentSectionById(sectionId, id);
-    if (!section) {
+    const { id, documentId } = params;
+    const doc = await getDocumentById(documentId, id);
+    if (!doc) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
     const parsed = await parseRequest(req, documentUploadUrlSchema);
@@ -44,9 +45,9 @@ export const POST = withAuth(
       .from(BUCKETS.documents)
       .createSignedUploadUrl(storagePath);
     if (error || !data) {
-      logger.error("document createSignedUploadUrl failed", {
+      logger.error("document version createSignedUploadUrl failed", {
         projectId: id,
-        sectionId,
+        documentId,
         error,
       });
       return NextResponse.json(
@@ -54,9 +55,6 @@ export const POST = withAuth(
         { status: 500 }
       );
     }
-    return NextResponse.json({
-      signedUrl: data.signedUrl,
-      storagePath,
-    });
+    return NextResponse.json({ signedUrl: data.signedUrl, storagePath });
   }
 );

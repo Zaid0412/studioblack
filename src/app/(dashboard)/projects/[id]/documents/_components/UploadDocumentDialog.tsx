@@ -57,6 +57,17 @@ interface UploadDocumentDialogProps {
   initialSectionId?: string | null;
   /** Optional files to pre-populate (used for drag-and-drop into the page). */
   initialFiles?: File[];
+  /**
+   * When set, the dialog switches to "upload new version" mode for an
+   * existing document. Section picker is hidden (the new row inherits the
+   * current section), only a single file is allowed, and the CTA labels
+   * itself with the next version number.
+   */
+  versionOf?: {
+    documentId: string;
+    fileName: string;
+    currentVersion: number;
+  };
   /** See note on `UploadDocumentDialog`. */
   onCreateSection: (data: {
     name: string;
@@ -64,6 +75,7 @@ interface UploadDocumentDialogProps {
   }) => Promise<DbProjectDocumentSection>;
   /**
    * Called once with every successfully-created document row in the batch.
+   * In versionOf mode this contains the single new version row.
    * Empty array means everything failed; never called with `null`.
    */
   onSuccess: (created: DbProjectDocument[]) => void;
@@ -84,9 +96,11 @@ export function UploadDocumentDialog({
   sections,
   initialSectionId,
   initialFiles,
+  versionOf,
   onCreateSection,
   onSuccess,
 }: UploadDocumentDialogProps) {
+  const isVersionMode = !!versionOf;
   // Filter oversized files silently at mount — the caller (page-level drop
   // handler) is responsible for surfacing rejection toasts. The dialog
   // applies the same cap to user-added files inside `addFiles`, where it
@@ -134,7 +148,18 @@ export function UploadDocumentDialog({
 
   function addFiles(picked: FileList | File[] | null) {
     if (!picked) return;
-    const arr = Array.from(picked);
+    let arr = Array.from(picked);
+    // Version mode is single-file. Drop everything past the first picked file
+    // and toast so the user knows; this is friendlier than silently slicing.
+    if (isVersionMode) {
+      if (arr.length > 1) {
+        toast({
+          title: "Only one file per new version. Extra files were ignored.",
+          variant: "warning",
+        });
+      }
+      arr = arr.slice(0, 1);
+    }
     const rejected: string[] = [];
     const accepted = arr.filter((f) => {
       if (f.size > MAX_UPLOAD_SIZE) {
@@ -150,7 +175,20 @@ export function UploadDocumentDialog({
       });
     }
     if (accepted.length === 0) return;
-    const additions = accepted.map(makeEntry);
+    const versionBaseName = versionOf
+      ? splitFileName(versionOf.fileName).base
+      : null;
+    const additions = accepted.map((f) =>
+      versionBaseName
+        ? { ...makeEntry(f), baseName: versionBaseName }
+        : makeEntry(f)
+    );
+    // In version mode the new file *replaces* whatever was there before.
+    if (isVersionMode) {
+      setEntries(additions);
+      setSelectedId(additions[0].id);
+      return;
+    }
     // Surface the first-added file in the detail pane if the batch was
     // empty before. Selecting an entry that already exists is a no-op via
     // the `?? entries[0]` fallback, so always-set is also fine — but
@@ -172,11 +210,16 @@ export function UploadDocumentDialog({
 
   const canUpload =
     entries.length > 0 &&
-    !!sectionId &&
+    (isVersionMode || !!sectionId) &&
     entries.every((e) => e.baseName.trim().length > 0);
 
   async function handleUpload() {
-    if (uploading || !canUpload || !sectionId) return;
+    if (uploading || !canUpload) return;
+    if (isVersionMode && versionOf) {
+      await handleUploadVersion(versionOf);
+      return;
+    }
+    if (!sectionId) return;
     const controller = new AbortController();
     abortRef.current = controller;
     setUploading(true);
@@ -273,15 +316,98 @@ export function UploadDocumentDialog({
     }
   }
 
-  const dialogTitle =
-    entries.length > 1
+  /**
+   * Single-file path used when the dialog is opened in `versionOf` mode.
+   * Mirrors the upload-url → PUT → register sequence of `handleUpload` but
+   * targets the version endpoints and bypasses section handling.
+   */
+  async function handleUploadVersion(target: {
+    documentId: string;
+    fileName: string;
+    currentVersion: number;
+  }) {
+    const entry = entries[0];
+    if (!entry) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setUploading(true);
+    setEntries((prev) =>
+      prev.map((e) => ({ ...e, status: "uploading" as EntryStatus }))
+    );
+    try {
+      const ext = splitFileName(entry.file.name).ext;
+      const finalName = joinFileName(entry.baseName.trim(), ext);
+      const { signedUrl, storagePath } =
+        await projectDocuments.getNewVersionUploadUrl(
+          projectId,
+          target.documentId,
+          { fileName: finalName, fileSize: entry.file.size },
+          { signal: controller.signal }
+        );
+      const put = await fetch(signedUrl, {
+        method: "PUT",
+        body: entry.file,
+        headers: {
+          "content-type": entry.file.type || "application/octet-stream",
+        },
+        signal: controller.signal,
+      });
+      if (!put.ok) throw new Error(`PUT failed (${put.status})`);
+      const trimmedDesc = entry.description.trim();
+      const created = await projectDocuments.createNewVersion(
+        projectId,
+        target.documentId,
+        {
+          fileName: finalName,
+          fileSize: entry.file.size,
+          mimeType: entry.file.type || "application/octet-stream",
+          storagePath,
+          description: trimmedDesc || null,
+        },
+        { signal: controller.signal }
+      );
+      if (controller.signal.aborted) return;
+      onSuccess([created]);
+      toast({ title: `Uploaded as V${created.version}.` });
+      reset();
+      onOpenChange(false);
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setEntries((prev) =>
+        prev.map((e) => ({
+          ...e,
+          status: "error",
+          errorMessage: extractErrorMessage(err),
+        }))
+      );
+      toast({
+        title: extractErrorMessage(err),
+        variant: "error",
+      });
+    } finally {
+      if (!controller.signal.aborted) {
+        abortRef.current = null;
+        setUploading(false);
+      }
+    }
+  }
+
+  const nextVersionNumber = versionOf ? versionOf.currentVersion + 1 : null;
+  const dialogTitle = isVersionMode
+    ? `Upload new version of ${versionOf!.fileName}`
+    : entries.length > 1
       ? `Upload ${entries.length} documents`
       : "Upload document";
+  const dialogSubtitle = isVersionMode
+    ? `New row will land at V${nextVersionNumber}. Section is inherited.`
+    : `Max ${formatFileSize(MAX_UPLOAD_SIZE)} per file. PDFs, images, Office files.`;
   const uploadLabel = uploading
     ? "Uploading…"
-    : entries.length > 1
-      ? `Upload ${entries.length} files`
-      : "Upload";
+    : isVersionMode
+      ? `Upload as V${nextVersionNumber}`
+      : entries.length > 1
+        ? `Upload ${entries.length} files`
+        : "Upload";
 
   return (
     <Dialog
@@ -294,10 +420,7 @@ export function UploadDocumentDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
-          <DialogDescription>
-            Max {formatFileSize(MAX_UPLOAD_SIZE)} per file. PDFs, images, Office
-            files.
-          </DialogDescription>
+          <DialogDescription>{dialogSubtitle}</DialogDescription>
         </DialogHeader>
 
         {entries.length === 0 ? (
@@ -307,42 +430,56 @@ export function UploadDocumentDialog({
             onPick={() => inputRef.current?.click()}
             onFiles={addFiles}
             inputRef={inputRef}
+            singleFile={isVersionMode}
           />
         ) : (
           <div className="flex flex-col gap-4">
-            <SectionSelect
-              label="Section"
-              required
-              value={sectionId}
-              onChange={setSectionId}
-              sections={sections}
-              onCreateNew={() => setCreateSectionOpen(true)}
-              disabled={uploading}
-            />
-
-            <div className="flex gap-3 h-[360px]">
-              <FileTabList
-                entries={entries}
-                selectedId={selected?.id}
-                onSelect={setSelectedId}
-                onRemove={removeEntry}
-                onAddMore={() => inputRef.current?.click()}
+            {!isVersionMode && (
+              <SectionSelect
+                label="Section"
+                required
+                value={sectionId}
+                onChange={setSectionId}
+                sections={sections}
+                onCreateNew={() => setCreateSectionOpen(true)}
                 disabled={uploading}
               />
-              {selected && (
+            )}
+
+            {isVersionMode ? (
+              selected && (
                 <FileDetailPane
                   key={selected.id}
                   entry={selected}
                   onChange={(patch) => updateEntry(selected.id, patch)}
                   disabled={uploading}
                 />
-              )}
-            </div>
+              )
+            ) : (
+              <div className="flex gap-3 h-[360px]">
+                <FileTabList
+                  entries={entries}
+                  selectedId={selected?.id}
+                  onSelect={setSelectedId}
+                  onRemove={removeEntry}
+                  onAddMore={() => inputRef.current?.click()}
+                  disabled={uploading}
+                />
+                {selected && (
+                  <FileDetailPane
+                    key={selected.id}
+                    entry={selected}
+                    onChange={(patch) => updateEntry(selected.id, patch)}
+                    disabled={uploading}
+                  />
+                )}
+              </div>
+            )}
 
             <input
               ref={inputRef}
               type="file"
-              multiple
+              multiple={!isVersionMode}
               className="hidden"
               onChange={(e) => addFiles(e.target.files)}
             />
@@ -408,12 +545,14 @@ function DropZone({
   onPick,
   onFiles,
   inputRef,
+  singleFile,
 }: {
   dragOver: boolean;
   setDragOver: (v: boolean) => void;
   onPick: () => void;
   onFiles: (files: FileList | File[] | null) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  singleFile?: boolean;
 }) {
   return (
     <button
@@ -438,16 +577,19 @@ function DropZone({
     >
       <Upload className="w-6 h-6 text-text-muted" />
       <p className="text-sm font-medium text-text-primary">
-        Drop files here or click to browse
+        {singleFile
+          ? "Drop the new version here or click to browse"
+          : "Drop files here or click to browse"}
       </p>
       <p className="text-xs text-text-muted">
-        Multiple files supported — each goes into the batch you can review
-        before uploading.
+        {singleFile
+          ? "One file replaces the latest version. Old versions remain in the history."
+          : "Multiple files supported — each goes into the batch you can review before uploading."}
       </p>
       <input
         ref={inputRef}
         type="file"
-        multiple
+        multiple={!singleFile}
         className="hidden"
         onChange={(e) => onFiles(e.target.files)}
       />

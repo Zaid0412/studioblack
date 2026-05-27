@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
@@ -34,6 +35,7 @@ interface DocumentRowProps {
   onMove: (sectionId: string) => void;
   onDownload: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  onUploadNewVersion: () => void;
   canEdit: boolean;
   /** When true, render the doc's section name as a small badge. Used in All view. */
   showSectionBadge?: boolean;
@@ -61,6 +63,7 @@ function DocumentRowInner({
   onMove,
   onDownload,
   onDelete,
+  onUploadNewVersion,
   canEdit,
   showSectionBadge,
   searchQuery = "",
@@ -198,6 +201,10 @@ function DocumentRowInner({
             <DropdownMenuItem onSelect={() => onEdit()}>
               <Pencil className="w-3.5 h-3.5" />
               Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onUploadNewVersion()}>
+              <Upload className="w-3.5 h-3.5" />
+              Upload new version
             </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger disabled={otherSections.length === 0}>

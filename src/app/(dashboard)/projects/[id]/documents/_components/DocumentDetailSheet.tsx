@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import useSWR from "swr";
 import { Download, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import {
   Sheet,
@@ -12,12 +11,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { FilePreview, isFilePreviewable } from "@/components/ui/FilePreview";
+import { FilePreview } from "@/components/ui/FilePreview";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/useToast";
+import { useProjectDocumentPreview } from "@/hooks/useProjectDocumentPreview";
 import { projectDocuments } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
-import { API } from "@/lib/api/routes";
 import {
   formatFileSize,
   getFileExtension,
@@ -28,6 +27,8 @@ import { relativeTime } from "@/lib/formatTime";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
 import { SectionSelect } from "./SectionSelect";
 import { NewSectionDialog } from "./NewSectionDialog";
+import { DocumentVersionList } from "./DocumentVersionList";
+import { UploadDocumentDialog } from "./UploadDocumentDialog";
 
 interface DocumentDetailSheetProps {
   projectId: string;
@@ -82,19 +83,14 @@ export function DocumentDetailSheet({
   );
   const [saving, setSaving] = useState(false);
   const [createSectionOpen, setCreateSectionOpen] = useState(false);
+  const [newVersionOpen, setNewVersionOpen] = useState(false);
 
   const extension = useMemo(
     () => (doc ? splitFileName(doc.file_name).ext : ""),
     [doc]
   );
 
-  // Only mint a signed URL for file types `FilePreview` can render —
-  // saves a wasted request for `.docx`/`.zip`/etc.
-  const previewable = doc && isFilePreviewable(doc.mime_type, doc.file_name);
-  const { data: previewData } = useSWR<{ url: string }>(
-    previewable ? API.projectDocumentDownload(projectId, doc.id) : null,
-    { revalidateOnFocus: false, revalidateIfStale: false }
-  );
+  const { previewUrl, refreshUrl } = useProjectDocumentPreview(projectId, doc);
 
   function cancelEdit() {
     if (!doc) return;
@@ -189,23 +185,14 @@ export function DocumentDetailSheet({
         {doc && (
           <SheetBody className="flex flex-col gap-5">
             <FilePreview
-              url={previewData?.url}
+              url={previewUrl}
               fileName={doc.file_name}
               mimeType={doc.mime_type}
               // SheetBody is a flex column; without `shrink-0` the preview
               // gets compressed when edit-mode adds extra inputs, instead
               // of overflowing into the body's scroll area.
               className="shrink-0"
-              // Mint a fresh signed URL right before each action — the
-              // SWR-cached URL above only lasts an hour, but a sheet can
-              // stay open longer than that.
-              refreshUrl={async () => {
-                const { url } = await projectDocuments.getDownloadUrl(
-                  projectId,
-                  doc.id
-                );
-                return url;
-              }}
+              refreshUrl={refreshUrl}
             />
 
             <section className="flex flex-col gap-1.5">
@@ -297,6 +284,18 @@ export function DocumentDetailSheet({
                 className="col-span-2"
               />
             </section>
+
+            {!editing && (
+              <div className="mt-4 pt-9 pb-6 border-t border-border-default">
+                <DocumentVersionList
+                  projectId={projectId}
+                  doc={doc}
+                  canEdit={canEdit}
+                  onUploadNewVersion={() => setNewVersionOpen(true)}
+                  onLatestChanged={onUpdated}
+                />
+              </div>
+            )}
           </SheetBody>
         )}
 
@@ -361,6 +360,23 @@ export function DocumentDetailSheet({
           setCreateSectionOpen(false);
         }}
       />
+      {doc && (
+        <UploadDocumentDialog
+          open={newVersionOpen}
+          onOpenChange={setNewVersionOpen}
+          projectId={projectId}
+          sections={sections}
+          onCreateSection={onCreateSection}
+          versionOf={{
+            documentId: doc.id,
+            fileName: doc.file_name,
+            currentVersion: doc.version,
+          }}
+          onSuccess={(created) => {
+            if (created[0]) onUpdated(created[0]);
+          }}
+        />
+      )}
     </Sheet>
   );
 }
