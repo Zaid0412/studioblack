@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Copy,
   Download,
@@ -236,12 +236,7 @@ export function FilePreview({
       );
     }
     return (
-      <iframe
-        src={url}
-        title={fileName}
-        className="w-full bg-bg-primary"
-        style={{ height }}
-      />
+      <PdfIframe key={url} url={url} fileName={fileName} height={height} />
     );
   }
 
@@ -388,11 +383,7 @@ function FullscreenDialog({
               className="w-full h-full object-contain"
             />
           ) : (
-            <iframe
-              src={url}
-              title={fileName}
-              className="w-full h-full bg-bg-primary"
-            />
+            <PdfIframe key={url} url={url} fileName={fileName} fillParent />
           )}
           <Toolbar actions={overlayActions} onAction={handle} />
         </div>
@@ -495,4 +486,89 @@ function downloadFile({ url, fileName }: { url: string; fileName: string }) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+/**
+ * Renders a PDF in an iframe via a client-side blob URL, not the signed URL
+ * directly. Supabase Storage serves PDFs with `X-Frame-Options` headers
+ * that block cross-origin iframe embedding — Chrome shows "This content is
+ * blocked." A `URL.createObjectURL(blob)` is same-origin and bypasses XFO.
+ *
+ * Tradeoff: the entire PDF lands in browser memory before rendering.
+ * Bounded by `MAX_UPLOAD_SIZE` (50MB) so the worst case fits comfortably.
+ */
+function PdfIframe({
+  url,
+  fileName,
+  height,
+  fillParent,
+}: {
+  url: string;
+  fileName: string;
+  height?: number;
+  fillParent?: boolean;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | undefined>(undefined);
+  const [errored, setErrored] = useState(false);
+
+  // Caller remounts per URL via `key={url}`, so this effect only ever runs
+  // once for a given URL. No mid-effect setState resets needed.
+  useEffect(() => {
+    let cancelled = false;
+    let created: string | undefined;
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        created = URL.createObjectURL(blob);
+        setBlobUrl(created);
+      })
+      .catch(() => {
+        if (!cancelled) setErrored(true);
+      });
+    return () => {
+      cancelled = true;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [url]);
+
+  const sizeClass = fillParent ? "w-full h-full" : "w-full";
+  const style = fillParent ? undefined : { height };
+
+  if (errored) {
+    return (
+      <div
+        className={cn(
+          "flex items-center justify-center px-4 py-8 text-center",
+          sizeClass
+        )}
+        style={style}
+      >
+        <span className="text-xs text-text-muted">
+          Couldn’t load preview. Try Download.
+        </span>
+      </div>
+    );
+  }
+  if (!blobUrl) {
+    return (
+      <div
+        className={cn("flex items-center justify-center", sizeClass)}
+        style={style}
+      >
+        <Loader2 className="w-5 h-5 text-text-muted animate-spin" />
+      </div>
+    );
+  }
+  return (
+    <iframe
+      src={blobUrl}
+      title={fileName}
+      className={cn("bg-bg-primary", sizeClass)}
+      style={style}
+    />
+  );
 }

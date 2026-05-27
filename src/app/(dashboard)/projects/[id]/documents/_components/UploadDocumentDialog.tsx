@@ -228,12 +228,15 @@ export function UploadDocumentDialog({
           </button>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 p-3 border border-border-light rounded-lg">
-              <div className="p-2 bg-error/10 rounded-md">
+            <div className="flex items-center gap-3 p-3 border border-border-light rounded-lg min-w-0">
+              <div className="p-2 bg-error/10 rounded-md shrink-0">
                 <FileText className="w-5 h-5 text-error" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-primary truncate">
+                <p
+                  className="text-sm font-medium text-text-primary truncate"
+                  title={file.name}
+                >
                   {file.name}
                 </p>
                 <p className="text-xs text-text-muted">
@@ -247,7 +250,7 @@ export function UploadDocumentDialog({
                     setFile(null);
                     setBaseName("");
                   }}
-                  className="p-1.5 text-text-muted hover:text-text-primary cursor-pointer"
+                  className="shrink-0 p-1.5 text-text-muted hover:text-text-primary cursor-pointer"
                   aria-label="Remove"
                 >
                   <X className="w-4 h-4" />
