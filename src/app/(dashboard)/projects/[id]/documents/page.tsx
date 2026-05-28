@@ -56,6 +56,11 @@ export default function DocumentsPage({
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("recent");
   const [newSectionOpen, setNewSectionOpen] = useState(false);
+  // Pre-fills the parent picker when the user clicks "Add sub-section" on a
+  // top-level section; null = create at top-level.
+  const [newSectionParentId, setNewSectionParentId] = useState<string | null>(
+    null
+  );
   const [uploadOpen, setUploadOpen] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState<File[]>([]);
   // Token paired with `droppedFiles` so the upload dialog remounts on each
@@ -190,6 +195,7 @@ export default function DocumentsPage({
   async function createSection(data: {
     name: string;
     icon: string;
+    parentId?: string | null;
   }): Promise<DbProjectDocumentSection> {
     const created = await projectDocuments.createSection(projectId, data);
     await mutate(sectionsKey);
@@ -197,7 +203,11 @@ export default function DocumentsPage({
     return created;
   }
 
-  async function handleCreateSection(data: { name: string; icon: string }) {
+  async function handleCreateSection(data: {
+    name: string;
+    icon: string;
+    parentId: string | null;
+  }) {
     try {
       const created = await createSection(data);
       setActiveSectionId(created.id);
@@ -227,7 +237,10 @@ export default function DocumentsPage({
     }
   }
 
-  async function handleReorderSections(orderedIds: string[]) {
+  async function handleReorderSections(
+    parentId: string | null,
+    orderedIds: string[]
+  ) {
     if (!sections) return;
     const byId = new Map(sections.map((s) => [s.id, s]));
     // Only PATCH sections whose new index differs from the stored position —
@@ -240,13 +253,16 @@ export default function DocumentsPage({
       );
     if (changed.length === 0) return;
 
-    // Optimistic update — SWR cache flips to the new order before the network
-    // round-trip lands so the sidebar doesn't snap back during the request.
-    const optimistic = orderedIds.map((id, position) => {
-      const existing = byId.get(id);
-      if (!existing) throw new Error(`Section ${id} not in cache`);
-      return { ...existing, position };
-    });
+    // Optimistic: rewrite positions only for the affected sibling group,
+    // leaving sections outside this group untouched.
+    const newPosById = new Map(
+      orderedIds.map((id, position) => [id, position])
+    );
+    const optimistic = sections.map((s) =>
+      s.parent_id === parentId && newPosById.has(s.id)
+        ? { ...s, position: newPosById.get(s.id)! }
+        : s
+    );
     void mutate(sectionsKey, optimistic, { revalidate: false });
 
     try {
@@ -265,6 +281,24 @@ export default function DocumentsPage({
       });
       // Roll back the optimistic write by forcing a refetch.
       await mutate(sectionsKey);
+    }
+  }
+
+  async function handleMoveSection(
+    section: DbProjectDocumentSection,
+    parentId: string | null
+  ) {
+    try {
+      await projectDocuments.updateSection(projectId, section.id, {
+        parentId,
+      });
+      await mutate(sectionsKey);
+    } catch (err) {
+      toast({
+        title:
+          err instanceof ApiError ? err.message : "Could not move section.",
+        variant: "error",
+      });
     }
   }
 
@@ -497,10 +531,18 @@ export default function DocumentsPage({
         sections={sections ?? []}
         activeSectionId={activeSectionId}
         onSelect={setActiveSectionId}
-        onCreate={() => setNewSectionOpen(true)}
+        onCreate={(parentId) => {
+          setNewSectionParentId(parentId ?? null);
+          setNewSectionOpen(true);
+        }}
         onRename={setSectionToRename}
         onDelete={setSectionToDelete}
-        onReorder={(orderedIds) => void handleReorderSections(orderedIds)}
+        onMove={(section, parentId) =>
+          void handleMoveSection(section, parentId)
+        }
+        onReorder={(parentId, orderedIds) =>
+          void handleReorderSections(parentId, orderedIds)
+        }
         canEdit={canEdit}
       />
 
@@ -721,6 +763,8 @@ export default function DocumentsPage({
         open={newSectionOpen}
         onOpenChange={setNewSectionOpen}
         onSubmit={handleCreateSection}
+        sections={sections ?? []}
+        initialParentId={newSectionParentId}
       />
       <UploadDocumentDialog
         // Remount on each drop so `initialFiles` seed via useState init —

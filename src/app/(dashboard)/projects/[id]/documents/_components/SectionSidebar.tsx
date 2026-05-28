@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import {
+  ChevronRight,
+  FolderInput,
   Grip,
   LayoutGrid,
   MoreHorizontal,
@@ -32,33 +34,44 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { cn } from "@/lib/utils";
 import { SectionIcon } from "./SectionIcon";
+import { buildSectionTree, isTopLevel } from "./sectionTree";
 
 interface SectionSidebarProps {
   sections: DbProjectDocumentSection[];
   /** `null` = "All documents" view, otherwise a specific section id. */
   activeSectionId: string | null;
   onSelect: (sectionId: string | null) => void;
-  onCreate: () => void;
+  /** Open the create-section dialog. `parentId` pre-fills the parent picker. */
+  onCreate: (parentId?: string | null) => void;
   onRename: (section: DbProjectDocumentSection) => void;
   onDelete: (section: DbProjectDocumentSection) => void;
   /**
-   * Fires when the user drops a section in a new position. The array is the
-   * full ordered list of section ids in their new positions; the caller is
-   * expected to persist the order (e.g. via per-section PATCH writes).
+   * Fires when the user drops a section in a new position WITHIN ITS OWN
+   * SIBLING GROUP. `parentId` identifies the group (null = top-level); the
+   * id array is the new ordered list of that group's section ids.
    */
-  onReorder: (orderedIds: string[]) => void;
+  onReorder: (parentId: string | null, orderedIds: string[]) => void;
+  /**
+   * Move a section to a different parent (or back to top-level when
+   * `parentId` is null). Used by the kebab "Move to…" submenu.
+   */
+  onMove: (section: DbProjectDocumentSection, parentId: string | null) => void;
   canEdit: boolean;
 }
 
 /**
- * Left column. First entry is the "All documents" pseudo-section (activeSectionId
- * = null). Below that, the project's real sections — drag-sortable for editors
- * (the section icon swaps to a grip handle on hover). "+ New section" sits at
- * the bottom and is hidden for read-only roles.
+ * Left column. "All documents" pseudo-section sits at the top. Below it,
+ * sections render as a one-level-deep tree: parents with a chevron, children
+ * indented under their expanded parent. Editors can drag-to-reorder within
+ * the same sibling group; cross-level moves go through the kebab "Move to…"
+ * submenu. "+ New section" stays at the bottom.
  */
 export function SectionSidebar({
   sections,
@@ -68,39 +81,54 @@ export function SectionSidebar({
   onRename,
   onDelete,
   onReorder,
+  onMove,
   canEdit,
 }: SectionSidebarProps) {
+  // Avoid double-counting children whose docs are already rolled up into
+  // their parent's doc_count.
   const totalCount = useMemo(
-    () => sections.reduce((acc, s) => acc + s.doc_count, 0),
+    () =>
+      sections.reduce((acc, s) => (isTopLevel(s) ? acc + s.doc_count : acc), 0),
     [sections]
   );
-  const sortedSections = useMemo(() => {
-    return [...sections].sort(
-      (a, b) =>
-        a.position - b.position || a.created_at.localeCompare(b.created_at)
-    );
-  }, [sections]);
-  const sortedIds = useMemo(
-    () => sortedSections.map((s) => s.id),
-    [sortedSections]
+  const { topLevel, childrenByParent, byId } = useMemo(
+    () => buildSectionTree(sections),
+    [sections]
   );
+  // User-toggled collapse overlay. Defaults to "everything expanded"; the
+  // active section's parent is force-included in the expanded set on render
+  // so the leaf is always visible without a useEffect.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  // Lazy-mount: don't spin up a per-parent DndContext + SortableContext
+  // until the parent has been expanded at least once. Subsequent collapses
+  // keep the wrapper mounted so the close animation still has DOM to play
+  // against.
+  const [opened, setOpened] = useState<Set<string>>(() => new Set());
+  const activeParentId = activeSectionId
+    ? (byId.get(activeSectionId)?.parent_id ?? null)
+    : null;
+
+  function isExpanded(parentId: string): boolean {
+    if (parentId === activeParentId) return true;
+    return !collapsed.has(parentId);
+  }
+
+  function toggleCollapsed(id: string) {
+    setCollapsed((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setOpened((cur) => (cur.has(id) ? cur : new Set(cur).add(id)));
+  }
+
   const sensors = useSensors(
-    // Activation distance prevents drags from firing on accidental click-and-
-    // release on the grip handle — a real reorder needs a small movement.
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = sortedIds.indexOf(String(active.id));
-    const newIndex = sortedIds.indexOf(String(over.id));
-    if (oldIndex < 0 || newIndex < 0) return;
-    onReorder(arrayMove(sortedIds, oldIndex, newIndex));
-  }
 
   const allActive = activeSectionId === null;
   return (
@@ -117,62 +145,123 @@ export function SectionSidebar({
             allActive ? "bg-bg-elevated" : "hover:bg-bg-elevated"
           )}
         >
+          <span aria-hidden className="w-5 h-5 ml-1.5 shrink-0" />
+          <span className="relative w-4 h-4 shrink-0 my-2.5">
+            <LayoutGrid
+              className={cn(
+                "w-4 h-4",
+                allActive ? "text-text-primary" : "text-text-muted"
+              )}
+            />
+          </span>
           <button
             type="button"
             onClick={() => onSelect(null)}
             aria-current={allActive ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-left flex-1 min-w-0 cursor-pointer",
+              "flex items-center gap-2.5 pl-2.5 pr-3 py-2.5 rounded-md text-left flex-1 min-w-0 cursor-pointer",
               allActive
                 ? "text-text-primary font-semibold"
                 : "text-text-secondary"
             )}
           >
-            <LayoutGrid
-              className={cn(
-                "w-4 h-4 shrink-0",
-                allActive ? "text-text-primary" : "text-text-muted"
-              )}
-            />
             <span className="text-[13px] truncate flex-1">All documents</span>
             <span className="text-xs text-text-muted">{totalCount}</span>
           </button>
           {canEdit && (
-            // Invisible placeholder matching the section "..." menu so the
-            // count column aligns across all rows.
             <span aria-hidden className="p-1.5 mr-1 invisible">
               <MoreHorizontal className="w-3.5 h-3.5" />
             </span>
           )}
         </div>
 
-        <DndContext
+        <SiblingSortable
+          ids={topLevel.map((s) => s.id)}
+          onReorderedIds={(ids) => onReorder(null, ids)}
           sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
         >
-          <SortableContext
-            items={sortedIds}
-            strategy={verticalListSortingStrategy}
-          >
-            {sortedSections.map((section) => (
-              <SortableSectionRow
-                key={section.id}
-                section={section}
-                active={section.id === activeSectionId}
-                canEdit={canEdit}
-                onSelect={() => onSelect(section.id)}
-                onRename={() => onRename(section)}
-                onDelete={() => onDelete(section)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+          {topLevel.map((parent) => {
+            const children = childrenByParent.get(parent.id) ?? [];
+            const hasChildren = children.length > 0;
+            const expanded = hasChildren && isExpanded(parent.id);
+            // Auto-expanded active parent counts as "opened" too — its
+            // DndContext mounts on the first render that needs it.
+            const mountChildren =
+              hasChildren &&
+              (expanded ||
+                opened.has(parent.id) ||
+                parent.id === activeParentId);
+            // A parent with its own children can't be reparented (would create
+            // grandchildren). Empty targets → kebab hides the Move-to submenu.
+            const parentMoveTargets = hasChildren
+              ? []
+              : topLevel.filter((t) => t.id !== parent.id);
+            const childMoveTargets = topLevel.filter((t) => t.id !== parent.id);
+            return (
+              <div key={parent.id}>
+                <SortableSectionRow
+                  section={parent}
+                  active={parent.id === activeSectionId}
+                  canEdit={canEdit}
+                  canReorder={topLevel.length > 1}
+                  hasChildren={hasChildren}
+                  isExpanded={expanded}
+                  onToggle={
+                    hasChildren ? () => toggleCollapsed(parent.id) : undefined
+                  }
+                  onSelect={() => onSelect(parent.id)}
+                  onRename={() => onRename(parent)}
+                  onDelete={() => onDelete(parent)}
+                  onAddSubSection={() => onCreate(parent.id)}
+                  moveTargets={parentMoveTargets}
+                  isAtTopLevel
+                  onMoveToTopLevel={() => onMove(parent, null)}
+                  onMoveToParent={(p) => onMove(parent, p.id)}
+                />
+                {mountChildren && (
+                  <div
+                    className={cn(
+                      "grid transition-[grid-template-rows] duration-300 ease-out",
+                      expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    )}
+                    aria-hidden={!expanded}
+                  >
+                    <div className="overflow-hidden">
+                      <SiblingSortable
+                        ids={children.map((c) => c.id)}
+                        onReorderedIds={(ids) => onReorder(parent.id, ids)}
+                        sensors={sensors}
+                      >
+                        {children.map((child) => (
+                          <SortableSectionRow
+                            key={child.id}
+                            section={child}
+                            active={child.id === activeSectionId}
+                            canEdit={canEdit}
+                            canReorder={children.length > 1}
+                            nested
+                            onSelect={() => onSelect(child.id)}
+                            onRename={() => onRename(child)}
+                            onDelete={() => onDelete(child)}
+                            moveTargets={childMoveTargets}
+                            isAtTopLevel={false}
+                            onMoveToTopLevel={() => onMove(child, null)}
+                            onMoveToParent={(p) => onMove(child, p.id)}
+                          />
+                        ))}
+                      </SiblingSortable>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </SiblingSortable>
 
         {canEdit && (
           <button
             type="button"
-            onClick={onCreate}
+            onClick={() => onCreate(null)}
             className="flex items-center gap-2 px-3 py-2.5 rounded-md text-left text-text-primary hover:bg-bg-elevated transition-colors mt-1 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -184,21 +273,81 @@ export function SectionSidebar({
   );
 }
 
-function SortableSectionRow({
+/**
+ * Wraps a group of siblings (top-level or children of one parent) in its
+ * own SortableContext + DndContext so drag-to-reorder is scoped to that
+ * level — sections can't accidentally jump between levels via drag.
+ */
+function SiblingSortable({
+  ids,
+  onReorderedIds,
+  sensors,
+  children,
+}: {
+  ids: string[];
+  onReorderedIds: (ids: string[]) => void;
+  sensors: ReturnType<typeof useSensors>;
+  children: React.ReactNode;
+}) {
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    onReorderedIds(arrayMove(ids, oldIndex, newIndex));
+  }
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        {children}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableSectionRowInner({
   section,
   active,
   canEdit,
+  canReorder,
+  hasChildren = false,
+  isExpanded = false,
+  onToggle,
+  nested = false,
   onSelect,
   onRename,
   onDelete,
+  onAddSubSection,
+  moveTargets,
+  isAtTopLevel,
+  onMoveToTopLevel,
+  onMoveToParent,
 }: {
   section: DbProjectDocumentSection;
   active: boolean;
   canEdit: boolean;
+  /** False when this row is the only member of its sibling group — drag-to-
+   * reorder is meaningless, so we skip the grip on hover. */
+  canReorder: boolean;
+  hasChildren?: boolean;
+  isExpanded?: boolean;
+  onToggle?: () => void;
+  nested?: boolean;
   onSelect: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onAddSubSection?: () => void;
+  moveTargets: DbProjectDocumentSection[];
+  isAtTopLevel: boolean;
+  onMoveToTopLevel: () => void;
+  onMoveToParent: (parent: DbProjectDocumentSection) => void;
 }) {
+  const draggable = canEdit && canReorder;
   const {
     attributes,
     listeners,
@@ -206,7 +355,7 @@ function SortableSectionRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: section.id, disabled: !canEdit });
+  } = useSortable({ id: section.id, disabled: !draggable });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -223,20 +372,46 @@ function SortableSectionRow({
         isDragging && "z-10 opacity-60"
       )}
     >
-      {/* Icon cell — section icon by default, swaps to a drag handle on
-          hover. Both share the same slot so the row layout never shifts.
-          Kept as a SIBLING of the select button (not a child) so dnd-kit's
-          pointer listeners aren't competing with the button's click. */}
-      <span className="relative w-4 h-4 shrink-0 ml-3 my-2.5">
+      {nested ? (
+        // Indent matches the tree-picker dropdown's child rows.
+        <span aria-hidden className="w-12 shrink-0" />
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={!hasChildren}
+          aria-label={
+            hasChildren
+              ? isExpanded
+                ? `Collapse ${section.name}`
+                : `Expand ${section.name}`
+              : undefined
+          }
+          className={cn(
+            "w-5 h-5 ml-1.5 flex items-center justify-center shrink-0 rounded transition-colors",
+            hasChildren
+              ? "text-text-muted hover:text-text-primary hover:bg-bg-input cursor-pointer"
+              : "invisible"
+          )}
+        >
+          <ChevronRight
+            className={cn(
+              "w-3.5 h-3.5 transition-transform duration-200",
+              isExpanded && "rotate-90"
+            )}
+          />
+        </button>
+      )}
+      <span className="relative w-4 h-4 shrink-0 my-2.5">
         <SectionIcon
           icon={section.icon}
           className={cn(
             "absolute inset-0 w-4 h-4 transition-opacity pointer-events-none",
-            canEdit && "group-hover:opacity-0",
+            draggable && "group-hover:opacity-0",
             active ? "text-text-primary" : "text-text-muted"
           )}
         />
-        {canEdit && (
+        {draggable && (
           <button
             {...attributes}
             {...listeners}
@@ -272,11 +447,48 @@ function SortableSectionRow({
               <MoreHorizontal className="w-3.5 h-3.5" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[160px]">
+          <DropdownMenuContent align="end" className="min-w-[180px]">
             <DropdownMenuItem onSelect={onRename}>
               <Pencil className="w-3.5 h-3.5" />
               Rename
             </DropdownMenuItem>
+            {onAddSubSection && (
+              <DropdownMenuItem onSelect={onAddSubSection}>
+                <Plus className="w-3.5 h-3.5" />
+                Add sub-section
+              </DropdownMenuItem>
+            )}
+            {(moveTargets.length > 0 || !isAtTopLevel) && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <FolderInput className="w-3.5 h-3.5" />
+                  Move to…
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-[200px] max-h-[260px] overflow-y-auto">
+                  {!isAtTopLevel && (
+                    <DropdownMenuItem onSelect={onMoveToTopLevel}>
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      Top-level
+                    </DropdownMenuItem>
+                  )}
+                  {!isAtTopLevel && moveTargets.length > 0 && (
+                    <DropdownMenuSeparator />
+                  )}
+                  {moveTargets.map((t) => (
+                    <DropdownMenuItem
+                      key={t.id}
+                      onSelect={() => onMoveToParent(t)}
+                    >
+                      <SectionIcon
+                        icon={t.icon}
+                        className="w-3.5 h-3.5 text-text-secondary"
+                      />
+                      <span className="truncate">{t.name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem destructive onSelect={onDelete}>
               <Trash2 className="w-3.5 h-3.5" />
@@ -288,3 +500,26 @@ function SortableSectionRow({
     </div>
   );
 }
+
+/**
+ * Memo skips re-renders when only callbacks changed (the parent reconstructs
+ * `onSelect`/`onMove`/... per render). `moveTargets` is a freshly-filtered
+ * array on every parent render but rarely changes in content; compare by
+ * length + first/last id as a cheap stand-in for deep equality.
+ */
+const SortableSectionRow = memo(
+  SortableSectionRowInner,
+  (prev, next) =>
+    prev.section === next.section &&
+    prev.active === next.active &&
+    prev.canEdit === next.canEdit &&
+    prev.canReorder === next.canReorder &&
+    prev.hasChildren === next.hasChildren &&
+    prev.isExpanded === next.isExpanded &&
+    prev.nested === next.nested &&
+    prev.isAtTopLevel === next.isAtTopLevel &&
+    prev.moveTargets.length === next.moveTargets.length &&
+    prev.moveTargets[0]?.id === next.moveTargets[0]?.id &&
+    prev.moveTargets[prev.moveTargets.length - 1]?.id ===
+      next.moveTargets[next.moveTargets.length - 1]?.id
+);

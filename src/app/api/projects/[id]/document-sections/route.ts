@@ -35,13 +35,26 @@ export const POST = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     try {
-      const section = await createDocumentSection({
+      const result = await createDocumentSection({
         projectId: params.id,
         name: parsed.data.name,
         icon: parsed.data.icon ?? "Folder",
+        parentId: parsed.data.parentId,
         createdBy: user.id,
       });
-      return NextResponse.json(section, { status: 201 });
+      if (result === "parent_not_found") {
+        return NextResponse.json(
+          { error: "Parent section not found." },
+          { status: 400 }
+        );
+      }
+      if (result === "parent_too_deep") {
+        return NextResponse.json(
+          { error: "Sections can only nest one level deep." },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(result, { status: 201 });
     } catch (err) {
       if (isUniqueNameViolation(err)) {
         return NextResponse.json(

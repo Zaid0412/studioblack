@@ -1374,6 +1374,30 @@ describe("createDocumentSectionSchema", () => {
     expectFail(createDocumentSectionSchema, { name: "x", icon: "lowercase" });
     expectFail(createDocumentSectionSchema, { name: "x", icon: "file-text" });
   });
+
+  it("accepts an optional parentId (uuid or null)", async () => {
+    const { createDocumentSectionSchema } = await import("@/lib/validations");
+    expectPass(createDocumentSectionSchema, {
+      name: "Subcontractors",
+      parentId: "11111111-1111-4111-8111-111111111111",
+    });
+    expectPass(createDocumentSectionSchema, { name: "Top", parentId: null });
+    expectFail(createDocumentSectionSchema, {
+      name: "Bad",
+      parentId: "not-a-uuid",
+    });
+  });
+});
+
+describe("updateDocumentSectionSchema (parent reparenting)", () => {
+  it("accepts a parentId reparent payload (or null to move to top-level)", async () => {
+    const { updateDocumentSectionSchema } = await import("@/lib/validations");
+    expectPass(updateDocumentSectionSchema, {
+      parentId: "11111111-1111-4111-8111-111111111111",
+    });
+    expectPass(updateDocumentSectionSchema, { parentId: null });
+    expectFail(updateDocumentSectionSchema, { parentId: "not-a-uuid" });
+  });
 });
 
 describe("createDocumentSchema", () => {

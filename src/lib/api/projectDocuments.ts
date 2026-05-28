@@ -15,7 +15,7 @@ export function listSections(projectId: string) {
 /** Create a new section in a project. PM / architect only. */
 export function createSection(
   projectId: string,
-  data: { name: string; icon?: string }
+  data: { name: string; icon?: string; parentId?: string | null }
 ) {
   return apiPost<DbProjectDocumentSection>(
     API.projectDocumentSections(projectId),
@@ -27,7 +27,12 @@ export function createSection(
 export function updateSection(
   projectId: string,
   sectionId: string,
-  data: { name?: string; icon?: string; position?: number }
+  data: {
+    name?: string;
+    icon?: string;
+    position?: number;
+    parentId?: string | null;
+  }
 ) {
   return apiPatch<DbProjectDocumentSection>(
     API.projectDocumentSection(projectId, sectionId),

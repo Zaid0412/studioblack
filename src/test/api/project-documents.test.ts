@@ -74,6 +74,7 @@ const sampleSection = {
   name: "Minutes of Meeting",
   icon: "folder",
   position: 0,
+  parent_id: null,
   created_by: TEST_USER_ID,
   created_at: "2024-06-01T00:00:00Z",
   updated_at: "2024-06-01T00:00:00Z",
@@ -210,6 +211,65 @@ describe("POST .../document-sections", () => {
     });
   });
 
+  it("creates a sub-section under a parent", async () => {
+    setupAuth(mocks.auth, mockSession());
+    const PARENT_ID = "11111111-1111-4111-8111-111111111111";
+    const child = { ...sampleSection, parent_id: PARENT_ID };
+    vi.mocked(createDocumentSection).mockResolvedValue(child as never);
+
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: { name: "Subcontractors", parentId: PARENT_ID },
+      }),
+      buildParams(baseParams)
+    );
+    expect((await parseResponse(res)).status).toBe(201);
+    expect(createDocumentSection).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: PARENT_ID })
+    );
+  });
+
+  it("returns 400 when the parent doesn't exist", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(createDocumentSection).mockResolvedValue(
+      "parent_not_found" as never
+    );
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: {
+          name: "Sub",
+          parentId: "11111111-1111-4111-8111-111111111111",
+        },
+      }),
+      buildParams(baseParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+  });
+
+  it("returns 400 when the parent already has a parent (depth > 1)", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(createDocumentSection).mockResolvedValue(
+      "parent_too_deep" as never
+    );
+    const res = await POST_SECTIONS(
+      buildRequest(basePath, {
+        method: "POST",
+        body: {
+          name: "Sub-sub",
+          parentId: "11111111-1111-4111-8111-111111111111",
+        },
+      }),
+      buildParams(baseParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/one level deep/i),
+    });
+  });
+
   it("forbids clients from creating sections", async () => {
     setupAuth(mocks.auth, mockSession({ role: "client" }));
     const res = await POST_SECTIONS(
@@ -277,6 +337,92 @@ describe("PATCH .../document-sections/[sectionId]", () => {
     expect(body).toMatchObject({
       error: expect.stringMatching(/already exists/i),
     });
+  });
+
+  it("reparents to a new parent", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    const PARENT_ID = "11111111-1111-4111-8111-111111111111";
+    const moved = { ...sampleSection, parent_id: PARENT_ID };
+    vi.mocked(updateDocumentSection).mockResolvedValue(moved as never);
+
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { parentId: PARENT_ID },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(200);
+    expect(updateDocumentSection).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: SECTION_ID, parentId: PARENT_ID })
+    );
+  });
+
+  it("returns 400 when the reparent target doesn't exist", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    vi.mocked(updateDocumentSection).mockResolvedValue(
+      "parent_not_found" as never
+    );
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { parentId: "11111111-1111-4111-8111-111111111111" },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+  });
+
+  it("returns 400 when reparent target itself has a parent", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    vi.mocked(updateDocumentSection).mockResolvedValue(
+      "parent_too_deep" as never
+    );
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { parentId: "11111111-1111-4111-8111-111111111111" },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
+  });
+
+  it("returns 409 when reparenting a section that has children of its own", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    vi.mocked(updateDocumentSection).mockResolvedValue(
+      "reparent_with_children" as never
+    );
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { parentId: "11111111-1111-4111-8111-111111111111" },
+      }),
+      buildParams(sectionParams)
+    );
+    const { status, body } = await parseResponse(res);
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      error: expect.stringMatching(/sub-sections/i),
+    });
+  });
+
+  it("returns 400 when reparenting a section to itself", async () => {
+    setupAuth(mocks.auth, mockSession());
+    vi.mocked(getDocumentSectionById).mockResolvedValue(sampleSection as never);
+    vi.mocked(updateDocumentSection).mockResolvedValue("parent_self" as never);
+    const res = await PATCH_SECTION(
+      buildRequest(sectionPath, {
+        method: "PATCH",
+        body: { parentId: SECTION_ID },
+      }),
+      buildParams(sectionParams)
+    );
+    expect((await parseResponse(res)).status).toBe(400);
   });
 });
 

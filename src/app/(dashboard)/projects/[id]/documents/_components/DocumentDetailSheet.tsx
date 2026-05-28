@@ -42,6 +42,7 @@ interface DocumentDetailSheetProps {
   onCreateSection: (data: {
     name: string;
     icon: string;
+    parentId?: string | null;
   }) => Promise<DbProjectDocumentSection>;
   onDeleteRequest: (doc: DbProjectDocument) => void;
 }
@@ -354,6 +355,7 @@ export function DocumentDetailSheet({
       <NewSectionDialog
         open={createSectionOpen}
         onOpenChange={setCreateSectionOpen}
+        sections={sections}
         onSubmit={async (data) => {
           const created = await onCreateSection(data);
           setSectionId(created.id);
