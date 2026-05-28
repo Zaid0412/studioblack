@@ -139,14 +139,18 @@ export interface DbProjectDocumentSection {
   /** Lucide icon name. */
   icon: string;
   position: number;
-  /** Parent section id when this is a sub-section, null at top-level. One
-   * level of nesting only — depth is enforced in queries. */
+  /**
+   * Parent section id when this is a sub-section, null at top-level. One
+   * level of nesting only — depth is enforced in queries.
+   */
   parent_id: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
-  /** Document count for this section. For a parent, includes its children's
-   * documents (joined in `listDocumentSections`). */
+  /**
+   * Document count for this section. For a parent, includes its children's
+   * documents (joined in `listDocumentSections`).
+   */
   doc_count: number;
 }
 

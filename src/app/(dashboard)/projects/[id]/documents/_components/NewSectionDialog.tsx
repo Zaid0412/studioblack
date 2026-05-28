@@ -18,8 +18,10 @@ interface NewSectionDialogProps {
     icon: string;
     parentId: string | null;
   }) => Promise<void>;
-  /** Sections available as parents. Children (already-nested) are filtered
-   * out at the picker level since they can't be parents themselves. */
+  /**
+   * Sections available as parents. Children (already-nested) are filtered
+   * out at the picker level since they can't be parents themselves.
+   */
   sections?: DbProjectDocumentSection[];
   /** Pre-fills the parent picker (e.g. "Add sub-section" on a parent row). */
   initialParentId?: string | null;

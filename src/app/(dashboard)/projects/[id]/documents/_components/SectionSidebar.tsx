@@ -331,8 +331,10 @@ function SortableSectionRowInner({
   section: DbProjectDocumentSection;
   active: boolean;
   canEdit: boolean;
-  /** False when this row is the only member of its sibling group — drag-to-
-   * reorder is meaningless, so we skip the grip on hover. */
+  /**
+   * False when this row is the only member of its sibling group — drag-to-
+   * reorder is meaningless, so we skip the grip on hover.
+   */
   canReorder: boolean;
   hasChildren?: boolean;
   isExpanded?: boolean;

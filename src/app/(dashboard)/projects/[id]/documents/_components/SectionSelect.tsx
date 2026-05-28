@@ -15,9 +15,11 @@ interface SectionSelectProps {
   label?: string;
   /** When true, render a red asterisk next to the label. */
   required?: boolean;
-  /** Opens the parent's NewSectionDialog. When omitted, the "+ New section"
+  /**
+   * Opens the parent's NewSectionDialog. When omitted, the "+ New section"
    * header is hidden (used by NewSectionDialog's own parent picker to avoid
-   * recursive "create from create"). */
+   * recursive "create from create").
+   */
   onCreateNew?: () => void;
   disabled?: boolean;
   placeholder?: string;
