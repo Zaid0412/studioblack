@@ -26,17 +26,25 @@ export async function listDocumentSections(
   createdBy: string
 ): Promise<DbProjectDocumentSection[]> {
   const pool = getPool();
-  // LATERAL keeps the count subquery scoped per-row so we don't aggregate
-  // across the whole table (and across all projects) just to look up counts
-  // for one project's sections.
+  // `doc_count` for a parent rolls up its own docs + its children's docs.
+  // The first JOIN counts docs whose `section_id` is this row; the second
+  // adds counts from any row whose `parent_id` is this row.
   const { rows: existing } = await pool.query<DbProjectDocumentSection>(
-    `SELECT s.*, COALESCE(c.cnt, 0)::int AS doc_count
+    `SELECT s.*,
+            (COALESCE(self_c.cnt, 0) + COALESCE(child_c.cnt, 0))::int
+              AS doc_count
      FROM project_document_section s
      LEFT JOIN LATERAL (
        SELECT COUNT(*)::int AS cnt
        FROM project_document d
        WHERE d.section_id = s.id
-     ) c ON true
+     ) self_c ON true
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS cnt
+       FROM project_document d
+       JOIN project_document_section c ON c.id = d.section_id
+       WHERE c.parent_id = s.id
+     ) child_c ON true
      WHERE s.project_id = $1
      ORDER BY s.position ASC, s.created_at ASC`,
     [projectId]
@@ -80,14 +88,36 @@ export async function getDocumentSectionById(
   return row ?? null;
 }
 
-/** Create a new section, auto-assigning the next `position` slot. */
+/**
+ * Create a section. `parentId` is optional — when set, the section nests
+ * under that parent. Returns:
+ *   - the new row on success
+ *   - `"parent_not_found"` if `parentId` doesn't resolve to a section in
+ *     this project
+ *   - `"parent_too_deep"` if `parentId` itself already has a parent
+ *     (we cap nesting at one level)
+ *
+ * Position is auto-assigned at the tail of the chosen parent's children
+ * (or the top-level list when `parentId` is null).
+ */
 export async function createDocumentSection(args: {
   projectId: string;
   name: string;
   icon: string;
+  parentId?: string | null;
   createdBy: string;
-}): Promise<DbProjectDocumentSection> {
+}): Promise<DbProjectDocumentSection | "parent_not_found" | "parent_too_deep"> {
   const pool = getPool();
+  const parentId = args.parentId ?? null;
+  if (parentId) {
+    const { rows } = await pool.query<{ parent_id: string | null }>(
+      `SELECT parent_id FROM project_document_section
+       WHERE id = $1 AND project_id = $2`,
+      [parentId, args.projectId]
+    );
+    if (rows.length === 0) return "parent_not_found";
+    if (rows[0].parent_id !== null) return "parent_too_deep";
+  }
   const {
     rows: [row],
   } = await pool.query<DbProjectDocumentSection>(
@@ -95,26 +125,83 @@ export async function createDocumentSection(args: {
        SELECT COALESCE(MAX(position), -1) + 1 AS p
        FROM project_document_section
        WHERE project_id = $1
+         AND parent_id IS NOT DISTINCT FROM $5::uuid
      )
-     INSERT INTO project_document_section (project_id, name, icon, position, created_by)
-     VALUES ($1, $2, $3, (SELECT p FROM next_pos), $4)
+     INSERT INTO project_document_section
+       (project_id, name, icon, position, created_by, parent_id)
+     VALUES ($1, $2, $3, (SELECT p FROM next_pos), $4, $5)
      RETURNING *, 0::int AS doc_count`,
-    [args.projectId, args.name, args.icon, args.createdBy]
+    [args.projectId, args.name, args.icon, args.createdBy, parentId]
   );
   return row;
 }
 
-/** Rename / re-icon / reorder a section. Only the supplied keys are updated. */
+/**
+ * Rename / re-icon / reorder / reparent a section. Only the supplied keys
+ * are updated. `parentId` can move a section between parents or back to
+ * top-level (null). Returns:
+ *   - the updated row on success
+ *   - `null` when the section doesn't exist
+ *   - `"parent_not_found"` if `parentId` doesn't resolve in this project
+ *   - `"parent_too_deep"` if the target parent already has a parent
+ *   - `"reparent_with_children"` if the section being reparented has
+ *     children of its own — that would create 2-level nesting
+ *   - `"parent_self"` if `parentId === sectionId`
+ */
 export async function updateDocumentSection(args: {
   sectionId: string;
   projectId: string;
   name?: string;
   icon?: string;
   position?: number;
-}): Promise<DbProjectDocumentSection | null> {
+  parentId?: string | null;
+}): Promise<
+  | DbProjectDocumentSection
+  | null
+  | "parent_not_found"
+  | "parent_too_deep"
+  | "reparent_with_children"
+  | "parent_self"
+> {
   const pool = getPool();
+  if (args.parentId !== undefined) {
+    if (args.parentId === args.sectionId) return "parent_self";
+    // Look up the target's depth + the source's children-exists in a single
+    // round-trip. The "is the target a child itself" check is only relevant
+    // when we're moving to a real parent (parentId !== null).
+    const { rows } = await pool.query<{
+      target_parent_id: string | null;
+      target_exists: boolean;
+      source_has_children: boolean;
+    }>(
+      `SELECT
+         (SELECT parent_id FROM project_document_section
+          WHERE id = $1 AND project_id = $3) AS target_parent_id,
+         EXISTS (
+           SELECT 1 FROM project_document_section
+           WHERE id = $1 AND project_id = $3
+         ) AS target_exists,
+         EXISTS (
+           SELECT 1 FROM project_document_section
+           WHERE parent_id = $2 AND project_id = $3
+         ) AS source_has_children`,
+      [args.parentId, args.sectionId, args.projectId]
+    );
+    const row = rows[0]!;
+    if (args.parentId !== null) {
+      if (!row.target_exists) return "parent_not_found";
+      if (row.target_parent_id !== null) return "parent_too_deep";
+    }
+    if (row.source_has_children) return "reparent_with_children";
+  }
+  // Pin projectId at $1 + sectionId at $2 so the dynamic SETs can reference
+  // them by stable index (the position-on-reparent subquery below needs
+  // projectId; param ordering would otherwise depend on which keys were
+  // supplied).
+  const params: (string | number | null)[] = [args.projectId, args.sectionId];
+  const projectIdParam = 1;
+  const sectionIdParam = 2;
   const sets: string[] = [];
-  const params: (string | number)[] = [];
   if (args.name !== undefined) {
     params.push(args.name);
     sets.push(`name = $${params.length}`);
@@ -127,17 +214,38 @@ export async function updateDocumentSection(args: {
     params.push(args.position);
     sets.push(`position = $${params.length}`);
   }
+  if (args.parentId !== undefined) {
+    params.push(args.parentId);
+    const parentIdParam = params.length;
+    sets.push(`parent_id = $${parentIdParam}::uuid`);
+    // When reparenting without an explicit position, drop the section at the
+    // tail of the new parent's children — otherwise the old position lands
+    // it in the middle of an unrelated sibling group.
+    if (args.position === undefined) {
+      sets.push(
+        `position = (
+           SELECT COALESCE(MAX(position), -1) + 1
+           FROM project_document_section
+           WHERE project_id = $${projectIdParam}
+             AND parent_id IS NOT DISTINCT FROM $${parentIdParam}::uuid
+         )`
+      );
+    }
+  }
   if (sets.length === 0) {
-    return getDocumentSectionById(args.sectionId, args.projectId);
+    const existing = await getDocumentSectionById(
+      args.sectionId,
+      args.projectId
+    );
+    return existing;
   }
   sets.push(`updated_at = now()`);
-  params.push(args.sectionId, args.projectId);
   const {
     rows: [row],
   } = await pool.query<DbProjectDocumentSection>(
     `UPDATE project_document_section
      SET ${sets.join(", ")}
-     WHERE id = $${params.length - 1} AND project_id = $${params.length}
+     WHERE id = $${sectionIdParam} AND project_id = $${projectIdParam}
      RETURNING *, 0::int AS doc_count`,
     params
   );
@@ -159,10 +267,19 @@ export async function deleteDocumentSection(
     storage_paths: string[] | null;
     deleted: string | null;
   }>(
+    // `paths` collects storage_paths from docs in this section AND in any
+    // of its sub-sections. The CASCADE on parent_id wipes the child rows
+    // and (via project_document's section_id FK) their docs, but we need
+    // the paths up-front so storage can be cleaned in the same response.
     `WITH paths AS (
-       SELECT array_agg(storage_path) AS storage_paths
-       FROM project_document
-       WHERE section_id = $1 AND project_id = $2
+       SELECT array_agg(d.storage_path) AS storage_paths
+       FROM project_document d
+       WHERE d.project_id = $2
+         AND d.section_id IN (
+           SELECT id FROM project_document_section
+           WHERE project_id = $2
+             AND (id = $1 OR parent_id = $1)
+         )
      ),
      deleted AS (
        DELETE FROM project_document_section

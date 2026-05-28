@@ -38,12 +38,42 @@ export const PATCH = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
     try {
-      const section = await updateDocumentSection({
+      const result = await updateDocumentSection({
         sectionId,
         projectId: id,
         ...parsed.data,
       });
-      return NextResponse.json(section);
+      if (result === "parent_not_found") {
+        return NextResponse.json(
+          { error: "Parent section not found." },
+          { status: 400 }
+        );
+      }
+      if (result === "parent_too_deep") {
+        return NextResponse.json(
+          { error: "Sections can only nest one level deep." },
+          { status: 400 }
+        );
+      }
+      if (result === "reparent_with_children") {
+        return NextResponse.json(
+          {
+            error:
+              "Move or delete this section's sub-sections before reparenting it.",
+          },
+          { status: 409 }
+        );
+      }
+      if (result === "parent_self") {
+        return NextResponse.json(
+          { error: "A section cannot be its own parent." },
+          { status: 400 }
+        );
+      }
+      if (!result) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      return NextResponse.json(result);
     } catch (err) {
       if (isUniqueNameViolation(err)) {
         return NextResponse.json(

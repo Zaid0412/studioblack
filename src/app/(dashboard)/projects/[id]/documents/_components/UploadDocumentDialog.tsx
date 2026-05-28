@@ -72,6 +72,7 @@ interface UploadDocumentDialogProps {
   onCreateSection: (data: {
     name: string;
     icon: string;
+    parentId?: string | null;
   }) => Promise<DbProjectDocumentSection>;
   /**
    * Called once with every successfully-created document row in the batch.
@@ -511,6 +512,7 @@ export function UploadDocumentDialog({
       <NewSectionDialog
         open={createSectionOpen}
         onOpenChange={setCreateSectionOpen}
+        sections={sections}
         onSubmit={async (data) => {
           const created = await onCreateSection(data);
           setSectionId(created.id);

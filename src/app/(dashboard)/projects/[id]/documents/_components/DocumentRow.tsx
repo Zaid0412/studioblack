@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import {
   Check,
   Download,
@@ -26,6 +26,7 @@ import { formatFileSize, getFileExtension } from "@/lib/fileUtils";
 import { relativeTime } from "@/lib/formatTime";
 import { HighlightedText } from "./HighlightedText";
 import { SectionIcon } from "./SectionIcon";
+import { sectionFullPath } from "./sectionTree";
 
 interface DocumentRowProps {
   doc: DbProjectDocument;
@@ -73,6 +74,12 @@ function DocumentRowInner({
 }: DocumentRowProps) {
   const otherSections = sections.filter((s) => s.id !== doc.section_id);
   const selectable = canEdit && !!onToggleSelect;
+  const sectionsById = useMemo(
+    () => new Map(sections.map((s) => [s.id, s])),
+    [sections]
+  );
+  const section = sectionsById.get(doc.section_id);
+  const fullPath = section ? sectionFullPath(section, sectionsById) : null;
   return (
     <div
       role="button"
@@ -152,7 +159,10 @@ function DocumentRowInner({
             <HighlightedText text={doc.file_name} query={searchQuery} />
           </p>
           {showSectionBadge && doc.section_name && (
-            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full bg-bg-elevated text-[10px] font-medium text-text-secondary">
+            <span
+              title={fullPath ?? doc.section_name}
+              className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full bg-bg-elevated text-[10px] font-medium text-text-secondary"
+            >
               {doc.section_name}
             </span>
           )}

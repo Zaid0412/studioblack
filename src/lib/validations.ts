@@ -1393,12 +1393,14 @@ const lucideIcon = z
 export const createDocumentSectionSchema = z.object({
   name: z.string().trim().min(1).max(80),
   icon: lucideIcon.optional(),
+  parentId: z.string().uuid().nullable().optional(),
 });
 
 export const updateDocumentSectionSchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   icon: lucideIcon.optional(),
   position: z.number().int().min(0).optional(),
+  parentId: z.string().uuid().nullable().optional(),
 });
 
 /**
