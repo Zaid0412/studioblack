@@ -273,8 +273,14 @@ export function BoqItemDrawer({
 
   /**
    * Flip the per-item dimension unit, preserving physical measurement
-   * (option b). `quantity` follows the new-unit cube — the item's own
-   * `unit` field (m³/ft³) is left for the user to flip if they care.
+   * (option b). The item's own `unit` field (m³/ft³) is left alone —
+   * the user can flip it if they care.
+   *
+   * `quantity` only follows the new-unit product when the current qty
+   * is still the L×B×H auto-fill. If the user manually overrode qty
+   * (e.g. 12 sqm with only L+B set), we leave it alone so the flip
+   * doesn't silently rewrite their typed value — they keep the same
+   * number; only the dimensional context around it changes.
    */
   const changeDimensionUnit = async (next: DimensionUnit) => {
     if (next === item.dimension_unit) return;
@@ -291,7 +297,22 @@ export function BoqItemDrawer({
       breadth,
       height,
     };
-    if (quantity !== null) patch.quantity = quantity;
+    // Detect manual qty override by comparing the current qty against the
+    // pre-flip auto product. Match within 1e-3 to tolerate the trailing
+    // toFixed(6) rounding from earlier auto-fills.
+    const preFlipPositives = [item.length, item.breadth, item.height]
+      .map((s) => parseOptionalNumber(s ?? ""))
+      .filter((n): n is number => n !== null && n > 0);
+    const preFlipAuto =
+      preFlipPositives.length > 0
+        ? preFlipPositives.reduce((a, b) => a * b, 1)
+        : null;
+    const currentQty = toNum(item.quantity);
+    const qtyWasAutoFilled =
+      preFlipAuto !== null && Math.abs(currentQty - preFlipAuto) < 1e-3;
+    if (qtyWasAutoFilled && quantity !== null) {
+      patch.quantity = quantity;
+    }
     await saveField(patch);
   };
 

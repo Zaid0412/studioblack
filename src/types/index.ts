@@ -848,6 +848,7 @@ export interface ParsedBoqValues {
   length?: number;
   breadth?: number;
   height?: number;
+  dimensionUnit?: "m" | "ft";
   notes?: string;
   clientNotes?: string;
   isProvisional?: boolean;

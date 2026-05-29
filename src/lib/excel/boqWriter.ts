@@ -54,6 +54,7 @@ export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
       length: toNumber(item.length),
       breadth: toNumber(item.breadth),
       height: toNumber(item.height),
+      dimensionUnit: item.dimension_unit,
       notes: item.notes ?? "",
       clientNotes: item.client_notes ?? "",
       isProvisional: item.is_provisional ? "yes" : "",
@@ -86,6 +87,9 @@ function pickWidth(key: string): number {
     case "height":
       // Tighter than the default — 3-char header + small decimal value.
       return 10;
+    case "dimensionUnit":
+      // 2-char header + 1-2 char value (`m` / `ft`).
+      return 8;
     default:
       return 14;
   }

@@ -48,6 +48,7 @@ const TEMPLATE_COLUMNS = {
   length: "Length",
   breadth: "Breadth",
   height: "Height",
+  dimensionUnit: "Dimension Unit",
   notes: "Notes",
   clientNotes: "Client Notes",
   isProvisional: "Is Provisional",
@@ -180,6 +181,17 @@ export async function parseBoqSheet(
           warnings
         );
         if (v !== undefined) values[k] = v;
+      }
+
+      // ── Dimension unit (optional; blank → 'm' for legacy templates).
+      // Values are case-insensitive so the user can type `M`, `Ft`, etc.
+      if (byKey.dimensionUnit !== undefined && byKey.dimensionUnit !== "") {
+        const u = byKey.dimensionUnit.toLowerCase();
+        if (u === "m" || u === "ft") {
+          values.dimensionUnit = u;
+        } else {
+          errors.push(`Dimension Unit "${byKey.dimensionUnit}" must be m or ft`);
+        }
       }
 
       // ── Optional strings with length caps

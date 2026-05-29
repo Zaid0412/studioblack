@@ -14,6 +14,8 @@ afterEach(() => {
   cleanup();
 });
 
+// The cell renders a single `<input>` in both modes — read-only when not
+// editing, editable when editing. Tests target the input via aria-label.
 describe("BoqEditableCell", () => {
   it("renders the display value when not editing", () => {
     render(
@@ -22,9 +24,12 @@ describe("BoqEditableCell", () => {
         display="10 units"
         mode="number"
         onSave={vi.fn()}
+        ariaLabel="qty"
       />
     );
-    expect(screen.getByText("10 units")).toBeDefined();
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    expect(input.value).toBe("10 units");
+    expect(input.readOnly).toBe(true);
   });
 
   it("enters edit mode on click and saves on Enter", async () => {
@@ -39,11 +44,11 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    const trigger = screen.getByRole("button", { name: "qty" });
-    fireEvent.click(trigger);
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    fireEvent.click(input);
 
-    const input = await screen.findByRole("textbox");
-    expect((input as HTMLInputElement).value).toBe("5");
+    await waitFor(() => expect(input.readOnly).toBe(false));
+    expect(input.value).toBe("5");
 
     fireEvent.change(input, { target: { value: "12" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -63,13 +68,14 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "qty" }));
-    const input = await screen.findByRole("textbox");
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
     fireEvent.change(input, { target: { value: "99" } });
     fireEvent.keyDown(input, { key: "Escape" });
 
     expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText("5")).toBeDefined();
+    expect(input.value).toBe("5");
   });
 
   it("does not call onSave when value is unchanged", async () => {
@@ -84,8 +90,9 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "qty" }));
-    const input = await screen.findByRole("textbox");
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
     fireEvent.blur(input);
 
     expect(onSave).not.toHaveBeenCalled();
@@ -103,8 +110,9 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "qty" }));
-    const input = await screen.findByRole("textbox");
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
     fireEvent.change(input, { target: { value: "abc" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -124,8 +132,9 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "qty" }));
-    const input = await screen.findByRole("textbox");
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
     fireEvent.change(input, { target: { value: "-3" } });
     fireEvent.keyDown(input, { key: "Enter" });
 
@@ -144,15 +153,16 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "description" }));
-    const input = await screen.findByRole("textbox");
+    const input = screen.getByLabelText("description") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("is read-only when disabled", () => {
+  it("is disabled when the prop is set", () => {
     const onSave = vi.fn();
     render(
       <BoqEditableCell
@@ -164,9 +174,9 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    expect(screen.queryByRole("button", { name: "qty" })).toBeNull();
-    expect(screen.queryByRole("textbox")).toBeNull();
-    expect(screen.getByText("5")).toBeDefined();
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+    expect(input.value).toBe("5");
   });
 
   it("saves on blur after edit", async () => {
@@ -181,11 +191,40 @@ describe("BoqEditableCell", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "qty" }));
-    const input = await screen.findByRole("textbox");
+    const input = screen.getByLabelText("qty") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
     fireEvent.change(input, { target: { value: "7" } });
     fireEvent.blur(input);
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith("7"));
+  });
+
+  it("parses feet-inches input and saves decimal feet", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <BoqEditableCell
+        value="2.5"
+        display={`2'6"`}
+        mode="feet-inches"
+        onSave={onSave}
+        ariaLabel="length"
+      />
+    );
+
+    const input = screen.getByLabelText("length") as HTMLInputElement;
+    fireEvent.click(input);
+    await waitFor(() => expect(input.readOnly).toBe(false));
+    // Seeded with the feet-inches form so the user edits in that notation.
+    expect(input.value).toBe(`2'6"`);
+
+    fireEvent.change(input, { target: { value: `7'10"` } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+    const saved = onSave.mock.calls[0][0] as string;
+    expect(Number.parseFloat(saved)).toBeCloseTo(7.8333, 4);
   });
 });

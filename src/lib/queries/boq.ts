@@ -1935,7 +1935,7 @@ export async function bulkInsertBoqItems(
              quantity, unit_cost, material_cost, labour_cost,
              overhead_pct, service_charge_pct, margin_pct,
              client_rate, budget_rate,
-             length, breadth, height,
+             length, breadth, height, dimension_unit,
              notes, client_notes,
              sort_order, is_provisional
            ) VALUES (
@@ -1945,9 +1945,9 @@ export async function bulkInsertBoqItems(
              $7::numeric, $8::numeric, $9::numeric, $10::numeric,
              COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
              $14::numeric, $15::numeric,
-             $16::numeric, $17::numeric, $18::numeric,
-             $19, $20,
-             $21::int, COALESCE($22, false)
+             $16::numeric, $17::numeric, $18::numeric, COALESCE($19, 'm'),
+             $20, $21,
+             $22::int, COALESCE($23, false)
            )`,
           [
             boqId,
@@ -1968,6 +1968,7 @@ export async function bulkInsertBoqItems(
             row.length ?? null,
             row.breadth ?? null,
             row.height ?? null,
+            row.dimensionUnit ?? null,
             row.notes ?? null,
             row.clientNotes ?? null,
             sortOrder,

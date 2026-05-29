@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type MouseEvent,
-} from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import { formatFeetInches, parseFeetInches } from "../_lib/formatters";
 
@@ -146,7 +140,7 @@ export function BoqEditableCell({
     }
   };
 
-  const handleDisplayKeyDown = (e: KeyboardEvent<HTMLSpanElement>) => {
+  const handleKeyDownReadOnly = (e: KeyboardEvent<HTMLInputElement>) => {
     if (disabled) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -154,52 +148,51 @@ export function BoqEditableCell({
     }
   };
 
-  const handleDisplayClick = (e: MouseEvent<HTMLSpanElement>) => {
-    e.stopPropagation();
-    startEdit();
-  };
-
-  if (!editing) {
-    return (
-      <span
-        role={disabled ? undefined : "button"}
-        tabIndex={disabled ? -1 : 0}
-        aria-label={ariaLabel}
-        onClick={disabled ? undefined : handleDisplayClick}
-        onKeyDown={handleDisplayKeyDown}
-        className={cn(
-          "block truncate rounded px-1 -mx-1",
-          disabled
-            ? "cursor-default opacity-70"
-            : "cursor-text hover:bg-bg-elevated/70 focus:bg-bg-elevated/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/40",
-          align === "right" && "text-right",
-          className
-        )}
-      >
-        {display}
-      </span>
-    );
-  }
-
+  // Same <input> in both modes — only the chrome (border, background,
+  // readOnly) changes — so the browser keeps the element mounted and the
+  // CSS transitions can fade the border/bg in smoothly on click-to-edit.
+  // `truncate` keeps overflow text ellipsised when read-only (the input
+  // only scrolls when focused).
   return (
     <input
       ref={inputRef}
       type="text"
-      inputMode={mode === "number" ? "decimal" : "text"}
-      value={draft}
+      inputMode={editing && mode === "number" ? "decimal" : "text"}
+      readOnly={!editing}
+      value={editing ? draft : display}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => void commit()}
-      onKeyDown={handleKeyDown}
-      onClick={(e) => e.stopPropagation()}
-      disabled={saving}
-      placeholder={placeholder}
+      onBlur={editing ? () => void commit() : undefined}
+      onKeyDown={editing ? handleKeyDown : handleKeyDownReadOnly}
+      onClick={
+        editing
+          ? (e) => e.stopPropagation()
+          : (e) => {
+              e.stopPropagation();
+              startEdit();
+            }
+      }
+      disabled={disabled || saving}
+      placeholder={editing ? placeholder : undefined}
       aria-label={ariaLabel}
       className={cn(
-        "w-full rounded border border-accent bg-bg-input px-1.5 py-0.5 text-sm text-text-primary tabular-nums",
-        "focus:outline-none focus:ring-1 focus:ring-accent/40",
+        // `appearance-none [font:inherit]` strips browser-default input
+        // chrome (spinners, custom fonts) so the always-mounted readonly
+        // input renders identically to surrounding text.
+        "block w-full truncate rounded border px-1.5 py-0.5 -mx-1.5 appearance-none [font:inherit] text-sm text-text-primary tabular-nums",
+        "transition-colors duration-150 ease-out",
+        "focus:outline-none",
+        editing
+          ? "border-accent bg-bg-input focus:ring-1 focus:ring-accent/40"
+          : cn(
+              "border-transparent bg-transparent",
+              disabled
+                ? "cursor-default opacity-70"
+                : "cursor-text hover:bg-bg-elevated/70 focus:bg-bg-elevated/70 focus-visible:ring-1 focus-visible:ring-accent/40"
+            ),
         saving && "opacity-60",
         align === "right" && "text-right",
-        inputClassName
+        className,
+        editing && inputClassName
       )}
     />
   );

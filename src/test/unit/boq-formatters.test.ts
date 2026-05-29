@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  convertDimensions,
   marginTier,
   phaseToVariant,
   phaseToLabel,
@@ -9,6 +10,7 @@ import {
   formatFeetInches,
   formatQty,
   formatPct,
+  parseDimensionValue,
   parseFeetInches,
   toNum,
 } from "@/app/(dashboard)/projects/[id]/boq/_lib/formatters";
@@ -254,5 +256,81 @@ describe("formatDimension (single value, by unit)", () => {
     expect(formatDimension(null, "m")).toBe("—");
     expect(formatDimension(0, "m")).toBe("—");
     expect(formatDimension("", "ft")).toBe("—");
+  });
+});
+
+describe("parseDimensionValue", () => {
+  it("parses a metric decimal", () => {
+    expect(parseDimensionValue("2.5", "m")).toBe(2.5);
+    expect(parseDimensionValue("0", "m")).toBe(0);
+  });
+
+  it("rejects garbage in metric mode", () => {
+    expect(parseDimensionValue("abc", "m")).toBeNull();
+    expect(parseDimensionValue("", "m")).toBeNull();
+  });
+
+  it("rejects negative metric input", () => {
+    expect(parseDimensionValue("-1", "m")).toBeNull();
+  });
+
+  it("delegates to parseFeetInches in ft mode", () => {
+    expect(parseDimensionValue(`7'10"`, "ft")).toBeCloseTo(7.8333, 4);
+    expect(parseDimensionValue("12", "ft")).toBe(12);
+    expect(parseDimensionValue("", "ft")).toBeNull();
+  });
+});
+
+describe("convertDimensions", () => {
+  it("returns the same values when from === to", () => {
+    const out = convertDimensions("2.5", "1.5", "0.5", "m", "m");
+    expect(out.length).toBe(2.5);
+    expect(out.breadth).toBe(1.5);
+    expect(out.height).toBe(0.5);
+  });
+
+  it("converts metres to feet", () => {
+    const out = convertDimensions("2.5", "1.5", "0.5", "m", "ft");
+    expect(out.length).toBeCloseTo(8.2021, 3);
+    expect(out.breadth).toBeCloseTo(4.9213, 3);
+    expect(out.height).toBeCloseTo(1.6404, 3);
+  });
+
+  it("converts feet to metres", () => {
+    const out = convertDimensions("8.2021", "4.9213", "1.6404", "ft", "m");
+    expect(out.length).toBeCloseTo(2.5, 2);
+    expect(out.breadth).toBeCloseTo(1.5, 2);
+    expect(out.height).toBeCloseTo(0.5, 2);
+  });
+
+  it("round-trips m -> ft -> m within 1e-3", () => {
+    const toFt = convertDimensions("2.5", "1.5", "0.5", "m", "ft");
+    const back = convertDimensions(
+      String(toFt.length),
+      String(toFt.breadth),
+      String(toFt.height),
+      "ft",
+      "m"
+    );
+    expect(back.length).toBeCloseTo(2.5, 3);
+    expect(back.breadth).toBeCloseTo(1.5, 3);
+    expect(back.height).toBeCloseTo(0.5, 3);
+  });
+
+  it("passes blank inputs through as null", () => {
+    const out = convertDimensions(null, "1.5", null, "m", "ft");
+    expect(out.length).toBeNull();
+    expect(out.height).toBeNull();
+    expect(out.breadth).toBeCloseTo(4.9213, 3);
+  });
+
+  it("computes quantity as the positive-dim product", () => {
+    const out = convertDimensions("2.5", "1.5", "0.5", "m", "m");
+    expect(out.quantity).toBeCloseTo(1.875, 6);
+  });
+
+  it("returns null quantity when no dim is positive", () => {
+    const out = convertDimensions(null, null, null, "m", "ft");
+    expect(out.quantity).toBeNull();
   });
 });

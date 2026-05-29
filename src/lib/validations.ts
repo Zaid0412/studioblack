@@ -944,6 +944,7 @@ export const boqImportRowSchema = z.object({
   length: dimension.optional(),
   breadth: dimension.optional(),
   height: dimension.optional(),
+  dimensionUnit: z.enum(["m", "ft"]).optional(),
   notes: z.string().max(2000).optional(),
   clientNotes: z.string().max(2000).optional(),
   isProvisional: z.boolean().optional(),

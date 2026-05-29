@@ -238,6 +238,52 @@ describe("POST /api/projects/[id]/boq/items", () => {
 
     expect(status).toBe(400);
   });
+
+  it("forwards dimensionUnit='ft' through to createBoqItem", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(createBoqItem).mockResolvedValue(fakeItem);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "Engineered oak",
+        unit: "m2",
+        quantity: 8.2,
+        unitCost: 50,
+        length: 8.2021,
+        breadth: 4.9213,
+        dimensionUnit: "ft",
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(201);
+    expect(createBoqItem).toHaveBeenCalledWith(
+      BOQ_ID,
+      "org-test-001",
+      expect.objectContaining({ dimensionUnit: "ft" })
+    );
+  });
+
+  it("returns 400 when dimensionUnit is not 'm' or 'ft'", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "x",
+        unit: "m2",
+        dimensionUnit: "cm",
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+  });
 });
 
 // ── PATCH /api/projects/[id]/boq/items/[itemId] ─────────────────────────────
@@ -270,6 +316,56 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
       UPDATED_AT,
       expect.objectContaining({ description: "Renamed" })
     );
+  });
+
+  it("forwards a dimensionUnit flip on PATCH", async () => {
+    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(true);
+    vi.mocked(updateBoqItem).mockResolvedValue({ ok: true, item: fakeItem });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
+      {
+        method: "PATCH",
+        body: {
+          updatedAt: UPDATED_AT,
+          dimensionUnit: "ft",
+          length: 8.2021,
+          breadth: 4.9213,
+          height: 1.6404,
+        },
+      }
+    );
+    const res = await PATCH_ITEM(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(200);
+    expect(updateBoqItem).toHaveBeenCalledWith(
+      ITEM_ID,
+      UPDATED_AT,
+      expect.objectContaining({ dimensionUnit: "ft" })
+    );
+  });
+
+  it("rejects an invalid dimensionUnit on PATCH", async () => {
+    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
+      {
+        method: "PATCH",
+        body: { updatedAt: UPDATED_AT, dimensionUnit: "yards" },
+      }
+    );
+    const res = await PATCH_ITEM(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
   });
 
   it("strips updatedAt from the update payload", async () => {

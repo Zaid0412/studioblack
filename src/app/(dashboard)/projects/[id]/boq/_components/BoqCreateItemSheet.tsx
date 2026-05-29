@@ -196,6 +196,33 @@ export function BoqCreateItemSheet({
   };
 
   /**
+   * Auto-fill string for the Qty field given the three dim inputs and unit.
+   * Returns `null` when no dim is positive (Qty is left alone).
+   *
+   * In ft mode with exactly one positive dim the result is feet-inches
+   * notation (`6'2"`) so Qty mirrors the dimension the user typed instead
+   * of showing the raw decimal feet behind it (`6.166667`). With multiple
+   * dims (area, volume) or in m mode, Qty stays a plain decimal — there's
+   * no meaningful feet-inches form of an area or volume.
+   */
+  const autoFillQty = (
+    unit: DimensionUnit,
+    l: string,
+    b: string,
+    h: string
+  ): string | null => {
+    const positives = [l, b, h]
+      .map((s) => parseDimensionValue(s, unit))
+      .filter((n): n is number => n !== null && n > 0);
+    if (positives.length === 0) return null;
+    const product = positives.reduce((a, c) => a * c, 1);
+    if (unit === "ft" && positives.length === 1) {
+      return formatFeetInches(product);
+    }
+    return String(Number(product.toFixed(6)));
+  };
+
+  /**
    * Set a dimension and — unless the user has manually edited Qty
    * in this session — auto-fill `quantity` with the product of all
    * non-blank dimensions. Blanks are skipped. Once the user manually
@@ -209,13 +236,13 @@ export function BoqCreateItemSheet({
     setV((prev) => {
       const next = { ...prev, [key]: value };
       if (manualQty) return next;
-      const dims = [next.length, next.breadth, next.height]
-        .map((s) => parseDimensionValue(s, next.dimensionUnit))
-        .filter((n): n is number => n !== null && n > 0);
-      if (dims.length > 0) {
-        const product = dims.reduce((a, b) => a * b, 1);
-        next.quantity = String(Number(product.toFixed(6)));
-      }
+      const auto = autoFillQty(
+        next.dimensionUnit,
+        next.length,
+        next.breadth,
+        next.height
+      );
+      if (auto !== null) next.quantity = auto;
       return next;
     });
   };
@@ -245,8 +272,14 @@ export function BoqCreateItemSheet({
         breadth: toStr(converted.breadth, prev.breadth),
         height: toStr(converted.height, prev.height),
       };
-      if (!manualQty && converted.quantity !== null) {
-        updated.quantity = String(converted.quantity);
+      if (!manualQty) {
+        const auto = autoFillQty(
+          next,
+          updated.length,
+          updated.breadth,
+          updated.height
+        );
+        if (auto !== null) updated.quantity = auto;
       }
       return updated;
     });
@@ -261,13 +294,12 @@ export function BoqCreateItemSheet({
    */
   const setQtyManually = (value: string) => {
     setV((prev) => ({ ...prev, quantity: value }));
-    const dims = [v.length, v.breadth, v.height]
-      .map((s) => parseDimensionValue(s, v.dimensionUnit))
-      .filter((n): n is number => n !== null && n > 0);
-    const autoValue =
-      dims.length > 0
-        ? String(Number(dims.reduce((a, b) => a * b, 1).toFixed(6)))
-        : null;
+    const autoValue = autoFillQty(
+      v.dimensionUnit,
+      v.length,
+      v.breadth,
+      v.height
+    );
     if (autoValue === null || value.trim() !== autoValue) {
       setManualQty(true);
     }
@@ -280,6 +312,10 @@ export function BoqCreateItemSheet({
       (s) => (parseDimensionValue(s, v.dimensionUnit) ?? 0) > 0
     );
   }, [manualQty, v.length, v.breadth, v.height, v.dimensionUnit]);
+
+  // ft mode lets the auto-filled `6'2"` notation be typed/edited in the
+  // Qty field; m mode stays numeric for IME hints + native validation.
+  const isFeetUnit = v.dimensionUnit === "ft";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,7 +396,7 @@ export function BoqCreateItemSheet({
         name: trimmedName || null,
         description: trimmedDesc,
         unit: v.unit,
-        quantity: num(v.quantity, 1),
+        quantity: parseDimensionValue(v.quantity, v.dimensionUnit) ?? 1,
         unitCost: num(v.unitCost, 0),
         materialCost: parseOptionalNumber(v.materialCost.trim()),
         labourCost: parseOptionalNumber(v.labourCost.trim()),
@@ -491,9 +527,11 @@ export function BoqCreateItemSheet({
             </div>
 
             {/* Dimensions — optional, auto-fills Qty. Per-item unit (m / ft). */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 my-3">
               <div className="flex items-center justify-between">
-                <span className={labelCls}>Dimensions</span>
+                <span className="text-sm font-semibold text-text-primary">
+                  Dimensions
+                </span>
                 <BoqDimensionUnitToggle
                   value={v.dimensionUnit}
                   onChange={changeFormDimensionUnit}
@@ -537,9 +575,10 @@ export function BoqCreateItemSheet({
                   )}
                 </span>
                 <Input
-                  type="number"
-                  min="0"
-                  step="any"
+                  type={isFeetUnit ? "text" : "number"}
+                  inputMode={isFeetUnit ? "text" : "decimal"}
+                  min={isFeetUnit ? undefined : "0"}
+                  step={isFeetUnit ? undefined : "any"}
                   value={v.quantity}
                   onChange={(e) => setQtyManually(e.target.value)}
                 />
