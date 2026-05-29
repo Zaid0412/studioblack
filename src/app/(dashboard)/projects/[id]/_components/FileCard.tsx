@@ -10,6 +10,7 @@ interface FileCardProps extends FileItemBaseProps {
   onTouchStart: () => void;
   onTouchEnd: () => void;
   onTouchMove: () => void;
+  onContextMenu: (e: React.SyntheticEvent) => void;
   onClick: (e: React.MouseEvent) => void;
 }
 
@@ -24,6 +25,7 @@ export function FileCard({
   onTouchStart,
   onTouchEnd,
   onTouchMove,
+  onContextMenu,
   onClick,
   onToggleSelect,
   contextMenuProps,
@@ -42,6 +44,7 @@ export function FileCard({
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchMove={onTouchMove}
+      onContextMenu={onContextMenu}
       onClick={onClick}
     >
       <div className="flex items-center gap-2">

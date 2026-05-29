@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useLongPress } from "@/hooks/useLongPress";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Upload, FileText, Check } from "lucide-react";
@@ -446,43 +447,19 @@ export function FileTable({
     ]
   );
 
-  // Long-press on mobile to enter selection mode
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTriggered = useRef(false);
-
-  const handleTouchStart = useCallback((attId: string) => {
-    longPressTriggered.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressTriggered.current = true;
+  // Long-press on mobile to enter selection mode. Hook handles timer
+  // lifecycle, haptic, context-menu suppression, and click-swallow flag.
+  const longPress = useLongPress<string>(
+    (attId) => {
       setSelectedIds((prev) => {
         const next = new Set(prev);
         if (next.has(attId)) next.delete(attId);
         else next.add(attId);
         return next;
       });
-    }, 400);
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  const handleTouchMove = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  // Cleanup long-press timer on unmount
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    };
-  }, []);
+    },
+    { durationMs: 400 }
+  );
 
   const reviewPath = (attId: string) =>
     `${basePath}/${projectId}/review/${attId}`;
@@ -724,14 +701,12 @@ export function FileTable({
                   />
                   <FileCard
                     {...sharedProps}
-                    onTouchStart={() => handleTouchStart(att.id)}
-                    onTouchEnd={handleTouchEnd}
-                    onTouchMove={handleTouchMove}
+                    onTouchStart={() => longPress.start(att.id)}
+                    onTouchEnd={longPress.cancel}
+                    onTouchMove={longPress.cancel}
+                    onContextMenu={longPress.preventContextMenu}
                     onClick={(e) => {
-                      if (longPressTriggered.current) {
-                        longPressTriggered.current = false;
-                        return;
-                      }
+                      if (longPress.consumeFired()) return;
                       if (hasSelection) {
                         toggleSelect(att.id, e);
                       } else {

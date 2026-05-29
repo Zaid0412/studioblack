@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo } from "react";
 import {
   Check,
   Download,
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { formatFileSize, getFileExtension } from "@/lib/fileUtils";
 import { relativeTime } from "@/lib/formatTime";
+import { useLongPress } from "@/hooks/useLongPress";
 import { HighlightedText } from "./HighlightedText";
 import { SectionIcon } from "./SectionIcon";
 import { sectionFullPath } from "./sectionTree";
@@ -49,8 +50,6 @@ interface DocumentRowProps {
   /** Toggles `doc.id` membership in the parent's selected set. */
   onToggleSelect?: (e?: React.MouseEvent | React.KeyboardEvent) => void;
 }
-
-const LONG_PRESS_MS = 450;
 
 /**
  * Cached once: the same device doesn't switch between touch and hover at
@@ -95,48 +94,18 @@ function DocumentRowInner({
   );
   const section = sectionsById.get(doc.section_id);
   const fullPath = section ? sectionFullPath(section, sectionsById) : null;
-  // Mobile long-press → enter selection mode. Refs (not state) so the timer
-  // and "fired" flag don't trigger re-renders. The flag survives until the
-  // synthetic click after touchend so we can swallow the would-be open.
-  const longPressTimer = useRef<number | null>(null);
-  const longPressFired = useRef(false);
-  const clearLongPress = () => {
-    if (longPressTimer.current !== null) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
-  const startLongPress = () => {
-    if (!selectable || hasSelection) return;
-    longPressFired.current = false;
-    clearLongPress();
-    longPressTimer.current = window.setTimeout(() => {
-      longPressFired.current = true;
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        navigator.vibrate(15);
-      }
-      onToggleSelect?.();
-    }, LONG_PRESS_MS);
-  };
+  // Long-press enters selection mode on touch devices. Disabled once
+  // selection mode is on so taps continue to toggle normally.
+  const longPress = useLongPress(() => onToggleSelect?.(), {
+    enabled: selectable && !hasSelection,
+  });
   return (
     <div
       role="button"
       tabIndex={0}
-      onTouchStart={startLongPress}
-      onTouchMove={clearLongPress}
-      onTouchEnd={clearLongPress}
-      onTouchCancel={clearLongPress}
-      onContextMenu={(e) => {
-        // Suppress the native long-press context menu on mobile while still
-        // letting desktop right-click work normally elsewhere.
-        if (selectable && longPressFired.current) e.preventDefault();
-      }}
+      {...longPress.handlers}
       onClick={(e) => {
-        if (longPressFired.current) {
-          longPressFired.current = false;
-          return;
-        }
+        if (longPress.consumeFired()) return;
         if (hasSelection && onToggleSelect) onToggleSelect(e);
         else onOpen();
       }}
