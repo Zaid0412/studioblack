@@ -22,6 +22,8 @@ export default defineConfig({
       "src/test/unit/DocumentBulkActions.test.tsx",
       "src/test/unit/DocumentVersionList.test.tsx",
       "src/test/unit/SectionSidebar.test.tsx",
+      "src/test/unit/MobileSectionAccordion.test.tsx",
+      "src/test/unit/useLongPress.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

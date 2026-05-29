@@ -47,13 +47,17 @@ export function useLongPress<T = void>(
 ) {
   const timer = useRef<number | null>(null);
   const fired = useRef(false);
-  // Latest callback ref so closures don't capture a stale one without
-  // forcing handler identity to change on every render. Synced in an
-  // effect to keep render pure.
+  // Latest callback + enabled ref so closures don't capture stale values
+  // without forcing handler identity to change on every render. Synced in
+  // effects to keep render pure.
   const onLongPressRef = useRef(onLongPress);
+  const enabledRef = useRef(enabled);
   useEffect(() => {
     onLongPressRef.current = onLongPress;
-  });
+  }, [onLongPress]);
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
   const cancel = () => {
     if (timer.current !== null) {
@@ -68,10 +72,14 @@ export function useLongPress<T = void>(
   const api = useMemo(
     () => ({
       start: (arg: T) => {
-        if (!enabled) return;
+        if (!enabledRef.current) return;
         fired.current = false;
         cancel();
         timer.current = window.setTimeout(() => {
+          // Re-check `enabled` here too — guards a race where the parent
+          // flips it false mid-gesture (e.g. another path entered the same
+          // mode while the finger was still down).
+          if (!enabledRef.current) return;
           fired.current = true;
           if (
             haptic &&
@@ -103,7 +111,9 @@ export function useLongPress<T = void>(
         return v;
       },
     }),
-    [enabled, durationMs, haptic]
+    // `enabled` is read from its ref so omitting it keeps api identity
+    // stable across enable/disable toggles — no handler churn.
+    [durationMs, haptic]
   );
 
   /**
