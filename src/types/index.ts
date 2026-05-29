@@ -669,6 +669,8 @@ export interface BoqItem {
   section_id: string | null;
   element_id: string | null;
   item_code: string;
+  /** Optional user-supplied label. Drawer / detail UIs prefer this over `element_name`. */
+  name: string | null;
   description: string;
   unit: string;
   quantity: string;

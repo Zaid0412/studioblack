@@ -306,15 +306,29 @@ export function BoqItemDrawer({
               <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
             )}
             <section className="flex flex-col gap-3">
-              {item.element_name && (
-                <DetailField
-                  label="Name"
-                  value={formatLibraryName(
-                    item.element_name,
-                    item.element_archived
-                  )}
-                />
-              )}
+              {(() => {
+                // Per-line name takes priority over the library element's
+                // name. Computed once for both `value` (edit buffer) and
+                // `display` (read-only render).
+                const resolvedName =
+                  item.name ??
+                  (item.element_name
+                    ? formatLibraryName(
+                        item.element_name,
+                        item.element_archived
+                      )
+                    : null);
+                return (
+                  <EditableField
+                    label="Name"
+                    disabled={fieldsDisabled}
+                    value={resolvedName ?? ""}
+                    display={resolvedName ?? "—"}
+                    onSave={(next) => saveField({ name: next || null })}
+                    placeholder="Short, reusable label"
+                  />
+                );
+              })()}
               <EditableField
                 label="Description"
                 disabled={fieldsDisabled}

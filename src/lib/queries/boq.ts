@@ -793,6 +793,8 @@ export interface CreateBoqItemInput {
   source?: BoqItemSource;
   rateContractItemId?: string | null;
   itemCode?: string;
+  /** Pre-trimmed by the Zod schema. Pass `null` to clear. */
+  name?: string | null;
   description: string;
   unit: string;
   quantity?: number;
@@ -833,7 +835,7 @@ export async function createBoqItem(
     `WITH inserted AS (
        INSERT INTO boq_item (
          boq_id, section_id, element_id, source, rate_contract_item_id,
-         item_code, description, unit,
+         item_code, name, description, unit,
          quantity, unit_cost, material_cost, labour_cost,
          overhead_pct, service_charge_pct, margin_pct,
          client_rate, budget_rate,
@@ -842,14 +844,14 @@ export async function createBoqItem(
          sort_order, is_provisional, is_excluded
        ) VALUES (
          $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
-         $6, $7, $8,
-         COALESCE($9::numeric, 0), COALESCE($10::numeric, 0), $11::numeric, $12::numeric,
-         COALESCE($13::numeric, 0), COALESCE($14::numeric, 0), COALESCE($15::numeric, 0),
-         $16::numeric, $17::numeric,
-         $18::numeric, $19::numeric, $20::numeric,
-         $21, $22,
-         COALESCE($23::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($24, false), COALESCE($25, false)
+         $6, $7, $8, $9,
+         COALESCE($10::numeric, 0), COALESCE($11::numeric, 0), $12::numeric, $13::numeric,
+         COALESCE($14::numeric, 0), COALESCE($15::numeric, 0), COALESCE($16::numeric, 0),
+         $17::numeric, $18::numeric,
+         $19::numeric, $20::numeric, $21::numeric,
+         $22, $23,
+         COALESCE($24::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($25, false), COALESCE($26, false)
        )
        RETURNING *
      )
@@ -864,6 +866,7 @@ export async function createBoqItem(
       input.source ?? null,
       input.rateContractItemId ?? null,
       itemCode,
+      input.name || null,
       input.description,
       input.unit,
       input.quantity ?? null,
@@ -891,6 +894,7 @@ export async function createBoqItem(
 export interface UpdateBoqItemInput {
   sectionId?: string | null;
   itemCode?: string;
+  name?: string | null;
   description?: string;
   unit?: string;
   quantity?: number;
@@ -916,6 +920,7 @@ export interface UpdateBoqItemInput {
 const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   sectionId: "section_id",
   itemCode: "item_code",
+  name: "name",
   description: "description",
   unit: "unit",
   quantity: "quantity",

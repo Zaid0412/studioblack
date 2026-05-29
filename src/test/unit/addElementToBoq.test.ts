@@ -77,14 +77,17 @@ describe("addElementToBoq", () => {
 
     // Second call is the createBoqItem INSERT — verify the params carry
     // source='library' (param $4) and the element's service_charge_pct
-    // (param $14). Param positions match the INSERT column order in
-    // `createBoqItem`. F7.5 inserted `rate_contract_item_id` at $5.
+    // (param $15). Param positions match the INSERT column order in
+    // `createBoqItem`. The `params.length` guard surfaces any future
+    // column addition that would silently shift every other index.
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
     expect(insertCall[0]).toContain("INSERT INTO boq_item");
+    expect(params.length).toBe(26);
     expect(params[3]).toBe("library"); // $4 source
     expect(params[4]).toBe(null); // $5 rate_contract_item_id
-    expect(params[13]).toBe(2.5); // $14 service_charge_pct (from element)
+    expect(params[6]).toBe(null); // $7 name (not auto-copied from element)
+    expect(params[14]).toBe(2.5); // $15 service_charge_pct (from element)
 
     // The trailing SELECT applies the computed-cost columns, which now
     // include the service-charge factor between overhead and margin. Pin
@@ -135,7 +138,7 @@ describe("addElementToBoq", () => {
 
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
-    expect(params[13]).toBe(0); // service_charge_pct defaults to 0
+    expect(params[14]).toBe(0); // service_charge_pct defaults to 0
   });
 
   it("inherits client_rate / budget_rate from the source element", async () => {
@@ -171,15 +174,15 @@ describe("addElementToBoq", () => {
     });
 
     // INSERT param order in `createBoqItem`:
-    // 0..7: boq_id, section_id, element_id, source, rate_contract_item_id,
-    //        item_code, description, unit
-    // 8..14: quantity, unit_cost, material_cost, labour_cost, overhead_pct,
+    // 0..8: boq_id, section_id, element_id, source, rate_contract_item_id,
+    //        item_code, name, description, unit
+    // 9..15: quantity, unit_cost, material_cost, labour_cost, overhead_pct,
     //        service_charge_pct, margin_pct
-    // 15..16: client_rate, budget_rate  ← what we're verifying here
+    // 16..17: client_rate, budget_rate  ← what we're verifying here
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
-    expect(params[15]).toBe(175);
-    expect(params[16]).toBe(85);
+    expect(params[16]).toBe(175);
+    expect(params[17]).toBe(85);
   });
 
   it("passes null for client_rate / budget_rate when the element has none", async () => {
@@ -213,7 +216,7 @@ describe("addElementToBoq", () => {
 
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
-    expect(params[15]).toBeNull();
     expect(params[16]).toBeNull();
+    expect(params[17]).toBeNull();
   });
 });
