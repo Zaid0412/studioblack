@@ -137,7 +137,9 @@
     "purchaseOrders": "Satın Alma Siparişleri",
     "progress": "İlerleme",
     "invoices": "Faturalar",
-    "profile": "Profil"
+    "profile": "Profil",
+    "more": "Daha",
+    "close": "Kapat"
   },
   "dashboard": {
     "title": "Kontrol Paneli",

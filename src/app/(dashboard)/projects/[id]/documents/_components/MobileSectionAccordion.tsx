@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, LayoutGrid, Plus } from "lucide-react";
 import type { DbProjectDocumentSection } from "@/types";
 import { cn } from "@/lib/utils";
+import { useDismissOnEscape } from "@/hooks/useDismissOnEscape";
 import { SectionIcon } from "./SectionIcon";
 import { buildSectionTree, isTopLevel } from "./sectionTree";
 
@@ -64,14 +65,7 @@ export function MobileSectionAccordion({
   }
 
   // Escape closes the dropdown; mirrors native <select> + Radix Popover.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  useDismissOnEscape(open, () => setOpen(false));
 
   const headerLabel = activeSection?.name ?? "All documents";
   const headerCount = activeSection?.doc_count ?? totalCount;

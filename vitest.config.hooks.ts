@@ -24,6 +24,8 @@ export default defineConfig({
       "src/test/unit/SectionSidebar.test.tsx",
       "src/test/unit/MobileSectionAccordion.test.tsx",
       "src/test/unit/useLongPress.test.tsx",
+      "src/test/unit/useDismissOnEscape.test.tsx",
+      "src/test/unit/MobileBottomNav.test.tsx",
     ],
     environment: "jsdom",
     restoreMocks: true,

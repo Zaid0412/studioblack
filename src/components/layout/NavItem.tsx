@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { isActiveRoute } from "@/lib/nav";
 import {
   Tooltip,
   TooltipContent,
@@ -36,12 +37,7 @@ export function NavItem({
   isCollapsed,
 }: NavItemProps) {
   const pathname = usePathname();
-  // Dashboard roots (`/dashboard`, `/vendor-portal`) need exact match — every
-  // sub-route lives under their prefix, and prefix-matching would light up
-  // both the root entry AND the leaf entry at the same time.
-  const isDashboardRoot = href === "/dashboard" || href === "/vendor-portal";
-  const isActive =
-    pathname === href || (!isDashboardRoot && pathname.startsWith(href + "/"));
+  const isActive = isActiveRoute(pathname, href);
 
   const link = (
     <Link

@@ -137,7 +137,9 @@
     "purchaseOrders": "Purchase Orders",
     "progress": "Progress",
     "invoices": "Invoices",
-    "profile": "Profile"
+    "profile": "Profile",
+    "more": "More",
+    "close": "Close"
   },
   "dashboard": {
     "title": "Dashboard",
