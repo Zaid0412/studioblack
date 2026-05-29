@@ -224,6 +224,32 @@ describe("createBoqItemSchema", () => {
     });
   });
 
+  it("accepts an optional name and trims whitespace", () => {
+    const data = expectPass(createBoqItemSchema, {
+      description: "X",
+      unit: "m2",
+      name: "  Lobby Marble Counter  ",
+    });
+    expect(data.name).toBe("Lobby Marble Counter");
+  });
+
+  it("accepts an explicit null name (clears the field)", () => {
+    const data = expectPass(createBoqItemSchema, {
+      description: "X",
+      unit: "m2",
+      name: null,
+    });
+    expect(data.name).toBeNull();
+  });
+
+  it("rejects a name longer than 255 chars", () => {
+    expectFail(createBoqItemSchema, {
+      description: "X",
+      unit: "m2",
+      name: "a".repeat(256),
+    });
+  });
+
   it("rejects empty description", () => {
     expectFail(createBoqItemSchema, { description: "", unit: "m2" });
   });

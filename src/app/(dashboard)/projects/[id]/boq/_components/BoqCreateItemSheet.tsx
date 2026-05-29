@@ -321,6 +321,9 @@ export function BoqCreateItemSheet({
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
         elementId,
         itemCode: trimmedCode || undefined,
+        // Persist even when `saveAsElement` is off — the BOQ item's own
+        // `name` is what the drawer shows when there's no linked element.
+        name: trimmedName || null,
         description: trimmedDesc,
         unit: v.unit,
         quantity: num(v.quantity, 1),
