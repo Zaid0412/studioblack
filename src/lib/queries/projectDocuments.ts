@@ -9,7 +9,6 @@ export const DEFAULT_DOCUMENT_SECTIONS = [
   { name: "Minutes of Meeting", icon: "Folder" },
   { name: "Gov Approvals", icon: "ShieldCheck" },
   { name: "Contracts", icon: "FileText" },
-  { name: "Invoices", icon: "Receipt" },
   { name: "Permits", icon: "ClipboardList" },
   { name: "Other", icon: "Folder" },
 ] as const;

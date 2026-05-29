@@ -2043,6 +2043,7 @@ Client-facing invoice routes are in F22 (client invoices are a distinct entity; 
 - `src/app/(dashboard)/projects/[id]/invoices/` (new)
 - `src/types/index.ts` (add types)
 - `src/test/api/invoices.test.ts` (new)
+- `src/lib/queries/projectDocuments.ts` — re-add `{ name: "Invoices", icon: "Receipt" }` to `DEFAULT_DOCUMENT_SECTIONS`. It was removed when the RFQ/PO flow was still incomplete so the default section wouldn't sit empty; restore it here once vendor invoice PDFs have a home to land in.
 
 ---
 
