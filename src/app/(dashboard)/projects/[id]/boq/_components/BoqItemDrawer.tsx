@@ -190,16 +190,12 @@ export function BoqItemDrawer({
   };
 
   /**
-   * Sheet's single close path. All close intents (Escape, overlay click, X,
-   * footer Close button) funnel through here so notes auto-save consistently.
-   *
-   * - Clean drawer → close immediately.
-   * - Dirty notes → block close on a notes PATCH so failures stay visible
-   *   while the drawer is still on screen. A 409 (returned as `null` by
-   *   `updateItem`) or thrown error keeps the drawer open; the existing
-   *   toast inside `useBoqMutations` surfaces the reason.
-   * - In-flight field PATCH → wait for it to settle so we save notes with
-   *   the fresh `updated_at`, avoiding a self-409.
+   * Funnels every close intent (Escape, overlay, X, footer Close) so the
+   * notes auto-save runs once and is visible. On 409 (`updateItem` returns
+   * `null`) or a thrown error, `useBoqMutations` already toasted — we keep
+   * the drawer open so the user can retry instead of losing their text.
+   * The poll on `savingFieldRef` waits out an in-flight inline-field PATCH
+   * so the notes payload goes out with the fresh `updated_at`.
    */
   const handleSheetOpenChange = async (next: boolean) => {
     if (next) {
@@ -215,12 +211,7 @@ export function BoqItemDrawer({
     while (savingFieldRef.current) {
       await new Promise((r) => setTimeout(r, 30));
     }
-    const current = itemRef.current;
-    if (!current) {
-      setClosing(false);
-      onOpenChange(false);
-      return;
-    }
+    const current = itemRef.current!;
     let result: BoqItemWithComputed | null | undefined;
     try {
       result = await updateItem(current.id, {
@@ -229,12 +220,11 @@ export function BoqItemDrawer({
         clientNotes: clientNotes.trim() || null,
       });
     } catch {
-      // `updateItem` already toasted; keep drawer open so the user can retry.
       setClosing(false);
       return;
     }
     setClosing(false);
-    if (result === null) return; // 409 handled by updateItem; stay open.
+    if (result === null) return;
     onOpenChange(false);
   };
 
