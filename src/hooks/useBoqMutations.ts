@@ -155,6 +155,7 @@ export function useBoqMutations(projectId: string) {
         await boqApi.deleteItem(projectId, item.id, item.updated_at);
         // Revalidate so summary totals reflect the deletion.
         await globalMutate(key);
+        toast({ title: "Item deleted", variant: "success" });
       } catch (err) {
         await globalMutate(key); // rollback by refetching
         if (err instanceof ApiError && err.status === 409) {
@@ -245,6 +246,13 @@ export function useBoqMutations(projectId: string) {
           itemIds
         );
         await globalMutate(key);
+        toast({
+          title:
+            deletedCount === 1
+              ? "Item deleted"
+              : `${deletedCount} items deleted`,
+          variant: "success",
+        });
         return deletedCount;
       } catch (err) {
         await globalMutate(key); // rollback by refetching
