@@ -23,10 +23,13 @@ import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqChangeRequestBanner } from "./BoqChangeRequestBanner";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
+import { BoqDimensionUnitToggle } from "./BoqDimensionUnitToggle";
 import { BoqItemActivity } from "./BoqItemActivity";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
+  convertDimensions,
   formatCurrency,
+  formatDimension,
   formatLibraryName,
   formatOptionalCurrency,
   formatPct,
@@ -38,6 +41,7 @@ import {
   phaseToVariant,
   marginTier,
   toNum,
+  type DimensionUnit,
 } from "../_lib/formatters";
 
 interface BoqItemDrawerProps {
@@ -267,6 +271,51 @@ export function BoqItemDrawer({
     await saveField(patch);
   };
 
+  /**
+   * Flip the per-item dimension unit, preserving physical measurement
+   * (option b). The item's own `unit` field (m³/ft³) is left alone —
+   * the user can flip it if they care.
+   *
+   * `quantity` only follows the new-unit product when the current qty
+   * is still the L×B×H auto-fill. If the user manually overrode qty
+   * (e.g. 12 sqm with only L+B set), we leave it alone so the flip
+   * doesn't silently rewrite their typed value — they keep the same
+   * number; only the dimensional context around it changes.
+   */
+  const changeDimensionUnit = async (next: DimensionUnit) => {
+    if (next === item.dimension_unit) return;
+    const { length, breadth, height, quantity } = convertDimensions(
+      item.length,
+      item.breadth,
+      item.height,
+      item.dimension_unit,
+      next
+    );
+    const patch: Partial<UpdateItemPayload> = {
+      dimensionUnit: next,
+      length,
+      breadth,
+      height,
+    };
+    // Detect manual qty override by comparing the current qty against the
+    // pre-flip auto product. Match within 1e-3 to tolerate the trailing
+    // toFixed(6) rounding from earlier auto-fills.
+    const preFlipPositives = [item.length, item.breadth, item.height]
+      .map((s) => parseOptionalNumber(s ?? ""))
+      .filter((n): n is number => n !== null && n > 0);
+    const preFlipAuto =
+      preFlipPositives.length > 0
+        ? preFlipPositives.reduce((a, b) => a * b, 1)
+        : null;
+    const currentQty = toNum(item.quantity);
+    const qtyWasAutoFilled =
+      preFlipAuto !== null && Math.abs(currentQty - preFlipAuto) < 1e-3;
+    if (qtyWasAutoFilled && quantity !== null) {
+      patch.quantity = quantity;
+    }
+    await saveField(patch);
+  };
+
   const fieldsDisabled = !canEdit || savingField;
 
   // Show only transitions the viewer's role can actually fire — surfaces
@@ -483,33 +532,48 @@ export function BoqItemDrawer({
                   />
                 </>
               )}
-              <EditableField
-                label="Length"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={item.length ?? ""}
-                display={item.length ? `${formatQty(item.length)} m` : "—"}
-                onSave={(next) => saveDimension("length", next)}
-              />
-              <EditableField
-                label="Breadth"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={item.breadth ?? ""}
-                display={item.breadth ? `${formatQty(item.breadth)} m` : "—"}
-                onSave={(next) => saveDimension("breadth", next)}
-              />
-              <EditableField
-                label="Height"
-                disabled={fieldsDisabled}
-                mode="number"
-                min={0}
-                value={item.height ?? ""}
-                display={item.height ? `${formatQty(item.height)} m` : "—"}
-                onSave={(next) => saveDimension("height", next)}
-              />
+            </section>
+
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  Dimensions
+                </span>
+                <BoqDimensionUnitToggle
+                  value={item.dimension_unit}
+                  disabled={fieldsDisabled}
+                  onChange={(next) => void changeDimensionUnit(next)}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <EditableField
+                  label="Length"
+                  disabled={fieldsDisabled}
+                  mode={item.dimension_unit === "ft" ? "feet-inches" : "number"}
+                  min={0}
+                  value={item.length ?? ""}
+                  display={formatDimension(item.length, item.dimension_unit)}
+                  onSave={(next) => saveDimension("length", next)}
+                />
+                <EditableField
+                  label="Breadth"
+                  disabled={fieldsDisabled}
+                  mode={item.dimension_unit === "ft" ? "feet-inches" : "number"}
+                  min={0}
+                  value={item.breadth ?? ""}
+                  display={formatDimension(item.breadth, item.dimension_unit)}
+                  onSave={(next) => saveDimension("breadth", next)}
+                />
+                <EditableField
+                  label="Height"
+                  disabled={fieldsDisabled}
+                  mode={item.dimension_unit === "ft" ? "feet-inches" : "number"}
+                  min={0}
+                  value={item.height ?? ""}
+                  display={formatDimension(item.height, item.dimension_unit)}
+                  onSave={(next) => saveDimension("height", next)}
+                />
+              </div>
             </section>
 
             <section className="flex flex-col gap-2">

@@ -685,6 +685,8 @@ export interface BoqItem {
   length: string | null;
   breadth: string | null;
   height: string | null;
+  /** Unit for L/B/H. 'm' stores decimal metres; 'ft' stores decimal feet. */
+  dimension_unit: "m" | "ft";
   source: BoqItemSource;
   rate_contract_item_id: string | null;
   phase: BoqItemPhase;
@@ -846,6 +848,7 @@ export interface ParsedBoqValues {
   length?: number;
   breadth?: number;
   height?: number;
+  dimensionUnit?: "m" | "ft";
   notes?: string;
   clientNotes?: string;
   isProvisional?: boolean;

@@ -806,10 +806,12 @@ export interface CreateBoqItemInput {
   marginPct?: number;
   clientRate?: number | null;
   budgetRate?: number | null;
-  /** Per-line physical dimensions (m). Optional — see `migrate-boq-item-dimensions.sql`. */
+  /** Per-line physical dimensions. Stored in `dimensionUnit` (default 'm'). */
   length?: number | null;
   breadth?: number | null;
   height?: number | null;
+  /** 'm' = decimal metres; 'ft' = decimal feet (UI parses 7'10" notation). */
+  dimensionUnit?: "m" | "ft";
   notes?: string | null;
   clientNotes?: string | null;
   sortOrder?: number;
@@ -839,7 +841,7 @@ export async function createBoqItem(
          quantity, unit_cost, material_cost, labour_cost,
          overhead_pct, service_charge_pct, margin_pct,
          client_rate, budget_rate,
-         length, breadth, height,
+         length, breadth, height, dimension_unit,
          notes, client_notes,
          sort_order, is_provisional, is_excluded
        ) VALUES (
@@ -848,10 +850,10 @@ export async function createBoqItem(
          COALESCE($10::numeric, 0), COALESCE($11::numeric, 0), $12::numeric, $13::numeric,
          COALESCE($14::numeric, 0), COALESCE($15::numeric, 0), COALESCE($16::numeric, 0),
          $17::numeric, $18::numeric,
-         $19::numeric, $20::numeric, $21::numeric,
-         $22, $23,
-         COALESCE($24::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($25, false), COALESCE($26, false)
+         $19::numeric, $20::numeric, $21::numeric, COALESCE($22, 'm'),
+         $23, $24,
+         COALESCE($25::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         COALESCE($26, false), COALESCE($27, false)
        )
        RETURNING *
      )
@@ -881,6 +883,7 @@ export async function createBoqItem(
       input.length ?? null,
       input.breadth ?? null,
       input.height ?? null,
+      input.dimensionUnit ?? null,
       input.notes ?? null,
       input.clientNotes ?? null,
       input.sortOrder ?? null,
@@ -909,6 +912,7 @@ export interface UpdateBoqItemInput {
   length?: number | null;
   breadth?: number | null;
   height?: number | null;
+  dimensionUnit?: "m" | "ft";
   installedQty?: number;
   notes?: string | null;
   clientNotes?: string | null;
@@ -935,6 +939,7 @@ const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
   length: "length",
   breadth: "breadth",
   height: "height",
+  dimensionUnit: "dimension_unit",
   installedQty: "installed_qty",
   notes: "notes",
   clientNotes: "client_notes",
@@ -1930,7 +1935,7 @@ export async function bulkInsertBoqItems(
              quantity, unit_cost, material_cost, labour_cost,
              overhead_pct, service_charge_pct, margin_pct,
              client_rate, budget_rate,
-             length, breadth, height,
+             length, breadth, height, dimension_unit,
              notes, client_notes,
              sort_order, is_provisional
            ) VALUES (
@@ -1940,9 +1945,9 @@ export async function bulkInsertBoqItems(
              $7::numeric, $8::numeric, $9::numeric, $10::numeric,
              COALESCE($11::numeric, 0), COALESCE($12::numeric, 0), COALESCE($13::numeric, 0),
              $14::numeric, $15::numeric,
-             $16::numeric, $17::numeric, $18::numeric,
-             $19, $20,
-             $21::int, COALESCE($22, false)
+             $16::numeric, $17::numeric, $18::numeric, COALESCE($19, 'm'),
+             $20, $21,
+             $22::int, COALESCE($23, false)
            )`,
           [
             boqId,
@@ -1963,6 +1968,7 @@ export async function bulkInsertBoqItems(
             row.length ?? null,
             row.breadth ?? null,
             row.height ?? null,
+            row.dimensionUnit ?? null,
             row.notes ?? null,
             row.clientNotes ?? null,
             sortOrder,

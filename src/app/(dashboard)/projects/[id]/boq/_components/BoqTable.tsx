@@ -758,8 +758,14 @@ const BoqItemRow = memo(function BoqItemRow({
   // inline in JSX on every render (cheap per row, but a 500-line BoQ
   // would do 500× per render otherwise).
   const dimensionsLabel = useMemo(
-    () => formatDimensions(item.length, item.breadth, item.height),
-    [item.length, item.breadth, item.height]
+    () =>
+      formatDimensions(
+        item.length,
+        item.breadth,
+        item.height,
+        item.dimension_unit
+      ),
+    [item.length, item.breadth, item.height, item.dimension_unit]
   );
 
   const canMove = editable && !!onMoveItem;

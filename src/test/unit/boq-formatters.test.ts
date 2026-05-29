@@ -1,12 +1,17 @@
 import { describe, it, expect } from "vitest";
 import {
+  convertDimensions,
   marginTier,
   phaseToVariant,
   phaseToLabel,
   formatCurrency,
+  formatDimension,
   formatDimensions,
+  formatFeetInches,
   formatQty,
   formatPct,
+  parseDimensionValue,
+  parseFeetInches,
   toNum,
 } from "@/app/(dashboard)/projects/[id]/boq/_lib/formatters";
 
@@ -141,16 +146,16 @@ describe("formatPct", () => {
 });
 
 describe("formatDimensions", () => {
-  it("renders all three dimensions when present", () => {
-    expect(formatDimensions("2.5", "1.5", "0.5")).toBe("2.5 × 1.5 × 0.5 m");
+  it("renders all three metric dimensions with 2dp", () => {
+    expect(formatDimensions("2.5", "1.5", "0.5")).toBe("2.50 × 1.50 × 0.50 m");
   });
 
   it("skips a blank height", () => {
-    expect(formatDimensions("5", "3", null)).toBe("5 × 3 m");
+    expect(formatDimensions("5", "3", null)).toBe("5.00 × 3.00 m");
   });
 
   it("skips blank length and breadth", () => {
-    expect(formatDimensions(null, null, "4")).toBe("4 m");
+    expect(formatDimensions(null, null, "4")).toBe("4.00 m");
   });
 
   it("returns null when nothing is set", () => {
@@ -159,10 +164,173 @@ describe("formatDimensions", () => {
 
   it("treats zero and negative as blank", () => {
     expect(formatDimensions("0", "0", "0")).toBeNull();
-    expect(formatDimensions("-1", "2", "3")).toBe("2 × 3 m");
+    expect(formatDimensions("-1", "2", "3")).toBe("2.00 × 3.00 m");
   });
 
   it("ignores non-numeric strings", () => {
-    expect(formatDimensions("abc", "2", "3")).toBe("2 × 3 m");
+    expect(formatDimensions("abc", "2", "3")).toBe("2.00 × 3.00 m");
+  });
+
+  it("renders feet+inches when unit is ft", () => {
+    expect(formatDimensions("7.8333333", "4.9166667", "1.6666667", "ft")).toBe(
+      `7'10" × 4'11" × 1'8"`
+    );
+  });
+});
+
+describe("parseFeetInches", () => {
+  it("parses the canonical feet+inches form", () => {
+    expect(parseFeetInches(`7'10"`)).toBeCloseTo(7.8333, 4);
+  });
+
+  it("accepts a missing inches mark", () => {
+    expect(parseFeetInches(`7'10`)).toBeCloseTo(7.8333, 4);
+  });
+
+  it("accepts decimal inches", () => {
+    expect(parseFeetInches(`7'10.5"`)).toBeCloseTo(7.875, 4);
+    expect(parseFeetInches(`7'10.25"`)).toBeCloseTo(7.854, 3);
+  });
+
+  it("accepts inches-only and feet-only forms", () => {
+    expect(parseFeetInches(`10"`)).toBeCloseTo(0.8333, 4);
+    expect(parseFeetInches(`7'`)).toBe(7);
+  });
+
+  it("treats a plain number as feet", () => {
+    expect(parseFeetInches("7")).toBe(7);
+    expect(parseFeetInches("7.5")).toBe(7.5);
+  });
+
+  it("tolerates whitespace between feet and inches", () => {
+    expect(parseFeetInches(`7' 10"`)).toBeCloseTo(7.8333, 4);
+  });
+
+  it("returns null on blank or garbage input", () => {
+    expect(parseFeetInches("")).toBeNull();
+    expect(parseFeetInches("not-a-dim")).toBeNull();
+    expect(parseFeetInches(`'`)).toBeNull();
+    expect(parseFeetInches(`"`)).toBeNull();
+  });
+
+  it("rejects negative components", () => {
+    expect(parseFeetInches("-1")).toBeNull();
+  });
+});
+
+describe("formatFeetInches", () => {
+  it("renders whole inches without decimals", () => {
+    expect(formatFeetInches(7 + 10 / 12)).toBe(`7'10"`);
+  });
+
+  it("trims trailing zeros on decimal inches", () => {
+    expect(formatFeetInches(7 + 10.5 / 12)).toBe(`7'10.5"`);
+    expect(formatFeetInches(7 + 10.25 / 12)).toBe(`7'10.25"`);
+  });
+
+  it("wraps overflowed inches into the next foot", () => {
+    expect(formatFeetInches(7 + 13 / 12)).toBe(`8'1"`);
+    expect(formatFeetInches(7 + 12 / 12)).toBe(`8'0"`);
+  });
+
+  it("renders 0 feet correctly", () => {
+    expect(formatFeetInches(10 / 12)).toBe(`0'10"`);
+  });
+
+  it("renders whole feet with zero inches", () => {
+    expect(formatFeetInches(7)).toBe(`7'0"`);
+  });
+});
+
+describe("formatDimension (single value, by unit)", () => {
+  it("renders metres with 2 decimal places", () => {
+    expect(formatDimension("2.5", "m")).toBe("2.50");
+    expect(formatDimension(0.5, "m")).toBe("0.50");
+  });
+
+  it("renders feet+inches for ft unit", () => {
+    expect(formatDimension(7 + 10 / 12, "ft")).toBe(`7'10"`);
+  });
+
+  it("returns em-dash for null / zero", () => {
+    expect(formatDimension(null, "m")).toBe("—");
+    expect(formatDimension(0, "m")).toBe("—");
+    expect(formatDimension("", "ft")).toBe("—");
+  });
+});
+
+describe("parseDimensionValue", () => {
+  it("parses a metric decimal", () => {
+    expect(parseDimensionValue("2.5", "m")).toBe(2.5);
+    expect(parseDimensionValue("0", "m")).toBe(0);
+  });
+
+  it("rejects garbage in metric mode", () => {
+    expect(parseDimensionValue("abc", "m")).toBeNull();
+    expect(parseDimensionValue("", "m")).toBeNull();
+  });
+
+  it("rejects negative metric input", () => {
+    expect(parseDimensionValue("-1", "m")).toBeNull();
+  });
+
+  it("delegates to parseFeetInches in ft mode", () => {
+    expect(parseDimensionValue(`7'10"`, "ft")).toBeCloseTo(7.8333, 4);
+    expect(parseDimensionValue("12", "ft")).toBe(12);
+    expect(parseDimensionValue("", "ft")).toBeNull();
+  });
+});
+
+describe("convertDimensions", () => {
+  it("returns the same values when from === to", () => {
+    const out = convertDimensions("2.5", "1.5", "0.5", "m", "m");
+    expect(out.length).toBe(2.5);
+    expect(out.breadth).toBe(1.5);
+    expect(out.height).toBe(0.5);
+  });
+
+  it("converts metres to feet", () => {
+    const out = convertDimensions("2.5", "1.5", "0.5", "m", "ft");
+    expect(out.length).toBeCloseTo(8.2021, 3);
+    expect(out.breadth).toBeCloseTo(4.9213, 3);
+    expect(out.height).toBeCloseTo(1.6404, 3);
+  });
+
+  it("converts feet to metres", () => {
+    const out = convertDimensions("8.2021", "4.9213", "1.6404", "ft", "m");
+    expect(out.length).toBeCloseTo(2.5, 2);
+    expect(out.breadth).toBeCloseTo(1.5, 2);
+    expect(out.height).toBeCloseTo(0.5, 2);
+  });
+
+  it("round-trips m -> ft -> m within 1e-3", () => {
+    const toFt = convertDimensions("2.5", "1.5", "0.5", "m", "ft");
+    const back = convertDimensions(
+      String(toFt.length),
+      String(toFt.breadth),
+      String(toFt.height),
+      "ft",
+      "m"
+    );
+    expect(back.length).toBeCloseTo(2.5, 3);
+    expect(back.breadth).toBeCloseTo(1.5, 3);
+    expect(back.height).toBeCloseTo(0.5, 3);
+  });
+
+  it("passes blank inputs through as null", () => {
+    const out = convertDimensions(null, "1.5", null, "m", "ft");
+    expect(out.length).toBeNull();
+    expect(out.height).toBeNull();
+    expect(out.breadth).toBeCloseTo(4.9213, 3);
+  });
+
+  it("computes quantity as the positive-dim product", () => {
+    const out = convertDimensions("2.5", "1.5", "0.5", "m", "m");
+    expect(out.quantity).toBeCloseTo(1.875, 6);
+  });
+
+  it("returns null quantity when no dim is positive", () => {
+    const out = convertDimensions(null, null, null, "m", "ft");
+    expect(out.quantity).toBeNull();
   });
 });
