@@ -172,12 +172,14 @@ function DocumentRowInner({
             <HighlightedText text={doc.description} query={searchQuery} />
           </p>
         )}
-        <div className="flex items-center gap-2 text-xs text-text-muted truncate">
+        <div className="flex items-center gap-x-2 gap-y-0.5 text-xs text-text-muted flex-wrap">
           <span className="font-semibold text-[11px]">
             {getFileExtension(doc.file_name).toUpperCase()}
           </span>
           <span className="text-text-muted/60">·</span>
-          <span className="truncate">{doc.uploaded_by_name ?? "Unknown"}</span>
+          <span className="truncate max-w-[120px] md:max-w-none">
+            {doc.uploaded_by_name ?? "Unknown"}
+          </span>
           <span className="text-text-muted/60">·</span>
           <span>{relativeTime(doc.created_at)}</span>
           <span className="text-text-muted/60">·</span>
@@ -190,7 +192,12 @@ function DocumentRowInner({
           e.stopPropagation();
           void onDownload();
         }}
-        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer"
+        className={cn(
+          "p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer",
+          // When the kebab is rendered (canEdit), hide the standalone
+          // Download below md — kebab hosts a Download item on mobile.
+          canEdit && "hidden md:inline-flex"
+        )}
         aria-label="Download"
       >
         <Download className="w-4 h-4" />
@@ -208,6 +215,13 @@ function DocumentRowInner({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[180px]">
+            <DropdownMenuItem
+              className="md:hidden"
+              onSelect={() => void onDownload()}
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onEdit()}>
               <Pencil className="w-3.5 h-3.5" />
               Edit

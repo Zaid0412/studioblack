@@ -6,7 +6,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=2048 next dev --turbopack",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=2048 next dev --turbopack -H 0.0.0.0",
     "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",

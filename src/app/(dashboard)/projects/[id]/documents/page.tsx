@@ -9,6 +9,7 @@ import {
   Search,
   Upload,
   UploadCloud,
+  X,
 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,9 @@ import { API } from "@/lib/api/routes";
 import { projectDocuments } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
+import { cn } from "@/lib/utils";
 import { SectionSidebar } from "./_components/SectionSidebar";
+import { MobileSectionAccordion } from "./_components/MobileSectionAccordion";
 import { DocumentRow } from "./_components/DocumentRow";
 import { NewSectionDialog } from "./_components/NewSectionDialog";
 import { RenameSectionDialog } from "./_components/RenameSectionDialog";
@@ -91,6 +94,20 @@ export default function DocumentsPage({
   const [sectionToDelete, setSectionToDelete] =
     useState<DbProjectDocumentSection | null>(null);
   const [deletingSection, setDeletingSection] = useState(false);
+  // Mobile-only: search input is collapsed to an icon button by default;
+  // expanding renders an inline full-width row below the header.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  // rAF lets the grid-rows expand frame paint before we focus — mobile
+  // browsers occasionally drop a synchronous .focus() on an element that
+  // was visually collapsed a tick earlier.
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+    const id = window.requestAnimationFrame(() => {
+      mobileSearchInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [mobileSearchOpen]);
   // dragenter/leave fire on every child border crossing, so a counter is the
   // simplest reliable way to know "is a drag still hovering my zone".
   const dragCounter = useRef(0);
@@ -471,7 +488,7 @@ export default function DocumentsPage({
   if (sectionsLoading) {
     return (
       <div className="flex flex-1 bg-bg-secondary">
-        <div className="w-[280px] border-r border-border-default bg-bg-primary p-4 flex flex-col gap-2">
+        <div className="hidden md:flex w-[280px] border-r border-border-default bg-bg-primary p-4 flex-col gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-9 w-full rounded-md" />
           ))}
@@ -526,7 +543,7 @@ export default function DocumentsPage({
   }
 
   return (
-    <div className="flex flex-1 bg-bg-secondary">
+    <div className="flex flex-1 flex-col md:flex-row bg-bg-secondary">
       <SectionSidebar
         sections={sections ?? []}
         activeSectionId={activeSectionId}
@@ -543,6 +560,17 @@ export default function DocumentsPage({
         onReorder={(parentId, orderedIds) =>
           void handleReorderSections(parentId, orderedIds)
         }
+        canEdit={canEdit}
+      />
+
+      <MobileSectionAccordion
+        sections={sections ?? []}
+        activeSectionId={activeSectionId}
+        onSelect={setActiveSectionId}
+        onCreate={() => {
+          setNewSectionParentId(null);
+          setNewSectionOpen(true);
+        }}
         canEdit={canEdit}
       />
 
@@ -577,7 +605,7 @@ export default function DocumentsPage({
             </p>
           </div>
         )}
-        <header className="flex items-center justify-between gap-4 px-7 pt-6 pb-4">
+        <header className="flex items-center justify-between gap-4 px-4 md:px-7 pt-4 md:pt-6 pb-3 md:pb-4 flex-wrap md:flex-nowrap">
           <div className="flex flex-col gap-1 min-w-0">
             <h1 className="text-xl font-bold text-text-primary truncate">
               {activeSection ? activeSection.name : "All documents"}
@@ -595,48 +623,51 @@ export default function DocumentsPage({
           {hasSelection ? (
             // Toolbar morph — replaces search + sort + Upload with selection
             // controls + bulk actions until the user clears the selection.
-            <div className="flex items-center gap-3 shrink-0">
-              {(() => {
-                const visibleIds = (sortedDocs ?? []).map((d) => d.id);
-                const allSelected =
-                  visibleIds.length > 0 &&
-                  visibleIds.every((id) => selectedIds.has(id));
-                const someSelected = !allSelected && selectedIds.size > 0;
-                const handleToggleAll = () => {
-                  if (allSelected) {
-                    setSelectedIds(new Set());
-                    return;
-                  }
-                  if (visibleIds.length > BULK_SELECTION_LIMIT) {
-                    toast({
-                      title: `Selection limited to ${BULK_SELECTION_LIMIT} documents.`,
-                      variant: "warning",
-                    });
-                    setSelectedIds(
-                      new Set(visibleIds.slice(0, BULK_SELECTION_LIMIT))
-                    );
-                    return;
-                  }
-                  setSelectedIds(new Set(visibleIds));
-                };
-                return (
-                  <Checkbox
-                    checked={allSelected}
-                    indeterminate={someSelected}
-                    aria-label="Select all documents"
-                    onCheckedChange={handleToggleAll}
-                  />
-                );
-              })()}
-              <span className="text-[13px] font-semibold text-accent">
-                {selectedIds.size} selected
-              </span>
-              <button
-                onClick={clearSelection}
-                className="text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-              >
-                Clear
-              </button>
+            // On mobile, wraps to a second row so action buttons stay tappable.
+            <div className="flex items-center gap-3 flex-wrap w-full md:w-auto md:shrink-0 justify-between md:justify-end">
+              <div className="flex items-center gap-3 min-w-0">
+                {(() => {
+                  const visibleIds = (sortedDocs ?? []).map((d) => d.id);
+                  const allSelected =
+                    visibleIds.length > 0 &&
+                    visibleIds.every((id) => selectedIds.has(id));
+                  const someSelected = !allSelected && selectedIds.size > 0;
+                  const handleToggleAll = () => {
+                    if (allSelected) {
+                      setSelectedIds(new Set());
+                      return;
+                    }
+                    if (visibleIds.length > BULK_SELECTION_LIMIT) {
+                      toast({
+                        title: `Selection limited to ${BULK_SELECTION_LIMIT} documents.`,
+                        variant: "warning",
+                      });
+                      setSelectedIds(
+                        new Set(visibleIds.slice(0, BULK_SELECTION_LIMIT))
+                      );
+                      return;
+                    }
+                    setSelectedIds(new Set(visibleIds));
+                  };
+                  return (
+                    <Checkbox
+                      checked={allSelected}
+                      indeterminate={someSelected}
+                      aria-label="Select all documents"
+                      onCheckedChange={handleToggleAll}
+                    />
+                  );
+                })()}
+                <span className="text-[13px] font-semibold text-accent">
+                  {selectedIds.size} selected
+                </span>
+                <button
+                  onClick={clearSelection}
+                  className="text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
               <DocumentBulkActions
                 sections={(sections ?? []).filter(
                   (s) => s.id !== activeSectionId
@@ -646,8 +677,54 @@ export default function DocumentsPage({
               />
             </div>
           ) : (
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="relative w-[240px]">
+            <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+              {/* Mobile search "slot" — the Search button morphs into an
+                  input + close (X) when expanded. flex-1 grow when open so
+                  the input takes over the row from Sort / Upload. */}
+              <div
+                className={cn(
+                  "md:hidden flex items-center gap-2 min-w-0",
+                  mobileSearchOpen && "flex-1"
+                )}
+              >
+                {!mobileSearchOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setMobileSearchOpen(true)}
+                    aria-label="Open search"
+                    className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
+                  >
+                    <Search className="w-3.5 h-3.5 text-text-muted" />
+                    <span>Search</span>
+                  </button>
+                ) : (
+                  <>
+                    <div className="relative flex-1 min-w-0">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
+                      <Input
+                        ref={mobileSearchInputRef}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search documents"
+                        className="pl-9 h-9"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileSearchOpen(false);
+                        setSearch("");
+                      }}
+                      aria-label="Close search"
+                      className="flex items-center justify-center w-9 h-9 shrink-0 text-text-muted hover:text-text-primary rounded-md hover:bg-bg-elevated transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
+              {/* Desktop search input */}
+              <div className="hidden md:block relative w-[240px]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
                 <Input
                   value={search}
@@ -656,34 +733,56 @@ export default function DocumentsPage({
                   className="pl-9 h-9"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setSort((s) =>
-                    s === "recent" ? "name" : s === "name" ? "size" : "recent"
-                  )
-                }
-                className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer"
-                title="Cycle sort"
+              {/* Sort + Upload — collapse to width 0 on mobile when search
+                  is open so the search input fills the row. Always visible
+                  at md+. */}
+              <div
+                className={cn(
+                  "flex items-center gap-2 overflow-hidden transition-[max-width,opacity] duration-200 ease-out",
+                  mobileSearchOpen
+                    ? "max-w-0 opacity-0 md:max-w-none md:opacity-100"
+                    : "max-w-[400px] opacity-100"
+                )}
+                aria-hidden={mobileSearchOpen ? true : undefined}
               >
-                <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
-                {sort === "recent"
-                  ? "Recent"
-                  : sort === "name"
-                    ? "Name"
-                    : "Size"}
-              </button>
-              {canEdit && (
-                <Button onClick={() => setUploadOpen(true)} size="sm">
-                  <Upload className="w-3.5 h-3.5" />
-                  Upload
-                </Button>
-              )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSort((s) =>
+                      s === "recent" ? "name" : s === "name" ? "size" : "recent"
+                    )
+                  }
+                  className="flex items-center gap-2 px-3 h-9 bg-bg-primary border border-border-default rounded-md text-[13px] font-medium text-text-secondary hover:bg-bg-elevated transition-colors cursor-pointer shrink-0"
+                  title="Cycle sort"
+                  aria-label={`Sort: ${sort === "recent" ? "Recent" : sort === "name" ? "Name" : "Size"}`}
+                  tabIndex={mobileSearchOpen ? -1 : undefined}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5 text-text-muted" />
+                  <span>
+                    {sort === "recent"
+                      ? "Recent"
+                      : sort === "name"
+                        ? "Name"
+                        : "Size"}
+                  </span>
+                </button>
+                {canEdit && (
+                  <Button
+                    onClick={() => setUploadOpen(true)}
+                    size="sm"
+                    className="shrink-0"
+                    tabIndex={mobileSearchOpen ? -1 : undefined}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload</span>
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </header>
 
-        <div className="flex-1 px-7 pb-8 flex flex-col gap-3">
+        <div className="flex-1 px-4 md:px-7 pb-8 flex flex-col gap-3">
           {docsLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full rounded-[10px]" />

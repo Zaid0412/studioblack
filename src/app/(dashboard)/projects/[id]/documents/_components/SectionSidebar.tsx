@@ -132,7 +132,7 @@ export function SectionSidebar({
 
   const allActive = activeSectionId === null;
   return (
-    <aside className="w-[280px] shrink-0 border-r border-border-default bg-bg-primary flex flex-col">
+    <aside className="hidden md:flex w-[280px] shrink-0 border-r border-border-default bg-bg-primary flex-col">
       <div className="px-4 pt-5 pb-2">
         <p className="text-[11px] font-semibold tracking-wider text-text-muted">
           SECTIONS
