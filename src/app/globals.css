@@ -332,6 +332,26 @@ select:focus-visible {
 [data-modal-overlay][data-state="closed"] {
   animation: sheet-backdrop-fade-out var(--sheet-duration-out)
     var(--sheet-ease-out) both;
+  /* `animation-fill-mode: both` keeps `opacity: 0` after the keyframe
+   * finishes — but an invisible fixed overlay still captures clicks
+   * unless we explicitly disable it. `!important` is required because
+   * Radix's Dialog.Overlay sets `style="pointer-events: auto"` inline. */
+  pointer-events: none !important;
+}
+[data-sheet-slide][data-state="closed"] {
+  pointer-events: none !important;
+}
+
+/* ── Body pointer-events unlock ───
+ * Radix Dialog locks the body (`style="pointer-events: none"` +
+ * `data-scroll-locked="1"`) when a dialog opens. With our `forceMount`
+ * Sheet pattern, Radix's internal lock counter doesn't always decrement
+ * back to zero on close, leaving the page totally unclickable until a
+ * hard reload. The `:has()` selector forces the unlock whenever no
+ * dialog descendant is actually `data-state="open"`. Supported in every
+ * evergreen browser since 2023. */
+body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
+  pointer-events: auto !important;
 }
 
 /* ─── Task highlight glow ─── */
