@@ -36,6 +36,35 @@ import { relativeTime } from "@/lib/formatTime";
 
 type SortMode = "recent" | "name" | "size";
 
+/**
+ * Search icon + input pair — shared between the desktop slot and the
+ * mobile expanded slot so the rendering, placeholder, and styles stay in
+ * sync. The wrapping `relative` container (and its width) lives at the
+ * call site so each placement can size itself differently.
+ */
+function DocSearchInput({
+  inputRef,
+  value,
+  onChange,
+}: {
+  inputRef?: React.Ref<HTMLInputElement>;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <>
+      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search documents"
+        className="pl-9 h-9"
+      />
+    </>
+  );
+}
+
 /** Per-project Documents page — sidebar of sections + main pane of doc rows. */
 export default function DocumentsPage({
   params,
@@ -700,13 +729,10 @@ export default function DocumentsPage({
                 ) : (
                   <>
                     <div className="relative flex-1 min-w-0">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
-                      <Input
-                        ref={mobileSearchInputRef}
+                      <DocSearchInput
+                        inputRef={mobileSearchInputRef}
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search documents"
-                        className="pl-9 h-9"
+                        onChange={setSearch}
                       />
                     </div>
                     <button
@@ -723,15 +749,8 @@ export default function DocumentsPage({
                   </>
                 )}
               </div>
-              {/* Desktop search input */}
               <div className="hidden md:block relative w-[240px]">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted z-10" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search documents"
-                  className="pl-9 h-9"
-                />
+                <DocSearchInput value={search} onChange={setSearch} />
               </div>
               {/* Sort + Upload — collapse to width 0 on mobile when search
                   is open so the search input fills the row. Always visible

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo, useMemo, useRef } from "react";
 import {
   Check,
   Download,
@@ -47,7 +47,22 @@ interface DocumentRowProps {
   /** Any row is selected — "selection mode" is active. Forces checkbox visible. */
   hasSelection?: boolean;
   /** Toggles `doc.id` membership in the parent's selected set. */
-  onToggleSelect?: (e: React.MouseEvent | React.KeyboardEvent) => void;
+  onToggleSelect?: (e?: React.MouseEvent | React.KeyboardEvent) => void;
+}
+
+const LONG_PRESS_MS = 450;
+
+/**
+ * Cached once: the same device doesn't switch between touch and hover at
+ * runtime, so a per-click `matchMedia` query in N row handlers is waste.
+ * Lazy so SSR can call into this module without a `window` reference.
+ */
+let cachedIsTouchOnly: boolean | null = null;
+function isTouchOnlyDevice(): boolean {
+  if (cachedIsTouchOnly !== null) return cachedIsTouchOnly;
+  if (typeof window === "undefined") return false;
+  cachedIsTouchOnly = window.matchMedia("(hover: none)").matches;
+  return cachedIsTouchOnly;
 }
 
 /**
@@ -80,13 +95,51 @@ function DocumentRowInner({
   );
   const section = sectionsById.get(doc.section_id);
   const fullPath = section ? sectionFullPath(section, sectionsById) : null;
+  // Mobile long-press → enter selection mode. Refs (not state) so the timer
+  // and "fired" flag don't trigger re-renders. The flag survives until the
+  // synthetic click after touchend so we can swallow the would-be open.
+  const longPressTimer = useRef<number | null>(null);
+  const longPressFired = useRef(false);
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const startLongPress = () => {
+    if (!selectable || hasSelection) return;
+    longPressFired.current = false;
+    clearLongPress();
+    longPressTimer.current = window.setTimeout(() => {
+      longPressFired.current = true;
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        navigator.vibrate(15);
+      }
+      onToggleSelect?.();
+    }, LONG_PRESS_MS);
+  };
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={(e) =>
-        hasSelection && onToggleSelect ? onToggleSelect(e) : onOpen()
-      }
+      onTouchStart={startLongPress}
+      onTouchMove={clearLongPress}
+      onTouchEnd={clearLongPress}
+      onTouchCancel={clearLongPress}
+      onContextMenu={(e) => {
+        // Suppress the native long-press context menu on mobile while still
+        // letting desktop right-click work normally elsewhere.
+        if (selectable && longPressFired.current) e.preventDefault();
+      }}
+      onClick={(e) => {
+        if (longPressFired.current) {
+          longPressFired.current = false;
+          return;
+        }
+        if (hasSelection && onToggleSelect) onToggleSelect(e);
+        else onOpen();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -95,7 +148,10 @@ function DocumentRowInner({
         }
       }}
       className={cn(
-        "group flex items-center gap-3.5 px-4 py-3.5 bg-bg-primary border rounded-[10px] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        // `select-none` + `touch-manipulation` together kill the iOS / Android
+        // text-magnifier that otherwise pops on the long-press gesture used
+        // to enter selection mode.
+        "group flex items-center gap-3 md:gap-3.5 px-3 md:px-4 py-3 md:py-3.5 bg-bg-primary border rounded-[10px] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none touch-manipulation",
         isSelected
           ? "border-accent/60 bg-accent/[0.06] hover:bg-accent/[0.1]"
           : "border-border-default hover:bg-bg-elevated/50"
@@ -111,6 +167,11 @@ function DocumentRowInner({
           selectable
             ? (e) => {
                 e.stopPropagation();
+                // On touch devices the icon-as-checkbox affordance isn't
+                // visible (no hover) — selection mode is entered via
+                // long-press only. Once active, the icon can be tapped to
+                // toggle, just like desktop.
+                if (isTouchOnlyDevice() && !hasSelection) return;
                 onToggleSelect?.(e);
               }
             : undefined
@@ -176,8 +237,10 @@ function DocumentRowInner({
           <span className="font-semibold text-[11px]">
             {getFileExtension(doc.file_name).toUpperCase()}
           </span>
-          <span className="text-text-muted/60">·</span>
-          <span className="truncate max-w-[120px] md:max-w-none">
+          {/* Uploader name is the longest meta segment — hide on mobile to
+              keep the row to two visible details (time + size). */}
+          <span className="hidden md:inline text-text-muted/60">·</span>
+          <span className="hidden md:inline truncate max-w-[160px] lg:max-w-none">
             {doc.uploaded_by_name ?? "Unknown"}
           </span>
           <span className="text-text-muted/60">·</span>

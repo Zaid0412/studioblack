@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, LayoutGrid, Plus } from "lucide-react";
 import type { DbProjectDocumentSection } from "@/types";
 import { cn } from "@/lib/utils";
 import { SectionIcon } from "./SectionIcon";
-import { buildSectionTree } from "./sectionTree";
+import { buildSectionTree, isTopLevel } from "./sectionTree";
 
 interface MobileSectionAccordionProps {
   sections: DbProjectDocumentSection[];
@@ -37,10 +37,7 @@ export function MobileSectionAccordion({
   );
   const totalCount = useMemo(
     () =>
-      sections.reduce(
-        (acc, s) => (s.parent_id === null ? acc + s.doc_count : acc),
-        0
-      ),
+      sections.reduce((acc, s) => (isTopLevel(s) ? acc + s.doc_count : acc), 0),
     [sections]
   );
   const activeSection = activeSectionId ? byId.get(activeSectionId) : null;
@@ -234,10 +231,10 @@ function AccordionRow({
       className={cn(
         "flex items-center rounded-md transition-colors",
         active ? "bg-bg-elevated" : "hover:bg-bg-elevated/50",
-        nested && "pl-6"
+        nested ? "pl-6" : !chevron && "pl-[30px]"
       )}
     >
-      {chevron && onChevronClick ? (
+      {chevron && onChevronClick && (
         <button
           type="button"
           onClick={(e) => {
@@ -256,9 +253,7 @@ function AccordionRow({
             )}
           />
         </button>
-      ) : !nested ? (
-        <span aria-hidden className="w-7 h-7 ml-0.5 shrink-0" />
-      ) : null}
+      )}
       <button
         type="button"
         onClick={onClick}

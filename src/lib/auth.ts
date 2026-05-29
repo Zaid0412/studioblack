@@ -45,13 +45,7 @@ function getTrustedOrigins(): string[] {
     origins.add(`https://${e.VERCEL_PROJECT_PRODUCTION_URL}`);
   }
   if (origins.size === 0) origins.add("http://localhost:3000");
-  // Extra origins for LAN dev (mobile-on-Wi-Fi etc.) — comma-separated.
-  if (e.BETTER_AUTH_EXTRA_TRUSTED_ORIGINS) {
-    for (const raw of e.BETTER_AUTH_EXTRA_TRUSTED_ORIGINS.split(",")) {
-      const trimmed = raw.trim().replace(/\/$/, "");
-      if (trimmed) origins.add(trimmed);
-    }
-  }
+  for (const o of e.BETTER_AUTH_EXTRA_TRUSTED_ORIGINS) origins.add(o);
   return Array.from(origins);
 }
 
