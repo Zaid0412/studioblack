@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, FileText, History, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -119,12 +119,23 @@ export function BoqItemDrawer({
   const isExternal = isExternalViewer(role);
   const [notes, setNotes] = useState("");
   const [clientNotes, setClientNotes] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
+  // True while the close-time notes PATCH is in flight. Drives the "Saving..."
+  // label on the Close button and blocks duplicate close attempts.
+  const [closing, setClosing] = useState(false);
   // True while ANY inline-edit cell is mid-PATCH. Used to disable the other
   // cells so a fast user can't blur cell A → blur cell B before A returns
   // and have B's PATCH go out with a stale `item.updated_at` (→ 409 + a
   // silently-lost edit).
   const [savingField, setSavingField] = useState(false);
+  // Ref mirror of `savingField` — the close handler can't observe React state
+  // mid-await, so it polls this ref to wait for the in-flight field PATCH
+  // before saving notes with a fresh `updated_at`.
+  const savingFieldRef = useRef(false);
+  // Always-current `item` snapshot for the close handler. After an awaited
+  // field save, the closure's `item` is stale; the ref reflects whatever
+  // SWR has just propagated.
+  const itemRef = useRef(item);
+  itemRef.current = item;
   const [transitioning, setTransitioning] = useState<BoqItemPhase | null>(null);
   // Carries which destructive variant was picked so the dialog submits with
   // the right phase (internal vs client kick-back).
@@ -178,25 +189,62 @@ export function BoqItemDrawer({
     void fireTransition(next);
   };
 
-  const handleSaveNotes = async () => {
-    setSavingNotes(true);
+  /**
+   * Sheet's single close path. All close intents (Escape, overlay click, X,
+   * footer Close button) funnel through here so notes auto-save consistently.
+   *
+   * - Clean drawer → close immediately.
+   * - Dirty notes → block close on a notes PATCH so failures stay visible
+   *   while the drawer is still on screen. A 409 (returned as `null` by
+   *   `updateItem`) or thrown error keeps the drawer open; the existing
+   *   toast inside `useBoqMutations` surfaces the reason.
+   * - In-flight field PATCH → wait for it to settle so we save notes with
+   *   the fresh `updated_at`, avoiding a self-409.
+   */
+  const handleSheetOpenChange = async (next: boolean) => {
+    if (next) {
+      onOpenChange(true);
+      return;
+    }
+    if (closing) return;
+    if (!notesDirty) {
+      onOpenChange(false);
+      return;
+    }
+    setClosing(true);
+    while (savingFieldRef.current) {
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    const current = itemRef.current;
+    if (!current) {
+      setClosing(false);
+      onOpenChange(false);
+      return;
+    }
+    let result: BoqItemWithComputed | null | undefined;
     try {
-      await updateItem(item.id, {
-        updatedAt: item.updated_at,
+      result = await updateItem(current.id, {
+        updatedAt: current.updated_at,
         notes: notes.trim() || null,
         clientNotes: clientNotes.trim() || null,
       });
-      toast({ title: "Notes saved", variant: "success" });
-    } finally {
-      setSavingNotes(false);
+    } catch {
+      // `updateItem` already toasted; keep drawer open so the user can retry.
+      setClosing(false);
+      return;
     }
+    setClosing(false);
+    if (result === null) return; // 409 handled by updateItem; stay open.
+    onOpenChange(false);
   };
 
   const saveField = async (patch: Partial<UpdateItemPayload>) => {
+    savingFieldRef.current = true;
     setSavingField(true);
     try {
       await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
     } finally {
+      savingFieldRef.current = false;
       setSavingField(false);
     }
   };
@@ -241,7 +289,7 @@ export function BoqItemDrawer({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={handleSheetOpenChange}>
         <SheetContent>
           <SheetHeader>
             <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
@@ -559,6 +607,7 @@ export function BoqItemDrawer({
               <Button
                 type="button"
                 variant="danger"
+                disabled={closing}
                 onClick={() => onDelete(item)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -567,24 +616,14 @@ export function BoqItemDrawer({
             ) : (
               <span />
             )}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onOpenChange(false)}
-              >
-                Close
-              </Button>
-              {canEdit && (
-                <Button
-                  type="button"
-                  onClick={handleSaveNotes}
-                  disabled={!notesDirty || savingNotes}
-                >
-                  {savingNotes ? "Saving..." : "Save notes"}
-                </Button>
-              )}
-            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={closing}
+              onClick={() => handleSheetOpenChange(false)}
+            >
+              {closing ? "Saving..." : "Close"}
+            </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
