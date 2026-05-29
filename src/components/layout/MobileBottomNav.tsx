@@ -128,10 +128,9 @@ export function MobileBottomNav() {
     overflowTabs.some((tab) => isActiveRoute(pathname, tab.href));
 
   // Close the sheet whenever navigation happens — the user either tapped
-  // an overflow item (success) or moved on (no longer relevant).
-  // The React 19 `set-state-in-effect` rule recommends `useSyncExternalStore`
-  // or a route-keyed remount, both of which are wrong tools here — we just
-  // want a side effect on a prop change. Disable is intentional.
+  // an overflow item (success) or moved on (no longer relevant). The
+  // React 19 alternatives (useSyncExternalStore, route-keyed remount)
+  // are wrong tools here; a route-change side effect is the simplest fit.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMoreOpen(false), [pathname]);
   useDismissOnEscape(moreOpen, () => setMoreOpen(false));
@@ -141,16 +140,28 @@ export function MobileBottomNav() {
   // open or closed based on whether they crossed the halfway mark.
   const overflowRef = useRef<HTMLUListElement>(null);
   const [overflowH, setOverflowH] = useState(0);
-  // ResizeObserver keeps the snap-target height fresh across rotation,
-  // viewport resize, font scaling, and feature-flag-driven item changes.
-  // Setting `overflowTabs.length` as the only dep would miss those.
+  // Mobile webkit (iOS Safari, Chrome iOS) doesn't always fire
+  // ResizeObserver's initial callback for an element whose parent has
+  // `height: 0`, leaving overflowH at 0 and the sheet refusing to open.
+  // Force a sync measurement after layout instead.
+  const measureOverflow = () => {
+    const el = overflowRef.current;
+    if (!el) return 0;
+    const h = el.scrollHeight;
+    setOverflowH((prev) => (prev === h ? prev : h));
+    return h;
+  };
   useEffect(() => {
+    measureOverflow();
     const el = overflowRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setOverflowH(el.scrollHeight));
+    // ResizeObserver still handles ongoing tracking — rotation, font
+    // scaling, feature-flag-driven item changes — once the element has
+    // been observed once.
+    const ro = new ResizeObserver(() => measureOverflow());
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [overflowTabs.length]);
 
   // Expose the current rendered nav height as `--mobile-nav-h` on the
   // document root so the dashboard `<main>` can grow its bottom padding
@@ -195,9 +206,13 @@ export function MobileBottomNav() {
   // events flowing even when the finger leaves the pill's hit area.
   const handleDragStart = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
+    // Fallback measurement at gesture start in case the mount-time read
+    // returned 0 (some mobile webkits don't fire RO callbacks for
+    // height-0-parented elements). Guarantees we have a sane snap target.
+    const h = measureOverflow();
     setDrag({
       startY: e.clientY,
-      base: moreOpen ? overflowH : 0,
+      base: moreOpen ? h : 0,
       delta: 0,
     });
   };
@@ -303,7 +318,10 @@ export function MobileBottomNav() {
           {hasOverflow && (
             <button
               type="button"
-              onClick={() => setMoreOpen((v) => !v)}
+              onClick={() => {
+                measureOverflow();
+                setMoreOpen((v) => !v);
+              }}
               aria-expanded={moreOpen}
               aria-label={moreOpen ? t("close") : t("more")}
               className={cn(
