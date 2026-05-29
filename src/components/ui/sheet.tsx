@@ -23,46 +23,19 @@ export const SHEET_TRANSITION_MS = 600;
 const SheetOverlay = ModalOverlay;
 
 /**
- * Radix `Presence` misses our custom `[data-state]` keyframes and unmounts
- * the content before the close animation plays. We `forceMount` instead
- * and gate first render on `hasBeenOpen` so the closed-state CSS doesn't
- * flash before the user has actually opened the sheet.
+ * Vanilla Radix lifecycle — NO `forceMount`. Portal/Overlay/Content
+ * must all unmount on close so `react-remove-scroll` (wrapped around
+ * Content internally) runs its cleanup: removes body's inline
+ * `pointer-events: none`, clears `data-scroll-locked`, and detaches
+ * the global wheel / touch listeners that otherwise lock the page
+ * until a hard reload.
  *
- * Default `hasBeenOpen: true` so `SheetContent` rendered outside a
- * `Sheet` still shows (defensive — not expected, but easy to support).
+ * Trade-off: Radix's `Presence` sometimes misses our CSS `animation`
+ * declarations when reading `getComputedStyle.animationName` during
+ * the open → closed flip, so the close can snap rather than slide.
+ * The smooth-close UX isn't worth a locked page.
  */
-const SheetGate = React.createContext<{ hasBeenOpen: boolean }>({
-  hasBeenOpen: true,
-});
-
-type SheetProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Root>;
-
-/** Drop-in for Radix `Dialog.Root` — wraps it with a `SheetGate`. */
-function Sheet({ open, onOpenChange, defaultOpen, ...props }: SheetProps) {
-  const [hasBeenOpen, setHasBeenOpen] = React.useState(
-    () => !!defaultOpen || !!open
-  );
-
-  React.useEffect(() => {
-    if (open) setHasBeenOpen(true);
-  }, [open]);
-
-  const handleOpenChange = (next: boolean) => {
-    if (next) setHasBeenOpen(true);
-    onOpenChange?.(next);
-  };
-
-  return (
-    <SheetGate.Provider value={{ hasBeenOpen }}>
-      <DialogPrimitive.Root
-        open={open}
-        defaultOpen={defaultOpen}
-        onOpenChange={handleOpenChange}
-        {...props}
-      />
-    </SheetGate.Provider>
-  );
-}
+const Sheet = DialogPrimitive.Root;
 
 interface SheetContentProps extends React.ComponentPropsWithoutRef<
   typeof DialogPrimitive.Content
@@ -74,14 +47,11 @@ const SheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   SheetContentProps
 >(({ className, children, side = "right", ...props }, ref) => {
-  const { hasBeenOpen } = React.useContext(SheetGate);
-  if (!hasBeenOpen) return null;
   return (
-    <SheetPortal forceMount>
-      <SheetOverlay forceMount />
+    <SheetPortal>
+      <SheetOverlay />
       <DialogPrimitive.Content
         ref={ref}
-        forceMount
         data-sheet-slide
         data-sheet-side={side}
         className={cn(
