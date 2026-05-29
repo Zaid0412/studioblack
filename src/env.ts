@@ -23,6 +23,20 @@ const serverSchema = z.object({
   // Auth
   BETTER_AUTH_SECRET: z.string().min(1, "BETTER_AUTH_SECRET is required"),
   BETTER_AUTH_URL: z.string().url().optional(),
+  // Comma-separated list of extra origins to trust for CSRF (dev convenience —
+  // e.g. accessing the app from a phone on the LAN: http://192.168.x.x:3000).
+  // Parsed at load: split on `,`, trim whitespace + trailing slashes, drop empties.
+  BETTER_AUTH_EXTRA_TRUSTED_ORIGINS: z
+    .string()
+    .optional()
+    .transform((raw) =>
+      raw
+        ? raw
+            .split(",")
+            .map((o) => o.trim().replace(/\/$/, ""))
+            .filter(Boolean)
+        : []
+    ),
   // Vercel auto-populates these on every deployment. We trust all of them so
   // login + CSRF works whether the user hits the deployment-specific URL,
   // the branch-stable URL, or the production domain.

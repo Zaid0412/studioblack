@@ -457,7 +457,7 @@ export function UploadDocumentDialog({
                 />
               )
             ) : (
-              <div className="flex gap-3 h-[360px]">
+              <div className="flex flex-col md:flex-row gap-3 md:h-[360px]">
                 <FileTabList
                   entries={entries}
                   selectedId={selected?.id}
@@ -617,7 +617,7 @@ function FileTabList({
   disabled: boolean;
 }) {
   return (
-    <div className="w-[220px] shrink-0 flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated p-2 overflow-y-auto">
+    <div className="w-full md:w-[220px] md:shrink-0 max-h-[180px] md:max-h-none flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated p-2 overflow-y-auto">
       {entries.map((e) => (
         <FileTab
           key={e.id}

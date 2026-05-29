@@ -329,7 +329,7 @@ export function DocumentVersionList({
                       <button
                         type="button"
                         onClick={() => downloadVersion(v)}
-                        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer"
+                        className="hidden md:inline-flex p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer"
                         aria-label="Download"
                       >
                         <Download className="w-4 h-4" />
@@ -338,7 +338,7 @@ export function DocumentVersionList({
                         <button
                           type="button"
                           onClick={() => setPendingRevert(v)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-text-secondary border border-border-default bg-bg-elevated hover:bg-bg-input transition-colors cursor-pointer"
+                          className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-text-secondary border border-border-default bg-bg-elevated hover:bg-bg-input transition-colors cursor-pointer"
                         >
                           <Undo2 className="w-3.5 h-3.5 text-info" />
                           Revert
@@ -362,6 +362,15 @@ export function DocumentVersionList({
                             <Download className="w-3.5 h-3.5" />
                             Download
                           </DropdownMenuItem>
+                          {canEdit && !isLatest && (
+                            <DropdownMenuItem
+                              className="md:hidden"
+                              onSelect={() => setPendingRevert(v)}
+                            >
+                              <Undo2 className="w-3.5 h-3.5 text-info" />
+                              Revert to this version
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onSelect={() => openInNewTab(v)}>
                             <ExternalLink className="w-3.5 h-3.5" />
                             Open in new tab

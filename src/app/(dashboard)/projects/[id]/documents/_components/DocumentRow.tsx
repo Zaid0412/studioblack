@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { formatFileSize, getFileExtension } from "@/lib/fileUtils";
 import { relativeTime } from "@/lib/formatTime";
+import { useLongPress } from "@/hooks/useLongPress";
 import { HighlightedText } from "./HighlightedText";
 import { SectionIcon } from "./SectionIcon";
 import { sectionFullPath } from "./sectionTree";
@@ -47,7 +48,20 @@ interface DocumentRowProps {
   /** Any row is selected — "selection mode" is active. Forces checkbox visible. */
   hasSelection?: boolean;
   /** Toggles `doc.id` membership in the parent's selected set. */
-  onToggleSelect?: (e: React.MouseEvent | React.KeyboardEvent) => void;
+  onToggleSelect?: (e?: React.MouseEvent | React.KeyboardEvent) => void;
+}
+
+/**
+ * Cached once: the same device doesn't switch between touch and hover at
+ * runtime, so a per-click `matchMedia` query in N row handlers is waste.
+ * Lazy so SSR can call into this module without a `window` reference.
+ */
+let cachedIsTouchOnly: boolean | null = null;
+function isTouchOnlyDevice(): boolean {
+  if (cachedIsTouchOnly !== null) return cachedIsTouchOnly;
+  if (typeof window === "undefined") return false;
+  cachedIsTouchOnly = window.matchMedia("(hover: none)").matches;
+  return cachedIsTouchOnly;
 }
 
 /**
@@ -80,13 +94,21 @@ function DocumentRowInner({
   );
   const section = sectionsById.get(doc.section_id);
   const fullPath = section ? sectionFullPath(section, sectionsById) : null;
+  // Long-press enters selection mode on touch devices. Disabled once
+  // selection mode is on so taps continue to toggle normally.
+  const longPress = useLongPress(() => onToggleSelect?.(), {
+    enabled: selectable && !hasSelection,
+  });
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={(e) =>
-        hasSelection && onToggleSelect ? onToggleSelect(e) : onOpen()
-      }
+      {...longPress.handlers}
+      onClick={(e) => {
+        if (longPress.consumeFired()) return;
+        if (hasSelection && onToggleSelect) onToggleSelect(e);
+        else onOpen();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -95,7 +117,12 @@ function DocumentRowInner({
         }
       }}
       className={cn(
-        "group flex items-center gap-3.5 px-4 py-3.5 bg-bg-primary border rounded-[10px] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        // `select-none` + `touch-manipulation` together kill the iOS / Android
+        // text-magnifier that otherwise pops on the long-press gesture used
+        // to enter selection mode. Deliberate trade-off: desktop users can
+        // no longer drag-select the filename text from the row — they can
+        // still copy from the detail sheet, so this is acceptable.
+        "group flex items-center gap-3 md:gap-3.5 px-3 md:px-4 py-3 md:py-3.5 bg-bg-primary border rounded-[10px] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent select-none touch-manipulation",
         isSelected
           ? "border-accent/60 bg-accent/[0.06] hover:bg-accent/[0.1]"
           : "border-border-default hover:bg-bg-elevated/50"
@@ -111,6 +138,11 @@ function DocumentRowInner({
           selectable
             ? (e) => {
                 e.stopPropagation();
+                // On touch devices the icon-as-checkbox affordance isn't
+                // visible (no hover) — selection mode is entered via
+                // long-press only. Once active, the icon can be tapped to
+                // toggle, just like desktop.
+                if (isTouchOnlyDevice() && !hasSelection) return;
                 onToggleSelect?.(e);
               }
             : undefined
@@ -172,12 +204,16 @@ function DocumentRowInner({
             <HighlightedText text={doc.description} query={searchQuery} />
           </p>
         )}
-        <div className="flex items-center gap-2 text-xs text-text-muted truncate">
+        <div className="flex items-center gap-x-2 gap-y-0.5 text-xs text-text-muted flex-wrap">
           <span className="font-semibold text-[11px]">
             {getFileExtension(doc.file_name).toUpperCase()}
           </span>
-          <span className="text-text-muted/60">·</span>
-          <span className="truncate">{doc.uploaded_by_name ?? "Unknown"}</span>
+          {/* Uploader name is the longest meta segment — hide on mobile to
+              keep the row to two visible details (time + size). */}
+          <span className="hidden md:inline text-text-muted/60">·</span>
+          <span className="hidden md:inline truncate max-w-[160px] lg:max-w-none">
+            {doc.uploaded_by_name ?? "Unknown"}
+          </span>
           <span className="text-text-muted/60">·</span>
           <span>{relativeTime(doc.created_at)}</span>
           <span className="text-text-muted/60">·</span>
@@ -190,7 +226,12 @@ function DocumentRowInner({
           e.stopPropagation();
           void onDownload();
         }}
-        className="p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer"
+        className={cn(
+          "p-2 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors cursor-pointer",
+          // When the kebab is rendered (canEdit), hide the standalone
+          // Download below md — kebab hosts a Download item on mobile.
+          canEdit && "hidden md:inline-flex"
+        )}
         aria-label="Download"
       >
         <Download className="w-4 h-4" />
@@ -208,6 +249,13 @@ function DocumentRowInner({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[180px]">
+            <DropdownMenuItem
+              className="md:hidden"
+              onSelect={() => void onDownload()}
+            >
+              <Download className="w-3.5 h-3.5" />
+              Download
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => onEdit()}>
               <Pencil className="w-3.5 h-3.5" />
               Edit

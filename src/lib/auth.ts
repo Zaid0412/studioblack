@@ -45,6 +45,7 @@ function getTrustedOrigins(): string[] {
     origins.add(`https://${e.VERCEL_PROJECT_PRODUCTION_URL}`);
   }
   if (origins.size === 0) origins.add("http://localhost:3000");
+  for (const o of e.BETTER_AUTH_EXTRA_TRUSTED_ORIGINS) origins.add(o);
   return Array.from(origins);
 }
 

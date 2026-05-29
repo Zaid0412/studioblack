@@ -162,7 +162,9 @@ export function DocumentDetailSheet({
 
   return (
     <Sheet open={!!doc} onOpenChange={onOpenChange}>
-      <SheetContent>
+      {/* No description by design — the doc preview + meta speak for themselves.
+          Explicit undefined silences Radix's a11y warning. */}
+      <SheetContent aria-describedby={undefined}>
         <SheetHeader>
           {/* Title + Edit button on the same row. `pr-10` keeps both clear
               of the sheet's absolute-positioned close X. */}
