@@ -184,7 +184,12 @@ export function BoqBulkLifecyclePreviewDialog({
                   resolved={resolved.get(group.phase) ?? null}
                   primaryTarget={target}
                   onChoose={(t) =>
-                    setFallbacks((prev) => ({ ...prev, [group.phase]: t }))
+                    setFallbacks((prev) => {
+                      const next = { ...prev };
+                      if (t === null) delete next[group.phase];
+                      else next[group.phase] = t;
+                      return next;
+                    })
                   }
                 />
               </div>
@@ -255,7 +260,8 @@ function GroupAction({
   group: PhaseGroup;
   resolved: BoqItemPhase | null;
   primaryTarget: BoqItemPhase;
-  onChoose: (target: BoqItemPhase) => void;
+  /** Null clears the fallback (explicit Skip). */
+  onChoose: (target: BoqItemPhase | null) => void;
 }) {
   if (group.primary) {
     return (
@@ -273,15 +279,22 @@ function GroupAction({
       </span>
     );
   }
+  // "__skip__" is a sentinel — Select can't bind to null/empty-string, so we
+  // map the explicit Skip choice through this constant and translate back in
+  // the change handler.
+  const SKIP = "__skip__";
   return (
     <Select
-      value={resolved ?? undefined}
-      onValueChange={(v) => onChoose(v as BoqItemPhase)}
+      value={resolved ?? SKIP}
+      onValueChange={(v) => onChoose(v === SKIP ? null : (v as BoqItemPhase))}
     >
       <SelectTrigger className="h-8 w-[180px] text-xs">
         <SelectValue placeholder="Choose action…" />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value={SKIP} className="text-text-muted">
+          Skip — leave unchanged
+        </SelectItem>
         {group.legalTargets.map((t) => (
           <SelectItem
             key={t}

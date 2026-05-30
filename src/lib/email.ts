@@ -347,7 +347,7 @@ export async function sendClientBoqEmail(opts: {
       `<div style="font-size: 14px; color: ${colors.textMuted}; line-height: 1.6;">
         ${bodyHtml}
       </div>
-      ${pdfBuffer ? hintText("The full BoQ is attached as a PDF for your reference.") : ""}
+      ${pdfBuffer ? warningBox("📎 The full BoQ is attached as a PDF — scroll to the bottom of this email to download it.") : ""}
       <div style="padding-top: 24px;">
         ${divider()}
       </div>

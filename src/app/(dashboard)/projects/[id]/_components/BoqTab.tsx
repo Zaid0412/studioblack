@@ -113,6 +113,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTarget, setPreviewTarget] = useState<BoqItemPhase>("draft");
+  // Loading flag for any bulk operation fired from the floating action bar
+  // (move / set lifecycle / delete). The bar disables every control + shows
+  // a spinner while pending, so the user doesn't fire a second action into
+  // an already-in-flight request or stare at a frozen table for ~1s.
+  const [bulkPending, setBulkPending] = useState(false);
 
   // Selection mode (PR 2). Disabled when the BOQ is locked.
   const allItemIds = useMemo(
@@ -202,6 +207,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const handleBulkMove = useCallback(
     async (targetSectionId: string | null) => {
       if (!boq || selection.selected.size === 0) return;
+      setBulkPending(true);
       try {
         await bulkMoveItems(
           boq.id,
@@ -211,6 +217,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         selection.toggleMode();
       } catch {
         /* useBoqMutations toasts on error */
+      } finally {
+        setBulkPending(false);
       }
     },
     [boq, bulkMoveItems, selection]
@@ -218,12 +226,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
 
   const handleBulkDelete = useCallback(async () => {
     if (!boq || selection.selected.size === 0) return;
+    setBulkPending(true);
     try {
       await bulkDeleteItems(boq.id, Array.from(selection.selected));
       setBulkDeleteConfirmOpen(false);
       selection.toggleMode();
     } catch {
       /* useBoqMutations toasts on error */
+    } finally {
+      setBulkPending(false);
     }
   }, [boq, bulkDeleteItems, selection]);
 
@@ -231,6 +242,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     async (phase: BoqItemPhase, comment?: string) => {
       if (!boq || selection.selected.size === 0) return;
       if (sharedSelectedPhase) {
+        setBulkPending(true);
         try {
           await bulkSetItemPhase(
             boq.id,
@@ -241,6 +253,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           selection.toggleMode();
         } catch {
           /* useBoqMutations toasts on error */
+        } finally {
+          setBulkPending(false);
         }
         return;
       }
@@ -253,20 +267,25 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const handlePreviewConfirm = useCallback(
     async (plan: BulkLifecyclePlanEntry[], comment?: string) => {
       if (!boq) return;
-      // Each per-target call retains its own atomic guarantee for its subset;
-      // a partial failure doesn't abort siblings.
-      const results = await Promise.allSettled(
-        plan.map((entry) =>
-          bulkSetItemPhase(
-            boq.id,
-            entry.itemIds,
-            entry.target,
-            comment ? { comment } : undefined
+      setBulkPending(true);
+      try {
+        // Each per-target call retains its own atomic guarantee for its subset;
+        // a partial failure doesn't abort siblings.
+        const results = await Promise.allSettled(
+          plan.map((entry) =>
+            bulkSetItemPhase(
+              boq.id,
+              entry.itemIds,
+              entry.target,
+              comment ? { comment } : undefined
+            )
           )
-        )
-      );
-      if (results.every((r) => r.status === "fulfilled"))
-        selection.toggleMode();
+        );
+        if (results.every((r) => r.status === "fulfilled"))
+          selection.toggleMode();
+      } finally {
+        setBulkPending(false);
+      }
     },
     [boq, bulkSetItemPhase, selection]
   );
@@ -638,6 +657,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           sharedPhase={sharedSelectedPhase}
           allowedPhases={bulkAllowedPhases}
           canEdit={canEdit}
+          pending={bulkPending}
           onMove={handleBulkMove}
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}
