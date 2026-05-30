@@ -13,11 +13,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import type { BoqItemWithComputed } from "@/types";
+import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
 
 interface Props {
   projectId: string;
@@ -125,70 +125,19 @@ export function RfqAddItemsDialog({
               description={t("emptyHint")}
             />
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-bg-elevated text-text-muted sticky top-0">
-                <tr className="text-left">
-                  <th className="px-4 py-2.5 w-10">
-                    <span
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex"
-                    >
-                      <Checkbox
-                        checked={
-                          candidates.length > 0 &&
-                          selected.size === candidates.length
-                        }
-                        indeterminate={
-                          selected.size > 0 && selected.size < candidates.length
-                        }
-                        onCheckedChange={toggleAll}
-                        aria-label={t("selectAll")}
-                      />
-                    </span>
-                  </th>
-                  <th className="px-4 py-2.5 font-medium">{t("col.code")}</th>
-                  <th className="px-4 py-2.5 font-medium">
-                    {t("col.description")}
-                  </th>
-                  <th className="px-4 py-2.5 font-medium">{t("col.unit")}</th>
-                  <th className="px-4 py-2.5 font-medium text-right">
-                    {t("col.quantity")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((it) => (
-                  <tr
-                    key={it.id}
-                    className="border-t border-border-default hover:bg-bg-elevated/30 cursor-pointer"
-                    onClick={() => toggleItem(it.id)}
-                  >
-                    <td className="px-4 py-3">
-                      <span
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex"
-                      >
-                        <Checkbox
-                          checked={selected.has(it.id)}
-                          onCheckedChange={() => toggleItem(it.id)}
-                          aria-label={it.description}
-                        />
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-muted">
-                      {it.item_code}
-                    </td>
-                    <td className="px-4 py-3 text-text-primary">
-                      {it.description}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-                      {it.quantity}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <BoqItemsPickerTable
+              items={candidates}
+              selected={selected}
+              onToggleItem={toggleItem}
+              onToggleAll={toggleAll}
+              labels={{
+                selectAll: t("selectAll"),
+                code: t("col.code"),
+                description: t("col.description"),
+                unit: t("col.unit"),
+                quantity: t("col.quantity"),
+              }}
+            />
           )}
         </div>
 

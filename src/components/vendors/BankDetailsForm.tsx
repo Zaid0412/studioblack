@@ -20,6 +20,25 @@ const EMPTY: Required<BankDetails> = {
   branch: "",
 };
 
+/**
+ * Field config — order here is the render order. `maxLength` matches the
+ * `bankDetailsSchema` caps in `src/lib/validations.ts`; if those change,
+ * update both.
+ */
+const BANK_FIELDS: ReadonlyArray<{
+  key: keyof BankDetails;
+  labelKey: string;
+  maxLength: number;
+}> = [
+  { key: "bank_name", labelKey: "bankName", maxLength: 255 },
+  { key: "account_holder", labelKey: "accountHolder", maxLength: 255 },
+  { key: "account_number", labelKey: "accountNumber", maxLength: 50 },
+  { key: "iban", labelKey: "iban", maxLength: 50 },
+  { key: "swift", labelKey: "swift", maxLength: 20 },
+  { key: "ifsc_code", labelKey: "ifscCode", maxLength: 20 },
+  { key: "branch", labelKey: "branch", maxLength: 255 },
+];
+
 interface Props {
   value: BankDetails | null;
   isLoading: boolean;
@@ -99,55 +118,16 @@ export function BankDetailsForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Input
-          label={t("bankName")}
-          value={values.bank_name}
-          onChange={(e) => setField("bank_name", e.target.value)}
-          maxLength={255}
-          disabled={readOnly}
-        />
-        <Input
-          label={t("accountHolder")}
-          value={values.account_holder}
-          onChange={(e) => setField("account_holder", e.target.value)}
-          maxLength={255}
-          disabled={readOnly}
-        />
-        <Input
-          label={t("accountNumber")}
-          value={values.account_number}
-          onChange={(e) => setField("account_number", e.target.value)}
-          maxLength={50}
-          disabled={readOnly}
-        />
-        <Input
-          label={t("iban")}
-          value={values.iban}
-          onChange={(e) => setField("iban", e.target.value)}
-          maxLength={50}
-          disabled={readOnly}
-        />
-        <Input
-          label={t("swift")}
-          value={values.swift}
-          onChange={(e) => setField("swift", e.target.value)}
-          maxLength={20}
-          disabled={readOnly}
-        />
-        <Input
-          label={t("ifscCode")}
-          value={values.ifsc_code}
-          onChange={(e) => setField("ifsc_code", e.target.value)}
-          maxLength={20}
-          disabled={readOnly}
-        />
-        <Input
-          label={t("branch")}
-          value={values.branch}
-          onChange={(e) => setField("branch", e.target.value)}
-          maxLength={255}
-          disabled={readOnly}
-        />
+        {BANK_FIELDS.map((field) => (
+          <Input
+            key={field.key}
+            label={t(field.labelKey)}
+            value={values[field.key]}
+            onChange={(e) => setField(field.key, e.target.value)}
+            maxLength={field.maxLength}
+            disabled={readOnly}
+          />
+        ))}
       </div>
 
       {!readOnly && (

@@ -25,7 +25,6 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { formatShortDate, formatDate } from "@/lib/formatDate";
 import { SkeletonCard, SkeletonRow } from "@/components/ui/Skeleton";
 import { PendingReviewsPopover } from "@/components/dashboard/PendingReviewsPopover";
-import { ClientPendingReviewsPopover } from "@/components/dashboard/ClientPendingReviewsPopover";
 
 interface DashboardData {
   stats: {
@@ -159,9 +158,10 @@ export default function DashboardPage() {
             icon={FolderOpen}
             href="/projects"
           />
-          <ClientPendingReviewsPopover
+          <PendingReviewsPopover
             label={tClient("pendingReview")}
             count={clientPending?.total ?? 0}
+            audience="client"
           />
           <StatCard
             label={tClient("reviewed")}
@@ -286,6 +286,7 @@ export default function DashboardPage() {
         <PendingReviewsPopover
           label={t("pendingReviews")}
           count={data?.stats.pendingReviews ?? 0}
+          audience="internal"
         />
         <StatCard
           label={t("approvedDesigns")}
