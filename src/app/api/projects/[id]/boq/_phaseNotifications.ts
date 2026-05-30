@@ -2,7 +2,6 @@ import {
   getBoqItemsForPdf,
   getEligibleReviewers,
   getLastPhaseActors,
-  getProjectClientInfo,
   getProjectStaffIds,
   getUsersByIds,
 } from "@/lib/queries";
@@ -109,20 +108,17 @@ export async function notifyPhaseRecipients(opts: {
       return;
     }
     case "sent_to_client": {
-      const client = await getProjectClientInfo(projectId);
-      if (!client?.client_email) return;
+      const pdfData = await getBoqItemsForPdf(boqId, itemIds).catch((err) => {
+        logger.warn("BOQ PDF data fetch failed", { error: err });
+        return null;
+      });
+      if (!pdfData?.project.client_email) return;
 
-      const pdfData =
-        itemIds.length <= PDF_MAX_ITEMS
-          ? await getBoqItemsForPdf(boqId, itemIds).catch((err) => {
-              logger.warn("BOQ PDF data fetch failed", { error: err });
-              return null;
-            })
-          : null;
-
+      // Past the cap we still email + CTA, just no PDF — protects against
+      // multi-MB attachments and very slow renders on pathological BOQs.
       let pdfBuffer: Buffer | null = null;
       let pdfFilename = "BoQ.pdf";
-      if (pdfData && pdfData.items.length > 0) {
+      if (pdfData.items.length > 0 && pdfData.items.length <= PDF_MAX_ITEMS) {
         try {
           pdfBuffer = await renderBoqPdf({
             projectName: pdfData.project.name,
@@ -134,7 +130,6 @@ export async function notifyPhaseRecipients(opts: {
           pdfFilename = buildBoqPdfFilename(pdfData.project.name);
         } catch (err) {
           logger.error("BOQ PDF render failed", { error: err });
-          pdfBuffer = null;
         }
       }
 
@@ -144,7 +139,7 @@ export async function notifyPhaseRecipients(opts: {
       }`;
 
       sendClientBoqEmail({
-        to: client.client_email,
+        to: pdfData.project.client_email,
         subject: title,
         bodyHtml,
         portalUrl,

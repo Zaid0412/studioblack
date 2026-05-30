@@ -34,6 +34,9 @@ import {
 } from "../_lib/bulkLifecyclePlanner";
 import { TEXTAREA_CLS } from "./BoqChangeRequestDialog";
 
+// Sentinel for the explicit Skip choice — Select can't bind to null.
+const SKIP_VALUE = "__skip__";
+
 interface BoqBulkLifecyclePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -279,20 +282,18 @@ function GroupAction({
       </span>
     );
   }
-  // "__skip__" is a sentinel — Select can't bind to null/empty-string, so we
-  // map the explicit Skip choice through this constant and translate back in
-  // the change handler.
-  const SKIP = "__skip__";
   return (
     <Select
-      value={resolved ?? SKIP}
-      onValueChange={(v) => onChoose(v === SKIP ? null : (v as BoqItemPhase))}
+      value={resolved ?? SKIP_VALUE}
+      onValueChange={(v) =>
+        onChoose(v === SKIP_VALUE ? null : (v as BoqItemPhase))
+      }
     >
       <SelectTrigger className="h-8 w-[180px] text-xs">
         <SelectValue placeholder="Choose action…" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={SKIP} className="text-text-muted">
+        <SelectItem value={SKIP_VALUE} className="text-text-muted">
           Skip — leave unchanged
         </SelectItem>
         {group.legalTargets.map((t) => (

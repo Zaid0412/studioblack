@@ -1782,22 +1782,21 @@ export async function getBoqForExport(boqId: string): Promise<{
 }
 
 /**
- * Fetch the data needed to render the "sent to client" BOQ PDF in a single
- * round-trip: BOQ header (title, currency, vat_pct), project name, the items
- * being sent (with computed totals), and the section titles those items
- * belong to. Items are scoped to the caller-supplied `boqId` so a forged
- * `itemIds` list can't leak rows from another BOQ.
+ * Fetch everything needed for the "sent to client" PDF + email in two
+ * parallel round-trips: BOQ header (title, currency, vat_pct) + project
+ * (name, client_email) in one, the moved items (with computed totals +
+ * section titles) in the other. `itemIds` is scoped to the caller's
+ * `boqId` so a forged list can't leak rows from another BOQ.
  *
- * Returns `null` when the BOQ doesn't exist (defensive — caller already has
- * the BOQ in hand). Items are ordered by sort_order so the PDF matches the
- * in-app table.
+ * Returns `null` when the BOQ doesn't exist. Items keep `sort_order` so
+ * the PDF matches the in-app table.
  */
 export async function getBoqItemsForPdf(
   boqId: string,
   itemIds: readonly string[]
 ): Promise<{
   boq: { title: string; currency: string; vat_pct: string };
-  project: { name: string };
+  project: { name: string; client_email: string | null };
   items: Array<BoqItemWithComputed & { section_title: string | null }>;
 } | null> {
   if (itemIds.length === 0) return null;
@@ -1808,8 +1807,10 @@ export async function getBoqItemsForPdf(
       currency: string;
       vat_pct: string;
       project_name: string;
+      client_email: string | null;
     }>(
-      `SELECT b.title, b.currency, b.vat_pct, p.name AS project_name
+      `SELECT b.title, b.currency, b.vat_pct,
+              p.name AS project_name, p.client_email
        FROM boq b
        JOIN project p ON p.id = b.project_id
        WHERE b.id = $1`,
@@ -1831,7 +1832,7 @@ export async function getBoqItemsForPdf(
   const h = headerRes.rows[0];
   return {
     boq: { title: h.title, currency: h.currency, vat_pct: h.vat_pct },
-    project: { name: h.project_name },
+    project: { name: h.project_name, client_email: h.client_email },
     items: itemsRes.rows,
   };
 }

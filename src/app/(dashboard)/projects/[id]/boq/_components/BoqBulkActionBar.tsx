@@ -65,8 +65,6 @@ export function BoqBulkActionBar({
 }: BoqBulkActionBarProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Esc-to-cancel is for the idle bar only. Bailing during a pending
-      // request would drop the user back to a stale-looking table.
       if (e.key === "Escape" && !pending) onCancel();
     };
     window.addEventListener("keydown", handler);
@@ -75,6 +73,8 @@ export function BoqBulkActionBar({
 
   if (count === 0) return null;
 
+  const plural = count === 1 ? "" : "s";
+
   return (
     <div
       role="region"
@@ -82,16 +82,14 @@ export function BoqBulkActionBar({
       aria-busy={pending || undefined}
       className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl border border-accent/40 bg-bg-elevated px-4 py-3 shadow-2xl shadow-black/40 ring-1 ring-accent/30 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-200"
     >
-      {pending ? (
-        <span className="flex items-center gap-2 text-sm font-semibold text-text-primary px-1">
+      <span className="flex items-center gap-2 text-sm font-semibold text-text-primary px-1">
+        {pending && (
           <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
-          Updating {count} item{count === 1 ? "" : "s"}…
-        </span>
-      ) : (
-        <span className="text-sm font-semibold text-text-primary px-1">
-          {count} item{count === 1 ? "" : "s"} selected
-        </span>
-      )}
+        )}
+        {pending
+          ? `Updating ${count} item${plural}…`
+          : `${count} item${plural} selected`}
+      </span>
 
       <span className="h-5 w-px bg-border-default" aria-hidden />
 

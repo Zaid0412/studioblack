@@ -1,3 +1,4 @@
+import fs from "fs";
 import path from "path";
 import React from "react";
 import {
@@ -10,25 +11,30 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { branding } from "@/config/branding";
+import {
+  formatQty,
+  toNum,
+} from "@/app/(dashboard)/projects/[id]/boq/_lib/formatters";
 import type { BoqItemWithComputed } from "@/types";
 
 /**
- * Server-side renderer for the BOQ PDF attached to the
- * "sent to client" email. Renders a client-only view: code, name,
- * description, unit, qty, rate, line total, plus a section-grouped
- * table and a grand total at the bottom.
+ * Client-only BOQ PDF attached to the "sent to client" email. Omits
+ * internal cost / margin / overhead / budget — the client should see
+ * exactly what the portal shows them, nothing more.
  *
- * The PDF deliberately omits all internal cost/margin breakdown
- * (unit_cost, overhead, service charge, margin %, budget rate) —
- * the client should see exactly what they'd see in the portal.
- *
- * Rendered with `@react-pdf/renderer` to stay Vercel-friendly
- * (no Chromium dependency). Wider tables are not paginated by
- * column — the layout is sized to fit A4 landscape if needed.
+ * Uses react-pdf-renderer (no Chromium dep, Vercel-friendly).
  */
 
 const FONT_REGULAR = "Helvetica";
 const FONT_BOLD = "Helvetica-Bold";
+
+// Hoisted to avoid re-instantiating per cell — 500-item BOQ × 7 numeric
+// cells would otherwise build ~3.5k formatter instances per render.
+const MONEY_FORMAT = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const fmtMoney = (n: number) => MONEY_FORMAT.format(n);
 
 const styles = StyleSheet.create({
   page: {
@@ -95,7 +101,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: "#e4e4e7",
   },
-  // Column widths (sum = 100 for landscape A4)
+  // Column widths sum to 100% for A4 landscape.
   colCode: { width: "10%" },
   colName: { width: "26%", paddingRight: 4 },
   colDesc: { width: "26%", paddingRight: 4, color: "#52525b" },
@@ -134,79 +140,42 @@ const styles = StyleSheet.create({
 });
 
 type RenderItem = BoqItemWithComputed & { section_title: string | null };
+type PricedItem = RenderItem & { _rate: number; _total: number };
 
 export interface RenderBoqPdfInput {
   projectName: string;
   boqTitle: string;
   currency: string;
-  /** Free-text note from the PM submitting the BOQ. Optional. */
   comment?: string | null;
   /** ISO date string for the header. Defaults to today (UTC). */
   issuedAt?: string;
   items: ReadonlyArray<RenderItem>;
 }
 
-/** Format a numeric string as currency. Falls back to `0.00`. */
-function fmtMoney(value: string | number | null | undefined): string {
-  const n =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseFloat(value)
-        : NaN;
-  if (!Number.isFinite(n)) return "0.00";
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function fmtQty(value: string | number | null | undefined): string {
-  const n =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number.parseFloat(value)
-        : NaN;
-  if (!Number.isFinite(n)) return "0";
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
-  }).format(n);
-}
-
 /**
- * Pick the per-unit client rate. `client_rate` is the manual override
- * (preferred when set); otherwise derive it from `sell_price / quantity`
- * so the row shows a meaningful per-unit number.
+ * Client-facing rate prefers the manual `client_rate` override; otherwise
+ * derive a per-unit number from `sell_price / quantity` so the column
+ * always shows something meaningful. Line total mirrors the rule.
  */
-function pickClientRate(item: RenderItem): number {
-  const override = Number.parseFloat(item.client_rate ?? "");
-  if (Number.isFinite(override) && override > 0) return override;
-  const qty = Number.parseFloat(item.quantity);
-  const sell = Number.parseFloat(item.sell_price);
-  if (!Number.isFinite(qty) || qty === 0 || !Number.isFinite(sell)) return 0;
-  return sell / qty;
-}
-
-function pickLineTotal(item: RenderItem): number {
-  const override = Number.parseFloat(item.client_rate ?? "");
-  const qty = Number.parseFloat(item.quantity);
-  if (Number.isFinite(override) && override > 0 && Number.isFinite(qty)) {
-    return override * qty;
+function priceItem(item: RenderItem): { rate: number; total: number } {
+  const override = toNum(item.client_rate);
+  const qty = toNum(item.quantity);
+  if (override > 0) {
+    return { rate: override, total: override * qty };
   }
-  const sell = Number.parseFloat(item.sell_price);
-  return Number.isFinite(sell) ? sell : 0;
+  const sell = toNum(item.sell_price);
+  const rate = qty === 0 ? 0 : sell / qty;
+  return { rate, total: sell };
 }
 
 /**
- * Group items by section title, preserving the input order. Items
- * without a section land under "Other items" so they still appear.
+ * Group items by section title, preserving input order. Items without
+ * a section land under "Other items" so they still appear.
  */
 function groupBySection(
-  items: ReadonlyArray<RenderItem>
-): Array<{ title: string; items: RenderItem[] }> {
-  const groups: Array<{ title: string; items: RenderItem[] }> = [];
+  items: ReadonlyArray<PricedItem>
+): Array<{ title: string; items: PricedItem[] }> {
+  const groups: Array<{ title: string; items: PricedItem[] }> = [];
   const index = new Map<string, number>();
   for (const item of items) {
     const title = item.section_title ?? "Other items";
@@ -221,7 +190,11 @@ function groupBySection(
   return groups;
 }
 
-const logoPath = path.join(process.cwd(), "public", "logo.png");
+// Read once at cold start — @react-pdf/renderer would otherwise re-read
+// the file from disk on every renderToBuffer call.
+const LOGO_BUFFER = fs.readFileSync(
+  path.join(process.cwd(), "public", "logo.png")
+);
 
 function BoqPdfDocument({
   projectName,
@@ -231,8 +204,12 @@ function BoqPdfDocument({
   issuedAt,
   items,
 }: RenderBoqPdfInput) {
-  const grandTotal = items.reduce((sum, it) => sum + pickLineTotal(it), 0);
-  const groups = groupBySection(items);
+  const priced: PricedItem[] = items.map((it) => {
+    const { rate, total } = priceItem(it);
+    return { ...it, _rate: rate, _total: total };
+  });
+  const grandTotal = priced.reduce((sum, it) => sum + it._total, 0);
+  const groups = groupBySection(priced);
   const issuedDate = issuedAt ?? new Date().toISOString().slice(0, 10);
 
   return (
@@ -243,9 +220,8 @@ function BoqPdfDocument({
     >
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.header} fixed>
-          {/* @react-pdf/renderer's Image is a PDF primitive, not a DOM <img>. */}
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image src={logoPath} style={styles.logo} />
+          <Image src={LOGO_BUFFER} style={styles.logo} />
           <View style={styles.headerRight}>
             <Text style={styles.titleSmall}>BILL OF QUANTITIES</Text>
             <Text style={styles.titleLarge}>{boqTitle}</Text>
@@ -293,13 +269,9 @@ function BoqPdfDocument({
                 </Text>
                 <Text style={styles.colDesc}>{it.description ?? ""}</Text>
                 <Text style={styles.colUnit}>{it.unit}</Text>
-                <Text style={styles.colQty}>{fmtQty(it.quantity)}</Text>
-                <Text style={styles.colRate}>
-                  {fmtMoney(pickClientRate(it))}
-                </Text>
-                <Text style={styles.colTotal}>
-                  {fmtMoney(pickLineTotal(it))}
-                </Text>
+                <Text style={styles.colQty}>{formatQty(it.quantity)}</Text>
+                <Text style={styles.colRate}>{fmtMoney(it._rate)}</Text>
+                <Text style={styles.colTotal}>{fmtMoney(it._total)}</Text>
               </View>
             ))}
           </View>
@@ -325,16 +297,12 @@ function BoqPdfDocument({
   );
 }
 
-/**
- * Render the BOQ PDF to a Node Buffer ready to attach to an email.
- * Pure function — no logging, no DB calls — so callers can wrap it
- * with their own error handling.
- */
+/** Render the BOQ PDF to a Node Buffer ready to attach to an email. */
 export async function renderBoqPdf(input: RenderBoqPdfInput): Promise<Buffer> {
   return renderToBuffer(<BoqPdfDocument {...input} />);
 }
 
-/** Build a stable filename for the PDF attachment. */
+/** Build the attachment filename — `BoQ - {project} - {YYYY-MM-DD}.pdf`. */
 export function buildBoqPdfFilename(
   projectName: string,
   issuedAt?: string
