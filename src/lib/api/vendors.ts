@@ -23,12 +23,20 @@ type ListParams = Partial<z.input<typeof listVendorsQuerySchema>>;
 type AddKycDocInput = z.infer<typeof vendorKycDocumentSchema>;
 type SetKycStatusInput = z.infer<typeof vendorKycStatusSchema>;
 
-/** A vendor row in the list view — slimmer than the full detail. */
-export interface VendorListRow extends Vendor {
+/**
+ * A vendor row in the list view. Slimmer than the full detail: the list SELECT
+ * deliberately omits `gstin`, `website`, `brands_supported`, `service_areas`
+ * (potentially TOAST-bloated text arrays that the list UI doesn't render).
+ * Callers that need those must fetch the single vendor via `get(id)`.
+ */
+export type VendorListRow = Omit<
+  Vendor,
+  "gstin" | "website" | "brands_supported" | "service_areas"
+> & {
   contact_count: number;
   primary_contact_email: string | null;
   trade_count: number;
-}
+};
 
 export interface ListVendorsResponse {
   rows: VendorListRow[];
@@ -44,6 +52,7 @@ function buildQuery(params: ListParams): string {
   if (params.kycStatus) search.set("kycStatus", params.kycStatus);
   if (params.tradeCategoryId)
     search.set("tradeCategoryId", params.tradeCategoryId);
+  if (params.preferred) search.set("preferred", "true");
   if (params.sortBy) search.set("sortBy", params.sortBy);
   if (params.sortOrder) search.set("sortOrder", params.sortOrder);
   if (params.page !== undefined) search.set("page", String(params.page));

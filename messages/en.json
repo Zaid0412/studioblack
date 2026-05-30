@@ -1009,6 +1009,7 @@
     "website": "Website",
     "websitePlaceholder": "https://example.com",
     "preferredVendor": "Preferred vendor",
+    "preferredOnly": "Preferred only",
     "brandsSupported": "Brands supported",
     "brandsSupportedPlaceholder": "Press Enter to add a brand",
     "serviceAreas": "Service areas",

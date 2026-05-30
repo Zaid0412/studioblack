@@ -1052,7 +1052,7 @@ export const createVendorSchema = z.object({
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
   gstin: z.string().max(20).optional(),
-  website: z.string().max(500).optional(),
+  website: z.string().url().max(500).optional(),
   preferredVendor: z.boolean().optional(),
   brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
   serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
@@ -1076,7 +1076,7 @@ export const updateVendorSchema = z.object({
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional().nullable(),
   gstin: z.string().max(20).optional().nullable(),
-  website: z.string().max(500).optional().nullable(),
+  website: z.string().url().max(500).optional().nullable(),
   preferredVendor: z.boolean().optional(),
   brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
   serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
@@ -1156,6 +1156,11 @@ export const listVendorsQuerySchema = z.object({
   status: z.enum(VENDOR_STATUSES).optional(),
   kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
+  /** Restrict the list to vendors flagged `preferred_vendor = true`. */
+  preferred: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((v) => (typeof v === "boolean" ? v : v === "true"))
+    .optional(),
   sortBy: z.enum(VENDOR_SORT_FIELDS).optional(),
   sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),

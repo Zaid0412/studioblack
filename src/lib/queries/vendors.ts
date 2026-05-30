@@ -2,6 +2,7 @@ import { getPool } from "@/lib/db";
 import type {
   Vendor,
   VendorWithRelations,
+  VendorSelfView,
   VendorLite,
   VendorKycDocument,
   EncryptedField,
@@ -21,6 +22,7 @@ export interface VendorFilters {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  preferred?: boolean;
   sortBy?:
     | "vendor_code"
     | "company_name"
@@ -166,8 +168,13 @@ export async function getVendors(
   orgId: string,
   filters: VendorFilters
 ): Promise<{
+  /**
+   * Bulky text-array columns (`gstin`, `website`, `brands_supported`,
+   * `service_areas`) are intentionally absent — fetch a single vendor via
+   * `getVendorById` when those are needed.
+   */
   rows: Array<
-    Vendor & {
+    Omit<Vendor, "gstin" | "website" | "brands_supported" | "service_areas"> & {
       contact_count: number;
       primary_contact_email: string | null;
       trade_count: number;
@@ -202,6 +209,10 @@ export async function getVendors(
     conditions.push(
       `EXISTS (SELECT 1 FROM vendor_trade vt WHERE vt.vendor_id = v.id AND vt.category_id = $${params.length})`
     );
+  }
+
+  if (filters.preferred) {
+    conditions.push(`v.preferred_vendor = true`);
   }
 
   params.push(filters.limit);
@@ -602,9 +613,9 @@ export async function updateVendorRating(
      RETURNING id, org_id, company_name, trading_name, vendor_code, status,
                rating, payment_terms, currency, vat_registered, vat_number,
                tax_id, kyc_status, kyc_verified_at, kyc_verified_by, kyc_notes,
-               address, addresses, preferred_vendor,
-               -- gstin / website / brands_supported / service_areas omitted:
-               -- rating mutation doesn't need them; matches getVendors trim.
+               address, addresses,
+               gstin, website, preferred_vendor,
+               brands_supported, service_areas,
                notes, created_by, created_at, updated_at`,
     [rating, vendorId, orgId]
   );
@@ -821,10 +832,14 @@ export async function getVendorIdByUserId(
   return (rows[0]?.vendor_id as string) ?? null;
 }
 
-/** Vendor + contacts + trades, fetched by vendor_id without org guard. */
+/**
+ * Vendor + contacts + trades, fetched by vendor_id without org guard.
+ * Returns a `VendorSelfView` — `preferred_vendor` is intentionally absent
+ * since it's a PM-only flag.
+ */
 export async function getVendorSelfById(
   vendorId: string
-): Promise<VendorWithRelations | null> {
+): Promise<VendorSelfView | null> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT
@@ -833,8 +848,6 @@ export async function getVendorSelfById(
        v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
        v.address, v.addresses,
        v.gstin, v.website,
-       -- preferred_vendor is a PM-only flag; vendor self-view must not see it.
-       false AS preferred_vendor,
        v.brands_supported, v.service_areas,
        v.created_by, v.created_at, v.updated_at,
        COALESCE(
@@ -873,7 +886,7 @@ export async function getVendorSelfById(
      WHERE v.id = $1`,
     [vendorId]
   );
-  return (rows[0] as VendorWithRelations) ?? null;
+  return (rows[0] as VendorSelfView) ?? null;
 }
 
 /** Bank-details envelope for a vendor by id (no org guard). */
@@ -902,7 +915,7 @@ export interface UpdateVendorSelfInput {
 export async function updateVendorSelf(
   vendorId: string,
   patch: UpdateVendorSelfInput
-): Promise<VendorWithRelations | null> {
+): Promise<VendorSelfView | null> {
   const pool = getPool();
   const setClauses: string[] = [];
   const params: unknown[] = [vendorId];

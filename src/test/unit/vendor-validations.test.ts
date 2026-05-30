@@ -306,6 +306,14 @@ describe("createVendorSchema — expanded fields", () => {
     }
   });
 
+  it("rejects website without a protocol scheme", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      website: "acme.example",
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects gstin longer than 20 chars", () => {
     const result = createVendorSchema.safeParse({
       companyName: "Acme",

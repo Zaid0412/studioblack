@@ -1009,6 +1009,7 @@
     "website": "Web sitesi",
     "websitePlaceholder": "https://ornek.com",
     "preferredVendor": "Tercih edilen tedarikçi",
+    "preferredOnly": "Yalnızca tercih edilen",
     "brandsSupported": "Desteklenen markalar",
     "brandsSupportedPlaceholder": "Marka eklemek için Enter'a basın",
     "serviceAreas": "Hizmet bölgeleri",

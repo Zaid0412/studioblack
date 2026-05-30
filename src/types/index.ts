@@ -1028,6 +1028,13 @@ export interface VendorWithRelations extends Vendor {
   kyc_expiring_soon_count?: number;
 }
 
+/**
+ * Vendor-portal self-view. The PM-only `preferred_vendor` flag is stripped
+ * at the query layer so it never reaches a vendor user; this type makes the
+ * boundary explicit instead of relying on a SQL literal.
+ */
+export type VendorSelfView = Omit<VendorWithRelations, "preferred_vendor">;
+
 /** Lite shape used in F9 RFQ vendor suggestion lists. */
 export interface VendorLite {
   id: string;
