@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getBoqItemContext,
+  getBoqItemsForPdf,
   setBoqItemPhase,
   setBoqItemsPhase,
   getBoq,
@@ -28,6 +29,8 @@ import {
   getProjectStaffIds,
   getUsersByIds,
 } from "@/lib/queries";
+import { sendClientBoqEmail } from "@/lib/email";
+import { renderBoqPdf } from "@/lib/boq/pdf";
 import { POST as PATCH_PHASE } from "@/app/api/projects/[id]/boq/items/[itemId]/lifecycle/route";
 import { POST as BULK_PHASE } from "@/app/api/projects/[id]/boq/items/bulk-lifecycle/route";
 import {
@@ -703,5 +706,115 @@ describe("phase notification fan-out", () => {
 
     expect(getProjectClientInfo).toHaveBeenCalledWith(PROJECT_ID);
     expect(getUsersByIds).not.toHaveBeenCalled();
+  });
+
+  it("sent_to_client → fetches PDF data, renders, attaches to client email", async () => {
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internally_approved" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "sent_to_client" },
+    });
+    vi.mocked(getProjectClientInfo).mockResolvedValue({
+      project_name: "Test Project",
+      client_email: "client@example.com",
+    });
+    vi.mocked(getBoqItemsForPdf).mockResolvedValue({
+      boq: { title: "Main BOQ", currency: "USD", vat_pct: "0" },
+      project: { name: "Test Project" },
+      items: [
+        {
+          ...(baseItem as unknown as Record<string, unknown>),
+          section_title: "Walls",
+          quantity: "5",
+          unit_cost: "10",
+          sell_price: "60",
+          client_rate: "12",
+          item_code: "EL-1",
+          name: "Plaster",
+          description: "Smooth finish",
+          unit: "m2",
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any,
+    });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      {
+        method: "POST",
+        body: { phase: "sent_to_client", comment: "Please review" },
+      }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getBoqItemsForPdf).toHaveBeenCalledWith(BOQ_ID, [ITEM_ID]);
+    expect(renderBoqPdf).toHaveBeenCalledTimes(1);
+    expect(sendClientBoqEmail).toHaveBeenCalledTimes(1);
+
+    const call = vi.mocked(sendClientBoqEmail).mock.calls[0][0];
+    expect(call.to).toBe("client@example.com");
+    expect(call.pdfBuffer).toBeInstanceOf(Buffer);
+    expect(call.pdfFilename).toMatch(/\.pdf$/);
+    expect(call.portalUrl).toContain(`/projects/${PROJECT_ID}/boq`);
+  });
+
+  it("sent_to_client → still sends email when PDF render fails", async () => {
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internally_approved" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "sent_to_client" },
+    });
+    vi.mocked(getProjectClientInfo).mockResolvedValue({
+      project_name: "Test Project",
+      client_email: "client@example.com",
+    });
+    vi.mocked(getBoqItemsForPdf).mockResolvedValue({
+      boq: { title: "Main BOQ", currency: "USD", vat_pct: "0" },
+      project: { name: "Test Project" },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      items: [{ ...(baseItem as any), section_title: null }],
+    });
+    vi.mocked(renderBoqPdf).mockRejectedValueOnce(new Error("boom"));
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "sent_to_client" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(sendClientBoqEmail).toHaveBeenCalledTimes(1);
+    const call = vi.mocked(sendClientBoqEmail).mock.calls[0][0];
+    expect(call.pdfBuffer).toBeNull();
+  });
+
+  it("sent_to_client → no client_email skips both PDF and email", async () => {
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "internally_approved" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "sent_to_client" },
+    });
+    vi.mocked(getProjectClientInfo).mockResolvedValue({
+      project_name: "Test Project",
+      client_email: null,
+    });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "sent_to_client" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getBoqItemsForPdf).not.toHaveBeenCalled();
+    expect(renderBoqPdf).not.toHaveBeenCalled();
+    expect(sendClientBoqEmail).not.toHaveBeenCalled();
   });
 });

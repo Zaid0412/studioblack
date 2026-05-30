@@ -103,6 +103,7 @@ export const POST = withAuth(
     notifyPhaseRecipients({
       projectId: params.id,
       orgId,
+      boqId: result.boqId,
       boqTitle: boq.title,
       boqCreatorId: boq.created_by,
       target,

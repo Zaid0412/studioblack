@@ -233,11 +233,24 @@ function emailLayout(title: string, body: string, footer: string): string {
 
 const logoPath = path.join(process.cwd(), "public", "logo-dark.png");
 
+/**
+ * Extra (non-logo) attachment that callers can include with an email.
+ * Either `path` (file on disk) or `content` (Buffer / string) must be set.
+ * Anything beyond filename + payload — disposition, cid, encoding — is
+ * passed through to nodemailer's Attachment shape.
+ */
+export interface EmailAttachment {
+  filename: string;
+  content?: Buffer | string;
+  path?: string;
+  contentType?: string;
+}
+
 async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  opts?: { critical?: boolean }
+  opts?: { critical?: boolean; attachments?: EmailAttachment[] }
 ) {
   try {
     await getTransport().sendMail({
@@ -251,6 +264,7 @@ async function sendEmail(
           path: logoPath,
           cid: "logo",
         },
+        ...(opts?.attachments ?? []),
       ],
     });
   } catch (err) {
@@ -302,6 +316,57 @@ export async function sendNotificationEmail(
       </div>`,
       "This is an automated notification from " + safeBrandName + "."
     )
+  );
+}
+
+/**
+ * Send the "BOQ sent to client" email with the rendered PDF attached and
+ * a portal CTA. Caller passes the already-rendered PDF buffer so the email
+ * helper stays free of `@react-pdf/renderer` (heavy dependency).
+ *
+ * `bodyText` is the pre-escaped HTML opener — callers escape any user data
+ * (actor name, item count, BOQ title, free-text comment) before passing.
+ * If `pdfBuffer` is null (e.g. render failed or skipped due to size cap),
+ * the email still ships with the body + CTA — the client just won't see
+ * the attached PDF.
+ */
+export async function sendClientBoqEmail(opts: {
+  to: string;
+  subject: string;
+  bodyHtml: string;
+  portalUrl: string;
+  pdfBuffer: Buffer | null;
+  pdfFilename: string;
+}) {
+  const { to, subject, bodyHtml, portalUrl, pdfBuffer, pdfFilename } = opts;
+  await sendEmail(
+    to,
+    `${getEnvTag()}${branding.appName} | ${subject}`,
+    emailLayout(
+      subject,
+      `<div style="font-size: 14px; color: ${colors.textMuted}; line-height: 1.6;">
+        ${bodyHtml}
+      </div>
+      ${pdfBuffer ? hintText("The full BoQ is attached as a PDF for your reference.") : ""}
+      <div style="padding-top: 24px;">
+        ${divider()}
+      </div>
+      <div style="padding-top: 24px;">
+        ${ctaButton(portalUrl, "Review in portal")}
+      </div>`,
+      "This is an automated notification from " + safeBrandName + "."
+    ),
+    pdfBuffer
+      ? {
+          attachments: [
+            {
+              filename: pdfFilename,
+              content: pdfBuffer,
+              contentType: "application/pdf",
+            },
+          ],
+        }
+      : undefined
   );
 }
 

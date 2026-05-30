@@ -1,4 +1,5 @@
 import {
+  getBoqItemsForPdf,
   getEligibleReviewers,
   getLastPhaseActors,
   getProjectClientInfo,
@@ -6,9 +7,18 @@ import {
   getUsersByIds,
 } from "@/lib/queries";
 import { createNotification } from "@/lib/notifications";
-import { sendNotificationEmail, escapeHtml } from "@/lib/email";
+import {
+  escapeHtml,
+  sendClientBoqEmail,
+  sendNotificationEmail,
+} from "@/lib/email";
 import { logger } from "@/lib/logger";
+import { env } from "@/env";
+import { buildBoqPdfFilename, renderBoqPdf } from "@/lib/boq/pdf";
 import type { BoqItemPhase } from "@/lib/validations";
+
+/** Skip PDF generation past this size — protects against pathological BOQs. */
+const PDF_MAX_ITEMS = 500;
 
 /**
  * Fan-out for per-item phase notifications, shared between the single-item
@@ -24,6 +34,7 @@ import type { BoqItemPhase } from "@/lib/validations";
 export async function notifyPhaseRecipients(opts: {
   projectId: string;
   orgId: string | null;
+  boqId: string;
   boqTitle: string;
   boqCreatorId: string | null;
   target: BoqItemPhase;
@@ -34,6 +45,7 @@ export async function notifyPhaseRecipients(opts: {
   const {
     projectId,
     orgId,
+    boqId,
     boqTitle,
     boqCreatorId,
     target,
@@ -99,10 +111,46 @@ export async function notifyPhaseRecipients(opts: {
     case "sent_to_client": {
       const client = await getProjectClientInfo(projectId);
       if (!client?.client_email) return;
-      const html = `<p>${escapeHtml(actorName)} sent ${escapeHtml(noun)} on <strong>${escapeHtml(boqTitle)}</strong> for your review.</p>${
+
+      const pdfData =
+        itemIds.length <= PDF_MAX_ITEMS
+          ? await getBoqItemsForPdf(boqId, itemIds).catch((err) => {
+              logger.warn("BOQ PDF data fetch failed", { error: err });
+              return null;
+            })
+          : null;
+
+      let pdfBuffer: Buffer | null = null;
+      let pdfFilename = "BoQ.pdf";
+      if (pdfData && pdfData.items.length > 0) {
+        try {
+          pdfBuffer = await renderBoqPdf({
+            projectName: pdfData.project.name,
+            boqTitle: pdfData.boq.title,
+            currency: pdfData.boq.currency,
+            comment,
+            items: pdfData.items,
+          });
+          pdfFilename = buildBoqPdfFilename(pdfData.project.name);
+        } catch (err) {
+          logger.error("BOQ PDF render failed", { error: err });
+          pdfBuffer = null;
+        }
+      }
+
+      const portalUrl = `${env().NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/projects/${projectId}/boq`;
+      const bodyHtml = `<p>${escapeHtml(actorName)} sent ${escapeHtml(noun)} on <strong>${escapeHtml(boqTitle)}</strong> for your review.</p>${
         comment ? `<p style="color: #666;">${escapeHtml(comment)}</p>` : ""
       }`;
-      sendNotificationEmail(client.client_email, title, html).catch((err) =>
+
+      sendClientBoqEmail({
+        to: client.client_email,
+        subject: title,
+        bodyHtml,
+        portalUrl,
+        pdfBuffer,
+        pdfFilename,
+      }).catch((err) =>
         logger.error("Client phase email failed", { error: err })
       );
       return;

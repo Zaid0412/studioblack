@@ -1781,6 +1781,61 @@ export async function getBoqForExport(boqId: string): Promise<{
   return { items: itemsRes.rows, sections: sectionsRes.rows };
 }
 
+/**
+ * Fetch the data needed to render the "sent to client" BOQ PDF in a single
+ * round-trip: BOQ header (title, currency, vat_pct), project name, the items
+ * being sent (with computed totals), and the section titles those items
+ * belong to. Items are scoped to the caller-supplied `boqId` so a forged
+ * `itemIds` list can't leak rows from another BOQ.
+ *
+ * Returns `null` when the BOQ doesn't exist (defensive — caller already has
+ * the BOQ in hand). Items are ordered by sort_order so the PDF matches the
+ * in-app table.
+ */
+export async function getBoqItemsForPdf(
+  boqId: string,
+  itemIds: readonly string[]
+): Promise<{
+  boq: { title: string; currency: string; vat_pct: string };
+  project: { name: string };
+  items: Array<BoqItemWithComputed & { section_title: string | null }>;
+} | null> {
+  if (itemIds.length === 0) return null;
+  const pool = getPool();
+  const [headerRes, itemsRes] = await Promise.all([
+    pool.query<{
+      title: string;
+      currency: string;
+      vat_pct: string;
+      project_name: string;
+    }>(
+      `SELECT b.title, b.currency, b.vat_pct, p.name AS project_name
+       FROM boq b
+       JOIN project p ON p.id = b.project_id
+       WHERE b.id = $1`,
+      [boqId]
+    ),
+    pool.query<BoqItemWithComputed & { section_title: string | null }>(
+      `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS},
+              s.title AS section_title
+       FROM boq_item bi
+       JOIN boq b ON b.id = bi.boq_id
+       ${ITEM_LIBRARY_JOIN}
+       LEFT JOIN boq_section s ON s.id = bi.section_id
+       WHERE bi.boq_id = $1 AND bi.id = ANY($2::uuid[])
+       ORDER BY bi.sort_order, bi.created_at`,
+      [boqId, itemIds]
+    ),
+  ]);
+  if (headerRes.rows.length === 0) return null;
+  const h = headerRes.rows[0];
+  return {
+    boq: { title: h.title, currency: h.currency, vat_pct: h.vat_pct },
+    project: { name: h.project_name },
+    items: itemsRes.rows,
+  };
+}
+
 type BoqImportRow = z.infer<typeof boqImportRowSchema>;
 
 /**
