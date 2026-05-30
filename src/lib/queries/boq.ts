@@ -1781,6 +1781,62 @@ export async function getBoqForExport(boqId: string): Promise<{
   return { items: itemsRes.rows, sections: sectionsRes.rows };
 }
 
+/**
+ * Fetch everything needed for the "sent to client" PDF + email in two
+ * parallel round-trips: BOQ header (title, currency, vat_pct) + project
+ * (name, client_email) in one, the moved items (with computed totals +
+ * section titles) in the other. `itemIds` is scoped to the caller's
+ * `boqId` so a forged list can't leak rows from another BOQ.
+ *
+ * Returns `null` when the BOQ doesn't exist. Items keep `sort_order` so
+ * the PDF matches the in-app table.
+ */
+export async function getBoqItemsForPdf(
+  boqId: string,
+  itemIds: readonly string[]
+): Promise<{
+  boq: { title: string; currency: string; vat_pct: string };
+  project: { name: string; client_email: string | null };
+  items: Array<BoqItemWithComputed & { section_title: string | null }>;
+} | null> {
+  if (itemIds.length === 0) return null;
+  const pool = getPool();
+  const [headerRes, itemsRes] = await Promise.all([
+    pool.query<{
+      title: string;
+      currency: string;
+      vat_pct: string;
+      project_name: string;
+      client_email: string | null;
+    }>(
+      `SELECT b.title, b.currency, b.vat_pct,
+              p.name AS project_name, p.client_email
+       FROM boq b
+       JOIN project p ON p.id = b.project_id
+       WHERE b.id = $1`,
+      [boqId]
+    ),
+    pool.query<BoqItemWithComputed & { section_title: string | null }>(
+      `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS},
+              s.title AS section_title
+       FROM boq_item bi
+       JOIN boq b ON b.id = bi.boq_id
+       ${ITEM_LIBRARY_JOIN}
+       LEFT JOIN boq_section s ON s.id = bi.section_id
+       WHERE bi.boq_id = $1 AND bi.id = ANY($2::uuid[])
+       ORDER BY bi.sort_order, bi.created_at`,
+      [boqId, itemIds]
+    ),
+  ]);
+  if (headerRes.rows.length === 0) return null;
+  const h = headerRes.rows[0];
+  return {
+    boq: { title: h.title, currency: h.currency, vat_pct: h.vat_pct },
+    project: { name: h.project_name, client_email: h.client_email },
+    items: itemsRes.rows,
+  };
+}
+
 type BoqImportRow = z.infer<typeof boqImportRowSchema>;
 
 /**

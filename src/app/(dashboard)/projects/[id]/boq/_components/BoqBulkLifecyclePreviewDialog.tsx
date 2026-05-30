@@ -34,6 +34,9 @@ import {
 } from "../_lib/bulkLifecyclePlanner";
 import { TEXTAREA_CLS } from "./BoqChangeRequestDialog";
 
+// Sentinel for the explicit Skip choice — Select can't bind to null.
+const SKIP_VALUE = "__skip__";
+
 interface BoqBulkLifecyclePreviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -184,7 +187,12 @@ export function BoqBulkLifecyclePreviewDialog({
                   resolved={resolved.get(group.phase) ?? null}
                   primaryTarget={target}
                   onChoose={(t) =>
-                    setFallbacks((prev) => ({ ...prev, [group.phase]: t }))
+                    setFallbacks((prev) => {
+                      const next = { ...prev };
+                      if (t === null) delete next[group.phase];
+                      else next[group.phase] = t;
+                      return next;
+                    })
                   }
                 />
               </div>
@@ -255,7 +263,8 @@ function GroupAction({
   group: PhaseGroup;
   resolved: BoqItemPhase | null;
   primaryTarget: BoqItemPhase;
-  onChoose: (target: BoqItemPhase) => void;
+  /** Null clears the fallback (explicit Skip). */
+  onChoose: (target: BoqItemPhase | null) => void;
 }) {
   if (group.primary) {
     return (
@@ -275,13 +284,18 @@ function GroupAction({
   }
   return (
     <Select
-      value={resolved ?? undefined}
-      onValueChange={(v) => onChoose(v as BoqItemPhase)}
+      value={resolved ?? SKIP_VALUE}
+      onValueChange={(v) =>
+        onChoose(v === SKIP_VALUE ? null : (v as BoqItemPhase))
+      }
     >
       <SelectTrigger className="h-8 w-[180px] text-xs">
         <SelectValue placeholder="Choose action…" />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value={SKIP_VALUE} className="text-text-muted">
+          Skip — leave unchanged
+        </SelectItem>
         {group.legalTargets.map((t) => (
           <SelectItem
             key={t}

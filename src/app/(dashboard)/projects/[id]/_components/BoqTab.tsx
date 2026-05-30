@@ -113,6 +113,17 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewTarget, setPreviewTarget] = useState<BoqItemPhase>("draft");
+  // Drives the spinner / disabled state on the floating bulk action bar.
+  // Without it, fast bulk requests look like ~1s of "nothing happening".
+  const [bulkPending, setBulkPending] = useState(false);
+  const withBulkPending = useCallback(async (run: () => Promise<void>) => {
+    setBulkPending(true);
+    try {
+      await run();
+    } finally {
+      setBulkPending(false);
+    }
+  }, []);
 
   // Selection mode (PR 2). Disabled when the BOQ is locked.
   const allItemIds = useMemo(
@@ -199,38 +210,50 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   // Bulk action success → exit selection mode entirely (per UX: after one
   // batch action, dismiss the bar). Failures keep the user in selection mode
   // so they can retry / cancel.
+  // Errors are surfaced by useBoqMutations as toasts — the catches stay
+  // empty so the user lands back in selection mode for retry.
   const handleBulkMove = useCallback(
-    async (targetSectionId: string | null) => {
-      if (!boq || selection.selected.size === 0) return;
-      try {
-        await bulkMoveItems(
-          boq.id,
-          Array.from(selection.selected),
-          targetSectionId
-        );
-        selection.toggleMode();
-      } catch {
-        /* useBoqMutations toasts on error */
-      }
-    },
-    [boq, bulkMoveItems, selection]
+    (targetSectionId: string | null) =>
+      withBulkPending(async () => {
+        if (!boq || selection.selected.size === 0) return;
+        try {
+          await bulkMoveItems(
+            boq.id,
+            Array.from(selection.selected),
+            targetSectionId
+          );
+          selection.toggleMode();
+        } catch {
+          /* toasted */
+        }
+      }),
+    [boq, bulkMoveItems, selection, withBulkPending]
   );
 
-  const handleBulkDelete = useCallback(async () => {
-    if (!boq || selection.selected.size === 0) return;
-    try {
-      await bulkDeleteItems(boq.id, Array.from(selection.selected));
-      setBulkDeleteConfirmOpen(false);
-      selection.toggleMode();
-    } catch {
-      /* useBoqMutations toasts on error */
-    }
-  }, [boq, bulkDeleteItems, selection]);
+  const handleBulkDelete = useCallback(
+    () =>
+      withBulkPending(async () => {
+        if (!boq || selection.selected.size === 0) return;
+        try {
+          await bulkDeleteItems(boq.id, Array.from(selection.selected));
+          setBulkDeleteConfirmOpen(false);
+          selection.toggleMode();
+        } catch {
+          /* toasted */
+        }
+      }),
+    [boq, bulkDeleteItems, selection, withBulkPending]
+  );
 
   const handleBulkSetPhase = useCallback(
     async (phase: BoqItemPhase, comment?: string) => {
       if (!boq || selection.selected.size === 0) return;
-      if (sharedSelectedPhase) {
+      if (!sharedSelectedPhase) {
+        setPreviewTarget(phase);
+        setPreviewOpen(true);
+        return;
+      }
+      await withBulkPending(async () => {
         try {
           await bulkSetItemPhase(
             boq.id,
@@ -240,35 +263,33 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           );
           selection.toggleMode();
         } catch {
-          /* useBoqMutations toasts on error */
+          /* toasted */
         }
-        return;
-      }
-      setPreviewTarget(phase);
-      setPreviewOpen(true);
+      });
     },
-    [boq, bulkSetItemPhase, selection, sharedSelectedPhase]
+    [boq, bulkSetItemPhase, selection, sharedSelectedPhase, withBulkPending]
   );
 
   const handlePreviewConfirm = useCallback(
-    async (plan: BulkLifecyclePlanEntry[], comment?: string) => {
-      if (!boq) return;
-      // Each per-target call retains its own atomic guarantee for its subset;
-      // a partial failure doesn't abort siblings.
-      const results = await Promise.allSettled(
-        plan.map((entry) =>
-          bulkSetItemPhase(
-            boq.id,
-            entry.itemIds,
-            entry.target,
-            comment ? { comment } : undefined
+    (plan: BulkLifecyclePlanEntry[], comment?: string) =>
+      withBulkPending(async () => {
+        if (!boq) return;
+        // Each per-target call retains its own atomic guarantee for its subset;
+        // a partial failure doesn't abort siblings.
+        const results = await Promise.allSettled(
+          plan.map((entry) =>
+            bulkSetItemPhase(
+              boq.id,
+              entry.itemIds,
+              entry.target,
+              comment ? { comment } : undefined
+            )
           )
-        )
-      );
-      if (results.every((r) => r.status === "fulfilled"))
-        selection.toggleMode();
-    },
-    [boq, bulkSetItemPhase, selection]
+        );
+        if (results.every((r) => r.status === "fulfilled"))
+          selection.toggleMode();
+      }),
+    [boq, bulkSetItemPhase, selection, withBulkPending]
   );
 
   // Single-item lifecycle change from the row's "..." menu. Errors are
@@ -638,6 +659,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           sharedPhase={sharedSelectedPhase}
           allowedPhases={bulkAllowedPhases}
           canEdit={canEdit}
+          pending={bulkPending}
           onMove={handleBulkMove}
           onSetPhase={handleBulkSetPhase}
           onDelete={() => setBulkDeleteConfirmOpen(true)}

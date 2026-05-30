@@ -77,7 +77,18 @@ vi.mock("@/lib/email", () => ({
   sendRfqIssuedEmail: vi.fn().mockResolvedValue(undefined),
   sendQuoteReceivedEmail: vi.fn().mockResolvedValue(undefined),
   sendQuoteAwardedEmail: vi.fn().mockResolvedValue(undefined),
+  sendClientBoqEmail: vi.fn().mockResolvedValue(undefined),
   escapeHtml: vi.fn((s: string) => s),
+}));
+
+// ── Mock: @/lib/boq/pdf (PDF renderer — Vercel-heavy; stubbed in tests) ─────
+
+vi.mock("@/lib/boq/pdf", () => ({
+  renderBoqPdf: vi.fn().mockResolvedValue(Buffer.from("mock-pdf")),
+  buildBoqPdfFilename: vi.fn(
+    (name: string, date?: string) =>
+      `BoQ - ${name} - ${date ?? "2026-05-30"}.pdf`
+  ),
 }));
 
 // ── Mock: @/lib/notifications ───────────────────────────────────────────────
@@ -397,6 +408,7 @@ vi.mock("@/lib/queries", () => ({
   // BOQ Excel import/export (Feature 6)
   getElementsByCodeMap: vi.fn().mockResolvedValue(new Map()),
   getBoqForExport: vi.fn().mockResolvedValue(null),
+  getBoqItemsForPdf: vi.fn().mockResolvedValue(null),
   bulkInsertBoqItems: vi.fn().mockResolvedValue({
     inserted: 0,
     replaced: 0,
