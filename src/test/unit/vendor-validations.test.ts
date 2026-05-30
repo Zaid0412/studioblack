@@ -284,3 +284,76 @@ describe("vendorAddressSchema — label + is_primary", () => {
     expect(result.success).toBe(true);
   });
 });
+
+// ─── Vendor field expansion (GSTIN, website, preferred, brands, areas, IFSC) ─
+
+describe("createVendorSchema — expanded fields", () => {
+  it("accepts gstin, website, preferredVendor, brandsSupported, serviceAreas", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      gstin: "29ABCDE1234F1Z5",
+      website: "https://acme.example",
+      preferredVendor: true,
+      brandsSupported: ["Asian Paints", "Jaquar"],
+      serviceAreas: ["Bengaluru", "Chennai"],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.gstin).toBe("29ABCDE1234F1Z5");
+      expect(result.data.preferredVendor).toBe(true);
+      expect(result.data.brandsSupported).toHaveLength(2);
+      expect(result.data.serviceAreas).toHaveLength(2);
+    }
+  });
+
+  it("rejects gstin longer than 20 chars", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      gstin: "A".repeat(21),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects more than 50 brands", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      brandsSupported: Array.from({ length: 51 }, (_, i) => `Brand ${i}`),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty strings in service areas", () => {
+    const result = createVendorSchema.safeParse({
+      companyName: "Acme",
+      serviceAreas: [""],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("updateVendorSchema — expanded fields", () => {
+  it("accepts nullable gstin and website to clear them", () => {
+    const result = updateVendorSchema.safeParse({
+      gstin: null,
+      website: null,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("bankDetailsSchema — IFSC", () => {
+  it("accepts an ifsc_code value", () => {
+    const result = bankDetailsSchema.safeParse({
+      account_number: "1234567890",
+      ifsc_code: "HDFC0001234",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects ifsc_code longer than 20 chars", () => {
+    const result = bankDetailsSchema.safeParse({
+      ifsc_code: "A".repeat(21),
+    });
+    expect(result.success).toBe(false);
+  });
+});

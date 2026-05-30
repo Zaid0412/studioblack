@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { MoreHorizontal, Edit3, Trash2, Star } from "lucide-react";
+import { MoreHorizontal, Edit3, Trash2, Star, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -72,6 +72,13 @@ export function VendorRow({
     <span className="text-text-muted italic">{t("noPrimary")}</span>
   );
 
+  const preferredBadge = vendor.preferred_vendor ? (
+    <BadgeCheck
+      className="w-3.5 h-3.5 text-accent shrink-0"
+      aria-label={t("preferredVendor")}
+    />
+  ) : null;
+
   return (
     <div
       onClick={onClick}
@@ -88,6 +95,7 @@ export function VendorRow({
           <span className="inline-flex items-center gap-2 text-sm text-text-primary">
             <VendorKycStatusDot status={vendor.kyc_status} />
             <span className="truncate">{vendor.company_name}</span>
+            {preferredBadge}
           </span>
           {vendor.trading_name && (
             <span className="text-xs text-text-muted truncate pl-4">
@@ -136,6 +144,7 @@ export function VendorRow({
           <span className="inline-flex items-center gap-2 text-sm text-text-primary truncate">
             <VendorKycStatusDot status={vendor.kyc_status} />
             <span className="truncate">{vendor.company_name}</span>
+            {preferredBadge}
           </span>
           {vendor.trading_name && (
             <span className="text-xs text-text-muted truncate pl-4">

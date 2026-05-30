@@ -16,6 +16,7 @@ const EMPTY: Required<BankDetails> = {
   account_number: "",
   iban: "",
   swift: "",
+  ifsc_code: "",
   branch: "",
 };
 
@@ -130,6 +131,13 @@ export function BankDetailsForm({
           label={t("swift")}
           value={values.swift}
           onChange={(e) => setField("swift", e.target.value)}
+          maxLength={20}
+          disabled={readOnly}
+        />
+        <Input
+          label={t("ifscCode")}
+          value={values.ifsc_code}
+          onChange={(e) => setField("ifsc_code", e.target.value)}
           maxLength={20}
           disabled={readOnly}
         />
