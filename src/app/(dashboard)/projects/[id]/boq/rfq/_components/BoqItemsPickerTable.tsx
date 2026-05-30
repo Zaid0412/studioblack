@@ -21,12 +21,8 @@ interface Props {
 
 /**
  * Shared "pick BOQ items" table used by the RFQ create form and the
- * "add items to existing RFQ" dialog. Renders a checkbox column with an
- * indeterminate-aware select-all header plus the canonical code /
- * description / unit / quantity columns.
- *
- * Row clicks toggle selection; the checkbox click is stopped from
- * propagating so it doesn't double-toggle via the row handler.
+ * "add items to existing RFQ" dialog. Indeterminate-aware select-all
+ * header plus the canonical code / description / unit / quantity columns.
  */
 export function BoqItemsPickerTable({
   items,
@@ -43,14 +39,12 @@ export function BoqItemsPickerTable({
       <thead className="bg-bg-elevated text-text-muted sticky top-0">
         <tr className="text-left">
           <th className="px-4 py-2.5 w-10">
-            <span onClick={(e) => e.stopPropagation()} className="inline-flex">
-              <Checkbox
-                checked={allSelected}
-                indeterminate={someSelected}
-                onCheckedChange={onToggleAll}
-                aria-label={labels.selectAll}
-              />
-            </span>
+            <Checkbox
+              checked={allSelected}
+              indeterminate={someSelected}
+              onCheckedChange={onToggleAll}
+              aria-label={labels.selectAll}
+            />
           </th>
           <th className="px-4 py-2.5 font-medium">{labels.code}</th>
           <th className="px-4 py-2.5 font-medium">{labels.description}</th>

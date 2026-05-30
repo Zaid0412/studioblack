@@ -20,11 +20,7 @@ const EMPTY: Required<BankDetails> = {
   branch: "",
 };
 
-/**
- * Field config — order here is the render order. `maxLength` matches the
- * `bankDetailsSchema` caps in `src/lib/validations.ts`; if those change,
- * update both.
- */
+/** `maxLength` mirrors `bankDetailsSchema` caps — update both together. */
 const BANK_FIELDS: ReadonlyArray<{
   key: keyof BankDetails;
   labelKey: string;

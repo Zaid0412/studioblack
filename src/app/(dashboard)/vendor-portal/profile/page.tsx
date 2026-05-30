@@ -161,7 +161,6 @@ type AddressField =
   | "postal"
   | "country";
 
-/** Render order + per-field caps for the address fieldset. */
 const ADDRESS_FIELDS: ReadonlyArray<{
   key: AddressField;
   labelKey: string;

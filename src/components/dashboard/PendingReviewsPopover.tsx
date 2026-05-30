@@ -28,16 +28,10 @@ import type {
 } from "@/lib/queries/dashboard";
 
 /**
- * Stat-card popover for the "pending reviews" queue. Used in two places:
- *
- *  - `audience="internal"` → PM / architect view, lists every file + BOQ in
- *    the org awaiting review, fetched from `/api/dashboard/pending-reviews`.
- *  - `audience="client"` → client view, scoped to the caller's own projects
- *    via `/api/client/pending-reviews`. File metadata is slimmer (no
- *    uploader name; the relevant timestamp is `sent_at`).
- *
- * The variants render the same chrome and differ only in their endpoint,
- * row-metadata format, and the empty-state description.
+ * Stat-card popover for the "pending reviews" queue.
+ *  - `internal`: PM/architect view via `/api/dashboard/pending-reviews`.
+ *  - `client`: caller's own projects via `/api/client/pending-reviews`;
+ *    file rows have no uploader and use `sent_at` instead of `uploaded_at`.
  */
 export type PendingReviewsAudience = "internal" | "client";
 
@@ -63,8 +57,10 @@ interface NormalizedFile {
   project_id: string;
   project_name: string;
   file_name: string;
-  /** Pre-formatted secondary line: e.g. "Acme · Alice · 2h ago" or "Acme · 2h ago". */
-  meta: string;
+  /** Uploader display name. Always `null` for the client audience. */
+  actor_name: string | null;
+  /** ISO timestamp — `uploaded_at` for internal, `sent_at` for client. */
+  timestamp: string;
 }
 
 interface NormalizedBoq {
@@ -198,6 +194,16 @@ function PopoverBody({
   );
 }
 
+function mapBoq(b: PendingBoqReviewRow | ClientPendingBoqRow): NormalizedBoq {
+  return {
+    id: b.id,
+    project_id: b.project_id,
+    project_name: b.project_name,
+    items_in_review: b.items_in_review,
+    submitted_at: b.submitted_at,
+  };
+}
+
 function normalizeInternal(data: InternalResponse): Normalized {
   return {
     files: data.files.map((f) => ({
@@ -205,17 +211,10 @@ function normalizeInternal(data: InternalResponse): Normalized {
       project_id: f.project_id,
       project_name: f.project_name,
       file_name: f.file_name,
-      meta: [f.project_name, f.uploaded_by_name ?? null, timeAgo(f.uploaded_at)]
-        .filter(Boolean)
-        .join(" · "),
+      actor_name: f.uploaded_by_name ?? null,
+      timestamp: f.uploaded_at,
     })),
-    boqs: data.boqs.map((b) => ({
-      id: b.id,
-      project_id: b.project_id,
-      project_name: b.project_name,
-      items_in_review: b.items_in_review,
-      submitted_at: b.submitted_at,
-    })),
+    boqs: data.boqs.map(mapBoq),
   };
 }
 
@@ -226,15 +225,10 @@ function normalizeClient(data: ClientResponse): Normalized {
       project_id: f.project_id,
       project_name: f.project_name,
       file_name: f.file_name,
-      meta: `${f.project_name} · ${timeAgo(f.sent_at)}`,
+      actor_name: null,
+      timestamp: f.sent_at,
     })),
-    boqs: data.boqs.map((b) => ({
-      id: b.id,
-      project_id: b.project_id,
-      project_name: b.project_name,
-      items_in_review: b.items_in_review,
-      submitted_at: b.submitted_at,
-    })),
+    boqs: data.boqs.map(mapBoq),
   };
 }
 
@@ -258,6 +252,9 @@ function Section({
 }
 
 function FileReviewRow({ row }: { row: NormalizedFile }) {
+  const meta = [row.project_name, row.actor_name, timeAgo(row.timestamp)]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <li>
       <Link
@@ -269,7 +266,7 @@ function FileReviewRow({ row }: { row: NormalizedFile }) {
           <span className="text-[13px] font-semibold text-text-primary truncate">
             {row.file_name}
           </span>
-          <span className="text-xs text-text-muted truncate">{row.meta}</span>
+          <span className="text-xs text-text-muted truncate">{meta}</span>
         </div>
         <ChevronRight className="w-4 h-4 text-text-muted shrink-0 mt-1" />
       </Link>
