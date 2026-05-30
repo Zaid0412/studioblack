@@ -23,24 +23,66 @@ import { DEFAULT_BOQ_SEGMENT } from "@/app/(dashboard)/projects/[id]/boq/_lib/ta
 import type {
   PendingReviewRow,
   PendingBoqReviewRow,
+  ClientPendingFileRow,
+  ClientPendingBoqRow,
 } from "@/lib/queries/dashboard";
 
-interface PendingReviewsPopoverProps {
-  /** Count rendered on the stat card. Comes from the dashboard SWR. */
+/**
+ * Stat-card popover for the "pending reviews" queue.
+ *  - `internal`: PM/architect view via `/api/dashboard/pending-reviews`.
+ *  - `client`: caller's own projects via `/api/client/pending-reviews`;
+ *    file rows have no uploader and use `sent_at` instead of `uploaded_at`.
+ */
+export type PendingReviewsAudience = "internal" | "client";
+
+interface Props {
+  /** Count rendered on the trigger card. Comes from the dashboard SWR. */
   count: number;
   label: string;
+  audience: PendingReviewsAudience;
 }
 
-interface PendingReviewsResponse {
+interface InternalResponse {
   files: PendingReviewRow[];
   boqs: PendingBoqReviewRow[];
 }
 
-/** Stat-card variant that fetches the queue lazily on open. */
-export function PendingReviewsPopover({
-  count,
-  label,
-}: PendingReviewsPopoverProps) {
+interface ClientResponse {
+  files: ClientPendingFileRow[];
+  boqs: ClientPendingBoqRow[];
+}
+
+interface NormalizedFile {
+  id: string;
+  project_id: string;
+  project_name: string;
+  file_name: string;
+  /** Uploader display name. Always `null` for the client audience. */
+  actor_name: string | null;
+  /** ISO timestamp — `uploaded_at` for internal, `sent_at` for client. */
+  timestamp: string;
+}
+
+interface NormalizedBoq {
+  id: string;
+  project_id: string;
+  project_name: string;
+  items_in_review: number;
+  submitted_at: string;
+}
+
+interface Normalized {
+  files: NormalizedFile[];
+  boqs: NormalizedBoq[];
+}
+
+const EMPTY_DESCRIPTION: Record<PendingReviewsAudience, string> = {
+  internal: "Files and BOQs awaiting review will appear here.",
+  client: "Files and BOQs awaiting your review will appear here.",
+};
+
+/** Trigger card + popover body for the pending-reviews queue. */
+export function PendingReviewsPopover({ count, label, audience }: Props) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -73,25 +115,42 @@ export function PendingReviewsPopover({
         sideOffset={8}
         className="w-[420px] p-0 overflow-hidden"
       >
-        <PopoverBody totalCount={count} />
+        <PopoverBody totalCount={count} audience={audience} />
       </PopoverContent>
     </Popover>
   );
 }
 
-function PopoverBody({ totalCount }: { totalCount: number }) {
+function PopoverBody({
+  totalCount,
+  audience,
+}: {
+  totalCount: number;
+  audience: PendingReviewsAudience;
+}) {
+  const endpoint =
+    audience === "internal"
+      ? API.dashboardPendingReviews()
+      : API.clientPendingReviews();
+
   // Suppress the global `onError` toast (`src/lib/swr.ts`) for this fetch —
   // the popover renders its own `ErrorView` inline; firing both is noise.
-  const { data, isLoading, error } = useSWR<PendingReviewsResponse>(
-    API.dashboardPendingReviews(),
+  const { data, isLoading, error } = useSWR<InternalResponse | ClientResponse>(
+    endpoint,
     { onError: () => {} }
   );
 
-  const fileCount = data?.files.length ?? 0;
-  const boqCount = data?.boqs.length ?? 0;
+  const normalized: Normalized | undefined = data
+    ? audience === "internal"
+      ? normalizeInternal(data as InternalResponse)
+      : normalizeClient(data as ClientResponse)
+    : undefined;
+
+  const fileCount = normalized?.files.length ?? 0;
+  const boqCount = normalized?.boqs.length ?? 0;
   const shown = fileCount + boqCount;
-  const truncated = data && shown < totalCount;
-  const isEmpty = data && shown === 0;
+  const truncated = normalized && shown < totalCount;
+  const isEmpty = normalized && shown === 0;
 
   return (
     <>
@@ -99,7 +158,7 @@ function PopoverBody({ totalCount }: { totalCount: number }) {
         <span className="text-[13px] font-semibold text-text-primary">
           Pending Reviews
         </span>
-        {data && (
+        {normalized && (
           <span className="text-xs font-bold text-accent tabular-nums">
             {truncated ? `${shown} of ${totalCount}` : shown}
           </span>
@@ -111,28 +170,66 @@ function PopoverBody({ totalCount }: { totalCount: number }) {
         ) : error ? (
           <ErrorView />
         ) : isEmpty ? (
-          <EmptyView />
-        ) : (
+          <EmptyView description={EMPTY_DESCRIPTION[audience]} />
+        ) : normalized ? (
           <>
             {fileCount > 0 && (
               <Section title="Files" count={fileCount}>
-                {data!.files.map((row) => (
+                {normalized.files.map((row) => (
                   <FileReviewRow key={row.id} row={row} />
                 ))}
               </Section>
             )}
             {boqCount > 0 && (
               <Section title="BOQs" count={boqCount}>
-                {data!.boqs.map((row) => (
+                {normalized.boqs.map((row) => (
                   <BoqReviewRow key={row.id} row={row} />
                 ))}
               </Section>
             )}
           </>
-        )}
+        ) : null}
       </div>
     </>
   );
+}
+
+function mapBoq(b: PendingBoqReviewRow | ClientPendingBoqRow): NormalizedBoq {
+  return {
+    id: b.id,
+    project_id: b.project_id,
+    project_name: b.project_name,
+    items_in_review: b.items_in_review,
+    submitted_at: b.submitted_at,
+  };
+}
+
+function normalizeInternal(data: InternalResponse): Normalized {
+  return {
+    files: data.files.map((f) => ({
+      id: f.id,
+      project_id: f.project_id,
+      project_name: f.project_name,
+      file_name: f.file_name,
+      actor_name: f.uploaded_by_name ?? null,
+      timestamp: f.uploaded_at,
+    })),
+    boqs: data.boqs.map(mapBoq),
+  };
+}
+
+function normalizeClient(data: ClientResponse): Normalized {
+  return {
+    files: data.files.map((f) => ({
+      id: f.id,
+      project_id: f.project_id,
+      project_name: f.project_name,
+      file_name: f.file_name,
+      actor_name: null,
+      timestamp: f.sent_at,
+    })),
+    boqs: data.boqs.map(mapBoq),
+  };
 }
 
 function Section({
@@ -154,7 +251,10 @@ function Section({
   );
 }
 
-function FileReviewRow({ row }: { row: PendingReviewRow }) {
+function FileReviewRow({ row }: { row: NormalizedFile }) {
+  const meta = [row.project_name, row.actor_name, timeAgo(row.timestamp)]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <li>
       <Link
@@ -166,12 +266,7 @@ function FileReviewRow({ row }: { row: PendingReviewRow }) {
           <span className="text-[13px] font-semibold text-text-primary truncate">
             {row.file_name}
           </span>
-          <span className="text-xs text-text-muted truncate">
-            {row.project_name}
-            {row.uploaded_by_name && ` · ${row.uploaded_by_name}`}
-            {" · "}
-            {timeAgo(row.uploaded_at)}
-          </span>
+          <span className="text-xs text-text-muted truncate">{meta}</span>
         </div>
         <ChevronRight className="w-4 h-4 text-text-muted shrink-0 mt-1" />
       </Link>
@@ -179,7 +274,7 @@ function FileReviewRow({ row }: { row: PendingReviewRow }) {
   );
 }
 
-function BoqReviewRow({ row }: { row: PendingBoqReviewRow }) {
+function BoqReviewRow({ row }: { row: NormalizedBoq }) {
   return (
     <li>
       <Link
@@ -221,12 +316,12 @@ function ListSkeleton() {
   );
 }
 
-function EmptyView() {
+function EmptyView({ description }: { description: string }) {
   return (
     <EmptyState
       icon={ClipboardCheck}
       title="Nothing pending"
-      description="Files and BOQs awaiting review will appear here."
+      description={description}
       className="!py-8"
     />
   );

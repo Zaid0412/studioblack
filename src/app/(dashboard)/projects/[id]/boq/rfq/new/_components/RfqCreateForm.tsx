@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -16,6 +15,7 @@ import { useRfqMutations } from "@/hooks/useRfqs";
 import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
 import type { BoqItemWithComputed } from "@/types";
+import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
 
 interface Props {
   projectId: string;
@@ -203,79 +203,19 @@ export function RfqCreateForm({ projectId }: Props) {
           />
         ) : (
           <div className="overflow-x-auto border-t border-border-default">
-            <table className="w-full text-sm">
-              <thead className="bg-bg-elevated text-text-muted">
-                <tr className="text-left">
-                  <th className="px-4 py-2.5 w-10">
-                    {/* Header checkbox: select-all toggle. Indeterminate while
-                       a partial selection is active, so the visual state
-                       always matches the row checkboxes below. */}
-                    <span
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex"
-                    >
-                      <Checkbox
-                        checked={
-                          items.length > 0 && selected.size === items.length
-                        }
-                        indeterminate={
-                          selected.size > 0 && selected.size < items.length
-                        }
-                        onCheckedChange={toggleAll}
-                        aria-label={t("create.selectAll")}
-                      />
-                    </span>
-                  </th>
-                  <th className="px-4 py-2.5 font-medium">
-                    {t("create.col.code")}
-                  </th>
-                  <th className="px-4 py-2.5 font-medium">
-                    {t("create.col.description")}
-                  </th>
-                  <th className="px-4 py-2.5 font-medium">
-                    {t("create.col.unit")}
-                  </th>
-                  <th className="px-4 py-2.5 font-medium text-right">
-                    {t("create.col.quantity")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it) => (
-                  <tr
-                    key={it.id}
-                    className="border-t border-border-default hover:bg-bg-elevated/30 cursor-pointer"
-                    onClick={() => toggleItem(it.id)}
-                  >
-                    <td className="px-4 py-3">
-                      {/* Wrapping span absorbs the click so the row's onClick
-                         doesn't fire a second toggle that cancels the
-                         checkbox's own onCheckedChange. */}
-                      <span
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex"
-                      >
-                        <Checkbox
-                          checked={selected.has(it.id)}
-                          onCheckedChange={() => toggleItem(it.id)}
-                          aria-label={it.description}
-                        />
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-text-muted">
-                      {it.item_code}
-                    </td>
-                    <td className="px-4 py-3 text-text-primary">
-                      {it.description}
-                    </td>
-                    <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-                      {it.quantity}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <BoqItemsPickerTable
+              items={items}
+              selected={selected}
+              onToggleItem={toggleItem}
+              onToggleAll={toggleAll}
+              labels={{
+                selectAll: t("create.selectAll"),
+                code: t("create.col.code"),
+                description: t("create.col.description"),
+                unit: t("create.col.unit"),
+                quantity: t("create.col.quantity"),
+              }}
+            />
           </div>
         )}
       </section>

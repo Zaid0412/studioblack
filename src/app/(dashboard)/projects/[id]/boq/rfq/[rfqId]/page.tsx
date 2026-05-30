@@ -32,6 +32,7 @@ import {
   RFQ_TERMINAL_STATUSES,
 } from "@/lib/validations";
 import { RfqDetailRow } from "../_components/RfqDetailRow";
+import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
 import { RfqStatusBadge } from "../_components/RfqStatusBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
@@ -282,54 +283,30 @@ export default function BoqRfqDetailPage({
             </Button>
           )}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-bg-elevated text-text-muted">
-              <tr className="text-left">
-                <th className="px-4 py-2.5 font-medium">
-                  {t("col.description")}
-                </th>
-                <th className="px-4 py-2.5 font-medium">{t("col.unit")}</th>
-                <th className="px-4 py-2.5 font-medium text-right">
-                  {t("col.quantity")}
-                </th>
-                <th className="px-4 py-2.5 font-medium">
-                  {t("col.specNotes")}
-                </th>
-                {canManage && isDraft && <th className="px-4 py-2.5 w-10" />}
-              </tr>
-            </thead>
-            <tbody>
-              {rfq.items.map((it) => (
-                <tr key={it.id} className="border-t border-border-default">
-                  <td className="px-4 py-3 text-text-primary">
-                    {it.description}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-                    {it.quantity}
-                  </td>
-                  <td className="px-4 py-3 text-text-muted">
-                    {it.spec_notes ?? "—"}
-                  </td>
-                  {canManage && isDraft && (
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(it.id)}
-                        disabled={removingItemId === it.id}
-                        aria-label={t("removeItem")}
-                        className="text-text-muted hover:text-error transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RfqItemsTable
+          items={rfq.items}
+          labels={{
+            description: t("col.description"),
+            unit: t("col.unit"),
+            quantity: t("col.quantity"),
+            specNotes: t("col.specNotes"),
+          }}
+          renderActions={
+            canManage && isDraft
+              ? (it) => (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(it.id)}
+                    disabled={removingItemId === it.id}
+                    aria-label={t("removeItem")}
+                    className="text-text-muted hover:text-error transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )
+              : undefined
+          }
+        />
       </section>
 
       {/* Quotes received */}

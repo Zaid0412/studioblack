@@ -161,6 +161,19 @@ type AddressField =
   | "postal"
   | "country";
 
+const ADDRESS_FIELDS: ReadonlyArray<{
+  key: AddressField;
+  labelKey: string;
+  maxLength: number;
+}> = [
+  { key: "line1", labelKey: "addressLine1", maxLength: 255 },
+  { key: "line2", labelKey: "addressLine2", maxLength: 255 },
+  { key: "city", labelKey: "city", maxLength: 100 },
+  { key: "region", labelKey: "region", maxLength: 100 },
+  { key: "postal", labelKey: "postal", maxLength: 20 },
+  { key: "country", labelKey: "country", maxLength: 100 },
+];
+
 function OverviewTab({
   vendor,
   suspended,
@@ -258,48 +271,16 @@ function OverviewTab({
           {tProfile("address")}
         </legend>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Input
-            label={tProfile("addressLine1")}
-            value={address.line1}
-            onChange={(e) => setAddressField("line1", e.target.value)}
-            maxLength={255}
-            disabled={suspended}
-          />
-          <Input
-            label={tProfile("addressLine2")}
-            value={address.line2}
-            onChange={(e) => setAddressField("line2", e.target.value)}
-            maxLength={255}
-            disabled={suspended}
-          />
-          <Input
-            label={tProfile("city")}
-            value={address.city}
-            onChange={(e) => setAddressField("city", e.target.value)}
-            maxLength={100}
-            disabled={suspended}
-          />
-          <Input
-            label={tProfile("region")}
-            value={address.region}
-            onChange={(e) => setAddressField("region", e.target.value)}
-            maxLength={100}
-            disabled={suspended}
-          />
-          <Input
-            label={tProfile("postal")}
-            value={address.postal}
-            onChange={(e) => setAddressField("postal", e.target.value)}
-            maxLength={20}
-            disabled={suspended}
-          />
-          <Input
-            label={tProfile("country")}
-            value={address.country}
-            onChange={(e) => setAddressField("country", e.target.value)}
-            maxLength={100}
-            disabled={suspended}
-          />
+          {ADDRESS_FIELDS.map((field) => (
+            <Input
+              key={field.key}
+              label={tProfile(field.labelKey)}
+              value={address[field.key]}
+              onChange={(e) => setAddressField(field.key, e.target.value)}
+              maxLength={field.maxLength}
+              disabled={suspended}
+            />
+          ))}
         </div>
       </fieldset>
 
