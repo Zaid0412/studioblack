@@ -21,6 +21,7 @@ export interface VendorFilterState {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  preferred?: boolean;
   sortBy?: VendorSortField;
   sortOrder?: SortOrder;
   page: number;
@@ -36,6 +37,7 @@ export function useVendors(filters: VendorFilterState) {
     status: filters.status,
     kycStatus: filters.kycStatus,
     tradeCategoryId: filters.tradeCategoryId,
+    preferred: filters.preferred,
     sortBy: filters.sortBy,
     sortOrder: filters.sortOrder,
     page: filters.page,

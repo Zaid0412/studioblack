@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination } from "@/components/ui/Pagination";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -49,6 +50,7 @@ interface Props {
   onStatusChange: (v: VendorStatus | null) => void;
   onKycStatusChange: (v: VendorKycStatus | null) => void;
   onTradeChange: (v: string | null) => void;
+  onPreferredChange: (v: boolean) => void;
   onSortChange: (sortBy: SortKey | null, sortOrder: SortOrder | null) => void;
   onPageChange: (page: number) => void;
   onClear: () => void;
@@ -74,6 +76,7 @@ export function VendorList({
   onStatusChange,
   onKycStatusChange,
   onTradeChange,
+  onPreferredChange,
   onSortChange,
   onPageChange,
   onClear,
@@ -93,6 +96,7 @@ export function VendorList({
     state.status ||
     state.kycStatus ||
     state.tradeCategoryId ||
+    state.preferred ||
     state.sortBy ||
     state.page > 1;
 
@@ -171,6 +175,13 @@ export function VendorList({
             tree={tree}
           />
         </div>
+
+        <Checkbox
+          id="vendor-filter-preferred"
+          checked={state.preferred}
+          onCheckedChange={onPreferredChange}
+          label={t("preferredOnly")}
+        />
 
         {hasActive && (
           <Button variant="ghost" size="sm" onClick={onClear}>

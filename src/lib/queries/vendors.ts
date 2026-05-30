@@ -2,6 +2,7 @@ import { getPool } from "@/lib/db";
 import type {
   Vendor,
   VendorWithRelations,
+  VendorSelfView,
   VendorLite,
   VendorKycDocument,
   EncryptedField,
@@ -21,6 +22,7 @@ export interface VendorFilters {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  preferred?: boolean;
   sortBy?:
     | "vendor_code"
     | "company_name"
@@ -60,6 +62,11 @@ export interface CreateVendorInput {
   currency?: string;
   vatRegistered?: boolean;
   vatNumber?: string;
+  gstin?: string;
+  website?: string;
+  preferredVendor?: boolean;
+  brandsSupported?: string[];
+  serviceAreas?: string[];
   /** Multiple addresses per vendor (HQ, warehouse, billing, …). */
   addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string;
@@ -92,6 +99,11 @@ export interface UpdateVendorInput {
   currency?: string;
   vatRegistered?: boolean;
   vatNumber?: string | null;
+  gstin?: string | null;
+  website?: string | null;
+  preferredVendor?: boolean;
+  brandsSupported?: string[];
+  serviceAreas?: string[];
   /** Replaces the addresses array wholesale when provided. */
   addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string | null;
@@ -129,7 +141,20 @@ const VENDOR_UPDATE_COLS: Record<string, string> = {
   currency: "currency",
   vatRegistered: "vat_registered",
   vatNumber: "vat_number",
+  gstin: "gstin",
+  website: "website",
+  preferredVendor: "preferred_vendor",
   notes: "notes",
+};
+
+/**
+ * Columns that take a `text[]` and must be passed through `COALESCE(..., '{}')`
+ * to default to an empty array. Kept separate from `VENDOR_UPDATE_COLS` because
+ * the SET fragment is parameterised with an explicit cast.
+ */
+const VENDOR_TEXT_ARRAY_COLS: Record<string, string> = {
+  brandsSupported: "brands_supported",
+  serviceAreas: "service_areas",
 };
 
 // ─── Reads ──────────────────────────────────────────────────────────────────
@@ -143,8 +168,13 @@ export async function getVendors(
   orgId: string,
   filters: VendorFilters
 ): Promise<{
+  /**
+   * Bulky text-array columns (`gstin`, `website`, `brands_supported`,
+   * `service_areas`) are intentionally absent — fetch a single vendor via
+   * `getVendorById` when those are needed.
+   */
   rows: Array<
-    Vendor & {
+    Omit<Vendor, "gstin" | "website" | "brands_supported" | "service_areas"> & {
       contact_count: number;
       primary_contact_email: string | null;
       trade_count: number;
@@ -181,6 +211,10 @@ export async function getVendors(
     );
   }
 
+  if (filters.preferred) {
+    conditions.push(`v.preferred_vendor = true`);
+  }
+
   params.push(filters.limit);
   const limitIdx = params.length;
   params.push((filters.page - 1) * filters.limit);
@@ -195,7 +229,12 @@ export async function getVendors(
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
-      v.address, v.addresses, v.notes, v.created_by, v.created_at, v.updated_at,
+      v.address, v.addresses,
+      -- gstin / website / brands_supported / service_areas omitted: list view
+      -- doesn't render them and brands_supported/service_areas can each TOAST
+      -- to several KB per row.
+      v.preferred_vendor,
+      v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(c.cnt, 0)::int AS contact_count,
       c.primary_email AS primary_contact_email,
       COALESCE(t.cnt, 0)::int AS trade_count,
@@ -239,7 +278,10 @@ export async function getVendorById(
       v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
-      v.address, v.addresses, v.notes, v.created_by, v.created_at, v.updated_at,
+      v.address, v.addresses,
+      v.gstin, v.website, v.preferred_vendor,
+      v.brands_supported, v.service_areas,
+      v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(
         (
           SELECT json_agg(c ORDER BY c.is_primary DESC, c.is_secondary DESC, c.created_at)
@@ -340,11 +382,16 @@ export async function createVendor(
       `INSERT INTO vendor (
          org_id, company_name, trading_name, vendor_code, status,
          payment_terms, currency, vat_registered, vat_number,
+         gstin, website, preferred_vendor,
+         brands_supported, service_areas,
          addresses, notes, created_by
        )
        VALUES ($1, $2, $3, $4, COALESCE($5, 'active'),
                $6, COALESCE($7, 'USD'), COALESCE($8, false), $9,
-               COALESCE($10::jsonb[], '{}'::jsonb[]), $11, $12)
+               $10, $11, COALESCE($12, false),
+               COALESCE($13::text[], '{}'::text[]),
+               COALESCE($14::text[], '{}'::text[]),
+               COALESCE($15::jsonb[], '{}'::jsonb[]), $16, $17)
        RETURNING id`,
       [
         orgId,
@@ -356,6 +403,11 @@ export async function createVendor(
         input.currency ?? null,
         input.vatRegistered ?? null,
         input.vatNumber ?? null,
+        input.gstin ?? null,
+        input.website ?? null,
+        input.preferredVendor ?? null,
+        input.brandsSupported ?? null,
+        input.serviceAreas ?? null,
         addressesArray(input.addresses),
         input.notes ?? null,
         userId,
@@ -442,6 +494,17 @@ export async function updateVendor(
       setClauses.push(
         `addresses = COALESCE($${params.length}::jsonb[], '{}'::jsonb[])`
       );
+    }
+    for (const [key, col] of Object.entries(VENDOR_TEXT_ARRAY_COLS)) {
+      if (key in patch) {
+        const val = (patch as Record<string, unknown>)[key] as
+          | string[]
+          | undefined;
+        params.push(val ?? null);
+        setClauses.push(
+          `${col} = COALESCE($${params.length}::text[], '{}'::text[])`
+        );
+      }
     }
 
     if (setClauses.length > 0) {
@@ -550,7 +613,10 @@ export async function updateVendorRating(
      RETURNING id, org_id, company_name, trading_name, vendor_code, status,
                rating, payment_terms, currency, vat_registered, vat_number,
                tax_id, kyc_status, kyc_verified_at, kyc_verified_by, kyc_notes,
-               address, addresses, notes, created_by, created_at, updated_at`,
+               address, addresses,
+               gstin, website, preferred_vendor,
+               brands_supported, service_areas,
+               notes, created_by, created_at, updated_at`,
     [rating, vendorId, orgId]
   );
   return (rows[0] as Vendor) ?? null;
@@ -766,17 +832,24 @@ export async function getVendorIdByUserId(
   return (rows[0]?.vendor_id as string) ?? null;
 }
 
-/** Vendor + contacts + trades, fetched by vendor_id without org guard. */
+/**
+ * Vendor + contacts + trades, fetched by vendor_id without org guard.
+ * Returns a `VendorSelfView` — `preferred_vendor` is intentionally absent
+ * since it's a PM-only flag.
+ */
 export async function getVendorSelfById(
   vendorId: string
-): Promise<VendorWithRelations | null> {
+): Promise<VendorSelfView | null> {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT
        v.id, v.org_id, v.company_name, v.trading_name, v.vendor_code, v.status,
        v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
        v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
-       v.address, v.addresses, v.created_by, v.created_at, v.updated_at,
+       v.address, v.addresses,
+       v.gstin, v.website,
+       v.brands_supported, v.service_areas,
+       v.created_by, v.created_at, v.updated_at,
        COALESCE(
          (
            SELECT json_agg(c ORDER BY c.is_primary DESC, c.is_secondary DESC, c.created_at)
@@ -813,7 +886,7 @@ export async function getVendorSelfById(
      WHERE v.id = $1`,
     [vendorId]
   );
-  return (rows[0] as VendorWithRelations) ?? null;
+  return (rows[0] as VendorSelfView) ?? null;
 }
 
 /** Bank-details envelope for a vendor by id (no org guard). */
@@ -842,7 +915,7 @@ export interface UpdateVendorSelfInput {
 export async function updateVendorSelf(
   vendorId: string,
   patch: UpdateVendorSelfInput
-): Promise<VendorWithRelations | null> {
+): Promise<VendorSelfView | null> {
   const pool = getPool();
   const setClauses: string[] = [];
   const params: unknown[] = [vendorId];

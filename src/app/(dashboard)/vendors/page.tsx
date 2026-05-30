@@ -34,6 +34,7 @@ export default function VendorsPage() {
     setStatus,
     setKycStatus,
     setTradeCategoryId,
+    setPreferred,
     setSort,
     setPage,
     clear,
@@ -58,6 +59,7 @@ export default function VendorsPage() {
     status: state.status ?? undefined,
     kycStatus: state.kycStatus ?? undefined,
     tradeCategoryId: state.tradeCategoryId ?? undefined,
+    preferred: state.preferred ? true : undefined,
     sortBy: state.sortBy ?? undefined,
     sortOrder: state.sortOrder ?? undefined,
     page: state.page,
@@ -144,6 +146,7 @@ export default function VendorsPage() {
         onStatusChange={setStatus}
         onKycStatusChange={setKycStatus}
         onTradeChange={setTradeCategoryId}
+        onPreferredChange={setPreferred}
         onSortChange={setSort}
         onPageChange={setPage}
         onClear={clear}

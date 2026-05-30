@@ -6,6 +6,7 @@ import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TagInput } from "@/components/ui/TagInput";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import {
   Select,
@@ -43,6 +44,11 @@ export interface VendorFormSubmit {
   currency: string;
   vatRegistered: boolean;
   vatNumber?: string;
+  gstin?: string;
+  website?: string;
+  preferredVendor: boolean;
+  brandsSupported: string[];
+  serviceAreas: string[];
   notes?: string;
   addresses: Array<{
     label?: string;
@@ -79,6 +85,11 @@ interface FormState {
   currency: string;
   vatRegistered: boolean;
   vatNumber: string;
+  gstin: string;
+  website: string;
+  preferredVendor: boolean;
+  brandsSupported: string[];
+  serviceAreas: string[];
   notes: string;
   addresses: AddressDraft[];
   contacts: ContactDraft[];
@@ -94,6 +105,11 @@ const EMPTY: FormState = {
   currency: "USD",
   vatRegistered: false,
   vatNumber: "",
+  gstin: "",
+  website: "",
+  preferredVendor: false,
+  brandsSupported: [],
+  serviceAreas: [],
   notes: "",
   addresses: [],
   contacts: [],
@@ -148,6 +164,11 @@ function vendorToForm(v: VendorWithRelations): FormState {
     currency: v.currency ?? "USD",
     vatRegistered: v.vat_registered,
     vatNumber: v.vat_number ?? "",
+    gstin: v.gstin ?? "",
+    website: v.website ?? "",
+    preferredVendor: !!v.preferred_vendor,
+    brandsSupported: v.brands_supported ?? [],
+    serviceAreas: v.service_areas ?? [],
     notes: v.notes ?? "",
     addresses,
     contacts: v.contacts.map((c) => ({
@@ -229,6 +250,11 @@ export function VendorFormDialog({
       currency: values.currency,
       vatRegistered: values.vatRegistered,
       vatNumber: opt(values.vatNumber),
+      gstin: opt(values.gstin),
+      website: opt(values.website),
+      preferredVendor: values.preferredVendor,
+      brandsSupported: values.brandsSupported,
+      serviceAreas: values.serviceAreas,
       notes: opt(values.notes),
       addresses,
       contacts: values.contacts
@@ -330,12 +356,57 @@ export function VendorFormDialog({
               disabled={!values.vatRegistered}
             />
           </div>
-          <Checkbox
-            id="vat-registered"
-            checked={values.vatRegistered}
-            onCheckedChange={(c) => setField("vatRegistered", c)}
-            label={t("vatRegistered")}
-          />
+          <div className="flex flex-wrap items-center gap-4">
+            <Checkbox
+              id="vat-registered"
+              checked={values.vatRegistered}
+              onCheckedChange={(c) => setField("vatRegistered", c)}
+              label={t("vatRegistered")}
+            />
+            <Checkbox
+              id="preferred-vendor"
+              checked={values.preferredVendor}
+              onCheckedChange={(c) => setField("preferredVendor", c)}
+              label={t("preferredVendor")}
+            />
+          </div>
+
+          {/* Compliance + presence */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Input
+              label={t("gstin")}
+              value={values.gstin}
+              onChange={(e) => setField("gstin", e.target.value)}
+              maxLength={20}
+              placeholder={t("gstinPlaceholder")}
+            />
+            <Input
+              label={t("website")}
+              value={values.website}
+              onChange={(e) => setField("website", e.target.value)}
+              maxLength={500}
+              placeholder={t("websitePlaceholder")}
+              type="url"
+            />
+          </div>
+
+          {/* Coverage — brands carried + areas served */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <TagInput
+              label={t("brandsSupported")}
+              value={values.brandsSupported}
+              onChange={(tags) => setField("brandsSupported", tags)}
+              placeholder={t("brandsSupportedPlaceholder")}
+              maxTags={50}
+            />
+            <TagInput
+              label={t("serviceAreas")}
+              value={values.serviceAreas}
+              onChange={(tags) => setField("serviceAreas", tags)}
+              placeholder={t("serviceAreasPlaceholder")}
+              maxTags={50}
+            />
+          </div>
 
           {/* Addresses (multi-card editor — HQ / warehouse / billing / …) */}
           <VendorAddressesEditor

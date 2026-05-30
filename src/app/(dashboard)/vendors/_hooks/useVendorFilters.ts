@@ -16,6 +16,7 @@ export interface VendorFilterState {
   status: VendorStatus | null;
   kycStatus: VendorKycStatus | null;
   tradeCategoryId: string | null;
+  preferred: boolean;
   sortBy: VendorSortField | null;
   sortOrder: SortOrder | null;
   page: number;
@@ -45,6 +46,7 @@ export function useVendorFilters() {
           ? (kycStatus as VendorKycStatus)
           : null,
       tradeCategoryId: searchParams.get("tradeCategoryId"),
+      preferred: searchParams.get("preferred") === "true",
       sortBy:
         sortBy && SORT_FIELDS.has(sortBy) ? (sortBy as VendorSortField) : null,
       sortOrder:
@@ -89,6 +91,7 @@ export function useVendorFilters() {
     setStatus: (v: VendorStatus | null) => setParam("status", v),
     setKycStatus: (v: VendorKycStatus | null) => setParam("kycStatus", v),
     setTradeCategoryId: (v: string | null) => setParam("tradeCategoryId", v),
+    setPreferred: (v: boolean) => setParam("preferred", v ? "true" : null),
     setSort,
     setPage: (page: number) => setParam("page", String(page)),
     clear: () => router.replace("/vendors", { scroll: false }),

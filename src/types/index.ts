@@ -923,6 +923,8 @@ export interface BankDetails {
   account_number?: string;
   iban?: string;
   swift?: string;
+  /** India IFSC (11 chars). Stored inside the encrypted envelope. */
+  ifsc_code?: string;
   branch?: string;
 }
 
@@ -962,6 +964,19 @@ export interface Vendor {
    */
   address: VendorAddress | null;
   addresses: VendorAddress[];
+  /** India GST Identification Number (15 chars). Plain text — not sensitive. */
+  gstin: string | null;
+  website: string | null;
+  /**
+   * Vendor-wide preferred flag. Distinct from `vendor_trade.proficiency_level`
+   * which is per-category — `preferred_vendor` reflects an overall PM
+   * preference for sourcing.
+   */
+  preferred_vendor: boolean;
+  /** Free-text brands the vendor carries (e.g. "Asian Paints", "Jaquar"). */
+  brands_supported: string[];
+  /** Free-text geographic areas the vendor services. */
+  service_areas: string[];
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -1012,6 +1027,13 @@ export interface VendorWithRelations extends Vendor {
   trades: VendorTradeWithCategory[];
   kyc_expiring_soon_count?: number;
 }
+
+/**
+ * Vendor-portal self-view. The PM-only `preferred_vendor` flag is stripped
+ * at the query layer so it never reaches a vendor user; this type makes the
+ * boundary explicit instead of relying on a SQL literal.
+ */
+export type VendorSelfView = Omit<VendorWithRelations, "preferred_vendor">;
 
 /** Lite shape used in F9 RFQ vendor suggestion lists. */
 export interface VendorLite {

@@ -1033,9 +1033,14 @@ export const bankDetailsSchema = z
     account_number: z.string().max(50).optional(),
     iban: z.string().max(50).optional(),
     swift: z.string().max(20).optional(),
+    /** India IFSC code (11 chars). Kept loose at 20 to tolerate variants. */
+    ifsc_code: z.string().max(20).optional(),
     branch: z.string().max(255).optional(),
   })
   .strict();
+
+/** Capped at 50 × 100 chars to keep payloads bounded; DB type is `text[]`. */
+const VENDOR_FREE_TEXT_ARRAY = z.array(trimmedString.max(100)).max(50);
 
 export const createVendorSchema = z.object({
   companyName: trimmedString.max(255),
@@ -1046,6 +1051,11 @@ export const createVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
+  gstin: z.string().max(20).optional(),
+  website: z.string().url().max(500).optional(),
+  preferredVendor: z.boolean().optional(),
+  brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
+  serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
   addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -1065,6 +1075,11 @@ export const updateVendorSchema = z.object({
   currency: z.string().length(3).optional(),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional().nullable(),
+  gstin: z.string().max(20).optional().nullable(),
+  website: z.string().url().max(500).optional().nullable(),
+  preferredVendor: z.boolean().optional(),
+  brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
+  serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
   addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional().nullable(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -1141,6 +1156,11 @@ export const listVendorsQuerySchema = z.object({
   status: z.enum(VENDOR_STATUSES).optional(),
   kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
+  /** Restrict the list to vendors flagged `preferred_vendor = true`. */
+  preferred: z
+    .union([z.boolean(), z.enum(["true", "false"])])
+    .transform((v) => (typeof v === "boolean" ? v : v === "true"))
+    .optional(),
   sortBy: z.enum(VENDOR_SORT_FIELDS).optional(),
   sortOrder: z.enum(SORT_ORDERS).optional(),
   page: z.coerce.number().int().min(1).default(1),
