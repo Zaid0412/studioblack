@@ -12,11 +12,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
 import { useVendorQuote, useVendorSubmitQuote } from "@/hooks/useQuotes";
-import { RfqDetailRow } from "../../../projects/[id]/boq/rfq/_components/RfqDetailRow";
-import { RfqStatusBadge } from "../../../projects/[id]/boq/rfq/_components/RfqStatusBadge";
-import { QuoteStatusBadge } from "../../../projects/[id]/boq/rfq/_components/QuoteStatusBadge";
+import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
+import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
+import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
-import { RfqStatusTimeline } from "../../../projects/[id]/boq/rfq/[rfqId]/_components/RfqStatusTimeline";
+import { RfqStatusTimeline } from "@/components/rfq/RfqStatusTimeline";
 import { VendorQuoteSubmitDialog } from "./_components/VendorQuoteSubmitDialog";
 
 /**

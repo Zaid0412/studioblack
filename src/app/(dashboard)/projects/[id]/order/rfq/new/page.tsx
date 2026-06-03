@@ -9,7 +9,7 @@ import { RfqCreateForm } from "./_components/RfqCreateForm";
  * (e.g. wizard pages) is intentionally avoided in Phase C — keep all fields
  * on one screen so users can see the full RFQ they're about to issue.
  */
-export default function BoqRfqNewPage({
+export default function OrderRfqNewPage({
   params,
 }: {
   params: Promise<{ id: string }>;

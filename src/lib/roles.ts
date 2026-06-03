@@ -12,6 +12,16 @@ export function isExternalViewer(role: UserRole | null | undefined): boolean {
 }
 
 /**
+ * Studio-internal users (PM + architect) — the inverse of `isExternalViewer`
+ * for a known role. Use for client-side "can see internal surfaces" gates
+ * (e.g. the Order/procurement step) so the studio↔external boundary has one
+ * definition instead of an inline `role === "pm" || role === "architect"`.
+ */
+export function isStudioUser(role: UserRole | null | undefined): boolean {
+  return role === "pm" || role === "architect";
+}
+
+/**
  * Boolean flags used by the BOQ phase-permission matrix and other route
  * guards. Derived from the better-auth `orgRole` (owner/admin/member) plus
  * the app's `effectiveRole` (which folds in client/vendor from `dbRole`).

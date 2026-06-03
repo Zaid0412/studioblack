@@ -15,7 +15,7 @@ import {
   useQuotesForRfq,
 } from "@/hooks/useQuotes";
 import { QUOTE_AWARDABLE_RFQ_STATUSES } from "@/lib/validations";
-import { RfqStatusBadge } from "../../_components/RfqStatusBadge";
+import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { QuoteAwardDialog } from "../_components/QuoteAwardDialog";
 import { QuoteComparisonTable } from "./_components/QuoteComparisonTable";
 
@@ -68,7 +68,7 @@ export default function RfqComparisonPage({
     return (
       <div className="flex flex-col gap-6 p-4 lg:p-10">
         <Link
-          href={`/projects/${projectId}/boq/rfq`}
+          href={`/projects/${projectId}/order/rfq`}
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -80,7 +80,7 @@ export default function RfqComparisonPage({
           description="This RFQ may have been cancelled or moved."
           action={{
             label: "Back to RFQs",
-            href: `/projects/${projectId}/boq/rfq`,
+            href: `/projects/${projectId}/order/rfq`,
           }}
         />
       </div>
@@ -90,7 +90,7 @@ export default function RfqComparisonPage({
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-10">
       <Link
-        href={`/projects/${projectId}/boq/rfq/${rfqId}`}
+        href={`/projects/${projectId}/order/rfq/${rfqId}`}
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
       >
         <ArrowLeft className="w-4 h-4" />

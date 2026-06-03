@@ -1117,10 +1117,14 @@
     "kycConfirmRemoveDesc": "The record is removed from the vendor. The file in storage is kept.",
     "featureDisabled": "Vendor management feature is not yet enabled."
   },
+  "order": {
+    "tabs": {
+      "rfq": "RFQ"
+    }
+  },
   "boq": {
     "tabs": {
       "scope": "Scope",
-      "rfq": "RFQ",
       "clientProposal": "Proposal For Client",
       "clientOrders": "Client Orders",
       "clientInvoices": "Client Invoices",

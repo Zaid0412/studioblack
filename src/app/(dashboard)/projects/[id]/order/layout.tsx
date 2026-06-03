@@ -3,14 +3,14 @@
 import { use } from "react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { WorkflowSubTabStrip } from "@/components/projects/WorkflowSubTabStrip";
-import { tabsForRole } from "./_lib/tabs";
+import { orderTabsForRole } from "./_lib/tabs";
 
 /**
- * BOQ container layout — sub-tab strip + active sub-tab content. The
+ * Order container layout — sub-tab strip + active sub-tab content. The
  * project workflow stepper lives in the parent project layout so it
- * stays mounted when switching between Design and BOQ.
+ * stays mounted when switching between Design / BOQ / Order.
  */
-export default function BoqLayout({
+export default function OrderLayout({
   params,
   children,
 }: {
@@ -19,15 +19,15 @@ export default function BoqLayout({
 }) {
   const { id } = use(params);
   const { role } = useUserRole();
-  const tabs = tabsForRole(role);
+  const tabs = orderTabsForRole(role);
 
   return (
     <>
       <WorkflowSubTabStrip
-        basePath={`/projects/${id}/boq`}
+        basePath={`/projects/${id}/order`}
         tabs={tabs}
-        i18nNamespace="boq.tabs"
-        ariaLabel="BOQ sub-tabs"
+        i18nNamespace="order.tabs"
+        ariaLabel="Order sub-tabs"
       />
       {children}
     </>

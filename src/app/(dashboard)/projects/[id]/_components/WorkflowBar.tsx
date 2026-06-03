@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Edit, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface WorkflowBarProps {
@@ -10,7 +10,10 @@ interface WorkflowBarProps {
   onUpload?: () => void;
 }
 
-/** Edit Project + Upload Designs action bar for the Design tab. */
+/**
+ * Upload Designs action bar for the Design tab. Edit Project moved to the
+ * shared ProjectHeader so it's reachable from every tab.
+ */
 export function WorkflowBar({ projectId, onUpload }: WorkflowBarProps) {
   const router = useRouter();
   const t = useTranslations("projectDetail");
@@ -18,14 +21,6 @@ export function WorkflowBar({ projectId, onUpload }: WorkflowBarProps) {
   return (
     <div className="px-4 lg:px-10 py-4">
       <div className="flex items-center justify-end border-b border-border-default pb-4 gap-3">
-        <Button
-          variant="secondary"
-          className="!text-xs"
-          onClick={() => router.push(`/projects/${projectId}/edit`)}
-        >
-          <Edit className="w-3.5 h-3.5" />
-          {t("editProject") || "Edit Project"}
-        </Button>
         <Button
           className="!text-xs"
           onClick={() =>
