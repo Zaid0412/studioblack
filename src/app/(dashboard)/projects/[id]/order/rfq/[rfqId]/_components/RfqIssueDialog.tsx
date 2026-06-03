@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Loader2, UsersRound } from "lucide-react";
 import {
@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useRfqSuggestedVendors } from "@/hooks/useRfqs";
-import type { VendorLite } from "@/types";
 
 interface Props {
   projectId: string;
@@ -34,8 +33,8 @@ interface Props {
 
 /**
  * Vendor picker + confirmation, shared by the Issue and Invite-more flows.
- * Suggested list comes from the trade-match query; "Show all vendors"
- * remains a stub until F10 ships a broader endpoint.
+ * Defaults to every active vendor in the org; the toggle narrows the list to
+ * the trade-matched suggestions when the full list is too broad.
  *
  * Submit calls `onConfirm`. The parent owns the actual API call so the
  * mutated RFQ state can be merged into its SWR cache.
@@ -52,7 +51,7 @@ export function RfqIssueDialog({
   const tInvite = useTranslations("rfq.invite");
   const t = mode === "invite" ? tInvite : tIssue;
 
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
@@ -60,21 +59,16 @@ export function RfqIssueDialog({
   useEffect(() => {
     if (open) {
       setSelected(new Set());
-      setShowAll(false);
+      setShowAll(true);
     }
   }, [open]);
 
-  const { vendors: suggested, isLoading } = useRfqSuggestedVendors(
+  const { vendors, isLoading } = useRfqSuggestedVendors(
     projectId,
     rfqId,
-    open
+    open,
+    showAll
   );
-
-  // "Show all" hasn't been wired to a separate endpoint yet — for now we
-  // surface the same trade-matched list and rely on the broader vendor
-  // search in the All Vendors page for the escape hatch. The toggle is
-  // kept in the UI so the empty-state message can point users at it.
-  const vendors: VendorLite[] = useMemo(() => suggested, [suggested]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -116,8 +110,6 @@ export function RfqIssueDialog({
             variant="ghost"
             size="sm"
             onClick={() => setShowAll((v) => !v)}
-            disabled
-            title={t("showAllComingSoon")}
           >
             {showAll ? t("showSuggested") : t("showAll")}
           </Button>

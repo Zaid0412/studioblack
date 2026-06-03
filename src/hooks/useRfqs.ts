@@ -282,16 +282,19 @@ export function useRfqDetail(projectId: string, rfqId: string) {
 }
 
 /**
- * Suggested vendors for an RFQ. Lazy — only fetches once `enabled` flips true
- * (typically when the issue dialog opens) to avoid a wasted query for every
- * detail view.
+ * Vendors for an RFQ's issue/invite picker. Lazy — only fetches once `enabled`
+ * flips true (typically when the dialog opens) to avoid a wasted query for
+ * every detail view. `all` swaps the trade-matched suggestion list for every
+ * active vendor in the org; each variant is cached under its own key, so
+ * toggling back and forth doesn't refetch.
  */
 export function useRfqSuggestedVendors(
   projectId: string,
   rfqId: string,
-  enabled: boolean
+  enabled: boolean,
+  all = false
 ) {
-  const key = enabled ? API.rfqSuggestedVendors(projectId, rfqId) : null;
+  const key = enabled ? API.rfqSuggestedVendors(projectId, rfqId, all) : null;
   const { data, error, isLoading } = useSWR<{ vendors: VendorLite[] }>(key);
   return {
     vendors: data?.vendors ?? [],

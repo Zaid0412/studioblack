@@ -309,6 +309,30 @@ export async function getSuggestedVendorsForRfq(
   return rows as VendorLite[];
 }
 
+/**
+ * Every active vendor in the RFQ's org, regardless of trade — backs the
+ * "Show all vendors" toggle in the issue/invite dialog when the trade-matched
+ * suggestion list is too narrow. Same VendorLite shape, org-scoping and
+ * ordering as getSuggestedVendorsForRfq, minus the category filter.
+ */
+export async function getAllVendorsForRfq(
+  rfqId: string
+): Promise<VendorLite[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       v.id, v.company_name, v.vendor_code, v.status, v.rating,
+       (SELECT email FROM vendor_contact
+        WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
+     FROM vendor v
+     WHERE v.status = 'active'
+       AND v.org_id = (SELECT org_id FROM rfq WHERE id = $1)
+     ORDER BY v.rating DESC NULLS LAST, lower(v.company_name)`,
+    [rfqId]
+  );
+  return rows as VendorLite[];
+}
+
 // ── Vendor-portal reads ─────────────────────────────────────────────────────
 
 /**

@@ -477,6 +477,7 @@ vi.mock("@/lib/queries", () => ({
   getRfqsByProject: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRfqDetail: vi.fn().mockResolvedValue(null),
   getSuggestedVendorsForRfq: vi.fn().mockResolvedValue([]),
+  getAllVendorsForRfq: vi.fn().mockResolvedValue([]),
   getRfqsForVendor: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRfqDetailForVendor: vi.fn().mockResolvedValue(null),
   getRfqContactsForEmail: vi.fn().mockResolvedValue([]),
