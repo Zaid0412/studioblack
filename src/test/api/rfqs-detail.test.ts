@@ -11,6 +11,7 @@ import {
   verifyRfqOwnership,
   getRfqDetail,
   getSuggestedVendorsForRfq,
+  getAllVendorsForRfq,
   hasProjectAccess,
 } from "@/lib/queries";
 import { GET as GET_DETAIL } from "@/app/api/projects/[id]/rfqs/[rfqId]/route";
@@ -125,6 +126,32 @@ describe("GET /api/projects/[id]/rfqs/[rfqId]/suggested-vendors", () => {
     expect(status).toBe(200);
     expect(body.vendors).toHaveLength(1);
     expect(body.vendors[0].company_name).toBe("Acme Plumbing");
+  });
+
+  it("returns all active vendors when ?all=true", async () => {
+    const all: VendorLite = {
+      id: "44444444-4444-4444-8444-444444444444",
+      company_name: "Zenith Joinery",
+      vendor_code: "V099",
+      status: "active",
+      rating: 0,
+      primary_contact_email: null,
+    };
+    vi.mocked(getAllVendorsForRfq).mockResolvedValue([all]);
+
+    const res = await GET_SUGGESTED(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/suggested-vendors?all=true`
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID })
+    );
+    const { status, body } = await parseResponse<{ vendors: VendorLite[] }>(
+      res
+    );
+    expect(status).toBe(200);
+    expect(getAllVendorsForRfq).toHaveBeenCalledWith(RFQ_ID);
+    expect(getSuggestedVendorsForRfq).not.toHaveBeenCalled();
+    expect(body.vendors[0].company_name).toBe("Zenith Joinery");
   });
 
   it("404s on cross-project rfqId", async () => {

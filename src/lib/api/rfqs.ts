@@ -54,10 +54,17 @@ export function get(projectId: string, rfqId: string) {
   return apiGet<RfqWithItems>(API.rfq(projectId, rfqId));
 }
 
-/** Studio: vendors whose trades match this RFQ's items. */
-export function suggestedVendors(projectId: string, rfqId: string) {
+/**
+ * Studio: vendors for the issue/invite picker. Default is the trade-matched
+ * suggestion list; `all = true` returns every active vendor in the org.
+ */
+export function suggestedVendors(
+  projectId: string,
+  rfqId: string,
+  all = false
+) {
   return apiGet<{ vendors: VendorLite[] }>(
-    API.rfqSuggestedVendors(projectId, rfqId)
+    API.rfqSuggestedVendors(projectId, rfqId, all)
   );
 }
 
