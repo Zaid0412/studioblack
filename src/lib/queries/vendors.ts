@@ -22,6 +22,7 @@ export interface VendorFilters {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  serviceArea?: string;
   preferred?: boolean;
   sortBy?:
     | "vendor_code"
@@ -206,8 +207,33 @@ export async function getVendors(
 
   if (filters.tradeCategoryId) {
     params.push(filters.tradeCategoryId);
+    const i = params.length;
+    // Match the category AND every descendant, mirroring the element library
+    // tree filter (see buildElementWhere in queries/elements.ts) — selecting a
+    // parent node in the sidebar surfaces vendors mapped to any sub-category.
     conditions.push(
-      `EXISTS (SELECT 1 FROM vendor_trade vt WHERE vt.vendor_id = v.id AND vt.category_id = $${params.length})`
+      `EXISTS (
+         SELECT 1 FROM vendor_trade vt
+         WHERE vt.vendor_id = v.id
+           AND vt.category_id IN (
+             WITH RECURSIVE cat_tree AS (
+               SELECT id FROM element_category WHERE id = $${i}
+               UNION ALL
+               SELECT c.id FROM element_category c
+               JOIN cat_tree t ON c.parent_id = t.id
+             )
+             SELECT id FROM cat_tree
+           )
+       )`
+    );
+  }
+
+  if (filters.serviceArea) {
+    params.push(filters.serviceArea);
+    // Trim-aware match so the filter aligns with the (trimmed) dropdown values
+    // even for any legacy rows stored before the input was trimmed on write.
+    conditions.push(
+      `EXISTS (SELECT 1 FROM unnest(v.service_areas) sa WHERE trim(sa) = $${params.length})`
     );
   }
 
@@ -360,6 +386,23 @@ export async function getVendorsByTrade(
     [orgId, categoryId]
   );
   return rows as VendorLite[];
+}
+
+/**
+ * Distinct, non-empty service areas across all vendors in an org. Powers the
+ * service-area filter dropdown on the vendors page. `service_areas` is a
+ * free-text `text[]`, so values are flattened via `unnest`.
+ */
+export async function getVendorServiceAreas(orgId: string): Promise<string[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT DISTINCT trim(sa) AS service_area
+     FROM vendor v, unnest(v.service_areas) AS sa
+     WHERE v.org_id = $1 AND trim(sa) <> ''
+     ORDER BY service_area`,
+    [orgId]
+  );
+  return rows.map((r) => r.service_area as string);
 }
 
 // ─── Mutations ──────────────────────────────────────────────────────────────

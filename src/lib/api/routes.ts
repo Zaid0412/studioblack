@@ -139,6 +139,7 @@ export const API = {
   vendorRating:          (id: string)                  => `/api/vendors/${id}/rating`,
   vendorContactInvite:   (id: string, contactId: string) => `/api/vendors/${id}/contacts/${contactId}/invite`,
   vendorsByTrade:        (categoryId: string)          => `/api/vendors/by-trade/${categoryId}`,
+  vendorServiceAreas:    ()                            => "/api/vendors/service-areas",
 
   // ── Vendor KYC (Feature 7.1) ────────────────────
   vendorKycDocuments:    (id: string)                  => `/api/vendors/${id}/kyc-documents`,

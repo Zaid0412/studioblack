@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import { useCallback, useState } from "react";
 import { vendors as vendorsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import type { ListVendorsResponse, VendorListRow } from "@/lib/api/vendors";
 import { toast } from "@/components/ui/useToast";
 import type {
@@ -21,6 +22,7 @@ export interface VendorFilterState {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
+  serviceArea?: string;
   preferred?: boolean;
   sortBy?: VendorSortField;
   sortOrder?: SortOrder;
@@ -37,6 +39,7 @@ export function useVendors(filters: VendorFilterState) {
     status: filters.status,
     kycStatus: filters.kycStatus,
     tradeCategoryId: filters.tradeCategoryId,
+    serviceArea: filters.serviceArea,
     preferred: filters.preferred,
     sortBy: filters.sortBy,
     sortOrder: filters.sortOrder,
@@ -160,6 +163,14 @@ export function useVendor(id: string | null) {
     id ? `/api/vendors/${id}` : null
   );
   return { vendor: data ?? null, isLoading, mutate };
+}
+
+/** Distinct service areas across the org's vendors, for the filter dropdown. */
+export function useVendorServiceAreas() {
+  const { data, isLoading } = useSWR<{ serviceAreas: string[] }>(
+    API.vendorServiceAreas()
+  );
+  return { serviceAreas: data?.serviceAreas ?? [], isLoading };
 }
 
 /**
