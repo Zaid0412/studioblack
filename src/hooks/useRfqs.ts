@@ -27,10 +27,16 @@ export interface UseRfqListParams {
 /**
  * Studio RFQ list, SWR-backed. `keepPreviousData` keeps the table populated
  * while a new page/filter loads so the UI doesn't blank to skeletons on
- * every click.
+ * every click. Pass `enabled: false` to skip the fetch entirely — e.g. for
+ * viewers (clients/vendors) the API would 403 anyway.
  */
-export function useRfqList(projectId: string, params: UseRfqListParams) {
-  const key = rfqApi.listKey(projectId, params);
+export function useRfqList(
+  projectId: string,
+  params: UseRfqListParams,
+  options: { enabled?: boolean } = {}
+) {
+  const { enabled = true } = options;
+  const key = enabled ? rfqApi.listKey(projectId, params) : null;
   const { data, error, isLoading, isValidating, mutate } =
     useSWR<ListRfqsResponse>(key, {
       keepPreviousData: true,

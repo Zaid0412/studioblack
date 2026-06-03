@@ -25,7 +25,7 @@ export async function notifyQuoteReceived(
   ctx: QuoteReceivedContext
 ): Promise<number> {
   const appUrl = env().NEXT_PUBLIC_APP_URL ?? "";
-  const deepLink = `${appUrl}/projects/${ctx.projectId}/boq/rfq/${ctx.rfqId}`;
+  const deepLink = `${appUrl}/projects/${ctx.projectId}/order/rfq/${ctx.rfqId}`;
 
   for (const r of recipients) {
     try {

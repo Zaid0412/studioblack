@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Award, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { QuoteStatusBadge } from "../../_components/QuoteStatusBadge";
+import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { formatDate } from "@/lib/formatDate";
 import type { VendorQuoteWithItems } from "@/types";
 
@@ -49,7 +49,7 @@ export function RfqQuotesSection({
         </div>
         {quotes.length > 0 && (
           <Link
-            href={`/projects/${projectId}/boq/rfq/${rfqId}/comparison`}
+            href={`/projects/${projectId}/order/rfq/${rfqId}/comparison`}
             className="group inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border-default bg-bg-elevated text-[13px] font-medium text-text-primary hover:bg-bg-input hover:border-text-muted/40 transition-colors"
           >
             <span>View comparison</span>

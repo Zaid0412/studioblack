@@ -45,6 +45,13 @@ const nextConfig: NextConfig = {
         destination: "/:path*",
         permanent: true,
       },
+      // RFQ moved from BOQ to Order. Keep old vendor email deep links alive.
+      // `:rest*` (zero-or-more) also matches the bare `/boq/rfq`.
+      {
+        source: "/projects/:id/boq/rfq/:rest*",
+        destination: "/projects/:id/order/rfq/:rest*",
+        permanent: true,
+      },
     ];
   },
   images: {

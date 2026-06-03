@@ -19,7 +19,7 @@ import { RFQ_STATUSES } from "@/lib/validations";
 import type { RfqListRow, RfqStatus } from "@/types";
 import { formatDate } from "@/lib/formatDate";
 import { useRfqLastViewedReadOnly } from "@/hooks/useRfqLastViewed";
-import { RfqStatusBadge } from "./RfqStatusBadge";
+import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 
 const ALL = "__all__";
 
@@ -208,7 +208,7 @@ export function RfqList({
                     key={row.id}
                     row={row}
                     onNavigate={(id) =>
-                      router.push(`/projects/${projectId}/boq/rfq/${id}`)
+                      router.push(`/projects/${projectId}/order/rfq/${id}`)
                     }
                   />
                 ))

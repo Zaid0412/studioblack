@@ -12,11 +12,13 @@ import { useFlag } from "@/hooks/useFlag";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Edit } from "lucide-react";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
 import { ProjectWorkflowSteps } from "./_components/ProjectWorkflowSteps";
+import { DEFAULT_BOQ_SEGMENT } from "./boq/_lib/tabs";
+import { DEFAULT_ORDER_SEGMENT } from "./order/_lib/tabs";
 import type { DbMember } from "@/types";
 
 /**
@@ -38,6 +40,7 @@ export default function ProjectDetailLayout({
 }) {
   const { id } = use(params);
   const tc = useTranslations("common");
+  const tpd = useTranslations("projectDetail");
   const { role, loading: roleLoading } = useUserRole();
   const ctx = useUserRoleContext();
   const isClient = role === "client";
@@ -70,24 +73,28 @@ export default function ProjectDetailLayout({
 
   const base = `/projects/${id}`;
 
-  // The stepper sits in the shared layout so switching between Design and
-  // BOQ doesn't unmount it. Clients see the same nav because PR-2 surfaces
-  // BOQ items at `sent_to_client+` to them — without the stepper they
-  // would have no tab switcher. On BOQ side only visible on the my-scope
-  // sub-tab (other BOQ sub-tabs render their own header). Documents is a
-  // separate surface entered via MetaBar — no stepper there.
+  // The stepper sits in the shared layout so switching between Design /
+  // BOQ / Order doesn't unmount it. Clients see the same nav because PR-2
+  // surfaces BOQ items at `sent_to_client+` to them — without the stepper
+  // they would have no tab switcher. On BOQ side only visible on the
+  // my-scope sub-tab; on Order side only on the RFQ list (detail pages
+  // render their own header). Documents is a separate surface entered via
+  // MetaBar — no stepper there.
   const showWorkflowSteps =
     boqEnabled &&
-    (pathname === `${base}/designs` || pathname === `${base}/boq/my-scope`);
+    (pathname === `${base}/designs` ||
+      pathname === `${base}/boq/${DEFAULT_BOQ_SEGMENT}` ||
+      pathname === `${base}/order/${DEFAULT_ORDER_SEGMENT}`);
 
   // ProjectHeader shows on every project surface that has the standard chrome
-  // (overview, designs, BoQ — including /boq/rfq — and documents). Upload,
-  // review, and edit render their own chrome.
+  // (overview, designs, BoQ, Order — including /order/rfq — and documents).
+  // Upload, review, and edit render their own chrome.
   const showHeader =
     pathname === base ||
     pathname.startsWith(`${base}/designs`) ||
     pathname.startsWith(`${base}/documents`) ||
-    pathname.startsWith(`${base}/boq`);
+    pathname.startsWith(`${base}/boq`) ||
+    pathname.startsWith(`${base}/order`);
 
   // MetaBar is the project info card. We hide it on the documents surface so
   // the file list has the full vertical space.
@@ -148,17 +155,36 @@ export default function ProjectDetailLayout({
 
   const onDocuments = pathname.startsWith(`${base}/documents`);
 
+  // Shared style for the header-action pills (Edit Project, Documents).
+  const pillClass =
+    "inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border-default bg-bg-elevated text-[13px] font-medium text-text-primary hover:bg-bg-input hover:border-text-muted/40 transition-colors";
+
   // Right-side pill that takes the user to /documents. Hidden on /documents
   // itself (the back-pill in the breadcrumb covers the round-trip).
   const documentsAction = !onDocuments ? (
-    <Link
-      href={`${base}/documents`}
-      className="group inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border-default bg-bg-elevated text-[13px] font-medium text-text-primary hover:bg-bg-input hover:border-text-muted/40 transition-colors"
-    >
+    <Link href={`${base}/documents`} className={`group ${pillClass}`}>
       <span>Documents</span>
       <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
     </Link>
   ) : null;
+
+  // Edit Project lives in the shared header so it's reachable from every tab
+  // (Design / BOQ / Order), not just Design. Gated on the project-scoped role
+  // so an architect with a `project_member.role='pm'` row sees it too.
+  const editAction =
+    projectScopedRole === "pm" ? (
+      <Link href={`${base}/edit`} className={pillClass}>
+        <Edit className="w-3.5 h-3.5" />
+        <span>{tpd("editProject") || "Edit Project"}</span>
+      </Link>
+    ) : null;
+
+  const headerActions = (
+    <>
+      {editAction}
+      {documentsAction}
+    </>
+  );
 
   const tree = (
     <div className="flex flex-col h-full">
@@ -167,7 +193,7 @@ export default function ProjectDetailLayout({
           projectName={project.name}
           description={undefined}
           onRefresh={refreshAll}
-          actions={documentsAction}
+          actions={headerActions}
           projectHref={onDocuments ? base : undefined}
           subSection={onDocuments ? "Documents" : undefined}
         />

@@ -1117,10 +1117,16 @@
     "kycConfirmRemoveDesc": "Kayıt tedarikçiden kaldırılır. Depolamadaki dosya saklanır.",
     "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil."
   },
+  "order": {
+    "tabs": {
+      "ariaLabel": "Sipariş alt sekmeleri",
+      "rfq": "Teklif Talebi"
+    }
+  },
   "boq": {
     "tabs": {
+      "ariaLabel": "BOQ alt sekmeleri",
       "scope": "Kapsam",
-      "rfq": "Teklif Talebi",
       "clientProposal": "Müşteriye Teklif",
       "clientOrders": "Müşteri Siparişleri",
       "clientInvoices": "Müşteri Faturaları",

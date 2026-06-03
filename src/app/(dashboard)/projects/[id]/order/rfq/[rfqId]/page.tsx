@@ -31,13 +31,13 @@ import {
   RFQ_INVITEABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
 } from "@/lib/validations";
-import { RfqDetailRow } from "../_components/RfqDetailRow";
+import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
-import { RfqStatusBadge } from "../_components/RfqStatusBadge";
+import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
-import { RfqStatusTimeline } from "./_components/RfqStatusTimeline";
+import { RfqStatusTimeline } from "@/components/rfq/RfqStatusTimeline";
 import { RfqQuotesSection } from "./_components/RfqQuotesSection";
 import { QuoteAwardDialog } from "./_components/QuoteAwardDialog";
 
@@ -46,7 +46,7 @@ import { QuoteAwardDialog } from "./_components/QuoteAwardDialog";
  * scope/terms card, items table, invited-vendors list, and the
  * audit-event-driven Activity timeline at the bottom.
  */
-export default function BoqRfqDetailPage({
+export default function OrderRfqDetailPage({
   params,
 }: {
   params: Promise<{ id: string; rfqId: string }>;
@@ -104,7 +104,7 @@ export default function BoqRfqDetailPage({
     return (
       <div className="flex flex-col gap-6 p-4 lg:p-10">
         <Link
-          href={`/projects/${projectId}/boq/rfq`}
+          href={`/projects/${projectId}/order/rfq`}
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -116,7 +116,7 @@ export default function BoqRfqDetailPage({
           description={t("notFoundHint")}
           action={{
             label: t("back"),
-            href: `/projects/${projectId}/boq/rfq`,
+            href: `/projects/${projectId}/order/rfq`,
           }}
         />
       </div>
@@ -178,7 +178,7 @@ export default function BoqRfqDetailPage({
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-10">
       <Link
-        href={`/projects/${projectId}/boq/rfq`}
+        href={`/projects/${projectId}/order/rfq`}
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
       >
         <ArrowLeft className="w-4 h-4" />

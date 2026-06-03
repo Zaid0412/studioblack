@@ -19,7 +19,7 @@ import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqs } from "@/hooks/useRfqs";
 import { RFQ_STATUSES } from "@/lib/validations";
 import type { RfqStatus } from "@/types";
-import { RfqStatusBadge } from "../../projects/[id]/boq/rfq/_components/RfqStatusBadge";
+import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 
 const ALL = "__all__";
 const PAGE_SIZE = 25;

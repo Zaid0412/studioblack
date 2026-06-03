@@ -21,10 +21,10 @@ const INITIAL_STATE: RfqListState = {
 };
 
 /**
- * Studio RFQ list — lives inside the BOQ sub-tab strip, so layout chrome
- * (workflow stepper + BOQ tabs) is already mounted in `boq/layout.tsx`.
+ * Studio RFQ list — lives under the Order workflow step, so layout chrome
+ * (workflow stepper + Order tabs) is already mounted in `order/layout.tsx`.
  */
-export default function BoqRfqPage({
+export default function OrderRfqPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -62,7 +62,7 @@ export default function BoqRfqPage({
               }}
             />
             {canManage && (
-              <Link href={`/projects/${projectId}/boq/rfq/new`}>
+              <Link href={`/projects/${projectId}/order/rfq/new`}>
                 <Button>
                   <Plus className="w-4 h-4" />
                   {t("newRfq")}

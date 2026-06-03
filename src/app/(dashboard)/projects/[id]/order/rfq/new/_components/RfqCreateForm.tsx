@@ -96,7 +96,7 @@ export function RfqCreateForm({ projectId }: Props) {
     setSubmitting(false);
     if (rfq) {
       toast({ title: t("create.successToast"), variant: "success" });
-      router.push(`/projects/${projectId}/boq/rfq`);
+      router.push(`/projects/${projectId}/order/rfq`);
     }
   };
 
@@ -107,7 +107,7 @@ export function RfqCreateForm({ projectId }: Props) {
     >
       <div className="flex items-center gap-3">
         <Link
-          href={`/projects/${projectId}/boq/rfq`}
+          href={`/projects/${projectId}/order/rfq`}
           className="text-text-muted hover:text-text-primary transition-colors"
           aria-label={t("create.back")}
         >
@@ -221,7 +221,7 @@ export function RfqCreateForm({ projectId }: Props) {
       </section>
 
       <div className="flex items-center justify-end gap-3 mt-auto pt-4 border-t border-border-default -mx-4 lg:-mx-10 px-4 lg:px-10">
-        <Link href={`/projects/${projectId}/boq/rfq`}>
+        <Link href={`/projects/${projectId}/order/rfq`}>
           <Button type="button" variant="ghost">
             {t("create.cancel")}
           </Button>

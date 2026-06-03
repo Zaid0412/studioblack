@@ -3,37 +3,53 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useUserRole } from "@/hooks/useUserRole";
-import { tabsForRole } from "../_lib/tabs";
 
-interface BoqSubTabStripProps {
-  projectId: string;
+export interface WorkflowSubTab {
+  /** i18n key resolved against `i18nNamespace`. */
+  labelKey: string;
+  /** URL segment appended to `basePath`. */
+  segment: string;
+}
+
+interface WorkflowSubTabStripProps {
+  /** Absolute path under which each tab's `segment` appends. e.g. `/projects/123/boq`. */
+  basePath: string;
+  /** Already filtered against the viewer's role. */
+  tabs: readonly WorkflowSubTab[];
+  /**
+   * next-intl namespace, e.g. `boq.tabs` or `order.tabs`. Must contain an
+   * `ariaLabel` key (the nav landmark name) alongside the per-tab labels.
+   */
+  i18nNamespace: string;
 }
 
 /**
- * Horizontal sub-tab strip under the BOQ workflow step. Driven entirely
- * by `VISIBLE_BOQ_TABS` in `_lib/tabs.ts` — flipping a tab's `enabled`
- * flag surfaces it here. Tabs marked with a `roles` whitelist are filtered
- * against the current viewer's role (e.g. RFQ is studio-only).
+ * Horizontal sub-tab strip used under a workflow step (BOQ, Order, ...).
  *
  * Active tab is detected by prefix-matching the pathname against each
- * tab's full route, so future nested sub-routes (e.g. `/boq/rfq/new`)
- * still highlight their parent tab.
+ * tab's full route, so nested sub-routes (e.g. `/order/rfq/new`) still
+ * highlight their parent tab.
+ *
+ * Renders nothing when only one tab is visible — a single-item strip is
+ * just chrome with no choice.
  */
-export function BoqSubTabStrip({ projectId }: BoqSubTabStripProps) {
+export function WorkflowSubTabStrip({
+  basePath,
+  tabs,
+  i18nNamespace,
+}: WorkflowSubTabStripProps) {
   const pathname = usePathname();
-  const { role } = useUserRole();
-  const t = useTranslations("boq.tabs");
-  const baseHref = `/projects/${projectId}/boq`;
-  const visibleTabs = tabsForRole(role);
+  const t = useTranslations(i18nNamespace);
+
+  if (tabs.length <= 1) return null;
 
   return (
     <nav
-      aria-label="BOQ sub-tabs"
+      aria-label={t("ariaLabel")}
       className="shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
     >
-      {visibleTabs.map((tab) => {
-        const tabHref = `${baseHref}/${tab.segment}`;
+      {tabs.map((tab) => {
+        const tabHref = `${basePath}/${tab.segment}`;
         const isActive =
           pathname === tabHref || pathname.startsWith(`${tabHref}/`);
         return (

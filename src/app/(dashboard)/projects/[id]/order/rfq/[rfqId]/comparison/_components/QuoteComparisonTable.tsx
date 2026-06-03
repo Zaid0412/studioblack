@@ -1,7 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
-import { QuoteStatusBadge } from "../../../_components/QuoteStatusBadge";
+import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { formatDate } from "@/lib/formatDate";
 import type { QuoteComparison } from "@/types";
 
