@@ -16,10 +16,11 @@ interface WorkflowSubTabStripProps {
   basePath: string;
   /** Already filtered against the viewer's role. */
   tabs: readonly WorkflowSubTab[];
-  /** next-intl namespace, e.g. `boq.tabs` or `order.tabs`. */
+  /**
+   * next-intl namespace, e.g. `boq.tabs` or `order.tabs`. Must contain an
+   * `ariaLabel` key (the nav landmark name) alongside the per-tab labels.
+   */
   i18nNamespace: string;
-  /** Accessible name for the nav landmark. */
-  ariaLabel: string;
 }
 
 /**
@@ -36,7 +37,6 @@ export function WorkflowSubTabStrip({
   basePath,
   tabs,
   i18nNamespace,
-  ariaLabel,
 }: WorkflowSubTabStripProps) {
   const pathname = usePathname();
   const t = useTranslations(i18nNamespace);
@@ -45,7 +45,7 @@ export function WorkflowSubTabStrip({
 
   return (
     <nav
-      aria-label={ariaLabel}
+      aria-label={t("ariaLabel")}
       className="shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
     >
       {tabs.map((tab) => {

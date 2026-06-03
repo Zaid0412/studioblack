@@ -27,7 +27,6 @@ export default function BoqLayout({
         basePath={`/projects/${id}/boq`}
         tabs={tabs}
         i18nNamespace="boq.tabs"
-        ariaLabel="BOQ sub-tabs"
       />
       {children}
     </>

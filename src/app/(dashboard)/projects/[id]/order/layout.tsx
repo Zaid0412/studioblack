@@ -27,7 +27,6 @@ export default function OrderLayout({
         basePath={`/projects/${id}/order`}
         tabs={tabs}
         i18nNamespace="order.tabs"
-        ariaLabel="Order sub-tabs"
       />
       {children}
     </>

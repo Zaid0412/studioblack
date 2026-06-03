@@ -1119,11 +1119,13 @@
   },
   "order": {
     "tabs": {
+      "ariaLabel": "Order sub-tabs",
       "rfq": "RFQ"
     }
   },
   "boq": {
     "tabs": {
+      "ariaLabel": "BOQ sub-tabs",
       "scope": "Scope",
       "clientProposal": "Proposal For Client",
       "clientOrders": "Client Orders",

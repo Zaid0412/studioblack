@@ -1119,11 +1119,13 @@
   },
   "order": {
     "tabs": {
+      "ariaLabel": "Sipariş alt sekmeleri",
       "rfq": "Teklif Talebi"
     }
   },
   "boq": {
     "tabs": {
+      "ariaLabel": "BOQ alt sekmeleri",
       "scope": "Kapsam",
       "clientProposal": "Müşteriye Teklif",
       "clientOrders": "Müşteri Siparişleri",
