@@ -14,7 +14,7 @@ import type {
   VendorKycStatus,
   VendorKycDocumentType,
 } from "@/lib/validations";
-import { escapeSqlLike } from "./helpers";
+import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 
 export interface VendorFilters {
@@ -207,23 +207,14 @@ export async function getVendors(
 
   if (filters.tradeCategoryId) {
     params.push(filters.tradeCategoryId);
-    const i = params.length;
-    // Match the category AND every descendant, mirroring the element library
-    // tree filter (see buildElementWhere in queries/elements.ts) — selecting a
-    // parent node in the sidebar surfaces vendors mapped to any sub-category.
+    // Match the category AND every descendant (shared CTE with the element
+    // library filter) so selecting a parent node surfaces vendors mapped to
+    // any sub-category.
     conditions.push(
       `EXISTS (
          SELECT 1 FROM vendor_trade vt
          WHERE vt.vendor_id = v.id
-           AND vt.category_id IN (
-             WITH RECURSIVE cat_tree AS (
-               SELECT id FROM element_category WHERE id = $${i}
-               UNION ALL
-               SELECT c.id FROM element_category c
-               JOIN cat_tree t ON c.parent_id = t.id
-             )
-             SELECT id FROM cat_tree
-           )
+           AND vt.category_id IN ${descendantCategoryIdsSql(params.length)}
        )`
     );
   }
