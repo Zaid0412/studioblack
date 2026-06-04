@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import useSWR from "swr";
 import { X, Briefcase } from "lucide-react";
 import {
   Select,
@@ -17,19 +15,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination } from "@/components/ui/Pagination";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import {
   SortableHeaderButton,
   nextSortDirection,
   type SortConfig,
 } from "@/components/ui/SortableHeader";
-import { API } from "@/lib/api/routes";
 import { VENDOR_STATUSES, VENDOR_KYC_STATUSES } from "@/lib/validations";
-import type {
-  ElementCategoryNode,
-  VendorStatus,
-  VendorKycStatus,
-} from "@/types";
+import type { VendorStatus, VendorKycStatus } from "@/types";
 import type { VendorSortField, SortOrder } from "@/lib/validations";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { VendorRow } from "./VendorRow";
@@ -49,7 +41,8 @@ interface Props {
   onSearchChange: (v: string) => void;
   onStatusChange: (v: VendorStatus | null) => void;
   onKycStatusChange: (v: VendorKycStatus | null) => void;
-  onTradeChange: (v: string | null) => void;
+  serviceAreas: string[];
+  onServiceAreaChange: (v: string | null) => void;
   onPreferredChange: (v: boolean) => void;
   onSortChange: (sortBy: SortKey | null, sortOrder: SortOrder | null) => void;
   onPageChange: (page: number) => void;
@@ -75,7 +68,8 @@ export function VendorList({
   onSearchChange,
   onStatusChange,
   onKycStatusChange,
-  onTradeChange,
+  serviceAreas,
+  onServiceAreaChange,
   onPreferredChange,
   onSortChange,
   onPageChange,
@@ -86,16 +80,13 @@ export function VendorList({
   onHardDelete,
 }: Props) {
   const t = useTranslations("vendors");
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    API.elementCategories()
-  );
-  const tree = useMemo(() => catData?.tree ?? [], [catData]);
 
   const hasActive =
     state.search ||
     state.status ||
     state.kycStatus ||
     state.tradeCategoryId ||
+    state.serviceArea ||
     state.preferred ||
     state.sortBy ||
     state.page > 1;
@@ -168,12 +159,26 @@ export function VendorList({
           </Select>
         </div>
 
-        <div className="w-full lg:w-64">
-          <CategorySelect
-            value={state.tradeCategoryId}
-            onChange={onTradeChange}
-            tree={tree}
-          />
+        <div className="w-full lg:w-48">
+          <Select
+            value={state.serviceArea ?? ALL_STATUS}
+            onValueChange={(v) =>
+              onServiceAreaChange(v === ALL_STATUS ? null : v)
+            }
+            disabled={serviceAreas.length === 0}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("filterServiceArea")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_STATUS}>{t("allServiceAreas")}</SelectItem>
+              {serviceAreas.map((area) => (
+                <SelectItem key={area} value={area}>
+                  {area}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Checkbox

@@ -16,6 +16,7 @@ export interface VendorFilterState {
   status: VendorStatus | null;
   kycStatus: VendorKycStatus | null;
   tradeCategoryId: string | null;
+  serviceArea: string | null;
   preferred: boolean;
   sortBy: VendorSortField | null;
   sortOrder: SortOrder | null;
@@ -46,6 +47,7 @@ export function useVendorFilters() {
           ? (kycStatus as VendorKycStatus)
           : null,
       tradeCategoryId: searchParams.get("tradeCategoryId"),
+      serviceArea: searchParams.get("serviceArea"),
       preferred: searchParams.get("preferred") === "true",
       sortBy:
         sortBy && SORT_FIELDS.has(sortBy) ? (sortBy as VendorSortField) : null,
@@ -91,6 +93,7 @@ export function useVendorFilters() {
     setStatus: (v: VendorStatus | null) => setParam("status", v),
     setKycStatus: (v: VendorKycStatus | null) => setParam("kycStatus", v),
     setTradeCategoryId: (v: string | null) => setParam("tradeCategoryId", v),
+    setServiceArea: (v: string | null) => setParam("serviceArea", v),
     setPreferred: (v: boolean) => setParam("preferred", v ? "true" : null),
     setSort,
     setPage: (page: number) => setParam("page", String(page)),

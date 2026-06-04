@@ -52,6 +52,7 @@ function buildQuery(params: ListParams): string {
   if (params.kycStatus) search.set("kycStatus", params.kycStatus);
   if (params.tradeCategoryId)
     search.set("tradeCategoryId", params.tradeCategoryId);
+  if (params.serviceArea) search.set("serviceArea", params.serviceArea);
   if (params.preferred) search.set("preferred", "true");
   if (params.sortBy) search.set("sortBy", params.sortBy);
   if (params.sortOrder) search.set("sortOrder", params.sortOrder);

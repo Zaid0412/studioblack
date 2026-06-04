@@ -1156,6 +1156,8 @@ export const listVendorsQuerySchema = z.object({
   status: z.enum(VENDOR_STATUSES).optional(),
   kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
+  /** Free-text service area; matched against the vendor's `service_areas[]`. */
+  serviceArea: z.string().optional(),
   /** Restrict the list to vendors flagged `preferred_vendor = true`. */
   preferred: z
     .union([z.boolean(), z.enum(["true", "false"])])

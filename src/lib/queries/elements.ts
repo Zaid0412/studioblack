@@ -11,7 +11,7 @@ import type {
   ElementCategory,
   ElementWithDetails,
 } from "@/types";
-import { escapeSqlLike } from "./helpers";
+import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 
 export interface ElementFilters {
@@ -121,17 +121,8 @@ function buildElementWhere(
 
   if (filters.categoryId) {
     params.push(filters.categoryId);
-    const i = params.length;
     conditions.push(
-      `e.category_id IN (
-         WITH RECURSIVE cat_tree AS (
-           SELECT id FROM element_category WHERE id = $${i}
-           UNION ALL
-           SELECT c.id FROM element_category c
-           JOIN cat_tree t ON c.parent_id = t.id
-         )
-         SELECT id FROM cat_tree
-       )`
+      `e.category_id IN ${descendantCategoryIdsSql(params.length)}`
     );
   }
 

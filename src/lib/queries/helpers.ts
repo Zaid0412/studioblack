@@ -24,3 +24,21 @@ export function generateBetterAuthId(size = 32): string {
 export function escapeSqlLike(str: string): string {
   return str.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
+
+/**
+ * SQL fragment that resolves a category id and all of its descendants in the
+ * `element_category` tree, for use inside an `IN (...)` clause. The caller must
+ * bind the root category id to `$<paramIndex>`. Shared by the element library
+ * and vendor-trade category filters so the recursion lives in one place.
+ */
+export function descendantCategoryIdsSql(paramIndex: number): string {
+  return `(
+    WITH RECURSIVE cat_tree AS (
+      SELECT id FROM element_category WHERE id = $${paramIndex}
+      UNION ALL
+      SELECT c.id FROM element_category c
+      JOIN cat_tree t ON c.parent_id = t.id
+    )
+    SELECT id FROM cat_tree
+  )`;
+}

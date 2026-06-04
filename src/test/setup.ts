@@ -429,6 +429,7 @@ vi.mock("@/lib/queries", () => ({
     .fn()
     .mockResolvedValue({ exists: false, envelope: null }),
   getVendorsByTrade: vi.fn().mockResolvedValue([]),
+  getVendorServiceAreas: vi.fn().mockResolvedValue([]),
   createVendor: vi.fn(),
   updateVendor: vi.fn().mockResolvedValue(null),
   updateVendorBankDetails: vi.fn().mockResolvedValue(true),
