@@ -24,6 +24,8 @@ import {
   createElementSchema,
   updateElementSchema,
   listElementsQuerySchema,
+  createVendorCategorySchema,
+  updateVendorCategorySchema,
   ALLOWED_UNITS,
   submitQuoteSchema,
   awardRfqSingleSchema,
@@ -1527,6 +1529,65 @@ describe("ALLOWED_UNITS", () => {
       "box",
       "pallet",
     ]);
+  });
+});
+
+// ── Vendor category schemas ─────────────────────────────────────────────────
+
+describe("createVendorCategorySchema", () => {
+  it("accepts a minimal category (name only)", () => {
+    const data = expectPass(createVendorCategorySchema, { name: "Joinery" });
+    expect(data.name).toBe("Joinery");
+  });
+
+  it("accepts full input with parent, code, and color", () => {
+    expectPass(createVendorCategorySchema, {
+      name: "Wardrobes",
+      parentId: VALID_UUID,
+      code: "WRD",
+      color: "#FF5733",
+    });
+  });
+
+  it("rejects empty name", () => {
+    expectFail(createVendorCategorySchema, { name: "" });
+  });
+
+  it("rejects a name over 150 chars", () => {
+    expectFail(createVendorCategorySchema, { name: "x".repeat(151) });
+  });
+
+  it("rejects a code over 10 chars", () => {
+    expectFail(createVendorCategorySchema, {
+      name: "Ok",
+      code: "x".repeat(11),
+    });
+  });
+
+  it("rejects an invalid color", () => {
+    expectFail(createVendorCategorySchema, { name: "Ok", color: "red" });
+  });
+
+  it("rejects a non-UUID parentId", () => {
+    expectFail(createVendorCategorySchema, { name: "Ok", parentId: "nope" });
+  });
+});
+
+describe("updateVendorCategorySchema", () => {
+  it("accepts an empty object (all optional)", () => {
+    expectPass(updateVendorCategorySchema, {});
+  });
+
+  it("allows nulling the code and color", () => {
+    const data = expectPass(updateVendorCategorySchema, {
+      code: null,
+      color: null,
+    });
+    expect(data.code).toBeNull();
+  });
+
+  it("rejects an invalid color", () => {
+    expectFail(updateVendorCategorySchema, { color: "blue" });
   });
 });
 

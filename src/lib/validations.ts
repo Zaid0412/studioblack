@@ -552,6 +552,34 @@ export const reorderCategoriesSchema = z.object({
   orderedIds: z.array(uuid).min(1),
 });
 
+// ─── Vendor categories (/api/vendor-categories) ─────────────────────────────
+// Separate taxonomy from element categories. `code` is the short taxonomy code.
+
+export const createVendorCategorySchema = z.object({
+  name: trimmedString.max(150),
+  parentId: optionalUuid,
+  code: z.string().max(10).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  icon: z.string().max(50).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+});
+
+export const updateVendorCategorySchema = z.object({
+  name: trimmedString.max(150).optional(),
+  code: z.string().max(10).optional().nullable(),
+  sortOrder: z.number().int().min(0).optional(),
+  icon: z.string().max(50).optional().nullable(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+});
+
 // ─── Elements (/api/elements) ───────────────────────────────────────────────
 
 export const ALLOWED_UNITS = [

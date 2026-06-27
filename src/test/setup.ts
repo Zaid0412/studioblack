@@ -315,6 +315,12 @@ vi.mock("@/lib/queries", () => ({
   updateCategory: vi.fn(),
   deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
   reorderCategories: vi.fn(),
+  // Vendor Categories
+  buildVendorCategoryTree: vi.fn().mockReturnValue([]),
+  getVendorCategoryTree: vi.fn().mockResolvedValue([]),
+  createVendorCategory: vi.fn(),
+  updateVendorCategory: vi.fn(),
+  deleteVendorCategory: vi.fn().mockResolvedValue({ deleted: true }),
   // Elements
   getElements: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getElementById: vi.fn().mockResolvedValue(null),
