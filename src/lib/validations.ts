@@ -556,7 +556,9 @@ export const reorderCategoriesSchema = z.object({
 
 export const ALLOWED_UNITS = [
   "m2",
+  "sqft",
   "m3",
+  "cuft",
   "lm",
   "no",
   "item",

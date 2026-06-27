@@ -1509,10 +1509,12 @@ describe("document version schemas", () => {
 // ── ALLOWED_UNITS constant ───────────────────────────────────────────────────
 
 describe("ALLOWED_UNITS", () => {
-  it("exposes all 15 canonical units", () => {
+  it("exposes all 17 canonical units", () => {
     expect(ALLOWED_UNITS).toEqual([
       "m2",
+      "sqft",
       "m3",
+      "cuft",
       "lm",
       "no",
       "item",

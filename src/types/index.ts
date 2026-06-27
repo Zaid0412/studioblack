@@ -1,4 +1,5 @@
 import type {
+  ElementUnit,
   TaskStatus,
   TaskPriority,
   TaskCategory,
@@ -809,23 +810,8 @@ export interface BoqElementLite {
   name: string;
 }
 
-/** Allowed units — narrowed from `ElementUnit` in validations.ts. */
-export type BoqUnit =
-  | "m2"
-  | "m3"
-  | "lm"
-  | "no"
-  | "item"
-  | "kg"
-  | "tonne"
-  | "ls"
-  | "set"
-  | "pair"
-  | "roll"
-  | "sheet"
-  | "bag"
-  | "box"
-  | "pallet";
+/** Allowed BOQ units — single source of truth is `ALLOWED_UNITS` in validations.ts. */
+export type BoqUnit = ElementUnit;
 
 /**
  * One import row after parsing. Shape lines up with `boqImportRowSchema` so
