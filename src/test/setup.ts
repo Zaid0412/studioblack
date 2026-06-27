@@ -315,6 +315,9 @@ vi.mock("@/lib/queries", () => ({
   updateCategory: vi.fn(),
   deleteCategory: vi.fn().mockResolvedValue({ deleted: true }),
   reorderCategories: vi.fn(),
+  bulkCreateCategoriesFromTemplates: vi
+    .fn()
+    .mockResolvedValue({ created: [], skipped: [] }),
   // Elements
   getElements: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getElementById: vi.fn().mockResolvedValue(null),
