@@ -822,6 +822,8 @@
     "newCategory": "New category",
     "newSubcategoryUnder": "New subcategory under {parent}",
     "addSubcategory": "Add subcategory",
+    "newServiceAreaUnder": "New service area under {parent}",
+    "addServiceArea": "Add service area",
     "uncategorized": "Uncategorized",
     "backToElements": "Back to elements",
     "backToSettings": "Back to settings",

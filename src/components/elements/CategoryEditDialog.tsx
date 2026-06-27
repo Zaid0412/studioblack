@@ -72,7 +72,11 @@ export function CategoryEditDialog({
     mode === "edit"
       ? tCommon("edit")
       : presetParent
-        ? t("newSubcategoryUnder", { parent: presetParent.name })
+        ? // A child of a level-1 category is a sub-category; a child of a
+          // level-2 sub-category is a service area (the leaf, level 3).
+          presetParent.level === 1
+          ? t("newSubcategoryUnder", { parent: presetParent.name })
+          : t("newServiceAreaUnder", { parent: presetParent.name })
         : t("newCategory");
 
   return (

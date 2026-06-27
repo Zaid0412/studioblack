@@ -187,22 +187,29 @@ export function CategoryTableRow({
       <td className="py-2 px-3 text-sm text-text-muted">{updatedRel}</td>
       <td className="py-2 pl-3 text-right whitespace-nowrap">
         <div className="inline-flex items-center gap-1">
-          {canAddChild && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onAddChild(node)}
-                  aria-label={t("addSubcategory")}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{t("addSubcategory")}</TooltipContent>
-            </Tooltip>
-          )}
+          {canAddChild &&
+            (() => {
+              // A child of a level-1 category is a sub-category; a child of a
+              // level-2 sub-category is a service area (the leaf).
+              const addLabel =
+                node.level === 1 ? t("addSubcategory") : t("addServiceArea");
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onAddChild(node)}
+                      aria-label={addLabel}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{addLabel}</TooltipContent>
+                </Tooltip>
+              );
+            })()}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

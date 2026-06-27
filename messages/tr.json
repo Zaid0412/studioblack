@@ -822,6 +822,8 @@
     "newCategory": "Yeni kategori",
     "newSubcategoryUnder": "{parent} altında yeni alt kategori",
     "addSubcategory": "Alt kategori ekle",
+    "newServiceAreaUnder": "{parent} altında yeni hizmet bölgesi",
+    "addServiceArea": "Hizmet bölgesi ekle",
     "uncategorized": "Kategorisiz",
     "backToElements": "Elementlere dön",
     "backToSettings": "Ayarlara dön",
