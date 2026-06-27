@@ -15,6 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { elementCategories as categoriesApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
@@ -113,7 +118,7 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
           <DialogDescription>{t("starterDialogDesc")}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-2 max-h-[55vh] overflow-y-auto pr-1">
+        <div className="flex flex-col gap-2">
           {MASTER_TAXONOMY.map((c) => {
             const code = c.codePrefix;
             const { subs, services } = counts(c);
@@ -135,9 +140,16 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
                 <span className="rounded bg-bg-secondary px-1.5 py-0.5 text-[11px] font-mono text-text-muted">
                   {c.codePrefix}
                 </span>
-                <span className="text-xs text-text-muted tabular-nums">
-                  {subs} · {services}
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-text-muted tabular-nums">
+                      {subs} · {services}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("starterCategoryCounts", { subs, services })}
+                  </TooltipContent>
+                </Tooltip>
               </label>
             );
           })}

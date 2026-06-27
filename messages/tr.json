@@ -843,7 +843,7 @@
     "starterUseSet": "Başlangıç setini kullan",
     "starterDialogTitle": "Başlangıç taksonomisi ile başla",
     "starterDialogDesc": "İşinize uygun kategorileri seçin. Sonradan düzenleyebilir veya silebilirsiniz.",
-    "starterChildren": "alt kategori",
+    "starterCategoryCounts": "{subs} alt kategori · {services} hizmet bölgesi",
     "starterCreateBtn": "{count} kategori oluştur",
     "starterCreatedToast": "{created} oluşturuldu · {skipped} atlandı",
     "starterAllSkippedToast": "{skipped} kategorinin tümü zaten mevcut",
