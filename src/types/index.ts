@@ -566,31 +566,6 @@ export interface ElementCategoryNode extends ElementCategory {
 }
 
 /**
- * A vendor classification category. Separate taxonomy from {@link ElementCategory}
- * so vendor categories can diverge from construction-element categories.
- * `code` is the short taxonomy code (e.g. JOIN / FLR / FIN).
- */
-export interface VendorCategory {
-  id: string;
-  org_id: string;
-  name: string;
-  parent_id: string | null;
-  level: 1 | 2 | 3;
-  code: string | null;
-  sort_order: number;
-  icon: string | null;
-  color: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Recursive tree node for nested vendor-category display. */
-export interface VendorCategoryNode extends VendorCategory {
-  children: VendorCategoryNode[];
-}
-
-/**
  * A construction element row.
  * Numeric fields arrive from `pg` as strings (NUMERIC type) — format on display.
  */
