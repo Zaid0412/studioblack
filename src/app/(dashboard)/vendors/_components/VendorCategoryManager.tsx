@@ -16,27 +16,13 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { vendorCategories } from "@/lib/api";
+import { flattenTree } from "@/lib/treeUtils";
 import { cn } from "@/lib/utils";
 import type { VendorCategoryNode } from "@/types";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-interface FlatRow {
-  node: VendorCategoryNode;
-  depth: number;
-}
-
-/** Depth-first flatten of the tree for indented rendering. */
-function flatten(nodes: VendorCategoryNode[], depth = 0): FlatRow[] {
-  const out: FlatRow[] = [];
-  for (const n of nodes) {
-    out.push({ node: n, depth });
-    if (n.children.length > 0) out.push(...flatten(n.children, depth + 1));
-  }
-  return out;
 }
 
 type FormState = {
@@ -58,7 +44,7 @@ export function VendorCategoryManager({ open, onOpenChange }: Props) {
   const { data, isLoading } = useSWR<{ tree: VendorCategoryNode[] }>(
     open ? API.vendorCategories() : null
   );
-  const rows = useMemo(() => flatten(data?.tree ?? []), [data?.tree]);
+  const rows = useMemo(() => flattenTree(data?.tree ?? []), [data?.tree]);
 
   const [form, setForm] = useState<FormState | null>(null);
   const [name, setName] = useState("");

@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { buildTreeFromFlat } from "@/lib/treeUtils";
 import type { VendorCategory, VendorCategoryNode } from "@/types";
 
 /**
@@ -11,22 +12,7 @@ import type { VendorCategory, VendorCategoryNode } from "@/types";
 export function buildVendorCategoryTree(
   rows: VendorCategory[]
 ): VendorCategoryNode[] {
-  const map = new Map<string, VendorCategoryNode>();
-  const roots: VendorCategoryNode[] = [];
-
-  for (const row of rows) {
-    map.set(row.id, { ...row, children: [] });
-  }
-
-  for (const node of map.values()) {
-    if (node.parent_id && map.has(node.parent_id)) {
-      map.get(node.parent_id)!.children.push(node);
-    } else if (!node.parent_id) {
-      roots.push(node);
-    }
-  }
-
-  return roots;
+  return buildTreeFromFlat<VendorCategory, VendorCategoryNode>(rows);
 }
 
 /** Fetch all vendor categories for an org, ordered for tree assembly. */
