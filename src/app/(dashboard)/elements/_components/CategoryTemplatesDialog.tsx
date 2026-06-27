@@ -19,7 +19,7 @@ import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { elementCategories as categoriesApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
-import { STARTER_CATEGORIES } from "@/lib/categoryTemplates";
+import { MASTER_TAXONOMY, type SeedCategory } from "@/lib/categoryTemplates";
 import type { BulkCategoryNode } from "@/lib/validations";
 
 interface Props {
@@ -27,87 +27,48 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+/** Sub-category and service-area counts for a category, for the row summary. */
+function counts(cat: SeedCategory): { subs: number; services: number } {
+  const subs = cat.children?.length ?? 0;
+  const services =
+    cat.children?.reduce((n, s) => n + (s.children?.length ?? 0), 0) ?? 0;
+  return { subs, services };
+}
+
 /**
- * Multi-select dialog over the starter category catalogue. Submitting
- * sends the chosen entries to `/api/element-categories/bulk`, which is
- * idempotent so re-running the dialog won't create duplicates.
- *
- * Defaults: every starter category checked. Children inherit the checked
- * state of their parent on first render — uncheck a parent to drop the
- * whole branch, or expand to fine-tune individual children.
+ * Loads the standard master taxonomy (Category → Sub-category → Service Area).
+ * Selection is per top-level category; checking one seeds its full subtree via
+ * `/api/element-categories/bulk`, which is idempotent (re-running skips
+ * anything that already exists).
  */
 export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  const tStart = useTranslations("elements.starterCategories");
 
-  const initialChecked = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of STARTER_CATEGORIES) {
-      set.add(c.key);
-      for (const child of c.children) set.add(`${c.key}/${child.key}`);
-    }
-    return set;
-  }, []);
-
-  const [checked, setChecked] = useState<Set<string>>(initialChecked);
+  const allCodes = useMemo(
+    () => MASTER_TAXONOMY.map((c) => c.codePrefix ?? c.name),
+    []
+  );
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(allCodes));
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset selections each time the dialog opens so a previous cancel doesn't
-  // leak into the next visit.
+  // Reset selections each time the dialog opens.
   useEffect(() => {
-    if (open) setChecked(new Set(initialChecked));
-  }, [open, initialChecked]);
+    if (open) setChecked(new Set(allCodes));
+  }, [open, allCodes]);
 
-  const toggleParent = (parentKey: string, childKeys: string[]) => {
+  const toggle = (code: string) =>
     setChecked((prev) => {
       const next = new Set(prev);
-      const isOn = next.has(parentKey);
-      if (isOn) {
-        next.delete(parentKey);
-        for (const k of childKeys) next.delete(`${parentKey}/${k}`);
-      } else {
-        next.add(parentKey);
-        for (const k of childKeys) next.add(`${parentKey}/${k}`);
-      }
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
       return next;
     });
-  };
-
-  const toggleChild = (parentKey: string, childKey: string) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      const id = `${parentKey}/${childKey}`;
-      if (next.has(id)) next.delete(id);
-      else {
-        next.add(id);
-        next.add(parentKey);
-      }
-      return next;
-    });
-  };
-
-  const selectedParentCount = STARTER_CATEGORIES.reduce(
-    (n, c) => (checked.has(c.key) ? n + 1 : n),
-    0
-  );
 
   const handleCreate = async () => {
-    const payload: BulkCategoryNode[] = [];
-    for (const c of STARTER_CATEGORIES) {
-      if (!checked.has(c.key)) continue;
-      const children = c.children
-        .filter((child) => checked.has(`${c.key}/${child.key}`))
-        .map((child) => ({
-          name: tStart(`${c.key}.children.${child.key}`),
-        }));
-      payload.push({
-        name: tStart(`${c.key}.name`),
-        icon: c.icon,
-        color: c.color,
-        children: children.length > 0 ? children : undefined,
-      });
-    }
+    const payload = MASTER_TAXONOMY.filter((c) =>
+      checked.has(c.codePrefix ?? c.name)
+    ) as unknown as BulkCategoryNode[];
 
     if (payload.length === 0) {
       toast({ title: t("starterNoneSelected"), variant: "warning" });
@@ -142,6 +103,8 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
     }
   };
 
+  const selectedCount = checked.size;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
@@ -154,47 +117,33 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="flex flex-col gap-2 max-h-[55vh] overflow-y-auto pr-1">
-          {STARTER_CATEGORIES.map((c) => {
-            const childKeys = c.children.map((ch) => ch.key);
-            const parentChecked = checked.has(c.key);
+          {MASTER_TAXONOMY.map((c) => {
+            const code = c.codePrefix ?? c.name;
+            const { subs, services } = counts(c);
             return (
-              <div
-                key={c.key}
-                className="rounded-lg border border-border-default bg-bg-input p-3"
+              <label
+                key={code}
+                htmlFor={`tpl-${code}`}
+                className="flex items-center gap-2 rounded-lg border border-border-default bg-bg-input p-3 cursor-pointer"
               >
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={`tpl-${c.key}`}
-                    checked={parentChecked}
-                    onCheckedChange={() => toggleParent(c.key, childKeys)}
-                  />
-                  <CategoryIcon icon={c.icon} color={c.color} size={14} />
-                  <label
-                    htmlFor={`tpl-${c.key}`}
-                    className="flex-1 text-sm font-medium text-text-primary cursor-pointer"
-                  >
-                    {tStart(`${c.key}.name`)}
-                  </label>
-                  {c.children.length > 0 && (
-                    <span className="text-xs text-text-muted">
-                      {c.children.length} {t("starterChildren")}
-                    </span>
-                  )}
-                </div>
-                {c.children.length > 0 && (
-                  <div className="mt-2 grid grid-cols-2 gap-1 pl-6">
-                    {c.children.map((child) => (
-                      <Checkbox
-                        key={child.key}
-                        id={`tpl-${c.key}-${child.key}`}
-                        checked={checked.has(`${c.key}/${child.key}`)}
-                        onCheckedChange={() => toggleChild(c.key, child.key)}
-                        label={tStart(`${c.key}.children.${child.key}`)}
-                      />
-                    ))}
-                  </div>
+                <Checkbox
+                  id={`tpl-${code}`}
+                  checked={checked.has(code)}
+                  onCheckedChange={() => toggle(code)}
+                />
+                <CategoryIcon icon={c.icon} color={c.color} size={14} />
+                <span className="flex-1 text-sm font-medium text-text-primary">
+                  {c.name}
+                </span>
+                {c.codePrefix && (
+                  <span className="rounded bg-bg-secondary px-1.5 py-0.5 text-[11px] font-mono text-text-muted">
+                    {c.codePrefix}
+                  </span>
                 )}
-              </div>
+                <span className="text-xs text-text-muted tabular-nums">
+                  {subs} · {services}
+                </span>
+              </label>
             );
           })}
         </div>
@@ -208,12 +157,12 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
           <Button
             type="button"
             onClick={handleCreate}
-            disabled={submitting || selectedParentCount === 0}
+            disabled={submitting || selectedCount === 0}
           >
             <Save className="h-4 w-4" />
             {submitting
               ? tCommon("loading")
-              : t("starterCreateBtn", { count: selectedParentCount })}
+              : t("starterCreateBtn", { count: selectedCount })}
           </Button>
         </DialogFooter>
       </DialogContent>

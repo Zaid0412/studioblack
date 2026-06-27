@@ -505,7 +505,7 @@ export const reorderChecklistSchema = z.object({
 export const createElementCategorySchema = z.object({
   name: trimmedString.max(150),
   parentId: optionalUuid,
-  codePrefix: z.string().max(10).optional(),
+  codePrefix: z.string().max(20).optional(),
   sortOrder: z.number().int().min(0).optional(),
   icon: z.string().max(50).optional(),
   color: z
@@ -516,7 +516,7 @@ export const createElementCategorySchema = z.object({
 
 export const updateElementCategorySchema = z.object({
   name: trimmedString.max(150).optional(),
-  codePrefix: z.string().max(10).optional().nullable(),
+  codePrefix: z.string().max(20).optional().nullable(),
   sortOrder: z.number().int().min(0).optional(),
   icon: z.string().max(50).optional().nullable(),
   color: z
@@ -527,9 +527,9 @@ export const updateElementCategorySchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const bulkCategoryChild = z.object({
+const bulkCategoryBase = z.object({
   name: trimmedString.max(150),
-  codePrefix: z.string().max(10).optional(),
+  codePrefix: z.string().max(20).optional(),
   icon: z.string().max(50).optional(),
   color: z
     .string()
@@ -537,12 +537,19 @@ const bulkCategoryChild = z.object({
     .optional(),
 });
 
-const bulkCategoryNode = bulkCategoryChild.extend({
-  children: z.array(bulkCategoryChild).max(20).optional(),
+// Level 3 (service area) — leaf, no children.
+const bulkCategoryL3 = bulkCategoryBase;
+// Level 2 (sub-category) — may hold service areas.
+const bulkCategoryL2 = bulkCategoryBase.extend({
+  children: z.array(bulkCategoryL3).max(200).optional(),
+});
+// Level 1 (category) — may hold sub-categories.
+const bulkCategoryNode = bulkCategoryBase.extend({
+  children: z.array(bulkCategoryL2).max(200).optional(),
 });
 
 export const bulkCreateCategoriesSchema = z.object({
-  categories: z.array(bulkCategoryNode).min(1).max(20),
+  categories: z.array(bulkCategoryNode).min(1).max(50),
 });
 
 export type BulkCategoryNode = z.infer<typeof bulkCategoryNode>;

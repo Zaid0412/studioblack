@@ -848,69 +848,6 @@
     "starterCreatedToast": "{created} created · {skipped} skipped",
     "starterAllSkippedToast": "All {skipped} categories already exist",
     "starterNoneSelected": "Pick at least one category",
-    "starterCategories": {
-      "flooring": {
-        "name": "Flooring",
-        "children": {
-          "tiles": "Tiles",
-          "stone": "Stone",
-          "wood": "Wood",
-          "carpet": "Carpet"
-        }
-      },
-      "walls": {
-        "name": "Walls",
-        "children": {
-          "paint": "Paint",
-          "wallpaper": "Wallpaper",
-          "cladding": "Cladding"
-        }
-      },
-      "ceiling": {
-        "name": "Ceiling",
-        "children": {
-          "gypsum": "Gypsum",
-          "acoustic": "Acoustic",
-          "coffered": "Coffered"
-        }
-      },
-      "plumbing": {
-        "name": "Plumbing",
-        "children": {
-          "fixtures": "Fixtures",
-          "pipes": "Pipes",
-          "sanitaryware": "Sanitaryware"
-        }
-      },
-      "electrical": {
-        "name": "Electrical",
-        "children": {
-          "wiring": "Wiring",
-          "lighting": "Lighting",
-          "switches": "Switches"
-        }
-      },
-      "joinery": {
-        "name": "Joinery",
-        "children": {
-          "cabinets": "Cabinets",
-          "doors": "Doors",
-          "windows": "Windows"
-        }
-      },
-      "furniture": {
-        "name": "Furniture",
-        "children": {
-          "seating": "Seating",
-          "tables": "Tables",
-          "storage": "Storage"
-        }
-      },
-      "finishes": {
-        "name": "Finishes",
-        "children": {}
-      }
-    },
     "costBreakdown": "Cost Breakdown",
     "sectionBasic": "Basic",
     "sectionCost": "Cost",

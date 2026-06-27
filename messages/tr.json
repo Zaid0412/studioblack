@@ -848,69 +848,6 @@
     "starterCreatedToast": "{created} oluşturuldu · {skipped} atlandı",
     "starterAllSkippedToast": "{skipped} kategorinin tümü zaten mevcut",
     "starterNoneSelected": "En az bir kategori seçin",
-    "starterCategories": {
-      "flooring": {
-        "name": "Zemin",
-        "children": {
-          "tiles": "Karo",
-          "stone": "Taş",
-          "wood": "Ahşap",
-          "carpet": "Halı"
-        }
-      },
-      "walls": {
-        "name": "Duvarlar",
-        "children": {
-          "paint": "Boya",
-          "wallpaper": "Duvar Kağıdı",
-          "cladding": "Kaplama"
-        }
-      },
-      "ceiling": {
-        "name": "Tavan",
-        "children": {
-          "gypsum": "Alçı",
-          "acoustic": "Akustik",
-          "coffered": "Kasetli"
-        }
-      },
-      "plumbing": {
-        "name": "Tesisat",
-        "children": {
-          "fixtures": "Armatürler",
-          "pipes": "Borular",
-          "sanitaryware": "Vitrifiye"
-        }
-      },
-      "electrical": {
-        "name": "Elektrik",
-        "children": {
-          "wiring": "Kablo",
-          "lighting": "Aydınlatma",
-          "switches": "Anahtarlar"
-        }
-      },
-      "joinery": {
-        "name": "Doğrama",
-        "children": {
-          "cabinets": "Dolaplar",
-          "doors": "Kapılar",
-          "windows": "Pencereler"
-        }
-      },
-      "furniture": {
-        "name": "Mobilya",
-        "children": {
-          "seating": "Oturma",
-          "tables": "Masalar",
-          "storage": "Depolama"
-        }
-      },
-      "finishes": {
-        "name": "Son İşler",
-        "children": {}
-      }
-    },
     "costBreakdown": "Maliyet Dökümü",
     "sectionBasic": "Temel",
     "sectionCost": "Maliyet",
