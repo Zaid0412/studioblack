@@ -145,15 +145,6 @@ const VENDOR_UPDATE_COLS: Record<string, string> = {
   notes: "notes",
 };
 
-/**
- * Columns that take a `text[]` and must be passed through `COALESCE(..., '{}')`
- * to default to an empty array. Kept separate from `VENDOR_UPDATE_COLS` because
- * the SET fragment is parameterised with an explicit cast.
- */
-const VENDOR_TEXT_ARRAY_COLS: Record<string, string> = {
-  brandsSupported: "brands_supported",
-};
-
 // ─── Reads ──────────────────────────────────────────────────────────────────
 
 /**
@@ -496,16 +487,11 @@ export async function updateVendor(
         `addresses = COALESCE($${params.length}::jsonb[], '{}'::jsonb[])`
       );
     }
-    for (const [key, col] of Object.entries(VENDOR_TEXT_ARRAY_COLS)) {
-      if (key in patch) {
-        const val = (patch as Record<string, unknown>)[key] as
-          | string[]
-          | undefined;
-        params.push(val ?? null);
-        setClauses.push(
-          `${col} = COALESCE($${params.length}::text[], '{}'::text[])`
-        );
-      }
+    if ("brandsSupported" in patch) {
+      params.push(patch.brandsSupported ?? null);
+      setClauses.push(
+        `brands_supported = COALESCE($${params.length}::text[], '{}'::text[])`
+      );
     }
 
     if (setClauses.length > 0) {
