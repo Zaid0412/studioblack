@@ -1,5 +1,4 @@
 import { getPool } from "@/lib/db";
-import { buildTreeFromFlat } from "@/lib/treeUtils";
 import type { BulkCategoryNode } from "@/lib/validations";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
 
@@ -7,7 +6,22 @@ import type { ElementCategory, ElementCategoryNode } from "@/types";
 export function buildCategoryTree(
   rows: ElementCategory[]
 ): ElementCategoryNode[] {
-  return buildTreeFromFlat<ElementCategory, ElementCategoryNode>(rows);
+  const map = new Map<string, ElementCategoryNode>();
+  const roots: ElementCategoryNode[] = [];
+
+  for (const row of rows) {
+    map.set(row.id, { ...row, children: [] });
+  }
+
+  for (const node of map.values()) {
+    if (node.parent_id && map.has(node.parent_id)) {
+      map.get(node.parent_id)!.children.push(node);
+    } else if (!node.parent_id) {
+      roots.push(node);
+    }
+  }
+
+  return roots;
 }
 
 /**

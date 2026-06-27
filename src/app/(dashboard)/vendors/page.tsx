@@ -24,7 +24,6 @@ import type { VendorListRow } from "@/lib/api/vendors";
 import { useVendorFilters } from "./_hooks/useVendorFilters";
 import { VendorList } from "./_components/VendorList";
 import { VendorCategoryTreeSidebar } from "./_components/VendorCategoryTreeSidebar";
-import { VendorCategoryManager } from "./_components/VendorCategoryManager";
 import { VendorDrawer } from "./_components/VendorDrawer";
 import {
   VendorFormDialog,
@@ -38,7 +37,6 @@ export default function VendorsPage() {
 
   const { role } = useUserRole();
   const isPm = role === "pm";
-  const canManageCategories = role === "pm" || role === "architect";
 
   const {
     state,
@@ -95,7 +93,6 @@ export default function VendorsPage() {
     : t("allCategories");
 
   const [drawerId, setDrawerId] = useState<string | null>(null);
-  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<VendorWithRelations | null>(null);
   const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
@@ -154,14 +151,6 @@ export default function VendorsPage() {
                 mutate();
               }}
             />
-            {canManageCategories && (
-              <Button
-                variant="secondary"
-                onClick={() => setCategoryManagerOpen(true)}
-              >
-                {t("manageCategories")}
-              </Button>
-            )}
             {isPm && (
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4" />
@@ -252,13 +241,6 @@ export default function VendorsPage() {
           await updateRating(id, rating);
         }}
       />
-
-      {canManageCategories && (
-        <VendorCategoryManager
-          open={categoryManagerOpen}
-          onOpenChange={setCategoryManagerOpen}
-        />
-      )}
 
       <VendorFormDialog
         open={dialogOpen}

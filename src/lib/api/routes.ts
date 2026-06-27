@@ -91,10 +91,6 @@ export const API = {
   elementCategoriesReorder: ()                            => "/api/element-categories/reorder",
   elementCategoriesBulk:    ()                            => "/api/element-categories/bulk",
 
-  // ── Vendor Categories ───────────────────────────
-  vendorCategories:         ()                            => "/api/vendor-categories",
-  vendorCategory:           (id: string)                  => `/api/vendor-categories/${id}`,
-
   // ── Elements ────────────────────────────────────
   elements:                 ()                            => "/api/elements",
   element:                  (id: string)                  => `/api/elements/${id}`,
