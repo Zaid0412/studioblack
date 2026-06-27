@@ -18,7 +18,7 @@ import { API } from "@/lib/api/routes";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { useFlag } from "@/hooks/useFlag";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useVendors, useVendorServiceAreas } from "@/hooks/useVendors";
+import { useVendors } from "@/hooks/useVendors";
 import type { ElementCategoryNode, VendorWithRelations } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { useVendorFilters } from "./_hooks/useVendorFilters";
@@ -44,7 +44,6 @@ export default function VendorsPage() {
     setStatus,
     setKycStatus,
     setTradeCategoryId,
-    setServiceArea,
     setPreferred,
     setSort,
     setPage,
@@ -70,14 +69,11 @@ export default function VendorsPage() {
     status: state.status ?? undefined,
     kycStatus: state.kycStatus ?? undefined,
     tradeCategoryId: state.tradeCategoryId ?? undefined,
-    serviceArea: state.serviceArea ?? undefined,
     preferred: state.preferred ? true : undefined,
     sortBy: state.sortBy ?? undefined,
     sortOrder: state.sortOrder ?? undefined,
     page: state.page,
   });
-
-  const { serviceAreas } = useVendorServiceAreas();
 
   // Deduped with the sidebar's fetch (same SWR key) — used for the mobile
   // category button label.
@@ -191,8 +187,6 @@ export default function VendorsPage() {
             onSearchChange={setSearch}
             onStatusChange={setStatus}
             onKycStatusChange={setKycStatus}
-            serviceAreas={serviceAreas}
-            onServiceAreaChange={setServiceArea}
             onPreferredChange={setPreferred}
             onSortChange={setSort}
             onPageChange={setPage}

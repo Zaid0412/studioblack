@@ -25,13 +25,13 @@ type SetKycStatusInput = z.infer<typeof vendorKycStatusSchema>;
 
 /**
  * A vendor row in the list view. Slimmer than the full detail: the list SELECT
- * deliberately omits `gstin`, `website`, `brands_supported`, `service_areas`
+ * deliberately omits `gstin`, `website`, `brands_supported`
  * (potentially TOAST-bloated text arrays that the list UI doesn't render).
  * Callers that need those must fetch the single vendor via `get(id)`.
  */
 export type VendorListRow = Omit<
   Vendor,
-  "gstin" | "website" | "brands_supported" | "service_areas"
+  "gstin" | "website" | "brands_supported"
 > & {
   contact_count: number;
   primary_contact_email: string | null;
@@ -52,7 +52,6 @@ function buildQuery(params: ListParams): string {
   if (params.kycStatus) search.set("kycStatus", params.kycStatus);
   if (params.tradeCategoryId)
     search.set("tradeCategoryId", params.tradeCategoryId);
-  if (params.serviceArea) search.set("serviceArea", params.serviceArea);
   if (params.preferred) search.set("preferred", "true");
   if (params.sortBy) search.set("sortBy", params.sortBy);
   if (params.sortOrder) search.set("sortOrder", params.sortOrder);

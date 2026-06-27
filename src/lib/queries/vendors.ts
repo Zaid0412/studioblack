@@ -22,7 +22,6 @@ export interface VendorFilters {
   status?: VendorStatus;
   kycStatus?: VendorKycStatus;
   tradeCategoryId?: string;
-  serviceArea?: string;
   preferred?: boolean;
   sortBy?:
     | "vendor_code"
@@ -67,7 +66,6 @@ export interface CreateVendorInput {
   website?: string;
   preferredVendor?: boolean;
   brandsSupported?: string[];
-  serviceAreas?: string[];
   /** Multiple addresses per vendor (HQ, warehouse, billing, …). */
   addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string;
@@ -104,7 +102,6 @@ export interface UpdateVendorInput {
   website?: string | null;
   preferredVendor?: boolean;
   brandsSupported?: string[];
-  serviceAreas?: string[];
   /** Replaces the addresses array wholesale when provided. */
   addresses?: Array<Record<string, string | boolean | undefined>>;
   notes?: string | null;
@@ -155,7 +152,6 @@ const VENDOR_UPDATE_COLS: Record<string, string> = {
  */
 const VENDOR_TEXT_ARRAY_COLS: Record<string, string> = {
   brandsSupported: "brands_supported",
-  serviceAreas: "service_areas",
 };
 
 // ─── Reads ──────────────────────────────────────────────────────────────────
@@ -170,12 +166,12 @@ export async function getVendors(
   filters: VendorFilters
 ): Promise<{
   /**
-   * Bulky text-array columns (`gstin`, `website`, `brands_supported`,
-   * `service_areas`) are intentionally absent — fetch a single vendor via
-   * `getVendorById` when those are needed.
+   * Bulky text-array columns (`gstin`, `website`, `brands_supported`) are
+   * intentionally absent — fetch a single vendor via `getVendorById` when
+   * those are needed.
    */
   rows: Array<
-    Omit<Vendor, "gstin" | "website" | "brands_supported" | "service_areas"> & {
+    Omit<Vendor, "gstin" | "website" | "brands_supported"> & {
       contact_count: number;
       primary_contact_email: string | null;
       trade_count: number;
@@ -219,15 +215,6 @@ export async function getVendors(
     );
   }
 
-  if (filters.serviceArea) {
-    params.push(filters.serviceArea);
-    // Trim-aware match so the filter aligns with the (trimmed) dropdown values
-    // even for any legacy rows stored before the input was trimmed on write.
-    conditions.push(
-      `EXISTS (SELECT 1 FROM unnest(v.service_areas) sa WHERE trim(sa) = $${params.length})`
-    );
-  }
-
   if (filters.preferred) {
     conditions.push(`v.preferred_vendor = true`);
   }
@@ -247,9 +234,8 @@ export async function getVendors(
       v.rating, v.payment_terms, v.currency, v.vat_registered, v.vat_number,
       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
       v.address, v.addresses,
-      -- gstin / website / brands_supported / service_areas omitted: list view
-      -- doesn't render them and brands_supported/service_areas can each TOAST
-      -- to several KB per row.
+      -- gstin / website / brands_supported omitted: list view doesn't render
+      -- them and brands_supported can TOAST to several KB per row.
       v.preferred_vendor,
       v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(c.cnt, 0)::int AS contact_count,
@@ -297,7 +283,7 @@ export async function getVendorById(
       v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
       v.address, v.addresses,
       v.gstin, v.website, v.preferred_vendor,
-      v.brands_supported, v.service_areas,
+      v.brands_supported,
       v.notes, v.created_by, v.created_at, v.updated_at,
       COALESCE(
         (
@@ -379,23 +365,6 @@ export async function getVendorsByTrade(
   return rows as VendorLite[];
 }
 
-/**
- * Distinct, non-empty service areas across all vendors in an org. Powers the
- * service-area filter dropdown on the vendors page. `service_areas` is a
- * free-text `text[]`, so values are flattened via `unnest`.
- */
-export async function getVendorServiceAreas(orgId: string): Promise<string[]> {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT DISTINCT trim(sa) AS service_area
-     FROM vendor v, unnest(v.service_areas) AS sa
-     WHERE v.org_id = $1 AND trim(sa) <> ''
-     ORDER BY service_area`,
-    [orgId]
-  );
-  return rows.map((r) => r.service_area as string);
-}
-
 // ─── Mutations ──────────────────────────────────────────────────────────────
 
 /**
@@ -417,15 +386,14 @@ export async function createVendor(
          org_id, company_name, trading_name, vendor_code, status,
          payment_terms, currency, vat_registered, vat_number,
          gstin, website, preferred_vendor,
-         brands_supported, service_areas,
+         brands_supported,
          addresses, notes, created_by
        )
        VALUES ($1, $2, $3, $4, COALESCE($5, 'active'),
                $6, COALESCE($7, 'USD'), COALESCE($8, false), $9,
                $10, $11, COALESCE($12, false),
                COALESCE($13::text[], '{}'::text[]),
-               COALESCE($14::text[], '{}'::text[]),
-               COALESCE($15::jsonb[], '{}'::jsonb[]), $16, $17)
+               COALESCE($14::jsonb[], '{}'::jsonb[]), $15, $16)
        RETURNING id`,
       [
         orgId,
@@ -441,7 +409,6 @@ export async function createVendor(
         input.website ?? null,
         input.preferredVendor ?? null,
         input.brandsSupported ?? null,
-        input.serviceAreas ?? null,
         addressesArray(input.addresses),
         input.notes ?? null,
         userId,
@@ -649,7 +616,7 @@ export async function updateVendorRating(
                tax_id, kyc_status, kyc_verified_at, kyc_verified_by, kyc_notes,
                address, addresses,
                gstin, website, preferred_vendor,
-               brands_supported, service_areas,
+               brands_supported,
                notes, created_by, created_at, updated_at`,
     [rating, vendorId, orgId]
   );
@@ -882,7 +849,7 @@ export async function getVendorSelfById(
        v.tax_id, v.kyc_status, v.kyc_verified_at, v.kyc_verified_by, v.kyc_notes,
        v.address, v.addresses,
        v.gstin, v.website,
-       v.brands_supported, v.service_areas,
+       v.brands_supported,
        v.created_by, v.created_at, v.updated_at,
        COALESCE(
          (

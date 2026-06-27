@@ -87,6 +87,7 @@ export function VendorTradesEditor({ trades, onChange }: Props) {
                   value={tr.categoryId}
                   onChange={(id) => update(i, { categoryId: id })}
                   tree={tree}
+                  minDepth={1}
                 />
                 <Select
                   value={tr.proficiencyLevel}

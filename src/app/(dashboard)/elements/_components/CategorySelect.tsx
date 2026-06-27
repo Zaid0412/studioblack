@@ -16,6 +16,13 @@ interface Props {
   onChange: (id: string | null) => void;
   tree: ElementCategoryNode[];
   label?: string;
+  /**
+   * Minimum tree depth a category must have to be selectable (depth 0 =
+   * level-1 category, 1 = sub-category, 2 = leaf/service area). Options
+   * shallower than this are hidden — breadcrumb labels stay intact. Default 0
+   * shows every level.
+   */
+  minDepth?: number;
 }
 
 interface FlatOption {
@@ -54,11 +61,20 @@ function flattenWithIcons(tree: ElementCategoryNode[]): FlatOption[] {
  * CategoryEditDialog modal so the create form lives outside the
  * parent element form (no nested <form> submission bubble).
  */
-export function CategorySelect({ value, onChange, tree, label }: Props) {
+export function CategorySelect({
+  value,
+  onChange,
+  tree,
+  label,
+  minDepth = 0,
+}: Props) {
   const t = useTranslations("elements");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const options = useMemo(() => flattenWithIcons(tree), [tree]);
+  const options = useMemo(
+    () => flattenWithIcons(tree).filter((o) => o.depth >= minDepth),
+    [tree, minDepth]
+  );
   const selectedOption = value ? options.find((o) => o.id === value) : null;
 
   const { submitting, handleCreate } = useCreateCategory((created) => {

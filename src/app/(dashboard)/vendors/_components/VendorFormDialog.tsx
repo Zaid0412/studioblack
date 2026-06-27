@@ -48,7 +48,6 @@ export interface VendorFormSubmit {
   website?: string;
   preferredVendor: boolean;
   brandsSupported: string[];
-  serviceAreas: string[];
   notes?: string;
   addresses: Array<{
     label?: string;
@@ -89,7 +88,6 @@ interface FormState {
   website: string;
   preferredVendor: boolean;
   brandsSupported: string[];
-  serviceAreas: string[];
   notes: string;
   addresses: AddressDraft[];
   contacts: ContactDraft[];
@@ -109,7 +107,6 @@ const EMPTY: FormState = {
   website: "",
   preferredVendor: false,
   brandsSupported: [],
-  serviceAreas: [],
   notes: "",
   addresses: [],
   contacts: [],
@@ -168,7 +165,6 @@ function vendorToForm(v: VendorWithRelations): FormState {
     website: v.website ?? "",
     preferredVendor: !!v.preferred_vendor,
     brandsSupported: v.brands_supported ?? [],
-    serviceAreas: v.service_areas ?? [],
     notes: v.notes ?? "",
     addresses,
     contacts: v.contacts.map((c) => ({
@@ -254,7 +250,6 @@ export function VendorFormDialog({
       website: opt(values.website),
       preferredVendor: values.preferredVendor,
       brandsSupported: values.brandsSupported,
-      serviceAreas: values.serviceAreas,
       notes: opt(values.notes),
       addresses,
       contacts: values.contacts
@@ -390,23 +385,14 @@ export function VendorFormDialog({
             />
           </div>
 
-          {/* Coverage — brands carried + areas served */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <TagInput
-              label={t("brandsSupported")}
-              value={values.brandsSupported}
-              onChange={(tags) => setField("brandsSupported", tags)}
-              placeholder={t("brandsSupportedPlaceholder")}
-              maxTags={50}
-            />
-            <TagInput
-              label={t("serviceAreas")}
-              value={values.serviceAreas}
-              onChange={(tags) => setField("serviceAreas", tags)}
-              placeholder={t("serviceAreasPlaceholder")}
-              maxTags={50}
-            />
-          </div>
+          {/* Coverage — brands carried */}
+          <TagInput
+            label={t("brandsSupported")}
+            value={values.brandsSupported}
+            onChange={(tags) => setField("brandsSupported", tags)}
+            placeholder={t("brandsSupportedPlaceholder")}
+            maxTags={50}
+          />
 
           {/* Addresses (multi-card editor — HQ / warehouse / billing / …) */}
           <VendorAddressesEditor

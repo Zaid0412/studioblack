@@ -288,21 +288,19 @@ describe("vendorAddressSchema — label + is_primary", () => {
 // ─── Vendor field expansion (GSTIN, website, preferred, brands, areas, IFSC) ─
 
 describe("createVendorSchema — expanded fields", () => {
-  it("accepts gstin, website, preferredVendor, brandsSupported, serviceAreas", () => {
+  it("accepts gstin, website, preferredVendor, brandsSupported", () => {
     const result = createVendorSchema.safeParse({
       companyName: "Acme",
       gstin: "29ABCDE1234F1Z5",
       website: "https://acme.example",
       preferredVendor: true,
       brandsSupported: ["Asian Paints", "Jaquar"],
-      serviceAreas: ["Bengaluru", "Chennai"],
     });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.gstin).toBe("29ABCDE1234F1Z5");
       expect(result.data.preferredVendor).toBe(true);
       expect(result.data.brandsSupported).toHaveLength(2);
-      expect(result.data.serviceAreas).toHaveLength(2);
     }
   });
 
@@ -330,10 +328,10 @@ describe("createVendorSchema — expanded fields", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects empty strings in service areas", () => {
+  it("rejects empty strings in brands supported", () => {
     const result = createVendorSchema.safeParse({
       companyName: "Acme",
-      serviceAreas: [""],
+      brandsSupported: [""],
     });
     expect(result.success).toBe(false);
   });

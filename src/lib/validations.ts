@@ -1064,7 +1064,6 @@ export const createVendorSchema = z.object({
   website: z.string().url().max(500).optional(),
   preferredVendor: z.boolean().optional(),
   brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
-  serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
   addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -1088,7 +1087,6 @@ export const updateVendorSchema = z.object({
   website: z.string().url().max(500).optional().nullable(),
   preferredVendor: z.boolean().optional(),
   brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
-  serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
   addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional().nullable(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -1165,8 +1163,6 @@ export const listVendorsQuerySchema = z.object({
   status: z.enum(VENDOR_STATUSES).optional(),
   kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
-  /** Free-text service area; matched against the vendor's `service_areas[]`. */
-  serviceArea: z.string().optional(),
   /** Restrict the list to vendors flagged `preferred_vendor = true`. */
   preferred: z
     .union([z.boolean(), z.enum(["true", "false"])])
