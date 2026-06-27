@@ -45,10 +45,7 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
 
-  const allCodes = useMemo(
-    () => MASTER_TAXONOMY.map((c) => c.codePrefix ?? c.name),
-    []
-  );
+  const allCodes = useMemo(() => MASTER_TAXONOMY.map((c) => c.codePrefix), []);
   const [checked, setChecked] = useState<Set<string>>(() => new Set(allCodes));
   const [submitting, setSubmitting] = useState(false);
 
@@ -67,8 +64,8 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
 
   const handleCreate = async () => {
     const payload = MASTER_TAXONOMY.filter((c) =>
-      checked.has(c.codePrefix ?? c.name)
-    ) as unknown as BulkCategoryNode[];
+      checked.has(c.codePrefix)
+    ) as BulkCategoryNode[];
 
     if (payload.length === 0) {
       toast({ title: t("starterNoneSelected"), variant: "warning" });
@@ -118,7 +115,7 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
 
         <div className="flex flex-col gap-2 max-h-[55vh] overflow-y-auto pr-1">
           {MASTER_TAXONOMY.map((c) => {
-            const code = c.codePrefix ?? c.name;
+            const code = c.codePrefix;
             const { subs, services } = counts(c);
             return (
               <label
@@ -135,11 +132,9 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
                 <span className="flex-1 text-sm font-medium text-text-primary">
                   {c.name}
                 </span>
-                {c.codePrefix && (
-                  <span className="rounded bg-bg-secondary px-1.5 py-0.5 text-[11px] font-mono text-text-muted">
-                    {c.codePrefix}
-                  </span>
-                )}
+                <span className="rounded bg-bg-secondary px-1.5 py-0.5 text-[11px] font-mono text-text-muted">
+                  {c.codePrefix}
+                </span>
                 <span className="text-xs text-text-muted tabular-nums">
                   {subs} · {services}
                 </span>

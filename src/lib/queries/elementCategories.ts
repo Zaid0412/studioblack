@@ -129,15 +129,6 @@ export async function createCategory(
   return rows[0] as ElementCategory;
 }
 
-/** A category template node — recursive up to 3 levels (Category → Sub → Service Area). */
-type SeedTemplateNode = {
-  name: string;
-  codePrefix?: string;
-  icon?: string;
-  color?: string;
-  children?: SeedTemplateNode[];
-};
-
 /**
  * Seed a (sub)tree of categories in one transaction, up to 3 levels deep.
  * Idempotent: a node whose `name` already exists under the same parent is
@@ -192,7 +183,7 @@ export async function bulkCreateCategoriesFromTemplates(
     }
 
     const insertNode = async (
-      node: SeedTemplateNode,
+      node: BulkCategoryNode,
       parentId: string | null,
       level: number,
       path: string

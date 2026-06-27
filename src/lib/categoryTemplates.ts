@@ -15,6 +15,8 @@ export interface SeedNode {
 }
 
 export interface SeedCategory extends SeedNode {
+  /** Top-level categories always carry a code (KIT, JOIN, FLR, …). */
+  codePrefix: string;
   icon: string;
   color: string;
 }
