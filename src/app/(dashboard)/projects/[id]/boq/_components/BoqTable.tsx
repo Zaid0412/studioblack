@@ -95,6 +95,8 @@ interface BoqTableProps {
     data: UpdateItemPayload
   ) => Promise<BoqItemWithComputed | null | undefined>;
   onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+  /** Open the apply-rate-contract dialog for this item (handled at page level). */
+  onApplyRate?: (item: BoqItemWithComputed) => void;
   /** Move `item` to `targetSectionId` (`null` = Unassigned bucket). */
   onMoveItem?: (
     item: BoqItemWithComputed,
@@ -193,6 +195,7 @@ export function BoqTable({
   sourceFilter,
   onUpdateItem,
   onDeleteItem,
+  onApplyRate,
   onMoveItem,
   onCreateAndMoveItem,
   onSetItemPhase,
@@ -373,6 +376,7 @@ export function BoqTable({
               registerSectionRef={registerSectionRef}
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}
+              onApplyRate={onApplyRate}
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
@@ -424,6 +428,7 @@ interface SectionListProps {
   registerSectionRef: (id: string, el: HTMLElement | null) => void;
   onUpdateItem?: BoqTableProps["onUpdateItem"];
   onDeleteItem?: BoqTableProps["onDeleteItem"];
+  onApplyRate?: BoqTableProps["onApplyRate"];
   onMoveItem?: BoqTableProps["onMoveItem"];
   onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
   onSetItemPhase?: BoqTableProps["onSetItemPhase"];
@@ -552,6 +557,7 @@ function SectionBody({
   registerSectionRef,
   onUpdateItem,
   onDeleteItem,
+  onApplyRate,
   onMoveItem,
   onCreateAndMoveItem,
   onSetItemPhase,
@@ -648,6 +654,7 @@ function SectionBody({
               boqCreatorId={boqCreatorId}
               onUpdateItem={onUpdateItem}
               onDeleteItem={onDeleteItem}
+              onApplyRate={onApplyRate}
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
@@ -686,6 +693,8 @@ interface BoqItemRowProps {
     data: UpdateItemPayload
   ) => Promise<BoqItemWithComputed | null | undefined>;
   onDeleteItem?: (item: BoqItemWithComputed) => Promise<void>;
+  /** Open the apply-rate-contract dialog for this item (handled at page level). */
+  onApplyRate?: (item: BoqItemWithComputed) => void;
   onMoveItem?: (
     item: BoqItemWithComputed,
     targetSectionId: string | null
@@ -726,6 +735,7 @@ const BoqItemRow = memo(function BoqItemRow({
   boqCreatorId,
   onUpdateItem,
   onDeleteItem,
+  onApplyRate,
   onMoveItem,
   isSelected,
   onToggleSelected,
@@ -784,8 +794,11 @@ const BoqItemRow = memo(function BoqItemRow({
   const canChangeLifecycle = lifecycleTargets.length > 0;
   // Clients only get menu access for lifecycle actions; PMs/architects keep
   // their existing move/delete entries gated on `editable`.
+  const canApplyRate = editable && !!onApplyRate && !!item.element_id;
   const showMenu =
-    (editable && (onDeleteItem || canMove)) || canChangeLifecycle;
+    (editable && (onDeleteItem || canMove)) ||
+    canChangeLifecycle ||
+    canApplyRate;
   const currentSectionId = item.section_id ?? null;
 
   const handlePickLifecycle = (target: BoqItemPhase) => {
@@ -1056,9 +1069,14 @@ const BoqItemRow = memo(function BoqItemRow({
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               )}
-              {(canMove || canChangeLifecycle) && onDeleteItem && editable && (
-                <DropdownMenuSeparator />
+              {canApplyRate && onApplyRate && (
+                <DropdownMenuItem onSelect={() => onApplyRate(item)}>
+                  Apply rate contract…
+                </DropdownMenuItem>
               )}
+              {(canMove || canChangeLifecycle || canApplyRate) &&
+                onDeleteItem &&
+                editable && <DropdownMenuSeparator />}
               {onDeleteItem && editable && (
                 <DropdownMenuItem
                   onSelect={() => void onDeleteItem(item)}
