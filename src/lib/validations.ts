@@ -1488,8 +1488,9 @@ export function parseBody<T extends z.ZodType>(
     // `field` is the dotted path of the offending input (e.g. "website",
     // "contacts.0.email") so clients can flag it inline; `error` keeps the
     // path-prefixed form for backward-compatible toasts.
-    const field =
-      firstError.path.length > 0 ? firstError.path.join(".") : undefined;
+    const field = firstError.path.length
+      ? firstError.path.join(".")
+      : undefined;
     const prefix = field ? `${field}: ` : "";
     return { success: false, error: `${prefix}${firstError.message}`, field };
   }

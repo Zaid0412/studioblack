@@ -52,10 +52,10 @@ export const PATCH = withAuth(
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to update vendor";
-      const conflict = /already exists/i.test(message);
+      const field = (err as { field?: string }).field;
       return NextResponse.json(
-        { error: message, ...(conflict ? { field: "vendorCode" } : {}) },
-        { status: conflict ? 409 : 400 }
+        { error: message, ...(field ? { field } : {}) },
+        { status: field ? 409 : 400 }
       );
     }
   }

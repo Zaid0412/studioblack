@@ -364,10 +364,14 @@ export async function getVendorsByTrade(
  * form can flag the code input; everything else falls back to the generic
  * pg translator.
  */
-function vendorWriteError(err: unknown): Error {
+function vendorWriteError(err: unknown): Error & { field?: string } {
   const e = err as { code?: string; constraint?: string };
   if (e.code === "23505" && e.constraint === "vendor_org_code_uk") {
-    return new Error("A vendor with this code already exists");
+    // Tag the offending field so the route can return it (and a 409) without
+    // re-sniffing the message string.
+    return Object.assign(new Error("A vendor with this code already exists"), {
+      field: "vendorCode",
+    });
   }
   return new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
 }

@@ -149,7 +149,9 @@ describe("POST /api/vendors", () => {
 
   it("maps a duplicate vendor code to 409 and flags the vendorCode field", async () => {
     vi.mocked(createVendor).mockRejectedValue(
-      new Error("A vendor with this code already exists")
+      Object.assign(new Error("A vendor with this code already exists"), {
+        field: "vendorCode",
+      })
     );
 
     const res = await CREATE(
