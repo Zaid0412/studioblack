@@ -1,24 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import {
-  ChevronRight,
-  Plus,
-  Settings,
-  ArrowUpRight,
-  Sparkles,
-} from "lucide-react";
+import { ChevronRight, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/api/routes";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
+import { ManageCategoriesLink } from "@/components/elements/ManageCategoriesLink";
 import { CategoryTemplatesDialog } from "./CategoryTemplatesDialog";
 import { useCreateCategory } from "@/hooks/useCreateCategory";
-import { useUserRole } from "@/hooks/useUserRole";
-import { useFlag } from "@/hooks/useFlag";
+import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "../_lib/categoryUtils";
 
@@ -34,16 +27,12 @@ interface TreeResponse {
 /** Read-only category tree with header quick-create + footer settings link. */
 export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const t = useTranslations("elements");
-  const { role } = useUserRole();
+  const { canManage } = useCanManageCategories();
   const { data, isLoading } = useSWR<TreeResponse>(API.elementCategories());
   const tree = data?.tree ?? [];
 
   const [createOpen, setCreateOpen] = useState(false);
   const [starterOpen, setStarterOpen] = useState(false);
-
-  const elementLibraryEnabled = useFlag("elementLibrary");
-  const canManage =
-    elementLibraryEnabled && (role === "pm" || role === "architect");
 
   const { submitting, handleCreate } = useCreateCategory(() =>
     setCreateOpen(false)
@@ -112,21 +101,7 @@ export function CategoryTreeSidebar({ selectedId, onSelect }: Props) {
         )}
       </div>
 
-      {canManage && (
-        <>
-          <div className="my-3 h-px bg-border-default" />
-          <Link
-            href="/settings/element-categories?from=elements"
-            className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] text-accent hover:bg-accent/10 transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Settings className="w-3.5 h-3.5" />
-              {t("manageCategories")}
-            </span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </Link>
-        </>
-      )}
+      {canManage && <ManageCategoriesLink from="elements" />}
 
       <CategoryEditDialog
         open={createOpen}

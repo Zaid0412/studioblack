@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { ChevronRight, Settings, ArrowUpRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API } from "@/lib/api/routes";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
-import { useUserRole } from "@/hooks/useUserRole";
-import { useFlag } from "@/hooks/useFlag";
+import { ManageCategoriesLink } from "@/components/elements/ManageCategoriesLink";
+import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 
 interface Props {
@@ -30,10 +29,7 @@ interface TreeResponse {
  */
 export function VendorCategoryTreeSidebar({ selectedId, onSelect }: Props) {
   const t = useTranslations("vendors");
-  const { role } = useUserRole();
-  const elementLibraryEnabled = useFlag("elementLibrary");
-  const canManage =
-    elementLibraryEnabled && (role === "pm" || role === "architect");
+  const { canManage } = useCanManageCategories();
   const { data, isLoading } = useSWR<TreeResponse>(API.elementCategories());
   const tree = data?.tree ?? [];
 
@@ -77,22 +73,7 @@ export function VendorCategoryTreeSidebar({ selectedId, onSelect }: Props) {
       </div>
 
       {canManage && (
-        <>
-          <div className="my-3 h-px bg-border-default" />
-          <Link
-            href="/settings/element-categories?from=vendors"
-            className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-[12px] text-accent hover:bg-accent/10 transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Settings className="w-3.5 h-3.5" />
-              {t("manageCategories")}
-            </span>
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </Link>
-          <span className="px-2 pt-1 text-[11px] text-text-muted">
-            {t("categoriesSharedHint")}
-          </span>
-        </>
+        <ManageCategoriesLink from="vendors" hint={t("categoriesSharedHint")} />
       )}
     </aside>
   );

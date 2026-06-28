@@ -28,8 +28,7 @@ import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
 import { withViewTransition } from "@/lib/viewTransition";
-import { useUserRole } from "@/hooks/useUserRole";
-import { useFlag } from "@/hooks/useFlag";
+import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
@@ -126,10 +125,7 @@ function reorderSiblings(
 export default function ElementCategoriesSettingsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  const { role, loading: roleLoading } = useUserRole();
-  const elementLibraryEnabled = useFlag("elementLibrary");
-  const canManage =
-    elementLibraryEnabled && (role === "pm" || role === "architect");
+  const { canManage, loading: roleLoading } = useCanManageCategories();
 
   const { data, isLoading } = useSWR<TreeResponse>(
     canManage ? API.elementCategories() : null
@@ -197,12 +193,12 @@ export default function ElementCategoriesSettingsPage() {
   // referrer), so the entry point tells us explicitly where to go back to.
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
-  const backHref: "/elements" | "/vendors" | "/settings" =
+  const back: { href: string; label: string } =
     from === "elements"
-      ? "/elements"
+      ? { href: "/elements", label: "backToElements" }
       : from === "vendors"
-        ? "/vendors"
-        : "/settings";
+        ? { href: "/vendors", label: "backToVendors" }
+        : { href: "/settings", label: "backToSettings" };
 
   const openCreate = (parentId?: string | null) => {
     setDialogMode("create");
@@ -345,15 +341,11 @@ export default function ElementCategoriesSettingsPage() {
   return (
     <div className="flex flex-col gap-4">
       <Link
-        href={backHref}
+        href={back.href}
         className="inline-flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-primary transition-colors w-fit"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        {backHref === "/elements"
-          ? t("backToElements")
-          : backHref === "/vendors"
-            ? t("backToVendors")
-            : t("backToSettings")}
+        {t(back.label)}
       </Link>
       <PageHeader
         title={t("manageCategories")}
