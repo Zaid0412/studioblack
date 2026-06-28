@@ -241,7 +241,7 @@ export default function ElementsPage() {
       />
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-        <div className="hidden lg:block">
+        <div className="hidden lg:flex">
           <CategoryTreeSidebar
             selectedId={state.categoryId}
             onSelect={setCategoryId}
