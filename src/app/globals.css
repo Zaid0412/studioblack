@@ -205,7 +205,9 @@ h6 {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  /* Transparent so the rounded thumb blends into the container at the ends —
+     a solid track shows square corners the rounded thumb can't fill. */
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
