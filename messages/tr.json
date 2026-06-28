@@ -912,7 +912,8 @@
     "importTooLarge": "Dosya çok büyük — en fazla 5 MB.",
     "importMultipleFiles": "Yalnızca ilk dosya içe aktarılacak.",
     "importRemoveFile": "Dosyayı kaldır",
-    "featureDisabled": "Eleman kütüphanesi özelliği henüz açık değil."
+    "featureDisabled": "Eleman kütüphanesi özelliği henüz açık değil.",
+    "backToVendors": "Tedarikçilere dön"
   },
   "vendors": {
     "title": "Tedarikçiler",
@@ -1059,7 +1060,9 @@
     "kycRemove": "Kaldır",
     "kycConfirmRemoveTitle": "Bu belge kaldırılsın mı?",
     "kycConfirmRemoveDesc": "Kayıt tedarikçiden kaldırılır. Depolamadaki dosya saklanır.",
-    "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil."
+    "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil.",
+    "manageCategories": "Kategorileri yönet",
+    "categoriesSharedHint": "Elements kütüphanesiyle paylaşılır"
   },
   "order": {
     "tabs": {

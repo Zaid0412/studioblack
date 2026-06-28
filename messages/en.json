@@ -912,7 +912,8 @@
     "importTooLarge": "File is too large — max 5 MB.",
     "importMultipleFiles": "Only the first file will be imported.",
     "importRemoveFile": "Remove file",
-    "featureDisabled": "Element library feature is not yet enabled."
+    "featureDisabled": "Element library feature is not yet enabled.",
+    "backToVendors": "Back to vendors"
   },
   "vendors": {
     "title": "Vendors",
@@ -1059,7 +1060,9 @@
     "kycRemove": "Remove",
     "kycConfirmRemoveTitle": "Remove this document?",
     "kycConfirmRemoveDesc": "The record is removed from the vendor. The file in storage is kept.",
-    "featureDisabled": "Vendor management feature is not yet enabled."
+    "featureDisabled": "Vendor management feature is not yet enabled.",
+    "manageCategories": "Manage categories",
+    "categoriesSharedHint": "Shared with the Elements library"
   },
   "order": {
     "tabs": {

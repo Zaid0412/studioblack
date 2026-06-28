@@ -196,8 +196,13 @@ export default function ElementCategoriesSettingsPage() {
   // unreliable with Next.js client-side nav (stays frozen at the initial load
   // referrer), so the entry point tells us explicitly where to go back to.
   const searchParams = useSearchParams();
-  const backHref: "/elements" | "/settings" =
-    searchParams.get("from") === "elements" ? "/elements" : "/settings";
+  const from = searchParams.get("from");
+  const backHref: "/elements" | "/vendors" | "/settings" =
+    from === "elements"
+      ? "/elements"
+      : from === "vendors"
+        ? "/vendors"
+        : "/settings";
 
   const openCreate = (parentId?: string | null) => {
     setDialogMode("create");
@@ -344,7 +349,11 @@ export default function ElementCategoriesSettingsPage() {
         className="inline-flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-primary transition-colors w-fit"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        {backHref === "/elements" ? t("backToElements") : t("backToSettings")}
+        {backHref === "/elements"
+          ? t("backToElements")
+          : backHref === "/vendors"
+            ? t("backToVendors")
+            : t("backToSettings")}
       </Link>
       <PageHeader
         title={t("manageCategories")}
