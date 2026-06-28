@@ -34,7 +34,13 @@ interface Props {
   onChange: (next: TradeDraft[]) => void;
 }
 
-/** Multi-select trade picker — vendor ↔ element_category mapping with proficiency. */
+/**
+ * Vendor service-area picker. Labelled "Service areas" in the UI, but the
+ * underlying entity is the `vendor_trade` table (vendor ↔ element_category
+ * mapping with proficiency) — the internal `trade` naming is kept to avoid a
+ * rename migration. `minDepth={1}` limits picks to sub-categories + leaf
+ * service areas (top-level categories excluded).
+ */
 export function VendorTradesEditor({ trades, onChange }: Props) {
   const t = useTranslations("vendors");
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
@@ -87,6 +93,7 @@ export function VendorTradesEditor({ trades, onChange }: Props) {
                   value={tr.categoryId}
                   onChange={(id) => update(i, { categoryId: id })}
                   tree={tree}
+                  minDepth={1}
                 />
                 <Select
                   value={tr.proficiencyLevel}

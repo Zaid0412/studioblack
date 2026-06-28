@@ -10,12 +10,10 @@ import {
   getVendorBankDetailsEnvelope,
   updateVendorBankDetails,
   getVendorsByTrade,
-  getVendorServiceAreas,
   logAudit,
   getMemberRole,
 } from "@/lib/queries";
 import { GET as LIST, POST as CREATE } from "@/app/api/vendors/route";
-import { GET as SERVICE_AREAS } from "@/app/api/vendors/service-areas/route";
 import { GET as DETAIL, PATCH, DELETE } from "@/app/api/vendors/[id]/route";
 import {
   GET as GET_BANK,
@@ -100,45 +98,9 @@ describe("GET /api/vendors", () => {
     );
   });
 
-  it("forwards the service-area filter", async () => {
-    vi.mocked(getVendors).mockResolvedValue({ rows: [], total: 0 });
-
-    await LIST(
-      buildRequest("/api/vendors", {
-        searchParams: { serviceArea: "Mumbai" },
-      })
-    );
-    expect(getVendors).toHaveBeenCalledWith(
-      "org-test-001",
-      expect.objectContaining({ serviceArea: "Mumbai" })
-    );
-  });
-
   it("returns 403 for client role", async () => {
     setupAuth(mocks.auth, clientSession);
     const res = await LIST(buildRequest("/api/vendors"));
-    expect(res.status).toBe(403);
-  });
-});
-
-// ── GET /api/vendors/service-areas ──────────────────────────────────────────
-
-describe("GET /api/vendors/service-areas", () => {
-  it("returns the distinct service-area list", async () => {
-    vi.mocked(getVendorServiceAreas).mockResolvedValue(["Mumbai", "Pune"]);
-
-    const res = await SERVICE_AREAS(buildRequest("/api/vendors/service-areas"));
-    const { status, body } = await parseResponse<{ serviceAreas: string[] }>(
-      res
-    );
-    expect(status).toBe(200);
-    expect(body.serviceAreas).toEqual(["Mumbai", "Pune"]);
-    expect(getVendorServiceAreas).toHaveBeenCalledWith("org-test-001");
-  });
-
-  it("returns 403 for client role", async () => {
-    setupAuth(mocks.auth, clientSession);
-    const res = await SERVICE_AREAS(buildRequest("/api/vendors/service-areas"));
     expect(res.status).toBe(403);
   });
 });
@@ -161,11 +123,16 @@ describe("POST /api/vendors", () => {
     expect(body.id).toBe(VENDOR_ID);
   });
 
-  it("rejects empty companyName", async () => {
+  it("rejects empty companyName and flags the field", async () => {
     const res = await CREATE(
       buildRequest("/api/vendors", { method: "POST", body: {} })
     );
-    expect(res.status).toBe(400);
+    const { status, body } = await parseResponse<{
+      error: string;
+      field?: string;
+    }>(res);
+    expect(status).toBe(400);
+    expect(body.field).toBe("companyName");
   });
 
   it("returns 403 for architect", async () => {
@@ -180,9 +147,11 @@ describe("POST /api/vendors", () => {
     expect(res.status).toBe(403);
   });
 
-  it("maps duplicate-key errors to 409", async () => {
+  it("maps a duplicate vendor code to 409 and flags the vendorCode field", async () => {
     vi.mocked(createVendor).mockRejectedValue(
-      new Error("Duplicate key — another row with this code already exists")
+      Object.assign(new Error("A vendor with this code already exists"), {
+        field: "vendorCode",
+      })
     );
 
     const res = await CREATE(
@@ -191,7 +160,9 @@ describe("POST /api/vendors", () => {
         body: { companyName: "Acme Co", vendorCode: "V001" },
       })
     );
-    expect(res.status).toBe(409);
+    const { status, body } = await parseResponse<{ field?: string }>(res);
+    expect(status).toBe(409);
+    expect(body.field).toBe("vendorCode");
   });
 });
 

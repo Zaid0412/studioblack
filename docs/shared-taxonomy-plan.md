@@ -51,13 +51,18 @@ vendor mapping works with no query change**.
 - **UI:** the "Use a starter set" dialog renders literal names + codes.
 - Tests + remove the now-unused `elements.starterCategories.*` i18n keys.
 
-### PR 2 — "Service Area" framing + leaf-level vendor mapping
+### PR 2 — Vendors map to leaf service areas; retire free-text `service_areas` (DONE)
 
-- Label L3 as "Service Area" in the category UI (terminology).
-- Vendor form selects **service-area (leaf) nodes** via existing `vendor_trade`; derive
-  category/sub-category for display. RFQ matching unchanged.
-- **Retire `vendor.service_areas TEXT[]`** — migrate values to leaf nodes, drop the column +
-  its text filter, replace with tree-based service-area filtering.
+- Vendor "Trades" relabeled to **"Service areas"**; the picker is constrained to
+  **sub-category + leaf (L2/L3)** nodes via a `minDepth` prop on `CategorySelect`
+  (top-level categories excluded). Vendors map via existing `vendor_trade`.
+- **Retired `vendor.service_areas TEXT[]`** entirely — dropped the column
+  (`scripts/migrate-vendor-drop-service-areas.sql`), the free-text form field, the
+  `/api/vendors/service-areas` route, the distinct-values query/hook, and the list
+  filter dropdown. Filtering now goes through the category-tree sidebar
+  (`vendor_trade` + descendants). RFQ matching unchanged.
+- Data: prod had 0 values, dev had 1 test value — clean drop, no backfill.
+- Internal names kept (`vendor_trade` table, `trades`/`VendorTrade` types) — UI text only.
 
 ### PR 3 — Category management on /vendors (the original feedback)
 

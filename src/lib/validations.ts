@@ -1064,7 +1064,6 @@ export const createVendorSchema = z.object({
   website: z.string().url().max(500).optional(),
   preferredVendor: z.boolean().optional(),
   brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
-  serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
   addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -1088,7 +1087,6 @@ export const updateVendorSchema = z.object({
   website: z.string().url().max(500).optional().nullable(),
   preferredVendor: z.boolean().optional(),
   brandsSupported: VENDOR_FREE_TEXT_ARRAY.optional(),
-  serviceAreas: VENDOR_FREE_TEXT_ARRAY.optional(),
   addresses: z.array(vendorAddressSchema).max(10).optional(),
   notes: z.string().max(2000).optional().nullable(),
   contacts: z.array(vendorContactSchema).max(20).optional(),
@@ -1165,8 +1163,6 @@ export const listVendorsQuerySchema = z.object({
   status: z.enum(VENDOR_STATUSES).optional(),
   kycStatus: z.enum(VENDOR_KYC_STATUSES).optional(),
   tradeCategoryId: optionalUuid,
-  /** Free-text service area; matched against the vendor's `service_areas[]`. */
-  serviceArea: z.string().optional(),
   /** Restrict the list to vendors flagged `preferred_vendor = true`. */
   preferred: z
     .union([z.boolean(), z.enum(["true", "false"])])
@@ -1483,13 +1479,20 @@ export const revertDocumentSchema = z.object({
 export function parseBody<T extends z.ZodType>(
   schema: T,
   data: unknown
-): { success: true; data: z.infer<T> } | { success: false; error: string } {
+):
+  | { success: true; data: z.infer<T> }
+  | { success: false; error: string; field?: string } {
   const result = schema.safeParse(data);
   if (!result.success) {
     const firstError = result.error.issues[0];
-    const path =
-      firstError.path.length > 0 ? `${firstError.path.join(".")}: ` : "";
-    return { success: false, error: `${path}${firstError.message}` };
+    // `field` is the dotted path of the offending input (e.g. "website",
+    // "contacts.0.email") so clients can flag it inline; `error` keeps the
+    // path-prefixed form for backward-compatible toasts.
+    const field = firstError.path.length
+      ? firstError.path.join(".")
+      : undefined;
+    const prefix = field ? `${field}: ` : "";
+    return { success: false, error: `${prefix}${firstError.message}`, field };
   }
   return { success: true, data: result.data };
 }
@@ -1503,7 +1506,8 @@ export async function parseRequest<T extends z.ZodType>(
   req: Request,
   schema: T
 ): Promise<
-  { success: true; data: z.infer<T> } | { success: false; error: string }
+  | { success: true; data: z.infer<T> }
+  | { success: false; error: string; field?: string }
 > {
   let raw: unknown;
   try {

@@ -41,8 +41,6 @@ interface Props {
   onSearchChange: (v: string) => void;
   onStatusChange: (v: VendorStatus | null) => void;
   onKycStatusChange: (v: VendorKycStatus | null) => void;
-  serviceAreas: string[];
-  onServiceAreaChange: (v: string | null) => void;
   onPreferredChange: (v: boolean) => void;
   onSortChange: (sortBy: SortKey | null, sortOrder: SortOrder | null) => void;
   onPageChange: (page: number) => void;
@@ -68,8 +66,6 @@ export function VendorList({
   onSearchChange,
   onStatusChange,
   onKycStatusChange,
-  serviceAreas,
-  onServiceAreaChange,
   onPreferredChange,
   onSortChange,
   onPageChange,
@@ -86,7 +82,6 @@ export function VendorList({
     state.status ||
     state.kycStatus ||
     state.tradeCategoryId ||
-    state.serviceArea ||
     state.preferred ||
     state.sortBy ||
     state.page > 1;
@@ -153,28 +148,6 @@ export function VendorList({
               {VENDOR_KYC_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {t(`kycStatus_${s}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="w-full lg:w-48">
-          <Select
-            value={state.serviceArea ?? ALL_STATUS}
-            onValueChange={(v) =>
-              onServiceAreaChange(v === ALL_STATUS ? null : v)
-            }
-            disabled={serviceAreas.length === 0}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("filterServiceArea")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_STATUS}>{t("allServiceAreas")}</SelectItem>
-              {serviceAreas.map((area) => (
-                <SelectItem key={area} value={area}>
-                  {area}
                 </SelectItem>
               ))}
             </SelectContent>

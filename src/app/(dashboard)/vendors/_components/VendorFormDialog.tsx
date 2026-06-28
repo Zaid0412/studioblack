@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TagInput } from "@/components/ui/TagInput";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
+import { toast } from "@/components/ui/useToast";
+import { ApiError } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -48,7 +50,6 @@ export interface VendorFormSubmit {
   website?: string;
   preferredVendor: boolean;
   brandsSupported: string[];
-  serviceAreas: string[];
   notes?: string;
   addresses: Array<{
     label?: string;
@@ -89,7 +90,6 @@ interface FormState {
   website: string;
   preferredVendor: boolean;
   brandsSupported: string[];
-  serviceAreas: string[];
   notes: string;
   addresses: AddressDraft[];
   contacts: ContactDraft[];
@@ -109,12 +109,26 @@ const EMPTY: FormState = {
   website: "",
   preferredVendor: false,
   brandsSupported: [],
-  serviceAreas: [],
   notes: "",
   addresses: [],
   contacts: [],
   trades: [],
 };
+
+/**
+ * Top-level fields whose server validation/conflict error is shown inline on
+ * the input (red). Errors on any other path (nested contacts/addresses/trades,
+ * or no field at all) fall back to a toast.
+ */
+const INLINE_ERROR_FIELDS = new Set([
+  "companyName",
+  "tradingName",
+  "vendorCode",
+  "paymentTerms",
+  "vatNumber",
+  "gstin",
+  "website",
+]);
 
 /**
  * Hydrate the form from a saved vendor. Reads the new `addresses` array
@@ -168,7 +182,6 @@ function vendorToForm(v: VendorWithRelations): FormState {
     website: v.website ?? "",
     preferredVendor: !!v.preferred_vendor,
     brandsSupported: v.brands_supported ?? [],
-    serviceAreas: v.service_areas ?? [],
     notes: v.notes ?? "",
     addresses,
     contacts: v.contacts.map((c) => ({
@@ -207,15 +220,26 @@ export function VendorFormDialog({
   const t = useTranslations("vendors");
   const tCommon = useTranslations("common");
   const [values, setValues] = useState<FormState>(EMPTY);
+  /** Server validation/conflict errors, keyed by field name → shown inline. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydrate when dialog opens
     setValues(editing ? vendorToForm(editing) : EMPTY);
+    setFieldErrors({});
   }, [editing, open]);
 
-  const setField = <K extends keyof FormState>(key: K, v: FormState[K]) =>
+  const setField = <K extends keyof FormState>(key: K, v: FormState[K]) => {
     setValues((s) => ({ ...s, [key]: v }));
+    // Clear a field's error as soon as the user edits it.
+    setFieldErrors((p) => {
+      if (!(key in p)) return p;
+      const next = { ...p };
+      delete next[key as string];
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,43 +265,64 @@ export function VendorFormDialog({
         )
       );
 
-    await onSubmit({
-      companyName: trim(values.companyName),
-      tradingName: opt(values.tradingName),
-      vendorCode: opt(values.vendorCode),
-      status: values.status,
-      paymentTerms: opt(values.paymentTerms),
-      currency: values.currency,
-      vatRegistered: values.vatRegistered,
-      vatNumber: opt(values.vatNumber),
-      gstin: opt(values.gstin),
-      website: opt(values.website),
-      preferredVendor: values.preferredVendor,
-      brandsSupported: values.brandsSupported,
-      serviceAreas: values.serviceAreas,
-      notes: opt(values.notes),
-      addresses,
-      contacts: values.contacts
-        .filter((c) => c.name.trim() && c.email.trim())
-        .map((c) => ({
-          name: c.name.trim(),
-          title: opt(c.title),
-          email: c.email.trim(),
-          phone: opt(c.phone),
-          isPrimary: c.isPrimary,
-          isSecondary: c.isSecondary,
-          receivesRfq: c.receivesRfq,
-        })),
-      trades: values.trades
-        .filter((tr): tr is TradeDraft & { categoryId: string } =>
-          Boolean(tr.categoryId)
-        )
-        .map((tr) => ({
-          categoryId: tr.categoryId,
-          proficiencyLevel: tr.proficiencyLevel,
-          notes: opt(tr.notes),
-        })),
-    });
+    try {
+      await onSubmit({
+        companyName: trim(values.companyName),
+        tradingName: opt(values.tradingName),
+        vendorCode: opt(values.vendorCode),
+        status: values.status,
+        paymentTerms: opt(values.paymentTerms),
+        currency: values.currency,
+        vatRegistered: values.vatRegistered,
+        vatNumber: opt(values.vatNumber),
+        gstin: opt(values.gstin),
+        website: opt(values.website),
+        preferredVendor: values.preferredVendor,
+        brandsSupported: values.brandsSupported,
+        notes: opt(values.notes),
+        addresses,
+        contacts: values.contacts
+          .filter((c) => c.name.trim() && c.email.trim())
+          .map((c) => ({
+            name: c.name.trim(),
+            title: opt(c.title),
+            email: c.email.trim(),
+            phone: opt(c.phone),
+            isPrimary: c.isPrimary,
+            isSecondary: c.isSecondary,
+            receivesRfq: c.receivesRfq,
+          })),
+        trades: values.trades
+          .filter((tr): tr is TradeDraft & { categoryId: string } =>
+            Boolean(tr.categoryId)
+          )
+          .map((tr) => ({
+            categoryId: tr.categoryId,
+            proficiencyLevel: tr.proficiencyLevel,
+            notes: opt(tr.notes),
+          })),
+      });
+    } catch (err) {
+      // Validation/conflict errors carry the offending `field` → flag that
+      // input inline (red). Everything else falls back to a toast.
+      if (
+        err instanceof ApiError &&
+        err.field &&
+        INLINE_ERROR_FIELDS.has(err.field)
+      ) {
+        const field = err.field;
+        // `error` is "field: message"; strip the path for a clean inline label.
+        const message = err.message.startsWith(`${field}: `)
+          ? err.message.slice(field.length + 2)
+          : err.message;
+        setFieldErrors((p) => ({ ...p, [field]: message }));
+      } else {
+        toast({
+          title: err instanceof Error ? err.message : "Failed to save vendor",
+          variant: "error",
+        });
+      }
+    }
   };
 
   return (
@@ -296,6 +341,7 @@ export function VendorFormDialog({
               label={t("companyName")}
               value={values.companyName}
               onChange={(e) => setField("companyName", e.target.value)}
+              error={fieldErrors.companyName}
               required
               maxLength={255}
             />
@@ -303,12 +349,14 @@ export function VendorFormDialog({
               label={t("tradingName")}
               value={values.tradingName}
               onChange={(e) => setField("tradingName", e.target.value)}
+              error={fieldErrors.tradingName}
               maxLength={255}
             />
             <Input
               label={t("vendorCode")}
               value={values.vendorCode}
               onChange={(e) => setField("vendorCode", e.target.value)}
+              error={fieldErrors.vendorCode}
               maxLength={50}
             />
             <div className="flex flex-col gap-1.5">
@@ -339,6 +387,7 @@ export function VendorFormDialog({
               label={t("paymentTerms")}
               value={values.paymentTerms}
               onChange={(e) => setField("paymentTerms", e.target.value)}
+              error={fieldErrors.paymentTerms}
               maxLength={100}
               placeholder={t("paymentTermsPlaceholder")}
             />
@@ -352,6 +401,7 @@ export function VendorFormDialog({
               label={t("vatNumber")}
               value={values.vatNumber}
               onChange={(e) => setField("vatNumber", e.target.value)}
+              error={fieldErrors.vatNumber}
               maxLength={50}
               disabled={!values.vatRegistered}
             />
@@ -377,6 +427,7 @@ export function VendorFormDialog({
               label={t("gstin")}
               value={values.gstin}
               onChange={(e) => setField("gstin", e.target.value)}
+              error={fieldErrors.gstin}
               maxLength={20}
               placeholder={t("gstinPlaceholder")}
             />
@@ -384,29 +435,21 @@ export function VendorFormDialog({
               label={t("website")}
               value={values.website}
               onChange={(e) => setField("website", e.target.value)}
+              error={fieldErrors.website}
               maxLength={500}
               placeholder={t("websitePlaceholder")}
               type="url"
             />
           </div>
 
-          {/* Coverage — brands carried + areas served */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <TagInput
-              label={t("brandsSupported")}
-              value={values.brandsSupported}
-              onChange={(tags) => setField("brandsSupported", tags)}
-              placeholder={t("brandsSupportedPlaceholder")}
-              maxTags={50}
-            />
-            <TagInput
-              label={t("serviceAreas")}
-              value={values.serviceAreas}
-              onChange={(tags) => setField("serviceAreas", tags)}
-              placeholder={t("serviceAreasPlaceholder")}
-              maxTags={50}
-            />
-          </div>
+          {/* Coverage — brands carried */}
+          <TagInput
+            label={t("brandsSupported")}
+            value={values.brandsSupported}
+            onChange={(tags) => setField("brandsSupported", tags)}
+            placeholder={t("brandsSupportedPlaceholder")}
+            maxTags={50}
+          />
 
           {/* Addresses (multi-card editor — HQ / warehouse / billing / …) */}
           <VendorAddressesEditor

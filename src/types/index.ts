@@ -961,8 +961,6 @@ export interface Vendor {
   preferred_vendor: boolean;
   /** Free-text brands the vendor carries (e.g. "Asian Paints", "Jaquar"). */
   brands_supported: string[];
-  /** Free-text geographic areas the vendor services. */
-  service_areas: string[];
   notes: string | null;
   created_by: string | null;
   created_at: string;
