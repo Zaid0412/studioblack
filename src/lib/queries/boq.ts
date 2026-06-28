@@ -1217,18 +1217,33 @@ export async function addElementToBoq(
 
   if (params.rateContractItemId) {
     const { rows: rcRows } = await pool.query(
-      `SELECT rci.rate, rci.unit
+      `WITH RECURSIVE elem AS (
+         SELECT category_id FROM element WHERE id = $3
+       ),
+       anc AS (
+         SELECT ec.id, ec.parent_id
+           FROM element_category ec
+           JOIN elem ON elem.category_id = ec.id
+         UNION ALL
+         SELECT p.id, p.parent_id
+           FROM element_category p
+           JOIN anc ON p.id = anc.parent_id
+       )
+       SELECT rci.rate, rci.unit
          FROM rate_contract_item rci
          JOIN rate_contract rc ON rc.id = rci.rate_contract_id
         WHERE rci.id = $1
           AND rc.org_id = $2
           AND rc.status = 'active'
-          AND rci.element_id = $3`,
+          AND (
+            rci.element_id = $3
+            OR (rci.element_id IS NULL AND rci.category_id IN (SELECT id FROM anc))
+          )`,
       [params.rateContractItemId, orgId, params.elementId]
     );
     if (rcRows.length === 0) {
       throw new Error(
-        "Rate contract item not active or doesn't match the chosen element"
+        "Rate contract item not active or doesn't cover the chosen element"
       );
     }
     unitCost = Number(rcRows[0].rate);

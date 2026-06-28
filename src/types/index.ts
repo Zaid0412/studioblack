@@ -1067,17 +1067,24 @@ export interface RateContract {
 export interface RateContractItem {
   id: string;
   rate_contract_id: string;
-  element_id: string;
+  /** Service area (taxonomy leaf) the rate is agreed for — the primary target. */
+  category_id: string;
+  /** Optional element override; null = the rate applies to the whole service area. */
+  element_id: string | null;
   unit: string;
   rate: number;
   notes: string | null;
 }
 
-export interface RateContractItemWithElement extends RateContractItem {
-  element_code: string;
-  element_name: string;
-  element_unit: string;
-  element_archived: boolean;
+export interface RateContractItemWithTarget extends RateContractItem {
+  /** Service area (always present). */
+  category_name: string;
+  category_code: string | null;
+  /** Element override (present only when element_id is set). */
+  element_code: string | null;
+  element_name: string | null;
+  element_unit: string | null;
+  element_archived: boolean | null;
 }
 
 export interface RateContractListRow extends RateContract {
@@ -1087,10 +1094,13 @@ export interface RateContractListRow extends RateContract {
 }
 
 export interface RateContractWithDetails extends RateContractListRow {
-  items: RateContractItemWithElement[];
+  items: RateContractItemWithTarget[];
 }
 
-/** Flattened across active contracts for one element. Used by the BOQ picker. */
+/** Why an available rate matched a BOQ item (most specific first). */
+export type RateMatchType = "element" | "service_area" | "ancestor";
+
+/** Flattened across active contracts. Used by the BOQ picker + per-item matcher. */
 export interface AvailableRate {
   rate_contract_item_id: string;
   rate_contract_id: string;
@@ -1098,13 +1108,18 @@ export interface AvailableRate {
   contract_name: string;
   vendor_id: string;
   vendor_name: string;
-  element_id: string;
-  element_code: string;
-  element_name: string;
+  category_id: string;
+  category_name: string;
+  category_code: string | null;
+  element_id: string | null;
+  element_code: string | null;
+  element_name: string | null;
   unit: string;
   rate: number;
   currency: string;
   end_date: string;
+  /** Set only by the per-BOQ-item matcher (`getActiveRatesForBoqItem`). */
+  match_type?: RateMatchType;
 }
 
 // ── RFQ (F9) ────────────────────────────────────────────────────────────────

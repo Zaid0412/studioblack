@@ -27,7 +27,10 @@ import type { ElementUnit } from "@/lib/validations";
 import { formatDate } from "@/lib/formatDate";
 import { RateContractStatusBadge } from "../_components/RateContractStatusBadge";
 import { RateContractItemTable } from "../_components/RateContractItemTable";
-import { RateContractItemPicker } from "../_components/RateContractItemPicker";
+import {
+  RateContractItemPicker,
+  type RateContractItemDraftSubmit,
+} from "../_components/RateContractItemPicker";
 import { RateContractFormDialog } from "../_components/RateContractFormDialog";
 
 interface Props {
@@ -54,8 +57,15 @@ export default function RateContractDetailPage({ params }: Props) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const existingElementIds = useMemo(
-    () => new Set(data?.items.map((i) => i.element_id) ?? []),
+  // Keys already in the contract — `el:<id>` for element overrides,
+  // `area:<id>` for service-area rates. Disables dup picks in the picker.
+  const existingKeys = useMemo(
+    () =>
+      new Set(
+        (data?.items ?? []).map((i) =>
+          i.element_id ? `el:${i.element_id}` : `area:${i.category_id}`
+        )
+      ),
     [data]
   );
 
@@ -108,9 +118,7 @@ export default function RateContractDetailPage({ params }: Props) {
     }
   };
 
-  const handleAddItems = async (
-    items: { elementId: string; unit: ElementUnit; rate: number }[]
-  ) => {
+  const handleAddItems = async (items: RateContractItemDraftSubmit[]) => {
     try {
       await rcApi.addItems(data.id, { items });
       toast({ title: t("toastItemsAdded", { count: items.length }) });
@@ -134,14 +142,15 @@ export default function RateContractDetailPage({ params }: Props) {
   };
 
   const handleEditRate = async (
-    item: { element_id: string; unit: string },
+    item: { category_id: string; element_id: string | null; unit: string },
     newRate: number
   ) => {
     try {
       await rcApi.addItems(data.id, {
         items: [
           {
-            elementId: item.element_id,
+            categoryId: item.category_id,
+            ...(item.element_id ? { elementId: item.element_id } : {}),
             unit: item.unit as ElementUnit,
             rate: newRate,
           },
@@ -319,7 +328,7 @@ export default function RateContractDetailPage({ params }: Props) {
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         contractCurrency={data.currency}
-        existingElementIds={existingElementIds}
+        existingKeys={existingKeys}
         onSubmit={handleAddItems}
       />
 

@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { RateContractItemWithElement } from "@/types";
+import type { RateContractItemWithTarget } from "@/types";
 
 interface Props {
-  items: RateContractItemWithElement[];
+  items: RateContractItemWithTarget[];
   currency: string;
   canRemove: boolean;
   /**
@@ -19,9 +19,9 @@ interface Props {
    * that may already be referenced by BOQs.
    */
   canEditRate: boolean;
-  onRemove: (item: RateContractItemWithElement) => void;
+  onRemove: (item: RateContractItemWithTarget) => void;
   onEditRate?: (
-    item: RateContractItemWithElement,
+    item: RateContractItemWithTarget,
     newRate: number
   ) => Promise<void>;
 }
@@ -63,9 +63,9 @@ export function RateContractItemTable({
 
   return (
     <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
-      <div className="hidden lg:grid grid-cols-[140px_1fr_100px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
-        <div>{t("colItemCode")}</div>
-        <div>{t("colItemName")}</div>
+      <div className="hidden lg:grid grid-cols-[1fr_1fr_100px_140px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
+        <div>{t("colServiceArea")}</div>
+        <div>{t("colElement")}</div>
         <div>{t("colItemUnit")}</div>
         <div className="text-right">{t("colItemRate")}</div>
         <div className="text-right">{t("colActions")}</div>
@@ -74,19 +74,37 @@ export function RateContractItemTable({
         {items.map((it) => (
           <div
             key={it.id}
-            className="grid grid-cols-1 lg:grid-cols-[140px_1fr_100px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors"
+            className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_100px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors"
           >
-            <div className="font-mono text-sm text-text-primary truncate">
-              {it.element_code}
+            <div className="flex items-center gap-2 min-w-0">
+              {it.category_code && (
+                <span className="font-mono text-xs text-text-muted shrink-0">
+                  {it.category_code}
+                </span>
+              )}
+              <span className="text-sm text-text-primary truncate">
+                {it.category_name}
+              </span>
             </div>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm text-text-primary truncate">
-                {it.element_name}
-              </span>
-              {it.element_archived && (
-                <Badge variant="archived" className="shrink-0">
-                  {t("itemArchived")}
-                </Badge>
+              {it.element_id ? (
+                <>
+                  <span className="font-mono text-xs text-text-muted shrink-0">
+                    {it.element_code}
+                  </span>
+                  <span className="text-sm text-text-primary truncate">
+                    {it.element_name}
+                  </span>
+                  {it.element_archived && (
+                    <Badge variant="archived" className="shrink-0">
+                      {t("itemArchived")}
+                    </Badge>
+                  )}
+                </>
+              ) : (
+                <span className="text-sm text-text-muted italic">
+                  {t("itemWholeArea")}
+                </span>
               )}
             </div>
             <div className="text-sm text-text-secondary">{it.unit}</div>
@@ -116,13 +134,10 @@ export function RateContractItemTable({
 }
 
 interface RateCellProps {
-  item: RateContractItemWithElement;
+  item: RateContractItemWithTarget;
   currency: string;
   canEdit: boolean;
-  onSave?: (
-    item: RateContractItemWithElement,
-    newRate: number
-  ) => Promise<void>;
+  onSave?: (item: RateContractItemWithTarget, newRate: number) => Promise<void>;
 }
 
 function RateCell({ item, currency, canEdit, onSave }: RateCellProps) {

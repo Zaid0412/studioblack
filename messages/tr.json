@@ -1284,8 +1284,6 @@
     "colEndDate": "Bitiş",
     "colItems": "Kalemler",
     "colActions": "",
-    "colItemCode": "Kod",
-    "colItemName": "Element",
     "colItemUnit": "Birim",
     "colItemRate": "Fiyat",
     "emptyTitle": "Fiyat sözleşmesi yok",
@@ -1345,7 +1343,12 @@
     "toastItemsAdded": "{count} kalem kaydedildi",
     "toastItemRemoved": "Kalem kaldırıldı",
     "toastRateUpdated": "Fiyat güncellendi",
-    "editRateTooltip": "Fiyatı düzenlemek için tıklayın"
+    "editRateTooltip": "Fiyatı düzenlemek için tıklayın",
+    "itemPickerAddArea": "Hizmet alanı ekle",
+    "itemPickerAddElement": "Veya belirli bir eleman ekle",
+    "itemWholeArea": "Tüm hizmet alanı",
+    "colServiceArea": "Hizmet Alanı",
+    "colElement": "Eleman"
   },
   "vendorPortal": {
     "title": "Tedarikçi Paneli",

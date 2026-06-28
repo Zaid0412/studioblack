@@ -8,7 +8,7 @@ import {
   activateRateContract,
   addRateContractItems,
   removeRateContractItem,
-  getActiveRatesForElement,
+  getActiveRatesForBoqItem,
   getMemberRole,
 } from "@/lib/queries";
 import { GET as LIST, POST as CREATE } from "@/app/api/rate-contracts/route";
@@ -34,6 +34,7 @@ import type { RateContract } from "@/types";
 const RC_ID = "55555555-5555-4555-8555-555555555555";
 const VENDOR_ID = "11111111-1111-4111-8111-111111111111";
 const ELEMENT_ID = "22222222-2222-4222-8222-222222222222";
+const CATEGORY_ID = "44444444-4444-4444-8444-444444444444";
 const ITEM_ID = "33333333-3333-4333-8333-333333333333";
 
 const fakeContract: RateContract = {
@@ -247,7 +248,11 @@ describe("DELETE /api/rate-contracts/[id]", () => {
 // ── POST /api/rate-contracts/[id]/items ───────────────────────────────────
 
 describe("POST /api/rate-contracts/[id]/items", () => {
-  const body = { items: [{ elementId: ELEMENT_ID, unit: "no", rate: 100 }] };
+  const body = {
+    items: [
+      { categoryId: CATEGORY_ID, elementId: ELEMENT_ID, unit: "no", rate: 100 },
+    ],
+  };
 
   it("adds items", async () => {
     vi.mocked(addRateContractItems).mockResolvedValue({ ok: true, count: 1 });
@@ -259,6 +264,34 @@ describe("POST /api/rate-contracts/[id]/items", () => {
       buildParams({ id: RC_ID })
     );
     expect(res.status).toBe(200);
+  });
+
+  it("accepts a service-area-only item (no element)", async () => {
+    vi.mocked(addRateContractItems).mockResolvedValue({ ok: true, count: 1 });
+    const res = await ADD_ITEMS(
+      buildRequest(`/api/rate-contracts/${RC_ID}/items`, {
+        method: "POST",
+        body: { items: [{ categoryId: CATEGORY_ID, unit: "no", rate: 50 }] },
+      }),
+      buildParams({ id: RC_ID })
+    );
+    expect(res.status).toBe(200);
+    expect(addRateContractItems).toHaveBeenCalledWith(
+      expect.any(String),
+      RC_ID,
+      [{ categoryId: CATEGORY_ID, unit: "no", rate: 50 }]
+    );
+  });
+
+  it("rejects an item with no service area", async () => {
+    const res = await ADD_ITEMS(
+      buildRequest(`/api/rate-contracts/${RC_ID}/items`, {
+        method: "POST",
+        body: { items: [{ elementId: ELEMENT_ID, unit: "no", rate: 50 }] },
+      }),
+      buildParams({ id: RC_ID })
+    );
+    expect(res.status).toBe(400);
   });
 
   it("rejects with 400 on currency mismatch", async () => {
@@ -344,7 +377,7 @@ describe("POST /api/rate-contracts/[id]/activate", () => {
 
 describe("GET /api/rate-contracts/by-element/[elementId]", () => {
   it("returns active rates", async () => {
-    vi.mocked(getActiveRatesForElement).mockResolvedValue([]);
+    vi.mocked(getActiveRatesForBoqItem).mockResolvedValue([]);
     const res = await BY_ELEMENT(
       buildRequest(`/api/rate-contracts/by-element/${ELEMENT_ID}`),
       buildParams({ elementId: ELEMENT_ID })
@@ -353,14 +386,14 @@ describe("GET /api/rate-contracts/by-element/[elementId]", () => {
   });
 
   it("forwards vendorId scope", async () => {
-    vi.mocked(getActiveRatesForElement).mockResolvedValue([]);
+    vi.mocked(getActiveRatesForBoqItem).mockResolvedValue([]);
     await BY_ELEMENT(
       buildRequest(`/api/rate-contracts/by-element/${ELEMENT_ID}`, {
         searchParams: { vendorId: VENDOR_ID },
       }),
       buildParams({ elementId: ELEMENT_ID })
     );
-    expect(getActiveRatesForElement).toHaveBeenCalledWith(
+    expect(getActiveRatesForBoqItem).toHaveBeenCalledWith(
       "org-test-001",
       ELEMENT_ID,
       VENDOR_ID
