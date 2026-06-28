@@ -203,11 +203,14 @@ export function VendorFormDialog({
   const t = useTranslations("vendors");
   const tCommon = useTranslations("common");
   const [values, setValues] = useState<FormState>(EMPTY);
+  /** Field-level error for the vendor-code input (set on a duplicate-code save). */
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydrate when dialog opens
     setValues(editing ? vendorToForm(editing) : EMPTY);
+    setCodeError(null);
   }, [editing, open]);
 
   const setField = <K extends keyof FormState>(key: K, v: FormState[K]) =>
@@ -237,42 +240,49 @@ export function VendorFormDialog({
         )
       );
 
-    await onSubmit({
-      companyName: trim(values.companyName),
-      tradingName: opt(values.tradingName),
-      vendorCode: opt(values.vendorCode),
-      status: values.status,
-      paymentTerms: opt(values.paymentTerms),
-      currency: values.currency,
-      vatRegistered: values.vatRegistered,
-      vatNumber: opt(values.vatNumber),
-      gstin: opt(values.gstin),
-      website: opt(values.website),
-      preferredVendor: values.preferredVendor,
-      brandsSupported: values.brandsSupported,
-      notes: opt(values.notes),
-      addresses,
-      contacts: values.contacts
-        .filter((c) => c.name.trim() && c.email.trim())
-        .map((c) => ({
-          name: c.name.trim(),
-          title: opt(c.title),
-          email: c.email.trim(),
-          phone: opt(c.phone),
-          isPrimary: c.isPrimary,
-          isSecondary: c.isSecondary,
-          receivesRfq: c.receivesRfq,
-        })),
-      trades: values.trades
-        .filter((tr): tr is TradeDraft & { categoryId: string } =>
-          Boolean(tr.categoryId)
-        )
-        .map((tr) => ({
-          categoryId: tr.categoryId,
-          proficiencyLevel: tr.proficiencyLevel,
-          notes: opt(tr.notes),
-        })),
-    });
+    try {
+      await onSubmit({
+        companyName: trim(values.companyName),
+        tradingName: opt(values.tradingName),
+        vendorCode: opt(values.vendorCode),
+        status: values.status,
+        paymentTerms: opt(values.paymentTerms),
+        currency: values.currency,
+        vatRegistered: values.vatRegistered,
+        vatNumber: opt(values.vatNumber),
+        gstin: opt(values.gstin),
+        website: opt(values.website),
+        preferredVendor: values.preferredVendor,
+        brandsSupported: values.brandsSupported,
+        notes: opt(values.notes),
+        addresses,
+        contacts: values.contacts
+          .filter((c) => c.name.trim() && c.email.trim())
+          .map((c) => ({
+            name: c.name.trim(),
+            title: opt(c.title),
+            email: c.email.trim(),
+            phone: opt(c.phone),
+            isPrimary: c.isPrimary,
+            isSecondary: c.isSecondary,
+            receivesRfq: c.receivesRfq,
+          })),
+        trades: values.trades
+          .filter((tr): tr is TradeDraft & { categoryId: string } =>
+            Boolean(tr.categoryId)
+          )
+          .map((tr) => ({
+            categoryId: tr.categoryId,
+            proficiencyLevel: tr.proficiencyLevel,
+            notes: opt(tr.notes),
+          })),
+      });
+    } catch (err) {
+      // The caller already toasts the message. For a duplicate vendor code,
+      // additionally flag the code input so the user sees *which* field.
+      const msg = err instanceof Error ? err.message : "";
+      if (/code already exists/i.test(msg)) setCodeError(t("vendorCodeExists"));
+    }
   };
 
   return (
@@ -303,7 +313,11 @@ export function VendorFormDialog({
             <Input
               label={t("vendorCode")}
               value={values.vendorCode}
-              onChange={(e) => setField("vendorCode", e.target.value)}
+              onChange={(e) => {
+                setField("vendorCode", e.target.value);
+                if (codeError) setCodeError(null);
+              }}
+              error={codeError ?? undefined}
               maxLength={50}
             />
             <div className="flex flex-col gap-1.5">

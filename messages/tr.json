@@ -942,6 +942,7 @@
     "companyName": "Şirket adı",
     "tradingName": "Ticari ad",
     "vendorCode": "Tedarikçi kodu",
+    "vendorCodeExists": "Bu tedarikçi kodu zaten kullanımda",
     "paymentTerms": "Ödeme koşulları",
     "paymentTermsPlaceholder": "örn. 30 gün",
     "currency": "Para birimi",

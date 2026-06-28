@@ -359,6 +359,20 @@ export async function getVendorsByTrade(
 // ─── Mutations ──────────────────────────────────────────────────────────────
 
 /**
+ * Translate a vendor write failure. A duplicate `vendor_code` (the
+ * `vendor_org_code_uk` index) gets a clean, field-identifiable message so the
+ * form can flag the code input; everything else falls back to the generic
+ * pg translator.
+ */
+function vendorWriteError(err: unknown): Error {
+  const e = err as { code?: string; constraint?: string };
+  if (e.code === "23505" && e.constraint === "vendor_org_code_uk") {
+    return new Error("A vendor with this code already exists");
+  }
+  return new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+}
+
+/**
  * Create a vendor + nested contacts + trades atomically. Throws on a duplicate
  * vendor_code (per-org) or any DB constraint violation.
  */
@@ -453,7 +467,7 @@ export async function createVendor(
     return created;
   } catch (err) {
     await client.query("ROLLBACK");
-    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+    throw vendorWriteError(err);
   } finally {
     client.release();
   }
@@ -564,7 +578,7 @@ export async function updateVendor(
     return await getVendorById(orgId, vendorId);
   } catch (err) {
     await client.query("ROLLBACK");
-    throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));
+    throw vendorWriteError(err);
   } finally {
     client.release();
   }
