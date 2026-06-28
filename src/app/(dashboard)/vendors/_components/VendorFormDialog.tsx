@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TagInput } from "@/components/ui/TagInput";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
+import { toast } from "@/components/ui/useToast";
+import { ApiError } from "@/lib/api";
 import {
   Select,
   SelectContent,
@@ -114,6 +116,21 @@ const EMPTY: FormState = {
 };
 
 /**
+ * Top-level fields whose server validation/conflict error is shown inline on
+ * the input (red). Errors on any other path (nested contacts/addresses/trades,
+ * or no field at all) fall back to a toast.
+ */
+const INLINE_ERROR_FIELDS = new Set([
+  "companyName",
+  "tradingName",
+  "vendorCode",
+  "paymentTerms",
+  "vatNumber",
+  "gstin",
+  "website",
+]);
+
+/**
  * Hydrate the form from a saved vendor. Reads the new `addresses` array
  * and falls back to the legacy single `address` object for vendors not
  * yet migrated by the data backfill (the column still exists on the
@@ -203,18 +220,26 @@ export function VendorFormDialog({
   const t = useTranslations("vendors");
   const tCommon = useTranslations("common");
   const [values, setValues] = useState<FormState>(EMPTY);
-  /** Field-level error for the vendor-code input (set on a duplicate-code save). */
-  const [codeError, setCodeError] = useState<string | null>(null);
+  /** Server validation/conflict errors, keyed by field name → shown inline. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydrate when dialog opens
     setValues(editing ? vendorToForm(editing) : EMPTY);
-    setCodeError(null);
+    setFieldErrors({});
   }, [editing, open]);
 
-  const setField = <K extends keyof FormState>(key: K, v: FormState[K]) =>
+  const setField = <K extends keyof FormState>(key: K, v: FormState[K]) => {
     setValues((s) => ({ ...s, [key]: v }));
+    // Clear a field's error as soon as the user edits it.
+    setFieldErrors((p) => {
+      if (!(key in p)) return p;
+      const next = { ...p };
+      delete next[key as string];
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,10 +303,25 @@ export function VendorFormDialog({
           })),
       });
     } catch (err) {
-      // The caller already toasts the message. For a duplicate vendor code,
-      // additionally flag the code input so the user sees *which* field.
-      const msg = err instanceof Error ? err.message : "";
-      if (/code already exists/i.test(msg)) setCodeError(t("vendorCodeExists"));
+      // Validation/conflict errors carry the offending `field` → flag that
+      // input inline (red). Everything else falls back to a toast.
+      if (
+        err instanceof ApiError &&
+        err.field &&
+        INLINE_ERROR_FIELDS.has(err.field)
+      ) {
+        const field = err.field;
+        // `error` is "field: message"; strip the path for a clean inline label.
+        const message = err.message.startsWith(`${field}: `)
+          ? err.message.slice(field.length + 2)
+          : err.message;
+        setFieldErrors((p) => ({ ...p, [field]: message }));
+      } else {
+        toast({
+          title: err instanceof Error ? err.message : "Failed to save vendor",
+          variant: "error",
+        });
+      }
     }
   };
 
@@ -301,6 +341,7 @@ export function VendorFormDialog({
               label={t("companyName")}
               value={values.companyName}
               onChange={(e) => setField("companyName", e.target.value)}
+              error={fieldErrors.companyName}
               required
               maxLength={255}
             />
@@ -308,16 +349,14 @@ export function VendorFormDialog({
               label={t("tradingName")}
               value={values.tradingName}
               onChange={(e) => setField("tradingName", e.target.value)}
+              error={fieldErrors.tradingName}
               maxLength={255}
             />
             <Input
               label={t("vendorCode")}
               value={values.vendorCode}
-              onChange={(e) => {
-                setField("vendorCode", e.target.value);
-                if (codeError) setCodeError(null);
-              }}
-              error={codeError ?? undefined}
+              onChange={(e) => setField("vendorCode", e.target.value)}
+              error={fieldErrors.vendorCode}
               maxLength={50}
             />
             <div className="flex flex-col gap-1.5">
@@ -348,6 +387,7 @@ export function VendorFormDialog({
               label={t("paymentTerms")}
               value={values.paymentTerms}
               onChange={(e) => setField("paymentTerms", e.target.value)}
+              error={fieldErrors.paymentTerms}
               maxLength={100}
               placeholder={t("paymentTermsPlaceholder")}
             />
@@ -361,6 +401,7 @@ export function VendorFormDialog({
               label={t("vatNumber")}
               value={values.vatNumber}
               onChange={(e) => setField("vatNumber", e.target.value)}
+              error={fieldErrors.vatNumber}
               maxLength={50}
               disabled={!values.vatRegistered}
             />
@@ -386,6 +427,7 @@ export function VendorFormDialog({
               label={t("gstin")}
               value={values.gstin}
               onChange={(e) => setField("gstin", e.target.value)}
+              error={fieldErrors.gstin}
               maxLength={20}
               placeholder={t("gstinPlaceholder")}
             />
@@ -393,6 +435,7 @@ export function VendorFormDialog({
               label={t("website")}
               value={values.website}
               onChange={(e) => setField("website", e.target.value)}
+              error={fieldErrors.website}
               maxLength={500}
               placeholder={t("websitePlaceholder")}
               type="url"

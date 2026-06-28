@@ -65,8 +65,8 @@ export function useVendors(filters: VendorFilterState) {
         mutate();
         return created;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to create";
-        toast({ title: msg, variant: "error" });
+        // Re-throw so the form can show field-level errors; it owns the
+        // error toast fallback (avoids double-toasting).
         throw err;
       } finally {
         setSubmitting(false);
@@ -84,8 +84,7 @@ export function useVendors(filters: VendorFilterState) {
         mutate();
         return updated;
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to update";
-        toast({ title: msg, variant: "error" });
+        // Re-throw so the form can show field-level errors (no double-toast).
         throw err;
       } finally {
         setSubmitting(false);

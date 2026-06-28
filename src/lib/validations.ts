@@ -1479,13 +1479,19 @@ export const revertDocumentSchema = z.object({
 export function parseBody<T extends z.ZodType>(
   schema: T,
   data: unknown
-): { success: true; data: z.infer<T> } | { success: false; error: string } {
+):
+  | { success: true; data: z.infer<T> }
+  | { success: false; error: string; field?: string } {
   const result = schema.safeParse(data);
   if (!result.success) {
     const firstError = result.error.issues[0];
-    const path =
-      firstError.path.length > 0 ? `${firstError.path.join(".")}: ` : "";
-    return { success: false, error: `${path}${firstError.message}` };
+    // `field` is the dotted path of the offending input (e.g. "website",
+    // "contacts.0.email") so clients can flag it inline; `error` keeps the
+    // path-prefixed form for backward-compatible toasts.
+    const field =
+      firstError.path.length > 0 ? firstError.path.join(".") : undefined;
+    const prefix = field ? `${field}: ` : "";
+    return { success: false, error: `${prefix}${firstError.message}`, field };
   }
   return { success: true, data: result.data };
 }
@@ -1499,7 +1505,8 @@ export async function parseRequest<T extends z.ZodType>(
   req: Request,
   schema: T
 ): Promise<
-  { success: true; data: z.infer<T> } | { success: false; error: string }
+  | { success: true; data: z.infer<T> }
+  | { success: false; error: string; field?: string }
 > {
   let raw: unknown;
   try {

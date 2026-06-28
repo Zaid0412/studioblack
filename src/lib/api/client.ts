@@ -4,7 +4,9 @@
 export class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    /** Offending input path for validation/conflict errors, when the API supplies it. */
+    public field?: string
   ) {
     super(message);
     this.name = "ApiError";
@@ -17,7 +19,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const body = await res.json().catch(() => ({}));
     throw new ApiError(
       res.status,
-      body.error || body.message || `Request failed (${res.status})`
+      body.error || body.message || `Request failed (${res.status})`,
+      typeof body.field === "string" ? body.field : undefined
     );
   }
   // 204 No Content or empty body — expected for DELETE and some POST responses

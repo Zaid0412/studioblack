@@ -34,7 +34,10 @@ export const PATCH = withAuth(
 
     const parsed = await parseRequest(req, updateVendorSchema);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error, field: parsed.field },
+        { status: 400 }
+      );
     }
 
     try {
@@ -49,8 +52,11 @@ export const PATCH = withAuth(
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to update vendor";
-      const status = /duplicate/i.test(message) ? 409 : 400;
-      return NextResponse.json({ error: message }, { status });
+      const conflict = /already exists/i.test(message);
+      return NextResponse.json(
+        { error: message, ...(conflict ? { field: "vendorCode" } : {}) },
+        { status: conflict ? 409 : 400 }
+      );
     }
   }
 );

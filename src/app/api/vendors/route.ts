@@ -46,7 +46,10 @@ export const POST = withAuth(
 
     const parsed = await parseRequest(req, createVendorSchema);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.error, field: parsed.field },
+        { status: 400 }
+      );
     }
 
     try {
@@ -55,8 +58,12 @@ export const POST = withAuth(
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to create vendor";
-      const status = /duplicate/i.test(message) ? 409 : 400;
-      return NextResponse.json({ error: message }, { status });
+      // A duplicate vendor code is a conflict tied to the `vendorCode` field.
+      const conflict = /already exists/i.test(message);
+      return NextResponse.json(
+        { error: message, ...(conflict ? { field: "vendorCode" } : {}) },
+        { status: conflict ? 409 : 400 }
+      );
     }
   }
 );

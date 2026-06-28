@@ -123,11 +123,16 @@ describe("POST /api/vendors", () => {
     expect(body.id).toBe(VENDOR_ID);
   });
 
-  it("rejects empty companyName", async () => {
+  it("rejects empty companyName and flags the field", async () => {
     const res = await CREATE(
       buildRequest("/api/vendors", { method: "POST", body: {} })
     );
-    expect(res.status).toBe(400);
+    const { status, body } = await parseResponse<{
+      error: string;
+      field?: string;
+    }>(res);
+    expect(status).toBe(400);
+    expect(body.field).toBe("companyName");
   });
 
   it("returns 403 for architect", async () => {
@@ -142,9 +147,9 @@ describe("POST /api/vendors", () => {
     expect(res.status).toBe(403);
   });
 
-  it("maps duplicate-key errors to 409", async () => {
+  it("maps a duplicate vendor code to 409 and flags the vendorCode field", async () => {
     vi.mocked(createVendor).mockRejectedValue(
-      new Error("Duplicate key — another row with this code already exists")
+      new Error("A vendor with this code already exists")
     );
 
     const res = await CREATE(
@@ -153,7 +158,9 @@ describe("POST /api/vendors", () => {
         body: { companyName: "Acme Co", vendorCode: "V001" },
       })
     );
-    expect(res.status).toBe(409);
+    const { status, body } = await parseResponse<{ field?: string }>(res);
+    expect(status).toBe(409);
+    expect(body.field).toBe("vendorCode");
   });
 });
 

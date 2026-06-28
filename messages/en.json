@@ -942,7 +942,6 @@
     "companyName": "Company name",
     "tradingName": "Trading name",
     "vendorCode": "Vendor code",
-    "vendorCodeExists": "This vendor code is already in use",
     "paymentTerms": "Payment terms",
     "paymentTermsPlaceholder": "e.g. Net 30",
     "currency": "Currency",
