@@ -8,6 +8,8 @@ import type {
 import type {
   RateContractStatus,
   RateContractSortField,
+  RateContractType,
+  RateContractPriceBasis,
 } from "@/lib/validations";
 import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
@@ -44,29 +46,31 @@ const RATE_CONTRACT_SORT_SQL: Record<
   updated_at: "rc.updated_at",
 };
 
-export interface CreateRateContractInput {
+interface RateContractFieldsInput {
+  agreementSignedDate?: string | null;
+  currency?: string;
+  paymentTerms?: string | null;
+  agreementUrl?: string | null;
+  termsAndConditions?: string | null;
+  notes?: string | null;
+  contractType?: RateContractType | null;
+  creditPeriodDays?: number | null;
+  deliveryTerms?: string | null;
+  priceBasis?: RateContractPriceBasis | null;
+  renewalDate?: string | null;
+}
+
+export interface CreateRateContractInput extends RateContractFieldsInput {
   vendorId: string;
   name: string;
   startDate: string;
   endDate: string;
-  agreementSignedDate?: string | null;
-  currency?: string;
-  paymentTerms?: string | null;
-  agreementUrl?: string | null;
-  termsAndConditions?: string | null;
-  notes?: string | null;
 }
 
-export interface UpdateRateContractInput {
+export interface UpdateRateContractInput extends RateContractFieldsInput {
   name?: string;
   startDate?: string;
   endDate?: string;
-  agreementSignedDate?: string | null;
-  currency?: string;
-  paymentTerms?: string | null;
-  agreementUrl?: string | null;
-  termsAndConditions?: string | null;
-  notes?: string | null;
   status?: RateContractStatus;
 }
 
@@ -80,6 +84,11 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
   agreementUrl: "agreement_url",
   termsAndConditions: "terms_and_conditions",
   notes: "notes",
+  contractType: "contract_type",
+  creditPeriodDays: "credit_period_days",
+  deliveryTerms: "delivery_terms",
+  priceBasis: "price_basis",
+  renewalDate: "renewal_date",
 };
 
 /**
@@ -142,6 +151,8 @@ export async function listRateContracts(
       rc.id, rc.org_id, rc.vendor_id, rc.contract_number, rc.name, rc.status,
       rc.start_date, rc.end_date, rc.agreement_signed_date, rc.currency,
       rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
+      rc.contract_type, rc.credit_period_days, rc.delivery_terms,
+      rc.price_basis, rc.renewal_date,
       rc.created_by, rc.created_at, rc.updated_at,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
@@ -182,6 +193,8 @@ export async function getRateContractById(
       rc.id, rc.org_id, rc.vendor_id, rc.contract_number, rc.name, rc.status,
       rc.start_date, rc.end_date, rc.agreement_signed_date, rc.currency,
       rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
+      rc.contract_type, rc.credit_period_days, rc.delivery_terms,
+      rc.price_basis, rc.renewal_date,
       rc.created_by, rc.created_at, rc.updated_at,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
@@ -196,6 +209,11 @@ export async function getRateContractById(
               'unit', rci.unit,
               'rate', rci.rate,
               'notes', rci.notes,
+              'description', rci.description,
+              'min_qty', rci.min_qty,
+              'max_qty', rci.max_qty,
+              'lead_time_days', rci.lead_time_days,
+              'valid_until', rci.valid_until,
               'category_name', cat.name,
               'category_code', cat.code_prefix,
               'element_code', e.code,
@@ -363,11 +381,14 @@ export async function createRateContract(
          org_id, vendor_id, contract_number, name, status,
          start_date, end_date, agreement_signed_date,
          currency, payment_terms, agreement_url,
-         terms_and_conditions, notes, created_by
+         terms_and_conditions, notes, created_by,
+         contract_type, credit_period_days, delivery_terms,
+         price_basis, renewal_date
        )
        VALUES ($1, $2, $3, $4, 'draft',
                $5, $6, $7,
-               COALESCE($8, 'USD'), $9, $10, $11, $12, $13)
+               COALESCE($8, 'USD'), $9, $10, $11, $12, $13,
+               $14, $15, $16, $17, $18)
        RETURNING *`,
       [
         orgId,
@@ -383,6 +404,11 @@ export async function createRateContract(
         input.termsAndConditions ?? null,
         input.notes ?? null,
         userId,
+        input.contractType ?? null,
+        input.creditPeriodDays ?? null,
+        input.deliveryTerms ?? null,
+        input.priceBasis ?? null,
+        input.renewalDate ?? null,
       ]
     );
     return rows[0] as RateContract;
@@ -543,6 +569,11 @@ export interface AddRateContractItemInput {
   unit: string;
   rate: number;
   notes?: string | null;
+  description?: string | null;
+  minQty?: number | null;
+  maxQty?: number | null;
+  leadTimeDays?: number | null;
+  validUntil?: string | null;
 }
 
 /**
@@ -619,12 +650,18 @@ export async function addRateContractItems(
         : "(rate_contract_id, category_id) WHERE element_id IS NULL";
       const r = await client.query(
         `INSERT INTO rate_contract_item (
-           rate_contract_id, category_id, element_id, unit, rate, notes
-         ) VALUES ($1, $2, $3, $4, $5::numeric, $6)
+           rate_contract_id, category_id, element_id, unit, rate, notes,
+           description, min_qty, max_qty, lead_time_days, valid_until
+         ) VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, $8, $9, $10, $11)
          ON CONFLICT ${conflictTarget}
          DO UPDATE SET unit = EXCLUDED.unit,
                        rate = EXCLUDED.rate,
-                       notes = EXCLUDED.notes`,
+                       notes = EXCLUDED.notes,
+                       description = EXCLUDED.description,
+                       min_qty = EXCLUDED.min_qty,
+                       max_qty = EXCLUDED.max_qty,
+                       lead_time_days = EXCLUDED.lead_time_days,
+                       valid_until = EXCLUDED.valid_until`,
         [
           contractId,
           it.categoryId,
@@ -632,6 +669,11 @@ export async function addRateContractItems(
           it.unit,
           it.rate,
           it.notes ?? null,
+          it.description ?? null,
+          it.minQty ?? null,
+          it.maxQty ?? null,
+          it.leadTimeDays ?? null,
+          it.validUntil ?? null,
         ]
       );
       count += r.rowCount ?? 0;

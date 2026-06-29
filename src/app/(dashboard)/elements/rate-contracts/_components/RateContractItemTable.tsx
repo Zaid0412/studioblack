@@ -73,26 +73,45 @@ export function RateContractItemTable({
                 {it.category_name}
               </span>
             </div>
-            <div className="flex items-center gap-2 min-w-0">
-              {it.element_id ? (
-                <>
-                  <span className="font-mono text-xs text-text-muted shrink-0">
-                    {it.element_code}
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                {it.element_id ? (
+                  <>
+                    <span className="font-mono text-xs text-text-muted shrink-0">
+                      {it.element_code}
+                    </span>
+                    <span className="text-sm text-text-primary truncate">
+                      {it.element_name}
+                    </span>
+                    {it.element_archived && (
+                      <Badge variant="archived" className="shrink-0">
+                        {t("itemArchived")}
+                      </Badge>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-sm text-text-muted italic">
+                    {t("itemWholeArea")}
                   </span>
-                  <span className="text-sm text-text-primary truncate">
-                    {it.element_name}
-                  </span>
-                  {it.element_archived && (
-                    <Badge variant="archived" className="shrink-0">
-                      {t("itemArchived")}
-                    </Badge>
-                  )}
-                </>
-              ) : (
-                <span className="text-sm text-text-muted italic">
-                  {t("itemWholeArea")}
-                </span>
-              )}
+                )}
+              </div>
+              {(() => {
+                const meta = [
+                  it.description,
+                  it.lead_time_days != null
+                    ? `${t("colLeadTime")} ${it.lead_time_days}d`
+                    : null,
+                  it.min_qty != null || it.max_qty != null
+                    ? `${t("colQtyRange")} ${it.min_qty ?? "—"}–${it.max_qty ?? "—"}`
+                    : null,
+                  it.valid_until ? `→ ${it.valid_until.slice(0, 10)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+                return meta ? (
+                  <div className="text-xs text-text-muted truncate">{meta}</div>
+                ) : null;
+              })()}
             </div>
             <div className="text-sm text-text-secondary">{it.unit}</div>
             <RateCell

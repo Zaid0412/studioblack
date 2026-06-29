@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Trash2 } from "lucide-react";
+import { SlidersHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -19,6 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import { cn } from "@/lib/utils";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { buildCategoryMap } from "@/lib/elementCategories";
@@ -33,6 +34,11 @@ export interface RateContractItemDraftSubmit {
   elementId?: string;
   unit: ElementUnit;
   rate: number;
+  description?: string | null;
+  minQty?: number | null;
+  maxQty?: number | null;
+  leadTimeDays?: number | null;
+  validUntil?: string | null;
 }
 
 interface Props {
@@ -56,6 +62,13 @@ interface DraftRow {
   element: Element | null;
   rate: string;
   unit: ElementUnit | null;
+  description: string;
+  minQty: string;
+  maxQty: string;
+  leadTimeDays: string;
+  validUntil: string;
+  /** Whether the optional-detail section is expanded for this draft. */
+  expanded: boolean;
 }
 
 /**
@@ -135,9 +148,23 @@ export function RateContractItemPicker({
         element,
         rate: "",
         unit,
+        description: "",
+        minQty: "",
+        maxQty: "",
+        leadTimeDays: "",
+        validUntil: "",
+        expanded: false,
       },
     ]);
   };
+
+  /** Optional numeric field → number | null. */
+  const numOrNull = (s: string) => (s.trim() ? Number(s) : null);
+
+  /** Accent the detail toggle when it's open or any optional field is filled. */
+  const hasDetail = (d: DraftRow) =>
+    d.expanded ||
+    !!(d.description || d.minQty || d.maxQty || d.leadTimeDays || d.validUntil);
 
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
     setDrafts((s) => s.map((d) => (d.key === key ? { ...d, ...patch } : d)));
@@ -166,6 +193,11 @@ export function RateContractItemPicker({
             ...(d.element ? { elementId: d.element.id } : {}),
             unit: d.unit,
             rate: Number(d.rate),
+            description: d.description.trim() || null,
+            minQty: numOrNull(d.minQty),
+            maxQty: numOrNull(d.maxQty),
+            leadTimeDays: numOrNull(d.leadTimeDays),
+            validUntil: d.validUntil || null,
           }))
       );
       onOpenChange(false);
@@ -184,7 +216,7 @@ export function RateContractItemPicker({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+        <div className="flex flex-col gap-4">
           {/* Add a whole service area */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -268,51 +300,130 @@ export function RateContractItemPicker({
               <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                 {t("itemPickerDraftHeader", { count: drafts.length })}
               </h4>
-              <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-2">
                 {drafts.map((d) => (
                   <div
                     key={d.key}
-                    className="flex items-center gap-2 rounded-md border border-border-default p-2"
+                    className="flex flex-col gap-2 rounded-md border border-border-default p-2"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-text-primary truncate">
-                        {d.categoryLabel || d.categoryId}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-text-primary truncate">
+                          {d.categoryLabel || d.categoryId}
+                        </div>
+                        <div className="font-mono text-xs text-text-muted truncate">
+                          {d.element
+                            ? `${d.element.code} · ${d.element.name}`
+                            : t("itemWholeArea")}
+                        </div>
                       </div>
-                      <div className="font-mono text-xs text-text-muted truncate">
-                        {d.element
-                          ? `${d.element.code} · ${d.element.name}`
-                          : t("itemWholeArea")}
+                      <div className="w-24 shrink-0">
+                        <UnitFilterSelect
+                          value={d.unit}
+                          onChange={(unit) => updateDraft(d.key, { unit })}
+                          placeholder={t("itemPickerUnitPlaceholder")}
+                          allLabel={t("itemPickerUnitClear")}
+                        />
                       </div>
-                    </div>
-                    <div className="w-24 shrink-0">
-                      <UnitFilterSelect
-                        value={d.unit}
-                        onChange={(unit) => updateDraft(d.key, { unit })}
-                        placeholder={t("itemPickerUnitPlaceholder")}
-                        allLabel={t("itemPickerUnitClear")}
+                      <Input
+                        value={d.rate}
+                        onChange={(e) =>
+                          updateDraft(d.key, { rate: e.target.value })
+                        }
+                        placeholder={t("itemPickerRatePlaceholder", {
+                          currency: contractCurrency,
+                        })}
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        className="w-32 h-9 px-3 py-2"
                       />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          updateDraft(d.key, { expanded: !d.expanded })
+                        }
+                        aria-label={t("itemOptionalDetail")}
+                        title={t("itemOptionalDetail")}
+                        className={hasDetail(d) ? "text-accent" : ""}
+                      >
+                        <SlidersHorizontal className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeDraft(d.key)}
+                        aria-label={t("removeItem")}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Input
-                      value={d.rate}
-                      onChange={(e) =>
-                        updateDraft(d.key, { rate: e.target.value })
-                      }
-                      placeholder={t("itemPickerRatePlaceholder", {
-                        currency: contractCurrency,
-                      })}
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      className="w-32 h-9 px-3 py-2"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeDraft(d.key)}
-                      aria-label={t("removeItem")}
+                    {/* Optional procurement detail — collapsed by default to keep
+                        the list compact; smooth height animation on toggle. */}
+                    <div
+                      className={cn(
+                        "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+                        d.expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      )}
+                      aria-hidden={!d.expanded}
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      <div className="overflow-hidden">
+                        <div className="flex flex-col gap-2 border-t border-border-default pt-2">
+                          <Input
+                            label={t("itemDescription")}
+                            value={d.description}
+                            onChange={(e) =>
+                              updateDraft(d.key, {
+                                description: e.target.value,
+                              })
+                            }
+                            maxLength={2000}
+                          />
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <Input
+                              label={t("itemMinQty")}
+                              value={d.minQty}
+                              onChange={(e) =>
+                                updateDraft(d.key, { minQty: e.target.value })
+                              }
+                              type="number"
+                              min="0"
+                            />
+                            <Input
+                              label={t("itemMaxQty")}
+                              value={d.maxQty}
+                              onChange={(e) =>
+                                updateDraft(d.key, { maxQty: e.target.value })
+                              }
+                              type="number"
+                              min="0"
+                            />
+                            <Input
+                              label={t("itemLeadTimeDays")}
+                              value={d.leadTimeDays}
+                              onChange={(e) =>
+                                updateDraft(d.key, {
+                                  leadTimeDays: e.target.value,
+                                })
+                              }
+                              type="number"
+                              min="0"
+                            />
+                            <Input
+                              label={t("itemValidUntil")}
+                              value={d.validUntil}
+                              onChange={(e) =>
+                                updateDraft(d.key, {
+                                  validUntil: e.target.value,
+                                })
+                              }
+                              type="date"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -12,6 +12,8 @@ import type {
   VendorKycStatus,
   VendorKycDocumentType,
   RateContractStatus,
+  RateContractType,
+  RateContractPriceBasis,
   VendorQuoteStatus,
 } from "@/lib/validations";
 
@@ -1059,6 +1061,11 @@ export interface RateContract {
   agreement_url: string | null;
   terms_and_conditions: string | null;
   notes: string | null;
+  contract_type: RateContractType | null;
+  credit_period_days: number | null;
+  delivery_terms: string | null;
+  price_basis: RateContractPriceBasis | null;
+  renewal_date: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -1074,6 +1081,11 @@ export interface RateContractItem {
   unit: string;
   rate: number;
   notes: string | null;
+  description: string | null;
+  min_qty: number | null;
+  max_qty: number | null;
+  lead_time_days: number | null;
+  valid_until: string | null;
 }
 
 export interface RateContractItemWithTarget extends RateContractItem {

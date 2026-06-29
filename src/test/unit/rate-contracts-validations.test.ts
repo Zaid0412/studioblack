@@ -22,6 +22,33 @@ describe("createRateContractSchema", () => {
     expect(parseBody(createRateContractSchema, valid).success).toBe(true);
   });
 
+  it("accepts contract type, price basis, and commercial terms", () => {
+    expect(
+      parseBody(createRateContractSchema, {
+        ...valid,
+        contractType: "mixed",
+        priceBasis: "supply_install",
+        creditPeriodDays: 30,
+        deliveryTerms: "Ex-site",
+        renewalDate: "2026-12-15",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects an unknown contract type", () => {
+    expect(
+      parseBody(createRateContractSchema, { ...valid, contractType: "bogus" })
+        .success
+    ).toBe(false);
+  });
+
+  it("rejects a negative credit period", () => {
+    expect(
+      parseBody(createRateContractSchema, { ...valid, creditPeriodDays: -1 })
+        .success
+    ).toBe(false);
+  });
+
   it("rejects endDate before startDate", () => {
     const r = parseBody(createRateContractSchema, {
       ...valid,
@@ -114,6 +141,41 @@ describe("addRateContractItemsSchema", () => {
         items: [{ categoryId: CATEGORY_ID, unit: "no", rate: 100 }],
       }).success
     ).toBe(true);
+  });
+
+  it("accepts the optional procurement fields", () => {
+    expect(
+      parseBody(addRateContractItemsSchema, {
+        items: [
+          {
+            categoryId: CATEGORY_ID,
+            unit: "no",
+            rate: 100,
+            description: "Base cabinet supply",
+            minQty: 20,
+            maxQty: 500,
+            leadTimeDays: 21,
+            validUntil: "2026-12-31",
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects maxQty below minQty", () => {
+    expect(
+      parseBody(addRateContractItemsSchema, {
+        items: [
+          {
+            categoryId: CATEGORY_ID,
+            unit: "no",
+            rate: 100,
+            minQty: 50,
+            maxQty: 10,
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it("rejects an item with no service area (categoryId)", () => {
