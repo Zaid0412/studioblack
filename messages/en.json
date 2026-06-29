@@ -1349,7 +1349,16 @@
     "itemWholeArea": "Whole service area",
     "colServiceArea": "Service Area",
     "colElement": "Element",
-    "itemPickerAreaPlaceholder": "Select a service area to add…"
+    "itemPickerAreaPlaceholder": "Select a service area to add…",
+    "applyDialogTitle": "Apply rate contract",
+    "applyDialogDescription": "Active rates covering {item}. Most specific first.",
+    "applyDialogEmpty": "No active rate contract covers this item.",
+    "applyApplied": "Applied",
+    "applyToastSuccess": "Rate applied from contract",
+    "applyToastError": "Failed to apply rate",
+    "matchElement": "Exact element",
+    "matchServiceArea": "Service area",
+    "matchAncestor": "Parent area"
   },
   "vendorPortal": {
     "title": "Vendor Dashboard",

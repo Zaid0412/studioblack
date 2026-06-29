@@ -243,7 +243,9 @@ export async function getActiveRatesForBoqItem(
     vendorClause = `AND rc.vendor_id = $${params.length}`;
   }
   const { rows } = await pool.query(
-    `SELECT * FROM (
+    // `elem` resolves the target element's service area once (not per row).
+    `WITH elem AS (SELECT category_id FROM element WHERE id = $2)
+     SELECT * FROM (
        SELECT
          rci.id AS rate_contract_item_id,
          rc.id AS rate_contract_id,
@@ -263,17 +265,18 @@ export async function getActiveRatesForBoqItem(
          rc.end_date,
          CASE
            WHEN rci.element_id = $2 THEN 'element'
-           WHEN rci.category_id = (SELECT category_id FROM element WHERE id = $2)
-             THEN 'service_area'
+           WHEN rci.category_id = elem.category_id THEN 'service_area'
            ELSE 'ancestor'
          END AS match_type
        FROM rate_contract_item rci
+       CROSS JOIN elem
        JOIN rate_contract rc ON rc.id = rci.rate_contract_id
        JOIN vendor v ON v.id = rc.vendor_id
        JOIN element_category cat ON cat.id = rci.category_id
        LEFT JOIN element e ON e.id = rci.element_id
        WHERE rc.org_id = $1
          AND rc.status = 'active'
+         AND cat.is_active = true
          ${vendorClause}
          AND (rci.element_id IS NULL OR e.is_active = true)
          AND (
@@ -568,6 +571,18 @@ export async function addRateContractItems(
       return { ok: false, reason: "not_found" };
     }
     const contractCurrency = contract.rows[0].currency as string;
+
+    // Every item targets a service area: validate the categories exist in this
+    // org so a stale/invalid id returns a clean reason instead of a raw FK 500.
+    const categoryIds = [...new Set(items.map((i) => i.categoryId))];
+    const categoryRows = await client.query(
+      `SELECT id FROM element_category WHERE org_id = $1 AND id = ANY($2::uuid[])`,
+      [orgId, categoryIds]
+    );
+    if (categoryRows.rows.length !== categoryIds.length) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "category_not_found" };
+    }
 
     // Validate element overrides only (service-area rates carry no element):
     // each must exist (org-scoped) and match the contract currency.

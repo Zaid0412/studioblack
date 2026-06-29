@@ -1349,7 +1349,16 @@
     "itemWholeArea": "Tüm hizmet alanı",
     "colServiceArea": "Hizmet Alanı",
     "colElement": "Eleman",
-    "itemPickerAreaPlaceholder": "Eklenecek bir hizmet alanı seçin…"
+    "itemPickerAreaPlaceholder": "Eklenecek bir hizmet alanı seçin…",
+    "applyDialogTitle": "Birim fiyat sözleşmesi uygula",
+    "applyDialogDescription": "{item} öğesini kapsayan aktif fiyatlar. En özelden başlayarak.",
+    "applyDialogEmpty": "Bu kalemi kapsayan aktif bir birim fiyat sözleşmesi yok.",
+    "applyApplied": "Uygulandı",
+    "applyToastSuccess": "Fiyat sözleşmeden uygulandı",
+    "applyToastError": "Fiyat uygulanamadı",
+    "matchElement": "Tam eleman",
+    "matchServiceArea": "Hizmet alanı",
+    "matchAncestor": "Üst alan"
   },
   "vendorPortal": {
     "title": "Tedarikçi Paneli",

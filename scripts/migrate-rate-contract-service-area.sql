@@ -23,6 +23,18 @@ UPDATE rate_contract_item rci
  WHERE e.id = rci.element_id
    AND rci.category_id IS NULL;
 
+-- Pre-flight: fail loudly (not via a cryptic NOT NULL error) if any row is still
+-- unbackfilled because its element has no category_id. Backfill those first.
+DO $$
+DECLARE
+  unbackfilled int;
+BEGIN
+  SELECT count(*) INTO unbackfilled FROM rate_contract_item WHERE category_id IS NULL;
+  IF unbackfilled > 0 THEN
+    RAISE EXCEPTION 'Migration aborted: % rate_contract_item row(s) have no category_id (their element has no category). Assign categories to those elements first.', unbackfilled;
+  END IF;
+END $$;
+
 ALTER TABLE rate_contract_item
   ALTER COLUMN category_id SET NOT NULL;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { Check, Loader2, Package } from "lucide-react";
 import {
@@ -31,10 +32,10 @@ interface Props {
   onApplied: () => void;
 }
 
-const MATCH_LABEL: Record<RateMatchType, string> = {
-  element: "Exact element",
-  service_area: "Service area",
-  ancestor: "Parent area",
+const MATCH_LABEL_KEY: Record<RateMatchType, string> = {
+  element: "matchElement",
+  service_area: "matchServiceArea",
+  ancestor: "matchAncestor",
 };
 
 const MATCH_VARIANT: Record<RateMatchType, "success" | "info" | "archived"> = {
@@ -54,6 +55,7 @@ export function BoqApplyRateDialog({
   onOpenChange,
   onApplied,
 }: Props) {
+  const t = useTranslations("rateContracts");
   const [applyingId, setApplyingId] = useState<string | null>(null);
 
   const { data, isLoading } = useSWR<{ rates: AvailableRate[] }>(
@@ -69,12 +71,12 @@ export function BoqApplyRateDialog({
         rateContractItemId: rate.rate_contract_item_id,
         updatedAt: item.updated_at,
       });
-      toast({ title: "Rate applied from contract", variant: "success" });
+      toast({ title: t("applyToastSuccess"), variant: "success" });
       onApplied();
       onOpenChange(false);
     } catch (err) {
       toast({
-        title: err instanceof Error ? err.message : "Failed to apply rate",
+        title: err instanceof Error ? err.message : t("applyToastError"),
         variant: "error",
       });
     } finally {
@@ -86,13 +88,11 @@ export function BoqApplyRateDialog({
     <Dialog open={!!item} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Apply rate contract</DialogTitle>
+          <DialogTitle>{t("applyDialogTitle")}</DialogTitle>
           <DialogDescription>
-            Active rates covering{" "}
-            <span className="font-medium text-text-secondary">
-              {item?.item_code || item?.name}
-            </span>
-            . Most specific first.
+            {t("applyDialogDescription", {
+              item: item?.item_code || item?.name || "",
+            })}
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +106,7 @@ export function BoqApplyRateDialog({
           ) : rates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-sm text-text-muted gap-2">
               <Package className="h-5 w-5" />
-              <span>No active rate contract covers this item.</span>
+              <span>{t("applyDialogEmpty")}</span>
             </div>
           ) : (
             <ul className="flex flex-col">
@@ -132,13 +132,13 @@ export function BoqApplyRateDialog({
                               variant={MATCH_VARIANT[r.match_type]}
                               className="shrink-0"
                             >
-                              {MATCH_LABEL[r.match_type]}
+                              {t(MATCH_LABEL_KEY[r.match_type])}
                             </Badge>
                           )}
                           {isApplied && (
                             <span className="shrink-0 inline-flex items-center gap-1 text-xs text-success">
                               <Check className="h-3.5 w-3.5" />
-                              Applied
+                              {t("applyApplied")}
                             </span>
                           )}
                         </div>

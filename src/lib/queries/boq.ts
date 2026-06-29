@@ -1094,6 +1094,7 @@ export async function applyRateContractToBoqItem(
     `SELECT rci.rate, rci.unit
        FROM rate_contract_item rci
        JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+       JOIN element_category cat ON cat.id = rci.category_id AND cat.is_active = true
       WHERE rci.id = $1
         AND rc.org_id = $2
         AND rc.status = 'active'
@@ -1301,6 +1302,7 @@ export async function addElementToBoq(
       `SELECT rci.rate, rci.unit
          FROM rate_contract_item rci
          JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+         JOIN element_category cat ON cat.id = rci.category_id AND cat.is_active = true
         WHERE rci.id = $1
           AND rc.org_id = $2
           AND rc.status = 'active'

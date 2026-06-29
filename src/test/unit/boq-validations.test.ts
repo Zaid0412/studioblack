@@ -11,6 +11,7 @@ import {
   deleteBoqItemSchema,
   reorderItemsSchema,
   addElementToBoqSchema,
+  applyRateToBoqItemSchema,
   parseBody,
 } from "@/lib/validations";
 
@@ -400,6 +401,36 @@ describe("deleteBoqItemSchema", () => {
 
   it("accepts a non-empty updatedAt string", () => {
     expectPass(deleteBoqItemSchema, { updatedAt: "2024-01-01T00:00:00Z" });
+  });
+});
+
+// ── applyRateToBoqItemSchema ─────────────────────────────────────────────────
+
+describe("applyRateToBoqItemSchema", () => {
+  const valid = {
+    rateContractItemId: VALID_UUID,
+    updatedAt: "2024-01-01T00:00:00Z",
+  };
+
+  it("accepts a valid payload", () => {
+    expectPass(applyRateToBoqItemSchema, valid);
+  });
+
+  it("requires rateContractItemId", () => {
+    expectFail(applyRateToBoqItemSchema, { updatedAt: valid.updatedAt });
+  });
+
+  it("rejects a non-uuid rateContractItemId", () => {
+    expectFail(applyRateToBoqItemSchema, {
+      ...valid,
+      rateContractItemId: "not-a-uuid",
+    });
+  });
+
+  it("requires updatedAt", () => {
+    expectFail(applyRateToBoqItemSchema, {
+      rateContractItemId: VALID_UUID,
+    });
   });
 });
 
