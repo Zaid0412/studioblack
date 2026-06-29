@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -26,12 +27,12 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <head>
-        {/* Block FOUC: apply data-theme before first paint */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("studioblack-theme-v2")==="dark"){document.documentElement.setAttribute("data-theme","dark")}}catch(e){}`,
-          }}
-        />
+        {/* Block FOUC: apply data-theme before first paint. `next/script`
+            beforeInteractive injects it into the initial HTML (and avoids the
+            "script tag inside a React component" dev warning). */}
+        <Script id="theme-no-flash" strategy="beforeInteractive">
+          {`try{if(localStorage.getItem("studioblack-theme-v2")==="dark"){document.documentElement.setAttribute("data-theme","dark")}}catch(e){}`}
+        </Script>
         {/* Fontshare: Satoshi (body) + Cabinet Grotesk (headings) */}
         <link rel="preconnect" href="https://api.fontshare.com" />
         <link

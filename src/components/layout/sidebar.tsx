@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
@@ -81,8 +82,15 @@ export function Sidebar({
     router.push("/login");
   };
 
-  const elementLibraryEnabled = useFlag("elementLibrary");
-  const vendorManagementEnabled = useFlag("vendorManagement");
+  // Feature flags resolve on the client (PostHog), so gate flag-dependent nav
+  // items on `mounted`: render identically on the server and the first client
+  // paint (items hidden), then reveal post-mount. Avoids a hydration mismatch
+  // when a flag is on for this user.
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time mount flag to gate client-only feature flags
+  useEffect(() => setMounted(true), []);
+  const elementLibraryEnabled = useFlag("elementLibrary") && mounted;
+  const vendorManagementEnabled = useFlag("vendorManagement") && mounted;
 
   // Shared members of the PM/architect nav. Clients get a shorter trimmed list.
   const memberNav = [
