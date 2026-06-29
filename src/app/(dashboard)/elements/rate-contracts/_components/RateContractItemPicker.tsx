@@ -33,6 +33,11 @@ export interface RateContractItemDraftSubmit {
   elementId?: string;
   unit: ElementUnit;
   rate: number;
+  description?: string | null;
+  minQty?: number | null;
+  maxQty?: number | null;
+  leadTimeDays?: number | null;
+  validUntil?: string | null;
 }
 
 interface Props {
@@ -56,6 +61,11 @@ interface DraftRow {
   element: Element | null;
   rate: string;
   unit: ElementUnit | null;
+  description: string;
+  minQty: string;
+  maxQty: string;
+  leadTimeDays: string;
+  validUntil: string;
 }
 
 /**
@@ -135,9 +145,17 @@ export function RateContractItemPicker({
         element,
         rate: "",
         unit,
+        description: "",
+        minQty: "",
+        maxQty: "",
+        leadTimeDays: "",
+        validUntil: "",
       },
     ]);
   };
+
+  /** Optional numeric field → number | null. */
+  const numOrNull = (s: string) => (s.trim() ? Number(s) : null);
 
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
     setDrafts((s) => s.map((d) => (d.key === key ? { ...d, ...patch } : d)));
@@ -166,6 +184,11 @@ export function RateContractItemPicker({
             ...(d.element ? { elementId: d.element.id } : {}),
             unit: d.unit,
             rate: Number(d.rate),
+            description: d.description.trim() || null,
+            minQty: numOrNull(d.minQty),
+            maxQty: numOrNull(d.maxQty),
+            leadTimeDays: numOrNull(d.leadTimeDays),
+            validUntil: d.validUntil || null,
           }))
       );
       onOpenChange(false);
@@ -272,47 +295,100 @@ export function RateContractItemPicker({
                 {drafts.map((d) => (
                   <div
                     key={d.key}
-                    className="flex items-center gap-2 rounded-md border border-border-default p-2"
+                    className="flex flex-col gap-2 rounded-md border border-border-default p-2"
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-text-primary truncate">
-                        {d.categoryLabel || d.categoryId}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-text-primary truncate">
+                          {d.categoryLabel || d.categoryId}
+                        </div>
+                        <div className="font-mono text-xs text-text-muted truncate">
+                          {d.element
+                            ? `${d.element.code} · ${d.element.name}`
+                            : t("itemWholeArea")}
+                        </div>
                       </div>
-                      <div className="font-mono text-xs text-text-muted truncate">
-                        {d.element
-                          ? `${d.element.code} · ${d.element.name}`
-                          : t("itemWholeArea")}
+                      <div className="w-24 shrink-0">
+                        <UnitFilterSelect
+                          value={d.unit}
+                          onChange={(unit) => updateDraft(d.key, { unit })}
+                          placeholder={t("itemPickerUnitPlaceholder")}
+                          allLabel={t("itemPickerUnitClear")}
+                        />
                       </div>
+                      <Input
+                        value={d.rate}
+                        onChange={(e) =>
+                          updateDraft(d.key, { rate: e.target.value })
+                        }
+                        placeholder={t("itemPickerRatePlaceholder", {
+                          currency: contractCurrency,
+                        })}
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        className="w-32 h-9 px-3 py-2"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeDraft(d.key)}
+                        aria-label={t("removeItem")}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="w-24 shrink-0">
-                      <UnitFilterSelect
-                        value={d.unit}
-                        onChange={(unit) => updateDraft(d.key, { unit })}
-                        placeholder={t("itemPickerUnitPlaceholder")}
-                        allLabel={t("itemPickerUnitClear")}
+                    {/* Optional procurement detail */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Input
+                        value={d.description}
+                        onChange={(e) =>
+                          updateDraft(d.key, { description: e.target.value })
+                        }
+                        placeholder={t("itemDescription")}
+                        maxLength={2000}
+                        className="flex-1 min-w-[160px] h-9 px-3 py-2"
+                      />
+                      <Input
+                        value={d.minQty}
+                        onChange={(e) =>
+                          updateDraft(d.key, { minQty: e.target.value })
+                        }
+                        placeholder={t("itemMinQty")}
+                        type="number"
+                        min="0"
+                        className="w-20 h-9 px-2 py-2"
+                      />
+                      <Input
+                        value={d.maxQty}
+                        onChange={(e) =>
+                          updateDraft(d.key, { maxQty: e.target.value })
+                        }
+                        placeholder={t("itemMaxQty")}
+                        type="number"
+                        min="0"
+                        className="w-20 h-9 px-2 py-2"
+                      />
+                      <Input
+                        value={d.leadTimeDays}
+                        onChange={(e) =>
+                          updateDraft(d.key, { leadTimeDays: e.target.value })
+                        }
+                        placeholder={t("itemLeadTimeDays")}
+                        type="number"
+                        min="0"
+                        className="w-28 h-9 px-2 py-2"
+                      />
+                      <Input
+                        value={d.validUntil}
+                        onChange={(e) =>
+                          updateDraft(d.key, { validUntil: e.target.value })
+                        }
+                        type="date"
+                        aria-label={t("itemValidUntil")}
+                        className="w-36 h-9 px-2 py-2"
                       />
                     </div>
-                    <Input
-                      value={d.rate}
-                      onChange={(e) =>
-                        updateDraft(d.key, { rate: e.target.value })
-                      }
-                      placeholder={t("itemPickerRatePlaceholder", {
-                        currency: contractCurrency,
-                      })}
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      className="w-32 h-9 px-3 py-2"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeDraft(d.key)}
-                      aria-label={t("removeItem")}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
                   </div>
                 ))}
               </div>

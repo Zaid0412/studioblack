@@ -16,10 +16,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { API } from "@/lib/api/routes";
 import { rateContracts as rcApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
+import {
+  RATE_CONTRACT_TYPES,
+  RATE_CONTRACT_PRICE_BASES,
+  type RateContractType,
+  type RateContractPriceBasis,
+} from "@/lib/validations";
 import type { RateContract } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 
@@ -42,6 +55,11 @@ interface FormState {
   agreementFileName: string | null;
   termsAndConditions: string;
   notes: string;
+  contractType: RateContractType | "";
+  creditPeriodDays: string;
+  deliveryTerms: string;
+  priceBasis: RateContractPriceBasis | "";
+  renewalDate: string;
 }
 
 const EMPTY: FormState = {
@@ -56,6 +74,11 @@ const EMPTY: FormState = {
   agreementFileName: null,
   termsAndConditions: "",
   notes: "",
+  contractType: "",
+  creditPeriodDays: "",
+  deliveryTerms: "",
+  priceBasis: "",
+  renewalDate: "",
 };
 
 /**
@@ -82,6 +105,12 @@ function contractToForm(c: RateContract): FormState {
     agreementFileName: null,
     termsAndConditions: c.terms_and_conditions ?? "",
     notes: c.notes ?? "",
+    contractType: c.contract_type ?? "",
+    creditPeriodDays:
+      c.credit_period_days != null ? String(c.credit_period_days) : "",
+    deliveryTerms: c.delivery_terms ?? "",
+    priceBasis: c.price_basis ?? "",
+    renewalDate: toDateInput(c.renewal_date),
   };
 }
 
@@ -149,6 +178,13 @@ export function RateContractFormDialog({
           endDate: values.endDate,
           agreementSignedDate: values.agreementSignedDate || null,
           currency: values.currency,
+          contractType: values.contractType || null,
+          creditPeriodDays: values.creditPeriodDays.trim()
+            ? Number(values.creditPeriodDays)
+            : null,
+          deliveryTerms: opt(values.deliveryTerms),
+          priceBasis: values.priceBasis || null,
+          renewalDate: values.renewalDate || null,
         };
         saved = editing
           ? await rcApi.update(editing.id, fullFields)
@@ -242,6 +278,75 @@ export function RateContractFormDialog({
               onChange={(e) => set("paymentTerms", e.target.value)}
               maxLength={100}
               placeholder={t("paymentTermsPlaceholder")}
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-text-secondary">
+                {t("contractType")}
+              </label>
+              <Select
+                value={values.contractType}
+                onValueChange={(v) =>
+                  set("contractType", v as RateContractType)
+                }
+                disabled={isLocked}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("contractTypePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {RATE_CONTRACT_TYPES.map((ct) => (
+                    <SelectItem key={ct} value={ct}>
+                      {t(`contractType_${ct}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[13px] font-medium text-text-secondary">
+                {t("priceBasis")}
+              </label>
+              <Select
+                value={values.priceBasis}
+                onValueChange={(v) =>
+                  set("priceBasis", v as RateContractPriceBasis)
+                }
+                disabled={isLocked}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("priceBasisPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {RATE_CONTRACT_PRICE_BASES.map((pb) => (
+                    <SelectItem key={pb} value={pb}>
+                      {t(`priceBasis_${pb}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Input
+              label={t("creditPeriodDays")}
+              type="number"
+              min="0"
+              value={values.creditPeriodDays}
+              onChange={(e) => set("creditPeriodDays", e.target.value)}
+              disabled={isLocked}
+            />
+            <Input
+              label={t("deliveryTerms")}
+              value={values.deliveryTerms}
+              onChange={(e) => set("deliveryTerms", e.target.value)}
+              maxLength={100}
+              placeholder={t("deliveryTermsPlaceholder")}
+              disabled={isLocked}
+            />
+            <Input
+              label={t("renewalDate")}
+              type="date"
+              value={values.renewalDate}
+              onChange={(e) => set("renewalDate", e.target.value)}
+              disabled={isLocked}
             />
           </div>
 
