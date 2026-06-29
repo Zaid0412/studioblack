@@ -1062,7 +1062,11 @@
     "kycConfirmRemoveDesc": "The record is removed from the vendor. The file in storage is kept.",
     "featureDisabled": "Vendor management feature is not yet enabled.",
     "manageCategories": "Manage categories",
-    "categoriesSharedHint": "Shared with the Elements library"
+    "categoriesSharedHint": "Shared with the Elements library",
+    "tabRateContracts": "Rate Contracts",
+    "rcEmptyTitle": "No rate contracts",
+    "rcEmptyHint": "Pre-agreed rates with this vendor will appear here.",
+    "rcItemCount": "{count, plural, =0 {no items} one {# item} other {# items}}"
   },
   "order": {
     "tabs": {
