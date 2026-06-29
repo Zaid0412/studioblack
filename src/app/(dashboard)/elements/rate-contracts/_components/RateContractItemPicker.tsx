@@ -195,6 +195,8 @@ export function RateContractItemPicker({
               onChange={(id) => addDraft(id)}
               tree={catData?.tree ?? []}
               minDepth={1}
+              clearable={false}
+              placeholder={t("itemPickerAreaPlaceholder")}
             />
           </div>
 

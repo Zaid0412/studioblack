@@ -23,6 +23,10 @@ interface Props {
    * shows every level.
    */
   minDepth?: number;
+  /** Trigger text when nothing is selected. Defaults to the "Uncategorized" label. */
+  placeholder?: string;
+  /** Show the in-dropdown "Uncategorized" reset option. Default true. */
+  clearable?: boolean;
 }
 
 interface FlatOption {
@@ -67,6 +71,8 @@ export function CategorySelect({
   tree,
   label,
   minDepth = 0,
+  placeholder,
+  clearable = true,
 }: Props) {
   const t = useTranslations("elements");
   const [createOpen, setCreateOpen] = useState(false);
@@ -126,7 +132,7 @@ export function CategorySelect({
                 </>
               ) : (
                 <span className="italic text-text-muted">
-                  {t("uncategorized")}
+                  {placeholder ?? t("uncategorized")}
                 </span>
               )}
             </span>
@@ -140,24 +146,26 @@ export function CategorySelect({
             : options;
           return (
             <>
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(null);
-                  close();
-                }}
-                className={cn(
-                  "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
-                  value === null && "text-accent"
-                )}
-              >
-                <span className="w-4">
-                  {value === null && <Check className="h-4 w-4" />}
-                </span>
-                <span className="italic text-text-muted">
-                  {t("uncategorized")}
-                </span>
-              </button>
+              {clearable && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(null);
+                    close();
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
+                    value === null && "text-accent"
+                  )}
+                >
+                  <span className="w-4">
+                    {value === null && <Check className="h-4 w-4" />}
+                  </span>
+                  <span className="italic text-text-muted">
+                    {t("uncategorized")}
+                  </span>
+                </button>
+              )}
               {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-text-muted text-center">
                   {query ? t("noResults") : t("categoryEmpty")}

@@ -1348,7 +1348,8 @@
     "itemPickerAddElement": "Veya belirli bir eleman ekle",
     "itemWholeArea": "Tüm hizmet alanı",
     "colServiceArea": "Hizmet Alanı",
-    "colElement": "Eleman"
+    "colElement": "Eleman",
+    "itemPickerAreaPlaceholder": "Eklenecek bir hizmet alanı seçin…"
   },
   "vendorPortal": {
     "title": "Tedarikçi Paneli",

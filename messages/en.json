@@ -1348,7 +1348,8 @@
     "itemPickerAddElement": "Or add a specific element",
     "itemWholeArea": "Whole service area",
     "colServiceArea": "Service Area",
-    "colElement": "Element"
+    "colElement": "Element",
+    "itemPickerAreaPlaceholder": "Select a service area to add…"
   },
   "vendorPortal": {
     "title": "Vendor Dashboard",
