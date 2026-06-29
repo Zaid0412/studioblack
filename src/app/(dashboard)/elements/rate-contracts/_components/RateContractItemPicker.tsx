@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Trash2 } from "lucide-react";
+import { SlidersHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SearchInput } from "@/components/ui/SearchInput";
@@ -66,6 +66,8 @@ interface DraftRow {
   maxQty: string;
   leadTimeDays: string;
   validUntil: string;
+  /** Whether the optional-detail section is expanded for this draft. */
+  expanded: boolean;
 }
 
 /**
@@ -150,6 +152,7 @@ export function RateContractItemPicker({
         maxQty: "",
         leadTimeDays: "",
         validUntil: "",
+        expanded: false,
       },
     ]);
   };
@@ -332,64 +335,86 @@ export function RateContractItemPicker({
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() =>
+                          updateDraft(d.key, { expanded: !d.expanded })
+                        }
+                        aria-label={t("itemOptionalDetail")}
+                        title={t("itemOptionalDetail")}
+                        className={
+                          d.expanded ||
+                          d.description ||
+                          d.minQty ||
+                          d.maxQty ||
+                          d.leadTimeDays ||
+                          d.validUntil
+                            ? "text-accent"
+                            : ""
+                        }
+                      >
+                        <SlidersHorizontal className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => removeDraft(d.key)}
                         aria-label={t("removeItem")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    {/* Optional procurement detail — labelled so the bare
-                        inputs aren't ambiguous, and clearly marked optional. */}
-                    <div className="flex flex-col gap-2 border-t border-border-default pt-2">
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
-                        {t("itemOptionalDetail")}
-                      </span>
-                      <Input
-                        label={t("itemDescription")}
-                        value={d.description}
-                        onChange={(e) =>
-                          updateDraft(d.key, { description: e.target.value })
-                        }
-                        maxLength={2000}
-                      />
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {/* Optional procurement detail — collapsed by default to keep
+                        the draft list compact; toggled per row. */}
+                    {d.expanded && (
+                      <div className="flex flex-col gap-2 border-t border-border-default pt-2">
                         <Input
-                          label={t("itemMinQty")}
-                          value={d.minQty}
+                          label={t("itemDescription")}
+                          value={d.description}
                           onChange={(e) =>
-                            updateDraft(d.key, { minQty: e.target.value })
+                            updateDraft(d.key, { description: e.target.value })
                           }
-                          type="number"
-                          min="0"
+                          maxLength={2000}
                         />
-                        <Input
-                          label={t("itemMaxQty")}
-                          value={d.maxQty}
-                          onChange={(e) =>
-                            updateDraft(d.key, { maxQty: e.target.value })
-                          }
-                          type="number"
-                          min="0"
-                        />
-                        <Input
-                          label={t("itemLeadTimeDays")}
-                          value={d.leadTimeDays}
-                          onChange={(e) =>
-                            updateDraft(d.key, { leadTimeDays: e.target.value })
-                          }
-                          type="number"
-                          min="0"
-                        />
-                        <Input
-                          label={t("itemValidUntil")}
-                          value={d.validUntil}
-                          onChange={(e) =>
-                            updateDraft(d.key, { validUntil: e.target.value })
-                          }
-                          type="date"
-                        />
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <Input
+                            label={t("itemMinQty")}
+                            value={d.minQty}
+                            onChange={(e) =>
+                              updateDraft(d.key, { minQty: e.target.value })
+                            }
+                            type="number"
+                            min="0"
+                          />
+                          <Input
+                            label={t("itemMaxQty")}
+                            value={d.maxQty}
+                            onChange={(e) =>
+                              updateDraft(d.key, { maxQty: e.target.value })
+                            }
+                            type="number"
+                            min="0"
+                          />
+                          <Input
+                            label={t("itemLeadTimeDays")}
+                            value={d.leadTimeDays}
+                            onChange={(e) =>
+                              updateDraft(d.key, {
+                                leadTimeDays: e.target.value,
+                              })
+                            }
+                            type="number"
+                            min="0"
+                          />
+                          <Input
+                            label={t("itemValidUntil")}
+                            value={d.validUntil}
+                            onChange={(e) =>
+                              updateDraft(d.key, { validUntil: e.target.value })
+                            }
+                            type="date"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
