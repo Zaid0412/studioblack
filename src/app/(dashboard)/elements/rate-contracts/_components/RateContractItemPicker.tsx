@@ -338,56 +338,57 @@ export function RateContractItemPicker({
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    {/* Optional procurement detail */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* Optional procurement detail — labelled so the bare
+                        inputs aren't ambiguous, and clearly marked optional. */}
+                    <div className="flex flex-col gap-2 border-t border-border-default pt-2">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                        {t("itemOptionalDetail")}
+                      </span>
                       <Input
+                        label={t("itemDescription")}
                         value={d.description}
                         onChange={(e) =>
                           updateDraft(d.key, { description: e.target.value })
                         }
-                        placeholder={t("itemDescription")}
                         maxLength={2000}
-                        className="flex-1 min-w-[160px] h-9 px-3 py-2"
                       />
-                      <Input
-                        value={d.minQty}
-                        onChange={(e) =>
-                          updateDraft(d.key, { minQty: e.target.value })
-                        }
-                        placeholder={t("itemMinQty")}
-                        type="number"
-                        min="0"
-                        className="w-20 h-9 px-2 py-2"
-                      />
-                      <Input
-                        value={d.maxQty}
-                        onChange={(e) =>
-                          updateDraft(d.key, { maxQty: e.target.value })
-                        }
-                        placeholder={t("itemMaxQty")}
-                        type="number"
-                        min="0"
-                        className="w-20 h-9 px-2 py-2"
-                      />
-                      <Input
-                        value={d.leadTimeDays}
-                        onChange={(e) =>
-                          updateDraft(d.key, { leadTimeDays: e.target.value })
-                        }
-                        placeholder={t("itemLeadTimeDays")}
-                        type="number"
-                        min="0"
-                        className="w-28 h-9 px-2 py-2"
-                      />
-                      <Input
-                        value={d.validUntil}
-                        onChange={(e) =>
-                          updateDraft(d.key, { validUntil: e.target.value })
-                        }
-                        type="date"
-                        aria-label={t("itemValidUntil")}
-                        className="w-36 h-9 px-2 py-2"
-                      />
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <Input
+                          label={t("itemMinQty")}
+                          value={d.minQty}
+                          onChange={(e) =>
+                            updateDraft(d.key, { minQty: e.target.value })
+                          }
+                          type="number"
+                          min="0"
+                        />
+                        <Input
+                          label={t("itemMaxQty")}
+                          value={d.maxQty}
+                          onChange={(e) =>
+                            updateDraft(d.key, { maxQty: e.target.value })
+                          }
+                          type="number"
+                          min="0"
+                        />
+                        <Input
+                          label={t("itemLeadTimeDays")}
+                          value={d.leadTimeDays}
+                          onChange={(e) =>
+                            updateDraft(d.key, { leadTimeDays: e.target.value })
+                          }
+                          type="number"
+                          min="0"
+                        />
+                        <Input
+                          label={t("itemValidUntil")}
+                          value={d.validUntil}
+                          onChange={(e) =>
+                            updateDraft(d.key, { validUntil: e.target.value })
+                          }
+                          type="date"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
