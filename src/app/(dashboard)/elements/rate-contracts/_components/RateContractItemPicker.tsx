@@ -19,6 +19,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import { cn } from "@/lib/utils";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { buildCategoryMap } from "@/lib/elementCategories";
@@ -210,7 +211,7 @@ export function RateContractItemPicker({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+        <div className="flex flex-col gap-4">
           {/* Add a whole service area */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
@@ -294,7 +295,7 @@ export function RateContractItemPicker({
               <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                 {t("itemPickerDraftHeader", { count: drafts.length })}
               </h4>
-              <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-2">
                 {drafts.map((d) => (
                   <div
                     key={d.key}
@@ -363,58 +364,70 @@ export function RateContractItemPicker({
                       </Button>
                     </div>
                     {/* Optional procurement detail — collapsed by default to keep
-                        the draft list compact; toggled per row. */}
-                    {d.expanded && (
-                      <div className="flex flex-col gap-2 border-t border-border-default pt-2">
-                        <Input
-                          label={t("itemDescription")}
-                          value={d.description}
-                          onChange={(e) =>
-                            updateDraft(d.key, { description: e.target.value })
-                          }
-                          maxLength={2000}
-                        />
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        the list compact; smooth height animation on toggle. */}
+                    <div
+                      className={cn(
+                        "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
+                        d.expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                      )}
+                      aria-hidden={!d.expanded}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="flex flex-col gap-2 border-t border-border-default pt-2">
                           <Input
-                            label={t("itemMinQty")}
-                            value={d.minQty}
-                            onChange={(e) =>
-                              updateDraft(d.key, { minQty: e.target.value })
-                            }
-                            type="number"
-                            min="0"
-                          />
-                          <Input
-                            label={t("itemMaxQty")}
-                            value={d.maxQty}
-                            onChange={(e) =>
-                              updateDraft(d.key, { maxQty: e.target.value })
-                            }
-                            type="number"
-                            min="0"
-                          />
-                          <Input
-                            label={t("itemLeadTimeDays")}
-                            value={d.leadTimeDays}
+                            label={t("itemDescription")}
+                            value={d.description}
                             onChange={(e) =>
                               updateDraft(d.key, {
-                                leadTimeDays: e.target.value,
+                                description: e.target.value,
                               })
                             }
-                            type="number"
-                            min="0"
+                            maxLength={2000}
                           />
-                          <Input
-                            label={t("itemValidUntil")}
-                            value={d.validUntil}
-                            onChange={(e) =>
-                              updateDraft(d.key, { validUntil: e.target.value })
-                            }
-                            type="date"
-                          />
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <Input
+                              label={t("itemMinQty")}
+                              value={d.minQty}
+                              onChange={(e) =>
+                                updateDraft(d.key, { minQty: e.target.value })
+                              }
+                              type="number"
+                              min="0"
+                            />
+                            <Input
+                              label={t("itemMaxQty")}
+                              value={d.maxQty}
+                              onChange={(e) =>
+                                updateDraft(d.key, { maxQty: e.target.value })
+                              }
+                              type="number"
+                              min="0"
+                            />
+                            <Input
+                              label={t("itemLeadTimeDays")}
+                              value={d.leadTimeDays}
+                              onChange={(e) =>
+                                updateDraft(d.key, {
+                                  leadTimeDays: e.target.value,
+                                })
+                              }
+                              type="number"
+                              min="0"
+                            />
+                            <Input
+                              label={t("itemValidUntil")}
+                              value={d.validUntil}
+                              onChange={(e) =>
+                                updateDraft(d.key, {
+                                  validUntil: e.target.value,
+                                })
+                              }
+                              type="date"
+                            />
+                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>
