@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/useToast";
 import { boq as boqApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
+import { formatCurrency } from "@/lib/formatCurrency";
 import type {
   AvailableRate,
   BoqItemWithComputed,
@@ -40,14 +41,6 @@ const MATCH_VARIANT: Record<RateMatchType, "success" | "info" | "archived"> = {
   service_area: "info",
   ancestor: "archived",
 };
-
-function formatRate(value: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 /**
  * Lists the rate-contract rates that cover a BOQ item's element (exact element,
@@ -145,7 +138,7 @@ export function BoqApplyRateDialog({
                       </div>
                     </div>
                     <div className="text-sm font-mono text-text-primary shrink-0">
-                      {formatRate(r.rate, r.currency)}
+                      {formatCurrency(r.rate, r.currency)}
                       <span className="text-text-muted">/{r.unit}</span>
                     </div>
                   </button>

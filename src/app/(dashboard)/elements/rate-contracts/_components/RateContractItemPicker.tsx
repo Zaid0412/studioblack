@@ -113,39 +113,27 @@ export function RateContractItemPicker({
 
   const draftKeys = useMemo(() => new Set(drafts.map((d) => d.key)), [drafts]);
 
-  const addElementDraft = (element: Element) => {
-    if (!element.category_id) return;
-    const key = `el:${element.id}`;
-    if (draftKeys.has(key) || existingKeys.has(key)) return;
-    const unit = ALLOWED_UNIT_SET.has(element.unit)
-      ? (element.unit as ElementUnit)
-      : null;
-    setDrafts((s) => [
-      ...s,
-      {
-        key,
-        categoryId: element.category_id as string,
-        categoryLabel: categoryMap.get(element.category_id as string) ?? "",
-        element,
-        rate: "",
-        unit,
-      },
-    ]);
-  };
-
-  const addAreaDraft = (categoryId: string | null) => {
+  /** Add a service-area draft (`element` null) or an element override. */
+  const addDraft = (
+    categoryId: string | null,
+    element: Element | null = null
+  ) => {
     if (!categoryId) return;
-    const key = `area:${categoryId}`;
+    const key = element ? `el:${element.id}` : `area:${categoryId}`;
     if (draftKeys.has(key) || existingKeys.has(key)) return;
+    const unit =
+      element && ALLOWED_UNIT_SET.has(element.unit)
+        ? (element.unit as ElementUnit)
+        : null;
     setDrafts((s) => [
       ...s,
       {
         key,
         categoryId,
         categoryLabel: categoryMap.get(categoryId) ?? "",
-        element: null,
+        element,
         rate: "",
-        unit: null,
+        unit,
       },
     ]);
   };
@@ -204,7 +192,7 @@ export function RateContractItemPicker({
             </label>
             <CategorySelect
               value={null}
-              onChange={addAreaDraft}
+              onChange={(id) => addDraft(id)}
               tree={catData?.tree ?? []}
               minDepth={1}
             />
@@ -248,7 +236,7 @@ export function RateContractItemPicker({
                       key={el.id}
                       type="button"
                       onClick={() =>
-                        !inContract && !inDraft && addElementDraft(el)
+                        !inContract && !inDraft && addDraft(el.category_id, el)
                       }
                       disabled={inContract || inDraft}
                       className="w-full text-left px-3 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"

@@ -42,3 +42,28 @@ export function descendantCategoryIdsSql(paramIndex: number): string {
     SELECT id FROM cat_tree
   )`;
 }
+
+/**
+ * SQL fragment resolving the service area of the element bound to
+ * `$<elementParamIndex>` plus every ancestor category, for use inside an
+ * `IN (...)` clause. A rate priced on any of these categories covers the
+ * element. Single source of the "ancestor covers descendant" rule — shared by
+ * the rate-contract matcher and both BOQ apply validators so they can't drift.
+ */
+export function elementAncestorCategoryIdsSql(
+  elementParamIndex: number
+): string {
+  return `(
+    WITH RECURSIVE anc AS (
+      SELECT ec.id, ec.parent_id
+        FROM element_category ec
+        JOIN element e ON e.category_id = ec.id
+       WHERE e.id = $${elementParamIndex}
+      UNION ALL
+      SELECT p.id, p.parent_id
+        FROM element_category p
+        JOIN anc ON p.id = anc.parent_id
+    )
+    SELECT id FROM anc
+  )`;
+}

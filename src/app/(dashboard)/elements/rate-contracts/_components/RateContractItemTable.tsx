@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatCurrency } from "@/lib/formatCurrency";
 import type { RateContractItemWithTarget } from "@/types";
 
 interface Props {
@@ -24,20 +25,6 @@ interface Props {
     item: RateContractItemWithTarget,
     newRate: number
   ) => Promise<void>;
-}
-
-const CURRENCY_FORMAT = new Map<string, Intl.NumberFormat>();
-function formatRate(value: number, currency: string): string {
-  let f = CURRENCY_FORMAT.get(currency);
-  if (!f) {
-    f = new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 2,
-    });
-    CURRENCY_FORMAT.set(currency, f);
-  }
-  return f.format(value);
 }
 
 /** Tabular line-item list for a rate contract with per-row remove + inline rate edit. */
@@ -159,7 +146,7 @@ function RateCell({ item, currency, canEdit, onSave }: RateCellProps) {
   if (!canEdit || !onSave) {
     return (
       <div className="text-sm text-text-primary lg:text-right font-mono">
-        {formatRate(Number(item.rate), currency)}
+        {formatCurrency(Number(item.rate), currency)}
       </div>
     );
   }
@@ -221,7 +208,7 @@ function RateCell({ item, currency, canEdit, onSave }: RateCellProps) {
       aria-label={tCommon("edit")}
       className="text-sm text-text-primary lg:text-right font-mono cursor-pointer hover:text-accent transition-colors w-full lg:w-auto"
     >
-      {formatRate(Number(item.rate), currency)}
+      {formatCurrency(Number(item.rate), currency)}
     </button>
   );
 }

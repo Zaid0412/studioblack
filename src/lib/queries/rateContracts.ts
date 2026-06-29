@@ -9,7 +9,7 @@ import type {
   RateContractStatus,
   RateContractSortField,
 } from "@/lib/validations";
-import { escapeSqlLike } from "./helpers";
+import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
 
@@ -243,61 +243,48 @@ export async function getActiveRatesForBoqItem(
     vendorClause = `AND rc.vendor_id = $${params.length}`;
   }
   const { rows } = await pool.query(
-    `WITH RECURSIVE elem AS (
-       SELECT category_id FROM element WHERE id = $2 AND org_id = $1
-     ),
-     anc AS (
-       -- the element's own service area (depth 0) + every ancestor
-       SELECT ec.id, ec.parent_id, 0 AS depth
-         FROM element_category ec
-         JOIN elem ON elem.category_id = ec.id
-       UNION ALL
-       SELECT p.id, p.parent_id, anc.depth + 1
-         FROM element_category p
-         JOIN anc ON p.id = anc.parent_id
-     )
-     SELECT
-       rci.id AS rate_contract_item_id,
-       rc.id AS rate_contract_id,
-       rc.contract_number,
-       rc.name AS contract_name,
-       rc.vendor_id,
-       v.company_name AS vendor_name,
-       cat.id AS category_id,
-       cat.name AS category_name,
-       cat.code_prefix AS category_code,
-       e.id AS element_id,
-       e.code AS element_code,
-       e.name AS element_name,
-       rci.unit,
-       rci.rate,
-       rc.currency,
-       rc.end_date,
-       CASE
-         WHEN rci.element_id = $2 THEN 'element'
-         WHEN rci.category_id = (SELECT category_id FROM elem) THEN 'service_area'
-         ELSE 'ancestor'
-       END AS match_type
-     FROM rate_contract_item rci
-     JOIN rate_contract rc ON rc.id = rci.rate_contract_id
-     JOIN vendor v ON v.id = rc.vendor_id
-     JOIN element_category cat ON cat.id = rci.category_id
-     LEFT JOIN element e ON e.id = rci.element_id
-     WHERE rc.org_id = $1
-       AND rc.status = 'active'
-       ${vendorClause}
-       AND (rci.element_id IS NULL OR e.is_active = true)
-       AND (
-         rci.element_id = $2
-         OR (rci.element_id IS NULL AND rci.category_id IN (SELECT id FROM anc))
-       )
+    `SELECT * FROM (
+       SELECT
+         rci.id AS rate_contract_item_id,
+         rc.id AS rate_contract_id,
+         rc.contract_number,
+         rc.name AS contract_name,
+         rc.vendor_id,
+         v.company_name AS vendor_name,
+         cat.id AS category_id,
+         cat.name AS category_name,
+         cat.code_prefix AS category_code,
+         e.id AS element_id,
+         e.code AS element_code,
+         e.name AS element_name,
+         rci.unit,
+         rci.rate,
+         rc.currency,
+         rc.end_date,
+         CASE
+           WHEN rci.element_id = $2 THEN 'element'
+           WHEN rci.category_id = (SELECT category_id FROM element WHERE id = $2)
+             THEN 'service_area'
+           ELSE 'ancestor'
+         END AS match_type
+       FROM rate_contract_item rci
+       JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+       JOIN vendor v ON v.id = rc.vendor_id
+       JOIN element_category cat ON cat.id = rci.category_id
+       LEFT JOIN element e ON e.id = rci.element_id
+       WHERE rc.org_id = $1
+         AND rc.status = 'active'
+         ${vendorClause}
+         AND (rci.element_id IS NULL OR e.is_active = true)
+         AND (
+           rci.element_id = $2
+           OR (rci.element_id IS NULL
+               AND rci.category_id IN ${elementAncestorCategoryIdsSql(2)})
+         )
+     ) ranked
      ORDER BY
-       CASE
-         WHEN rci.element_id = $2 THEN 0
-         WHEN rci.category_id = (SELECT category_id FROM elem) THEN 1
-         ELSE 2 + COALESCE((SELECT depth FROM anc WHERE anc.id = rci.category_id), 0)
-       END,
-       rci.rate ASC, rc.end_date DESC`,
+       CASE match_type WHEN 'element' THEN 0 WHEN 'service_area' THEN 1 ELSE 2 END,
+       rate ASC, end_date DESC`,
     params
   );
   return rows.map((r) => ({ ...r, rate: Number(r.rate) })) as AvailableRate[];
@@ -610,36 +597,28 @@ export async function addRateContractItems(
 
     let count = 0;
     for (const it of items) {
-      const r = it.elementId
-        ? await client.query(
-            `INSERT INTO rate_contract_item (
-               rate_contract_id, category_id, element_id, unit, rate, notes
-             ) VALUES ($1, $2, $3, $4, $5::numeric, $6)
-             ON CONFLICT (rate_contract_id, category_id, element_id)
-               WHERE element_id IS NOT NULL
-             DO UPDATE SET unit = EXCLUDED.unit,
-                           rate = EXCLUDED.rate,
-                           notes = EXCLUDED.notes`,
-            [
-              contractId,
-              it.categoryId,
-              it.elementId,
-              it.unit,
-              it.rate,
-              it.notes ?? null,
-            ]
-          )
-        : await client.query(
-            `INSERT INTO rate_contract_item (
-               rate_contract_id, category_id, element_id, unit, rate, notes
-             ) VALUES ($1, $2, NULL, $3, $4::numeric, $5)
-             ON CONFLICT (rate_contract_id, category_id)
-               WHERE element_id IS NULL
-             DO UPDATE SET unit = EXCLUDED.unit,
-                           rate = EXCLUDED.rate,
-                           notes = EXCLUDED.notes`,
-            [contractId, it.categoryId, it.unit, it.rate, it.notes ?? null]
-          );
+      // Same insert either way; only the partial-index conflict target differs
+      // (service-area rate vs element override).
+      const conflictTarget = it.elementId
+        ? "(rate_contract_id, category_id, element_id) WHERE element_id IS NOT NULL"
+        : "(rate_contract_id, category_id) WHERE element_id IS NULL";
+      const r = await client.query(
+        `INSERT INTO rate_contract_item (
+           rate_contract_id, category_id, element_id, unit, rate, notes
+         ) VALUES ($1, $2, $3, $4, $5::numeric, $6)
+         ON CONFLICT ${conflictTarget}
+         DO UPDATE SET unit = EXCLUDED.unit,
+                       rate = EXCLUDED.rate,
+                       notes = EXCLUDED.notes`,
+        [
+          contractId,
+          it.categoryId,
+          it.elementId ?? null,
+          it.unit,
+          it.rate,
+          it.notes ?? null,
+        ]
+      );
       count += r.rowCount ?? 0;
     }
 

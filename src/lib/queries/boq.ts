@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
+import { elementAncestorCategoryIdsSql } from "./helpers";
 import type {
   Boq,
   BoqElementLite,
@@ -1090,17 +1091,7 @@ export async function applyRateContractToBoqItem(
   if (!elementId) return { ok: false, reason: "no_element" };
 
   const rateRes = await pool.query(
-    `WITH RECURSIVE elem AS (
-       SELECT category_id FROM element WHERE id = $3
-     ),
-     anc AS (
-       SELECT ec.id, ec.parent_id
-         FROM element_category ec JOIN elem ON elem.category_id = ec.id
-       UNION ALL
-       SELECT p.id, p.parent_id
-         FROM element_category p JOIN anc ON p.id = anc.parent_id
-     )
-     SELECT rci.rate, rci.unit
+    `SELECT rci.rate, rci.unit
        FROM rate_contract_item rci
        JOIN rate_contract rc ON rc.id = rci.rate_contract_id
       WHERE rci.id = $1
@@ -1108,7 +1099,8 @@ export async function applyRateContractToBoqItem(
         AND rc.status = 'active'
         AND (
           rci.element_id = $3
-          OR (rci.element_id IS NULL AND rci.category_id IN (SELECT id FROM anc))
+          OR (rci.element_id IS NULL
+              AND rci.category_id IN ${elementAncestorCategoryIdsSql(3)})
         )`,
     [rateContractItemId, orgId, elementId]
   );
@@ -1306,19 +1298,7 @@ export async function addElementToBoq(
 
   if (params.rateContractItemId) {
     const { rows: rcRows } = await pool.query(
-      `WITH RECURSIVE elem AS (
-         SELECT category_id FROM element WHERE id = $3
-       ),
-       anc AS (
-         SELECT ec.id, ec.parent_id
-           FROM element_category ec
-           JOIN elem ON elem.category_id = ec.id
-         UNION ALL
-         SELECT p.id, p.parent_id
-           FROM element_category p
-           JOIN anc ON p.id = anc.parent_id
-       )
-       SELECT rci.rate, rci.unit
+      `SELECT rci.rate, rci.unit
          FROM rate_contract_item rci
          JOIN rate_contract rc ON rc.id = rci.rate_contract_id
         WHERE rci.id = $1
@@ -1326,7 +1306,8 @@ export async function addElementToBoq(
           AND rc.status = 'active'
           AND (
             rci.element_id = $3
-            OR (rci.element_id IS NULL AND rci.category_id IN (SELECT id FROM anc))
+            OR (rci.element_id IS NULL
+                AND rci.category_id IN ${elementAncestorCategoryIdsSql(3)})
           )`,
       [params.rateContractItemId, orgId, params.elementId]
     );
