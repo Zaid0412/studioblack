@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -178,13 +179,12 @@ export function RateContractItemPicker({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t("itemPickerTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("itemPickerCurrencyHint", { currency: contractCurrency })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
-          <p className="text-xs text-text-muted">
-            {t("itemPickerCurrencyHint", { currency: contractCurrency })}
-          </p>
-
           {/* Add a whole service area */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">

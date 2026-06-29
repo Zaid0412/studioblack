@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -86,15 +87,14 @@ export function BoqApplyRateDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Apply rate contract</DialogTitle>
+          <DialogDescription>
+            Active rates covering{" "}
+            <span className="font-medium text-text-secondary">
+              {item?.item_code || item?.name}
+            </span>
+            . Most specific first.
+          </DialogDescription>
         </DialogHeader>
-
-        <p className="text-xs text-text-muted">
-          Active rates covering{" "}
-          <span className="font-medium text-text-secondary">
-            {item?.item_code || item?.name}
-          </span>
-          . Most specific first.
-        </p>
 
         <div className="min-h-[160px] max-h-[360px] overflow-y-auto rounded-lg border border-border-default">
           {isLoading ? (
