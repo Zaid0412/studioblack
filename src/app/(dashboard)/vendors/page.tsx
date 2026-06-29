@@ -158,7 +158,7 @@ export default function VendorsPage() {
       />
 
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-        <div className="hidden lg:block">
+        <div className="hidden lg:flex">
           <VendorCategoryTreeSidebar
             selectedId={state.tradeCategoryId}
             onSelect={setTradeCategoryId}
