@@ -1190,6 +1190,18 @@ export const RATE_CONTRACT_STATUSES = [
 ] as const;
 export type RateContractStatus = (typeof RATE_CONTRACT_STATUSES)[number];
 
+export const RATE_CONTRACT_TYPES = [
+  "material",
+  "labor",
+  "equipment",
+  "subcontract",
+  "mixed",
+] as const;
+export type RateContractType = (typeof RATE_CONTRACT_TYPES)[number];
+
+export const RATE_CONTRACT_PRICE_BASES = ["supply", "supply_install"] as const;
+export type RateContractPriceBasis = (typeof RATE_CONTRACT_PRICE_BASES)[number];
+
 export const RATE_CONTRACT_SORT_FIELDS = [
   "contract_number",
   "name",
@@ -1214,6 +1226,11 @@ export const createRateContractSchema = z
     agreementUrl: z.string().url().max(2048).optional().nullable(),
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
+    contractType: z.enum(RATE_CONTRACT_TYPES).optional().nullable(),
+    creditPeriodDays: z.number().int().min(0).max(3650).optional().nullable(),
+    deliveryTerms: z.string().max(100).optional().nullable(),
+    priceBasis: z.enum(RATE_CONTRACT_PRICE_BASES).optional().nullable(),
+    renewalDate: isoDate.optional().nullable(),
   })
   .refine((d) => d.endDate >= d.startDate, {
     message: "endDate must be on or after startDate",
@@ -1232,6 +1249,11 @@ export const updateRateContractSchema = z
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
     status: z.enum(RATE_CONTRACT_STATUSES).optional(),
+    contractType: z.enum(RATE_CONTRACT_TYPES).optional().nullable(),
+    creditPeriodDays: z.number().int().min(0).max(3650).optional().nullable(),
+    deliveryTerms: z.string().max(100).optional().nullable(),
+    priceBasis: z.enum(RATE_CONTRACT_PRICE_BASES).optional().nullable(),
+    renewalDate: isoDate.optional().nullable(),
   })
   .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
     message: "endDate must be on or after startDate",
@@ -1241,13 +1263,23 @@ export const updateRateContractSchema = z
 export const addRateContractItemsSchema = z.object({
   items: z
     .array(
-      z.object({
-        categoryId: uuid,
-        elementId: optionalUuid,
-        unit: z.enum(ALLOWED_UNITS),
-        rate: z.number().positive(),
-        notes: z.string().max(2000).optional().nullable(),
-      })
+      z
+        .object({
+          categoryId: uuid,
+          elementId: optionalUuid,
+          unit: z.enum(ALLOWED_UNITS),
+          rate: z.number().positive(),
+          notes: z.string().max(2000).optional().nullable(),
+          description: z.string().max(2000).optional().nullable(),
+          minQty: z.number().min(0).optional().nullable(),
+          maxQty: z.number().min(0).optional().nullable(),
+          leadTimeDays: z.number().int().min(0).max(3650).optional().nullable(),
+          validUntil: isoDate.optional().nullable(),
+        })
+        .refine(
+          (d) => d.minQty == null || d.maxQty == null || d.maxQty >= d.minQty,
+          { message: "maxQty must be >= minQty", path: ["maxQty"] }
+        )
     )
     .min(1)
     .max(500),
