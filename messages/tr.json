@@ -1383,7 +1383,8 @@
     "itemLeadTimeDays": "Tedarik süresi (gün)",
     "itemValidUntil": "Geçerlilik",
     "colLeadTime": "Tedarik süresi",
-    "colQtyRange": "Adet aralığı"
+    "colQtyRange": "Adet aralığı",
+    "itemOptionalDetail": "İsteğe bağlı detay"
   },
   "vendorPortal": {
     "title": "Tedarikçi Paneli",

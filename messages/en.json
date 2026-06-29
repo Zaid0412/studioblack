@@ -1383,7 +1383,8 @@
     "itemLeadTimeDays": "Lead time (days)",
     "itemValidUntil": "Valid until",
     "colLeadTime": "Lead time",
-    "colQtyRange": "Qty range"
+    "colQtyRange": "Qty range",
+    "itemOptionalDetail": "Optional detail"
   },
   "vendorPortal": {
     "title": "Vendor Dashboard",
