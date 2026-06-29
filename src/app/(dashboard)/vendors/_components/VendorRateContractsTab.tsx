@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { rateContracts as rcApi } from "@/lib/api";
 import type { ListRateContractsResponse } from "@/lib/api/rateContracts";
 import { formatDate } from "@/lib/formatDate";
-import { RateContractStatusBadge } from "@/app/(dashboard)/elements/rate-contracts/_components/RateContractStatusBadge";
+import { RateContractStatusBadge } from "@/components/rate-contracts/RateContractStatusBadge";
 
 interface Props {
   vendorId: string;
@@ -24,23 +24,22 @@ interface Props {
  */
 export function VendorRateContractsTab({ vendorId, enabled }: Props) {
   const t = useTranslations("vendors");
+  // Tab content stays mounted while hidden — skip rendering + fetching until active.
   const { data, isLoading } = useSWR<ListRateContractsResponse>(
     enabled ? rcApi.listKey({ vendorId, limit: 100 }) : null
   );
   const rows = data?.rows ?? [];
 
-  if (isLoading && rows.length === 0) {
-    return (
+  if (!enabled) return null;
+
+  if (rows.length === 0) {
+    return isLoading ? (
       <div className="flex flex-col gap-2 mt-4">
         {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-14 rounded-lg" />
         ))}
       </div>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
+    ) : (
       <div className="mt-4">
         <EmptyState
           icon={FileText}

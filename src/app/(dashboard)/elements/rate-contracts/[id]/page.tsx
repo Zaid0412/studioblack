@@ -25,7 +25,7 @@ import { useFlag } from "@/hooks/useFlag";
 import type { RateContractWithDetails } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import { formatDate } from "@/lib/formatDate";
-import { RateContractStatusBadge } from "../_components/RateContractStatusBadge";
+import { RateContractStatusBadge } from "@/components/rate-contracts/RateContractStatusBadge";
 import { RateContractItemTable } from "../_components/RateContractItemTable";
 import {
   RateContractItemPicker,
