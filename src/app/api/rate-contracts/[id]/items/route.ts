@@ -44,6 +44,12 @@ export const POST = withAuth(
           { status: 400 }
         );
       }
+      if (result.reason === "category_not_found") {
+        return NextResponse.json(
+          { error: "One or more service areas were not found in this org" },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ error: result.reason }, { status: 400 });
     }
     return NextResponse.json({ success: true, count: result.count });

@@ -141,6 +141,18 @@ export function updateItem(
   return apiPatch<BoqItemWithComputed>(API.boqItem(projectId, itemId), data);
 }
 
+/** Apply an active rate-contract rate to an existing BOQ item (optimistic-locked). */
+export function applyRate(
+  projectId: string,
+  itemId: string,
+  data: { rateContractItemId: string; updatedAt: string }
+) {
+  return apiPost<BoqItemWithComputed>(
+    API.boqItemApplyRate(projectId, itemId),
+    data
+  );
+}
+
 /** Delete a BOQ item with optimistic concurrency — `updatedAt` guards against stale deletes. */
 export function deleteItem(
   projectId: string,

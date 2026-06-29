@@ -8,6 +8,7 @@ import {
 
 const VENDOR_ID = "11111111-1111-4111-8111-111111111111";
 const ELEMENT_ID = "22222222-2222-4222-8222-222222222222";
+const CATEGORY_ID = "44444444-4444-4444-8444-444444444444";
 
 describe("createRateContractSchema", () => {
   const valid = {
@@ -98,11 +99,29 @@ describe("updateRateContractSchema", () => {
 
 describe("addRateContractItemsSchema", () => {
   const valid = {
-    items: [{ elementId: ELEMENT_ID, unit: "no", rate: 100 }],
+    items: [
+      { categoryId: CATEGORY_ID, elementId: ELEMENT_ID, unit: "no", rate: 100 },
+    ],
   };
 
   it("accepts a minimal valid items array", () => {
     expect(parseBody(addRateContractItemsSchema, valid).success).toBe(true);
+  });
+
+  it("accepts a service-area-only item (no element)", () => {
+    expect(
+      parseBody(addRateContractItemsSchema, {
+        items: [{ categoryId: CATEGORY_ID, unit: "no", rate: 100 }],
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects an item with no service area (categoryId)", () => {
+    expect(
+      parseBody(addRateContractItemsSchema, {
+        items: [{ elementId: ELEMENT_ID, unit: "no", rate: 100 }],
+      }).success
+    ).toBe(false);
   });
 
   it("rejects empty items array", () => {
@@ -114,7 +133,7 @@ describe("addRateContractItemsSchema", () => {
   it("rejects negative rate", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
-        items: [{ elementId: ELEMENT_ID, unit: "no", rate: -1 }],
+        items: [{ categoryId: CATEGORY_ID, unit: "no", rate: -1 }],
       }).success
     ).toBe(false);
   });
@@ -122,7 +141,7 @@ describe("addRateContractItemsSchema", () => {
   it("rejects zero rate", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
-        items: [{ elementId: ELEMENT_ID, unit: "no", rate: 0 }],
+        items: [{ categoryId: CATEGORY_ID, unit: "no", rate: 0 }],
       }).success
     ).toBe(false);
   });
@@ -130,7 +149,7 @@ describe("addRateContractItemsSchema", () => {
   it("rejects unknown unit", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
-        items: [{ elementId: ELEMENT_ID, unit: "shells", rate: 1 }],
+        items: [{ categoryId: CATEGORY_ID, unit: "shells", rate: 1 }],
       }).success
     ).toBe(false);
   });

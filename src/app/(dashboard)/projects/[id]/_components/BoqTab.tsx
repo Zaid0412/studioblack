@@ -12,6 +12,7 @@ import { BoqCreateDialog } from "../boq/_components/BoqCreateDialog";
 import { BoqHeader } from "../boq/_components/BoqHeader";
 import { BoqSummaryCards } from "../boq/_components/BoqSummaryCards";
 import { BoqTable } from "../boq/_components/BoqTable";
+import { BoqApplyRateDialog } from "../boq/_components/BoqApplyRateDialog";
 import { BoqBottomBar } from "../boq/_components/BoqBottomBar";
 import { BoqActionBar } from "../boq/_components/BoqActionBar";
 import { BoqSourceFilter } from "../boq/_components/BoqSourceFilter";
@@ -87,6 +88,8 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [deleteItemTarget, setDeleteItemTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [deletingItem, setDeletingItem] = useState(false);
+  const [applyRateTarget, setApplyRateTarget] =
+    useState<BoqItemWithComputed | null>(null);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
     null
   );
@@ -539,6 +542,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
         onDeleteItem={async (item) => setDeleteItemTarget(item)}
+        onApplyRate={setApplyRateTarget}
         onMoveItem={moveItem}
         onCreateAndMoveItem={setCreateAndMoveTarget}
         onSetItemPhase={handleSetItemPhase}
@@ -557,6 +561,13 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         contingencyPct={boq.contingency_pct}
         vatPct={boq.vat_pct}
         currency={boq.currency}
+      />
+
+      <BoqApplyRateDialog
+        projectId={projectId}
+        item={applyRateTarget}
+        onOpenChange={(o) => !o && setApplyRateTarget(null)}
+        onApplied={() => void mutateBoq()}
       />
 
       <BoqCreateSectionDialog

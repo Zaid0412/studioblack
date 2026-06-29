@@ -9,7 +9,7 @@ import type {
   RateContractStatus,
   RateContractSortField,
 } from "@/lib/validations";
-import { escapeSqlLike } from "./helpers";
+import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
 
@@ -191,19 +191,23 @@ export async function getRateContractById(
             json_build_object(
               'id', rci.id,
               'rate_contract_id', rci.rate_contract_id,
+              'category_id', rci.category_id,
               'element_id', rci.element_id,
               'unit', rci.unit,
               'rate', rci.rate,
               'notes', rci.notes,
+              'category_name', cat.name,
+              'category_code', cat.code_prefix,
               'element_code', e.code,
               'element_name', e.name,
               'element_unit', e.unit,
-              'element_archived', NOT e.is_active
+              'element_archived', CASE WHEN e.id IS NULL THEN NULL ELSE NOT e.is_active END
             )
-            ORDER BY e.code
+            ORDER BY cat.name, e.code NULLS FIRST
           )
           FROM rate_contract_item rci
-          JOIN element e ON e.id = rci.element_id
+          JOIN element_category cat ON cat.id = rci.category_id
+          LEFT JOIN element e ON e.id = rci.element_id
           WHERE rci.rate_contract_id = rc.id
         ),
         '[]'::json
@@ -220,48 +224,70 @@ export async function getRateContractById(
 }
 
 /**
- * Active rates for one element across all contracts. Sorted by rate ASC so
- * the lowest is first. Excludes archived elements, expired/cancelled/draft
- * contracts. Optional `vendorId` scopes the result.
+ * Active rates that apply to a BOQ item's element: an exact element rate, a rate
+ * on the element's own service area, or a rate on any ancestor category. Each
+ * row is tagged with `match_type` and sorted most-specific then cheapest first.
+ * Excludes archived elements and non-active contracts. Optional `vendorId`
+ * scopes the result.
  */
-export async function getActiveRatesForElement(
+export async function getActiveRatesForBoqItem(
   orgId: string,
   elementId: string,
   vendorId?: string
 ): Promise<AvailableRate[]> {
   const pool = getPool();
-  const conditions: string[] = [
-    "rc.org_id = $1",
-    "rc.status = 'active'",
-    "e.is_active = true",
-    "rci.element_id = $2",
-  ];
   const params: unknown[] = [orgId, elementId];
+  let vendorClause = "";
   if (vendorId) {
     params.push(vendorId);
-    conditions.push(`rc.vendor_id = $${params.length}`);
+    vendorClause = `AND rc.vendor_id = $${params.length}`;
   }
   const { rows } = await pool.query(
-    `SELECT
-       rci.id AS rate_contract_item_id,
-       rc.id AS rate_contract_id,
-       rc.contract_number,
-       rc.name AS contract_name,
-       rc.vendor_id,
-       v.company_name AS vendor_name,
-       e.id AS element_id,
-       e.code AS element_code,
-       e.name AS element_name,
-       rci.unit,
-       rci.rate,
-       rc.currency,
-       rc.end_date
-     FROM rate_contract_item rci
-     JOIN rate_contract rc ON rc.id = rci.rate_contract_id
-     JOIN vendor v ON v.id = rc.vendor_id
-     JOIN element e ON e.id = rci.element_id
-     WHERE ${conditions.join(" AND ")}
-     ORDER BY rci.rate ASC, rc.end_date DESC`,
+    // `elem` resolves the target element's service area once (not per row).
+    `WITH elem AS (SELECT category_id FROM element WHERE id = $2)
+     SELECT * FROM (
+       SELECT
+         rci.id AS rate_contract_item_id,
+         rc.id AS rate_contract_id,
+         rc.contract_number,
+         rc.name AS contract_name,
+         rc.vendor_id,
+         v.company_name AS vendor_name,
+         cat.id AS category_id,
+         cat.name AS category_name,
+         cat.code_prefix AS category_code,
+         e.id AS element_id,
+         e.code AS element_code,
+         e.name AS element_name,
+         rci.unit,
+         rci.rate,
+         rc.currency,
+         rc.end_date,
+         CASE
+           WHEN rci.element_id = $2 THEN 'element'
+           WHEN rci.category_id = elem.category_id THEN 'service_area'
+           ELSE 'ancestor'
+         END AS match_type
+       FROM rate_contract_item rci
+       CROSS JOIN elem
+       JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+       JOIN vendor v ON v.id = rc.vendor_id
+       JOIN element_category cat ON cat.id = rci.category_id
+       LEFT JOIN element e ON e.id = rci.element_id
+       WHERE rc.org_id = $1
+         AND rc.status = 'active'
+         AND cat.is_active = true
+         ${vendorClause}
+         AND (rci.element_id IS NULL OR e.is_active = true)
+         AND (
+           rci.element_id = $2
+           OR (rci.element_id IS NULL
+               AND rci.category_id IN ${elementAncestorCategoryIdsSql(2)})
+         )
+     ) ranked
+     ORDER BY
+       CASE match_type WHEN 'element' THEN 0 WHEN 'service_area' THEN 1 ELSE 2 END,
+       rate ASC, end_date DESC`,
     params
   );
   return rows.map((r) => ({ ...r, rate: Number(r.rate) })) as AvailableRate[];
@@ -294,6 +320,9 @@ export async function getAvailableRatesForBoqPicker(
        rc.name AS contract_name,
        rc.vendor_id,
        v.company_name AS vendor_name,
+       cat.id AS category_id,
+       cat.name AS category_name,
+       cat.code_prefix AS category_code,
        e.id AS element_id,
        e.code AS element_code,
        e.name AS element_name,
@@ -304,6 +333,7 @@ export async function getAvailableRatesForBoqPicker(
      FROM rate_contract_item rci
      JOIN rate_contract rc ON rc.id = rci.rate_contract_id
      JOIN vendor v ON v.id = rc.vendor_id
+     JOIN element_category cat ON cat.id = rci.category_id
      JOIN element e ON e.id = rci.element_id
      WHERE ${conditions.join(" AND ")}
      ORDER BY lower(e.code), rci.rate ASC
@@ -506,16 +536,19 @@ export async function activateRateContract(
 }
 
 export interface AddRateContractItemInput {
-  elementId: string;
+  /** Service area the rate is agreed for (the primary target). */
+  categoryId: string;
+  /** Optional element override; omit to price the whole service area. */
+  elementId?: string | null;
   unit: string;
   rate: number;
   notes?: string | null;
 }
 
 /**
- * Bulk-add or update items. ON CONFLICT (rate_contract_id, element_id)
- * updates rate/unit/notes. Rejects if any element's currency doesn't
- * match the contract's currency.
+ * Bulk-add or update items. Upserts on the matching partial unique index —
+ * (contract, category) for service-area rates, (contract, category, element)
+ * for element overrides. Element overrides must match the contract currency.
  */
 export async function addRateContractItems(
   orgId: string,
@@ -539,35 +572,67 @@ export async function addRateContractItems(
     }
     const contractCurrency = contract.rows[0].currency as string;
 
-    const elementIds = items.map((i) => i.elementId);
-    const elementRows = await client.query(
-      `SELECT id, currency FROM element
-        WHERE org_id = $1 AND id = ANY($2::uuid[])`,
-      [orgId, elementIds]
+    // Every item targets a service area: validate the categories exist in this
+    // org so a stale/invalid id returns a clean reason instead of a raw FK 500.
+    const categoryIds = [...new Set(items.map((i) => i.categoryId))];
+    const categoryRows = await client.query(
+      `SELECT id FROM element_category WHERE org_id = $1 AND id = ANY($2::uuid[])`,
+      [orgId, categoryIds]
     );
-    if (elementRows.rows.length !== elementIds.length) {
+    if (categoryRows.rows.length !== categoryIds.length) {
       await client.query("ROLLBACK");
-      return { ok: false, reason: "element_not_found" };
+      return { ok: false, reason: "category_not_found" };
     }
-    const mismatched = elementRows.rows.find(
-      (r) => r.currency !== contractCurrency
-    );
-    if (mismatched) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "currency_mismatch" };
+
+    // Validate element overrides only (service-area rates carry no element):
+    // each must exist (org-scoped) and match the contract currency.
+    const elementIds = [
+      ...new Set(
+        items.map((i) => i.elementId).filter((id): id is string => Boolean(id))
+      ),
+    ];
+    if (elementIds.length > 0) {
+      const elementRows = await client.query(
+        `SELECT id, currency FROM element
+          WHERE org_id = $1 AND id = ANY($2::uuid[])`,
+        [orgId, elementIds]
+      );
+      if (elementRows.rows.length !== elementIds.length) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "element_not_found" };
+      }
+      const mismatched = elementRows.rows.find(
+        (r) => r.currency !== contractCurrency
+      );
+      if (mismatched) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "currency_mismatch" };
+      }
     }
 
     let count = 0;
     for (const it of items) {
+      // Same insert either way; only the partial-index conflict target differs
+      // (service-area rate vs element override).
+      const conflictTarget = it.elementId
+        ? "(rate_contract_id, category_id, element_id) WHERE element_id IS NOT NULL"
+        : "(rate_contract_id, category_id) WHERE element_id IS NULL";
       const r = await client.query(
         `INSERT INTO rate_contract_item (
-           rate_contract_id, element_id, unit, rate, notes
-         ) VALUES ($1, $2, $3, $4::numeric, $5)
-         ON CONFLICT (rate_contract_id, element_id)
+           rate_contract_id, category_id, element_id, unit, rate, notes
+         ) VALUES ($1, $2, $3, $4, $5::numeric, $6)
+         ON CONFLICT ${conflictTarget}
          DO UPDATE SET unit = EXCLUDED.unit,
                        rate = EXCLUDED.rate,
                        notes = EXCLUDED.notes`,
-        [contractId, it.elementId, it.unit, it.rate, it.notes ?? null]
+        [
+          contractId,
+          it.categoryId,
+          it.elementId ?? null,
+          it.unit,
+          it.rate,
+          it.notes ?? null,
+        ]
       );
       count += r.rowCount ?? 0;
     }

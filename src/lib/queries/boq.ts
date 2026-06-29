@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
+import { elementAncestorCategoryIdsSql } from "./helpers";
 import type {
   Boq,
   BoqElementLite,
@@ -1059,6 +1060,87 @@ export async function updateBoqItem(
   };
 }
 
+export type ApplyRateOutcome =
+  | { ok: true; item: BoqItemWithComputed }
+  | {
+      ok: false;
+      reason: "not_found" | "conflict" | "no_element" | "rate_not_applicable";
+    };
+
+/**
+ * Apply a rate-contract item's rate to an EXISTING BOQ item. The rate must
+ * cover the item's element — by exact element, the element's service area, or
+ * an ancestor category (same precedence as `getActiveRatesForBoqItem`). Sets
+ * the unit cost + unit, marks the item `source='rate_contract'`, links the
+ * rate, and re-opens client-approved items. Optimistic-locked on `updated_at`.
+ */
+export async function applyRateContractToBoqItem(
+  orgId: string,
+  itemId: string,
+  rateContractItemId: string,
+  expectedUpdatedAt: string
+): Promise<ApplyRateOutcome> {
+  const pool = getPool();
+
+  const itemRes = await pool.query(
+    `SELECT element_id FROM boq_item WHERE id = $1`,
+    [itemId]
+  );
+  if (itemRes.rows.length === 0) return { ok: false, reason: "not_found" };
+  const elementId = itemRes.rows[0].element_id as string | null;
+  if (!elementId) return { ok: false, reason: "no_element" };
+
+  const rateRes = await pool.query(
+    `SELECT rci.rate, rci.unit
+       FROM rate_contract_item rci
+       JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+       JOIN element_category cat ON cat.id = rci.category_id AND cat.is_active = true
+      WHERE rci.id = $1
+        AND rc.org_id = $2
+        AND rc.status = 'active'
+        AND (
+          rci.element_id = $3
+          OR (rci.element_id IS NULL
+              AND rci.category_id IN ${elementAncestorCategoryIdsSql(3)})
+        )`,
+    [rateContractItemId, orgId, elementId]
+  );
+  if (rateRes.rows.length === 0) {
+    return { ok: false, reason: "rate_not_applicable" };
+  }
+  const { rate, unit } = rateRes.rows[0];
+
+  const { rows } = await pool.query<BoqItemWithComputed>(
+    `WITH updated AS (
+       UPDATE boq_item bi
+       SET unit_cost = $1::numeric,
+           unit = $2,
+           source = 'rate_contract',
+           rate_contract_item_id = $3::uuid,
+           phase = CASE WHEN phase = 'client_approved' THEN 'sent_to_client' ELSE phase END,
+           updated_at = now()
+       WHERE bi.id = $4
+         AND date_trunc('milliseconds', bi.updated_at)
+             = date_trunc('milliseconds', $5::timestamptz)
+       RETURNING *
+     )
+     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
+     FROM updated bi
+     JOIN boq b ON b.id = bi.boq_id
+     ${ITEM_LIBRARY_JOIN}`,
+    [rate, unit, rateContractItemId, itemId, expectedUpdatedAt]
+  );
+  if (rows.length > 0) return { ok: true, item: rows[0] };
+
+  const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
+    itemId,
+  ]);
+  return {
+    ok: false,
+    reason: exists.rows.length > 0 ? "conflict" : "not_found",
+  };
+}
+
 export type DeleteBoqItemOutcome =
   | { ok: true }
   | { ok: false; reason: "not_found" | "conflict" };
@@ -1220,15 +1302,20 @@ export async function addElementToBoq(
       `SELECT rci.rate, rci.unit
          FROM rate_contract_item rci
          JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+         JOIN element_category cat ON cat.id = rci.category_id AND cat.is_active = true
         WHERE rci.id = $1
           AND rc.org_id = $2
           AND rc.status = 'active'
-          AND rci.element_id = $3`,
+          AND (
+            rci.element_id = $3
+            OR (rci.element_id IS NULL
+                AND rci.category_id IN ${elementAncestorCategoryIdsSql(3)})
+          )`,
       [params.rateContractItemId, orgId, params.elementId]
     );
     if (rcRows.length === 0) {
       throw new Error(
-        "Rate contract item not active or doesn't match the chosen element"
+        "Rate contract item not active or doesn't cover the chosen element"
       );
     }
     unitCost = Number(rcRows[0].rate);

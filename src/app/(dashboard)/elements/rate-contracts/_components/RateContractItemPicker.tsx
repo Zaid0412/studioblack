@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import { Trash2 } from "lucide-react";
@@ -14,42 +14,60 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import { elements as elementsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
+import { buildCategoryMap } from "@/lib/elementCategories";
 import type { ListElementsResponse } from "@/lib/api/elements";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
-import type { Element } from "@/types";
+import type { Element, ElementCategoryNode } from "@/types";
 
 const ALLOWED_UNIT_SET = new Set<string>(ALLOWED_UNITS);
+
+export interface RateContractItemDraftSubmit {
+  categoryId: string;
+  elementId?: string;
+  unit: ElementUnit;
+  rate: number;
+}
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contractCurrency: string;
-  /** Element ids already in the contract — disabled in the picker. */
-  existingElementIds: Set<string>;
-  onSubmit: (
-    rows: { elementId: string; unit: ElementUnit; rate: number }[]
-  ) => Promise<void>;
+  /**
+   * Keys already in the contract — disabled in the picker. `el:<elementId>` for
+   * element overrides, `area:<categoryId>` for service-area rates.
+   */
+  existingKeys: Set<string>;
+  onSubmit: (rows: RateContractItemDraftSubmit[]) => Promise<void>;
 }
 
 interface DraftRow {
-  element: Element;
+  /** `el:<id>` or `area:<id>` — unique per draft. */
+  key: string;
+  categoryId: string;
+  categoryLabel: string;
+  /** Element override; null = the rate covers the whole service area. */
+  element: Element | null;
   rate: string;
   unit: ElementUnit | null;
 }
 
 /**
- * Browses the element library and lets the user enter a unit + rate per
- * element to add to the rate contract. Submits as a bulk insert/upsert.
+ * Adds rate-contract items two ways: a whole **service area** (taxonomy leaf),
+ * or a specific **element** (whose service area is derived). Each draft takes a
+ * unit + rate; submitted as a bulk insert/upsert.
  */
 export function RateContractItemPicker({
   open,
   onOpenChange,
   contractCurrency,
-  existingElementIds,
+  existingKeys,
   onSubmit,
 }: Props) {
   const t = useTranslations("rateContracts");
@@ -66,6 +84,18 @@ export function RateContractItemPicker({
     }
   }, [open]);
 
+  // Category map (id → name) labels both element-derived and service-area drafts.
+  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
+    open ? API.elementCategories() : null
+  );
+  const categoryMap = useMemo(
+    () =>
+      catData?.tree
+        ? buildCategoryMap(catData.tree)
+        : new Map<string, string>(),
+    [catData]
+  );
+
   const listKey = open
     ? elementsApi.listKey({
         search: search || undefined,
@@ -75,30 +105,46 @@ export function RateContractItemPicker({
     : null;
   const { data, isLoading } = useSWR<ListElementsResponse>(listKey);
   const allElements = data?.rows ?? [];
-  // Currency match is enforced server-side in addRateContractItems. Filter
-  // here too so the user can't pick a doomed element in the first place.
-  const elements = allElements.filter((el) => el.currency === contractCurrency);
+  // Currency match is enforced server-side; filter here so the user can't pick
+  // a doomed element. Elements without a service area can't be priced.
+  const elements = allElements.filter(
+    (el) => el.currency === contractCurrency && el.category_id
+  );
   const filteredOutByCurrency = allElements.length > 0 && elements.length === 0;
 
-  const addDraft = (element: Element) => {
-    if (drafts.some((d) => d.element.id === element.id)) return;
-    // The element table accepts any VARCHAR(30) for `unit`, but the rate-
-    // contract API only accepts the strict ALLOWED_UNITS enum. Pre-fill only
-    // when the element's unit is valid; otherwise force the user to pick.
-    const unit = ALLOWED_UNIT_SET.has(element.unit)
-      ? (element.unit as ElementUnit)
-      : null;
-    setDrafts((s) => [...s, { element, rate: "", unit }]);
+  const draftKeys = useMemo(() => new Set(drafts.map((d) => d.key)), [drafts]);
+
+  /** Add a service-area draft (`element` null) or an element override. */
+  const addDraft = (
+    categoryId: string | null,
+    element: Element | null = null
+  ) => {
+    if (!categoryId) return;
+    const key = element ? `el:${element.id}` : `area:${categoryId}`;
+    if (draftKeys.has(key) || existingKeys.has(key)) return;
+    const unit =
+      element && ALLOWED_UNIT_SET.has(element.unit)
+        ? (element.unit as ElementUnit)
+        : null;
+    setDrafts((s) => [
+      ...s,
+      {
+        key,
+        categoryId,
+        categoryLabel: categoryMap.get(categoryId) ?? "",
+        element,
+        rate: "",
+        unit,
+      },
+    ]);
   };
 
-  const updateDraft = (id: string, patch: Partial<DraftRow>) => {
-    setDrafts((s) =>
-      s.map((d) => (d.element.id === id ? { ...d, ...patch } : d))
-    );
+  const updateDraft = (key: string, patch: Partial<DraftRow>) => {
+    setDrafts((s) => s.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   };
 
-  const removeDraft = (id: string) => {
-    setDrafts((s) => s.filter((d) => d.element.id !== id));
+  const removeDraft = (key: string) => {
+    setDrafts((s) => s.filter((d) => d.key !== key));
   };
 
   const canSubmit =
@@ -116,7 +162,8 @@ export function RateContractItemPicker({
         drafts
           .filter((d): d is DraftRow & { unit: ElementUnit } => d.unit !== null)
           .map((d) => ({
-            elementId: d.element.id,
+            categoryId: d.categoryId,
+            ...(d.element ? { elementId: d.element.id } : {}),
             unit: d.unit,
             rate: Number(d.rate),
           }))
@@ -132,66 +179,88 @@ export function RateContractItemPicker({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{t("itemPickerTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("itemPickerCurrencyHint", { currency: contractCurrency })}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
-          <p className="text-xs text-text-muted">
-            {t("itemPickerCurrencyHint", { currency: contractCurrency })}
-          </p>
+          {/* Add a whole service area */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              {t("itemPickerAddArea")}
+            </label>
+            <CategorySelect
+              value={null}
+              onChange={(id) => addDraft(id)}
+              tree={catData?.tree ?? []}
+              minDepth={1}
+              clearable={false}
+              placeholder={t("itemPickerAreaPlaceholder")}
+            />
+          </div>
 
-          <SearchInput
-            placeholder={t("itemPickerSearchPlaceholder")}
-            value={search}
-            debounceMs={300}
-            onDebouncedChange={setSearch}
-          />
-
-          <div className="border border-border-default rounded-lg max-h-[260px] overflow-y-auto shrink-0">
-            {isLoading ? (
-              <div className="flex flex-col gap-1 p-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-9 rounded" />
-                ))}
-              </div>
-            ) : filteredOutByCurrency ? (
-              <p className="p-4 text-sm text-text-muted italic">
-                {t("itemPickerNoMatchingCurrency", {
-                  currency: contractCurrency,
-                })}
-              </p>
-            ) : elements.length === 0 ? (
-              <p className="p-4 text-sm text-text-muted italic">
-                {t("itemPickerEmpty")}
-              </p>
-            ) : (
-              elements.map((el) => {
-                const inContract = existingElementIds.has(el.id);
-                const inDraft = drafts.some((d) => d.element.id === el.id);
-                return (
-                  <button
-                    key={el.id}
-                    type="button"
-                    onClick={() => !inContract && !inDraft && addDraft(el)}
-                    disabled={inContract || inDraft}
-                    className="w-full text-left px-3 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
-                  >
-                    <span className="font-mono text-xs text-text-muted w-32 truncate">
-                      {el.code}
-                    </span>
-                    <span className="flex-1 text-sm text-text-primary truncate">
-                      {el.name}
-                    </span>
-                    <span className="text-xs text-text-muted">
-                      {inContract
-                        ? t("itemPickerInContract")
-                        : inDraft
-                          ? t("itemPickerInDraft")
-                          : ""}
-                    </span>
-                  </button>
-                );
-              })
-            )}
+          {/* Or add a specific element (its service area is derived) */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
+              {t("itemPickerAddElement")}
+            </label>
+            <SearchInput
+              placeholder={t("itemPickerSearchPlaceholder")}
+              value={search}
+              debounceMs={300}
+              onDebouncedChange={setSearch}
+            />
+            <div className="border border-border-default rounded-lg max-h-[220px] overflow-y-auto shrink-0">
+              {isLoading ? (
+                <div className="flex flex-col gap-1 p-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-9 rounded" />
+                  ))}
+                </div>
+              ) : filteredOutByCurrency ? (
+                <p className="p-4 text-sm text-text-muted italic">
+                  {t("itemPickerNoMatchingCurrency", {
+                    currency: contractCurrency,
+                  })}
+                </p>
+              ) : elements.length === 0 ? (
+                <p className="p-4 text-sm text-text-muted italic">
+                  {t("itemPickerEmpty")}
+                </p>
+              ) : (
+                elements.map((el) => {
+                  const key = `el:${el.id}`;
+                  const inContract = existingKeys.has(key);
+                  const inDraft = draftKeys.has(key);
+                  return (
+                    <button
+                      key={el.id}
+                      type="button"
+                      onClick={() =>
+                        !inContract && !inDraft && addDraft(el.category_id, el)
+                      }
+                      disabled={inContract || inDraft}
+                      className="w-full text-left px-3 py-2 border-b border-border-default last:border-b-0 hover:bg-bg-elevated disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
+                    >
+                      <span className="font-mono text-xs text-text-muted w-32 truncate">
+                        {el.code}
+                      </span>
+                      <span className="flex-1 text-sm text-text-primary truncate">
+                        {el.name}
+                      </span>
+                      <span className="text-xs text-text-muted">
+                        {inContract
+                          ? t("itemPickerInContract")
+                          : inDraft
+                            ? t("itemPickerInDraft")
+                            : ""}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {drafts.length > 0 && (
@@ -202,21 +271,23 @@ export function RateContractItemPicker({
               <div className="flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-1">
                 {drafts.map((d) => (
                   <div
-                    key={d.element.id}
+                    key={d.key}
                     className="flex items-center gap-2 rounded-md border border-border-default p-2"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="font-mono text-xs text-text-muted">
-                        {d.element.code}
-                      </div>
                       <div className="text-sm text-text-primary truncate">
-                        {d.element.name}
+                        {d.categoryLabel || d.categoryId}
+                      </div>
+                      <div className="font-mono text-xs text-text-muted truncate">
+                        {d.element
+                          ? `${d.element.code} · ${d.element.name}`
+                          : t("itemWholeArea")}
                       </div>
                     </div>
                     <div className="w-24 shrink-0">
                       <UnitFilterSelect
                         value={d.unit}
-                        onChange={(unit) => updateDraft(d.element.id, { unit })}
+                        onChange={(unit) => updateDraft(d.key, { unit })}
                         placeholder={t("itemPickerUnitPlaceholder")}
                         allLabel={t("itemPickerUnitClear")}
                       />
@@ -224,7 +295,7 @@ export function RateContractItemPicker({
                     <Input
                       value={d.rate}
                       onChange={(e) =>
-                        updateDraft(d.element.id, { rate: e.target.value })
+                        updateDraft(d.key, { rate: e.target.value })
                       }
                       placeholder={t("itemPickerRatePlaceholder", {
                         currency: contractCurrency,
@@ -237,7 +308,7 @@ export function RateContractItemPicker({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeDraft(d.element.id)}
+                      onClick={() => removeDraft(d.key)}
                       aria-label={t("removeItem")}
                     >
                       <Trash2 className="w-4 h-4" />

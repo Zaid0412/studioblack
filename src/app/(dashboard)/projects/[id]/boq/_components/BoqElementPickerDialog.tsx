@@ -266,7 +266,10 @@ export function BoqElementPickerDialog({
   };
 
   const handleSubmitRate = async () => {
-    if (!selectedRate) return;
+    // The browse picker only surfaces element-bearing rates; the element id is
+    // required to add an element row to the BOQ.
+    if (!selectedRate?.element_id) return;
+    const elementId = selectedRate.element_id;
     const qty = parseFloat(rateQuantity);
     if (!Number.isFinite(qty) || qty <= 0) {
       toast({
@@ -281,7 +284,7 @@ export function BoqElementPickerDialog({
       await boqApi.addElement(projectId, {
         boqId,
         sectionId: sectionId === BOQ_NO_SECTION_ID ? null : sectionId,
-        elementId: selectedRate.element_id,
+        elementId,
         quantity: qty,
         rateContractItemId: selectedRate.rate_contract_item_id,
       });

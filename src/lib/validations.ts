@@ -874,6 +874,12 @@ export const deleteBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
 });
 
+/** Apply an active rate-contract rate to an existing BOQ item. */
+export const applyRateToBoqItemSchema = z.object({
+  rateContractItemId: uuid,
+  updatedAt: updatedAtToken,
+});
+
 export const moveBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   /** `null` moves the item back to the Unassigned bucket. */
@@ -1236,7 +1242,8 @@ export const addRateContractItemsSchema = z.object({
   items: z
     .array(
       z.object({
-        elementId: uuid,
+        categoryId: uuid,
+        elementId: optionalUuid,
         unit: z.enum(ALLOWED_UNITS),
         rate: z.number().positive(),
         notes: z.string().max(2000).optional().nullable(),

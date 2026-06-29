@@ -385,6 +385,9 @@ vi.mock("@/lib/queries", () => ({
   reorderBoqSections: vi.fn().mockResolvedValue(undefined),
   createBoqItem: vi.fn(),
   updateBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  applyRateContractToBoqItem: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
   deleteBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   moveBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   moveBoqItemsBulk: vi
@@ -463,7 +466,7 @@ vi.mock("@/lib/queries", () => ({
   // Rate Contracts (Feature 7.5)
   listRateContracts: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRateContractById: vi.fn().mockResolvedValue(null),
-  getActiveRatesForElement: vi.fn().mockResolvedValue([]),
+  getActiveRatesForBoqItem: vi.fn().mockResolvedValue([]),
   getAvailableRatesForBoqPicker: vi.fn().mockResolvedValue([]),
   createRateContract: vi.fn(),
   updateRateContract: vi
