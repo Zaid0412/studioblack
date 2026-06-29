@@ -16,13 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
+import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { API } from "@/lib/api/routes";
 import { rateContracts as rcApi } from "@/lib/api";
@@ -279,52 +273,28 @@ export function RateContractFormDialog({
               maxLength={100}
               placeholder={t("paymentTermsPlaceholder")}
             />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                {t("contractType")}
-              </label>
-              <Select
-                value={values.contractType}
-                onValueChange={(v) =>
-                  set("contractType", v as RateContractType)
-                }
-                disabled={isLocked}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("contractTypePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {RATE_CONTRACT_TYPES.map((ct) => (
-                    <SelectItem key={ct} value={ct}>
-                      {t(`contractType_${ct}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-text-secondary">
-                {t("priceBasis")}
-              </label>
-              <Select
-                value={values.priceBasis}
-                onValueChange={(v) =>
-                  set("priceBasis", v as RateContractPriceBasis)
-                }
-                disabled={isLocked}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("priceBasisPlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {RATE_CONTRACT_PRICE_BASES.map((pb) => (
-                    <SelectItem key={pb} value={pb}>
-                      {t(`priceBasis_${pb}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <LabeledSelect
+              label={t("contractType")}
+              value={values.contractType}
+              onChange={(v) => set("contractType", v as RateContractType)}
+              options={RATE_CONTRACT_TYPES.map((ct) => ({
+                value: ct,
+                label: t(`contractType_${ct}`),
+              }))}
+              placeholder={t("contractTypePlaceholder")}
+              disabled={isLocked}
+            />
+            <LabeledSelect
+              label={t("priceBasis")}
+              value={values.priceBasis}
+              onChange={(v) => set("priceBasis", v as RateContractPriceBasis)}
+              options={RATE_CONTRACT_PRICE_BASES.map((pb) => ({
+                value: pb,
+                label: t(`priceBasis_${pb}`),
+              }))}
+              placeholder={t("priceBasisPlaceholder")}
+              disabled={isLocked}
+            />
             <Input
               label={t("creditPeriodDays")}
               type="number"
