@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Package } from "lucide-react";
+import { Check, Loader2, Package } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -110,40 +110,54 @@ export function BoqApplyRateDialog({
             </div>
           ) : (
             <ul className="flex flex-col">
-              {rates.map((r) => (
-                <li key={r.rate_contract_item_id}>
-                  <button
-                    type="button"
-                    disabled={applyingId !== null}
-                    onClick={() => void handleApply(r)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-text-primary truncate">
-                          {r.vendor_name}
-                        </span>
-                        {r.match_type && (
-                          <Badge
-                            variant={MATCH_VARIANT[r.match_type]}
-                            className="shrink-0"
-                          >
-                            {MATCH_LABEL[r.match_type]}
-                          </Badge>
+              {rates.map((r) => {
+                const isApplying = applyingId === r.rate_contract_item_id;
+                const isApplied =
+                  item?.rate_contract_item_id === r.rate_contract_item_id;
+                return (
+                  <li key={r.rate_contract_item_id}>
+                    <button
+                      type="button"
+                      disabled={applyingId !== null || isApplied}
+                      onClick={() => void handleApply(r)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-text-primary truncate">
+                            {r.vendor_name}
+                          </span>
+                          {r.match_type && (
+                            <Badge
+                              variant={MATCH_VARIANT[r.match_type]}
+                              className="shrink-0"
+                            >
+                              {MATCH_LABEL[r.match_type]}
+                            </Badge>
+                          )}
+                          {isApplied && (
+                            <span className="shrink-0 inline-flex items-center gap-1 text-xs text-success">
+                              <Check className="h-3.5 w-3.5" />
+                              Applied
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-text-muted truncate">
+                          {r.contract_number} ·{" "}
+                          {r.category_code ?? r.category_name}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-sm font-mono text-text-primary shrink-0">
+                        {isApplying && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         )}
+                        {formatCurrency(r.rate, r.currency)}
+                        <span className="text-text-muted">/{r.unit}</span>
                       </div>
-                      <div className="text-xs text-text-muted truncate">
-                        {r.contract_number} ·{" "}
-                        {r.category_code ?? r.category_name}
-                      </div>
-                    </div>
-                    <div className="text-sm font-mono text-text-primary shrink-0">
-                      {formatCurrency(r.rate, r.currency)}
-                      <span className="text-text-muted">/{r.unit}</span>
-                    </div>
-                  </button>
-                </li>
-              ))}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
