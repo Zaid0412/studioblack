@@ -161,6 +161,11 @@ export function RateContractItemPicker({
   /** Optional numeric field → number | null. */
   const numOrNull = (s: string) => (s.trim() ? Number(s) : null);
 
+  /** Accent the detail toggle when it's open or any optional field is filled. */
+  const hasDetail = (d: DraftRow) =>
+    d.expanded ||
+    !!(d.description || d.minQty || d.maxQty || d.leadTimeDays || d.validUntil);
+
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
     setDrafts((s) => s.map((d) => (d.key === key ? { ...d, ...patch } : d)));
   };
@@ -341,16 +346,7 @@ export function RateContractItemPicker({
                         }
                         aria-label={t("itemOptionalDetail")}
                         title={t("itemOptionalDetail")}
-                        className={
-                          d.expanded ||
-                          d.description ||
-                          d.minQty ||
-                          d.maxQty ||
-                          d.leadTimeDays ||
-                          d.validUntil
-                            ? "text-accent"
-                            : ""
-                        }
+                        className={hasDetail(d) ? "text-accent" : ""}
                       >
                         <SlidersHorizontal className="w-4 h-4" />
                       </Button>
