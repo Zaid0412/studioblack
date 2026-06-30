@@ -1066,7 +1066,8 @@
     "tabRateContracts": "Rate Contracts",
     "rcEmptyTitle": "No rate contracts",
     "rcEmptyHint": "Pre-agreed rates with this vendor will appear here.",
-    "rcItemCount": "{count, plural, =0 {no items} one {# item} other {# items}}"
+    "rcItemCount": "{count, plural, =0 {no items} one {# item} other {# items}}",
+    "rcShowingCount": "Showing {shown} of {total}"
   },
   "order": {
     "tabs": {

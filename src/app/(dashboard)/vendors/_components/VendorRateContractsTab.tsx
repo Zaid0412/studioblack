@@ -29,6 +29,7 @@ export function VendorRateContractsTab({ vendorId, enabled }: Props) {
     enabled ? rcApi.listKey({ vendorId, limit: 100 }) : null
   );
   const rows = data?.rows ?? [];
+  const total = data?.total ?? rows.length;
 
   if (!enabled) return null;
 
@@ -75,6 +76,11 @@ export function VendorRateContractsTab({ vendorId, enabled }: Props) {
           <RateContractStatusBadge status={rc.status} className="shrink-0" />
         </Link>
       ))}
+      {total > rows.length && (
+        <p className="pt-1 text-center text-xs text-text-muted">
+          {t("rcShowingCount", { shown: rows.length, total })}
+        </p>
+      )}
     </div>
   );
 }
