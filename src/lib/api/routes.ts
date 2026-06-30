@@ -193,7 +193,7 @@ export const API = {
   rateContract:                (id: string)                          => `/api/rate-contracts/${id}`,
   rateContractItems:           (id: string)                          => `/api/rate-contracts/${id}/items`,
   rateContractItem:            (id: string, itemId: string)          => `/api/rate-contracts/${id}/items/${itemId}`,
-  rateContractActivate:        (id: string)                          => `/api/rate-contracts/${id}/activate`,
+  rateContractTransition:      (id: string)                          => `/api/rate-contracts/${id}/transition`,
   rateContractsByElement:      (elementId: string)                   => `/api/rate-contracts/by-element/${elementId}`,
   rateContractAvailableRates:  ()                                    => "/api/rate-contracts/available-rates",
 } as const;

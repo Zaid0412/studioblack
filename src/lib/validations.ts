@@ -1184,11 +1184,65 @@ export const listVendorsQuerySchema = z.object({
 
 export const RATE_CONTRACT_STATUSES = [
   "draft",
+  "under_review",
+  "approved",
   "active",
+  "suspended",
   "expired",
+  "closed",
   "cancelled",
 ] as const;
 export type RateContractStatus = (typeof RATE_CONTRACT_STATUSES)[number];
+
+/** Lifecycle actions that move a rate contract between statuses. */
+export const RATE_CONTRACT_ACTIONS = [
+  "submit",
+  "approve",
+  "request_changes",
+  "activate",
+  "suspend",
+  "resume",
+  "close",
+  "cancel",
+] as const;
+export type RateContractAction = (typeof RATE_CONTRACT_ACTIONS)[number];
+
+interface RateContractTransition {
+  /** Statuses this action may be applied from. */
+  from: readonly RateContractStatus[];
+  /** Status the contract moves to. */
+  to: RateContractStatus;
+  /** Requires the org-owner/admin ("pm") effective role — architects can't. */
+  pmOnly?: boolean;
+  /** Requires at least one item on the contract. */
+  requiresItems?: boolean;
+}
+
+/**
+ * The rate-contract state machine. Single source of truth for both the server
+ * (transitionRateContract) and the UI (which actions to offer). Auto-expiry
+ * (`active → expired`) is handled separately by the date sweep, not an action.
+ */
+export const RATE_CONTRACT_TRANSITIONS: Record<
+  RateContractAction,
+  RateContractTransition
+> = {
+  submit: { from: ["draft"], to: "under_review" },
+  approve: { from: ["under_review"], to: "approved", pmOnly: true },
+  request_changes: { from: ["under_review"], to: "draft", pmOnly: true },
+  activate: { from: ["approved"], to: "active", requiresItems: true },
+  suspend: { from: ["active"], to: "suspended" },
+  resume: { from: ["suspended"], to: "active" },
+  close: { from: ["active"], to: "closed" },
+  cancel: {
+    from: ["draft", "under_review", "approved", "active", "suspended"],
+    to: "cancelled",
+  },
+};
+
+export const transitionRateContractSchema = z.object({
+  action: z.enum(RATE_CONTRACT_ACTIONS),
+});
 
 export const RATE_CONTRACT_TYPES = [
   "material",
@@ -1248,7 +1302,8 @@ export const updateRateContractSchema = z
     agreementUrl: z.string().url().max(2048).optional().nullable(),
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
-    status: z.enum(RATE_CONTRACT_STATUSES).optional(),
+    // status is not editable here — it moves only through the transition
+    // state machine (POST /[id]/transition).
     contractType: z.enum(RATE_CONTRACT_TYPES).optional().nullable(),
     creditPeriodDays: z.number().int().min(0).max(3650).optional().nullable(),
     deliveryTerms: z.string().max(100).optional().nullable(),

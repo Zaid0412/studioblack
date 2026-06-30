@@ -1,0 +1,66 @@
+import { NextResponse } from "next/server";
+import {
+  transitionRateContract,
+  logAuditSafe,
+  AUDIT_ACTIONS,
+} from "@/lib/queries";
+import { withAuth } from "@/lib/withAuth";
+import { parseRequest, transitionRateContractSchema } from "@/lib/validations";
+
+/**
+ * POST /api/rate-contracts/[id]/transition — advance the contract through its
+ * lifecycle via a single action (submit/approve/activate/…). The state machine
+ * + per-action role rules live in transitionRateContract.
+ */
+export const POST = withAuth(
+  { allowedRoles: ["pm", "architect"] },
+  async (req, { orgId, user, effectiveRole }, params) => {
+    if (!orgId) {
+      return NextResponse.json({ error: "No organisation" }, { status: 400 });
+    }
+    const parsed = await parseRequest(req, transitionRateContractSchema);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const result = await transitionRateContract(
+      orgId,
+      params.id,
+      parsed.data.action,
+      { userId: user.id, role: effectiveRole }
+    );
+    if (!result.ok) {
+      const status =
+        result.reason === "not_found"
+          ? 404
+          : result.reason === "forbidden"
+            ? 403
+            : result.reason === "empty" ||
+                result.reason === "invalid_status_transition"
+              ? 409
+              : 400;
+      const messages: Record<string, string> = {
+        not_found: "Rate contract not found",
+        forbidden: "You don't have permission for this action",
+        empty: "Add at least one item before activating",
+        invalid_status_transition:
+          "That action isn't allowed from the current status",
+      };
+      return NextResponse.json(
+        { error: messages[result.reason] ?? result.reason },
+        { status }
+      );
+    }
+
+    await logAuditSafe({
+      orgId,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.RATE_CONTRACT_TRANSITIONED,
+      targetTable: "rate_contract",
+      targetId: params.id,
+      metadata: { action: parsed.data.action, status: result.row.status },
+    });
+
+    return NextResponse.json(result.row);
+  }
+);

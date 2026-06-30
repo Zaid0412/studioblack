@@ -31,6 +31,7 @@ export const AUDIT_ACTIONS = {
   VENDOR_CONTACT_REMOVED: "vendor.contact.removed",
   RATE_CONTRACT_ACTIVATED: "rate_contract.activated",
   RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
+  RATE_CONTRACT_TRANSITIONED: "rate_contract.transitioned",
   // ── RFQ (F9) ───────────────────────────────────────────────────────────
   RFQ_CREATED: "rfq.created",
   RFQ_UPDATED: "rfq.updated",

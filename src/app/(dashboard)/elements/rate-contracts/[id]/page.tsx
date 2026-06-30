@@ -12,6 +12,13 @@ import {
   ShieldCheck,
   XCircle,
   ExternalLink,
+  Send,
+  CheckCircle2,
+  RotateCcw,
+  PauseCircle,
+  PlayCircle,
+  Archive,
+  type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -23,7 +30,11 @@ import { API } from "@/lib/api/routes";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFlag } from "@/hooks/useFlag";
 import type { RateContractWithDetails } from "@/types";
-import type { ElementUnit } from "@/lib/validations";
+import type { ElementUnit, RateContractAction } from "@/lib/validations";
+import {
+  RATE_CONTRACT_ACTIONS,
+  RATE_CONTRACT_TRANSITIONS,
+} from "@/lib/validations";
 import { formatDate } from "@/lib/formatDate";
 import { RateContractStatusBadge } from "@/components/rate-contracts/RateContractStatusBadge";
 import { RateContractItemTable } from "../_components/RateContractItemTable";
@@ -36,6 +47,21 @@ import { RateContractFormDialog } from "../_components/RateContractFormDialog";
 interface Props {
   params: Promise<{ id: string }>;
 }
+
+/** Icon + button styling per lifecycle action. */
+const ACTION_META: Record<
+  RateContractAction,
+  { icon: LucideIcon; variant?: "secondary" | "danger" }
+> = {
+  submit: { icon: Send },
+  approve: { icon: CheckCircle2 },
+  request_changes: { icon: RotateCcw, variant: "secondary" },
+  activate: { icon: ShieldCheck },
+  suspend: { icon: PauseCircle, variant: "secondary" },
+  resume: { icon: PlayCircle },
+  close: { icon: Archive, variant: "secondary" },
+  cancel: { icon: XCircle, variant: "danger" },
+};
 
 /** Detail page for a rate contract — header summary, status actions, and the line-item table. */
 export default function RateContractDetailPage({ params }: Props) {
@@ -53,8 +79,9 @@ export default function RateContractDetailPage({ params }: Props) {
 
   const [editOpen, setEditOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [confirmActivate, setConfirmActivate] = useState(false);
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [pendingAction, setPendingAction] = useState<RateContractAction | null>(
+    null
+  );
   const [busy, setBusy] = useState(false);
 
   // Keys already in the contract — `el:<id>` for element overrides,
@@ -88,30 +115,20 @@ export default function RateContractDetailPage({ params }: Props) {
     );
   }
 
-  const handleActivate = async () => {
+  const handleTransition = async (action: RateContractAction) => {
     setBusy(true);
     try {
-      await rcApi.activate(data.id);
-      toast({ title: t("toastActivated") });
-      mutate();
-      setConfirmActivate(false);
+      await rcApi.transition(data.id, action);
+      toast({ title: t(`toast_${action}`) });
+      setPendingAction(null);
+      // A cancelled contract drops out of active management — back to the list.
+      if (action === "cancel") {
+        router.push("/elements/rate-contracts");
+      } else {
+        mutate();
+      }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to activate";
-      toast({ title: msg, variant: "error" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleCancel = async () => {
-    setBusy(true);
-    try {
-      await rcApi.cancel(data.id);
-      toast({ title: t("toastCancelled") });
-      setConfirmCancel(false);
-      router.push("/elements/rate-contracts");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to cancel";
+      const msg = err instanceof Error ? err.message : "Action failed";
       toast({ title: msg, variant: "error" });
     } finally {
       setBusy(false);
@@ -166,8 +183,18 @@ export default function RateContractDetailPage({ params }: Props) {
   };
 
   const isDraft = data.status === "draft";
-  const isActive = data.status === "active";
-  const isClosed = data.status === "expired" || data.status === "cancelled";
+  const isClosed =
+    data.status === "expired" ||
+    data.status === "cancelled" ||
+    data.status === "closed";
+  // Actions legal from the current status, gated by role (PM-only approvals).
+  const availableActions = RATE_CONTRACT_ACTIONS.filter((action) => {
+    const transition = RATE_CONTRACT_TRANSITIONS[action];
+    return (
+      transition.from.includes(data.status) &&
+      (!transition.pmOnly || role === "pm")
+    );
+  });
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
@@ -195,26 +222,22 @@ export default function RateContractDetailPage({ params }: Props) {
                   {tCommon("edit")}
                 </Button>
               )}
-              {isDraft && (
-                <Button
-                  size="sm"
-                  onClick={() => setConfirmActivate(true)}
-                  disabled={data.items.length === 0}
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  {t("activate")}
-                </Button>
-              )}
-              {isActive && (
-                <Button
-                  variant="danger"
-                  size="sm"
-                  onClick={() => setConfirmCancel(true)}
-                >
-                  <XCircle className="w-4 h-4" />
-                  {t("cancel")}
-                </Button>
-              )}
+              {availableActions.map((action) => {
+                const meta = ACTION_META[action];
+                const Icon = meta.icon;
+                return (
+                  <Button
+                    key={action}
+                    size="sm"
+                    variant={meta.variant}
+                    disabled={action === "activate" && data.items.length === 0}
+                    onClick={() => setPendingAction(action)}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {t(`action_${action}`)}
+                  </Button>
+                );
+              })}
             </>
           )
         }
@@ -248,6 +271,13 @@ export default function RateContractDetailPage({ params }: Props) {
           <Field label={t("agreementSignedDate")}>
             <span className="text-sm text-text-primary">
               {formatDate(data.agreement_signed_date)}
+            </span>
+          </Field>
+        )}
+        {data.approved_by_name && data.approved_at && (
+          <Field label={t("approvedBy")}>
+            <span className="text-sm text-text-primary">
+              {data.approved_by_name} · {formatDate(data.approved_at)}
             </span>
           </Field>
         )}
@@ -333,26 +363,17 @@ export default function RateContractDetailPage({ params }: Props) {
       />
 
       <ConfirmDialog
-        open={confirmActivate}
-        onOpenChange={setConfirmActivate}
-        title={t("confirmActivateTitle")}
-        description={t("confirmActivateDesc")}
-        confirmLabel={t("activate")}
+        open={pendingAction !== null}
+        onOpenChange={(o) => !o && setPendingAction(null)}
+        title={pendingAction ? t(`confirm_${pendingAction}_title`) : ""}
+        description={pendingAction ? t(`confirm_${pendingAction}_desc`) : ""}
+        confirmLabel={pendingAction ? t(`action_${pendingAction}`) : ""}
         cancelLabel={tCommon("cancel")}
+        destructive={pendingAction === "cancel"}
         submitting={busy}
-        onConfirm={handleActivate}
-      />
-
-      <ConfirmDialog
-        open={confirmCancel}
-        onOpenChange={setConfirmCancel}
-        title={t("confirmCancelTitle")}
-        description={t("confirmCancelDesc")}
-        confirmLabel={t("cancel")}
-        cancelLabel={tCommon("close")}
-        destructive
-        submitting={busy}
-        onConfirm={handleCancel}
+        onConfirm={() => {
+          if (pendingAction) handleTransition(pendingAction);
+        }}
       />
     </div>
   );

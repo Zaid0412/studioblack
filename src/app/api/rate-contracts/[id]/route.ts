@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getRateContractById,
-  updateRateContract,
-  cancelRateContract,
-  logAuditSafe,
-  AUDIT_ACTIONS,
-} from "@/lib/queries";
+import { getRateContractById, updateRateContract } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateRateContractSchema } from "@/lib/validations";
 
@@ -27,7 +21,7 @@ export const GET = withAuth(
   }
 );
 
-/** PATCH /api/rate-contracts/[id] — update header (allow-list per status). */
+/** PATCH /api/rate-contracts/[id] — update header (allow-list once active). */
 export const PATCH = withAuth(
   { allowedRoles: ["pm", "architect"] },
   async (req, { orgId }, params) => {
@@ -51,44 +45,13 @@ export const PATCH = withAuth(
         return NextResponse.json(
           {
             error:
-              "Active rate contracts can only be edited in notes / terms / agreement / payment-terms / status",
+              "Active rate contracts can only be edited in notes / terms / agreement / payment-terms",
           },
-          { status: 409 }
-        );
-      }
-      if (result.reason === "invalid_status_transition") {
-        return NextResponse.json(
-          { error: "Active contracts can only transition to cancelled" },
           { status: 409 }
         );
       }
       return NextResponse.json({ error: result.reason }, { status: 400 });
     }
     return NextResponse.json(result.row);
-  }
-);
-
-/** DELETE /api/rate-contracts/[id] — soft cancel (sets status='cancelled'). */
-export const DELETE = withAuth(
-  { allowedRoles: ["pm", "architect"] },
-  async (_req, { orgId, user }, params) => {
-    if (!orgId) {
-      return NextResponse.json({ error: "No organisation" }, { status: 400 });
-    }
-    const ok = await cancelRateContract(orgId, params.id);
-    if (!ok) {
-      return NextResponse.json(
-        { error: "Rate contract not found or already cancelled" },
-        { status: 404 }
-      );
-    }
-    await logAuditSafe({
-      orgId,
-      actorId: user.id,
-      action: AUDIT_ACTIONS.RATE_CONTRACT_CANCELLED,
-      targetTable: "rate_contract",
-      targetId: params.id,
-    });
-    return NextResponse.json({ success: true });
   }
 );

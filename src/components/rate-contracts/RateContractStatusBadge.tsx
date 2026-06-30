@@ -6,8 +6,12 @@ import type { RateContractStatus } from "@/types";
 
 const STATUS_VARIANT: Record<RateContractStatus, BadgeVariant> = {
   draft: "draft",
+  under_review: "in-review",
+  approved: "approved-arch",
   active: "active",
+  suspended: "warning",
   expired: "warning",
+  closed: "completed",
   cancelled: "archived",
 };
 
