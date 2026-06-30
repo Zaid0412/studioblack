@@ -30,26 +30,17 @@ export const POST = withAuth(
       { userId: user.id, role: effectiveRole }
     );
     if (!result.ok) {
-      const status =
-        result.reason === "not_found"
-          ? 404
-          : result.reason === "forbidden"
-            ? 403
-            : result.reason === "empty" ||
-                result.reason === "invalid_status_transition"
-              ? 409
-              : 400;
-      const messages: Record<string, string> = {
-        not_found: "Rate contract not found",
-        forbidden: "You don't have permission for this action",
-        empty: "Add at least one item before activating",
-        invalid_status_transition:
+      const map: Record<string, [number, string]> = {
+        not_found: [404, "Rate contract not found"],
+        forbidden: [403, "You don't have permission for this action"],
+        empty: [409, "Add at least one item before activating"],
+        invalid_status_transition: [
+          409,
           "That action isn't allowed from the current status",
+        ],
       };
-      return NextResponse.json(
-        { error: messages[result.reason] ?? result.reason },
-        { status }
-      );
+      const [status, error] = map[result.reason] ?? [400, result.reason];
+      return NextResponse.json({ error }, { status });
     }
 
     await logAuditSafe({

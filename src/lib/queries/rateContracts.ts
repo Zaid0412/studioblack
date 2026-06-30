@@ -542,13 +542,17 @@ export async function transitionRateContract(
 
     const setClauses = ["status = $3", "updated_at = now()"];
     const params: unknown[] = [id, orgId, transition.to];
-    if (action === "submit") {
-      setClauses.push("submitted_at = now()");
-    } else if (action === "approve") {
-      params.push(actor.userId);
-      setClauses.push(`approved_by = $${params.length}`, "approved_at = now()");
-    } else if (action === "request_changes") {
-      setClauses.push("submitted_at = NULL");
+    // Apply the transition's declared approval-metadata writes. `col` is a
+    // fixed literal from the state machine, so interpolating it is safe.
+    for (const effect of transition.effects ?? []) {
+      if (effect.op === "now") {
+        setClauses.push(`${effect.col} = now()`);
+      } else if (effect.op === "clear") {
+        setClauses.push(`${effect.col} = NULL`);
+      } else {
+        params.push(actor.userId);
+        setClauses.push(`${effect.col} = $${params.length}`);
+      }
     }
 
     const updated = await client.query(

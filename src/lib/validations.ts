@@ -1182,6 +1182,8 @@ export const listVendorsQuerySchema = z.object({
 
 // ─── Rate Contracts (Feature 7.5) ───────────────────────────────────────────
 
+// Keep in sync with the DB CHECK in
+// scripts/migrate-rate-contract-status-workflow.sql.
 export const RATE_CONTRACT_STATUSES = [
   "draft",
   "under_review",
@@ -1207,6 +1209,16 @@ export const RATE_CONTRACT_ACTIONS = [
 ] as const;
 export type RateContractAction = (typeof RATE_CONTRACT_ACTIONS)[number];
 
+/**
+ * A column write applied alongside the status change. `now` → `now()`,
+ * `clear` → `NULL`, `actor` → the acting user's id. The column is a fixed
+ * literal (never user input), so it's safe to interpolate into SQL.
+ */
+type RateContractEffect =
+  | { col: "submitted_at"; op: "now" | "clear" }
+  | { col: "approved_by"; op: "actor" }
+  | { col: "approved_at"; op: "now" };
+
 interface RateContractTransition {
   /** Statuses this action may be applied from. */
   from: readonly RateContractStatus[];
@@ -1216,6 +1228,8 @@ interface RateContractTransition {
   pmOnly?: boolean;
   /** Requires at least one item on the contract. */
   requiresItems?: boolean;
+  /** Approval-metadata writes applied with the transition. */
+  effects?: readonly RateContractEffect[];
 }
 
 /**
@@ -1227,9 +1241,26 @@ export const RATE_CONTRACT_TRANSITIONS: Record<
   RateContractAction,
   RateContractTransition
 > = {
-  submit: { from: ["draft"], to: "under_review" },
-  approve: { from: ["under_review"], to: "approved", pmOnly: true },
-  request_changes: { from: ["under_review"], to: "draft", pmOnly: true },
+  submit: {
+    from: ["draft"],
+    to: "under_review",
+    effects: [{ col: "submitted_at", op: "now" }],
+  },
+  approve: {
+    from: ["under_review"],
+    to: "approved",
+    pmOnly: true,
+    effects: [
+      { col: "approved_by", op: "actor" },
+      { col: "approved_at", op: "now" },
+    ],
+  },
+  request_changes: {
+    from: ["under_review"],
+    to: "draft",
+    pmOnly: true,
+    effects: [{ col: "submitted_at", op: "clear" }],
+  },
   activate: { from: ["approved"], to: "active", requiresItems: true },
   suspend: { from: ["active"], to: "suspended" },
   resume: { from: ["suspended"], to: "active" },
