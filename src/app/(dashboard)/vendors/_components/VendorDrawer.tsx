@@ -37,6 +37,7 @@ import { VendorKycStatusDot } from "./VendorKycStatusBadge";
 import { VendorRatingPicker } from "./VendorRatingPicker";
 import { VendorBankDetailsForm } from "./VendorBankDetailsForm";
 import { VendorKycTab } from "./VendorKycTab";
+import { VendorRateContractsTab } from "./VendorRateContractsTab";
 
 interface Props {
   vendorId: string | null;
@@ -69,6 +70,7 @@ export function VendorDrawer({
   const { role } = useUserRole();
   const isPm = role === "pm";
   const vendorPortalEnabled = useFlag("vendorPortal");
+  const rateContractsEnabled = useFlag("rateContracts");
 
   const { vendor, isLoading, mutate: mutateVendor } = useVendor(vendorId);
 
@@ -185,7 +187,9 @@ export function VendorDrawer({
 
               <SheetBody>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList>
+                  {/* Many tabs overflow the drawer width — wrap to a second row
+                      so every tab stays visible (vs. a non-obvious scroll). */}
+                  <TabsList className="max-w-full flex-wrap justify-start h-auto">
                     <TabsTrigger value="overview">
                       {t("tabOverview")}
                     </TabsTrigger>
@@ -196,6 +200,11 @@ export function VendorDrawer({
                       {t("tabTrades")} ({vendor.trades.length})
                     </TabsTrigger>
                     <TabsTrigger value="kyc">{t("tabKyc")}</TabsTrigger>
+                    {rateContractsEnabled && (
+                      <TabsTrigger value="rate-contracts">
+                        {t("tabRateContracts")}
+                      </TabsTrigger>
+                    )}
                     {isPm && (
                       <TabsTrigger value="bank">{t("tabBank")}</TabsTrigger>
                     )}
@@ -444,6 +453,15 @@ export function VendorDrawer({
                       onVendorMutate={() => mutateVendor()}
                     />
                   </TabsContent>
+
+                  {rateContractsEnabled && (
+                    <TabsContent value="rate-contracts">
+                      <VendorRateContractsTab
+                        vendorId={vendor.id}
+                        enabled={activeTab === "rate-contracts"}
+                      />
+                    </TabsContent>
+                  )}
 
                   {isPm && (
                     <TabsContent value="bank" className="mt-4">

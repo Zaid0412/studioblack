@@ -34,4 +34,14 @@ describe("isActiveRoute", () => {
     expect(isActiveRoute("/tasks", "/projects")).toBe(false);
     expect(isActiveRoute("/", "/projects")).toBe(false);
   });
+
+  it("matches on activeHref when it's broader than the link href", () => {
+    // Elements links to /elements/library but is active across all of /elements.
+    const href = "/elements/library";
+    const active = "/elements";
+    expect(isActiveRoute("/elements/rate-contracts", href, active)).toBe(true);
+    expect(isActiveRoute("/elements/library", href, active)).toBe(true);
+    expect(isActiveRoute("/elements", href, active)).toBe(true);
+    expect(isActiveRoute("/vendors", href, active)).toBe(false);
+  });
 });

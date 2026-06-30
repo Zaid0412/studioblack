@@ -1062,7 +1062,12 @@
     "kycConfirmRemoveDesc": "Kayıt tedarikçiden kaldırılır. Depolamadaki dosya saklanır.",
     "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil.",
     "manageCategories": "Kategorileri yönet",
-    "categoriesSharedHint": "Elements kütüphanesiyle paylaşılır"
+    "categoriesSharedHint": "Elements kütüphanesiyle paylaşılır",
+    "tabRateContracts": "Birim Fiyat Sözleşmeleri",
+    "rcEmptyTitle": "Birim fiyat sözleşmesi yok",
+    "rcEmptyHint": "Bu tedarikçiyle önceden anlaşılan fiyatlar burada görünür.",
+    "rcItemCount": "{count, plural, =0 {kalem yok} one {# kalem} other {# kalem}}",
+    "rcShowingCount": "{total} sözleşmeden {shown} tanesi gösteriliyor"
   },
   "order": {
     "tabs": {

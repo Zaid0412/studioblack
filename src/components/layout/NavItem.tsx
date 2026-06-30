@@ -16,6 +16,12 @@ interface NavItemProps {
   label: string;
   icon: LucideIcon;
   badge?: number;
+  /**
+   * Route to match for the active state, when it should be broader than the
+   * link target. E.g. Elements links to `/elements/library` but is active
+   * across the whole `/elements` section. Defaults to `href`.
+   */
+  activeHref?: string;
   /** When `true`, renders the item in compact icon-only mode with a tooltip. */
   isCollapsed?: boolean;
 }
@@ -34,10 +40,11 @@ export function NavItem({
   label,
   icon: Icon,
   badge,
+  activeHref,
   isCollapsed,
 }: NavItemProps) {
   const pathname = usePathname();
-  const isActive = isActiveRoute(pathname, href);
+  const isActive = isActiveRoute(pathname, href, activeHref);
 
   const link = (
     <Link

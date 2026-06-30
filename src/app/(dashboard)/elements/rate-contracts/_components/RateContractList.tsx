@@ -30,7 +30,7 @@ import {
 } from "@/lib/validations";
 import type { RateContractListRow } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
-import { RateContractStatusBadge } from "./RateContractStatusBadge";
+import { RateContractStatusBadge } from "@/components/rate-contracts/RateContractStatusBadge";
 import { formatDate } from "@/lib/formatDate";
 
 const ALL = "__all__";

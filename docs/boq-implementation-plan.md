@@ -12,6 +12,13 @@
 > - [Tab 4 — Error Handling & Phase 2](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.awk8tpqx406u)
 > - [Tab 5 — Client BOQ Sub-Nav (informal)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.a3ma4anbiwbv)
 > - [Tab 6 — Operational Logic & State Machines](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ts167vyji3xt)
+>
+> **Addendum tabs** (added after the plan — see "Revisions from PRD Tabs 7–10"):
+>
+> - [Construction Category Structure](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.qvk7mq2iegty)
+> - [Price Terminology (multi-stage pricing)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.e92hrz2qe5w1)
+> - [RFQ & Vendor Management FRD](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xa6xrobksshj)
+> - [Vendor Master Taxonomy](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ahdn7rk1bmeb)
 
 ## Overview
 
@@ -57,6 +64,39 @@ Tabs 5 (client BOQ sub-nav) and 6 (end-to-end operational logic + state machines
 - **Rule 3 strictness.** F4 today silently re-flags approved items. Tab 6 wants a hard 409 with "raise a change order". Recommended: hard block. Confirm before hardening F4.
 - **Rule 4 frequency.** Snapshot + bump `boq.version` on every CO implement (recommended) vs. on every approval boundary (aggressive) vs. only at lock (status quo).
 - **BOQ item lifecycle breadth.** Tab 6 lists Draft → Priced → Sent → Approved/Rejected → Ordered → In Progress → Completed → Invoiced. Current `lifecycle_status` CHECK omits Priced / Ordered / In Progress / Completed / Invoiced — those are derived from `unit_cost`, `po_status`, `installed_qty`, invoice link. Recommended: keep derived, add `getDisplayStatus()` helper in `queries/boq.ts` for a unified badge.
+
+---
+
+## Revisions from PRD Tabs 7–10
+
+Four further PRD tabs (Construction Category Structure, Price Terminology, the RFQ & Vendor Management FRD, and the Vendor Master Taxonomy) surfaced after the plan was written. Most of their content is already in the plan (RFQ↔BOQ, line items, split/partial award, quote comparison, PO-from-quotes, vendor master/contacts/categories, client proposals/approval, email RFQ). The items below are **net-new — not reflected anywhere else in this plan** — and two of them **conflict with the shipped design** (see Open decisions). Nothing already built or specced is invalidated.
+
+### New requirements (not yet in the plan)
+
+- **Vendor Type (multi-select)** — classify each vendor as one or more of: Material Supplier, Labor Contractor, Equipment Vendor, Subcontractor, Manufacturer, Distributor. Distinct from trade category. No such field exists on `vendor` today. (FRD §6.1.)
+- **RFQ cost-types** — an RFQ carries one or more of Material / Labor / Equipment / Subcontract / Other, so a single BOQ item can spawn a material-only RFQ, a labor-only RFQ, etc. The current `rfq` schema (F9) has no type classification. (FRD §3.)
+- **Manual / offline quote entry + Response Source** — the FRD stresses that many vendors won't use the portal. The system must let a PM record a vendor response received via Email / Phone / WhatsApp, and every quote must store its **Response Source** (Portal / Email / Phone / WhatsApp / Manual). F10 today assumes portal-only vendor submission. (FRD §7–8.)
+- **RFQ versioning** — when a design change forces a re-quote, capture `rfq_version`, `revision_notes`, and a `parent_rfq` link rather than mutating the original. Not in F9. (FRD §10.)
+- **Multi-stage price ladder + price-history table** — track the commercial value through named, never-overwritten stages: Base Cost → Proposed Price → Quoted Price → Approved Price → PO Price → Invoice Price → Final Price, persisted in a price-history table for margin-bleed / scope-creep / vendor-inflation / client-revision analysis. The plan tracks these prices _across_ features (`unit_cost`, computed `sell_price`, quote, PO, invoice) but has no unified ladder or history table; F21 audit is generic. "Proposed Price" is the chosen primary client-facing label (already in use). (Price Terminology tab.)
+- **Work Order (WO)** — a distinct execution document for labor / subcontract, kept separate from the PO (procurement). The doc recommends PO now, WO later; do **not** merge the two types. Plan has POs (F14) only. (FRD §13.)
+- **Minor:** RFQ line-item **Preferred Brand** field; the recommended **17-category interior seed set** (Preliminaries, Civil & Structural, Masonry & Plaster, Flooring & Tiling, Ceilings, Doors/Windows/Glazing, Joinery & Carpentry, Finishes, Kitchen & Utility, Wardrobes & Storage, Electrical, Lighting, Plumbing & Sanitary, HVAC, Fire & Safety, FF&E, External Works); optional **smart tags** (luxury / budget / premium / eco-friendly).
+
+### Changes to existing features
+
+- **F7 (Vendor Management)** — add `vendor_type` (multi-select) to the vendor master + form + list filter. Add RFQ line-item `preferred_brand` where vendors are matched.
+- **F9 (RFQ Workflow)** — add RFQ **cost-types** (multi-select) and **versioning** (`rfq_version`, `revision_notes`, `parent_rfq_id`).
+- **F10 (Vendor Quotes)** — add **manual/offline quote entry** path (PM-entered) and a `response_source` column on `vendor_quote`; relax the portal-only assumption.
+- **New feature (future) — Work Orders (WO)** — labor/subcontract execution document parallel to POs (F14). Deferred per the FRD; slot after the PO/Progress features.
+- **Pricing** — either formalise the named price ladder + `price_history` table as a cross-cutting concern, or confirm the current per-feature columns + F21 audit are sufficient (see Open decisions).
+
+### Already covered (no action)
+
+Split / partial vendor allocation (F10 "Split award"), quote comparison table, PO from awarded quotes (F14), vendor contacts, vendor↔category mapping, service-area-as-text + brands + preferred flag (F7, shipped), client proposals & per-item approval (F11/F12), email RFQ notification with portal deep link (F9).
+
+### Open decisions (not yet answered)
+
+- **Vendor taxonomy — shared vs separate.** The Vendor Master Taxonomy tab proposes a _separate_ vendor classification system (`vendor_categories`, `vendor_subcategories`, `vendor_service_areas` + mapping tables, with category codes like JOIN / FLR / FIN). The plan and the **shipped code** instead reuse the `element_category` tree via `vendor_trade`. These are mutually exclusive — pick one before any taxonomy work. ⚠️ Conflicts with shipped design.
+- **Service Area — text vs structured.** The FRD (§6.3) says Service Area is a free-text field — matches the shipped `vendor.service_areas TEXT[]`. The Vendor Master Taxonomy tab says it should be a structured `vendor_service_areas` table. The PRD contradicts itself; resolve alongside the taxonomy decision.
 
 ---
 

@@ -29,6 +29,8 @@ interface Tab {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Route matched for the active state, when broader than `href`. Defaults to `href`. */
+  activeHref?: string;
   /** When set, only these roles see the tab. */
   roles?: UserRole[];
 }
@@ -90,6 +92,7 @@ export function MobileBottomNav() {
         ? [
             {
               href: "/elements/library",
+              activeHref: "/elements",
               label: t("elements"),
               icon: Layers,
               roles: ["pm", "architect"] satisfies UserRole[],
@@ -125,7 +128,9 @@ export function MobileBottomNav() {
 
   const moreActive =
     overflowTabs.length > 0 &&
-    overflowTabs.some((tab) => isActiveRoute(pathname, tab.href));
+    overflowTabs.some((tab) =>
+      isActiveRoute(pathname, tab.href, tab.activeHref)
+    );
 
   // Close the sheet whenever navigation happens — the user either tapped
   // an overflow item (success) or moved on (no longer relevant). The
@@ -312,7 +317,7 @@ export function MobileBottomNav() {
             <TabLink
               key={tab.href}
               tab={tab}
-              active={isActiveRoute(pathname, tab.href)}
+              active={isActiveRoute(pathname, tab.href, tab.activeHref)}
             />
           ))}
           {hasOverflow && (
@@ -366,7 +371,7 @@ export function MobileBottomNav() {
                     tabIndex={moreOpen ? 0 : -1}
                     className={cn(
                       "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
-                      isActiveRoute(pathname, tab.href)
+                      isActiveRoute(pathname, tab.href, tab.activeHref)
                         ? "bg-bg-elevated text-accent"
                         : "text-text-primary hover:bg-bg-elevated/60"
                     )}
@@ -374,7 +379,7 @@ export function MobileBottomNav() {
                     <tab.icon
                       className={cn(
                         "w-5 h-5",
-                        isActiveRoute(pathname, tab.href)
+                        isActiveRoute(pathname, tab.href, tab.activeHref)
                           ? "text-accent"
                           : "text-text-muted"
                       )}

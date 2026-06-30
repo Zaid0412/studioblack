@@ -98,7 +98,14 @@ export function Sidebar({
     { href: "/projects", label: t("projects"), icon: FolderOpen },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
     ...(elementLibraryEnabled
-      ? [{ href: "/elements/library", label: t("elements"), icon: Layers }]
+      ? [
+          {
+            href: "/elements/library",
+            activeHref: "/elements",
+            label: t("elements"),
+            icon: Layers,
+          },
+        ]
       : []),
     ...(vendorManagementEnabled
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
