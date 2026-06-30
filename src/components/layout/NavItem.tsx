@@ -44,7 +44,7 @@ export function NavItem({
   isCollapsed,
 }: NavItemProps) {
   const pathname = usePathname();
-  const isActive = isActiveRoute(pathname, activeHref ?? href);
+  const isActive = isActiveRoute(pathname, href, activeHref);
 
   const link = (
     <Link

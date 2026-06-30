@@ -129,7 +129,7 @@ export function MobileBottomNav() {
   const moreActive =
     overflowTabs.length > 0 &&
     overflowTabs.some((tab) =>
-      isActiveRoute(pathname, tab.activeHref ?? tab.href)
+      isActiveRoute(pathname, tab.href, tab.activeHref)
     );
 
   // Close the sheet whenever navigation happens — the user either tapped
@@ -317,7 +317,7 @@ export function MobileBottomNav() {
             <TabLink
               key={tab.href}
               tab={tab}
-              active={isActiveRoute(pathname, tab.activeHref ?? tab.href)}
+              active={isActiveRoute(pathname, tab.href, tab.activeHref)}
             />
           ))}
           {hasOverflow && (
@@ -371,7 +371,7 @@ export function MobileBottomNav() {
                     tabIndex={moreOpen ? 0 : -1}
                     className={cn(
                       "flex items-center gap-3 px-3 py-3 rounded-lg transition-colors",
-                      isActiveRoute(pathname, tab.activeHref ?? tab.href)
+                      isActiveRoute(pathname, tab.href, tab.activeHref)
                         ? "bg-bg-elevated text-accent"
                         : "text-text-primary hover:bg-bg-elevated/60"
                     )}
@@ -379,7 +379,7 @@ export function MobileBottomNav() {
                     <tab.icon
                       className={cn(
                         "w-5 h-5",
-                        isActiveRoute(pathname, tab.activeHref ?? tab.href)
+                        isActiveRoute(pathname, tab.href, tab.activeHref)
                           ? "text-accent"
                           : "text-text-muted"
                       )}
