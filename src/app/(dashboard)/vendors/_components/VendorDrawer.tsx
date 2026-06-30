@@ -187,9 +187,9 @@ export function VendorDrawer({
 
               <SheetBody>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  {/* Many tabs overflow the drawer width — scroll the list
-                      horizontally instead of the whole sheet. */}
-                  <TabsList className="max-w-full justify-start overflow-x-auto scrollbar-none">
+                  {/* Many tabs overflow the drawer width — wrap to a second row
+                      so every tab stays visible (vs. a non-obvious scroll). */}
+                  <TabsList className="max-w-full flex-wrap justify-start h-auto">
                     <TabsTrigger value="overview">
                       {t("tabOverview")}
                     </TabsTrigger>
