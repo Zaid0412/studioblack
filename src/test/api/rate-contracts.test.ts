@@ -4,22 +4,17 @@ import {
   getRateContractById,
   createRateContract,
   updateRateContract,
-  cancelRateContract,
-  activateRateContract,
+  transitionRateContract,
   addRateContractItems,
   removeRateContractItem,
   getActiveRatesForBoqItem,
   getMemberRole,
 } from "@/lib/queries";
 import { GET as LIST, POST as CREATE } from "@/app/api/rate-contracts/route";
-import {
-  GET as DETAIL,
-  PATCH,
-  DELETE,
-} from "@/app/api/rate-contracts/[id]/route";
+import { GET as DETAIL, PATCH } from "@/app/api/rate-contracts/[id]/route";
 import { POST as ADD_ITEMS } from "@/app/api/rate-contracts/[id]/items/route";
 import { DELETE as REMOVE_ITEM } from "@/app/api/rate-contracts/[id]/items/[itemId]/route";
-import { POST as ACTIVATE } from "@/app/api/rate-contracts/[id]/activate/route";
+import { POST as TRANSITION } from "@/app/api/rate-contracts/[id]/transition/route";
 import { GET as BY_ELEMENT } from "@/app/api/rate-contracts/by-element/[elementId]/route";
 import {
   buildRequest,
@@ -223,28 +218,6 @@ describe("PATCH /api/rate-contracts/[id]", () => {
   });
 });
 
-// ── DELETE /api/rate-contracts/[id] ────────────────────────────────────────
-
-describe("DELETE /api/rate-contracts/[id]", () => {
-  it("cancels the contract", async () => {
-    vi.mocked(cancelRateContract).mockResolvedValue(true);
-    const res = await DELETE(
-      buildRequest(`/api/rate-contracts/${RC_ID}`, { method: "DELETE" }),
-      buildParams({ id: RC_ID })
-    );
-    expect(res.status).toBe(200);
-  });
-
-  it("returns 404 when missing", async () => {
-    vi.mocked(cancelRateContract).mockResolvedValue(false);
-    const res = await DELETE(
-      buildRequest(`/api/rate-contracts/${RC_ID}`, { method: "DELETE" }),
-      buildParams({ id: RC_ID })
-    );
-    expect(res.status).toBe(404);
-  });
-});
-
 // ── POST /api/rate-contracts/[id]/items ───────────────────────────────────
 
 describe("POST /api/rate-contracts/[id]/items", () => {
@@ -336,40 +309,66 @@ describe("DELETE /api/rate-contracts/[id]/items/[itemId]", () => {
   });
 });
 
-// ── POST /api/rate-contracts/[id]/activate ────────────────────────────────
+// ── POST /api/rate-contracts/[id]/transition ──────────────────────────────
 
-describe("POST /api/rate-contracts/[id]/activate", () => {
-  it("activates", async () => {
-    vi.mocked(activateRateContract).mockResolvedValue({ ok: true });
-    const res = await ACTIVATE(
-      buildRequest(`/api/rate-contracts/${RC_ID}/activate`, { method: "POST" }),
+describe("POST /api/rate-contracts/[id]/transition", () => {
+  const call = (action: string) =>
+    TRANSITION(
+      buildRequest(`/api/rate-contracts/${RC_ID}/transition`, {
+        method: "POST",
+        body: { action },
+      }),
       buildParams({ id: RC_ID })
     );
+
+  it("performs a valid transition and returns the row", async () => {
+    vi.mocked(transitionRateContract).mockResolvedValue({
+      ok: true,
+      row: { ...fakeContract, status: "active" },
+    });
+    const res = await call("activate");
     expect(res.status).toBe(200);
   });
 
-  it("returns 409 when empty", async () => {
-    vi.mocked(activateRateContract).mockResolvedValue({
+  it("returns 400 for an unknown action", async () => {
+    const res = await call("bogus");
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when missing", async () => {
+    vi.mocked(transitionRateContract).mockResolvedValue({
+      ok: false,
+      reason: "not_found",
+    });
+    const res = await call("submit");
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 409 when activating an empty contract", async () => {
+    vi.mocked(transitionRateContract).mockResolvedValue({
       ok: false,
       reason: "empty",
     });
-    const res = await ACTIVATE(
-      buildRequest(`/api/rate-contracts/${RC_ID}/activate`, { method: "POST" }),
-      buildParams({ id: RC_ID })
-    );
+    const res = await call("activate");
     expect(res.status).toBe(409);
   });
 
-  it("returns 409 on invalid status transition", async () => {
-    vi.mocked(activateRateContract).mockResolvedValue({
+  it("returns 409 on an illegal transition", async () => {
+    vi.mocked(transitionRateContract).mockResolvedValue({
       ok: false,
       reason: "invalid_status_transition",
     });
-    const res = await ACTIVATE(
-      buildRequest(`/api/rate-contracts/${RC_ID}/activate`, { method: "POST" }),
-      buildParams({ id: RC_ID })
-    );
+    const res = await call("approve");
     expect(res.status).toBe(409);
+  });
+
+  it("returns 403 when an architect attempts a PM-only action", async () => {
+    vi.mocked(transitionRateContract).mockResolvedValue({
+      ok: false,
+      reason: "forbidden",
+    });
+    const res = await call("approve");
+    expect(res.status).toBe(403);
   });
 });
 

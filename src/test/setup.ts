@@ -472,8 +472,7 @@ vi.mock("@/lib/queries", () => ({
   updateRateContract: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),
-  cancelRateContract: vi.fn().mockResolvedValue(true),
-  activateRateContract: vi
+  transitionRateContract: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),
   addRateContractItems: vi.fn().mockResolvedValue({ ok: true, count: 0 }),

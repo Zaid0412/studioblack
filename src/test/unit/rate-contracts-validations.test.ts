@@ -3,6 +3,10 @@ import {
   createRateContractSchema,
   updateRateContractSchema,
   addRateContractItemsSchema,
+  transitionRateContractSchema,
+  RATE_CONTRACT_ACTIONS,
+  RATE_CONTRACT_STATUSES,
+  RATE_CONTRACT_TRANSITIONS,
   parseBody,
 } from "@/lib/validations";
 
@@ -96,16 +100,15 @@ describe("updateRateContractSchema", () => {
     expect(parseBody(updateRateContractSchema, {}).success).toBe(true);
   });
 
-  it("accepts a status-only patch", () => {
-    expect(
-      parseBody(updateRateContractSchema, { status: "cancelled" }).success
-    ).toBe(true);
-  });
-
-  it("rejects an unknown status", () => {
-    expect(
-      parseBody(updateRateContractSchema, { status: "expired_late" }).success
-    ).toBe(false);
+  it("strips status — it moves only through transitions, not header edits", () => {
+    const r = parseBody(updateRateContractSchema, {
+      name: "X",
+      status: "cancelled",
+    });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect((r.data as Record<string, unknown>).status).toBeUndefined();
+    }
   });
 
   it("rejects when both dates are present and inverted", () => {
@@ -121,6 +124,53 @@ describe("updateRateContractSchema", () => {
     expect(
       parseBody(updateRateContractSchema, { endDate: "2026-12-31" }).success
     ).toBe(true);
+  });
+});
+
+describe("transitionRateContractSchema", () => {
+  it("accepts a known action", () => {
+    expect(
+      parseBody(transitionRateContractSchema, { action: "approve" }).success
+    ).toBe(true);
+  });
+
+  it("rejects an unknown action", () => {
+    expect(
+      parseBody(transitionRateContractSchema, { action: "frobnicate" }).success
+    ).toBe(false);
+  });
+
+  it("rejects a missing action", () => {
+    expect(parseBody(transitionRateContractSchema, {}).success).toBe(false);
+  });
+
+  it("accepts an optional reviewer note", () => {
+    expect(
+      parseBody(transitionRateContractSchema, {
+        action: "request_changes",
+        note: "Fix the end date",
+      }).success
+    ).toBe(true);
+  });
+});
+
+describe("RATE_CONTRACT_TRANSITIONS (state machine)", () => {
+  it("uses only valid statuses and never self-loops", () => {
+    for (const action of RATE_CONTRACT_ACTIONS) {
+      const t = RATE_CONTRACT_TRANSITIONS[action];
+      expect(RATE_CONTRACT_STATUSES).toContain(t.to);
+      for (const from of t.from) {
+        expect(RATE_CONTRACT_STATUSES).toContain(from);
+      }
+      expect(t.from).not.toContain(t.to);
+    }
+  });
+
+  it("gates only approve + request_changes behind PM", () => {
+    const pmOnly = RATE_CONTRACT_ACTIONS.filter(
+      (a) => RATE_CONTRACT_TRANSITIONS[a].pmOnly
+    );
+    expect([...pmOnly].sort()).toEqual(["approve", "request_changes"]);
   });
 });
 

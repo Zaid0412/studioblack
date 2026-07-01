@@ -14,6 +14,7 @@ import {
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
@@ -29,6 +30,7 @@ import {
 } from "@/lib/validations";
 import type { RateContract } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
+import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 
 interface Props {
   open: boolean;
@@ -78,8 +80,8 @@ const EMPTY: FormState = {
 /**
  * Trim ISO date / timestamp values to `YYYY-MM-DD`. The DB stores DATE
  * columns but pg can serialise them as either plain dates or full ISO
- * timestamps depending on driver state — `<input type="date">` only
- * accepts the former, so normalise here.
+ * timestamps depending on driver state — normalise here so the form's
+ * string state (and `fromIsoDate`) gets a clean date-only value.
  */
 function toDateInput(v: string | null | undefined): string {
   if (!v) return "";
@@ -138,6 +140,16 @@ export function RateContractFormDialog({
   // can be patched (notes / T&Cs / agreement / payment-terms / status). The
   // form mirrors that lock here so the user doesn't fight a 409 on save.
   const isLocked = isEdit && editing?.status === "active";
+
+  /** Shared wiring for the ISO-string ↔ DatePicker date fields. */
+  const dateProps = (
+    key: "startDate" | "endDate" | "agreementSignedDate" | "renewalDate"
+  ) => ({
+    value: fromIsoDate(values[key]),
+    onChange: (d: Date | undefined) => set(key, d ? toIsoDate(d) : ""),
+    disabled: isLocked,
+  });
+
   const canSubmit =
     values.vendorId &&
     values.name.trim() &&
@@ -236,28 +248,11 @@ export function RateContractFormDialog({
               maxLength={255}
               disabled={isLocked}
             />
-            <Input
-              label={t("startDate")}
-              type="date"
-              value={values.startDate}
-              onChange={(e) => set("startDate", e.target.value)}
-              required
-              disabled={isLocked}
-            />
-            <Input
-              label={t("endDate")}
-              type="date"
-              value={values.endDate}
-              onChange={(e) => set("endDate", e.target.value)}
-              required
-              disabled={isLocked}
-            />
-            <Input
+            <DatePicker label={t("startDate")} {...dateProps("startDate")} />
+            <DatePicker label={t("endDate")} {...dateProps("endDate")} />
+            <DatePicker
               label={t("agreementSignedDate")}
-              type="date"
-              value={values.agreementSignedDate}
-              onChange={(e) => set("agreementSignedDate", e.target.value)}
-              disabled={isLocked}
+              {...dateProps("agreementSignedDate")}
             />
             <CurrencySelect
               label={t("currency")}
@@ -311,12 +306,9 @@ export function RateContractFormDialog({
               placeholder={t("deliveryTermsPlaceholder")}
               disabled={isLocked}
             />
-            <Input
+            <DatePicker
               label={t("renewalDate")}
-              type="date"
-              value={values.renewalDate}
-              onChange={(e) => set("renewalDate", e.target.value)}
-              disabled={isLocked}
+              {...dateProps("renewalDate")}
             />
           </div>
 

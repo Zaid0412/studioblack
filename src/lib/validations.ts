@@ -1182,13 +1182,108 @@ export const listVendorsQuerySchema = z.object({
 
 // ─── Rate Contracts (Feature 7.5) ───────────────────────────────────────────
 
+// Keep in sync with the DB CHECK in
+// scripts/migrate-rate-contract-status-workflow.sql.
 export const RATE_CONTRACT_STATUSES = [
   "draft",
+  "under_review",
+  "approved",
   "active",
+  "suspended",
   "expired",
+  "closed",
   "cancelled",
 ] as const;
 export type RateContractStatus = (typeof RATE_CONTRACT_STATUSES)[number];
+
+/** Lifecycle actions that move a rate contract between statuses. */
+export const RATE_CONTRACT_ACTIONS = [
+  "submit",
+  "approve",
+  "request_changes",
+  "activate",
+  "suspend",
+  "resume",
+  "close",
+  "cancel",
+] as const;
+export type RateContractAction = (typeof RATE_CONTRACT_ACTIONS)[number];
+
+/**
+ * A column write applied alongside the status change. `now` → `now()`,
+ * `clear` → `NULL`, `actor` → the acting user's id. The column is a fixed
+ * literal (never user input), so it's safe to interpolate into SQL.
+ */
+type RateContractEffect =
+  | { col: "submitted_at"; op: "now" | "clear" }
+  | { col: "approved_by"; op: "actor" }
+  | { col: "approved_at"; op: "now" }
+  | { col: "review_note"; op: "note" | "clear" };
+
+interface RateContractTransition {
+  /** Statuses this action may be applied from. */
+  from: readonly RateContractStatus[];
+  /** Status the contract moves to. */
+  to: RateContractStatus;
+  /** Requires the org-owner/admin ("pm") effective role — architects can't. */
+  pmOnly?: boolean;
+  /** Requires at least one item on the contract. */
+  requiresItems?: boolean;
+  /** Approval-metadata writes applied with the transition. */
+  effects?: readonly RateContractEffect[];
+}
+
+/**
+ * The rate-contract state machine. Single source of truth for both the server
+ * (transitionRateContract) and the UI (which actions to offer). Auto-expiry
+ * (`active → expired`) is handled separately by the date sweep, not an action.
+ */
+export const RATE_CONTRACT_TRANSITIONS: Record<
+  RateContractAction,
+  RateContractTransition
+> = {
+  submit: {
+    from: ["draft"],
+    to: "under_review",
+    // Clear any prior reviewer note on re-submission.
+    effects: [
+      { col: "submitted_at", op: "now" },
+      { col: "review_note", op: "clear" },
+    ],
+  },
+  approve: {
+    from: ["under_review"],
+    to: "approved",
+    pmOnly: true,
+    effects: [
+      { col: "approved_by", op: "actor" },
+      { col: "approved_at", op: "now" },
+    ],
+  },
+  request_changes: {
+    from: ["under_review"],
+    to: "draft",
+    pmOnly: true,
+    effects: [
+      { col: "submitted_at", op: "clear" },
+      { col: "review_note", op: "note" },
+    ],
+  },
+  activate: { from: ["approved"], to: "active", requiresItems: true },
+  suspend: { from: ["active"], to: "suspended" },
+  resume: { from: ["suspended"], to: "active" },
+  close: { from: ["active"], to: "closed" },
+  cancel: {
+    from: ["draft", "under_review", "approved", "active", "suspended"],
+    to: "cancelled",
+  },
+};
+
+export const transitionRateContractSchema = z.object({
+  action: z.enum(RATE_CONTRACT_ACTIONS),
+  /** Optional reviewer message — stored when the action is `request_changes`. */
+  note: z.string().max(2000).optional().nullable(),
+});
 
 export const RATE_CONTRACT_TYPES = [
   "material",
@@ -1248,7 +1343,8 @@ export const updateRateContractSchema = z
     agreementUrl: z.string().url().max(2048).optional().nullable(),
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
-    status: z.enum(RATE_CONTRACT_STATUSES).optional(),
+    // status is not editable here — it moves only through the transition
+    // state machine (POST /[id]/transition).
     contractType: z.enum(RATE_CONTRACT_TYPES).optional().nullable(),
     creditPeriodDays: z.number().int().min(0).max(3650).optional().nullable(),
     deliveryTerms: z.string().max(100).optional().nullable(),

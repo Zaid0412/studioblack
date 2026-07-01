@@ -12,6 +12,7 @@ import type {
   updateRateContractSchema,
   addRateContractItemsSchema,
   listRateContractsQuerySchema,
+  RateContractAction,
 } from "@/lib/validations";
 
 type CreateInput = z.infer<typeof createRateContractSchema>;
@@ -66,9 +67,20 @@ export function update(id: string, data: UpdateInput) {
   return apiPatch<RateContract>(API.rateContract(id), data);
 }
 
-/** Soft-cancel via status='cancelled'. */
-export function cancel(id: string) {
-  return apiDelete<{ success: true }>(API.rateContract(id));
+/**
+ * Advance the contract through its lifecycle via a single action
+ * (submit / approve / request_changes / activate / suspend / resume / close /
+ * cancel). Returns the updated contract.
+ */
+export function transition(
+  id: string,
+  action: RateContractAction,
+  note?: string
+) {
+  return apiPost<RateContract>(API.rateContractTransition(id), {
+    action,
+    ...(note ? { note } : {}),
+  });
 }
 
 /** Bulk-add or upsert items. */
@@ -82,11 +94,6 @@ export function addItems(id: string, data: AddItemsInput) {
 /** Remove a single item. */
 export function removeItem(id: string, itemId: string) {
   return apiDelete<{ success: true }>(API.rateContractItem(id, itemId));
-}
-
-/** Activate (draft → active). Rejects if no items. */
-export function activate(id: string) {
-  return apiPost<{ success: true }>(API.rateContractActivate(id), {});
 }
 
 /** Active rates for an element across contracts (BOQ picker, focused). */

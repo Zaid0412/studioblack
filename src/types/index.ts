@@ -1066,6 +1066,10 @@ export interface RateContract {
   delivery_terms: string | null;
   price_basis: RateContractPriceBasis | null;
   renewal_date: string | null;
+  submitted_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  review_note: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -1107,6 +1111,8 @@ export interface RateContractListRow extends RateContract {
 
 export interface RateContractWithDetails extends RateContractListRow {
   items: RateContractItemWithTarget[];
+  /** Display name of the approver (null until approved). */
+  approved_by_name: string | null;
 }
 
 /** Why an available rate matched a BOQ item (most specific first). */

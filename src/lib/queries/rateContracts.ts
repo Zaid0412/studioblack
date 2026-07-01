@@ -7,10 +7,12 @@ import type {
 } from "@/types";
 import type {
   RateContractStatus,
+  RateContractAction,
   RateContractSortField,
   RateContractType,
   RateContractPriceBasis,
 } from "@/lib/validations";
+import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
@@ -195,9 +197,11 @@ export async function getRateContractById(
       rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
+      rc.submitted_at, rc.approved_by, rc.approved_at, rc.review_note,
       rc.created_by, rc.created_at, rc.updated_at,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
+      approver.name AS approved_by_name,
       COALESCE(
         (
           SELECT json_agg(
@@ -235,6 +239,7 @@ export async function getRateContractById(
       ) AS item_count
     FROM rate_contract rc
     JOIN vendor v ON v.id = rc.vendor_id
+    LEFT JOIN "user" approver ON approver.id = rc.approved_by
     WHERE rc.id = $1 AND rc.org_id = $2
   `;
   const { rows } = await pool.query(sql, [id, orgId]);
@@ -449,7 +454,6 @@ export async function updateRateContract(
         "termsAndConditions",
         "agreementUrl",
         "paymentTerms",
-        "status",
       ]);
       const offenders = Object.keys(patch).filter(
         (k) => !ALLOWED_AFTER_ACTIVE.has(k)
@@ -457,14 +461,6 @@ export async function updateRateContract(
       if (offenders.length > 0) {
         await client.query("ROLLBACK");
         return { ok: false, reason: "active_locked" };
-      }
-      if (
-        patch.status &&
-        patch.status !== "active" &&
-        patch.status !== "cancelled"
-      ) {
-        await client.query("ROLLBACK");
-        return { ok: false, reason: "invalid_status_transition" };
       }
     }
 
@@ -475,10 +471,6 @@ export async function updateRateContract(
         params.push((patch as Record<string, unknown>)[key]);
         setClauses.push(`${col} = $${params.length}`);
       }
-    }
-    if (patch.status) {
-      params.push(patch.status);
-      setClauses.push(`status = $${params.length}`);
     }
 
     if (setClauses.length === 0) {
@@ -503,25 +495,20 @@ export async function updateRateContract(
   }
 }
 
-/** Soft delete via status='cancelled'. */
-export async function cancelRateContract(
+/**
+ * Move a rate contract through its lifecycle (see RATE_CONTRACT_TRANSITIONS).
+ * Validates the action is legal from the current status, enforces per-action
+ * role (`approve`/`request_changes` are PM-only) and item requirements
+ * (`activate` needs ≥1 item), and stamps approval metadata.
+ */
+export async function transitionRateContract(
   orgId: string,
-  id: string
-): Promise<boolean> {
-  const pool = getPool();
-  const { rowCount } = await pool.query(
-    `UPDATE rate_contract SET status = 'cancelled', updated_at = now()
-      WHERE id = $1 AND org_id = $2 AND status <> 'cancelled'`,
-    [id, orgId]
-  );
-  return (rowCount ?? 0) > 0;
-}
-
-/** Activate: draft → active. Rejects if no items. */
-export async function activateRateContract(
-  orgId: string,
-  id: string
-): Promise<{ ok: true } | { ok: false; reason: string }> {
+  id: string,
+  action: RateContractAction,
+  actor: { userId: string; role: string },
+  note?: string | null
+): Promise<{ ok: true; row: RateContract } | { ok: false; reason: string }> {
+  const transition = RATE_CONTRACT_TRANSITIONS[action];
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -534,25 +521,51 @@ export async function activateRateContract(
       await client.query("ROLLBACK");
       return { ok: false, reason: "not_found" };
     }
-    if (cur.rows[0].status !== "draft") {
+    const status = cur.rows[0].status as RateContractStatus;
+    if (!transition.from.includes(status)) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "invalid_status_transition" };
     }
-    const items = await client.query(
-      `SELECT 1 FROM rate_contract_item WHERE rate_contract_id = $1 LIMIT 1`,
-      [id]
-    );
-    if (items.rows.length === 0) {
+    if (transition.pmOnly && actor.role !== "pm") {
       await client.query("ROLLBACK");
-      return { ok: false, reason: "empty" };
+      return { ok: false, reason: "forbidden" };
     }
-    await client.query(
-      `UPDATE rate_contract SET status = 'active', updated_at = now()
-        WHERE id = $1 AND org_id = $2`,
-      [id, orgId]
+    if (transition.requiresItems) {
+      const items = await client.query(
+        `SELECT 1 FROM rate_contract_item WHERE rate_contract_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (items.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "empty" };
+      }
+    }
+
+    const setClauses = ["status = $3", "updated_at = now()"];
+    const params: unknown[] = [id, orgId, transition.to];
+    // Apply the transition's declared approval-metadata writes. `col` is a
+    // fixed literal from the state machine, so interpolating it is safe.
+    for (const effect of transition.effects ?? []) {
+      if (effect.op === "now") {
+        setClauses.push(`${effect.col} = now()`);
+      } else if (effect.op === "clear") {
+        setClauses.push(`${effect.col} = NULL`);
+      } else {
+        // "actor" → the acting user id; "note" → the reviewer message.
+        params.push(
+          effect.op === "actor" ? actor.userId : note?.trim() || null
+        );
+        setClauses.push(`${effect.col} = $${params.length}`);
+      }
+    }
+
+    const updated = await client.query(
+      `UPDATE rate_contract SET ${setClauses.join(", ")}
+        WHERE id = $1 AND org_id = $2 RETURNING *`,
+      params
     );
     await client.query("COMMIT");
-    return { ok: true };
+    return { ok: true, row: updated.rows[0] as RateContract };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
