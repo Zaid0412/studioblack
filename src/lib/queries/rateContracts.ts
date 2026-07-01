@@ -550,12 +550,11 @@ export async function transitionRateContract(
         setClauses.push(`${effect.col} = now()`);
       } else if (effect.op === "clear") {
         setClauses.push(`${effect.col} = NULL`);
-      } else if (effect.op === "actor") {
-        params.push(actor.userId);
-        setClauses.push(`${effect.col} = $${params.length}`);
       } else {
-        // op: "note" — the reviewer's message (empty → null).
-        params.push(note?.trim() || null);
+        // "actor" → the acting user id; "note" → the reviewer message.
+        params.push(
+          effect.op === "actor" ? actor.userId : note?.trim() || null
+        );
         setClauses.push(`${effect.col} = $${params.length}`);
       }
     }

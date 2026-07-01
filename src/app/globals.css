@@ -230,11 +230,12 @@ h6 {
 
 /* ─── Calendar month-slide animation ───
  * react-day-picker's `animate` prop toggles enter/exit classes on the month
- * grid + caption, but we use custom classNames and don't import rdp's default
- * CSS, so the animation itself is defined here. "after" = moving to a later
- * month (slide left), "before" = earlier (slide right). The caption fades — it
- * must animate too, because rdp fires its cleanup on the caption's animationend. */
-@keyframes rdp-slide-in-right {
+ * grid + caption; the Calendar component maps them to these `cal-*` names (so
+ * we don't couple to rdp's default rdp-* classes) and the motion is defined
+ * here. "after" = moving to a later month (slide left), "before" = earlier
+ * (slide right). The caption fades — it must animate too, because rdp fires its
+ * cleanup on the caption's animationend. */
+@keyframes cal-slide-in-right {
   from {
     transform: translateX(100%);
   }
@@ -242,7 +243,7 @@ h6 {
     transform: translateX(0);
   }
 }
-@keyframes rdp-slide-out-left {
+@keyframes cal-slide-out-left {
   from {
     transform: translateX(0);
   }
@@ -250,7 +251,7 @@ h6 {
     transform: translateX(-100%);
   }
 }
-@keyframes rdp-slide-in-left {
+@keyframes cal-slide-in-left {
   from {
     transform: translateX(-100%);
   }
@@ -258,7 +259,7 @@ h6 {
     transform: translateX(0);
   }
 }
-@keyframes rdp-slide-out-right {
+@keyframes cal-slide-out-right {
   from {
     transform: translateX(0);
   }
@@ -266,7 +267,7 @@ h6 {
     transform: translateX(100%);
   }
 }
-@keyframes rdp-caption-fade-in {
+@keyframes cal-fade-in {
   from {
     opacity: 0;
   }
@@ -274,7 +275,7 @@ h6 {
     opacity: 1;
   }
 }
-@keyframes rdp-caption-fade-out {
+@keyframes cal-fade-out {
   from {
     opacity: 1;
   }
@@ -283,38 +284,34 @@ h6 {
   }
 }
 
-.rdp-weeks_after_enter {
-  animation: rdp-slide-in-right 0.22s ease-out;
+.cal-week-enter-right {
+  animation: cal-slide-in-right 0.22s ease-out;
 }
-.rdp-weeks_after_exit {
-  animation: rdp-slide-out-left 0.22s ease-out forwards;
+.cal-week-exit-left {
+  animation: cal-slide-out-left 0.22s ease-out forwards;
 }
-.rdp-weeks_before_enter {
-  animation: rdp-slide-in-left 0.22s ease-out;
+.cal-week-enter-left {
+  animation: cal-slide-in-left 0.22s ease-out;
 }
-.rdp-weeks_before_exit {
-  animation: rdp-slide-out-right 0.22s ease-out forwards;
+.cal-week-exit-right {
+  animation: cal-slide-out-right 0.22s ease-out forwards;
 }
-.rdp-caption_after_enter,
-.rdp-caption_before_enter {
-  animation: rdp-caption-fade-in 0.22s ease-out;
+.cal-caption-enter {
+  animation: cal-fade-in 0.22s ease-out;
 }
-.rdp-caption_after_exit,
-.rdp-caption_before_exit {
-  animation: rdp-caption-fade-out 0.22s ease-out forwards;
+.cal-caption-exit {
+  animation: cal-fade-out 0.22s ease-out forwards;
 }
 
 /* Reduced motion: keep the animations (rdp's cleanup depends on animationend
  * firing) but collapse them so there's no visible movement. */
 @media (prefers-reduced-motion: reduce) {
-  .rdp-weeks_after_enter,
-  .rdp-weeks_after_exit,
-  .rdp-weeks_before_enter,
-  .rdp-weeks_before_exit,
-  .rdp-caption_after_enter,
-  .rdp-caption_before_enter,
-  .rdp-caption_after_exit,
-  .rdp-caption_before_exit {
+  .cal-week-enter-right,
+  .cal-week-exit-left,
+  .cal-week-enter-left,
+  .cal-week-exit-right,
+  .cal-caption-enter,
+  .cal-caption-exit {
     animation-duration: 0.01ms !important;
   }
 }

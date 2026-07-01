@@ -50,6 +50,16 @@ function Calendar({
         outside: "[&>button]:text-text-muted/40",
         disabled: "[&>button]:text-text-muted/30 [&>button]:cursor-not-allowed",
         hidden: "invisible",
+        // Own the month-transition animation classes (styled in globals.css)
+        // instead of relying on react-day-picker's default rdp-* names.
+        weeks_after_enter: "cal-week-enter-right",
+        weeks_after_exit: "cal-week-exit-left",
+        weeks_before_enter: "cal-week-enter-left",
+        weeks_before_exit: "cal-week-exit-right",
+        caption_after_enter: "cal-caption-enter",
+        caption_before_enter: "cal-caption-enter",
+        caption_after_exit: "cal-caption-exit",
+        caption_before_exit: "cal-caption-exit",
         ...classNames,
       }}
       components={{

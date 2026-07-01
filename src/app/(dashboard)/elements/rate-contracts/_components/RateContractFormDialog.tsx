@@ -80,8 +80,8 @@ const EMPTY: FormState = {
 /**
  * Trim ISO date / timestamp values to `YYYY-MM-DD`. The DB stores DATE
  * columns but pg can serialise them as either plain dates or full ISO
- * timestamps depending on driver state — `<input type="date">` only
- * accepts the former, so normalise here.
+ * timestamps depending on driver state — normalise here so the form's
+ * string state (and `fromIsoDate`) gets a clean date-only value.
  */
 function toDateInput(v: string | null | undefined): string {
   if (!v) return "";
@@ -140,6 +140,16 @@ export function RateContractFormDialog({
   // can be patched (notes / T&Cs / agreement / payment-terms / status). The
   // form mirrors that lock here so the user doesn't fight a 409 on save.
   const isLocked = isEdit && editing?.status === "active";
+
+  /** Shared wiring for the ISO-string ↔ DatePicker date fields. */
+  const dateProps = (
+    key: "startDate" | "endDate" | "agreementSignedDate" | "renewalDate"
+  ) => ({
+    value: fromIsoDate(values[key]),
+    onChange: (d: Date | undefined) => set(key, d ? toIsoDate(d) : ""),
+    disabled: isLocked,
+  });
+
   const canSubmit =
     values.vendorId &&
     values.name.trim() &&
@@ -238,25 +248,11 @@ export function RateContractFormDialog({
               maxLength={255}
               disabled={isLocked}
             />
-            <DatePicker
-              label={t("startDate")}
-              value={fromIsoDate(values.startDate)}
-              onChange={(d) => set("startDate", d ? toIsoDate(d) : "")}
-              disabled={isLocked}
-            />
-            <DatePicker
-              label={t("endDate")}
-              value={fromIsoDate(values.endDate)}
-              onChange={(d) => set("endDate", d ? toIsoDate(d) : "")}
-              disabled={isLocked}
-            />
+            <DatePicker label={t("startDate")} {...dateProps("startDate")} />
+            <DatePicker label={t("endDate")} {...dateProps("endDate")} />
             <DatePicker
               label={t("agreementSignedDate")}
-              value={fromIsoDate(values.agreementSignedDate)}
-              onChange={(d) =>
-                set("agreementSignedDate", d ? toIsoDate(d) : "")
-              }
-              disabled={isLocked}
+              {...dateProps("agreementSignedDate")}
             />
             <CurrencySelect
               label={t("currency")}
@@ -312,9 +308,7 @@ export function RateContractFormDialog({
             />
             <DatePicker
               label={t("renewalDate")}
-              value={fromIsoDate(values.renewalDate)}
-              onChange={(d) => set("renewalDate", d ? toIsoDate(d) : "")}
-              disabled={isLocked}
+              {...dateProps("renewalDate")}
             />
           </div>
 
