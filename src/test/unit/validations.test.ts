@@ -26,6 +26,7 @@ import {
   listElementsQuerySchema,
   ALLOWED_UNITS,
   submitQuoteSchema,
+  enterQuoteSchema,
   awardRfqSingleSchema,
   awardRfqSplitSchema,
   parseBody,
@@ -1561,6 +1562,40 @@ describe("submitQuoteSchema (F10)", () => {
       items: [{ rfqItemId: VALID_UUID, unitPrice: "75.50" }],
     });
     expect(data.items[0].unitPrice).toBe(75.5);
+  });
+});
+
+describe("enterQuoteSchema (RFQ-1 manual entry)", () => {
+  const valid = {
+    vendorId: VALID_UUID,
+    responseSource: "email",
+    receivedDate: "2026-06-01",
+    items: [{ rfqItemId: VALID_UUID, unitPrice: 50 }],
+  };
+
+  it("accepts a valid manual quote", () => {
+    expectPass(enterQuoteSchema, valid);
+  });
+
+  it("rejects a missing responseSource", () => {
+    const { responseSource: _omit, ...bad } = valid;
+    expectFail(enterQuoteSchema, bad);
+  });
+
+  it("rejects responseSource 'portal' (portal is vendor-only)", () => {
+    expectFail(enterQuoteSchema, { ...valid, responseSource: "portal" });
+  });
+
+  it("rejects a missing receivedDate", () => {
+    const { receivedDate: _omit, ...bad } = valid;
+    expectFail(enterQuoteSchema, bad);
+  });
+
+  it("accepts optional evidence attachments", () => {
+    expectPass(enterQuoteSchema, {
+      ...valid,
+      attachments: [{ url: "https://example.com/q.pdf", fileName: "q.pdf" }],
+    });
   });
 });
 

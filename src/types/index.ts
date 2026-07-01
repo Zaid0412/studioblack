@@ -15,6 +15,7 @@ import type {
   RateContractType,
   RateContractPriceBasis,
   VendorQuoteStatus,
+  RfqResponseSource,
 } from "@/lib/validations";
 
 export type {
@@ -1221,11 +1222,23 @@ export interface RfqWithItems extends Rfq {
 
 // ── Vendor Quotes (F10) ─────────────────────────────────────────────────────
 
+/** Evidence file reference stored in `vendor_quote.attachments` (jsonb). */
+export interface QuoteAttachment {
+  url: string;
+  fileName: string;
+}
+
 export interface VendorQuote {
   id: string;
   rfq_id: string;
   vendor_id: string;
   status: VendorQuoteStatus;
+  /** How the quote reached us (portal = vendor self-service). */
+  response_source: RfqResponseSource;
+  /** When the quote was received off-channel (null for portal submissions). */
+  received_date: string | null;
+  /** Studio user who keyed a manual quote (null when vendor-submitted). */
+  entered_by: string | null;
   submitted_at: string;
   valid_until: string | null;
   currency: string;
@@ -1234,7 +1247,7 @@ export interface VendorQuote {
   inclusions: string | null;
   exclusions: string | null;
   notes: string | null;
-  attachments: unknown | null;
+  attachments: QuoteAttachment[] | null;
   is_late: boolean;
   awarded_at: string | null;
   awarded_by: string | null;
@@ -1290,6 +1303,7 @@ export interface QuoteComparisonVendorColumn {
   vendor_code: string | null;
   quote_id: string;
   quote_status: VendorQuoteStatus;
+  response_source: RfqResponseSource;
   is_late: boolean;
   valid_until: string | null;
   delivery_period: string | null;

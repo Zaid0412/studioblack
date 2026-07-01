@@ -2,6 +2,7 @@
 
 import { Star } from "lucide-react";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
+import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
 import type { QuoteComparison } from "@/types";
 
@@ -53,6 +54,7 @@ export function QuoteComparisonTable({ comparison }: Props) {
                     <span className="text-text-primary">{v.vendor_name}</span>
                     <div className="flex items-center gap-1.5">
                       <QuoteStatusBadge status={v.quote_status} />
+                      <ResponseSourceBadge source={v.response_source} />
                       {v.is_late && (
                         <span className="text-[10px] font-medium text-warning bg-warning/10 px-1 py-0.5 rounded">
                           Late

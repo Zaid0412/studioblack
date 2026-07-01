@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Award, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
+import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
 import type { VendorQuoteWithItems } from "@/types";
 
@@ -89,6 +90,7 @@ export function RfqQuotesSection({
                       {q.vendor_name}
                     </span>
                     <QuoteStatusBadge status={q.status} />
+                    <ResponseSourceBadge source={q.response_source} />
                     {isNew && (
                       <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
                         New
