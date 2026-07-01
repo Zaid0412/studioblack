@@ -228,6 +228,97 @@ h6 {
   display: none;
 }
 
+/* ─── Calendar month-slide animation ───
+ * react-day-picker's `animate` prop toggles enter/exit classes on the month
+ * grid + caption, but we use custom classNames and don't import rdp's default
+ * CSS, so the animation itself is defined here. "after" = moving to a later
+ * month (slide left), "before" = earlier (slide right). The caption fades — it
+ * must animate too, because rdp fires its cleanup on the caption's animationend. */
+@keyframes rdp-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes rdp-slide-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes rdp-slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes rdp-slide-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes rdp-caption-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rdp-caption-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.rdp-weeks_after_enter {
+  animation: rdp-slide-in-right 0.22s ease-out;
+}
+.rdp-weeks_after_exit {
+  animation: rdp-slide-out-left 0.22s ease-out forwards;
+}
+.rdp-weeks_before_enter {
+  animation: rdp-slide-in-left 0.22s ease-out;
+}
+.rdp-weeks_before_exit {
+  animation: rdp-slide-out-right 0.22s ease-out forwards;
+}
+.rdp-caption_after_enter,
+.rdp-caption_before_enter {
+  animation: rdp-caption-fade-in 0.22s ease-out;
+}
+.rdp-caption_after_exit,
+.rdp-caption_before_exit {
+  animation: rdp-caption-fade-out 0.22s ease-out forwards;
+}
+
+/* Reduced motion: keep the animations (rdp's cleanup depends on animationend
+ * firing) but collapse them so there's no visible movement. */
+@media (prefers-reduced-motion: reduce) {
+  .rdp-weeks_after_enter,
+  .rdp-weeks_after_exit,
+  .rdp-weeks_before_enter,
+  .rdp-weeks_before_exit,
+  .rdp-caption_after_enter,
+  .rdp-caption_before_enter,
+  .rdp-caption_after_exit,
+  .rdp-caption_before_exit {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 /* ─── Focus ring ───
  * Form fields already paint their own focus via focus:border-accent
  * or focus-within ring utilities — suppressing the global outline for

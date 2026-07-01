@@ -17,10 +17,12 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  animate = true,
   ...props
 }: CalendarProps) {
   return (
     <DayPicker
+      animate={animate}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{
