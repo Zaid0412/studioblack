@@ -21,9 +21,11 @@ ALTER TABLE rate_contract
   ));
 
 -- Approval metadata (approved_by mirrors created_by: plain text user id, no FK).
+-- review_note carries the reviewer's message when an action requests changes.
 ALTER TABLE rate_contract
   ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS approved_by TEXT,
-  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS review_note TEXT;
 
 COMMIT;

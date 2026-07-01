@@ -72,8 +72,15 @@ export function update(id: string, data: UpdateInput) {
  * (submit / approve / request_changes / activate / suspend / resume / close /
  * cancel). Returns the updated contract.
  */
-export function transition(id: string, action: RateContractAction) {
-  return apiPost<RateContract>(API.rateContractTransition(id), { action });
+export function transition(
+  id: string,
+  action: RateContractAction,
+  note?: string
+) {
+  return apiPost<RateContract>(API.rateContractTransition(id), {
+    action,
+    ...(note ? { note } : {}),
+  });
 }
 
 /** Bulk-add or upsert items. */

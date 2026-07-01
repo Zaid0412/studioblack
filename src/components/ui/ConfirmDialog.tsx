@@ -23,6 +23,8 @@ interface ConfirmDialogProps {
   destructive?: boolean;
   submitting?: boolean;
   onConfirm: () => void | Promise<void>;
+  /** Optional extra content (e.g. a note field) rendered above the buttons. */
+  children?: React.ReactNode;
 }
 
 /**
@@ -40,6 +42,7 @@ export function ConfirmDialog({
   destructive,
   submitting,
   onConfirm,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -53,6 +56,7 @@ export function ConfirmDialog({
           </DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {children}
         <DialogFooter className="gap-2">
           <DialogClose asChild>
             <Button type="button" variant="secondary" disabled={submitting}>

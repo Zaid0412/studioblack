@@ -27,7 +27,8 @@ export const POST = withAuth(
       orgId,
       params.id,
       parsed.data.action,
-      { userId: user.id, role: effectiveRole }
+      { userId: user.id, role: effectiveRole },
+      parsed.data.note
     );
     if (!result.ok) {
       const map: Record<string, [number, string]> = {

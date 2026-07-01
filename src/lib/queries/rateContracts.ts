@@ -197,7 +197,7 @@ export async function getRateContractById(
       rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
-      rc.submitted_at, rc.approved_by, rc.approved_at,
+      rc.submitted_at, rc.approved_by, rc.approved_at, rc.review_note,
       rc.created_by, rc.created_at, rc.updated_at,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
@@ -505,7 +505,8 @@ export async function transitionRateContract(
   orgId: string,
   id: string,
   action: RateContractAction,
-  actor: { userId: string; role: string }
+  actor: { userId: string; role: string },
+  note?: string | null
 ): Promise<{ ok: true; row: RateContract } | { ok: false; reason: string }> {
   const transition = RATE_CONTRACT_TRANSITIONS[action];
   const pool = getPool();
@@ -549,8 +550,12 @@ export async function transitionRateContract(
         setClauses.push(`${effect.col} = now()`);
       } else if (effect.op === "clear") {
         setClauses.push(`${effect.col} = NULL`);
-      } else {
+      } else if (effect.op === "actor") {
         params.push(actor.userId);
+        setClauses.push(`${effect.col} = $${params.length}`);
+      } else {
+        // op: "note" — the reviewer's message (empty → null).
+        params.push(note?.trim() || null);
         setClauses.push(`${effect.col} = $${params.length}`);
       }
     }

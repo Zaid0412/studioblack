@@ -143,6 +143,15 @@ describe("transitionRateContractSchema", () => {
   it("rejects a missing action", () => {
     expect(parseBody(transitionRateContractSchema, {}).success).toBe(false);
   });
+
+  it("accepts an optional reviewer note", () => {
+    expect(
+      parseBody(transitionRateContractSchema, {
+        action: "request_changes",
+        note: "Fix the end date",
+      }).success
+    ).toBe(true);
+  });
 });
 
 describe("RATE_CONTRACT_TRANSITIONS (state machine)", () => {

@@ -1426,7 +1426,10 @@
     "toast_suspend": "Sözleşme askıya alındı",
     "toast_resume": "Sözleşme yeniden başlatıldı",
     "toast_close": "Sözleşme kapatıldı",
-    "toast_cancel": "Birim fiyat sözleşmesi iptal edildi"
+    "toast_cancel": "Birim fiyat sözleşmesi iptal edildi",
+    "reviewNoteLabel": "Değişiklik istendi",
+    "requestChangesNoteLabel": "Hazırlayana mesaj (isteğe bağlı)",
+    "requestChangesNotePlaceholder": "Onaylanabilmesi için neyin değişmesi gerekiyor?"
   },
   "vendorPortal": {
     "title": "Tedarikçi Paneli",

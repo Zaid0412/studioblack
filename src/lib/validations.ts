@@ -1217,7 +1217,8 @@ export type RateContractAction = (typeof RATE_CONTRACT_ACTIONS)[number];
 type RateContractEffect =
   | { col: "submitted_at"; op: "now" | "clear" }
   | { col: "approved_by"; op: "actor" }
-  | { col: "approved_at"; op: "now" };
+  | { col: "approved_at"; op: "now" }
+  | { col: "review_note"; op: "note" | "clear" };
 
 interface RateContractTransition {
   /** Statuses this action may be applied from. */
@@ -1244,7 +1245,11 @@ export const RATE_CONTRACT_TRANSITIONS: Record<
   submit: {
     from: ["draft"],
     to: "under_review",
-    effects: [{ col: "submitted_at", op: "now" }],
+    // Clear any prior reviewer note on re-submission.
+    effects: [
+      { col: "submitted_at", op: "now" },
+      { col: "review_note", op: "clear" },
+    ],
   },
   approve: {
     from: ["under_review"],
@@ -1259,7 +1264,10 @@ export const RATE_CONTRACT_TRANSITIONS: Record<
     from: ["under_review"],
     to: "draft",
     pmOnly: true,
-    effects: [{ col: "submitted_at", op: "clear" }],
+    effects: [
+      { col: "submitted_at", op: "clear" },
+      { col: "review_note", op: "note" },
+    ],
   },
   activate: { from: ["approved"], to: "active", requiresItems: true },
   suspend: { from: ["active"], to: "suspended" },
@@ -1273,6 +1281,8 @@ export const RATE_CONTRACT_TRANSITIONS: Record<
 
 export const transitionRateContractSchema = z.object({
   action: z.enum(RATE_CONTRACT_ACTIONS),
+  /** Optional reviewer message — stored when the action is `request_changes`. */
+  note: z.string().max(2000).optional().nullable(),
 });
 
 export const RATE_CONTRACT_TYPES = [

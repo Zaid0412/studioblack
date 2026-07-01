@@ -1426,7 +1426,10 @@
     "toast_suspend": "Contract suspended",
     "toast_resume": "Contract resumed",
     "toast_close": "Contract closed",
-    "toast_cancel": "Rate contract cancelled"
+    "toast_cancel": "Rate contract cancelled",
+    "reviewNoteLabel": "Changes requested",
+    "requestChangesNoteLabel": "Message to the drafter (optional)",
+    "requestChangesNotePlaceholder": "What needs to change before this can be approved?"
   },
   "vendorPortal": {
     "title": "Vendor Dashboard",

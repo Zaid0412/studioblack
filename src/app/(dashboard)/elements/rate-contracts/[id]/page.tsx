@@ -82,6 +82,7 @@ export default function RateContractDetailPage({ params }: Props) {
   const [pendingAction, setPendingAction] = useState<RateContractAction | null>(
     null
   );
+  const [noteText, setNoteText] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Keys already in the contract — `el:<id>` for element overrides,
@@ -118,9 +119,14 @@ export default function RateContractDetailPage({ params }: Props) {
   const handleTransition = async (action: RateContractAction) => {
     setBusy(true);
     try {
-      await rcApi.transition(data.id, action);
+      await rcApi.transition(
+        data.id,
+        action,
+        action === "request_changes" ? noteText : undefined
+      );
       toast({ title: t(`toast_${action}`) });
       setPendingAction(null);
+      setNoteText("");
       // A cancelled contract drops out of active management — back to the list.
       if (action === "cancel") {
         router.push("/elements/rate-contracts");
@@ -243,6 +249,13 @@ export default function RateContractDetailPage({ params }: Props) {
         }
       />
 
+      {data.review_note && (
+        <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-text-primary">
+          <span className="font-semibold">{t("reviewNoteLabel")}:</span>{" "}
+          {data.review_note}
+        </div>
+      )}
+
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-border-default bg-bg-secondary p-4">
         <Field label={t("status")}>
           <RateContractStatusBadge status={data.status} />
@@ -364,7 +377,12 @@ export default function RateContractDetailPage({ params }: Props) {
 
       <ConfirmDialog
         open={pendingAction !== null}
-        onOpenChange={(o) => !o && setPendingAction(null)}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPendingAction(null);
+            setNoteText("");
+          }
+        }}
         title={pendingAction ? t(`confirm_${pendingAction}_title`) : ""}
         description={pendingAction ? t(`confirm_${pendingAction}_desc`) : ""}
         confirmLabel={pendingAction ? t(`action_${pendingAction}`) : ""}
@@ -374,7 +392,23 @@ export default function RateContractDetailPage({ params }: Props) {
         onConfirm={() => {
           if (pendingAction) handleTransition(pendingAction);
         }}
-      />
+      >
+        {pendingAction === "request_changes" && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("requestChangesNoteLabel")}
+            </label>
+            <textarea
+              className="w-full rounded-lg border border-border-default bg-bg-input p-2 text-sm text-text-primary"
+              rows={3}
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              maxLength={2000}
+              placeholder={t("requestChangesNotePlaceholder")}
+            />
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

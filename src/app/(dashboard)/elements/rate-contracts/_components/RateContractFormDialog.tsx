@@ -14,6 +14,7 @@ import {
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
@@ -29,6 +30,7 @@ import {
 } from "@/lib/validations";
 import type { RateContract } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
+import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 
 interface Props {
   open: boolean;
@@ -236,27 +238,24 @@ export function RateContractFormDialog({
               maxLength={255}
               disabled={isLocked}
             />
-            <Input
+            <DatePicker
               label={t("startDate")}
-              type="date"
-              value={values.startDate}
-              onChange={(e) => set("startDate", e.target.value)}
-              required
+              value={fromIsoDate(values.startDate)}
+              onChange={(d) => set("startDate", d ? toIsoDate(d) : "")}
               disabled={isLocked}
             />
-            <Input
+            <DatePicker
               label={t("endDate")}
-              type="date"
-              value={values.endDate}
-              onChange={(e) => set("endDate", e.target.value)}
-              required
+              value={fromIsoDate(values.endDate)}
+              onChange={(d) => set("endDate", d ? toIsoDate(d) : "")}
               disabled={isLocked}
             />
-            <Input
+            <DatePicker
               label={t("agreementSignedDate")}
-              type="date"
-              value={values.agreementSignedDate}
-              onChange={(e) => set("agreementSignedDate", e.target.value)}
+              value={fromIsoDate(values.agreementSignedDate)}
+              onChange={(d) =>
+                set("agreementSignedDate", d ? toIsoDate(d) : "")
+              }
               disabled={isLocked}
             />
             <CurrencySelect
@@ -311,11 +310,10 @@ export function RateContractFormDialog({
               placeholder={t("deliveryTermsPlaceholder")}
               disabled={isLocked}
             />
-            <Input
+            <DatePicker
               label={t("renewalDate")}
-              type="date"
-              value={values.renewalDate}
-              onChange={(e) => set("renewalDate", e.target.value)}
+              value={fromIsoDate(values.renewalDate)}
+              onChange={(d) => set("renewalDate", d ? toIsoDate(d) : "")}
               disabled={isLocked}
             />
           </div>

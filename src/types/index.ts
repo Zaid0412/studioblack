@@ -1069,6 +1069,7 @@ export interface RateContract {
   submitted_at: string | null;
   approved_by: string | null;
   approved_at: string | null;
+  review_note: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

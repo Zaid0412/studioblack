@@ -51,3 +51,10 @@ export function toIsoDate(d: Date): string {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+
+/** Parse a `YYYY-MM-DD` string to a local `Date` (or `undefined` when empty). */
+export function fromIsoDate(
+  dateStr: string | null | undefined
+): Date | undefined {
+  return dateStr ? new Date(dateStr + "T00:00:00") : undefined;
+}

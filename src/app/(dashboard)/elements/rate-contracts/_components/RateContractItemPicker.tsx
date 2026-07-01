@@ -6,6 +6,7 @@ import useSWR from "swr";
 import { SlidersHorizontal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import { cn } from "@/lib/utils";
+import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { buildCategoryMap } from "@/lib/elementCategories";
@@ -410,15 +412,14 @@ export function RateContractItemPicker({
                               type="number"
                               min="0"
                             />
-                            <Input
+                            <DatePicker
                               label={t("itemValidUntil")}
-                              value={d.validUntil}
-                              onChange={(e) =>
+                              value={fromIsoDate(d.validUntil)}
+                              onChange={(dt) =>
                                 updateDraft(d.key, {
-                                  validUntil: e.target.value,
+                                  validUntil: dt ? toIsoDate(dt) : "",
                                 })
                               }
-                              type="date"
                             />
                           </div>
                         </div>
