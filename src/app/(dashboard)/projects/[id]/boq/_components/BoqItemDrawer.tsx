@@ -25,6 +25,7 @@ import { BoqChangeRequestBanner } from "./BoqChangeRequestBanner";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqDimensionUnitToggle } from "./BoqDimensionUnitToggle";
 import { BoqItemActivity } from "./BoqItemActivity";
+import { BoqItemChangeHistory } from "./BoqItemChangeHistory";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   convertDimensions,
@@ -646,13 +647,14 @@ export function BoqItemDrawer({
           </SheetBody>
 
           {tab === "activity" && (
-            <SheetBody className="flex flex-col">
+            <SheetBody className="flex flex-col gap-6">
               <BoqItemActivity
                 projectId={projectId}
                 itemId={item.id}
                 viewerRole={role}
                 onOpenOtherItem={onOpenOtherItem}
               />
+              <BoqItemChangeHistory projectId={projectId} itemId={item.id} />
             </SheetBody>
           )}
 

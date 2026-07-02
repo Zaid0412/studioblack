@@ -763,6 +763,30 @@ export interface BoqItemChangeRequest {
   created_at: string;
 }
 
+/** One field's before→after within a BOQ-item change version (RFQ-3a). */
+export interface BoqItemFieldChange {
+  /** Human label, e.g. "Quantity". */
+  field: string;
+  from: string | number | null;
+  to: string | number | null;
+}
+
+/**
+ * One immutable entry in a BOQ item's material-change history (RFQ-3a). Snapshots
+ * the pre-edit row; `changes` is the computed diff to the next version (or the
+ * live row for the newest entry).
+ */
+export interface BoqItemVersion {
+  id: string;
+  version_number: number;
+  change_reason: import("@/lib/validations").BoqItemChangeReason;
+  change_note: string | null;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+  changes: BoqItemFieldChange[];
+}
+
 /**
  * One row in the per-item phase-change timeline. Sourced from `audit_event`
  * (single-item rows + bulk rows whose `metadata.item_ids` contains this id).

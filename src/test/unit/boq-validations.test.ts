@@ -390,6 +390,31 @@ describe("updateBoqItemSchema", () => {
       length: -1,
     });
   });
+
+  it("accepts a valid changeReason + changeNote (RFQ-3a)", () => {
+    const data = expectPass(updateBoqItemSchema, {
+      updatedAt: "2024-01-01T00:00:00Z",
+      quantity: 12,
+      changeReason: "quantity",
+      changeNote: "Client added a wardrobe",
+    });
+    expect(data.changeReason).toBe("quantity");
+    expect(data.changeNote).toBe("Client added a wardrobe");
+  });
+
+  it("rejects an unknown changeReason", () => {
+    expectFail(updateBoqItemSchema, {
+      updatedAt: "2024-01-01T00:00:00Z",
+      changeReason: "price_drop",
+    });
+  });
+
+  it("rejects a changeNote over 2000 chars", () => {
+    expectFail(updateBoqItemSchema, {
+      updatedAt: "2024-01-01T00:00:00Z",
+      changeNote: "x".repeat(2001),
+    });
+  });
 });
 
 // ── deleteBoqItemSchema ──────────────────────────────────────────────────────

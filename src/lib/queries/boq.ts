@@ -7,7 +7,9 @@ import type {
   Boq,
   BoqElementLite,
   BoqItemChangeRequest,
+  BoqItemFieldChange,
   BoqItemHistoryEvent,
+  BoqItemVersion,
   BoqSection,
   BoqItemWithComputed,
   BoqSummary,
@@ -17,6 +19,7 @@ import type {
 } from "@/types";
 import type {
   BoqImportStrategy,
+  BoqItemChangeReason,
   BoqItemPhase,
   BoqItemSource,
 } from "@/lib/validations";
@@ -920,9 +923,16 @@ export interface UpdateBoqItemInput {
   sortOrder?: number;
   isProvisional?: boolean;
   isExcluded?: boolean;
+  /** Provenance for the change-version snapshot (RFQ-3a); not a boq_item column. */
+  changeReason?: BoqItemChangeReason;
+  changeNote?: string | null;
 }
 
-const ITEM_COLS: Record<keyof UpdateBoqItemInput, string> = {
+/** Columns persisted to `boq_item`. Excludes the version-provenance fields. */
+const ITEM_COLS: Record<
+  Exclude<keyof UpdateBoqItemInput, "changeReason" | "changeNote">,
+  string
+> = {
   sectionId: "section_id",
   itemCode: "item_code",
   name: "name",
@@ -978,6 +988,30 @@ const REAPPROVAL_FIELDS = new Set<keyof UpdateBoqItemInput>([
   "height",
 ]);
 
+/**
+ * Derive a change reason from the material fields that were edited, used when
+ * the caller doesn't pass one explicitly. A `specification` change (description
+ * or unit) outranks a `quantity` change; anything else (cost, section) is
+ * `other`. `scope_add`/`scope_remove` are never derived — they belong to the
+ * item add/remove paths (RFQ-3c), not an in-place edit.
+ */
+function deriveChangeReason(
+  changedFields: Set<keyof UpdateBoqItemInput>
+): BoqItemChangeReason {
+  if (changedFields.has("description") || changedFields.has("unit")) {
+    return "specification";
+  }
+  if (
+    changedFields.has("quantity") ||
+    changedFields.has("length") ||
+    changedFields.has("breadth") ||
+    changedFields.has("height")
+  ) {
+    return "quantity";
+  }
+  return "other";
+}
+
 export type UpdateBoqItemOutcome =
   | { ok: true; item: BoqItemWithComputed }
   | { ok: false; reason: "not_found" | "conflict" };
@@ -991,6 +1025,10 @@ export type UpdateBoqItemOutcome =
  * fresh value in their queue on next visit. No notification fires for this
  * implicit transition.
  *
+ * When a material field changes, the PRE-edit row is snapshotted into
+ * `boq_item_version` (RFQ-3a) in the same statement, so qty/spec history is
+ * never lost. The reason is taken from `input.changeReason` or auto-derived.
+ *
  * Returns:
  * - `{ ok: true, item }` on success
  * - `{ ok: false, reason: "conflict" }` on stale `updated_at` (→ 409)
@@ -999,12 +1037,13 @@ export type UpdateBoqItemOutcome =
 export async function updateBoqItem(
   itemId: string,
   expectedUpdatedAt: string,
-  input: UpdateBoqItemInput
+  input: UpdateBoqItemInput,
+  actorUserId: string | null
 ): Promise<UpdateBoqItemOutcome> {
   const setClauses: string[] = [];
   const values: unknown[] = [];
   let i = 1;
-  let changedMaterialField = false;
+  const changedFields = new Set<keyof UpdateBoqItemInput>();
 
   for (const [key, col] of Object.entries(ITEM_COLS) as [
     keyof UpdateBoqItemInput,
@@ -1014,38 +1053,81 @@ export async function updateBoqItem(
     if (val === undefined) continue;
     setClauses.push(`${col} = $${i++}`);
     values.push(val);
-    if (REAPPROVAL_FIELDS.has(key)) changedMaterialField = true;
+    if (REAPPROVAL_FIELDS.has(key)) changedFields.add(key);
   }
 
   if (setClauses.length === 0) {
     return { ok: false, reason: "not_found" };
   }
 
+  const changedMaterialField = changedFields.size > 0;
   if (changedMaterialField) {
     setClauses.push(
-      `phase = CASE WHEN phase = 'client_approved' THEN 'sent_to_client' ELSE phase END`
+      `phase = CASE WHEN bi.phase = 'client_approved' THEN 'sent_to_client' ELSE bi.phase END`
     );
   }
 
   setClauses.push(`updated_at = now()`);
 
+  // Version-snapshot params (only meaningful when a material field changed).
+  const reason = changedMaterialField
+    ? (input.changeReason ?? deriveChangeReason(changedFields))
+    : null;
+  const pReason = i++;
+  values.push(reason);
+  const pNote = i++;
+  values.push(changedMaterialField ? (input.changeNote ?? null) : null);
+  const pActor = i++;
+  values.push(actorUserId);
+  const pShould = i++;
+  values.push(changedMaterialField);
+  const pId = i++;
+  values.push(itemId);
+  const pToken = i++;
+  values.push(expectedUpdatedAt);
+
+  // Single atomic statement:
+  //  - `prev` locks the target row (guarded by the optimistic-lock token),
+  //  - `ver` snapshots that PRE-edit row into boq_item_version (no-op unless a
+  //    material field changed), taking the next per-item version_number,
+  //  - `updated` applies the edit to the same locked row.
   // `pg` deserializes TIMESTAMPTZ into JS Date (ms precision), so the
   // round-tripped token loses the row's microseconds. Truncate both sides.
   const pool = getPool();
   const { rows } = await pool.query<BoqItemWithComputed>(
-    `WITH updated AS (
+    `WITH prev AS (
+       SELECT * FROM boq_item bi
+       WHERE bi.id = $${pId}
+         AND date_trunc('milliseconds', bi.updated_at)
+             = date_trunc('milliseconds', $${pToken}::timestamptz)
+       FOR UPDATE
+     ),
+     ver AS (
+       INSERT INTO boq_item_version
+         (boq_item_id, version_number, change_reason, change_note, changed_by, snapshot)
+       SELECT
+         prev.id,
+         COALESCE(
+           (SELECT MAX(v.version_number) FROM boq_item_version v WHERE v.boq_item_id = prev.id),
+           0
+         ) + 1,
+         $${pReason}, $${pNote}, $${pActor}, to_jsonb(prev.*)
+       FROM prev
+       WHERE $${pShould}::boolean
+       RETURNING 1
+     ),
+     updated AS (
        UPDATE boq_item bi
        SET ${setClauses.join(", ")}
-       WHERE bi.id = $${i}
-         AND date_trunc('milliseconds', bi.updated_at)
-             = date_trunc('milliseconds', $${i + 1}::timestamptz)
-       RETURNING *
+       FROM prev
+       WHERE bi.id = prev.id
+       RETURNING bi.*
      )
      SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
      FROM updated bi
      JOIN boq b ON b.id = bi.boq_id
      ${ITEM_LIBRARY_JOIN}`,
-    [...values, itemId, expectedUpdatedAt]
+    values
   );
 
   if (rows.length > 0) return { ok: true, item: rows[0] };
@@ -1058,6 +1140,106 @@ export async function updateBoqItem(
     ok: false,
     reason: exists.rows.length > 0 ? "conflict" : "not_found",
   };
+}
+
+/** Snapshot columns surfaced as before→after diffs in the change history. */
+const MATERIAL_DIFF_FIELDS: { col: string; label: string }[] = [
+  { col: "description", label: "Description" },
+  { col: "unit", label: "Unit" },
+  { col: "quantity", label: "Quantity" },
+  { col: "unit_cost", label: "Unit cost" },
+  { col: "material_cost", label: "Material cost" },
+  { col: "labour_cost", label: "Labour cost" },
+  { col: "overhead_pct", label: "Overhead %" },
+  { col: "service_charge_pct", label: "Service charge %" },
+  { col: "margin_pct", label: "Margin %" },
+  { col: "client_rate", label: "Client rate" },
+  { col: "length", label: "Length" },
+  { col: "breadth", label: "Breadth" },
+  { col: "height", label: "Height" },
+];
+
+/** Loose equality tolerant of NUMERIC ↔ number/string JSON representations. */
+function sameSnapshotValue(a: unknown, b: unknown): boolean {
+  const na = a ?? null;
+  const nb = b ?? null;
+  if (na === null || nb === null) return na === nb;
+  const fa = Number(na);
+  const fb = Number(nb);
+  if (!Number.isNaN(fa) && !Number.isNaN(fb)) return fa === fb;
+  return String(na) === String(nb);
+}
+
+function diffMaterialFields(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): BoqItemFieldChange[] {
+  const changes: BoqItemFieldChange[] = [];
+  for (const { col, label } of MATERIAL_DIFF_FIELDS) {
+    const from = before[col] ?? null;
+    const to = after[col] ?? null;
+    if (!sameSnapshotValue(from, to)) {
+      changes.push({
+        field: label,
+        from: from as string | number | null,
+        to: to as string | number | null,
+      });
+    }
+  }
+  return changes;
+}
+
+/**
+ * Change history for a BOQ item, newest first (RFQ-3a). Each version stored the
+ * PRE-edit snapshot, so the change it represents is `snapshot(v) → snapshot(v+1)`
+ * — or `snapshot(latest) → current row` for the most recent edit. Diffs are
+ * computed here so the UI gets ready-to-render before→after pairs.
+ */
+export async function getBoqItemVersions(
+  itemId: string
+): Promise<BoqItemVersion[]> {
+  const pool = getPool();
+  const { rows } = await pool.query<{
+    id: string;
+    version_number: number;
+    change_reason: BoqItemChangeReason;
+    change_note: string | null;
+    changed_by: string | null;
+    changed_by_name: string | null;
+    changed_at: string | Date;
+    snapshot: Record<string, unknown>;
+  }>(
+    `SELECT v.id::text AS id, v.version_number, v.change_reason, v.change_note,
+            v.changed_by, u.name AS changed_by_name, v.changed_at, v.snapshot
+     FROM boq_item_version v
+     LEFT JOIN "user" u ON u.id = v.changed_by
+     WHERE v.boq_item_id = $1
+     ORDER BY v.version_number ASC`,
+    [itemId]
+  );
+  if (rows.length === 0) return [];
+
+  const { rows: curRows } = await pool.query<{
+    current: Record<string, unknown> | null;
+  }>(`SELECT to_jsonb(bi.*) AS current FROM boq_item bi WHERE bi.id = $1`, [
+    itemId,
+  ]);
+  const current = curRows[0]?.current ?? null;
+
+  const versions: BoqItemVersion[] = rows.map((r, idx) => {
+    const after = idx + 1 < rows.length ? rows[idx + 1].snapshot : current;
+    return {
+      id: r.id,
+      version_number: r.version_number,
+      change_reason: r.change_reason,
+      change_note: r.change_note,
+      changed_by: r.changed_by,
+      changed_by_name: r.changed_by_name,
+      changed_at: toIso(r.changed_at),
+      changes: after ? diffMaterialFields(r.snapshot, after) : [],
+    };
+  });
+  return versions.reverse();
 }
 
 export type ApplyRateOutcome =

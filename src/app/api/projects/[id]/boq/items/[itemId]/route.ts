@@ -16,7 +16,7 @@ const notFound = () => notFoundResponse("Item not found in this project");
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (req, _ctx, params) => {
+  async (req, { user }, params) => {
     const { id, itemId } = params;
 
     if (!(await verifyBoqItemOwnership(itemId, id))) return notFound();
@@ -27,7 +27,7 @@ export const PATCH = withAuth(
     }
     const { updatedAt, ...fields } = parsed.data;
 
-    const outcome = await updateBoqItem(itemId, updatedAt, fields);
+    const outcome = await updateBoqItem(itemId, updatedAt, fields, user.id);
     if (outcome.ok) return NextResponse.json(outcome.item);
     return optimisticFailureResponse(outcome.reason);
   }
