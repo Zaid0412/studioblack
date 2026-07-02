@@ -1142,7 +1142,13 @@ export async function updateBoqItem(
   };
 }
 
-/** Snapshot columns surfaced as before→after diffs in the change history. */
+/**
+ * Snapshot columns surfaced as before→after diffs in the change history. This is
+ * a curated DISPLAY subset of the material fields (overlaps `REAPPROVAL_FIELDS`
+ * but drops the raw `section_id` UUID, which isn't reader-friendly). The stored
+ * snapshot is the full row (`to_jsonb(prev.*)`), so nothing is lost if a field is
+ * absent here — it just won't render as a labelled diff.
+ */
 const MATERIAL_DIFF_FIELDS: { col: string; label: string }[] = [
   { col: "description", label: "Description" },
   { col: "unit", label: "Unit" },
@@ -1161,13 +1167,11 @@ const MATERIAL_DIFF_FIELDS: { col: string; label: string }[] = [
 
 /** Loose equality tolerant of NUMERIC ↔ number/string JSON representations. */
 function sameSnapshotValue(a: unknown, b: unknown): boolean {
-  const na = a ?? null;
-  const nb = b ?? null;
-  if (na === null || nb === null) return na === nb;
-  const fa = Number(na);
-  const fb = Number(nb);
+  if (a === null || b === null) return a === b;
+  const fa = Number(a);
+  const fb = Number(b);
   if (!Number.isNaN(fa) && !Number.isNaN(fb)) return fa === fb;
-  return String(na) === String(nb);
+  return String(a) === String(b);
 }
 
 function diffMaterialFields(
@@ -1199,6 +1203,9 @@ export async function getBoqItemVersions(
   itemId: string
 ): Promise<BoqItemVersion[]> {
   const pool = getPool();
+  // One round-trip: the versions (oldest→newest) plus the live row carried on
+  // every row via an uncorrelated scalar subquery (evaluated once by PG). The
+  // ASC order is load-bearing — the diff below pairs snapshot(v) → snapshot(v+1).
   const { rows } = await pool.query<{
     id: string;
     version_number: number;
@@ -1208,9 +1215,11 @@ export async function getBoqItemVersions(
     changed_by_name: string | null;
     changed_at: string | Date;
     snapshot: Record<string, unknown>;
+    current_row: Record<string, unknown> | null;
   }>(
     `SELECT v.id::text AS id, v.version_number, v.change_reason, v.change_note,
-            v.changed_by, u.name AS changed_by_name, v.changed_at, v.snapshot
+            v.changed_by, u.name AS changed_by_name, v.changed_at, v.snapshot,
+            (SELECT to_jsonb(bi.*) FROM boq_item bi WHERE bi.id = $1) AS current_row
      FROM boq_item_version v
      LEFT JOIN "user" u ON u.id = v.changed_by
      WHERE v.boq_item_id = $1
@@ -1218,13 +1227,7 @@ export async function getBoqItemVersions(
     [itemId]
   );
   if (rows.length === 0) return [];
-
-  const { rows: curRows } = await pool.query<{
-    current: Record<string, unknown> | null;
-  }>(`SELECT to_jsonb(bi.*) AS current FROM boq_item bi WHERE bi.id = $1`, [
-    itemId,
-  ]);
-  const current = curRows[0]?.current ?? null;
+  const current = rows[0].current_row;
 
   const versions: BoqItemVersion[] = rows.map((r, idx) => {
     const after = idx + 1 < rows.length ? rows[idx + 1].snapshot : current;

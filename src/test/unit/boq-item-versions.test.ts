@@ -86,37 +86,38 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
 describe("getBoqItemVersions — diff computation (RFQ-3a)", () => {
   it("returns versions newest-first, diffing each snapshot to the next (or live row)", async () => {
     // v1 → v2 changed quantity 10→15; v2 → current changed unit_cost 5→8.
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            id: "v1",
-            version_number: 1,
-            change_reason: "quantity",
-            change_note: null,
-            changed_by: ACTOR,
-            changed_by_name: "Zaid",
-            changed_at: "2026-06-01T00:00:00.000Z",
-            snapshot: { quantity: 10, unit_cost: 5, description: "A" },
-          },
-          {
-            id: "v2",
-            version_number: 2,
-            change_reason: "other",
-            change_note: "repriced",
-            changed_by: ACTOR,
-            changed_by_name: "Zaid",
-            changed_at: "2026-06-02T00:00:00.000Z",
-            snapshot: { quantity: 15, unit_cost: 5, description: "A" },
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        rows: [{ current: { quantity: 15, unit_cost: 8, description: "A" } }],
-      });
+    // Single round-trip: the live row rides on every version row as `current_row`.
+    const currentRow = { quantity: 15, unit_cost: 8, description: "A" };
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "v1",
+          version_number: 1,
+          change_reason: "quantity",
+          change_note: null,
+          changed_by: ACTOR,
+          changed_by_name: "Zaid",
+          changed_at: "2026-06-01T00:00:00.000Z",
+          snapshot: { quantity: 10, unit_cost: 5, description: "A" },
+          current_row: currentRow,
+        },
+        {
+          id: "v2",
+          version_number: 2,
+          change_reason: "other",
+          change_note: "repriced",
+          changed_by: ACTOR,
+          changed_by_name: "Zaid",
+          changed_at: "2026-06-02T00:00:00.000Z",
+          snapshot: { quantity: 15, unit_cost: 5, description: "A" },
+          current_row: currentRow,
+        },
+      ],
+    });
 
     const versions = await getBoqItemVersions(ITEM_ID);
 
+    expect(mockQuery).toHaveBeenCalledTimes(1); // single round-trip
     expect(versions.map((v) => v.version_number)).toEqual([2, 1]);
     // newest (v2): unit_cost 5 → 8
     expect(versions[0].changes).toEqual([
