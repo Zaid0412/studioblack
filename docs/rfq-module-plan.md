@@ -90,25 +90,85 @@ Four tracks, ranked by value:
 
 ---
 
-## 3. RFQ-3 — Scope change → RFQ revisions (LARGE — split into sub-PRs)
+## 3. RFQ-3 — Scope change → RFQ revisions (LARGE — 3 sub-PRs: 3a → 3b → 3c)
 
-**Why:** `RFQ - NEW.docx` 2nd half — scope changes happen on every project. Never overwrite BOQ qty/spec; version it and create RFQ revisions.
+**Why:** `RFQ - NEW.docx` 2nd half — scope changes happen on every project. Never overwrite BOQ qty/spec; version it, and when a change hits an in-flight RFQ raise a revision instead of editing an issued RFQ in place.
 
-**Schema** (`migrate-boq-item-versions.sql`, `migrate-rfq-revisions.sql`)
+**Scoping (verified 2026-07-02):**
 
-- `boq_item_version`: id, boq_item_id, version_number, change_reason (quantity/specification/scope_add/scope_remove), changed_by, changed_at, snapshot jsonb (immutable). BOQ edits to qty/spec snapshot first.
-- `rfq` revisioning: `ADD revision_number INT DEFAULT 0`, `ADD supersedes_rfq_id UUID` (self-ref); a revision clones the RFQ into a new row and marks the old `superseded`. New rfq status `revised`/`superseded`.
+- **Change Orders (post-PO) are OUT of scope.** No `po`/`purchase_order` table exists — procurement execution isn't built, so `boq_item.po_status` never advances past `quoted`. Revisit COs only once a PO layer ships.
+- **Do NOT build a new scope-change approval state machine.** The `boq_item.phase` lifecycle (F13: draft → internal_review → internally_approved → sent_to_client → client_reviewing → client_approved, plus the two `*_changes_requested` states) already models requested → internal review → client approval. It even auto-flips a `client_approved` item back to `sent_to_client` when a `REAPPROVAL_FIELD` (qty/spec/cost/dims) is edited. RFQ-3 **reuses** this; it does not duplicate it as a separate `scope_change` entity mirroring the rate-contract SM.
 
-**Backend / rules (procurement-impact matrix, PRD §22):**
+The genuine gaps: (1) qty/spec edits overwrite the row — prior values are lost; (2) issued RFQs are locked with no revision path; (3) a BOQ change to an item already in an RFQ is neither detected nor routed.
 
-- Qty only → update RFQ item / reuse rate. Spec changed → require re-quote (new RFQ revision). New item → new RFQ or add to revision. Deleted item → cancel RFQ item.
-- Scope-change approval workflow: requested → internal review → client approval → approved (mirror the rate-contract state-machine pattern from PR C).
+---
 
-**Change Orders (after PO):** only if POs exist. **Check `po`/`purchase_order` tables first** — if procurement-execution (PO) isn't built, change orders are **out of scope**; stop RFQ-3 at RFQ-revision level and defer COs.
+### 3a — BOQ-item change versioning ⬅ START HERE (self-contained, additive, low risk)
 
-**UI:** BOQ-item revision history; RFQ "Rev-1" banner + supersede link; vendor re-quote notification; scope-change approval actions.
-**Tests:** revision clone, impact-rule routing, approval transitions.
-**Effort:** High — **plan as 2-3 sub-PRs** (BOQ-item versioning → RFQ revisions → scope-change approval). Sequence LAST.
+Immutable history of qty/spec/cost changes on a BOQ item, with a reason.
+
+**Schema** (`migrate-boq-item-versions.sql`) — **snapshot table, NOT row-versioning.** `boq_item` is the central procurement entity (referenced by `rfq_item.boq_item_id`, rate contracts, BOQ totals, the BOQ tab). Row-versioning it à la RFQ-2's `is_current` pattern would force an `is_current` filter on every boq_item read app-wide — a huge regression surface. A side snapshot table keeps the live row + all FKs stable and mirrors the existing `boq.snapshot` precedent.
+
+```
+boq_item_version:
+  id             UUID PK
+  boq_item_id    UUID FK → boq_item (ON DELETE CASCADE)
+  version_number INT            -- 1-based, per item
+  change_reason  TEXT           -- CHECK: quantity | specification | scope_add | scope_remove | other
+  change_note    TEXT NULL      -- optional free text
+  changed_by     TEXT FK → user
+  changed_at     TIMESTAMPTZ
+  snapshot       JSONB          -- immutable pre-edit state of the row
+UNIQUE (boq_item_id, version_number)
+INDEX  (boq_item_id, version_number DESC)
+```
+
+**Backend** (`boq.ts`)
+
+- In `updateBoqItem`, inside the existing tx: if any `REAPPROVAL_FIELD` changed, INSERT a `boq_item_version` snapshot of the **pre-edit** row with `version_number = COALESCE(max,0)+1` and the supplied `change_reason`/`change_note`. Non-material edits (notes, sort_order, flags) do NOT version.
+- `getBoqItemVersions(itemId)` → history newest-first.
+
+**Validation** (`validations.ts`): extend `updateBoqItemSchema` with optional `changeReason` (enum `BOQ_ITEM_CHANGE_REASONS`) + `changeNote` (max 2000). Meaningful only when a material field is in the patch; default `change_reason='other'` if omitted.
+
+**API:** existing `PATCH /api/projects/[id]/boq/items/[itemId]` carries the new fields; new `GET …/items/[itemId]/versions`.
+
+**UI:** version history in the BOQ item drawer's existing **Activity tab** (each version: reason badge + note + who/when + a qty/spec before→after diff). When editing a material field, a small optional "reason for change" input (Select + note) in the drawer / editable-cell save path.
+
+**Audit:** `boq.item.versioned` (metadata: version_number, change_reason).
+
+**Tests:** snapshot-on-material-edit, no-snapshot-on-trivial-edit, versions query/route, schema (material edit → reason accepted/defaulted).
+
+**Migration:** yes (new table). **Effort:** Med.
+
+---
+
+### 3b — RFQ revisions (clone + supersede)
+
+When scope changes after issue, raise a revision instead of editing a locked RFQ.
+
+**Schema** (`migrate-rfq-revisions.sql`): `rfq ADD revision_number INT DEFAULT 1, ADD supersedes_rfq_id UUID FK → rfq, ADD is_current BOOLEAN DEFAULT true`. New status `superseded`. New-row-per-revision **is** right here — a revision is a real new RFQ with its own number/quotes/invites; matches the RFQ-2 quote-versioning precedent.
+
+**Backend** (`rfqs.ts`): `cloneRfqAsRevision(rfqId, reason, actor)` — new rfq (revision_number+1, supersedes_rfq_id=old, status='draft'), copy rfq_items (reset `awarded_vendor_id`/`awarded_quote_item_id`), set old rfq `is_current=false, status='superseded'`. All RFQ-list/detail reads filter `is_current` (or render the revision chain).
+
+**API:** `POST …/rfqs/[rfqId]/revise`.
+**UI:** "Create revision" action on an issued/awarded RFQ; "Rev-N · supersedes RFQ-…" banner + link to the prior RFQ; re-invite vendors via the existing invite flow (vendors are NOT auto-carried).
+**Audit:** `rfq.revised` (metadata: supersedes_rfq_id, revision_number).
+**Tests:** clone resets awards, old marked superseded, list filters to current.
+**Depends on:** 3a. **Migration:** yes. **Effort:** Med-High.
+
+---
+
+### 3c — Scope-change impact routing (PRD §22 matrix)
+
+Connect a BOQ change to the right RFQ action.
+
+- On a material edit to a BOQ item with `po_status IN (rfq_issued, quoted)`, detect the in-flight RFQ(s) and surface "this change affects RFQ-X", routing per the matrix: **qty only →** update `rfq_item.quantity` in place (reuse rate); **spec changed / item added / item removed →** offer a revision (3b) / cancel the rfq_item.
+- Approval reuses the existing `boq_item.phase` re-approval loop — no new SM.
+
+**UI:** impact prompt in the BOQ edit path; a "needs re-quote" flag on affected RFQ items.
+**Tests:** routing per change_reason; qty-only in-place vs spec → revision.
+**Depends on:** 3a + 3b. **Migration:** none (or a small `rfq_item.needs_requote` flag).
+**Effort:** High.
 
 ---
 
@@ -122,21 +182,22 @@ Four tracks, ranked by value:
 
 ## Sequencing
 
-1. **RFQ-1** (manual/multi-channel entry + evidence) + fold in **RFQ-4** package_type & BOQ eligibility gate (overlapping surface). One PR, maybe two.
-2. **RFQ-2** (quote versioning) — builds on RFQ-1's entry paths.
-3. **RFQ-3** (scope change / revisions) — its own 2-3 sub-PRs; verify PO existence before attempting change orders.
+1. **RFQ-1** ✅ shipped (#154) — manual/multi-channel entry + evidence.
+2. **RFQ-2** ✅ shipped (#155) — quote versioning.
+3. **RFQ-3** (scope change / revisions) — 3 sub-PRs **3a → 3b → 3c** (below); Change Orders confirmed out of scope (no PO layer).
 4. **RFQ-4** comms timeline — only if needed.
 
 ## Migrations (in order)
 
-`migrate-rfq-quote-source.sql` → `migrate-vendor-quote-versions.sql` → `migrate-boq-item-versions.sql` → `migrate-rfq-revisions.sql`. All additive; apply to dev on build, prod on merge (the established flow).
+Shipped: `migrate-rfq-quote-source.sql` (RFQ-1) → `migrate-rfq-quote-versions.sql` (RFQ-2). Next: `migrate-boq-item-versions.sql` (3a) → `migrate-rfq-revisions.sql` (3b). All additive; apply to dev on build, prod on merge (the established flow).
 
 ## Risks / decisions to confirm
 
-- **Auto-invite on manual entry?** — can a PM enter a quote for a not-yet-invited vendor, or must they invite first? (Lean: auto-invite.)
-- **Evidence storage** — jsonb `attachments` (chosen for v1) vs a dedicated `quote_attachment` table (better querying). Revisit if attachments need per-file metadata/search.
-- **PO existence** gates RFQ-3 change orders — verify before planning that sub-PR.
-- **Only `active`/current matches** — versioning must not change which quote/RFQ is "current" for comparison/award.
+- **RFQ-3 Change Orders** — CONFIRMED out of scope: no `po`/`purchase_order` table exists, so there is no post-PO stage to raise COs against. Revisit only after a PO/procurement-execution layer ships.
+- **RFQ-3 approval** — CONFIRMED: reuse the existing `boq_item.phase` client re-approval loop; do NOT build a separate scope-change state machine.
+- **boq_item versioning shape** — CONFIRMED: side snapshot table (`boq_item_version`), not row-versioning, to avoid an app-wide `is_current` filter on the central procurement entity.
+- **Only `active`/current matches** — versioning must not change which quote/RFQ is "current" for comparison/award. (RFQ revisions in 3b filter `is_current`.)
+- ~~Auto-invite on manual entry~~ / ~~Evidence storage~~ — resolved during RFQ-1.
 
 ## Deferred (PRD's own Phase 2)
 
