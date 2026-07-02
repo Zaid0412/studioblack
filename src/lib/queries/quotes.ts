@@ -43,6 +43,7 @@ async function expireStaleQuotes(
     `UPDATE vendor_quote
         SET status = 'expired', updated_at = now()
       WHERE rfq_id = $1
+        AND is_current
         AND status = 'submitted'
         AND valid_until IS NOT NULL
         AND valid_until < CURRENT_DATE`,
@@ -61,6 +62,8 @@ function mapQuoteRow(r: QuoteRow): Omit<VendorQuoteWithItems, "items"> {
     rfq_id: r.rfq_id,
     vendor_id: r.vendor_id,
     status: r.status,
+    version: r.version,
+    is_current: r.is_current,
     response_source: r.response_source,
     received_date: r.received_date,
     entered_by: r.entered_by,
@@ -105,7 +108,7 @@ export async function getQuotesByRfq(
       `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
          FROM vendor_quote vq
          JOIN vendor v ON v.id = vq.vendor_id
-        WHERE vq.rfq_id = $1
+        WHERE vq.rfq_id = $1 AND vq.is_current
         ORDER BY vq.is_late ASC, vq.submitted_at ASC`,
       [rfqId]
     ),
@@ -114,7 +117,7 @@ export async function getQuotesByRfq(
               vqi.notes, vqi.alternative_spec
          FROM vendor_quote_item vqi
          JOIN vendor_quote vq ON vq.id = vqi.quote_id
-        WHERE vq.rfq_id = $1`,
+        WHERE vq.rfq_id = $1 AND vq.is_current`,
       [rfqId]
     ),
   ]);
@@ -195,7 +198,7 @@ export async function getQuoteForVendor(
     `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
        FROM vendor_quote vq
        JOIN vendor v ON v.id = vq.vendor_id
-      WHERE vq.rfq_id = $1 AND vq.vendor_id = $2`,
+      WHERE vq.rfq_id = $1 AND vq.vendor_id = $2 AND vq.is_current`,
     [rfqId, vendorId]
   );
   const header = headerRows[0];
@@ -246,7 +249,7 @@ export async function getQuoteComparison(
       `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
          FROM vendor_quote vq
          JOIN vendor v ON v.id = vq.vendor_id
-        WHERE vq.rfq_id = $1`,
+        WHERE vq.rfq_id = $1 AND vq.is_current`,
       [rfqId]
     ),
     pool.query<VendorQuoteItem & { rfq_item_id: string; quote_id: string }>(
@@ -254,7 +257,7 @@ export async function getQuoteComparison(
               vqi.notes, vqi.alternative_spec
          FROM vendor_quote_item vqi
          JOIN vendor_quote vq ON vq.id = vqi.quote_id
-        WHERE vq.rfq_id = $1`,
+        WHERE vq.rfq_id = $1 AND vq.is_current`,
       [rfqId]
     ),
     pool.query<{ vendor_id: string; vendor_name: string }>(
@@ -266,6 +269,7 @@ export async function getQuoteComparison(
             SELECT 1 FROM vendor_quote vq
              WHERE vq.rfq_id = rv.rfq_id
                AND vq.vendor_id = rv.vendor_id
+               AND vq.is_current
           )
         ORDER BY lower(v.company_name)`,
       [rfqId]
@@ -408,6 +412,54 @@ export interface QuoteStudioRecipient {
   email: string;
   name: string;
   userId: string;
+}
+
+/**
+ * Every version of a vendor's quote on an RFQ (current + superseded), newest
+ * first, with line items. Keyed off any one version's `quoteId` — resolves the
+ * vendor, then returns the full history for that (rfq, vendor).
+ */
+export async function getQuoteVersionHistory(
+  rfqId: string,
+  quoteId: string
+): Promise<VendorQuoteWithItems[]> {
+  const pool = getPool();
+  const { rows: vendorRows } = await pool.query<{ vendor_id: string }>(
+    `SELECT vendor_id FROM vendor_quote WHERE id = $1 AND rfq_id = $2`,
+    [quoteId, rfqId]
+  );
+  const vendorId = vendorRows[0]?.vendor_id;
+  if (!vendorId) return [];
+
+  const [headerRes, itemRes] = await Promise.all([
+    pool.query<QuoteRow>(
+      `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
+         FROM vendor_quote vq
+         JOIN vendor v ON v.id = vq.vendor_id
+        WHERE vq.rfq_id = $1 AND vq.vendor_id = $2
+        ORDER BY vq.version DESC`,
+      [rfqId, vendorId]
+    ),
+    pool.query<VendorQuoteItem>(
+      `SELECT vqi.id, vqi.quote_id, vqi.rfq_item_id, vqi.unit_price,
+              vqi.notes, vqi.alternative_spec
+         FROM vendor_quote_item vqi
+         JOIN vendor_quote vq ON vq.id = vqi.quote_id
+        WHERE vq.rfq_id = $1 AND vq.vendor_id = $2`,
+      [rfqId, vendorId]
+    ),
+  ]);
+
+  const itemsByQuote = new Map<string, VendorQuoteItem[]>();
+  for (const it of itemRes.rows) {
+    const arr = itemsByQuote.get(it.quote_id) ?? [];
+    arr.push(mapQuoteItemRow(it));
+    itemsByQuote.set(it.quote_id, arr);
+  }
+  return headerRes.rows.map((h) => ({
+    ...mapQuoteRow(h),
+    items: itemsByQuote.get(h.id) ?? [],
+  }));
 }
 
 /**
@@ -590,13 +642,17 @@ export async function submitOrUpdateQuote(
       return { ok: false, reason: "missing_items" };
     }
 
-    // Check existing quote: if present and not `submitted`, refuse.
+    // The current version (if any). A revision retires it and inserts a new
+    // version row — line items stay attached to their version, so history is
+    // preserved. Only a `submitted` current version may be revised.
     const { rows: existingRows } = await client.query<{
       id: string;
       status: VendorQuoteStatus;
+      version: number;
     }>(
-      `SELECT id, status FROM vendor_quote
-        WHERE rfq_id = $1 AND vendor_id = $2 FOR UPDATE`,
+      `SELECT id, status, version FROM vendor_quote
+        WHERE rfq_id = $1 AND vendor_id = $2 AND is_current
+        FOR UPDATE`,
       [rfqId, vendorId]
     );
     const existing = existingRows[0];
@@ -607,7 +663,6 @@ export async function submitOrUpdateQuote(
     }
 
     const isLate = rfq.is_late_now;
-    // Provenance — null on the portal path (COALESCE keeps existing / DB default).
     const responseSource = meta.responseSource ?? null;
     const receivedDate = meta.receivedDate ?? null;
     const enteredBy = meta.enteredBy ?? null;
@@ -615,78 +670,45 @@ export async function submitOrUpdateQuote(
       ? JSON.stringify(meta.attachments)
       : null;
 
-    let quoteId: string;
-    let quoteRow: VendorQuote;
+    // Retire the current version before inserting the new one (keeps the
+    // partial-unique "one current per rfq+vendor" invariant satisfied).
     if (existing) {
-      const { rows: updated } = await client.query<VendorQuote>(
-        `UPDATE vendor_quote
-            SET valid_until = $1,
-                currency = $2,
-                delivery_period = $3,
-                payment_terms = $4,
-                inclusions = $5,
-                exclusions = $6,
-                notes = $7,
-                is_late = $8,
-                response_source = COALESCE($9, response_source),
-                received_date = COALESCE($10, received_date),
-                entered_by = COALESCE($11, entered_by),
-                attachments = COALESCE($12::jsonb, attachments),
-                submitted_at = now(),
-                updated_at = now()
-          WHERE id = $13
-          RETURNING *`,
-        [
-          input.validUntil ?? null,
-          input.currency ?? "USD",
-          input.deliveryPeriod ?? null,
-          input.paymentTerms ?? null,
-          input.inclusions ?? null,
-          input.exclusions ?? null,
-          input.notes ?? null,
-          isLate,
-          responseSource,
-          receivedDate,
-          enteredBy,
-          attachmentsJson,
-          existing.id,
-        ]
+      await client.query(
+        `UPDATE vendor_quote SET is_current = false, updated_at = now()
+          WHERE id = $1`,
+        [existing.id]
       );
-      quoteId = existing.id;
-      quoteRow = updated[0];
-      // Replace items wholesale.
-      await client.query(`DELETE FROM vendor_quote_item WHERE quote_id = $1`, [
-        quoteId,
-      ]);
-    } else {
-      const { rows: inserted } = await client.query<VendorQuote>(
-        `INSERT INTO vendor_quote (
-            rfq_id, vendor_id, status, valid_until, currency,
-            delivery_period, payment_terms, inclusions, exclusions, notes, is_late,
-            response_source, received_date, entered_by, attachments
-          ) VALUES ($1, $2, 'submitted', $3, $4, $5, $6, $7, $8, $9, $10,
-                    COALESCE($11, 'portal'), $12, $13, $14::jsonb)
-          RETURNING *`,
-        [
-          rfqId,
-          vendorId,
-          input.validUntil ?? null,
-          input.currency ?? "USD",
-          input.deliveryPeriod ?? null,
-          input.paymentTerms ?? null,
-          input.inclusions ?? null,
-          input.exclusions ?? null,
-          input.notes ?? null,
-          isLate,
-          responseSource,
-          receivedDate,
-          enteredBy,
-          attachmentsJson,
-        ]
-      );
-      quoteRow = inserted[0];
-      quoteId = quoteRow.id;
     }
+    const version = existing ? existing.version + 1 : 1;
+
+    const { rows: inserted } = await client.query<VendorQuote>(
+      `INSERT INTO vendor_quote (
+          rfq_id, vendor_id, status, version, is_current, valid_until, currency,
+          delivery_period, payment_terms, inclusions, exclusions, notes, is_late,
+          response_source, received_date, entered_by, attachments
+        ) VALUES ($1, $2, 'submitted', $3, true, $4, $5, $6, $7, $8, $9, $10, $11,
+                  COALESCE($12, 'portal'), $13, $14, $15::jsonb)
+        RETURNING *`,
+      [
+        rfqId,
+        vendorId,
+        version,
+        input.validUntil ?? null,
+        input.currency ?? "USD",
+        input.deliveryPeriod ?? null,
+        input.paymentTerms ?? null,
+        input.inclusions ?? null,
+        input.exclusions ?? null,
+        input.notes ?? null,
+        isLate,
+        responseSource,
+        receivedDate,
+        enteredBy,
+        attachmentsJson,
+      ]
+    );
+    const quoteRow = inserted[0];
+    const quoteId = quoteRow.id;
 
     // Bulk-insert line items via parallel unnest arrays — single round-trip.
     await client.query(
@@ -746,7 +768,7 @@ export async function setQuoteUnderReview(
   const { rows } = await pool.query<VendorQuote>(
     `UPDATE vendor_quote
         SET status = 'under_review', updated_at = now()
-      WHERE id = $1 AND status = 'submitted'
+      WHERE id = $1 AND status = 'submitted' AND is_current
       RETURNING *`,
     [quoteId]
   );
@@ -828,7 +850,7 @@ export async function awardRfqSingle(
       `SELECT vq.id, vq.vendor_id, vq.status, v.company_name AS vendor_name
          FROM vendor_quote vq
          JOIN vendor v ON v.id = vq.vendor_id
-        WHERE vq.id = $1 AND vq.rfq_id = $2
+        WHERE vq.id = $1 AND vq.rfq_id = $2 AND vq.is_current
         FOR UPDATE OF vq`,
       [winningQuoteId, rfqId]
     );
@@ -858,6 +880,7 @@ export async function awardRfqSingle(
           SET status = 'rejected', updated_at = now()
         WHERE rfq_id = $1
           AND id <> $2
+          AND is_current
           AND status IN ('submitted','under_review')`,
       [rfqId, winner.id]
     );
@@ -976,7 +999,8 @@ export async function awardRfqSplit(
          FROM vendor_quote_item vqi
          JOIN vendor_quote vq ON vq.id = vqi.quote_id
         WHERE vqi.id = ANY($1::uuid[])
-          AND vq.rfq_id = $2`,
+          AND vq.rfq_id = $2
+          AND vq.is_current`,
       [quoteItemIds, rfqId]
     );
     if (qiRows.length !== awards.length) {
@@ -1036,6 +1060,7 @@ export async function awardRfqSplit(
           SET status = 'rejected', updated_at = now()
         WHERE rfq_id = $1
           AND NOT (id = ANY($2::uuid[]))
+          AND is_current
           AND status IN ('submitted','under_review')`,
       [rfqId, winningQuoteIds]
     );

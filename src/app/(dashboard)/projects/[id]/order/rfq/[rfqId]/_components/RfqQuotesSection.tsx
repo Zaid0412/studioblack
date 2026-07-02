@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Award, Clock } from "lucide-react";
+import { ArrowRight, Award, Clock, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
 import type { VendorQuoteWithItems } from "@/types";
+import { QuoteVersionHistoryDialog } from "./QuoteVersionHistoryDialog";
 
 interface Props {
   projectId: string;
@@ -36,6 +38,9 @@ export function RfqQuotesSection({
   onAwardClick,
 }: Props) {
   const responseRate = `${quotes.length} of ${invitedCount}`;
+  const [historyQuote, setHistoryQuote] = useState<VendorQuoteWithItems | null>(
+    null
+  );
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
@@ -91,6 +96,11 @@ export function RfqQuotesSection({
                     </span>
                     <QuoteStatusBadge status={q.status} />
                     <ResponseSourceBadge source={q.response_source} />
+                    {q.version > 1 && (
+                      <span className="text-[10px] font-medium text-text-muted bg-bg-elevated px-1.5 py-0.5 rounded">
+                        v{q.version}
+                      </span>
+                    )}
                     {isNew && (
                       <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
                         New
@@ -118,6 +128,17 @@ export function RfqQuotesSection({
                   </div>
                   <div className="text-xs text-text-muted">{q.currency}</div>
                 </div>
+                {q.version > 1 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setHistoryQuote(q)}
+                    className="shrink-0"
+                  >
+                    <History className="w-4 h-4" />
+                    History
+                  </Button>
+                )}
                 {isPM && canAward && q.status !== "expired" && (
                   <Button
                     size="sm"
@@ -133,6 +154,14 @@ export function RfqQuotesSection({
           })}
         </ul>
       )}
+
+      <QuoteVersionHistoryDialog
+        projectId={projectId}
+        rfqId={rfqId}
+        quote={historyQuote}
+        open={historyQuote !== null}
+        onOpenChange={(o) => !o && setHistoryQuote(null)}
+      />
     </section>
   );
 }

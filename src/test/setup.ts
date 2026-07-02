@@ -499,6 +499,7 @@ vi.mock("@/lib/queries", () => ({
   getQuotesByRfq: vi.fn().mockResolvedValue([]),
   getQuoteDetail: vi.fn().mockResolvedValue(null),
   getQuoteForVendor: vi.fn().mockResolvedValue(null),
+  getQuoteVersionHistory: vi.fn().mockResolvedValue([]),
   getQuoteComparison: vi.fn().mockResolvedValue({
     rfq_id: "",
     items: [],

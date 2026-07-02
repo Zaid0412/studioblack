@@ -1233,6 +1233,10 @@ export interface VendorQuote {
   rfq_id: string;
   vendor_id: string;
   status: VendorQuoteStatus;
+  /** Revision number (1 = first submission). */
+  version: number;
+  /** True for the live version; false for superseded history rows. */
+  is_current: boolean;
   /** How the quote reached us (portal = vendor self-service). */
   response_source: RfqResponseSource;
   /** When the quote was received off-channel (null for portal submissions). */
