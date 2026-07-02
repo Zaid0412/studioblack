@@ -52,9 +52,15 @@ export function toIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Parse a `YYYY-MM-DD` string to a local `Date` (or `undefined` when empty). */
+/**
+ * Parse a date string to a local `Date` (or `undefined` when empty/invalid).
+ * Tolerates full ISO timestamps — pg serialises DATE columns with a time part
+ * (`2026-06-01T00:00:00.000Z`) — by taking just the `YYYY-MM-DD` head.
+ */
 export function fromIsoDate(
   dateStr: string | null | undefined
 ): Date | undefined {
-  return dateStr ? new Date(dateStr + "T00:00:00") : undefined;
+  if (!dateStr) return undefined;
+  const d = new Date(dateStr.slice(0, 10) + "T00:00:00");
+  return Number.isNaN(d.getTime()) ? undefined : d;
 }

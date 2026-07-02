@@ -18,11 +18,12 @@ import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { toast } from "@/components/ui/useToast";
 import { quotes as quotesApi } from "@/lib/api";
-import { toIsoDate } from "@/lib/formatDate";
+import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import {
   RFQ_MANUAL_RESPONSE_SOURCES,
   QUOTE_CURRENCIES,
 } from "@/lib/validations";
+import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
 import type {
   RfqItem,
   RfqWithItems,
@@ -42,15 +43,6 @@ interface Props {
   preselectedVendorId?: string | null;
   onEntered: () => void;
 }
-
-const SOURCE_LABELS: Record<string, string> = {
-  email: "Email",
-  whatsapp: "WhatsApp",
-  phone: "Phone",
-  pdf: "PDF",
-  excel: "Excel",
-  manual: "Manual",
-};
 
 /**
  * PM-side form to record a quote received off-portal on behalf of an invited
@@ -100,16 +92,8 @@ export function ManualQuoteDialog({
     setDeliveryPeriod(existing?.delivery_period ?? "");
     setPaymentTerms(existing?.payment_terms ?? "");
     setNotes(existing?.notes ?? "");
-    setValidUntil(
-      existing?.valid_until
-        ? new Date(`${existing.valid_until}T00:00:00`)
-        : undefined
-    );
-    setReceivedDate(
-      existing?.received_date
-        ? new Date(`${existing.received_date}T00:00:00`)
-        : new Date()
-    );
+    setValidUntil(fromIsoDate(existing?.valid_until));
+    setReceivedDate(fromIsoDate(existing?.received_date) ?? new Date());
     setSource(
       existing && existing.response_source !== "portal"
         ? existing.response_source
@@ -197,7 +181,7 @@ export function ManualQuoteDialog({
               onChange={setSource}
               options={RFQ_MANUAL_RESPONSE_SOURCES.map((s) => ({
                 value: s,
-                label: SOURCE_LABELS[s],
+                label: RESPONSE_SOURCE_LABELS[s],
               }))}
             />
             <DatePicker
