@@ -6,9 +6,11 @@ import type {
   awardRfqSingleSchema,
   awardRfqSplitSchema,
   submitQuoteSchema,
+  enterQuoteSchema,
 } from "@/lib/validations";
 
 type SubmitInput = z.input<typeof submitQuoteSchema>;
+type EnterInput = z.input<typeof enterQuoteSchema>;
 type AwardSingleInput = z.infer<typeof awardRfqSingleSchema>;
 type AwardSplitInput = z.infer<typeof awardRfqSplitSchema>;
 
@@ -16,6 +18,14 @@ type AwardSplitInput = z.infer<typeof awardRfqSplitSchema>;
 export function list(projectId: string, rfqId: string) {
   return apiGet<{ quotes: VendorQuoteWithItems[] }>(
     API.rfqQuotes(projectId, rfqId)
+  );
+}
+
+/** Studio: PM records a quote received off-portal on behalf of a vendor. */
+export function enter(projectId: string, rfqId: string, data: EnterInput) {
+  return apiPost<{ quote: VendorQuoteWithItems; isNew: boolean }>(
+    API.rfqQuotes(projectId, rfqId),
+    data
   );
 }
 

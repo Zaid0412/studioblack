@@ -28,6 +28,7 @@ import {
 import { formatDate } from "@/lib/formatDate";
 import {
   QUOTE_AWARDABLE_RFQ_STATUSES,
+  QUOTE_SUBMITTABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
 } from "@/lib/validations";
@@ -40,6 +41,7 @@ import { RfqIssueDialog } from "./_components/RfqIssueDialog";
 import { RfqStatusTimeline } from "@/components/rfq/RfqStatusTimeline";
 import { RfqQuotesSection } from "./_components/RfqQuotesSection";
 import { QuoteAwardDialog } from "./_components/QuoteAwardDialog";
+import { ManualQuoteDialog } from "./_components/ManualQuoteDialog";
 
 /**
  * Studio RFQ detail page — header (title + status badge + actions),
@@ -61,8 +63,11 @@ export default function OrderRfqDetailPage({
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
   // `addItems` is called inside RfqAddItemsDialog, not directly here.
   const { issue, invite, removeItem, cancel } = useRfqMutations(projectId);
-  const { quotes } = useQuotesForRfq(projectId, rfqId);
-  const { comparison } = useQuoteComparison(projectId, rfqId);
+  const { quotes, mutate: mutateQuotes } = useQuotesForRfq(projectId, rfqId);
+  const { comparison, mutate: mutateComparison } = useQuoteComparison(
+    projectId,
+    rfqId
+  );
   const { awardSingle, awardSplit } = useAwardRfq(projectId, rfqId);
 
   const [issueOpen, setIssueOpen] = useState(false);
@@ -73,6 +78,10 @@ export default function OrderRfqDetailPage({
   const [cancelling, setCancelling] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [awardOpen, setAwardOpen] = useState(false);
+  const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
+  const [manualQuoteVendorId, setManualQuoteVendorId] = useState<string | null>(
+    null
+  );
   const [preselectedQuoteId, setPreselectedQuoteId] = useState<
     string | undefined
   >();
@@ -218,6 +227,22 @@ export default function OrderRfqDetailPage({
               {t("inviteMoreBtn")}
             </Button>
           )}
+          {canManage &&
+            rfq.vendors.length > 0 &&
+            QUOTE_SUBMITTABLE_RFQ_STATUSES.includes(
+              rfq.status as (typeof QUOTE_SUBMITTABLE_RFQ_STATUSES)[number]
+            ) && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setManualQuoteVendorId(null);
+                  setManualQuoteOpen(true);
+                }}
+              >
+                <FileText className="w-4 h-4" />
+                Enter quote
+              </Button>
+            )}
           {isPM && canAward && (
             <Button
               onClick={() => {
@@ -433,6 +458,24 @@ export default function OrderRfqDetailPage({
         onAwardSplit={async (awards) => {
           await awardSplit({ awards });
           await mutate();
+        }}
+      />
+
+      <ManualQuoteDialog
+        projectId={projectId}
+        rfq={rfq}
+        vendors={rfq.vendors.map((v) => ({
+          vendor_id: v.vendor_id,
+          vendor_name: v.vendor_name,
+        }))}
+        quotes={quotes}
+        open={manualQuoteOpen}
+        onOpenChange={setManualQuoteOpen}
+        preselectedVendorId={manualQuoteVendorId}
+        onEntered={() => {
+          mutateQuotes();
+          mutateComparison();
+          mutate();
         }}
       />
     </div>

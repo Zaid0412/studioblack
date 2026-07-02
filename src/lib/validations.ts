@@ -1531,6 +1531,45 @@ export const submitQuoteSchema = z.object({
   items: z.array(submitQuoteItemSchema).min(1).max(500),
 });
 
+/** How a quote reached us. `portal` = vendor self-service; the rest PM-recorded. */
+export const RFQ_RESPONSE_SOURCES = [
+  "portal",
+  "email",
+  "whatsapp",
+  "phone",
+  "pdf",
+  "excel",
+  "manual",
+] as const;
+export type RfqResponseSource = (typeof RFQ_RESPONSE_SOURCES)[number];
+
+/** Sources a PM can pick when recording a quote received off-portal. */
+export const RFQ_MANUAL_RESPONSE_SOURCES = [
+  "email",
+  "whatsapp",
+  "phone",
+  "pdf",
+  "excel",
+  "manual",
+] as const;
+
+export const quoteAttachmentSchema = z.object({
+  url: z.string().url().max(2048),
+  fileName: z.string().trim().min(1).max(255),
+});
+export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
+
+/**
+ * A PM records a quote received off-channel on behalf of an already-invited
+ * vendor. Reuses the vendor submit shape + who/how/when it arrived + evidence.
+ */
+export const enterQuoteSchema = submitQuoteSchema.extend({
+  vendorId: z.string().uuid(),
+  responseSource: z.enum(RFQ_MANUAL_RESPONSE_SOURCES),
+  receivedDate: z.string().date(),
+  attachments: z.array(quoteAttachmentSchema).max(20).optional().default([]),
+});
+
 export const awardRfqSingleSchema = z.object({
   quoteId: z.string().uuid(),
 });

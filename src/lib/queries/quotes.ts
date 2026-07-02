@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import type {
+  QuoteAttachment,
   QuoteComparison,
   QuoteComparisonRow,
   QuoteComparisonVendorColumn,
@@ -9,6 +10,7 @@ import type {
   VendorQuoteStatus,
   VendorQuoteWithItems,
 } from "@/types";
+import type { RfqResponseSource } from "@/lib/validations";
 import {
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
@@ -59,6 +61,9 @@ function mapQuoteRow(r: QuoteRow): Omit<VendorQuoteWithItems, "items"> {
     rfq_id: r.rfq_id,
     vendor_id: r.vendor_id,
     status: r.status,
+    response_source: r.response_source,
+    received_date: r.received_date,
+    entered_by: r.entered_by,
     submitted_at: r.submitted_at,
     valid_until: r.valid_until,
     currency: r.currency,
@@ -363,6 +368,7 @@ export async function getQuoteComparison(
       vendor_code: q.vendor_code,
       quote_id: q.id,
       quote_status: q.status,
+      response_source: q.response_source,
       is_late: q.is_late,
       valid_until: q.valid_until,
       delivery_period: q.delivery_period,
@@ -464,6 +470,18 @@ export interface SubmitQuoteInput {
 }
 
 /**
+ * Provenance for a PM-recorded (off-portal) quote. Omitted for portal
+ * submissions — those keep the DB defaults (`response_source='portal'`,
+ * everything else null) and leave existing columns untouched on revision.
+ */
+export interface SubmitQuoteMeta {
+  responseSource?: RfqResponseSource | null;
+  receivedDate?: string | null;
+  enteredBy?: string | null;
+  attachments?: QuoteAttachment[] | null;
+}
+
+/**
  * Idempotent upsert for a vendor's quote on an RFQ. Replaces line items
  * wholesale on revision (drop + bulk insert inside the tx). Validates:
  *   1. RFQ is in a submittable status (issued / quotes_received / under_review).
@@ -479,7 +497,8 @@ export interface SubmitQuoteInput {
 export async function submitOrUpdateQuote(
   rfqId: string,
   vendorId: string,
-  input: SubmitQuoteInput
+  input: SubmitQuoteInput,
+  meta: SubmitQuoteMeta = {}
 ): Promise<
   | {
       ok: true;
@@ -588,6 +607,13 @@ export async function submitOrUpdateQuote(
     }
 
     const isLate = rfq.is_late_now;
+    // Provenance — null on the portal path (COALESCE keeps existing / DB default).
+    const responseSource = meta.responseSource ?? null;
+    const receivedDate = meta.receivedDate ?? null;
+    const enteredBy = meta.enteredBy ?? null;
+    const attachmentsJson = meta.attachments
+      ? JSON.stringify(meta.attachments)
+      : null;
 
     let quoteId: string;
     let quoteRow: VendorQuote;
@@ -602,9 +628,13 @@ export async function submitOrUpdateQuote(
                 exclusions = $6,
                 notes = $7,
                 is_late = $8,
+                response_source = COALESCE($9, response_source),
+                received_date = COALESCE($10, received_date),
+                entered_by = COALESCE($11, entered_by),
+                attachments = COALESCE($12::jsonb, attachments),
                 submitted_at = now(),
                 updated_at = now()
-          WHERE id = $9
+          WHERE id = $13
           RETURNING *`,
         [
           input.validUntil ?? null,
@@ -615,6 +645,10 @@ export async function submitOrUpdateQuote(
           input.exclusions ?? null,
           input.notes ?? null,
           isLate,
+          responseSource,
+          receivedDate,
+          enteredBy,
+          attachmentsJson,
           existing.id,
         ]
       );
@@ -628,8 +662,10 @@ export async function submitOrUpdateQuote(
       const { rows: inserted } = await client.query<VendorQuote>(
         `INSERT INTO vendor_quote (
             rfq_id, vendor_id, status, valid_until, currency,
-            delivery_period, payment_terms, inclusions, exclusions, notes, is_late
-          ) VALUES ($1, $2, 'submitted', $3, $4, $5, $6, $7, $8, $9, $10)
+            delivery_period, payment_terms, inclusions, exclusions, notes, is_late,
+            response_source, received_date, entered_by, attachments
+          ) VALUES ($1, $2, 'submitted', $3, $4, $5, $6, $7, $8, $9, $10,
+                    COALESCE($11, 'portal'), $12, $13, $14::jsonb)
           RETURNING *`,
         [
           rfqId,
@@ -642,6 +678,10 @@ export async function submitOrUpdateQuote(
           input.exclusions ?? null,
           input.notes ?? null,
           isLate,
+          responseSource,
+          receivedDate,
+          enteredBy,
+          attachmentsJson,
         ]
       );
       quoteRow = inserted[0];

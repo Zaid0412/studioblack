@@ -12,9 +12,13 @@ import {
   getQuoteDetail,
   getQuotesByRfq,
   setQuoteUnderReview,
+  submitOrUpdateQuote,
   verifyRfqOwnership,
 } from "@/lib/queries";
-import { GET as GET_LIST } from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/route";
+import {
+  GET as GET_LIST,
+  POST as POST_ENTER,
+} from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/route";
 import { GET as GET_DETAIL } from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]/route";
 import { POST as POST_REVIEW } from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]/review/route";
 import { GET as GET_COMPARISON } from "@/app/api/projects/[id]/rfqs/[rfqId]/comparison/route";
@@ -93,6 +97,74 @@ describe("GET /api/projects/[id]/rfqs/[rfqId]/quotes", () => {
       buildRequest(`/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/quotes`),
       buildParams({ id: PROJECT_ID, rfqId: RFQ_ID })
     );
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("POST /api/projects/[id]/rfqs/[rfqId]/quotes (manual entry)", () => {
+  const enterBody = {
+    vendorId: "33333333-3333-4333-8333-333333333333",
+    responseSource: "email",
+    receivedDate: "2026-06-01",
+    items: [
+      { rfqItemId: "55555555-5555-4555-8555-555555555555", unitPrice: 100 },
+    ],
+  };
+  const post = (body: unknown) =>
+    POST_ENTER(
+      buildRequest(`/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/quotes`, {
+        method: "POST",
+        body,
+      }),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID })
+    );
+
+  it("records a manually-entered quote", async () => {
+    vi.mocked(submitOrUpdateQuote).mockResolvedValue({
+      ok: true,
+      quote: quoteFixture() as never,
+      isNew: true,
+      orgId: "org-1",
+      projectId: PROJECT_ID,
+      rfqNumber: "RFQ-1",
+      rfqTitle: "T",
+    });
+    const res = await post(enterBody);
+    expect(res.status).toBe(200);
+    expect(vi.mocked(submitOrUpdateQuote)).toHaveBeenCalledWith(
+      RFQ_ID,
+      enterBody.vendorId,
+      expect.any(Object),
+      expect.objectContaining({
+        responseSource: "email",
+        enteredBy: pmSession.user.id,
+      })
+    );
+  });
+
+  it("400s on an invalid body (missing responseSource)", async () => {
+    const { responseSource: _omit, ...bad } = enterBody;
+    const res = await post(bad);
+    expect(res.status).toBe(400);
+  });
+
+  it("400s when responseSource is 'portal'", async () => {
+    const res = await post({ ...enterBody, responseSource: "portal" });
+    expect(res.status).toBe(400);
+  });
+
+  it("409s when the vendor isn't invited", async () => {
+    vi.mocked(submitOrUpdateQuote).mockResolvedValue({
+      ok: false,
+      reason: "vendor_not_invited",
+    });
+    const res = await post(enterBody);
+    expect(res.status).toBe(409);
+  });
+
+  it("blocks client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+    const res = await post(enterBody);
     expect(res.status).toBe(403);
   });
 });

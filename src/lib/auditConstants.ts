@@ -42,6 +42,7 @@ export const AUDIT_ACTIONS = {
   // ── Vendor Quotes (F10) ────────────────────────────────────────────────
   QUOTE_SUBMITTED: "quote.submitted",
   QUOTE_REVISED: "quote.revised",
+  QUOTE_ENTERED_MANUALLY: "quote.entered_manually",
   QUOTE_UNDER_REVIEW: "quote.under_review",
   QUOTE_AWARDED: "quote.awarded",
   QUOTE_REJECTED: "quote.rejected",

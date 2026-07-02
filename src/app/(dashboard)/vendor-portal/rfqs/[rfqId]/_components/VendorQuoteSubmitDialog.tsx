@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { formatDate } from "@/lib/formatDate";
+import { formatDate, fromIsoDate } from "@/lib/formatDate";
 import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
 import type { QuoteCurrency } from "@/lib/validations";
 
@@ -71,9 +71,7 @@ export function VendorQuoteSubmitDialog({
 
   const [prices, setPrices] = useState<Map<string, string>>(initialPrices);
   const [validUntil, setValidUntil] = useState<Date | undefined>(
-    existing?.valid_until
-      ? new Date(`${existing.valid_until}T00:00:00`)
-      : undefined
+    fromIsoDate(existing?.valid_until)
   );
   const [deliveryPeriod, setDeliveryPeriod] = useState(
     existing?.delivery_period ?? ""

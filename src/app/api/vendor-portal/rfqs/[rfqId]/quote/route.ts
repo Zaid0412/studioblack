@@ -60,10 +60,13 @@ export const PUT = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
+    // A genuine portal (re)submission always re-marks the quote as `portal` —
+    // even if a PM had previously recorded it off-channel (email/WhatsApp/…).
     const result = await submitOrUpdateQuote(
       params.rfqId,
       vendorId!,
-      parsed.data
+      parsed.data,
+      { responseSource: "portal" }
     );
     if (!result.ok) {
       const map: Record<typeof result.reason, [number, string, string?]> = {
