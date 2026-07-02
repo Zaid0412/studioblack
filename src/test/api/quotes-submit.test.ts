@@ -185,7 +185,9 @@ describe("PUT /api/vendor-portal/rfqs/[rfqId]/quote", () => {
       VENDOR_ID,
       expect.objectContaining({
         items: validBody.items,
-      })
+      }),
+      // A portal submission always re-marks itself `portal`.
+      expect.objectContaining({ responseSource: "portal" })
     );
   });
 

@@ -4,6 +4,8 @@ import {
   formatDate,
   formatShortDateTime,
   formatDateTime,
+  fromIsoDate,
+  toIsoDate,
 } from "@/lib/formatDate";
 import {
   formatTimeAgo,
@@ -51,6 +53,39 @@ describe("formatDate", () => {
   it("formats a different year", () => {
     const result = formatDate("2025-01-01", "en-US");
     expect(result).toBe("Jan 1, 2025");
+  });
+});
+
+// ── fromIsoDate ─────────────────────────────────────────────────────────────
+
+describe("fromIsoDate", () => {
+  it("parses a plain YYYY-MM-DD string", () => {
+    const d = fromIsoDate("2026-06-01");
+    expect(d).toBeInstanceOf(Date);
+    expect(d?.getFullYear()).toBe(2026);
+    expect(d?.getMonth()).toBe(5); // June (0-indexed)
+    expect(d?.getDate()).toBe(1);
+  });
+
+  it("tolerates a full ISO timestamp (the DATE-column crash case)", () => {
+    // pg serialises DATE columns with a time part; the old impl produced an
+    // Invalid Date here and crashed the DatePicker.
+    const d = fromIsoDate("2026-06-01T00:00:00.000Z");
+    expect(d).toBeInstanceOf(Date);
+    expect(Number.isNaN(d!.getTime())).toBe(false);
+    expect(d?.getFullYear()).toBe(2026);
+    expect(d?.getDate()).toBe(1);
+  });
+
+  it("returns undefined for empty / null / unparseable input", () => {
+    expect(fromIsoDate(null)).toBeUndefined();
+    expect(fromIsoDate(undefined)).toBeUndefined();
+    expect(fromIsoDate("")).toBeUndefined();
+    expect(fromIsoDate("garbage")).toBeUndefined();
+  });
+
+  it("round-trips with toIsoDate", () => {
+    expect(toIsoDate(fromIsoDate("2026-06-01")!)).toBe("2026-06-01");
   });
 });
 
