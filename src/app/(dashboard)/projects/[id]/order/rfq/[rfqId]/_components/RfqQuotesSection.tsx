@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
+import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
 import type { VendorQuoteWithItems } from "@/types";
 import { QuoteVersionHistoryDialog } from "./QuoteVersionHistoryDialog";
 
@@ -78,10 +79,7 @@ export function RfqQuotesSection({
       ) : (
         <ul className="divide-y divide-border-default">
           {quotes.map((q) => {
-            const total = q.items.reduce(
-              (sum, i) => sum + Number(i.unit_price),
-              0
-            );
+            const total = sumQuoteUnitPrices(q.items);
             const isNew =
               lastViewedAt === null || q.submitted_at > lastViewedAt;
             return (

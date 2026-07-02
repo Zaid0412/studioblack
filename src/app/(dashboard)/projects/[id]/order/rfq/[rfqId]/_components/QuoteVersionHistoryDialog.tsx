@@ -13,6 +13,7 @@ import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { API } from "@/lib/api/routes";
 import { formatDate } from "@/lib/formatDate";
+import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
 import type { VendorQuoteWithItems } from "@/types";
 
 interface Props {
@@ -54,10 +55,7 @@ export function QuoteVersionHistoryDialog({
                 <Skeleton key={i} className="h-16 rounded-lg" />
               ))
             : versions.map((v) => {
-                const total = v.items.reduce(
-                  (sum, i) => sum + Number(i.unit_price),
-                  0
-                );
+                const total = sumQuoteUnitPrices(v.items);
                 return (
                   <div
                     key={v.id}
