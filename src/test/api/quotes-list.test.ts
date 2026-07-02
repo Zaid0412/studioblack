@@ -11,6 +11,7 @@ import {
   getQuoteComparison,
   getQuoteDetail,
   getQuotesByRfq,
+  getQuoteVersionHistory,
   setQuoteUnderReview,
   submitOrUpdateQuote,
   verifyRfqOwnership,
@@ -22,6 +23,7 @@ import {
 import { GET as GET_DETAIL } from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]/route";
 import { POST as POST_REVIEW } from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]/review/route";
 import { GET as GET_COMPARISON } from "@/app/api/projects/[id]/rfqs/[rfqId]/comparison/route";
+import { GET as GET_VERSIONS } from "@/app/api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]/versions/route";
 import {
   buildParams,
   buildRequest,
@@ -205,6 +207,43 @@ describe("GET /api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]", () => {
       buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, quoteId: QUOTE_ID })
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/projects/[id]/rfqs/[rfqId]/quotes/[quoteId]/versions", () => {
+  const call = () =>
+    GET_VERSIONS(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/quotes/${QUOTE_ID}/versions`
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, quoteId: QUOTE_ID })
+    );
+
+  it("returns the version history", async () => {
+    vi.mocked(getQuoteVersionHistory).mockResolvedValue([
+      { ...quoteFixture(), version: 2, is_current: true } as never,
+      { ...quoteFixture(), version: 1, is_current: false } as never,
+    ]);
+    const res = await call();
+    const { status, body } = await parseResponse<{ versions: unknown[] }>(res);
+    expect(status).toBe(200);
+    expect(body.versions).toHaveLength(2);
+    expect(vi.mocked(getQuoteVersionHistory)).toHaveBeenCalledWith(
+      RFQ_ID,
+      QUOTE_ID
+    );
+  });
+
+  it("404s when the RFQ doesn't belong to this project", async () => {
+    vi.mocked(verifyRfqOwnership).mockResolvedValue(false);
+    const res = await call();
+    expect(res.status).toBe(404);
+  });
+
+  it("blocks client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+    const res = await call();
+    expect(res.status).toBe(403);
   });
 });
 

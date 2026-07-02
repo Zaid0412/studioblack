@@ -85,7 +85,7 @@ export async function getRfqsByProject(
        (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
        (SELECT MAX(vq.submitted_at)
         FROM vendor_quote vq
-        WHERE vq.rfq_id = r.id) AS latest_quote_submitted_at,
+        WHERE vq.rfq_id = r.id AND vq.is_current) AS latest_quote_submitted_at,
        COUNT(*) OVER ()::int AS total
      FROM rfq r
      WHERE ${where}

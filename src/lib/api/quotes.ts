@@ -34,6 +34,13 @@ export function get(projectId: string, rfqId: string, quoteId: string) {
   return apiGet<VendorQuoteWithItems>(API.rfqQuote(projectId, rfqId, quoteId));
 }
 
+/** Studio: full version history of a vendor's quote (current + superseded). */
+export function versions(projectId: string, rfqId: string, quoteId: string) {
+  return apiGet<{ versions: VendorQuoteWithItems[] }>(
+    API.rfqQuoteVersions(projectId, rfqId, quoteId)
+  );
+}
+
 /** Studio: side-by-side comparison data. */
 export function comparison(projectId: string, rfqId: string) {
   return apiGet<QuoteComparison>(API.rfqComparison(projectId, rfqId));

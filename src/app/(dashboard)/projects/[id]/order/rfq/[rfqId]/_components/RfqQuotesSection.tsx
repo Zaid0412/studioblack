@@ -1,12 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Award, Clock } from "lucide-react";
+import { ArrowRight, Award, Clock, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
+import { versionColor } from "@/lib/fileUtils";
+import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
 import type { VendorQuoteWithItems } from "@/types";
+import { QuoteVersionHistoryDialog } from "./QuoteVersionHistoryDialog";
 
 interface Props {
   projectId: string;
@@ -36,6 +45,12 @@ export function RfqQuotesSection({
   onAwardClick,
 }: Props) {
   const responseRate = `${quotes.length} of ${invitedCount}`;
+  const [historyQuote, setHistoryQuote] = useState<VendorQuoteWithItems | null>(
+    null
+  );
+  // When any quote has been revised, reserve the history slot on every row so
+  // the Award button stays aligned regardless of which rows have history.
+  const hasHistory = quotes.some((q) => q.version > 1);
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
@@ -73,12 +88,10 @@ export function RfqQuotesSection({
       ) : (
         <ul className="divide-y divide-border-default">
           {quotes.map((q) => {
-            const total = q.items.reduce(
-              (sum, i) => sum + Number(i.unit_price),
-              0
-            );
+            const total = sumQuoteUnitPrices(q.items);
             const isNew =
               lastViewedAt === null || q.submitted_at > lastViewedAt;
+            const vc = versionColor(q.version);
             return (
               <li
                 key={q.id}
@@ -89,6 +102,13 @@ export function RfqQuotesSection({
                     <span className="text-sm font-medium text-text-primary truncate">
                       {q.vendor_name}
                     </span>
+                    {q.version > 1 && (
+                      <span
+                        className={`inline-flex items-center rounded-full h-[18px] px-1.5 text-[10px] font-bold leading-none ${vc.bg} ${vc.text} ${vc.border}`}
+                      >
+                        V{q.version}
+                      </span>
+                    )}
                     <QuoteStatusBadge status={q.status} />
                     <ResponseSourceBadge source={q.response_source} />
                     {isNew && (
@@ -118,6 +138,25 @@ export function RfqQuotesSection({
                   </div>
                   <div className="text-xs text-text-muted">{q.currency}</div>
                 </div>
+                {hasHistory && (
+                  <div className="w-8 shrink-0">
+                    {q.version > 1 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setHistoryQuote(q)}
+                            aria-label="Version history"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
+                          >
+                            <History className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Version history</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                )}
                 {isPM && canAward && q.status !== "expired" && (
                   <Button
                     size="sm"
@@ -133,6 +172,14 @@ export function RfqQuotesSection({
           })}
         </ul>
       )}
+
+      <QuoteVersionHistoryDialog
+        projectId={projectId}
+        rfqId={rfqId}
+        quote={historyQuote}
+        open={historyQuote !== null}
+        onOpenChange={(o) => !o && setHistoryQuote(null)}
+      />
     </section>
   );
 }

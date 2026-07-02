@@ -163,7 +163,9 @@ export function ManualQuoteDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[65vh] overflow-y-auto space-y-5 pr-1">
+        {/* -mx/px so the scroll container's overflow clip doesn't cut the edge
+            fields' focus rings, while staying aligned with the header. */}
+        <div className="max-h-[65vh] overflow-y-auto space-y-5 -mx-1.5 px-1.5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <LabeledSelect
               label="Vendor"

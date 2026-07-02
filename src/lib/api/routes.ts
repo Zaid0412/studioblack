@@ -170,6 +170,7 @@ export const API = {
   rfqQuotes:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/quotes`,
   rfqQuote:                    (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}`,
   rfqQuoteReview:              (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}/review`,
+  rfqQuoteVersions:            (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}/versions`,
   rfqComparison:               (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/comparison`,
   rfqAward:                    (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/award`,
   rfqAwardSplit:               (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/award-split`,
