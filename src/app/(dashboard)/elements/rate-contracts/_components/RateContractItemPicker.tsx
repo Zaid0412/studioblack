@@ -69,6 +69,7 @@ interface DraftRow {
   maxQty: string;
   leadTimeDays: string;
   validUntil: string;
+  taxPct: string;
   /** Whether the optional-detail section is expanded for this draft. */
   expanded: boolean;
 }
@@ -155,6 +156,7 @@ export function RateContractItemPicker({
         maxQty: "",
         leadTimeDays: "",
         validUntil: "",
+        taxPct: "",
         expanded: false,
       },
     ]);
@@ -166,7 +168,14 @@ export function RateContractItemPicker({
   /** Accent the detail toggle when it's open or any optional field is filled. */
   const hasDetail = (d: DraftRow) =>
     d.expanded ||
-    !!(d.description || d.minQty || d.maxQty || d.leadTimeDays || d.validUntil);
+    !!(
+      d.description ||
+      d.minQty ||
+      d.maxQty ||
+      d.leadTimeDays ||
+      d.validUntil ||
+      d.taxPct
+    );
 
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
     setDrafts((s) => s.map((d) => (d.key === key ? { ...d, ...patch } : d)));
@@ -200,6 +209,7 @@ export function RateContractItemPicker({
             maxQty: numOrNull(d.maxQty),
             leadTimeDays: numOrNull(d.leadTimeDays),
             validUntil: d.validUntil || null,
+            taxPct: numOrNull(d.taxPct),
           }))
       );
       onOpenChange(false);
@@ -420,6 +430,17 @@ export function RateContractItemPicker({
                                   validUntil: dt ? toIsoDate(dt) : "",
                                 })
                               }
+                            />
+                            <Input
+                              label={t("itemTaxPct")}
+                              value={d.taxPct}
+                              onChange={(e) =>
+                                updateDraft(d.key, { taxPct: e.target.value })
+                              }
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
                             />
                           </div>
                         </div>

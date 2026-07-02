@@ -18,6 +18,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { API } from "@/lib/api/routes";
 import { rateContracts as rcApi } from "@/lib/api";
@@ -56,6 +57,9 @@ interface FormState {
   deliveryTerms: string;
   priceBasis: RateContractPriceBasis | "";
   renewalDate: string;
+  projectId: string;
+  taxIncluded: boolean;
+  taxPercentage: string;
 }
 
 const EMPTY: FormState = {
@@ -75,6 +79,9 @@ const EMPTY: FormState = {
   deliveryTerms: "",
   priceBasis: "",
   renewalDate: "",
+  projectId: "",
+  taxIncluded: false,
+  taxPercentage: "",
 };
 
 /**
@@ -107,6 +114,9 @@ function contractToForm(c: RateContract): FormState {
     deliveryTerms: c.delivery_terms ?? "",
     priceBasis: c.price_basis ?? "",
     renewalDate: toDateInput(c.renewal_date),
+    projectId: c.project_id ?? "",
+    taxIncluded: c.tax_included,
+    taxPercentage: c.tax_percentage != null ? String(c.tax_percentage) : "",
   };
 }
 
@@ -126,6 +136,12 @@ export function RateContractFormDialog({
     open ? `${API.vendors()}?limit=200` : null
   );
   const vendors = vendorData?.rows ?? [];
+
+  // Optional project scope — a contract is usually org-wide, so this can be left unset.
+  const { data: projectData } = useSWR<{ id: string; name: string }[]>(
+    open ? API.projects() : null
+  );
+  const projects = projectData ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -191,6 +207,11 @@ export function RateContractFormDialog({
           deliveryTerms: opt(values.deliveryTerms),
           priceBasis: values.priceBasis || null,
           renewalDate: values.renewalDate || null,
+          projectId: values.projectId || null,
+          taxIncluded: values.taxIncluded,
+          taxPercentage: values.taxPercentage.trim()
+            ? Number(values.taxPercentage)
+            : null,
         };
         saved = editing
           ? await rcApi.update(editing.id, fullFields)
@@ -310,7 +331,35 @@ export function RateContractFormDialog({
               label={t("renewalDate")}
               {...dateProps("renewalDate")}
             />
+            <LabeledSearchableSelect
+              label={t("project")}
+              value={values.projectId}
+              onChange={(id) => set("projectId", id)}
+              options={projects.map((p) => ({ code: p.id, name: p.name }))}
+              triggerPlaceholder={t("projectPlaceholder")}
+              hideTriggerCode
+              codeColumnClassName="hidden"
+              disabled={isLocked}
+            />
+            <Input
+              label={t("taxPercentage")}
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={values.taxPercentage}
+              onChange={(e) => set("taxPercentage", e.target.value)}
+              placeholder={t("taxPercentagePlaceholder")}
+              disabled={isLocked}
+            />
           </div>
+
+          <Checkbox
+            checked={values.taxIncluded}
+            onCheckedChange={(c) => set("taxIncluded", c)}
+            label={t("taxIncluded")}
+            disabled={isLocked}
+          />
 
           <FileUploadSlot
             variant="file"

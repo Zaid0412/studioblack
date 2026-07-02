@@ -1345,6 +1345,9 @@ export const createRateContractSchema = z
     deliveryTerms: z.string().max(100).optional().nullable(),
     priceBasis: z.enum(RATE_CONTRACT_PRICE_BASES).optional().nullable(),
     renewalDate: isoDate.optional().nullable(),
+    projectId: z.string().uuid().nullable().optional(),
+    taxIncluded: z.boolean().optional(),
+    taxPercentage: z.number().min(0).max(100).optional().nullable(),
   })
   .refine((d) => d.endDate >= d.startDate, {
     message: "endDate must be on or after startDate",
@@ -1369,6 +1372,9 @@ export const updateRateContractSchema = z
     deliveryTerms: z.string().max(100).optional().nullable(),
     priceBasis: z.enum(RATE_CONTRACT_PRICE_BASES).optional().nullable(),
     renewalDate: isoDate.optional().nullable(),
+    projectId: z.string().uuid().nullable().optional(),
+    taxIncluded: z.boolean().optional(),
+    taxPercentage: z.number().min(0).max(100).optional().nullable(),
   })
   .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
     message: "endDate must be on or after startDate",
@@ -1390,6 +1396,7 @@ export const addRateContractItemsSchema = z.object({
           maxQty: z.number().min(0).optional().nullable(),
           leadTimeDays: z.number().int().min(0).max(3650).optional().nullable(),
           validUntil: isoDate.optional().nullable(),
+          taxPct: z.number().min(0).max(100).optional().nullable(),
         })
         .refine(
           (d) => d.minQty == null || d.maxQty == null || d.maxQty >= d.minQty,

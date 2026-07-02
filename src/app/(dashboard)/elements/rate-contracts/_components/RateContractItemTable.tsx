@@ -58,12 +58,15 @@ export function RateContractItemTable({
         <div className="text-right">{t("colActions")}</div>
       </div>
       <div className="flex flex-col">
-        {items.map((it) => (
+        {items.map((it, idx) => (
           <div
             key={it.id}
             className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_100px_140px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors"
           >
             <div className="flex items-center gap-2 min-w-0">
+              <span className="font-mono text-xs text-text-muted shrink-0 tabular-nums">
+                {idx + 1}
+              </span>
               {it.category_code && (
                 <span className="font-mono text-xs text-text-muted shrink-0">
                   {it.category_code}
@@ -104,6 +107,7 @@ export function RateContractItemTable({
                   it.min_qty != null || it.max_qty != null
                     ? `${t("colQtyRange")} ${it.min_qty ?? "—"}–${it.max_qty ?? "—"}`
                     : null,
+                  it.tax_pct != null ? `${t("colTax")} ${it.tax_pct}%` : null,
                   it.valid_until ? `→ ${it.valid_until.slice(0, 10)}` : null,
                 ]
                   .filter(Boolean)

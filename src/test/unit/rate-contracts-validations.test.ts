@@ -93,6 +93,23 @@ describe("createRateContractSchema", () => {
     });
     expect(r.success).toBe(false);
   });
+
+  it("accepts optional project + tax fields", () => {
+    const r = parseBody(createRateContractSchema, {
+      ...valid,
+      projectId: "550e8400-e29b-41d4-a716-446655440000",
+      taxIncluded: true,
+      taxPercentage: 5,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("rejects a tax percentage over 100", () => {
+    expect(
+      parseBody(createRateContractSchema, { ...valid, taxPercentage: 150 })
+        .success
+    ).toBe(false);
+  });
 });
 
 describe("updateRateContractSchema", () => {
@@ -206,10 +223,21 @@ describe("addRateContractItemsSchema", () => {
             maxQty: 500,
             leadTimeDays: 21,
             validUntil: "2026-12-31",
+            taxPct: 5,
           },
         ],
       }).success
     ).toBe(true);
+  });
+
+  it("rejects an item tax percentage over 100", () => {
+    expect(
+      parseBody(addRateContractItemsSchema, {
+        items: [
+          { categoryId: CATEGORY_ID, unit: "no", rate: 100, taxPct: 120 },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it("rejects maxQty below minQty", () => {

@@ -1091,6 +1091,12 @@ export interface RateContract {
   delivery_terms: string | null;
   price_basis: RateContractPriceBasis | null;
   renewal_date: string | null;
+  /** Optional project scope — null = org-wide (the usual case). */
+  project_id: string | null;
+  /** Whether the agreed rates are tax-inclusive. */
+  tax_included: boolean;
+  /** Default tax rate for the contract; items may override via tax_pct. */
+  tax_percentage: number | null;
   submitted_at: string | null;
   approved_by: string | null;
   approved_at: string | null;
@@ -1115,6 +1121,8 @@ export interface RateContractItem {
   max_qty: number | null;
   lead_time_days: number | null;
   valid_until: string | null;
+  /** Per-line tax rate; null = fall back to the contract's tax_percentage. */
+  tax_pct: number | null;
 }
 
 export interface RateContractItemWithTarget extends RateContractItem {
