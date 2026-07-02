@@ -15,6 +15,7 @@ Four tracks, ranked by value:
 ## 0. Current state (built — do NOT rebuild)
 
 **Tables (exact columns, dev-verified):**
+
 - `rfq`: id, org_id, project_id, rfq_number, title, **status**, issued_date, response_deadline, award_date, awarded_vendor_id, scope_of_work, terms_conditions, attachments (jsonb), created_by, created_at, updated_at
 - `rfq_item`: id, rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, awarded_vendor_id, awarded_quote_item_id
 - `rfq_vendor`: rfq_id, vendor_id, invited_at, invited_by
@@ -35,26 +36,30 @@ Four tracks, ranked by value:
 
 ---
 
-## 1. RFQ-1 — Manual / multi-channel quote entry + evidence  ⬅ START HERE
+## 1. RFQ-1 — Manual / multi-channel quote entry + evidence ⬅ START HERE
 
 **Why:** PRD §7–8, §16 — most vendors won't use the portal (email/WhatsApp/phone). Today a quote can only arrive via the vendor-portal `PUT`. This lets a PM record a quote received off-channel, tags how it arrived, and attaches the evidence (the emailed PDF/Excel/screenshot). Highest real-world unlock. **Self-contained.**
 
 **Schema** (`migrate-rfq-quote-source.sql`)
+
 - `vendor_quote`: `ADD response_source TEXT` (CHECK in portal/email/whatsapp/phone/pdf/excel/manual), `ADD received_date DATE`, `ADD entered_by TEXT` (studio user who keyed it — null when vendor-submitted). Backfill existing rows `response_source='portal'`.
 - `rfq_vendor`: `ADD distribution_method TEXT` (portal/email/whatsapp/manual), `ADD sent_date TIMESTAMPTZ`, `ADD sent_by TEXT` — how the RFQ was distributed (optional but cheap; set on issue/invite).
 - **Evidence:** reuse the existing `vendor_quote.attachments` jsonb → `[{name,url,source,uploaded_by,uploaded_at}]`. No new table for v1.
 
 **Backend** (`quotes.ts`)
+
 - Add `enterQuoteForVendor(orgId, rfqId, { vendorId, responseSource, receivedDate, currency, validUntil, paymentTerms, deliveryPeriod, notes, items[], attachments[] }, actor)` — like `submitOrUpdateQuote` but: (a) callable studio-side for any invited vendor, (b) stamps `response_source`/`received_date`/`entered_by`. If the vendor isn't yet an `rfq_vendor`, add them (or require invite first — decide: auto-invite on manual entry).
 - `submitOrUpdateQuote` (portal path) stays; set `response_source='portal'`.
 
 **Validation** (`validations.ts`): `enterQuoteSchema` — manual entry requires `responseSource`, `receivedDate`; items `[{ rfqItemId, unitPrice, notes? }]`. `RFQ_RESPONSE_SOURCES` enum.
 
 **API**
+
 - `POST /api/projects/[id]/rfqs/[rfqId]/quotes` (NEW, studio, pm/architect) — create/update a quote on behalf of a vendor. (GET already exists.)
 - Evidence upload: reuse the existing attachment-upload pattern (Supabase storage) → append to `vendor_quote.attachments`. Either a sub-route `/quotes/[quoteId]/attachments` or include signed uploads in the payload.
 
 **UI** (`order/rfq/[rfqId]`)
+
 - "Enter quote" action per invited vendor (and per-RFQ) → dialog: vendor select, **response source** (Select), received date (DatePicker), currency, validity, payment terms, per-item unit prices, remarks, **evidence upload** (FileUploadSlot).
 - Comparison + quote rows: show a **response-source badge**; show evidence thumbnails/links.
 - i18n en+tr.
@@ -70,9 +75,11 @@ Four tracks, ranked by value:
 **Why:** PRD §18 — a vendor may submit multiple times; keep history, previous versions read-only. Today `submitOrUpdateQuote` overwrites the row and bulk-replaces items → history lost (the thing the doc explicitly warns against).
 
 **Schema** (`migrate-vendor-quote-versions.sql`)
+
 - `vendor_quote_version`: id, quote_id (FK), version_number, response_source, received_date, submitted_at, currency, payment_terms, delivery_period, notes, **items jsonb** (snapshot of `vendor_quote_item` rows), created_by, created_at. (Snapshot table — simplest; keeps `vendor_quote` as the "current".)
 
 **Backend**
+
 - Before any update in `submitOrUpdateQuote`/`enterQuoteForVendor`, snapshot the current `vendor_quote` (+ its items) into `vendor_quote_version` with the next `version_number`. Then update current in place.
 - `getQuoteVersionHistory(orgId, quoteId)`.
 
@@ -83,15 +90,17 @@ Four tracks, ranked by value:
 
 ---
 
-## 3. RFQ-3 — Scope change → RFQ revisions  (LARGE — split into sub-PRs)
+## 3. RFQ-3 — Scope change → RFQ revisions (LARGE — split into sub-PRs)
 
 **Why:** `RFQ - NEW.docx` 2nd half — scope changes happen on every project. Never overwrite BOQ qty/spec; version it and create RFQ revisions.
 
 **Schema** (`migrate-boq-item-versions.sql`, `migrate-rfq-revisions.sql`)
+
 - `boq_item_version`: id, boq_item_id, version_number, change_reason (quantity/specification/scope_add/scope_remove), changed_by, changed_at, snapshot jsonb (immutable). BOQ edits to qty/spec snapshot first.
 - `rfq` revisioning: `ADD revision_number INT DEFAULT 0`, `ADD supersedes_rfq_id UUID` (self-ref); a revision clones the RFQ into a new row and marks the old `superseded`. New rfq status `revised`/`superseded`.
 
 **Backend / rules (procurement-impact matrix, PRD §22):**
+
 - Qty only → update RFQ item / reuse rate. Spec changed → require re-quote (new RFQ revision). New item → new RFQ or add to revision. Deleted item → cancel RFQ item.
 - Scope-change approval workflow: requested → internal review → client approval → approved (mirror the rate-contract state-machine pattern from PR C).
 
@@ -119,13 +128,16 @@ Four tracks, ranked by value:
 4. **RFQ-4** comms timeline — only if needed.
 
 ## Migrations (in order)
+
 `migrate-rfq-quote-source.sql` → `migrate-vendor-quote-versions.sql` → `migrate-boq-item-versions.sql` → `migrate-rfq-revisions.sql`. All additive; apply to dev on build, prod on merge (the established flow).
 
 ## Risks / decisions to confirm
+
 - **Auto-invite on manual entry?** — can a PM enter a quote for a not-yet-invited vendor, or must they invite first? (Lean: auto-invite.)
 - **Evidence storage** — jsonb `attachments` (chosen for v1) vs a dedicated `quote_attachment` table (better querying). Revisit if attachments need per-file metadata/search.
 - **PO existence** gates RFQ-3 change orders — verify before planning that sub-PR.
 - **Only `active`/current matches** — versioning must not change which quote/RFQ is "current" for comparison/award.
 
 ## Deferred (PRD's own Phase 2)
-Live email/WhatsApp *integrations*, OCR quote extraction, auto-reminder emails, AI vendor recommendation, automatic comparison.
+
+Live email/WhatsApp _integrations_, OCR quote extraction, auto-reminder emails, AI vendor recommendation, automatic comparison.
