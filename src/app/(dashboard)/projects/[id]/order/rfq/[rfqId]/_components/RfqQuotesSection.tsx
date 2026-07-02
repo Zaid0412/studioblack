@@ -4,9 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Award, Clock, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
+import { versionColor } from "@/lib/fileUtils";
 import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
 import type { VendorQuoteWithItems } from "@/types";
 import { QuoteVersionHistoryDialog } from "./QuoteVersionHistoryDialog";
@@ -42,6 +48,9 @@ export function RfqQuotesSection({
   const [historyQuote, setHistoryQuote] = useState<VendorQuoteWithItems | null>(
     null
   );
+  // When any quote has been revised, reserve the history slot on every row so
+  // the Award button stays aligned regardless of which rows have history.
+  const hasHistory = quotes.some((q) => q.version > 1);
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
@@ -82,6 +91,7 @@ export function RfqQuotesSection({
             const total = sumQuoteUnitPrices(q.items);
             const isNew =
               lastViewedAt === null || q.submitted_at > lastViewedAt;
+            const vc = versionColor(q.version);
             return (
               <li
                 key={q.id}
@@ -92,13 +102,15 @@ export function RfqQuotesSection({
                     <span className="text-sm font-medium text-text-primary truncate">
                       {q.vendor_name}
                     </span>
-                    <QuoteStatusBadge status={q.status} />
-                    <ResponseSourceBadge source={q.response_source} />
                     {q.version > 1 && (
-                      <span className="text-[10px] font-medium text-text-muted bg-bg-elevated px-1.5 py-0.5 rounded">
-                        v{q.version}
+                      <span
+                        className={`inline-flex items-center rounded-full h-[18px] px-1.5 text-[10px] font-bold leading-none ${vc.bg} ${vc.text} ${vc.border}`}
+                      >
+                        V{q.version}
                       </span>
                     )}
+                    <QuoteStatusBadge status={q.status} />
+                    <ResponseSourceBadge source={q.response_source} />
                     {isNew && (
                       <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
                         New
@@ -126,16 +138,24 @@ export function RfqQuotesSection({
                   </div>
                   <div className="text-xs text-text-muted">{q.currency}</div>
                 </div>
-                {q.version > 1 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setHistoryQuote(q)}
-                    className="shrink-0"
-                  >
-                    <History className="w-4 h-4" />
-                    History
-                  </Button>
+                {hasHistory && (
+                  <div className="w-8 shrink-0">
+                    {q.version > 1 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => setHistoryQuote(q)}
+                            aria-label="Version history"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
+                          >
+                            <History className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>Version history</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                 )}
                 {isPM && canAward && q.status !== "expired" && (
                   <Button
