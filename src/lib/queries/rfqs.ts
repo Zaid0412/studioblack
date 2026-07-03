@@ -453,7 +453,7 @@ export async function getRfqDetailForVendor(
     `SELECT r.* FROM rfq r
      JOIN rfq_vendor rv ON rv.rfq_id = r.id
      WHERE r.id = $1 AND rv.vendor_id = $2
-       AND r.status NOT IN ('draft','cancelled')`,
+       AND r.status NOT IN ('draft','cancelled','superseded')`,
     [rfqId, vendorId]
   );
   const rfq = rfqRows[0];

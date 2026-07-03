@@ -1204,7 +1204,8 @@
       "reviseConfirmDescription": "A new draft revision is created with the same items and vendors; this RFQ is marked superseded. You can then adjust scope and re-issue.",
       "reviseConfirm": "Create revision",
       "reviseReasonLabel": "Reason (optional)",
-      "reviseReasonPlaceholder": "e.g. Client added two wardrobes to the scope"
+      "reviseReasonPlaceholder": "e.g. Client added two wardrobes to the scope",
+      "revLabel": "Rev {rev}"
     },
     "timeline": {
       "empty": "Nothing has happened yet.",

@@ -1204,7 +1204,8 @@
       "reviseConfirmDescription": "Aynı kalemler ve tedarikçilerle yeni bir taslak revizyon oluşturulur; bu talep yenilendi olarak işaretlenir. Ardından kapsamı düzenleyip yeniden gönderebilirsiniz.",
       "reviseConfirm": "Revizyon oluştur",
       "reviseReasonLabel": "Neden (isteğe bağlı)",
-      "reviseReasonPlaceholder": "ör. Müşteri kapsama iki gardırop ekledi"
+      "reviseReasonPlaceholder": "ör. Müşteri kapsama iki gardırop ekledi",
+      "revLabel": "Rev {rev}"
     },
     "timeline": {
       "empty": "Henüz hareket yok.",

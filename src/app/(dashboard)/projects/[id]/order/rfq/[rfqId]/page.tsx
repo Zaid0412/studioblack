@@ -237,8 +237,9 @@ export default function OrderRfqDetailPage({
           </div>
           <p className="text-sm text-text-secondary">
             {rfq.rfq_number}
-            {rfq.revision_number > 0 && ` · Rev ${rfq.revision_number}`} ·{" "}
-            {formatDate(rfq.created_at)}
+            {rfq.revision_number > 0 &&
+              ` · ${t("revLabel", { rev: rfq.revision_number })}`}{" "}
+            · {formatDate(rfq.created_at)}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">

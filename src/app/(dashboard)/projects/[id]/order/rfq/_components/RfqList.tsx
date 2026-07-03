@@ -31,6 +31,7 @@ function RfqRow({
   row: RfqListRow;
   onNavigate: (id: string) => void;
 }) {
+  const t = useTranslations("rfq");
   const lastViewedAt = useRfqLastViewedReadOnly(row.id);
   const hasNewQuote =
     row.latest_quote_submitted_at !== null &&
@@ -46,7 +47,7 @@ function RfqRow({
           {row.rfq_number}
           {row.revision_number > 0 && (
             <span className="text-[10px] font-semibold text-text-muted">
-              Rev {row.revision_number}
+              {t("timeline.revPill", { rev: row.revision_number })}
             </span>
           )}
           {hasNewQuote && (
