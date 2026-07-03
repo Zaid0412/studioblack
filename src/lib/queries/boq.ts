@@ -1062,8 +1062,10 @@ export async function updateBoqItem(
 
   const changedMaterialField = changedFields.size > 0;
   if (changedMaterialField) {
+    // A material edit re-opens for approval — including RFQ-4a's
+    // `ready_for_procurement`, which must not stay procurement-ready once changed.
     setClauses.push(
-      `phase = CASE WHEN bi.phase = 'client_approved' THEN 'sent_to_client' ELSE bi.phase END`
+      `phase = CASE WHEN bi.phase IN ('client_approved','ready_for_procurement') THEN 'sent_to_client' ELSE bi.phase END`
     );
   }
 
@@ -1305,7 +1307,7 @@ export async function applyRateContractToBoqItem(
            unit = $2,
            source = 'rate_contract',
            rate_contract_item_id = $3::uuid,
-           phase = CASE WHEN phase = 'client_approved' THEN 'sent_to_client' ELSE phase END,
+           phase = CASE WHEN phase IN ('client_approved','ready_for_procurement') THEN 'sent_to_client' ELSE phase END,
            updated_at = now()
        WHERE bi.id = $4
          AND date_trunc('milliseconds', bi.updated_at)

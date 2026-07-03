@@ -30,6 +30,10 @@ const PHASE_DISPLAY: Record<
     variant: "changes-requested",
   },
   client_approved: { label: "Client Approved", variant: "approved-client" },
+  ready_for_procurement: {
+    label: "Ready for Procurement",
+    variant: "active",
+  },
 };
 
 /**

@@ -121,6 +121,26 @@ describe("canFireBoqPhaseTransition — internal_changes_requested", () => {
   });
 });
 
+describe("canFireBoqPhaseTransition — ready_for_procurement (RFQ-4a)", () => {
+  it("only PM can mark ready for procurement (the RFQ gate)", () => {
+    expect(fire("ready_for_procurement", actor({ isPM: true }))).toBe(true);
+    expect(fire("ready_for_procurement", actor({ isArchitect: true }))).toBe(
+      false
+    );
+    expect(fire("ready_for_procurement", actor({ isClient: true }))).toBe(
+      false
+    );
+  });
+  it("an architect who created the item still cannot mark it ready", () => {
+    expect(
+      fire(
+        "ready_for_procurement",
+        actor({ isArchitect: true, isCreator: true })
+      )
+    ).toBe(false);
+  });
+});
+
 describe("canFireBoqPhaseTransition — draft", () => {
   it("creator can drop back to draft", () => {
     expect(fire("draft", actor({ isCreator: true }))).toBe(true);

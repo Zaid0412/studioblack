@@ -1151,8 +1151,8 @@
       "itemsSelectedCount": "{total} kalemden {selected} seçili",
       "selectAll": "Tümünü seç",
       "deselectAll": "Seçimi kaldır",
-      "noBoq": "Bu projede henüz BOQ kalemi yok",
-      "noBoqHint": "Talep oluşturmadan önce BOQ'a kalem ekleyin.",
+      "noBoq": "Tedariğe hazır BOQ kalemi yok",
+      "noBoqHint": "Yalnızca PM'in \"Tedariğe Hazır\" olarak işaretlediği, müşteri onaylı kalemler bir talebe eklenebilir.",
       "goToBoq": "BOQ'u aç",
       "loadingBoq": "BOQ yükleniyor…",
       "col": {

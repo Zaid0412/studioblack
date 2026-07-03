@@ -82,6 +82,7 @@ const ACTION_LABEL: Record<BoqItemPhase, string> = {
   client_reviewing: "Mark Client Reviewing",
   client_changes_requested: "Request Changes",
   client_approved: "Mark Client Approved",
+  ready_for_procurement: "Mark Ready for Procurement",
 };
 
 /** Clients drop the "Mark Client" prefix — they're the client. */

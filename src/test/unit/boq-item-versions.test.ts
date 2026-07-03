@@ -63,6 +63,27 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
     expect(params).not.toContain("other");
   });
 
+  it("flips client_approved AND ready_for_procurement back to sent_to_client on a material edit (RFQ-4a)", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: ITEM_ID, quantity: 15 }] });
+
+    await updateBoqItem(ITEM_ID, TOKEN, { quantity: 15 }, ACTOR);
+
+    const sql = String(mockQuery.mock.calls[0][0]);
+    // The re-open CASE must cover both terminal-ish phases, not just client_approved.
+    expect(sql).toMatch(
+      /phase = CASE WHEN bi\.phase IN \('client_approved','ready_for_procurement'\) THEN 'sent_to_client'/
+    );
+  });
+
+  it("does NOT touch phase on a trivial (non-material) edit (RFQ-4a)", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ id: ITEM_ID }] });
+
+    await updateBoqItem(ITEM_ID, TOKEN, { notes: "just a note" }, ACTOR);
+
+    const sql = String(mockQuery.mock.calls[0][0]);
+    expect(sql).not.toMatch(/phase = CASE/);
+  });
+
   it("reports conflict vs not_found when 0 rows update", async () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] }) // update matched nothing

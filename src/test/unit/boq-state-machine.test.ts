@@ -99,6 +99,24 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
     );
   });
 
+  it("client_approved → ready_for_procurement (RFQ-4a: PM opens the RFQ gate)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_approved).toContain(
+      "ready_for_procurement"
+    );
+  });
+
+  it("ready_for_procurement → internal_changes_requested (RFQ-4a: PM pull-back is the only manual exit)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.ready_for_procurement).toEqual([
+      "internal_changes_requested",
+    ]);
+  });
+
+  it("does NOT allow client_approved → sent_to_client directly (RFQ-4a keeps the gate)", () => {
+    expect(BOQ_ITEM_PHASE_TRANSITIONS.client_approved).not.toContain(
+      "sent_to_client"
+    );
+  });
+
   it("does NOT allow draft → internally_approved (self-approval bypass)", () => {
     expect(BOQ_ITEM_PHASE_TRANSITIONS.draft).not.toContain(
       "internally_approved"
@@ -121,6 +139,7 @@ describe("BOQ_ITEM_PHASE_TRANSITIONS", () => {
         "client_reviewing",
         "client_changes_requested",
         "client_approved",
+        "ready_for_procurement",
       ])
     );
   });
