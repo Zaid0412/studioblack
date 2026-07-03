@@ -33,6 +33,7 @@ const PHASE_ORDER: BoqItemPhase[] = [
   "client_reviewing",
   "client_changes_requested",
   "client_approved",
+  "ready_for_procurement",
 ];
 
 /** Sticky title row showing BOQ identity + per-phase item counts. */

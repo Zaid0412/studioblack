@@ -38,6 +38,9 @@ export function canFireBoqPhaseTransition(opts: {
       return isClient;
     case "client_approved":
       return isClient;
+    case "ready_for_procurement":
+      // RFQ-4a: only the PM approves an item for procurement (the RFQ gate).
+      return isPM;
     case "draft":
       return isCreator || isPM;
   }

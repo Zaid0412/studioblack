@@ -117,6 +117,9 @@ export const BOQ_ITEM_PHASES = [
   "client_reviewing",
   "client_changes_requested",
   "client_approved",
+  // RFQ-4a: PM marks a client-approved item ready to enter an RFQ. Only items
+  // in this phase are eligible for RFQ. PM-only forward transition.
+  "ready_for_procurement",
 ] as const;
 export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
 
@@ -173,7 +176,15 @@ export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
       "client_approved",
       "internal_changes_requested",
     ],
-    client_approved: ["client_changes_requested", "internal_changes_requested"],
+    client_approved: [
+      "ready_for_procurement",
+      "client_changes_requested",
+      "internal_changes_requested",
+    ],
+    // Forward path is procurement (po_status, not a phase). Manual exit is a PM
+    // pull-back to internal changes; a material edit auto-flips it to
+    // sent_to_client (re-approval) — see updateBoqItem.
+    ready_for_procurement: ["internal_changes_requested"],
   };
 
 export const BOQ_ITEM_PO_STATUSES = [
