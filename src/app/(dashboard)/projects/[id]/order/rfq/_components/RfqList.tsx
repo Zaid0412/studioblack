@@ -20,6 +20,7 @@ import type { RfqListRow, RfqStatus } from "@/types";
 import { formatDate } from "@/lib/formatDate";
 import { useRfqLastViewedReadOnly } from "@/hooks/useRfqLastViewed";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
+import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 
 const ALL = "__all__";
 
@@ -31,7 +32,6 @@ function RfqRow({
   row: RfqListRow;
   onNavigate: (id: string) => void;
 }) {
-  const t = useTranslations("rfq");
   const lastViewedAt = useRfqLastViewedReadOnly(row.id);
   const hasNewQuote =
     row.latest_quote_submitted_at !== null &&
@@ -45,11 +45,7 @@ function RfqRow({
       <td className="px-4 py-3 font-mono text-xs text-text-secondary">
         <span className="inline-flex items-center gap-1.5">
           {row.rfq_number}
-          {row.revision_number > 0 && (
-            <span className="text-[10px] font-semibold text-text-muted">
-              {t("timeline.revPill", { rev: row.revision_number })}
-            </span>
-          )}
+          <RfqRevisionBadge revisionNumber={row.revision_number} />
           {hasNewQuote && (
             <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
               New quote

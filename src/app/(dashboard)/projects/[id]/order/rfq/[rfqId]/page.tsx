@@ -38,6 +38,7 @@ import {
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
+import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
@@ -234,17 +235,15 @@ export default function OrderRfqDetailPage({
               {rfq.title}
             </h1>
             <RfqStatusBadge status={rfq.status} />
+            <RfqRevisionBadge revisionNumber={rfq.revision_number} />
           </div>
           <p className="text-sm text-text-secondary">
-            {rfq.rfq_number}
-            {rfq.revision_number > 0 &&
-              ` · ${t("revLabel", { rev: rfq.revision_number })}`}{" "}
-            · {formatDate(rfq.created_at)}
+            {rfq.rfq_number} · {formatDate(rfq.created_at)}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {canManage && isEditable && (
-            <Button variant="ghost" onClick={() => setEditOpen(true)}>
+            <Button variant="secondary" onClick={() => setEditOpen(true)}>
               <Pencil className="w-4 h-4" />
               {t("editBtn")}
             </Button>
@@ -256,7 +255,7 @@ export default function OrderRfqDetailPage({
             </Button>
           )}
           {canManage && canInviteMore && (
-            <Button onClick={() => setInviteOpen(true)}>
+            <Button variant="secondary" onClick={() => setInviteOpen(true)}>
               <UserPlus2 className="w-4 h-4" />
               {t("inviteMoreBtn")}
             </Button>
@@ -316,7 +315,7 @@ export default function OrderRfqDetailPage({
           <GitBranch className="w-4 h-4 text-text-muted shrink-0" />
           {t("revisionOf", {
             number: rfq.supersedes.rfq_number,
-            rev: rfq.supersedes.revision_number,
+            rev: rfq.revision_number,
           })}
         </Link>
       )}
