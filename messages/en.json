@@ -1213,6 +1213,8 @@
       "issuedVerb": "issued the RFQ to",
       "vendorsAddedVerb": "invited",
       "cancelledVerb": "cancelled the RFQ",
+      "revisedVerb": "raised a revision",
+      "revPill": "Rev {rev}",
       "quoteSubmittedVerb": "submitted a quote from",
       "quoteRevisedVerb": "revised the quote from",
       "rfqAwardedVerb": "awarded the RFQ",

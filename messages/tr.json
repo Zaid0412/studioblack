@@ -1213,6 +1213,8 @@
       "issuedVerb": "talebi şunlara gönderdi:",
       "vendorsAddedVerb": "şunları davet etti:",
       "cancelledVerb": "talebi iptal etti",
+      "revisedVerb": "revizyon oluşturdu",
+      "revPill": "Rev {rev}",
       "quoteSubmittedVerb": "şu firmadan teklif aldı:",
       "quoteRevisedVerb": "şu firmanın teklifini güncelledi:",
       "rfqAwardedVerb": "talebi sonuçlandırdı",

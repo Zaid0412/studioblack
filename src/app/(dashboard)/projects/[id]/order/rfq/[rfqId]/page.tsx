@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -93,6 +93,13 @@ export default function OrderRfqDetailPage({
   const [preselectedQuoteId, setPreselectedQuoteId] = useState<
     string | undefined
   >();
+
+  // Stable ref so the issue dialog's seed effect doesn't re-fire every render.
+  // For a revision this carries the copied vendors; empty for a normal RFQ.
+  const preselectedVendorIds = useMemo(
+    () => rfq?.vendors.map((v) => v.vendor_id) ?? [],
+    [rfq?.vendors]
+  );
 
   if (isLoading) {
     return (
@@ -461,7 +468,7 @@ export default function OrderRfqDetailPage({
         open={issueOpen}
         onOpenChange={setIssueOpen}
         onConfirm={handleIssue}
-        preselectedVendorIds={rfq.vendors.map((v) => v.vendor_id)}
+        preselectedVendorIds={preselectedVendorIds}
       />
 
       <RfqIssueDialog

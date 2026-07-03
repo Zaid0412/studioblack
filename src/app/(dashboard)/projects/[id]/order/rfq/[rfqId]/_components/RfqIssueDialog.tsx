@@ -63,14 +63,13 @@ export function RfqIssueDialog({
 
   // Reset every time the dialog reopens — picks shouldn't survive a cancel.
   // A revision seeds the selection with its copied vendors (the PM can adjust).
+  // `preselectedVendorIds` is a stable ref from the parent (useMemo).
   useEffect(() => {
     if (open) {
       setSelected(new Set(preselectedVendorIds ?? []));
       setShowAll(true);
     }
-    // preselectedVendorIds is a fresh array each render; key off its contents.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, preselectedVendorIds?.join(",")]);
+  }, [open, preselectedVendorIds]);
 
   const { vendors, isLoading } = useRfqSuggestedVendors(
     projectId,

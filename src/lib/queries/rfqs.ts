@@ -16,6 +16,7 @@ import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
   RFQ_INVITEABLE_STATUSES,
   RFQ_REVISABLE_STATUSES,
+  RFQ_TERMINAL_STATUSES,
 } from "@/lib/validations";
 
 /** F9 — RFQ Workflow query layer (reads + mutations + email-fan-out helpers). */
@@ -165,10 +166,12 @@ export async function getRfqDetail(
       revision_number: number;
       rel: "parent" | "child";
     }>(
+      // `id = $2` is false when $2 (supersedes_rfq_id) is NULL, so no explicit
+      // guard is needed — an original RFQ simply matches no parent row.
       `SELECT id, rfq_number, revision_number,
               CASE WHEN id = $2 THEN 'parent' ELSE 'child' END AS rel
        FROM rfq
-       WHERE ($2 IS NOT NULL AND id = $2) OR supersedes_rfq_id = $1`,
+       WHERE id = $2 OR supersedes_rfq_id = $1`,
       [rfqId, rfq.supersedes_rfq_id]
     ),
   ]);
@@ -212,6 +215,7 @@ const RFQ_TIMELINE_ACTIONS = [
   AUDIT_ACTIONS.RFQ_VENDORS_ADDED,
   AUDIT_ACTIONS.RFQ_CANCELLED,
   AUDIT_ACTIONS.RFQ_AWARDED,
+  AUDIT_ACTIONS.RFQ_REVISED,
 ] as const;
 const QUOTE_TIMELINE_ACTIONS = [
   AUDIT_ACTIONS.QUOTE_SUBMITTED,
@@ -923,7 +927,7 @@ export async function updateRfqDraft(
     `UPDATE rfq
         SET ${cols.join(", ")}, updated_at = now()
       WHERE id = $${idIdx}
-        AND status NOT IN ('awarded','cancelled')
+        AND status NOT IN ('awarded','cancelled','superseded')
       RETURNING *`,
     params
   );
@@ -1022,11 +1026,14 @@ export async function issueRfq(
     await bulkInsertRfqVendors(client, rfqId, uniqueVendorIds, actorId);
 
     // A revision draft carries copied invites; reconcile so the final set is
-    // exactly what the PM selected. No-op for a normal draft (no prior invites).
-    await client.query(
-      `DELETE FROM rfq_vendor WHERE rfq_id = $1 AND vendor_id <> ALL($2::uuid[])`,
-      [rfqId, uniqueVendorIds]
-    );
+    // exactly what the PM selected. Scoped to revisions so a normal issue's
+    // vendor set is only ever added to, never pruned.
+    if (rfq.supersedes_rfq_id) {
+      await client.query(
+        `DELETE FROM rfq_vendor WHERE rfq_id = $1 AND vendor_id <> ALL($2::uuid[])`,
+        [rfqId, uniqueVendorIds]
+      );
+    }
 
     // Flip BOQ po_status for the referenced items. WHERE filter intentionally
     // restricted to po_status='none' so we don't downgrade an item already on
@@ -1152,7 +1159,8 @@ export async function cancelRfq(
       await client.query("ROLLBACK");
       return { ok: false, reason: "not_found" };
     }
-    if (rfq.status === "cancelled" || rfq.status === "awarded") {
+    // Terminal RFQs (awarded / cancelled / superseded) can't be cancelled.
+    if ((RFQ_TERMINAL_STATUSES as readonly string[]).includes(rfq.status)) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "wrong_status" };
     }
@@ -1271,11 +1279,9 @@ export async function cloneRfqAsRevision(
     await client.query("COMMIT");
     return { ok: true, rfq: next };
   } catch (err) {
+    // No user-supplied data reaches a constraint here (numbers/ids are copied
+    // from the locked source row), so there's nothing to map — just rethrow.
     await client.query("ROLLBACK");
-    const pgErr = err as Parameters<typeof mapPgError>[0] & {
-      message?: string;
-    };
-    if (pgErr.code) throw new Error(mapPgError(pgErr));
     throw err;
   } finally {
     client.release();
