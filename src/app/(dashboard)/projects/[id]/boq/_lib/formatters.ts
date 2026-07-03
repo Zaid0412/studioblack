@@ -46,11 +46,30 @@ const CLIENT_PHASE_LABEL: Partial<Record<BoqItemPhase, string>> = {
   client_reviewing: "Reviewing",
   client_changes_requested: "Changes Requested",
   client_approved: "Approved",
+  // RFQ-4a: `ready_for_procurement` is a post-approval internal state. To the
+  // client it's still just "Approved" — they never see the procurement wording.
+  ready_for_procurement: "Approved",
 };
 
-/** Map a BOQ item's phase to a Badge variant. */
-export function phaseToVariant(phase: BoqItemPhase): BadgeVariant {
-  return PHASE_DISPLAY[phase].variant;
+/**
+ * Phases the client should perceive as `client_approved`. `ready_for_procurement`
+ * is internal to procurement — clients keep seeing the approved badge/label.
+ */
+function clientPhaseAlias(phase: BoqItemPhase): BoqItemPhase {
+  return phase === "ready_for_procurement" ? "client_approved" : phase;
+}
+
+/**
+ * Map a BOQ item's phase to a Badge variant. For clients, the internal
+ * `ready_for_procurement` state reuses the `client_approved` variant so the
+ * badge colour matches the "Approved" label they see.
+ */
+export function phaseToVariant(
+  phase: BoqItemPhase,
+  viewerRole?: UserRole | null
+): BadgeVariant {
+  const resolved = viewerRole === "client" ? clientPhaseAlias(phase) : phase;
+  return PHASE_DISPLAY[resolved].variant;
 }
 
 /**

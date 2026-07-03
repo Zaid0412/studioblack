@@ -100,15 +100,19 @@ export default function ProjectDetailLayout({
   // the standard header except the documents file list (needs the height).
   const metaSurface = showHeader && !pathname.startsWith(`${base}/documents`);
 
-  // MetaBar is the project info card. Also hidden on an RFQ *detail* page
-  // (`/order/rfq/<id>`), which has its own focused header — but kept on the RFQ
-  // list (`/order/rfq`).
-  const showMetaBar = metaSurface && !pathname.startsWith(`${base}/order/rfq/`);
+  // RFQ create/detail pages (`/order/rfq/<id>`, `/order/rfq/new`) carry their
+  // own focused header + full-height form, so the project chrome (info card,
+  // comments strip) is suppressed there — but kept on the RFQ list
+  // (`/order/rfq`).
+  const onRfqSubpage = pathname.startsWith(`${base}/order/rfq/`);
+
+  // MetaBar is the project info card.
+  const showMetaBar = metaSurface && !onRfqSubpage;
 
   // The project comments strip is only relevant on design/BOQ surfaces —
-  // documents has its own context so comments-about-the-project would just
-  // be noise there.
-  const showComments = metaSurface;
+  // documents has its own context, and the RFQ create/detail forms would
+  // collide with it (it renders below a full-height form), so both are excluded.
+  const showComments = metaSurface && !onRfqSubpage;
 
   if (loading || roleLoading) {
     return (

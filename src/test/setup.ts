@@ -372,6 +372,7 @@ vi.mock("@/lib/queries", () => ({
     "client_reviewing",
     "client_changes_requested",
     "client_approved",
+    "ready_for_procurement",
   ],
   setBoqItemPhase: vi
     .fn()

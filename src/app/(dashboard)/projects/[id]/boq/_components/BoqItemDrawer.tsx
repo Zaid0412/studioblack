@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, FileText, History, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Sheet,
   SheetBody,
@@ -104,7 +105,213 @@ function phaseActionLabel(
 const NOTES_TEXTAREA_CLS =
   "rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 resize-y disabled:opacity-60";
 
-/** Right-side drawer with full item detail, notes editing, and lifecycle transitions. */
+/**
+ * Editable buffer for the drawer's Details tab. Every value is held as a string
+ * (matching the inline-cell edit model) except `dimensionUnit`. Nothing is
+ * persisted until the user clicks Save — see the module comment on the drawer.
+ */
+interface DrawerDraft {
+  name: string;
+  description: string;
+  itemCode: string;
+  unit: string;
+  quantity: string;
+  unitCost: string;
+  marginPct: string;
+  overheadPct: string;
+  serviceChargePct: string;
+  clientRate: string;
+  budgetRate: string;
+  length: string;
+  breadth: string;
+  height: string;
+  dimensionUnit: DimensionUnit;
+  notes: string;
+  clientNotes: string;
+}
+
+/** Keys compared numerically so "18" and "18.000" don't read as a change. */
+const NUMERIC_DRAFT_KEYS = new Set<keyof DrawerDraft>([
+  "quantity",
+  "unitCost",
+  "marginPct",
+  "overheadPct",
+  "serviceChargePct",
+  "clientRate",
+  "budgetRate",
+  "length",
+  "breadth",
+  "height",
+]);
+
+/**
+ * Draft fields that are "material" — editing any of them on a client-approved
+ * or ready-for-procurement item re-opens it (server flips it to
+ * `sent_to_client`). Mirrors `REAPPROVAL_FIELDS` in `queries/boq.ts`, minus the
+ * fields the drawer can't edit (materialCost / labourCost / sectionId). A pure
+ * `dimensionUnit` flip isn't material on its own — it only reopens if it
+ * actually changes a length/breadth/height value.
+ */
+const REOPEN_DRAFT_KEYS = new Set<keyof DrawerDraft>([
+  "description",
+  "unit",
+  "quantity",
+  "unitCost",
+  "marginPct",
+  "overheadPct",
+  "serviceChargePct",
+  "clientRate",
+  "length",
+  "breadth",
+  "height",
+]);
+
+/** Blank buffer used before an item is bound (component early-returns anyway). */
+const EMPTY_DRAFT: DrawerDraft = {
+  name: "",
+  description: "",
+  itemCode: "",
+  unit: "",
+  quantity: "",
+  unitCost: "",
+  marginPct: "",
+  overheadPct: "",
+  serviceChargePct: "",
+  clientRate: "",
+  budgetRate: "",
+  length: "",
+  breadth: "",
+  height: "",
+  dimensionUnit: "m",
+  notes: "",
+  clientNotes: "",
+};
+
+function seedDraft(item: BoqItemWithComputed): DrawerDraft {
+  const resolvedName =
+    item.name ??
+    (item.element_name
+      ? formatLibraryName(item.element_name, item.element_archived)
+      : "");
+  return {
+    name: resolvedName,
+    description: item.description,
+    itemCode: item.item_code,
+    unit: item.unit,
+    quantity: String(item.quantity ?? ""),
+    unitCost: String(item.unit_cost ?? ""),
+    marginPct: String(item.margin_pct ?? ""),
+    overheadPct: String(item.overhead_pct ?? ""),
+    serviceChargePct: String(item.service_charge_pct ?? ""),
+    clientRate: item.client_rate ?? "",
+    budgetRate: item.budget_rate ?? "",
+    length: item.length ?? "",
+    breadth: item.breadth ?? "",
+    height: item.height ?? "",
+    dimensionUnit: item.dimension_unit,
+    notes: item.notes ?? "",
+    clientNotes: item.client_notes ?? "",
+  };
+}
+
+/** Field-aware equality so numeric formatting differences don't count as edits. */
+function draftFieldEqual(
+  key: keyof DrawerDraft,
+  a: string,
+  b: string
+): boolean {
+  if (NUMERIC_DRAFT_KEYS.has(key)) {
+    return parseOptionalNumber(a) === parseOptionalNumber(b);
+  }
+  return a.trim() === b.trim();
+}
+
+/** Keys whose draft value differs from the persisted item. */
+function changedDraftKeys(
+  draft: DrawerDraft,
+  item: BoqItemWithComputed
+): (keyof DrawerDraft)[] {
+  const seed = seedDraft(item);
+  return (Object.keys(draft) as (keyof DrawerDraft)[]).filter((k) => {
+    if (k === "dimensionUnit") return draft[k] !== seed[k];
+    return !draftFieldEqual(k, draft[k] as string, seed[k] as string);
+  });
+}
+
+/** Build the API patch for exactly the fields that changed. */
+function buildPatch(
+  draft: DrawerDraft,
+  changed: (keyof DrawerDraft)[]
+): Partial<UpdateItemPayload> {
+  const patch: Partial<UpdateItemPayload> = {};
+  for (const k of changed) {
+    switch (k) {
+      case "name":
+        patch.name = draft.name.trim() || null;
+        break;
+      case "description":
+        patch.description = draft.description.trim();
+        break;
+      case "itemCode":
+        patch.itemCode = draft.itemCode.trim();
+        break;
+      case "unit":
+        patch.unit = draft.unit.trim();
+        break;
+      case "notes":
+        patch.notes = draft.notes.trim() || null;
+        break;
+      case "clientNotes":
+        patch.clientNotes = draft.clientNotes.trim() || null;
+        break;
+      case "quantity":
+        patch.quantity = parseFloat(draft.quantity);
+        break;
+      case "unitCost":
+        patch.unitCost = parseFloat(draft.unitCost);
+        break;
+      case "marginPct":
+        patch.marginPct = parseFloat(draft.marginPct);
+        break;
+      case "overheadPct":
+        patch.overheadPct = parseFloat(draft.overheadPct);
+        break;
+      case "serviceChargePct":
+        patch.serviceChargePct = parseFloat(draft.serviceChargePct);
+        break;
+      case "clientRate":
+        patch.clientRate = parseOptionalNumber(draft.clientRate);
+        break;
+      case "budgetRate":
+        patch.budgetRate = parseOptionalNumber(draft.budgetRate);
+        break;
+      case "length":
+        patch.length = parseOptionalNumber(draft.length);
+        break;
+      case "breadth":
+        patch.breadth = parseOptionalNumber(draft.breadth);
+        break;
+      case "height":
+        patch.height = parseOptionalNumber(draft.height);
+        break;
+      case "dimensionUnit":
+        patch.dimensionUnit = draft.dimensionUnit;
+        break;
+    }
+  }
+  return patch;
+}
+
+/**
+ * Right-side drawer with full item detail, buffered field editing, and
+ * lifecycle transitions.
+ *
+ * Edits are buffered locally and only persist when the user clicks **Save** —
+ * there is no autosave-on-blur or save-on-close. This keeps an implicit write
+ * from silently re-opening a client-approved / ready-for-procurement item, and
+ * lets us warn the user before a material change does so. Closing with unsaved
+ * changes prompts to discard. The main BOQ table keeps its inline autosave.
+ */
 export function BoqItemDrawer({
   open,
   onOpenChange,
@@ -123,25 +330,15 @@ export function BoqItemDrawer({
   const t = useTranslations("boq.table");
   const { updateItem, setItemPhase } = useBoqMutations(projectId);
   const isExternal = isExternalViewer(role);
-  const [notes, setNotes] = useState("");
-  const [clientNotes, setClientNotes] = useState("");
-  // True while the close-time notes PATCH is in flight. Drives the "Saving..."
-  // label on the Close button and blocks duplicate close attempts.
-  const [closing, setClosing] = useState(false);
-  // True while ANY inline-edit cell is mid-PATCH. Used to disable the other
-  // cells so a fast user can't blur cell A → blur cell B before A returns
-  // and have B's PATCH go out with a stale `item.updated_at` (→ 409 + a
-  // silently-lost edit).
-  const [savingField, setSavingField] = useState(false);
-  // Ref mirror of `savingField` — the close handler can't observe React state
-  // mid-await, so it polls this ref to wait for the in-flight field PATCH
-  // before saving notes with a fresh `updated_at`.
-  const savingFieldRef = useRef(false);
-  // Always-current `item` snapshot for the close handler. After an awaited
-  // field save, the closure's `item` is stale; the ref reflects whatever
-  // SWR has just propagated.
-  const itemRef = useRef(item);
-  itemRef.current = item;
+  // Buffered edit state. Seeded when a new item opens; NOT re-seeded on SWR
+  // revalidation, so a background refresh can't clobber in-progress edits.
+  const [draft, setDraft] = useState<DrawerDraft>(() =>
+    item ? seedDraft(item) : EMPTY_DRAFT
+  );
+  const [saving, setSaving] = useState(false);
+  // Deferred-close / re-approval prompts.
+  const [showDiscard, setShowDiscard] = useState(false);
+  const [showReopen, setShowReopen] = useState(false);
   const [transitioning, setTransitioning] = useState<BoqItemPhase | null>(null);
   // Carries which destructive variant was picked so the dialog submits with
   // the right phase (internal vs client kick-back).
@@ -149,16 +346,21 @@ export function BoqItemDrawer({
     useState<BoqItemPhase | null>(null);
   const [tab, setTab] = useState<"details" | "activity">("details");
 
-  // Seed notes only when a new drawer opens — revalidations must not clobber edits.
+  // Seed the buffer only when a new drawer opens (or the item id changes).
   // Also reset to Details so opening a different item doesn't keep an
   // unrelated Activity feed in view.
   useEffect(() => {
     if (!open || !item) return;
-    setNotes(item.notes ?? "");
-    setClientNotes(item.client_notes ?? "");
+    setDraft(seedDraft(item));
     setTab("details");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item?.id]);
+
+  const changed = useMemo(
+    () => (item ? changedDraftKeys(draft, item) : []),
+    [draft, item]
+  );
+  const dirty = changed.length > 0;
 
   if (!item) return null;
 
@@ -170,9 +372,105 @@ export function BoqItemDrawer({
       : tier === "warning"
         ? "text-warning"
         : "text-error";
-  const notesDirty =
-    (notes ?? "") !== (item.notes ?? "") ||
-    (clientNotes ?? "") !== (item.client_notes ?? "");
+
+  // A material edit to an approved / ready item re-opens it for the client.
+  const willReopen =
+    (item.phase === "client_approved" ||
+      item.phase === "ready_for_procurement") &&
+    changed.some((k) => REOPEN_DRAFT_KEYS.has(k));
+
+  const setField = (patch: Partial<DrawerDraft>) =>
+    setDraft((d) => ({ ...d, ...patch }));
+
+  /**
+   * Buffer a dimension change and re-run L × B × H into `quantity` so the line
+   * stays in sync (mirrors the create-sheet behaviour). Blank dimensions are
+   * skipped from the product. Purely local — persisted on Save.
+   */
+  const setDimension = (key: "length" | "breadth" | "height", next: string) => {
+    const dims: Record<"length" | "breadth" | "height", number | null> = {
+      length: parseOptionalNumber(draft.length),
+      breadth: parseOptionalNumber(draft.breadth),
+      height: parseOptionalNumber(draft.height),
+    };
+    dims[key] = parseOptionalNumber(next);
+    const positives = Object.values(dims).filter(
+      (n): n is number => n != null && Number.isFinite(n) && n > 0
+    );
+    const patch: Partial<DrawerDraft> = { [key]: next };
+    if (positives.length > 0) {
+      patch.quantity = String(
+        Number(positives.reduce((a, b) => a * b, 1).toFixed(6))
+      );
+    }
+    setField(patch);
+  };
+
+  /**
+   * Flip the per-item dimension unit in the buffer, preserving the physical
+   * measurement. `quantity` only follows the new-unit product when the current
+   * qty is still the L×B×H auto-fill (don't silently rewrite a manual qty).
+   */
+  const setDimensionUnit = (next: DimensionUnit) => {
+    if (next === draft.dimensionUnit) return;
+    const conv = convertDimensions(
+      draft.length,
+      draft.breadth,
+      draft.height,
+      draft.dimensionUnit,
+      next
+    );
+    const patch: Partial<DrawerDraft> = {
+      dimensionUnit: next,
+      length: conv.length === null ? "" : String(conv.length),
+      breadth: conv.breadth === null ? "" : String(conv.breadth),
+      height: conv.height === null ? "" : String(conv.height),
+    };
+    const preFlipPositives = [draft.length, draft.breadth, draft.height]
+      .map((s) => parseOptionalNumber(s))
+      .filter((n): n is number => n !== null && n > 0);
+    const preFlipAuto =
+      preFlipPositives.length > 0
+        ? preFlipPositives.reduce((a, b) => a * b, 1)
+        : null;
+    const qtyWasAutoFilled =
+      preFlipAuto !== null &&
+      Math.abs(toNum(draft.quantity) - preFlipAuto) < 1e-3;
+    if (qtyWasAutoFilled && conv.quantity !== null) {
+      patch.quantity = String(conv.quantity);
+    }
+    setField(patch);
+  };
+
+  const persist = async () => {
+    setSaving(true);
+    let result: BoqItemWithComputed | null | undefined;
+    try {
+      result = await updateItem(item.id, {
+        updatedAt: item.updated_at,
+        ...buildPatch(draft, changed),
+      });
+    } catch {
+      setSaving(false);
+      return;
+    }
+    setSaving(false);
+    setShowReopen(false);
+    // 409 → `updateItem` returned null after refetching; keep the buffer so
+    // the user can retry against the refreshed row instead of losing edits.
+    if (result === null || result === undefined) return;
+    setDraft(seedDraft(result));
+    toast({ title: "Changes saved", variant: "success" });
+  };
+
+  const handleSave = () => {
+    if (!dirty || saving) return;
+    if (willReopen) {
+      setShowReopen(true);
+      return;
+    }
+    void persist();
+  };
 
   const fireTransition = async (next: BoqItemPhase, comment?: string) => {
     setTransitioning(next);
@@ -196,129 +494,24 @@ export function BoqItemDrawer({
   };
 
   /**
-   * Funnels every close intent (Escape, overlay, X, footer Close) so the
-   * notes auto-save runs once and is visible. On 409 (`updateItem` returns
-   * `null`) or a thrown error, `useBoqMutations` already toasted — we keep
-   * the drawer open so the user can retry instead of losing their text.
-   * The poll on `savingFieldRef` waits out an in-flight inline-field PATCH
-   * so the notes payload goes out with the fresh `updated_at`.
+   * Funnels every close intent (Escape, overlay, X, footer Close). With unsaved
+   * edits we prompt to discard instead of silently dropping — or silently
+   * saving — them.
    */
-  const handleSheetOpenChange = async (next: boolean) => {
+  const handleSheetOpenChange = (next: boolean) => {
     if (next) {
       onOpenChange(true);
       return;
     }
-    if (closing) return;
-    if (!notesDirty) {
-      onOpenChange(false);
+    if (saving) return;
+    if (dirty) {
+      setShowDiscard(true);
       return;
     }
-    setClosing(true);
-    while (savingFieldRef.current) {
-      await new Promise((r) => setTimeout(r, 30));
-    }
-    const current = itemRef.current!;
-    let result: BoqItemWithComputed | null | undefined;
-    try {
-      result = await updateItem(current.id, {
-        updatedAt: current.updated_at,
-        notes: notes.trim() || null,
-        clientNotes: clientNotes.trim() || null,
-      });
-    } catch {
-      setClosing(false);
-      return;
-    }
-    setClosing(false);
-    if (result === null) return;
     onOpenChange(false);
   };
 
-  const saveField = async (patch: Partial<UpdateItemPayload>) => {
-    savingFieldRef.current = true;
-    setSavingField(true);
-    try {
-      await updateItem(item.id, { updatedAt: item.updated_at, ...patch });
-    } finally {
-      savingFieldRef.current = false;
-      setSavingField(false);
-    }
-  };
-
-  /**
-   * Persist a dimension change and re-run the L × B × H product into
-   * `quantity` so the line stays in sync with its measurements. The
-   * incoming `next` is the new value of `key`; the other two
-   * dimensions are read from the current item. Blank dimensions are
-   * skipped from the product (matches the create-sheet behaviour).
-   */
-  const saveDimension = async (
-    key: "length" | "breadth" | "height",
-    next: string
-  ) => {
-    const parsed = parseOptionalNumber(next);
-    const dims: Record<"length" | "breadth" | "height", number | null> = {
-      length: parseOptionalNumber(item.length ?? ""),
-      breadth: parseOptionalNumber(item.breadth ?? ""),
-      height: parseOptionalNumber(item.height ?? ""),
-    };
-    dims[key] = parsed;
-    const positives = Object.values(dims).filter(
-      (n): n is number => n != null && Number.isFinite(n) && n > 0
-    );
-    const patch: Partial<UpdateItemPayload> = { [key]: parsed };
-    if (positives.length > 0) {
-      patch.quantity = Number(positives.reduce((a, b) => a * b, 1).toFixed(6));
-    }
-    await saveField(patch);
-  };
-
-  /**
-   * Flip the per-item dimension unit, preserving physical measurement
-   * (option b). The item's own `unit` field (m³/ft³) is left alone —
-   * the user can flip it if they care.
-   *
-   * `quantity` only follows the new-unit product when the current qty
-   * is still the L×B×H auto-fill. If the user manually overrode qty
-   * (e.g. 12 sqm with only L+B set), we leave it alone so the flip
-   * doesn't silently rewrite their typed value — they keep the same
-   * number; only the dimensional context around it changes.
-   */
-  const changeDimensionUnit = async (next: DimensionUnit) => {
-    if (next === item.dimension_unit) return;
-    const { length, breadth, height, quantity } = convertDimensions(
-      item.length,
-      item.breadth,
-      item.height,
-      item.dimension_unit,
-      next
-    );
-    const patch: Partial<UpdateItemPayload> = {
-      dimensionUnit: next,
-      length,
-      breadth,
-      height,
-    };
-    // Detect manual qty override by comparing the current qty against the
-    // pre-flip auto product. Match within 1e-3 to tolerate the trailing
-    // toFixed(6) rounding from earlier auto-fills.
-    const preFlipPositives = [item.length, item.breadth, item.height]
-      .map((s) => parseOptionalNumber(s ?? ""))
-      .filter((n): n is number => n !== null && n > 0);
-    const preFlipAuto =
-      preFlipPositives.length > 0
-        ? preFlipPositives.reduce((a, b) => a * b, 1)
-        : null;
-    const currentQty = toNum(item.quantity);
-    const qtyWasAutoFilled =
-      preFlipAuto !== null && Math.abs(currentQty - preFlipAuto) < 1e-3;
-    if (qtyWasAutoFilled && quantity !== null) {
-      patch.quantity = quantity;
-    }
-    await saveField(patch);
-  };
-
-  const fieldsDisabled = !canEdit || savingField;
+  const fieldsDisabled = !canEdit || saving;
 
   // Show only transitions the viewer's role can actually fire — surfaces
   // Mark Client Approved to clients even though `canEdit` is false for them.
@@ -343,7 +536,7 @@ export function BoqItemDrawer({
               {formatCurrency(item.sell_price, currency)}
             </SheetDescription>
             <div className="flex flex-wrap gap-2 pt-2">
-              <Badge variant={phaseToVariant(item.phase)}>
+              <Badge variant={phaseToVariant(item.phase, role)}>
                 {phaseToLabel(item.phase, role)}
               </Badge>
               {item.is_provisional && (
@@ -395,51 +588,36 @@ export function BoqItemDrawer({
               <BoqChangeRequestBanner projectId={projectId} itemId={item.id} />
             )}
             <section className="flex flex-col gap-3">
-              {(() => {
-                // Per-line name takes priority over the library element's
-                // name. Computed once for both `value` (edit buffer) and
-                // `display` (read-only render).
-                const resolvedName =
-                  item.name ??
-                  (item.element_name
-                    ? formatLibraryName(
-                        item.element_name,
-                        item.element_archived
-                      )
-                    : null);
-                return (
-                  <EditableField
-                    label="Name"
-                    disabled={fieldsDisabled}
-                    value={resolvedName ?? ""}
-                    display={resolvedName ?? "—"}
-                    onSave={(next) => saveField({ name: next || null })}
-                    placeholder="Short, reusable label"
-                  />
-                );
-              })()}
+              <EditableField
+                label="Name"
+                disabled={fieldsDisabled}
+                value={draft.name}
+                display={draft.name || "—"}
+                onSave={(next) => setField({ name: next })}
+                placeholder="Short, reusable label"
+              />
               <EditableField
                 label="Description"
                 disabled={fieldsDisabled}
-                value={item.description}
-                display={item.description}
-                onSave={(next) => saveField({ description: next })}
+                value={draft.description}
+                display={draft.description}
+                onSave={(next) => setField({ description: next })}
               />
               <div className="grid grid-cols-2 gap-3">
                 <EditableField
                   label="Item code"
                   disabled={fieldsDisabled}
-                  value={item.item_code}
-                  display={item.item_code}
-                  onSave={(next) => saveField({ itemCode: next })}
+                  value={draft.itemCode}
+                  display={draft.itemCode}
+                  onSave={(next) => setField({ itemCode: next })}
                   inputClassName="font-mono"
                 />
                 <EditableField
                   label="Unit"
                   disabled={fieldsDisabled}
-                  value={item.unit}
-                  display={item.unit}
-                  onSave={(next) => saveField({ unit: next })}
+                  value={draft.unit}
+                  display={draft.unit}
+                  onSave={(next) => setField({ unit: next })}
                 />
               </div>
             </section>
@@ -450,9 +628,9 @@ export function BoqItemDrawer({
                 disabled={fieldsDisabled}
                 mode="number"
                 min={0}
-                value={item.quantity}
-                display={formatQty(item.quantity)}
-                onSave={(next) => saveField({ quantity: parseFloat(next) })}
+                value={draft.quantity}
+                display={formatQty(draft.quantity)}
+                onSave={(next) => setField({ quantity: next })}
               />
               <DetailField
                 label={isExternal ? t("totalLabel") : t("fieldProposedPrice")}
@@ -465,9 +643,9 @@ export function BoqItemDrawer({
                     disabled={fieldsDisabled}
                     mode="number"
                     min={0}
-                    value={item.unit_cost}
-                    display={formatCurrency(item.unit_cost, currency)}
-                    onSave={(next) => saveField({ unitCost: parseFloat(next) })}
+                    value={draft.unitCost}
+                    display={formatCurrency(draft.unitCost, currency)}
+                    onSave={(next) => setField({ unitCost: next })}
                   />
                   <DetailField
                     label="Total cost"
@@ -479,12 +657,10 @@ export function BoqItemDrawer({
                     mode="number"
                     min={0}
                     max={100}
-                    value={item.margin_pct}
-                    display={formatPct(item.margin_pct)}
+                    value={draft.marginPct}
+                    display={formatPct(draft.marginPct)}
                     valueClassName={marginColor}
-                    onSave={(next) =>
-                      saveField({ marginPct: parseFloat(next) })
-                    }
+                    onSave={(next) => setField({ marginPct: next })}
                   />
                   <EditableField
                     label="Overhead"
@@ -492,11 +668,9 @@ export function BoqItemDrawer({
                     mode="number"
                     min={0}
                     max={100}
-                    value={item.overhead_pct}
-                    display={formatPct(item.overhead_pct)}
-                    onSave={(next) =>
-                      saveField({ overheadPct: parseFloat(next) })
-                    }
+                    value={draft.overheadPct}
+                    display={formatPct(draft.overheadPct)}
+                    onSave={(next) => setField({ overheadPct: next })}
                   />
                   <EditableField
                     label="Service charge"
@@ -504,33 +678,33 @@ export function BoqItemDrawer({
                     mode="number"
                     min={0}
                     max={100}
-                    value={item.service_charge_pct}
-                    display={formatPct(item.service_charge_pct)}
-                    onSave={(next) =>
-                      saveField({ serviceChargePct: parseFloat(next) })
-                    }
+                    value={draft.serviceChargePct}
+                    display={formatPct(draft.serviceChargePct)}
+                    onSave={(next) => setField({ serviceChargePct: next })}
                   />
                   <EditableField
                     label="Client rate"
                     disabled={fieldsDisabled}
                     mode="number"
                     min={0}
-                    value={item.client_rate ?? ""}
-                    display={formatOptionalCurrency(item.client_rate, currency)}
-                    onSave={(next) =>
-                      saveField({ clientRate: parseOptionalNumber(next) })
-                    }
+                    value={draft.clientRate}
+                    display={formatOptionalCurrency(
+                      draft.clientRate === "" ? null : draft.clientRate,
+                      currency
+                    )}
+                    onSave={(next) => setField({ clientRate: next })}
                   />
                   <EditableField
                     label="Budget rate"
                     disabled={fieldsDisabled}
                     mode="number"
                     min={0}
-                    value={item.budget_rate ?? ""}
-                    display={formatOptionalCurrency(item.budget_rate, currency)}
-                    onSave={(next) =>
-                      saveField({ budgetRate: parseOptionalNumber(next) })
-                    }
+                    value={draft.budgetRate}
+                    display={formatOptionalCurrency(
+                      draft.budgetRate === "" ? null : draft.budgetRate,
+                      currency
+                    )}
+                    onSave={(next) => setField({ budgetRate: next })}
                   />
                 </>
               )}
@@ -542,38 +716,38 @@ export function BoqItemDrawer({
                   Dimensions
                 </span>
                 <BoqDimensionUnitToggle
-                  value={item.dimension_unit}
+                  value={draft.dimensionUnit}
                   disabled={fieldsDisabled}
-                  onChange={(next) => void changeDimensionUnit(next)}
+                  onChange={setDimensionUnit}
                 />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <EditableField
                   label="Length"
                   disabled={fieldsDisabled}
-                  mode={item.dimension_unit === "ft" ? "feet-inches" : "number"}
+                  mode={draft.dimensionUnit === "ft" ? "feet-inches" : "number"}
                   min={0}
-                  value={item.length ?? ""}
-                  display={formatDimension(item.length, item.dimension_unit)}
-                  onSave={(next) => saveDimension("length", next)}
+                  value={draft.length}
+                  display={formatDimension(draft.length, draft.dimensionUnit)}
+                  onSave={(next) => setDimension("length", next)}
                 />
                 <EditableField
                   label="Breadth"
                   disabled={fieldsDisabled}
-                  mode={item.dimension_unit === "ft" ? "feet-inches" : "number"}
+                  mode={draft.dimensionUnit === "ft" ? "feet-inches" : "number"}
                   min={0}
-                  value={item.breadth ?? ""}
-                  display={formatDimension(item.breadth, item.dimension_unit)}
-                  onSave={(next) => saveDimension("breadth", next)}
+                  value={draft.breadth}
+                  display={formatDimension(draft.breadth, draft.dimensionUnit)}
+                  onSave={(next) => setDimension("breadth", next)}
                 />
                 <EditableField
                   label="Height"
                   disabled={fieldsDisabled}
-                  mode={item.dimension_unit === "ft" ? "feet-inches" : "number"}
+                  mode={draft.dimensionUnit === "ft" ? "feet-inches" : "number"}
                   min={0}
-                  value={item.height ?? ""}
-                  display={formatDimension(item.height, item.dimension_unit)}
-                  onSave={(next) => saveDimension("height", next)}
+                  value={draft.height}
+                  display={formatDimension(draft.height, draft.dimensionUnit)}
+                  onSave={(next) => setDimension("height", next)}
                 />
               </div>
             </section>
@@ -585,8 +759,8 @@ export function BoqItemDrawer({
                     Internal notes
                   </span>
                   <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    value={draft.notes}
+                    onChange={(e) => setField({ notes: e.target.value })}
                     disabled={!canEdit}
                     rows={3}
                     className={NOTES_TEXTAREA_CLS}
@@ -601,8 +775,8 @@ export function BoqItemDrawer({
                   {isExternal ? "Notes from the team" : "Client notes"}
                 </span>
                 <textarea
-                  value={clientNotes}
-                  onChange={(e) => setClientNotes(e.target.value)}
+                  value={draft.clientNotes}
+                  onChange={(e) => setField({ clientNotes: e.target.value })}
                   disabled={!canEdit}
                   rows={3}
                   className={NOTES_TEXTAREA_CLS}
@@ -638,6 +812,12 @@ export function BoqItemDrawer({
                     </Button>
                   ))}
                 </div>
+                {dirty && (
+                  <p className="text-xs text-text-muted">
+                    Save your edits before changing the item&apos;s status —
+                    lifecycle actions run against the last saved values.
+                  </p>
+                )}
               </section>
             )}
 
@@ -664,7 +844,7 @@ export function BoqItemDrawer({
               <Button
                 type="button"
                 variant="danger"
-                disabled={closing}
+                disabled={saving}
                 onClick={() => onDelete(item)}
               >
                 <Trash2 className="h-4 w-4" />
@@ -673,14 +853,25 @@ export function BoqItemDrawer({
             ) : (
               <span />
             )}
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={closing}
-              onClick={() => handleSheetOpenChange(false)}
-            >
-              {closing ? "Saving..." : "Close"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => handleSheetOpenChange(false)}
+              >
+                Close
+              </Button>
+              {canEdit && (
+                <Button
+                  type="button"
+                  disabled={!dirty || saving}
+                  onClick={handleSave}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              )}
+            </div>
           </SheetFooter>
         </SheetContent>
       </Sheet>
@@ -695,6 +886,33 @@ export function BoqItemDrawer({
             void fireTransition(pendingDestructive, comment);
           }
           setPendingDestructive(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={showReopen}
+        onOpenChange={(next) => {
+          if (!next) setShowReopen(false);
+        }}
+        title="Re-open this item for the client?"
+        description="You changed a priced or scope field on an approved item. Saving moves it back to “Sent to Client” so the client re-approves the new value."
+        confirmLabel="Save & re-open"
+        submitting={saving}
+        onConfirm={persist}
+      />
+
+      <ConfirmDialog
+        open={showDiscard}
+        onOpenChange={(next) => {
+          if (!next) setShowDiscard(false);
+        }}
+        title="Discard unsaved changes?"
+        description="You have edits that haven’t been saved. Closing now will discard them."
+        confirmLabel="Discard"
+        destructive
+        onConfirm={() => {
+          setShowDiscard(false);
+          onOpenChange(false);
         }}
       />
     </>
@@ -761,12 +979,10 @@ type EditableFieldProps = {
 >;
 
 /**
- * Each save fires its own PATCH with the current `item.updated_at`. While a
- * save is in flight, the parent disables every cell (`fieldsDisabled |=
- * savingField`) so a fast user can't blur cell A → click cell B → blur
- * cell B before A's response lands and have B's PATCH go out with a stale
- * token. The user has to wait for the prior save to settle before editing
- * the next cell — no overlapping PATCHes.
+ * Inline-editable label + cell. In the drawer the cell's `onSave` writes into
+ * the local edit buffer (not the API) — the drawer's Save button flushes the
+ * buffer in one PATCH. `BoqEditableCell` still validates/normalises the value
+ * and no-ops an unchanged commit before it reaches the buffer.
  */
 function EditableField({
   label,

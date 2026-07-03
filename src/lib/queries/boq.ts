@@ -242,12 +242,18 @@ export async function getBoqByProject(projectId: string): Promise<Boq | null> {
   return rows[0] ?? null;
 }
 
-/** Phases visible to client viewers — anything else is filtered out server-side. */
+/**
+ * Phases visible to client viewers — anything else is filtered out server-side.
+ * `ready_for_procurement` (RFQ-4a) is a post-approval internal state; the client
+ * keeps seeing the line (rendered to them as "Approved") rather than having it
+ * vanish once the PM readies it for RFQ.
+ */
 export const CLIENT_VISIBLE_PHASES: readonly BoqItemPhase[] = [
   "sent_to_client",
   "client_reviewing",
   "client_changes_requested",
   "client_approved",
+  "ready_for_procurement",
 ];
 
 /**
