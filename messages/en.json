@@ -1151,8 +1151,8 @@
       "itemsSelectedCount": "{selected} of {total} selected",
       "selectAll": "Select all",
       "deselectAll": "Deselect all",
-      "noBoq": "This project has no BOQ items yet",
-      "noBoqHint": "Add items to the BOQ before raising an RFQ.",
+      "noBoq": "No BOQ items are ready for procurement",
+      "noBoqHint": "Only client-approved items the PM has marked \"Ready for Procurement\" can be added to an RFQ.",
       "goToBoq": "Open BOQ",
       "loadingBoq": "Loading BOQ items…",
       "col": {

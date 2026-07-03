@@ -22,7 +22,7 @@ export function BoqDimensionUnitToggle({
       role="radiogroup"
       aria-label="Dimension unit"
       className={cn(
-        "inline-flex items-center gap-0.5 rounded-md border border-border-default bg-bg-input p-0.5",
+        "inline-flex items-center gap-0.5 rounded-lg border border-border-default bg-bg-input p-0.5",
         disabled && "opacity-60 pointer-events-none",
         className
       )}
@@ -40,7 +40,7 @@ export function BoqDimensionUnitToggle({
               if (!active) onChange(unit);
             }}
             className={cn(
-              "rounded px-3 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors cursor-pointer",
+              "rounded-md px-3 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors cursor-pointer",
               active
                 ? "bg-accent text-bg-primary"
                 : "text-text-muted hover:text-text-secondary"

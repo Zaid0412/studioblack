@@ -42,8 +42,13 @@ export function RfqCreateForm({ projectId }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
+  // RFQ-4a: only items the PM has marked Ready for Procurement and that aren't
+  // already committed to an RFQ are eligible.
   const items: BoqItemWithComputed[] = useMemo(
-    () => boq?.items ?? [],
+    () =>
+      (boq?.items ?? []).filter(
+        (it) => it.phase === "ready_for_procurement" && it.po_status === "none"
+      ),
     [boq?.items]
   );
 

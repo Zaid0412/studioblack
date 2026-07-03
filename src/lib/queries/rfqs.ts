@@ -695,6 +695,21 @@ export async function createRfqDraft(
       await client.query("ROLLBACK");
       throw new Error("One or more BOQ items do not belong to this project");
     }
+    // RFQ-4a eligibility gate: every item must be marked Ready for Procurement
+    // (the PM's approval-for-RFQ) and not already committed to another RFQ.
+    const { rows: eligible } = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM boq_item
+        WHERE id = ANY($1::uuid[])
+          AND phase = 'ready_for_procurement'
+          AND po_status = 'none'`,
+      [boqItemIds]
+    );
+    if (Number(eligible[0]?.count ?? 0) !== boqItemIds.length) {
+      await client.query("ROLLBACK");
+      throw new Error(
+        "One or more BOQ items are not ready for procurement (or already in an RFQ)"
+      );
+    }
 
     // Use the tx-bound sequence helper so a later ROLLBACK reverses the
     // sequence advance — otherwise a failed RFQ create burns a number and
@@ -805,6 +820,18 @@ export async function addRfqItems(
       [boqItemIds, rfq.project_id]
     );
     if (Number(ownCheck[0]?.count ?? 0) !== boqItemIds.length) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "bad_items" };
+    }
+    // RFQ-4a eligibility gate: Ready for Procurement + not already in an RFQ.
+    const { rows: eligible } = await client.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM boq_item
+        WHERE id = ANY($1::uuid[])
+          AND phase = 'ready_for_procurement'
+          AND po_status = 'none'`,
+      [boqItemIds]
+    );
+    if (Number(eligible[0]?.count ?? 0) !== boqItemIds.length) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "bad_items" };
     }

@@ -60,6 +60,16 @@ describe("phaseToVariant", () => {
       "changes-requested"
     );
     expect(phaseToVariant("client_approved")).toBe("approved-client");
+    expect(phaseToVariant("ready_for_procurement")).toBe("active");
+  });
+
+  it("shows ready_for_procurement as the approved variant to clients (RFQ-4a)", () => {
+    // Internally it's the procurement state; the client keeps seeing "Approved".
+    expect(phaseToVariant("ready_for_procurement", "client")).toBe(
+      "approved-client"
+    );
+    // Studio viewers still see the real procurement variant.
+    expect(phaseToVariant("ready_for_procurement", "pm")).toBe("active");
   });
 });
 
@@ -85,6 +95,15 @@ describe("phaseToLabel", () => {
       "Changes Requested"
     );
     expect(phaseToLabel("client_reviewing", "client")).toBe("Reviewing");
+    // RFQ-4a: the procurement state reads as "Approved" to the client.
+    expect(phaseToLabel("ready_for_procurement", "client")).toBe("Approved");
+  });
+
+  it("keeps the procurement label for studio viewers (RFQ-4a)", () => {
+    expect(phaseToLabel("ready_for_procurement", "pm")).toBe(
+      "Ready for Procurement"
+    );
+    expect(phaseToLabel("ready_for_procurement")).toBe("Ready for Procurement");
   });
 
   it("keeps studio labels for non-client viewers", () => {

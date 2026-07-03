@@ -260,10 +260,10 @@ function PhaseChangeText({
   dropMovedVerb: boolean;
 }) {
   const toLabel = phaseToLabel(event.to_phase, viewerRole);
-  const toVariant = phaseToVariant(event.to_phase);
+  const toVariant = phaseToVariant(event.to_phase, viewerRole);
   if (event.from_phase) {
     const fromLabel = phaseToLabel(event.from_phase, viewerRole);
-    const fromVariant = phaseToVariant(event.from_phase);
+    const fromVariant = phaseToVariant(event.from_phase, viewerRole);
     return (
       <>
         {!dropMovedVerb && <span>moved</span>}

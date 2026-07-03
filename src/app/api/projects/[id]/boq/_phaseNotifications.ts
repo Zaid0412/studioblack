@@ -238,5 +238,7 @@ function phaseTitle(
       return `BOQ ${noun} — changes requested: ${boqTitle}`;
     case "draft":
       return `BOQ ${noun} moved back to draft: ${boqTitle}`;
+    case "ready_for_procurement":
+      return `BOQ ${noun} ready for procurement: ${boqTitle}`;
   }
 }

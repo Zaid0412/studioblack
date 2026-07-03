@@ -988,7 +988,7 @@ const BoqItemRow = memo(function BoqItemRow({
       )}
       <span className="min-w-0 flex items-center justify-center pl-3">
         <Badge
-          variant={phaseToVariant(item.phase)}
+          variant={phaseToVariant(item.phase, role)}
           className="!px-2 truncate max-w-full"
         >
           {phaseToLabel(item.phase, role)}
