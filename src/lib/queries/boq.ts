@@ -1165,12 +1165,15 @@ const MATERIAL_DIFF_FIELDS: { col: string; label: string }[] = [
   { col: "height", label: "Height" },
 ];
 
-/** Loose equality tolerant of NUMERIC ↔ number/string JSON representations. */
+/**
+ * Snapshot-value equality. Both snapshots come through `to_jsonb`, so a NUMERIC
+ * column is a JS number on both sides (compared numerically — `10` == `10.000`)
+ * and TEXT is a string on both sides. Comparing by type avoids `Number()`
+ * coercion masking a real text change like `"" → "0"` or `"10" → "10.0"`.
+ */
 function sameSnapshotValue(a: unknown, b: unknown): boolean {
   if (a === null || b === null) return a === b;
-  const fa = Number(a);
-  const fb = Number(b);
-  if (!Number.isNaN(fa) && !Number.isNaN(fb)) return fa === fb;
+  if (typeof a === "number" && typeof b === "number") return a === b;
   return String(a) === String(b);
 }
 

@@ -129,6 +129,30 @@ describe("getBoqItemVersions — diff computation (RFQ-3a)", () => {
     ]);
   });
 
+  it("detects a text change between numeric-looking strings (no Number() coercion)", async () => {
+    // "5" → "5.0" must register as a change; a numeric coercion would treat
+    // both as 5 and hide it.
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: "v1",
+          version_number: 1,
+          change_reason: "specification",
+          change_note: null,
+          changed_by: ACTOR,
+          changed_by_name: "Zaid",
+          changed_at: "2026-06-01T00:00:00.000Z",
+          snapshot: { description: "5", quantity: 1 },
+          current_row: { description: "5.0", quantity: 1 },
+        },
+      ],
+    });
+    const versions = await getBoqItemVersions(ITEM_ID);
+    expect(versions[0].changes).toEqual([
+      { field: "Description", from: "5", to: "5.0" },
+    ]);
+  });
+
   it("returns [] when the item has no recorded versions", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [] });
     expect(await getBoqItemVersions(ITEM_ID)).toEqual([]);
