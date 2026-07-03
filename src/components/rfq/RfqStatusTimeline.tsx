@@ -5,6 +5,7 @@ import {
   Award,
   Ban,
   FilePlus2,
+  GitBranch,
   Mail,
   MessageSquareReply,
   UserPlus2,
@@ -23,6 +24,7 @@ const ICONS: Record<string, LucideIcon> = {
   "rfq.issued": Mail,
   "rfq.vendors_added": UserPlus2,
   "rfq.cancelled": Ban,
+  "rfq.revised": GitBranch,
   "rfq.awarded": Award,
   "quote.submitted": MessageSquareReply,
   "quote.revised": MessageSquareReply,
@@ -153,6 +155,17 @@ function EventBody({
         </>
       ) : (
         <span>{t("cancelledVerb")}</span>
+      );
+    }
+    case "rfq.revised": {
+      const rev = Number(m.revision_number ?? 0);
+      const reason = typeof m.reason === "string" ? m.reason : null;
+      return (
+        <>
+          <span>{t("revisedVerb")}</span>
+          {rev > 0 && <Pill>{t("revPill", { rev })}</Pill>}
+          {reason && <Pill>{reason}</Pill>}
+        </>
       );
     }
     case "quote.submitted":

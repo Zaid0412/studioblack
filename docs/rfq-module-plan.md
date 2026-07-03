@@ -144,16 +144,45 @@ INDEX  (boq_item_id, version_number DESC)
 
 ### 3b — RFQ revisions (clone + supersede)
 
-When scope changes after issue, raise a revision instead of editing a locked RFQ.
+When scope changes after issue, raise a revision instead of editing a locked RFQ
+(exactly the case `addRfqItems` already refuses: "the right move there is to
+create a new RFQ").
 
-**Schema** (`migrate-rfq-revisions.sql`): `rfq ADD revision_number INT DEFAULT 1, ADD supersedes_rfq_id UUID FK → rfq, ADD is_current BOOLEAN DEFAULT true`. New status `superseded`. New-row-per-revision **is** right here — a revision is a real new RFQ with its own number/quotes/invites; matches the RFQ-2 quote-versioning precedent.
+**Decisions (locked):**
 
-**Backend** (`rfqs.ts`): `cloneRfqAsRevision(rfqId, reason, actor)` — new rfq (revision_number+1, supersedes_rfq_id=old, status='draft'), copy rfq_items (reset `awarded_vendor_id`/`awarded_quote_item_id`), set old rfq `is_current=false, status='superseded'`. All RFQ-list/detail reads filter `is_current` (or render the revision chain).
+- **Old RFQ marker = status `superseded`**, NOT an `is_current` flag. Every existing
+  mutation guard (issue/invite/award/cancel/addItems + `QUOTE_SUBMITTABLE/AWARDABLE`
+  status sets) already whitelists specific statuses, so `superseded` auto-locks the old
+  RFQ — fail-closed, no new guards. Award facts on `rfq_item` persist; only the status
+  label changes.
+- **Revision reuses the base number** as `RFQ-2026-0042 · Rev 1` — swap the
+  `UNIQUE (org_id, rfq_number)` constraint for `UNIQUE (org_id, rfq_number, revision_number)`.
+- **Vendors are copied** from the old RFQ onto the revision by default (PM can adjust).
 
-**API:** `POST …/rfqs/[rfqId]/revise`.
-**UI:** "Create revision" action on an issued/awarded RFQ; "Rev-N · supersedes RFQ-…" banner + link to the prior RFQ; re-invite vendors via the existing invite flow (vendors are NOT auto-carried).
+**Schema** (`migrate-rfq-revisions.sql`): `rfq ADD revision_number INT NOT NULL DEFAULT 0,
+ADD supersedes_rfq_id UUID REFERENCES rfq(id) ON DELETE SET NULL`; drop the old
+`(org_id, rfq_number)` unique, add `(org_id, rfq_number, revision_number)`.
+`RFQ_STATUSES += 'superseded'`.
+
+**Backend** (`rfqs.ts`): `cloneRfqAsRevision(rfqId, reason, userId)` — mirrors the
+`cancelRfq` FOR-UPDATE + guard pattern: lock old RFQ, require status ∈ {issued,
+quotes_received, under_review, awarded}, insert a new **draft** rfq (same `rfq_number`,
+`revision_number = old+1`, `supersedes_rfq_id = old.id`, copy title/scope/terms/deadline),
+copy `rfq_item` rows with `awarded_vendor_id`/`awarded_quote_item_id` reset, copy
+`rfq_vendor` invites, set old → `superseded`, audit `rfq.revised`. Superseding does NOT
+revert `boq_item.po_status` (the revision carries the items forward); `cancelRfq`'s
+"live RFQ" exclusion gains `'superseded'`. `getRfqsByProject` excludes `superseded` by
+default; `getRfqDetail` surfaces the chain (supersedes number + superseded-by number).
+
+**API:** `POST …/rfqs/[rfqId]/revise` (pm/architect), body `{ reason }`.
+**UI:** "Create revision" action on an issued/awarded RFQ → reason dialog → navigate to the
+new draft; "Rev N · supersedes RFQ-…" banner on the revision + "Superseded by RFQ-… Rev N"
+on the old; `RfqStatusBadge` + i18n gain `superseded`; list hides superseded; RFQ number
+renders `· Rev N` when `revision_number > 0`.
 **Audit:** `rfq.revised` (metadata: supersedes_rfq_id, revision_number).
-**Tests:** clone resets awards, old marked superseded, list filters to current.
+**Tests:** clone resets awards + copies vendors, old marked superseded, rev increments,
+refuses draft/cancelled/superseded, po_status untouched; revise route; schema; list excludes
+superseded.
 **Depends on:** 3a. **Migration:** yes. **Effort:** Med-High.
 
 ---

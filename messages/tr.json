@@ -1114,7 +1114,8 @@
       "quotes_received": "Teklifler alındı",
       "under_review": "İncelemede",
       "awarded": "Kazanan seçildi",
-      "cancelled": "İptal"
+      "cancelled": "İptal",
+      "superseded": "Yenilendi"
     },
     "columns": {
       "number": "Numara",
@@ -1195,7 +1196,16 @@
       "cancelConfirmTitle": "Bu talep iptal edilsin mi?",
       "cancelConfirmDescription": "Gönderilmiş talepler iptale geçer. Başka bir aktif talepte yer almayan BOQ kalemleri \"yok\" durumuna döner.",
       "cancelConfirm": "Evet, iptal et",
-      "keepRfq": "Vazgeç"
+      "keepRfq": "Vazgeç",
+      "reviseBtn": "Revizyon oluştur",
+      "revisionOf": "Rev {rev} · {number} yerine geçer",
+      "supersededBy": "{number} · Rev {rev} tarafından yenilendi",
+      "reviseConfirmTitle": "Bu talebin bir revizyonu oluşturulsun mu?",
+      "reviseConfirmDescription": "Aynı kalemler ve tedarikçilerle yeni bir taslak revizyon oluşturulur; bu talep yenilendi olarak işaretlenir. Ardından kapsamı düzenleyip yeniden gönderebilirsiniz.",
+      "reviseConfirm": "Revizyon oluştur",
+      "reviseReasonLabel": "Neden (isteğe bağlı)",
+      "reviseReasonPlaceholder": "ör. Müşteri kapsama iki gardırop ekledi",
+      "moreActions": "Diğer işlemler"
     },
     "timeline": {
       "empty": "Henüz hareket yok.",
@@ -1204,6 +1214,8 @@
       "issuedVerb": "talebi şunlara gönderdi:",
       "vendorsAddedVerb": "şunları davet etti:",
       "cancelledVerb": "talebi iptal etti",
+      "revisedVerb": "revizyon oluşturdu",
+      "revPill": "Rev {rev}",
       "quoteSubmittedVerb": "şu firmadan teklif aldı:",
       "quoteRevisedVerb": "şu firmanın teklifini güncelledi:",
       "rfqAwardedVerb": "talebi sonuçlandırdı",

@@ -96,14 +96,19 @@ export default function ProjectDetailLayout({
     pathname.startsWith(`${base}/boq`) ||
     pathname.startsWith(`${base}/order`);
 
-  // MetaBar is the project info card. We hide it on the documents surface so
-  // the file list has the full vertical space.
-  const showMetaBar = showHeader && !pathname.startsWith(`${base}/documents`);
+  // Surfaces that carry the project info card + comments strip: everything with
+  // the standard header except the documents file list (needs the height).
+  const metaSurface = showHeader && !pathname.startsWith(`${base}/documents`);
+
+  // MetaBar is the project info card. Also hidden on an RFQ *detail* page
+  // (`/order/rfq/<id>`), which has its own focused header — but kept on the RFQ
+  // list (`/order/rfq`).
+  const showMetaBar = metaSurface && !pathname.startsWith(`${base}/order/rfq/`);
 
   // The project comments strip is only relevant on design/BOQ surfaces —
   // documents has its own context so comments-about-the-project would just
   // be noise there.
-  const showComments = showMetaBar;
+  const showComments = metaSurface;
 
   if (loading || roleLoading) {
     return (

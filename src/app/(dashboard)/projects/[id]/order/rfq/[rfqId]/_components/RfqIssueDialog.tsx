@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Loader2, UsersRound } from "lucide-react";
 import {
@@ -29,6 +29,11 @@ interface Props {
    * the dialog; the actual mutation is the parent's call.
    */
   mode?: "issue" | "invite";
+  /**
+   * Vendor ids to pre-check when the dialog opens — used when issuing a
+   * revision, which carries its parent RFQ's vendors as a default (RFQ-3b).
+   */
+  preselectedVendorIds?: string[];
 }
 
 /**
@@ -46,6 +51,7 @@ export function RfqIssueDialog({
   onOpenChange,
   onConfirm,
   mode = "issue",
+  preselectedVendorIds,
 }: Props) {
   const tIssue = useTranslations("rfq.issue");
   const tInvite = useTranslations("rfq.invite");
@@ -55,10 +61,15 @@ export function RfqIssueDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset every time the dialog reopens — picks shouldn't survive a cancel.
+  // Seed once per open: a revision starts from its copied vendors; a normal
+  // issue starts empty. Picks shouldn't survive a cancel, and a background
+  // refetch of the RFQ must NOT overwrite the PM's in-dialog edits — so we read
+  // the latest preselection via a ref and key the effect on `open` alone.
+  const preselectRef = useRef(preselectedVendorIds);
+  preselectRef.current = preselectedVendorIds;
   useEffect(() => {
     if (open) {
-      setSelected(new Set());
+      setSelected(new Set(preselectRef.current ?? []));
       setShowAll(true);
     }
   }, [open]);

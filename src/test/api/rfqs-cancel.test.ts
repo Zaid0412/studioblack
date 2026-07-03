@@ -44,6 +44,8 @@ const cancelledRfq: Rfq = {
   scope_of_work: null,
   terms_conditions: null,
   attachments: null,
+  revision_number: 0,
+  supersedes_rfq_id: null,
   created_by: "user-test-001",
   created_at: "2026-05-14T00:00:00Z",
   updated_at: "2026-05-14T00:00:00Z",

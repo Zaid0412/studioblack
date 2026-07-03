@@ -163,6 +163,7 @@ export const API = {
   rfqItems:                    (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/items`,
   rfqItem:                     (pid: string, rfqId: string, itemId: string) => `/api/projects/${pid}/rfqs/${rfqId}/items/${itemId}`,
   rfqCancel:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/cancel`,
+  rfqRevise:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/revise`,
   rfqSuggestedVendors:         (pid: string, rfqId: string, all = false) => `/api/projects/${pid}/rfqs/${rfqId}/suggested-vendors${all ? "?all=true" : ""}`,
   vendorPortalRfqs:            ()                                  => "/api/vendor-portal/rfqs",
   vendorPortalRfq:             (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}`,
