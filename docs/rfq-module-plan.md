@@ -187,17 +187,56 @@ superseded.
 
 ---
 
-### 3c — Scope-change impact routing (PRD §22 matrix)
+### 3c — Scope-change impact routing (PRD §22 matrix) ⬅ NEXT
 
-Connect a BOQ change to the right RFQ action.
+Make the PM aware when a BOQ change affects an **in-flight** RFQ (issued /
+quotes_received / under_review) and give them the §22 reconciliation paths. 3a's
+`change_reason` is the routing signal; 3b (revisions) is the requote path.
 
-- On a material edit to a BOQ item with `po_status IN (rfq_issued, quoted)`, detect the in-flight RFQ(s) and surface "this change affects RFQ-X", routing per the matrix: **qty only →** update `rfq_item.quantity` in place (reuse rate); **spec changed / item added / item removed →** offer a revision (3b) / cancel the rfq_item.
-- Approval reuses the existing `boq_item.phase` re-approval loop — no new SM.
+**Decisions (locked):**
 
-**UI:** impact prompt in the BOQ edit path; a "needs re-quote" flag on affected RFQ items.
-**Tests:** routing per change_reason; qty-only in-place vs spec → revision.
-**Depends on:** 3a + 3b. **Migration:** none (or a small `rfq_item.needs_requote` flag).
-**Effort:** High.
+- **Detection = read-time divergence, NOT a persisted flag.** The RFQ _reads_ its own
+  divergence rather than the BOQ edit path _pushing_ flags — zero coupling to
+  `updateBoqItem`/`deleteBoqItem`, no schema, always accurate. (Rejected a
+  `rfq_item.needs_requote` column: cheaper reads but couples the BOQ path + goes stale.)
+- **Sync = quantity only.** Per §22, a spec change is "requote required" — so only qty
+  divergence gets the in-place "Sync from BOQ"; spec divergence routes to a revision.
+- **`cloneRfqAsRevision` refreshes items from `boq_item`** (currently copies the stale
+  `rfq_item` snapshot) so a revision reflects the current BOQ — benefits all revisions.
+
+**Detection** (`getRfqDetail`, in-flight statuses only): JOIN each `rfq_item` → its live
+`boq_item`, compute per-field diffs (quantity / description / unit — snapshot vs current).
+Return `{ diverged, diffs: [{field, from, to}] }` per item + a count. No write-path change.
+
+**Backend:** `syncRfqItemsFromBoq(rfqId)` — copies current `boq_item.quantity` into the
+diverged items (in-flight only), audit `rfq.synced_from_boq`. Modify `cloneRfqAsRevision`
+to source item fields from `boq_item`.
+
+**UI:** RFQ-detail banner when `diverged_count > 0` — "N item(s) changed in the BOQ since
+this RFQ was issued" with each diff (`Qty 10 → 15`, `Spec …`); **quantity changes → "Sync
+from BOQ"**; **spec changes → "Create revision"** (3b).
+
+**Tests:** divergence read (qty/spec/none), sync updates only qty on in-flight RFQs,
+clone-refreshes-from-BOQ.
+
+**Approval:** reuses the existing `boq_item.phase` re-approval loop — no new SM.
+**Depends on:** 3a + 3b. **Migration:** none. **Effort:** Med.
+
+---
+
+### 3d — Scope removal / addition impact (FUTURE PR)
+
+The other half of the §22 matrix, deferred out of 3c:
+
+- **Removed item** — `rfq_item.boq_item_id` is `ON DELETE RESTRICT`, so a BOQ item in an
+  RFQ currently **can't be deleted**. This PR would: relax to `ON DELETE` handling (or
+  intercept `deleteBoqItem`), and when a BOQ item on an in-flight RFQ is removed, **cancel
+  the corresponding `rfq_item`** (and surface it on the RFQ). Migration: FK change.
+- **New item** — a newly-added BOQ item isn't in any RFQ. Surface "N BOQ items ready for
+  procurement not yet in an RFQ" and let the PM add them to a **new RFQ or a revision**.
+  Overlaps with RFQ-4's BOQ-eligibility gate. Migration: none.
+
+**Effort:** Med. **Do after:** 3c.
 
 ---
 
@@ -213,7 +252,7 @@ Connect a BOQ change to the right RFQ action.
 
 1. **RFQ-1** ✅ shipped (#154) — manual/multi-channel entry + evidence.
 2. **RFQ-2** ✅ shipped (#155) — quote versioning.
-3. **RFQ-3** (scope change / revisions) — 3 sub-PRs **3a → 3b → 3c** (below); Change Orders confirmed out of scope (no PO layer).
+3. **RFQ-3** (scope change / revisions): **3a** ✅ (#156) → **3b** ✅ (#157) → **3c** ◀ next → **3d** (future: scope removal/addition). Change Orders out of scope (no PO layer).
 4. **RFQ-4** comms timeline — only if needed.
 
 ## Migrations (in order)
