@@ -2,10 +2,12 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   FileText,
+  GitBranch,
   Mail,
   Pencil,
   Plus,
@@ -30,6 +32,7 @@ import {
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
+  RFQ_REVISABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
 } from "@/lib/validations";
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
@@ -54,6 +57,7 @@ export default function OrderRfqDetailPage({
   params: Promise<{ id: string; rfqId: string }>;
 }) {
   const { id: projectId, rfqId } = use(params);
+  const router = useRouter();
   const t = useTranslations("rfq.detail");
   const { role } = useUserRole();
   const isPM = role === "pm";
@@ -62,7 +66,8 @@ export default function OrderRfqDetailPage({
   const lastViewedAt = useRfqLastViewed(rfqId);
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
   // `addItems` is called inside RfqAddItemsDialog, not directly here.
-  const { issue, invite, removeItem, cancel } = useRfqMutations(projectId);
+  const { issue, invite, removeItem, cancel, revise } =
+    useRfqMutations(projectId);
   const { quotes, mutate: mutateQuotes } = useQuotesForRfq(projectId, rfqId);
   const { comparison, mutate: mutateComparison } = useQuoteComparison(
     projectId,
@@ -76,6 +81,9 @@ export default function OrderRfqDetailPage({
   const [addItemsOpen, setAddItemsOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [reviseOpen, setReviseOpen] = useState(false);
+  const [revising, setRevising] = useState(false);
+  const [reviseReason, setReviseReason] = useState("");
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [awardOpen, setAwardOpen] = useState(false);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
@@ -147,6 +155,8 @@ export default function OrderRfqDetailPage({
   // inside the edit dialog tells the PM vendors will see the change.
   const isEditable = !isTerminal;
   const isCancellable = !isTerminal;
+  const canRevise =
+    isPM && (RFQ_REVISABLE_STATUSES as readonly string[]).includes(rfq.status);
 
   const handleIssue = async (vendorIds: string[]) => {
     const res = await issue(rfqId, { vendorIds });
@@ -184,6 +194,20 @@ export default function OrderRfqDetailPage({
     }
   };
 
+  const handleRevise = async () => {
+    setRevising(true);
+    try {
+      const next = await revise(rfqId, { reason: reviseReason.trim() || null });
+      if (next) {
+        setReviseOpen(false);
+        setReviseReason("");
+        router.push(`/projects/${projectId}/order/rfq/${next.id}`);
+      }
+    } finally {
+      setRevising(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-10">
       <Link
@@ -205,7 +229,9 @@ export default function OrderRfqDetailPage({
             <RfqStatusBadge status={rfq.status} />
           </div>
           <p className="text-sm text-text-secondary">
-            {rfq.rfq_number} · {formatDate(rfq.created_at)}
+            {rfq.rfq_number}
+            {rfq.revision_number > 0 && ` · Rev ${rfq.revision_number}`} ·{" "}
+            {formatDate(rfq.created_at)}
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -254,6 +280,12 @@ export default function OrderRfqDetailPage({
               Award
             </Button>
           )}
+          {canRevise && (
+            <Button variant="secondary" onClick={() => setReviseOpen(true)}>
+              <GitBranch className="w-4 h-4" />
+              {t("reviseBtn")}
+            </Button>
+          )}
           {isPM && isCancellable && (
             <Button
               variant="ghost"
@@ -266,6 +298,32 @@ export default function OrderRfqDetailPage({
           )}
         </div>
       </div>
+
+      {/* Revision chain banners */}
+      {rfq.supersedes && (
+        <Link
+          href={`/projects/${projectId}/order/rfq/${rfq.supersedes.id}`}
+          className="flex items-center gap-2 rounded-lg border border-border-default bg-bg-elevated/50 px-4 py-2.5 text-sm text-text-secondary hover:border-text-muted/40 transition-colors w-fit"
+        >
+          <GitBranch className="w-4 h-4 text-text-muted shrink-0" />
+          {t("revisionOf", {
+            number: rfq.supersedes.rfq_number,
+            rev: rfq.supersedes.revision_number,
+          })}
+        </Link>
+      )}
+      {rfq.superseded_by && (
+        <Link
+          href={`/projects/${projectId}/order/rfq/${rfq.superseded_by.id}`}
+          className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-2.5 text-sm text-text-primary hover:border-warning/60 transition-colors w-fit"
+        >
+          <GitBranch className="w-4 h-4 text-warning shrink-0" />
+          {t("supersededBy", {
+            number: rfq.superseded_by.rfq_number,
+            rev: rfq.superseded_by.revision_number,
+          })}
+        </Link>
+      )}
 
       {/* Header details */}
       <section className="rounded-xl border border-border-default bg-bg-secondary p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -403,6 +461,7 @@ export default function OrderRfqDetailPage({
         open={issueOpen}
         onOpenChange={setIssueOpen}
         onConfirm={handleIssue}
+        preselectedVendorIds={rfq.vendors.map((v) => v.vendor_id)}
       />
 
       <RfqIssueDialog
@@ -442,6 +501,34 @@ export default function OrderRfqDetailPage({
         submitting={cancelling}
         onConfirm={handleCancel}
       />
+
+      <ConfirmDialog
+        open={reviseOpen}
+        onOpenChange={(o) => {
+          setReviseOpen(o);
+          if (!o) setReviseReason("");
+        }}
+        title={t("reviseConfirmTitle")}
+        description={t("reviseConfirmDescription")}
+        confirmLabel={t("reviseConfirm")}
+        cancelLabel={t("keepRfq")}
+        submitting={revising}
+        onConfirm={handleRevise}
+      >
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[13px] font-medium text-text-secondary">
+            {t("reviseReasonLabel")}
+          </label>
+          <textarea
+            className="w-full rounded-lg border border-border-default bg-bg-input p-2 text-sm text-text-primary"
+            rows={3}
+            value={reviseReason}
+            onChange={(e) => setReviseReason(e.target.value)}
+            maxLength={2000}
+            placeholder={t("reviseReasonPlaceholder")}
+          />
+        </div>
+      </ConfirmDialog>
 
       <QuoteAwardDialog
         rfqTitle={rfq.title}

@@ -29,6 +29,11 @@ interface Props {
    * the dialog; the actual mutation is the parent's call.
    */
   mode?: "issue" | "invite";
+  /**
+   * Vendor ids to pre-check when the dialog opens — used when issuing a
+   * revision, which carries its parent RFQ's vendors as a default (RFQ-3b).
+   */
+  preselectedVendorIds?: string[];
 }
 
 /**
@@ -46,6 +51,7 @@ export function RfqIssueDialog({
   onOpenChange,
   onConfirm,
   mode = "issue",
+  preselectedVendorIds,
 }: Props) {
   const tIssue = useTranslations("rfq.issue");
   const tInvite = useTranslations("rfq.invite");
@@ -56,12 +62,15 @@ export function RfqIssueDialog({
   const [submitting, setSubmitting] = useState(false);
 
   // Reset every time the dialog reopens — picks shouldn't survive a cancel.
+  // A revision seeds the selection with its copied vendors (the PM can adjust).
   useEffect(() => {
     if (open) {
-      setSelected(new Set());
+      setSelected(new Set(preselectedVendorIds ?? []));
       setShowAll(true);
     }
-  }, [open]);
+    // preselectedVendorIds is a fresh array each render; key off its contents.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, preselectedVendorIds?.join(",")]);
 
   const { vendors, isLoading } = useRfqSuggestedVendors(
     projectId,

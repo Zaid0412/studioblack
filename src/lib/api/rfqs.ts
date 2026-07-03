@@ -115,6 +115,15 @@ export function cancel(projectId: string, rfqId: string, data: CancelInput) {
   return apiPost<Rfq>(API.rfqCancel(projectId, rfqId), data);
 }
 
+/** Studio: revise an issued/awarded RFQ (RFQ-3b). Returns the new draft revision. */
+export function revise(
+  projectId: string,
+  rfqId: string,
+  data: { reason?: string | null }
+) {
+  return apiPost<Rfq>(API.rfqRevise(projectId, rfqId), data);
+}
+
 /** Studio: append items to a draft RFQ. */
 export function addItems(
   projectId: string,

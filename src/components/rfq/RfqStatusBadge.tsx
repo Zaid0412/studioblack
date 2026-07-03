@@ -9,6 +9,7 @@ const VARIANT: Record<RfqStatus, BadgeVariant> = {
   under_review: "in-review",
   awarded: "approved-arch",
   cancelled: "archived",
+  superseded: "archived",
 };
 
 /** Coloured pill matching the RFQ lifecycle states. */

@@ -1114,7 +1114,8 @@
       "quotes_received": "Quotes received",
       "under_review": "Under review",
       "awarded": "Awarded",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "superseded": "Superseded"
     },
     "columns": {
       "number": "Number",
@@ -1195,7 +1196,15 @@
       "cancelConfirmTitle": "Cancel this RFQ?",
       "cancelConfirmDescription": "Issued RFQs become cancelled. BOQ items will be released back to \"none\" unless another live RFQ references them.",
       "cancelConfirm": "Yes, cancel",
-      "keepRfq": "Keep it"
+      "keepRfq": "Keep it",
+      "reviseBtn": "Create revision",
+      "revisionOf": "Rev {rev} · supersedes {number}",
+      "supersededBy": "Superseded by {number} · Rev {rev}",
+      "reviseConfirmTitle": "Create a revision of this RFQ?",
+      "reviseConfirmDescription": "A new draft revision is created with the same items and vendors; this RFQ is marked superseded. You can then adjust scope and re-issue.",
+      "reviseConfirm": "Create revision",
+      "reviseReasonLabel": "Reason (optional)",
+      "reviseReasonPlaceholder": "e.g. Client added two wardrobes to the scope"
     },
     "timeline": {
       "empty": "Nothing has happened yet.",

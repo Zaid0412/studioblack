@@ -1189,6 +1189,10 @@ export interface Rfq {
   scope_of_work: string | null;
   terms_conditions: string | null;
   attachments: unknown | null;
+  /** 0 for the original RFQ; incremented for each revision that supersedes it. */
+  revision_number: number;
+  /** The RFQ this one revised, or null for an original. */
+  supersedes_rfq_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -1243,6 +1247,14 @@ export interface RfqListRow {
   vendor_count: number;
   created_at: string;
   latest_quote_submitted_at: string | null;
+  revision_number: number;
+}
+
+/** A neighbour in an RFQ's revision chain (the prior or the superseding RFQ). */
+export interface RfqChainRef {
+  id: string;
+  rfq_number: string;
+  revision_number: number;
 }
 
 /** Full RFQ + items + invited vendors + audit timeline. Detail-view payload. */
@@ -1250,6 +1262,10 @@ export interface RfqWithItems extends Rfq {
   items: RfqItem[];
   vendors: RfqVendorInvite[];
   events: RfqEvent[];
+  /** The RFQ this one revised (drives the "· supersedes" banner). */
+  supersedes: RfqChainRef | null;
+  /** The revision that superseded this one, if any (drives the "Superseded by" banner). */
+  superseded_by: RfqChainRef | null;
 }
 
 // ── Vendor Quotes (F10) ─────────────────────────────────────────────────────

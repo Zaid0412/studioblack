@@ -39,6 +39,7 @@ export const AUDIT_ACTIONS = {
   RFQ_VENDORS_ADDED: "rfq.vendors_added",
   RFQ_CANCELLED: "rfq.cancelled",
   RFQ_AWARDED: "rfq.awarded",
+  RFQ_REVISED: "rfq.revised",
   // ── Vendor Quotes (F10) ────────────────────────────────────────────────
   QUOTE_SUBMITTED: "quote.submitted",
   QUOTE_REVISED: "quote.revised",

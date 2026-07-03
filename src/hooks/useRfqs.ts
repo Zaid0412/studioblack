@@ -192,6 +192,21 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
+  const revise = useCallback(
+    async (rfqId: string, data: { reason?: string | null }) => {
+      try {
+        const rfq = await rfqApi.revise(projectId, rfqId, data);
+        await invalidateList();
+        toast({ title: "Revision created", variant: "success" });
+        return rfq;
+      } catch (err) {
+        handleError(err, "Could not create revision");
+        return null;
+      }
+    },
+    [projectId, invalidateList]
+  );
+
   const addItems = useCallback(
     async (rfqId: string, data: z.infer<typeof addRfqItemsSchema>) => {
       try {
@@ -233,6 +248,7 @@ export function useRfqMutations(projectId: string) {
     addItems,
     removeItem,
     cancel,
+    revise,
     invalidateList,
   };
 }

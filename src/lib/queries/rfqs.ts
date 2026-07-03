@@ -13,7 +13,10 @@ import { escapeSqlLike } from "./helpers";
 import { nextSequenceNumbers } from "./boq";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
-import { RFQ_INVITEABLE_STATUSES } from "@/lib/validations";
+import {
+  RFQ_INVITEABLE_STATUSES,
+  RFQ_REVISABLE_STATUSES,
+} from "@/lib/validations";
 
 /** F9 — RFQ Workflow query layer (reads + mutations + email-fan-out helpers). */
 
@@ -62,6 +65,10 @@ export async function getRfqsByProject(
   if (filters.status) {
     params.push(filters.status);
     conditions.push(`r.status = $${params.length}`);
+  } else {
+    // Superseded RFQs are reachable via the "· supersedes" link on their
+    // revision; keep them out of the default list so it shows one row per chain.
+    conditions.push(`r.status <> 'superseded'`);
   }
   if (filters.search) {
     params.push(`%${escapeSqlLike(filters.search)}%`);
@@ -79,7 +86,7 @@ export async function getRfqsByProject(
 
   const { rows } = await pool.query(
     `SELECT
-       r.id, r.rfq_number, r.title, r.status,
+       r.id, r.rfq_number, r.title, r.status, r.revision_number,
        r.issued_date, r.response_deadline, r.created_at,
        (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
        (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
@@ -107,6 +114,7 @@ export async function getRfqsByProject(
       vendor_count: r.vendor_count,
       created_at: r.created_at,
       latest_quote_submitted_at: r.latest_quote_submitted_at ?? null,
+      revision_number: r.revision_number,
     })),
     total,
   };
@@ -130,7 +138,7 @@ export async function getRfqDetail(
   // Items, vendors, and events are independent of each other and of the
   // header beyond the rfqId — fetch in parallel to cut detail-page latency
   // from 4 sequential RTTs to ~max-of-3.
-  const [itemRes, vendorRes, events] = await Promise.all([
+  const [itemRes, vendorRes, events, chainRes] = await Promise.all([
     pool.query<RfqItem>(
       `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
               sort_order, awarded_vendor_id, awarded_quote_item_id
@@ -149,13 +157,40 @@ export async function getRfqDetail(
       [rfqId]
     ),
     getRfqEvents(rfqId),
+    // Revision chain: the RFQ this one revised (parent) + the revision that
+    // superseded it (child), for the detail-page banners. One round-trip.
+    pool.query<{
+      id: string;
+      rfq_number: string;
+      revision_number: number;
+      rel: "parent" | "child";
+    }>(
+      `SELECT id, rfq_number, revision_number,
+              CASE WHEN id = $2 THEN 'parent' ELSE 'child' END AS rel
+       FROM rfq
+       WHERE ($2 IS NOT NULL AND id = $2) OR supersedes_rfq_id = $1`,
+      [rfqId, rfq.supersedes_rfq_id]
+    ),
   ]);
+
+  const chainRef = (rel: "parent" | "child") => {
+    const r = chainRes.rows.find((row) => row.rel === rel);
+    return r
+      ? {
+          id: r.id,
+          rfq_number: r.rfq_number,
+          revision_number: r.revision_number,
+        }
+      : null;
+  };
 
   return {
     ...rfq,
     items: itemRes.rows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
     vendors: vendorRes.rows,
     events,
+    supersedes: chainRef("parent"),
+    superseded_by: chainRef("child"),
   };
 }
 
@@ -347,7 +382,7 @@ export async function getRfqsForVendor(
   const pool = getPool();
   const conditions: string[] = [
     "rv.vendor_id = $1",
-    "r.status NOT IN ('draft','cancelled')",
+    "r.status NOT IN ('draft','cancelled','superseded')",
   ];
   const params: unknown[] = [vendorId];
 
@@ -366,7 +401,7 @@ export async function getRfqsForVendor(
 
   const { rows } = await pool.query(
     `SELECT
-       r.id, r.rfq_number, r.title, r.status,
+       r.id, r.rfq_number, r.title, r.status, r.revision_number,
        r.issued_date, r.response_deadline, r.created_at,
        (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
        (SELECT COUNT(*)::int FROM rfq_vendor rv2 WHERE rv2.rfq_id = r.id) AS vendor_count,
@@ -392,6 +427,7 @@ export async function getRfqsForVendor(
       created_at: r.created_at,
       // Vendor-portal list doesn't surface quote newness — not needed.
       latest_quote_submitted_at: null,
+      revision_number: r.revision_number,
     })),
     total: rows[0]?.total ?? 0,
   };
@@ -471,6 +507,9 @@ export async function getRfqDetailForVendor(
     ...rfq,
     items: itemRows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
     events,
+    // Revision chain is studio-internal; the vendor portal doesn't surface it.
+    supersedes: null,
+    superseded_by: null,
   };
 }
 
@@ -982,6 +1021,13 @@ export async function issueRfq(
     // route retry slipped through — we never overwrite an existing invite.
     await bulkInsertRfqVendors(client, rfqId, uniqueVendorIds, actorId);
 
+    // A revision draft carries copied invites; reconcile so the final set is
+    // exactly what the PM selected. No-op for a normal draft (no prior invites).
+    await client.query(
+      `DELETE FROM rfq_vendor WHERE rfq_id = $1 AND vendor_id <> ALL($2::uuid[])`,
+      [rfqId, uniqueVendorIds]
+    );
+
     // Flip BOQ po_status for the referenced items. WHERE filter intentionally
     // restricted to po_status='none' so we don't downgrade an item already on
     // a more advanced track (`quoted`, `po_raised`, `delivered`).
@@ -1131,7 +1177,7 @@ export async function cancelRfq(
             JOIN rfq r2 ON r2.id = ri2.rfq_id
             WHERE ri2.boq_item_id = bi.id
               AND r2.id <> $1
-              AND r2.status NOT IN ('cancelled')
+              AND r2.status NOT IN ('cancelled', 'superseded')
           )`,
       [rfqId]
     );
@@ -1140,6 +1186,96 @@ export async function cancelRfq(
     return { ok: true, rfq: updatedRfq[0] };
   } catch (err) {
     await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Raise a REVISION of an issued/awarded RFQ (RFQ-3b). Clones the RFQ into a new
+ * `draft` row that reuses the base `rfq_number` (`revision_number + 1`), copies
+ * its items (award links reset) and its invited vendors (a default the PM can
+ * adjust at issue), then moves the old RFQ to `superseded`. `boq_item.po_status`
+ * is intentionally left untouched — the revision carries the same items forward.
+ * Mirrors `cancelRfq`'s FOR-UPDATE + status-guard pattern.
+ */
+export async function cloneRfqAsRevision(
+  rfqId: string,
+  userId: string
+): Promise<
+  { ok: true; rfq: Rfq } | { ok: false; reason: "not_found" | "wrong_status" }
+> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query<Rfq>(
+      `SELECT * FROM rfq WHERE id = $1 FOR UPDATE`,
+      [rfqId]
+    );
+    const old = rows[0];
+    if (!old) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+    if (!(RFQ_REVISABLE_STATUSES as readonly string[]).includes(old.status)) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "wrong_status" };
+    }
+
+    const { rows: newRows } = await client.query<Rfq>(
+      `INSERT INTO rfq (
+         org_id, project_id, rfq_number, title, status,
+         scope_of_work, terms_conditions, response_deadline, created_by,
+         revision_number, supersedes_rfq_id
+       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        old.org_id,
+        old.project_id,
+        old.rfq_number,
+        old.title,
+        old.scope_of_work,
+        old.terms_conditions,
+        old.response_deadline,
+        userId,
+        old.revision_number + 1,
+        old.id,
+      ]
+    );
+    const next = newRows[0];
+
+    // Items: award links (awarded_vendor_id / awarded_quote_item_id) reset by
+    // omission — they default null on the fresh rows.
+    await client.query(
+      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
+       SELECT $1, boq_item_id, description, unit, quantity, spec_notes, sort_order
+       FROM rfq_item WHERE rfq_id = $2`,
+      [next.id, old.id]
+    );
+
+    // Invited vendors copied as a default; re-stamped to the reviser/now.
+    await client.query(
+      `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
+       SELECT $1, vendor_id, $2 FROM rfq_vendor WHERE rfq_id = $3`,
+      [next.id, userId, old.id]
+    );
+
+    await client.query(
+      `UPDATE rfq SET status = 'superseded', updated_at = now() WHERE id = $1`,
+      [old.id]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, rfq: next };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    const pgErr = err as Parameters<typeof mapPgError>[0] & {
+      message?: string;
+    };
+    if (pgErr.code) throw new Error(mapPgError(pgErr));
     throw err;
   } finally {
     client.release();

@@ -1426,11 +1426,26 @@ export const RFQ_STATUSES = [
   "under_review",
   "awarded",
   "cancelled",
+  // Replaced by a revision (RFQ-3b). Terminal: every mutation guard whitelists
+  // other statuses, so a superseded RFQ is read-only by construction.
+  "superseded",
 ] as const;
 export type RfqStatus = (typeof RFQ_STATUSES)[number];
 
-/** Status set where the RFQ can still be edited or cancelled. */
-export const RFQ_TERMINAL_STATUSES = ["awarded", "cancelled"] as const;
+/** Terminal statuses — no further edits, cancel, issue, or award. */
+export const RFQ_TERMINAL_STATUSES = [
+  "awarded",
+  "cancelled",
+  "superseded",
+] as const;
+
+/** Statuses from which a scope change can raise a revision (RFQ-3b). */
+export const RFQ_REVISABLE_STATUSES = [
+  "issued",
+  "quotes_received",
+  "under_review",
+  "awarded",
+] as const;
 /** Status set where more vendors can be invited after the initial issue. */
 export const RFQ_INVITEABLE_STATUSES = [
   "issued",
@@ -1509,6 +1524,10 @@ export const addRfqItemsSchema = z.object({
 });
 
 export const cancelRfqSchema = z.object({
+  reason: z.string().trim().max(2000).optional().nullable(),
+});
+
+export const reviseRfqSchema = z.object({
   reason: z.string().trim().max(2000).optional().nullable(),
 });
 
