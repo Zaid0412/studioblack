@@ -242,7 +242,42 @@ The other half of the §22 matrix, deferred out of 3c:
 
 ## 4. RFQ-4 — Smaller items (fold in opportunistically)
 
-- **BOQ eligibility gate** — enforce only client-approved / ready-for-procurement BOQ items can enter an RFQ. Add a status check in `createRfq`/`addRfqItems` (today it's implicit via `po_status`). Small; do early. Migration: none.
+### 4a — "Ready for Procurement" gate (BOQ → RFQ eligibility) ⬅ own PR
+
+**Feedback (2026-07-03):** "Once client-approved, the PM changes a BOQ item to _Ready for
+Procurement_; only then can it be added to an RFQ. PM must approve this for RFQ, then Arch
+or PM can initiate the RFQ."
+
+**Current state (verified):** the phase lifecycle ends at `client_approved` — no
+procurement-ready state. There is **no eligibility gate**: `createRfqDraft`/`addRfqItems`
+only validate item ownership; items enter an RFQ gated solely by `po_status='none'`, and
+the create picker doesn't filter by approval. RFQ creation already allows **PM + architect**
+(so "Arch or PM can initiate" already holds).
+
+**Plan:**
+
+- **New phase `ready_for_procurement`** (after `client_approved`). The transition
+  `client_approved → ready_for_procurement` is **PM-only** — this _is_ the "PM approves for
+  RFQ" step. Editing a material field on a ready item flips it back for re-approval
+  (reuse the existing `client_approved → sent_to_client` auto-flip). Touches
+  `BOQ_ITEM_PHASES`, `BOQ_ITEM_PHASE_TRANSITIONS`, `canFireBoqPhaseTransition` (PM-only),
+  phase badge/label, i18n, and the bulk-lifecycle picker.
+- **Gate:** `createRfqDraft` + `addRfqItems` require every BOQ item be
+  `phase='ready_for_procurement'` **and** `po_status='none'` — reject otherwise. The RFQ
+  create picker shows only eligible items + an empty-state hint.
+- **UI:** "Mark ready for procurement" action on `client_approved` items (PM only) —
+  item drawer + bulk lifecycle.
+
+**Migration:** yes — extend `boq_item_phase_check` (the CHECK currently restricts `phase` to
+the 8 values; adding one without this fails, like the `rfq_status_check` gotcha in 3b).
+**Effort:** Med.
+
+**Decisions to confirm:** (1) model as a new `phase` value [rec] vs a separate
+`procurement_status` field; (2) edit of a ready item flips to `sent_to_client` [rec] vs
+`client_approved`; (3) include bulk "mark ready" [rec: yes].
+
+### 4b — Other smaller items
+
 - **RFQ package name/type** — `rfq` `ADD package_type TEXT` (material/labor/equipment/subcontract/other; multi via array or a join). `title` already serves as package name. Overlaps with RFQ-1's distribution work — do together. Migration: additive.
 - **Dedicated `rfq_communications` timeline** — table (id, rfq_id, vendor_id, date, user, action, channel, remarks) + a timeline UI on the RFQ. Today derived from `audit_event`. Lower priority — only if the audit-derived timeline proves insufficient. Migration: new table.
 
@@ -253,7 +288,7 @@ The other half of the §22 matrix, deferred out of 3c:
 1. **RFQ-1** ✅ shipped (#154) — manual/multi-channel entry + evidence.
 2. **RFQ-2** ✅ shipped (#155) — quote versioning.
 3. **RFQ-3** (scope change / revisions): **3a** ✅ (#156) → **3b** ✅ (#157) → **3c** ◀ next → **3d** (future: scope removal/addition). Change Orders out of scope (no PO layer).
-4. **RFQ-4** comms timeline — only if needed.
+4. **RFQ-4a** "Ready for Procurement" gate (BOQ→RFQ eligibility) — own PR, from the 2026-07-03 feedback. Then **4b** package_type / comms timeline — only if needed.
 
 ## Migrations (in order)
 
