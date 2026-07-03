@@ -557,10 +557,13 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       />
 
       <BoqBottomBar
+        projectId={projectId}
+        boqId={boq.id}
         summary={boq.summary}
         contingencyPct={boq.contingency_pct}
         vatPct={boq.vat_pct}
         currency={boq.currency}
+        canEdit={canEdit}
       />
 
       <BoqApplyRateDialog
