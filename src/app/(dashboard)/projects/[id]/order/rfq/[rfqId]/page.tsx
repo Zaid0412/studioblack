@@ -9,6 +9,7 @@ import {
   FileText,
   GitBranch,
   Mail,
+  MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
@@ -16,6 +17,13 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/DropdownMenu";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -165,6 +173,8 @@ export default function OrderRfqDetailPage({
   const isCancellable = !isTerminal;
   const canRevise =
     isPM && (RFQ_REVISABLE_STATUSES as readonly string[]).includes(rfq.status);
+  const hasMenuActions =
+    (canManage && isEditable) || canRevise || (isPM && isCancellable);
 
   const handleIssue = async (vendorIds: string[]) => {
     const res = await issue(rfqId, { vendorIds });
@@ -242,12 +252,6 @@ export default function OrderRfqDetailPage({
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {canManage && isEditable && (
-            <Button variant="secondary" onClick={() => setEditOpen(true)}>
-              <Pencil className="w-4 h-4" />
-              {t("editBtn")}
-            </Button>
-          )}
           {canManage && isDraft && (
             <Button onClick={() => setIssueOpen(true)}>
               <Mail className="w-4 h-4" />
@@ -287,21 +291,42 @@ export default function OrderRfqDetailPage({
               Award
             </Button>
           )}
-          {canRevise && (
-            <Button variant="secondary" onClick={() => setReviseOpen(true)}>
-              <GitBranch className="w-4 h-4" />
-              {t("reviseBtn")}
-            </Button>
-          )}
-          {isPM && isCancellable && (
-            <Button
-              variant="ghost"
-              onClick={() => setCancelOpen(true)}
-              className="text-error hover:text-error"
-            >
-              <Trash2 className="w-4 h-4" />
-              {t("cancelBtn")}
-            </Button>
+          {/* Management actions live in an overflow menu to keep the bar to the
+              primary workflow CTAs. */}
+          {hasMenuActions && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" aria-label={t("moreActions")}>
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canManage && isEditable && (
+                  <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                    <Pencil className="w-4 h-4" />
+                    {t("editBtn")}
+                  </DropdownMenuItem>
+                )}
+                {canRevise && (
+                  <DropdownMenuItem onClick={() => setReviseOpen(true)}>
+                    <GitBranch className="w-4 h-4" />
+                    {t("reviseBtn")}
+                  </DropdownMenuItem>
+                )}
+                {isPM && isCancellable && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      destructive
+                      onClick={() => setCancelOpen(true)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      {t("cancelBtn")}
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
@@ -418,12 +443,32 @@ export default function OrderRfqDetailPage({
 
       {/* Invited vendors */}
       <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        <div className="px-6 py-4 border-b border-border-default">
-          <h2 className="text-sm font-semibold text-text-primary">
-            {t("vendorsHeading", { count: rfq.vendors.length })}
-          </h2>
-          {rfq.vendors.length === 0 && (
-            <p className="text-xs text-text-muted mt-1">{t("vendorsEmpty")}</p>
+        <div className="px-6 py-4 border-b border-border-default flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-text-primary">
+              {t("vendorsHeading", { count: rfq.vendors.length })}
+            </h2>
+            {rfq.vendors.length === 0 && (
+              <p className="text-xs text-text-muted mt-1">
+                {t("vendorsEmpty")}
+              </p>
+            )}
+          </div>
+          {canManage && isDraft && (
+            <Button size="sm" onClick={() => setIssueOpen(true)}>
+              <Mail className="w-4 h-4" />
+              {t("issueBtn")}
+            </Button>
+          )}
+          {canManage && canInviteMore && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setInviteOpen(true)}
+            >
+              <UserPlus2 className="w-4 h-4" />
+              {t("inviteMoreBtn")}
+            </Button>
           )}
         </div>
         {rfq.vendors.length > 0 && (
