@@ -895,7 +895,16 @@ export function BoqItemDrawer({
           if (!next) setShowReopen(false);
         }}
         title="Re-open this item for the client?"
-        description="You changed a priced or scope field on an approved item. Saving moves it back to “Sent to Client” so the client re-approves the new value."
+        description={
+          <>
+            You changed a priced or scope field on an approved item. Saving
+            moves it back to{" "}
+            <span className="font-semibold text-text-primary">
+              “Sent to Client”
+            </span>{" "}
+            so the client re-approves the new value.
+          </>
+        }
         confirmLabel="Save & re-open"
         submitting={saving}
         onConfirm={persist}
