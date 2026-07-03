@@ -15,6 +15,7 @@ import { nextSequenceNumbers } from "./boq";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
+  QUOTE_SUBMITTABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
   RFQ_REVISABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
@@ -201,9 +202,9 @@ export async function getRfqDetail(
 
   // Divergence only matters while the RFQ is live (vendors are quoting against
   // the snapshot). Draft/terminal RFQs don't surface it.
-  const inFlight = (RFQ_INVITEABLE_STATUSES as readonly string[]).includes(
-    rfq.status
-  );
+  const inFlight = (
+    QUOTE_SUBMITTABLE_RFQ_STATUSES as readonly string[]
+  ).includes(rfq.status);
 
   return {
     ...rfq,
@@ -229,28 +230,19 @@ export async function getRfqDetail(
   };
 }
 
+type BoqItemSnapshot = { description: string; unit: string; quantity: number };
+const BOQ_DIVERGENCE_FIELDS = ["quantity", "description", "unit"] as const;
+
 /** Fields where the live BOQ item differs from the RFQ's snapshot (RFQ-3c). */
 export function boqDivergence(
-  snapshot: { description: string; unit: string; quantity: number },
-  live: { description: string; unit: string; quantity: number }
+  snapshot: BoqItemSnapshot,
+  live: BoqItemSnapshot
 ): RfqItemBoqChange[] {
   const changes: RfqItemBoqChange[] = [];
-  if (snapshot.quantity !== live.quantity) {
-    changes.push({
-      field: "quantity",
-      from: snapshot.quantity,
-      to: live.quantity,
-    });
-  }
-  if (snapshot.description !== live.description) {
-    changes.push({
-      field: "description",
-      from: snapshot.description,
-      to: live.description,
-    });
-  }
-  if (snapshot.unit !== live.unit) {
-    changes.push({ field: "unit", from: snapshot.unit, to: live.unit });
+  for (const field of BOQ_DIVERGENCE_FIELDS) {
+    if (snapshot[field] !== live[field]) {
+      changes.push({ field, from: snapshot[field], to: live[field] });
+    }
   }
   return changes;
 }
@@ -1377,7 +1369,9 @@ export async function syncRfqItemsFromBoq(
       return { ok: false, reason: "not_found" };
     }
     if (
-      !(RFQ_INVITEABLE_STATUSES as readonly string[]).includes(rows[0].status)
+      !(QUOTE_SUBMITTABLE_RFQ_STATUSES as readonly string[]).includes(
+        rows[0].status
+      )
     ) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "wrong_status" };
