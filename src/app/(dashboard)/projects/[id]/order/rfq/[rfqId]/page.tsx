@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  AlertTriangle,
   ArrowLeft,
   FileText,
   GitBranch,
@@ -75,7 +76,7 @@ export default function OrderRfqDetailPage({
   const lastViewedAt = useRfqLastViewed(rfqId);
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
   // `addItems` is called inside RfqAddItemsDialog, not directly here.
-  const { issue, invite, removeItem, cancel, revise } =
+  const { issue, invite, removeItem, cancel, revise, syncBoq } =
     useRfqMutations(projectId);
   const { quotes, mutate: mutateQuotes } = useQuotesForRfq(projectId, rfqId);
   const { comparison, mutate: mutateComparison } = useQuoteComparison(
@@ -93,6 +94,7 @@ export default function OrderRfqDetailPage({
   const [reviseOpen, setReviseOpen] = useState(false);
   const [revising, setRevising] = useState(false);
   const [reviseReason, setReviseReason] = useState("");
+  const [syncingBoq, setSyncingBoq] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [awardOpen, setAwardOpen] = useState(false);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
@@ -225,6 +227,25 @@ export default function OrderRfqDetailPage({
       setRevising(false);
     }
   };
+
+  const handleSyncBoq = async () => {
+    setSyncingBoq(true);
+    try {
+      const res = await syncBoq(rfqId);
+      if (res) await mutate();
+    } finally {
+      setSyncingBoq(false);
+    }
+  };
+
+  // RFQ-3c: items whose live BOQ diverged from this RFQ's snapshot (only
+  // populated for in-flight RFQs by getRfqDetail).
+  const boqChangedItems = rfq.items.filter(
+    (i) => (i.boq_changes?.length ?? 0) > 0
+  );
+  const hasQtyChange = boqChangedItems.some((i) =>
+    i.boq_changes?.some((c) => c.field === "quantity")
+  );
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-10">
@@ -380,6 +401,61 @@ export default function OrderRfqDetailPage({
           multiline
         />
       </section>
+
+      {/* RFQ-3c: BOQ divergence banner — the live BOQ changed after this RFQ
+          went out. Qty changes can be synced (reuse rate); spec changes need a
+          revision (re-quote). */}
+      {boqChangedItems.length > 0 && (
+        <section className="rounded-xl border border-warning/40 bg-warning/10 p-4 flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-text-primary">
+                {t("boqChangedTitle", { count: boqChangedItems.length })}
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-secondary">
+                {boqChangedItems.map((it) => (
+                  <li
+                    key={it.id}
+                    className="flex flex-wrap items-baseline gap-x-3"
+                  >
+                    <span className="font-medium text-text-primary">
+                      {it.description}
+                    </span>
+                    {(it.boq_changes ?? []).map((c) => (
+                      <span key={c.field} className="tabular-nums">
+                        {t(`boqChangeField.${c.field}`)}{" "}
+                        <span className="line-through text-text-muted">
+                          {String(c.from)}
+                        </span>{" "}
+                        → {String(c.to)}
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            {hasQtyChange && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleSyncBoq}
+                disabled={syncingBoq}
+              >
+                {t("syncBoqBtn")}
+              </Button>
+            )}
+            {canRevise && (
+              <Button size="sm" onClick={() => setReviseOpen(true)}>
+                <GitBranch className="w-4 h-4" />
+                {t("reviseBtn")}
+              </Button>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Items */}
       <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">

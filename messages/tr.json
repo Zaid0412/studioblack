@@ -1205,7 +1205,14 @@
       "reviseConfirm": "Revizyon oluştur",
       "reviseReasonLabel": "Neden (isteğe bağlı)",
       "reviseReasonPlaceholder": "ör. Müşteri kapsama iki gardırop ekledi",
-      "moreActions": "Diğer işlemler"
+      "moreActions": "Diğer işlemler",
+      "boqChangedTitle": "Bu talep gönderildikten sonra BOQ'da {count, plural, =1 {# kalem} other {# kalem}} değişti",
+      "boqChangeField": {
+        "quantity": "Adet",
+        "description": "Spek",
+        "unit": "Birim"
+      },
+      "syncBoqBtn": "Adetleri BOQ'dan güncelle"
     },
     "timeline": {
       "empty": "Henüz hareket yok.",

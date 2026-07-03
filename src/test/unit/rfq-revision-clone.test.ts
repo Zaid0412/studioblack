@@ -70,9 +70,10 @@ describe("cloneRfqAsRevision (RFQ-3b)", () => {
     wireHappyPath();
     await cloneRfqAsRevision("old-rfq-1", "user-pm");
     const sqls = sqlsOf();
-    expect(sqls.some((s) => /INSERT INTO rfq_item[\s\S]*SELECT/.test(s))).toBe(
-      true
-    );
+    // Items are sourced from the live boq_item (RFQ-3c), not the stale snapshot.
+    expect(
+      sqls.some((s) => /INSERT INTO rfq_item[\s\S]*JOIN boq_item/.test(s))
+    ).toBe(true);
     expect(
       sqls.some((s) => /INSERT INTO rfq_vendor[\s\S]*SELECT/.test(s))
     ).toBe(true);

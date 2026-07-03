@@ -1205,7 +1205,14 @@
       "reviseConfirm": "Create revision",
       "reviseReasonLabel": "Reason (optional)",
       "reviseReasonPlaceholder": "e.g. Client added two wardrobes to the scope",
-      "moreActions": "More actions"
+      "moreActions": "More actions",
+      "boqChangedTitle": "{count, plural, =1 {# item} other {# items}} changed in the BOQ since this RFQ was issued",
+      "boqChangeField": {
+        "quantity": "Qty",
+        "description": "Spec",
+        "unit": "Unit"
+      },
+      "syncBoqBtn": "Sync quantities from BOQ"
     },
     "timeline": {
       "empty": "Nothing has happened yet.",

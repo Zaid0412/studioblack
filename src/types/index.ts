@@ -1198,6 +1198,15 @@ export interface Rfq {
   updated_at: string;
 }
 
+/** One field where the live BOQ item has drifted from this RFQ's snapshot (RFQ-3c). */
+export interface RfqItemBoqChange {
+  field: "quantity" | "description" | "unit";
+  /** The RFQ's snapshot value (what vendors quoted against). */
+  from: string | number;
+  /** The current BOQ value. */
+  to: string | number;
+}
+
 export interface RfqItem {
   id: string;
   rfq_id: string;
@@ -1209,6 +1218,12 @@ export interface RfqItem {
   sort_order: number;
   awarded_vendor_id: string | null;
   awarded_quote_item_id: string | null;
+  /**
+   * RFQ-3c: fields where the live BOQ item now differs from this RFQ's snapshot.
+   * Populated only on the studio detail read for in-flight RFQs; undefined
+   * otherwise (draft/terminal, vendor portal, list rows).
+   */
+  boq_changes?: RfqItemBoqChange[];
 }
 
 export interface RfqVendorInvite {

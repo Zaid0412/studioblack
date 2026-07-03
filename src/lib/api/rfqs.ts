@@ -124,6 +124,11 @@ export function revise(
   return apiPost<Rfq>(API.rfqRevise(projectId, rfqId), data);
 }
 
+/** Studio: pull current BOQ quantities into a live RFQ's items (RFQ-3c). */
+export function syncBoq(projectId: string, rfqId: string) {
+  return apiPost<{ synced: number }>(API.rfqSyncBoq(projectId, rfqId), {});
+}
+
 /** Studio: append items to a draft RFQ. */
 export function addItems(
   projectId: string,
