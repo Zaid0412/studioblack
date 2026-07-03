@@ -761,7 +761,7 @@ export function BoqItemDrawer({
                   <textarea
                     value={draft.notes}
                     onChange={(e) => setField({ notes: e.target.value })}
-                    disabled={!canEdit}
+                    disabled={fieldsDisabled}
                     rows={3}
                     className={NOTES_TEXTAREA_CLS}
                     placeholder="Not shown to the client."
@@ -803,7 +803,7 @@ export function BoqItemDrawer({
                         isDestructivePhase(next) ? "danger" : "secondary"
                       }
                       size="sm"
-                      disabled={transitioning !== null}
+                      disabled={transitioning !== null || dirty}
                       onClick={() => handleTransition(next)}
                     >
                       {transitioning === next
@@ -814,8 +814,7 @@ export function BoqItemDrawer({
                 </div>
                 {dirty && (
                   <p className="text-xs text-text-muted">
-                    Save your edits before changing the item&apos;s status —
-                    lifecycle actions run against the last saved values.
+                    Save or discard your edits to change the item&apos;s status.
                   </p>
                 )}
               </section>
