@@ -385,6 +385,7 @@ vi.mock("@/lib/queries", () => ({
   reorderBoqSections: vi.fn().mockResolvedValue(undefined),
   createBoqItem: vi.fn(),
   updateBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  getBoqItemVersions: vi.fn().mockResolvedValue([]),
   applyRateContractToBoqItem: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),

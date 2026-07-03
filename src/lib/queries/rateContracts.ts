@@ -60,6 +60,9 @@ interface RateContractFieldsInput {
   deliveryTerms?: string | null;
   priceBasis?: RateContractPriceBasis | null;
   renewalDate?: string | null;
+  projectId?: string | null;
+  taxIncluded?: boolean;
+  taxPercentage?: number | null;
 }
 
 export interface CreateRateContractInput extends RateContractFieldsInput {
@@ -91,6 +94,9 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
   deliveryTerms: "delivery_terms",
   priceBasis: "price_basis",
   renewalDate: "renewal_date",
+  projectId: "project_id",
+  taxIncluded: "tax_included",
+  taxPercentage: "tax_percentage",
 };
 
 /**
@@ -218,6 +224,7 @@ export async function getRateContractById(
               'max_qty', rci.max_qty,
               'lead_time_days', rci.lead_time_days,
               'valid_until', rci.valid_until,
+              'tax_pct', rci.tax_pct,
               'category_name', cat.name,
               'category_code', cat.code_prefix,
               'element_code', e.code,
@@ -388,12 +395,14 @@ export async function createRateContract(
          currency, payment_terms, agreement_url,
          terms_and_conditions, notes, created_by,
          contract_type, credit_period_days, delivery_terms,
-         price_basis, renewal_date
+         price_basis, renewal_date,
+         project_id, tax_included, tax_percentage
        )
        VALUES ($1, $2, $3, $4, 'draft',
                $5, $6, $7,
                COALESCE($8, 'USD'), $9, $10, $11, $12, $13,
-               $14, $15, $16, $17, $18)
+               $14, $15, $16, $17, $18,
+               $19, COALESCE($20, false), $21)
        RETURNING *`,
       [
         orgId,
@@ -414,6 +423,9 @@ export async function createRateContract(
         input.deliveryTerms ?? null,
         input.priceBasis ?? null,
         input.renewalDate ?? null,
+        input.projectId ?? null,
+        input.taxIncluded ?? null,
+        input.taxPercentage ?? null,
       ]
     );
     return rows[0] as RateContract;
@@ -587,6 +599,7 @@ export interface AddRateContractItemInput {
   maxQty?: number | null;
   leadTimeDays?: number | null;
   validUntil?: string | null;
+  taxPct?: number | null;
 }
 
 /**
@@ -664,8 +677,8 @@ export async function addRateContractItems(
       const r = await client.query(
         `INSERT INTO rate_contract_item (
            rate_contract_id, category_id, element_id, unit, rate, notes,
-           description, min_qty, max_qty, lead_time_days, valid_until
-         ) VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, $8, $9, $10, $11)
+           description, min_qty, max_qty, lead_time_days, valid_until, tax_pct
+         ) VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, $8, $9, $10, $11, $12)
          ON CONFLICT ${conflictTarget}
          DO UPDATE SET unit = EXCLUDED.unit,
                        rate = EXCLUDED.rate,
@@ -674,7 +687,8 @@ export async function addRateContractItems(
                        min_qty = EXCLUDED.min_qty,
                        max_qty = EXCLUDED.max_qty,
                        lead_time_days = EXCLUDED.lead_time_days,
-                       valid_until = EXCLUDED.valid_until`,
+                       valid_until = EXCLUDED.valid_until,
+                       tax_pct = EXCLUDED.tax_pct`,
         [
           contractId,
           it.categoryId,
@@ -687,6 +701,7 @@ export async function addRateContractItems(
           it.maxQty ?? null,
           it.leadTimeDays ?? null,
           it.validUntil ?? null,
+          it.taxPct ?? null,
         ]
       );
       count += r.rowCount ?? 0;

@@ -763,6 +763,30 @@ export interface BoqItemChangeRequest {
   created_at: string;
 }
 
+/** One field's before→after within a BOQ-item change version (RFQ-3a). */
+export interface BoqItemFieldChange {
+  /** Human label, e.g. "Quantity". */
+  field: string;
+  from: string | number | null;
+  to: string | number | null;
+}
+
+/**
+ * One immutable entry in a BOQ item's material-change history (RFQ-3a). Snapshots
+ * the pre-edit row; `changes` is the computed diff to the next version (or the
+ * live row for the newest entry).
+ */
+export interface BoqItemVersion {
+  id: string;
+  version_number: number;
+  change_reason: import("@/lib/validations").BoqItemChangeReason;
+  change_note: string | null;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+  changes: BoqItemFieldChange[];
+}
+
 /**
  * One row in the per-item phase-change timeline. Sourced from `audit_event`
  * (single-item rows + bulk rows whose `metadata.item_ids` contains this id).
@@ -1067,6 +1091,12 @@ export interface RateContract {
   delivery_terms: string | null;
   price_basis: RateContractPriceBasis | null;
   renewal_date: string | null;
+  /** Optional project scope — null = org-wide (the usual case). */
+  project_id: string | null;
+  /** Whether the agreed rates are tax-inclusive. */
+  tax_included: boolean;
+  /** Default tax rate for the contract; items may override via tax_pct. */
+  tax_percentage: number | null;
   submitted_at: string | null;
   approved_by: string | null;
   approved_at: string | null;
@@ -1091,6 +1121,8 @@ export interface RateContractItem {
   max_qty: number | null;
   lead_time_days: number | null;
   valid_until: string | null;
+  /** Per-line tax rate; null = fall back to the contract's tax_percentage. */
+  tax_pct: number | null;
 }
 
 export interface RateContractItemWithTarget extends RateContractItem {

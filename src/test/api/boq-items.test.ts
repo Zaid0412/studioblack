@@ -314,7 +314,8 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
     expect(updateBoqItem).toHaveBeenCalledWith(
       ITEM_ID,
       UPDATED_AT,
-      expect.objectContaining({ description: "Renamed" })
+      expect.objectContaining({ description: "Renamed" }),
+      expect.any(String)
     );
   });
 
@@ -345,7 +346,8 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
     expect(updateBoqItem).toHaveBeenCalledWith(
       ITEM_ID,
       UPDATED_AT,
-      expect.objectContaining({ dimensionUnit: "ft" })
+      expect.objectContaining({ dimensionUnit: "ft" }),
+      expect.any(String)
     );
   });
 

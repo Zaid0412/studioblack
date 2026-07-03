@@ -842,6 +842,21 @@ export const createBoqItemSchema = z.object({
   isExcluded: z.boolean().optional(),
 });
 
+/**
+ * Why a BOQ item's qty/spec/cost changed. Auto-derived from the edited fields
+ * when the caller doesn't supply one (quantity-only → `quantity`, spec/unit →
+ * `specification`, else `other`); `scope_add`/`scope_remove` are reserved for
+ * the RFQ-3c impact flow (item added to / removed from scope).
+ */
+export const BOQ_ITEM_CHANGE_REASONS = [
+  "quantity",
+  "specification",
+  "scope_add",
+  "scope_remove",
+  "other",
+] as const;
+export type BoqItemChangeReason = (typeof BOQ_ITEM_CHANGE_REASONS)[number];
+
 export const updateBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   sectionId: z.string().uuid().nullable().optional(),
@@ -868,6 +883,10 @@ export const updateBoqItemSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).optional(),
   isProvisional: z.boolean().optional(),
   isExcluded: z.boolean().optional(),
+  // Provenance for the change-version snapshot (RFQ-3a). Both optional — when a
+  // material field is edited without a reason, the query auto-derives one.
+  changeReason: z.enum(BOQ_ITEM_CHANGE_REASONS).optional(),
+  changeNote: z.string().trim().max(2000).nullable().optional(),
 });
 
 export const deleteBoqItemSchema = z.object({
@@ -1326,6 +1345,9 @@ export const createRateContractSchema = z
     deliveryTerms: z.string().max(100).optional().nullable(),
     priceBasis: z.enum(RATE_CONTRACT_PRICE_BASES).optional().nullable(),
     renewalDate: isoDate.optional().nullable(),
+    projectId: z.string().uuid().nullable().optional(),
+    taxIncluded: z.boolean().optional(),
+    taxPercentage: z.number().min(0).max(100).optional().nullable(),
   })
   .refine((d) => d.endDate >= d.startDate, {
     message: "endDate must be on or after startDate",
@@ -1350,6 +1372,9 @@ export const updateRateContractSchema = z
     deliveryTerms: z.string().max(100).optional().nullable(),
     priceBasis: z.enum(RATE_CONTRACT_PRICE_BASES).optional().nullable(),
     renewalDate: isoDate.optional().nullable(),
+    projectId: z.string().uuid().nullable().optional(),
+    taxIncluded: z.boolean().optional(),
+    taxPercentage: z.number().min(0).max(100).optional().nullable(),
   })
   .refine((d) => !d.startDate || !d.endDate || d.endDate >= d.startDate, {
     message: "endDate must be on or after startDate",
@@ -1371,6 +1396,7 @@ export const addRateContractItemsSchema = z.object({
           maxQty: z.number().min(0).optional().nullable(),
           leadTimeDays: z.number().int().min(0).max(3650).optional().nullable(),
           validUntil: isoDate.optional().nullable(),
+          taxPct: z.number().min(0).max(100).optional().nullable(),
         })
         .refine(
           (d) => d.minQty == null || d.maxQty == null || d.maxQty >= d.minQty,

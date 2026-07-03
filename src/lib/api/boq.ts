@@ -295,6 +295,16 @@ export function getItemHistory(projectId: string, itemId: string) {
   );
 }
 
+/**
+ * Immutable material-change history (qty/spec/cost/dimensions) for a BOQ item,
+ * newest first (RFQ-3a). Studio-only.
+ */
+export function getItemVersions(projectId: string, itemId: string) {
+  return apiGet<{ versions: import("@/types").BoqItemVersion[] }>(
+    API.boqItemVersions(projectId, itemId)
+  );
+}
+
 /** Move a single BOQ item to a new phase. */
 export function setItemPhase(
   projectId: string,
