@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
   Select,
   SelectTrigger,
@@ -11,6 +12,8 @@ import {
 export interface LabeledSelectOption {
   value: string;
   label: string;
+  /** Optional leading icon, shown in the menu row and the selected value. */
+  icon?: LucideIcon;
 }
 
 interface Props {
@@ -45,11 +48,21 @@ export function LabeledSelect({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {options.map((o) => (
-            <SelectItem key={o.value} value={o.value}>
-              {o.label}
-            </SelectItem>
-          ))}
+          {options.map((o) => {
+            const Icon = o.icon;
+            return (
+              <SelectItem key={o.value} value={o.value}>
+                {Icon ? (
+                  <span className="flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-text-muted" />
+                    {o.label}
+                  </span>
+                ) : (
+                  o.label
+                )}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     </div>

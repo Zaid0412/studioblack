@@ -20,7 +20,7 @@ import {
   RFQ_MANUAL_RESPONSE_SOURCES,
   type RfqManualResponseSource,
 } from "@/lib/validations";
-import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
+import { RESPONSE_SOURCE_ICONS, RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
 
 interface Vendor {
   vendor_id: string;
@@ -103,6 +103,7 @@ export function RfqLogCommunicationDialog({
             options={RFQ_MANUAL_RESPONSE_SOURCES.map((c) => ({
               value: c,
               label: RESPONSE_SOURCE_LABELS[c],
+              icon: RESPONSE_SOURCE_ICONS[c],
             }))}
             placeholder={t("channelPlaceholder")}
           />
