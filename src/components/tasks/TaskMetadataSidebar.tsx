@@ -18,6 +18,8 @@ import { API } from "@/lib/api/routes";
 import {
   PRIORITIES,
   CATEGORIES,
+  PRIORITY_ICON,
+  CATEGORY_ICON,
   capitalize,
   formatDate,
   priorityClass,
@@ -25,7 +27,7 @@ import {
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import { FieldCard, PickerPanel } from "./MetadataPickers";
-import type { OrgMember } from "@/types";
+import type { OrgMember, TaskCategory, TaskPriority } from "@/types";
 
 interface ProjectOption {
   id: string;
@@ -121,6 +123,11 @@ function EditableSidebar({
     () => phases.find((p) => p.id === values.phaseId),
     [phases, values.phaseId]
   );
+
+  const SelectedPriorityIcon =
+    PRIORITY_ICON[values.priority as TaskPriority] ?? Flag;
+  const SelectedCategoryIcon =
+    CATEGORY_ICON[values.category as TaskCategory] ?? Tag;
 
   return (
     <div className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
@@ -333,21 +340,24 @@ function EditableSidebar({
               onChange({ priority: p });
               close();
             }}
-            renderOption={(p) => (
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(p)}`}
-              >
-                <Flag className="w-3 h-3" />
-                {capitalize(p)}
-              </span>
-            )}
+            renderOption={(p) => {
+              const PIcon = PRIORITY_ICON[p as TaskPriority] ?? Flag;
+              return (
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(p)}`}
+                >
+                  <PIcon className="w-3 h-3" />
+                  {capitalize(p)}
+                </span>
+              );
+            }}
           />
         )}
       >
         <span
           className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(values.priority)}`}
         >
-          <Flag className="w-3 h-3" />
+          <SelectedPriorityIcon className="w-3 h-3" />
           {capitalize(values.priority)}
         </span>
       </FieldCard>
@@ -365,14 +375,20 @@ function EditableSidebar({
               onChange({ category: c });
               close();
             }}
-            renderOption={(c) => (
-              <span className="text-sm text-text-primary">{capitalize(c)}</span>
-            )}
+            renderOption={(c) => {
+              const CIcon = CATEGORY_ICON[c as TaskCategory] ?? Tag;
+              return (
+                <span className="inline-flex items-center gap-2 text-sm text-text-primary">
+                  <CIcon className="w-3.5 h-3.5 text-text-muted" />
+                  {capitalize(c)}
+                </span>
+              );
+            }}
           />
         )}
       >
         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
-          <Tag className="w-3 h-3" />
+          <SelectedCategoryIcon className="w-3 h-3" />
           {capitalize(values.category)}
         </span>
       </FieldCard>
@@ -386,6 +402,8 @@ function ReadOnlySidebar({
   values,
   labels,
 }: TaskMetadataSidebarProps & { labels: ReadOnlyLabels }) {
+  const PriorityIcon = PRIORITY_ICON[values.priority as TaskPriority] ?? Flag;
+  const CategoryIcon = CATEGORY_ICON[values.category as TaskCategory] ?? Tag;
   return (
     <div className="rounded-xl border border-border-default bg-bg-secondary divide-y divide-border-default">
       <ReadRow icon={User} label="Assignees">
@@ -428,13 +446,13 @@ function ReadOnlySidebar({
         <span
           className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(values.priority)}`}
         >
-          <Flag className="w-3 h-3" />
+          <PriorityIcon className="w-3 h-3" />
           {capitalize(values.priority)}
         </span>
       </ReadRow>
       <ReadRow icon={Tag} label="Category">
         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
-          <Tag className="w-3 h-3" />
+          <CategoryIcon className="w-3 h-3" />
           {capitalize(values.category)}
         </span>
       </ReadRow>

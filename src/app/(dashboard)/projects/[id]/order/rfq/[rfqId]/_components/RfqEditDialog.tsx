@@ -19,6 +19,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import { toIsoDate } from "@/lib/formatDate";
 import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
+import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
 import type { Rfq } from "@/types";
 
 interface Props {
@@ -132,6 +133,7 @@ export function RfqEditDialog({
             options={RFQ_PACKAGE_TYPES.map((pt) => ({
               value: pt,
               label: tRfq(`packageType.${pt}`),
+              icon: RFQ_PACKAGE_TYPE_ICONS[pt],
             }))}
             placeholder={t("packageTypePlaceholder")}
           />

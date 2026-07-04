@@ -1,14 +1,28 @@
 import {
+  Award,
+  Ban,
+  Eye,
   FileSpreadsheet,
   FileText,
+  GitBranch,
   Globe,
+  HardHat,
+  Inbox,
+  Layers,
   Mail,
   MessageCircle,
+  Package,
+  PencilLine,
   PenLine,
   Phone,
+  Send,
   type LucideIcon,
 } from "lucide-react";
-import type { RfqResponseSource } from "@/lib/validations";
+import type {
+  RfqPackageType,
+  RfqResponseSource,
+  RfqStatus,
+} from "@/lib/validations";
 
 /** Display labels for how a quote reached us (portal = vendor self-service). */
 export const RESPONSE_SOURCE_LABELS: Record<RfqResponseSource, string> = {
@@ -30,4 +44,22 @@ export const RESPONSE_SOURCE_ICONS: Record<RfqResponseSource, LucideIcon> = {
   pdf: FileText,
   excel: FileSpreadsheet,
   manual: PenLine,
+};
+
+/** Package-type icons for RFQ select options (labels are i18n). */
+export const RFQ_PACKAGE_TYPE_ICONS: Record<RfqPackageType, LucideIcon> = {
+  material: Package,
+  labor: HardHat,
+  mixed: Layers,
+};
+
+/** Status icons for RFQ select options (labels are i18n, colours via badge). */
+export const RFQ_STATUS_ICONS: Record<RfqStatus, LucideIcon> = {
+  draft: PencilLine,
+  issued: Send,
+  quotes_received: Inbox,
+  under_review: Eye,
+  awarded: Award,
+  cancelled: Ban,
+  superseded: GitBranch,
 };

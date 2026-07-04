@@ -23,7 +23,7 @@ import {
   RFQ_MANUAL_RESPONSE_SOURCES,
   QUOTE_CURRENCIES,
 } from "@/lib/validations";
-import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
+import { RESPONSE_SOURCE_ICONS, RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
 import type {
   RfqItem,
   RfqWithItems,
@@ -183,6 +183,7 @@ export function ManualQuoteDialog({
               options={RFQ_MANUAL_RESPONSE_SOURCES.map((s) => ({
                 value: s,
                 label: RESPONSE_SOURCE_LABELS[s],
+                icon: RESPONSE_SOURCE_ICONS[s],
               }))}
             />
             <DatePicker

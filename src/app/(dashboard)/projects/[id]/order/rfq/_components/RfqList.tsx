@@ -9,7 +9,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
+import { RFQ_STATUS_ICONS } from "@/lib/rfqLabels";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -138,7 +140,9 @@ export function RfqList({
             <SelectItem value={ALL}>{t("filter.allStatuses")}</SelectItem>
             {RFQ_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {t(`status.${s}`)}
+                <OptionWithIcon icon={RFQ_STATUS_ICONS[s]}>
+                  {t(`status.${s}`)}
+                </OptionWithIcon>
               </SelectItem>
             ))}
           </SelectContent>
