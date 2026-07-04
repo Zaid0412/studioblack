@@ -11,6 +11,7 @@ import {
   GitBranch,
   Mail,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Plus,
   Trash2,
@@ -47,6 +48,7 @@ import {
 } from "@/lib/validations";
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
+import { RfqItemAttachmentsDialog } from "./_components/RfqItemAttachmentsDialog";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
@@ -70,6 +72,7 @@ export default function OrderRfqDetailPage({
   const { id: projectId, rfqId } = use(params);
   const router = useRouter();
   const t = useTranslations("rfq.detail");
+  const tRfq = useTranslations("rfq");
   const { role } = useUserRole();
   const isPM = role === "pm";
   const canManage = role === "pm" || role === "architect";
@@ -97,6 +100,11 @@ export default function OrderRfqDetailPage({
   const [reviseReason, setReviseReason] = useState("");
   const [syncingBoq, setSyncingBoq] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [attachmentTarget, setAttachmentTarget] = useState<{
+    id: string;
+    description: string;
+    attachments?: { url: string; fileName: string }[];
+  } | null>(null);
   const [awardOpen, setAwardOpen] = useState(false);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
   const [manualQuoteVendorId, setManualQuoteVendorId] = useState<string | null>(
@@ -407,6 +415,12 @@ export default function OrderRfqDetailPage({
           }
         />
         <RfqDetailRow
+          label={t("packageType")}
+          value={
+            rfq.package_type ? tRfq(`packageType.${rfq.package_type}`) : "—"
+          }
+        />
+        <RfqDetailRow
           label={t("scope")}
           value={rfq.scope_of_work ?? "—"}
           multiline
@@ -518,17 +532,34 @@ export default function OrderRfqDetailPage({
             specNotes: t("col.specNotes"),
           }}
           renderActions={
-            canManage && isDraft
+            canManage && !isTerminal
               ? (it) => (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(it.id)}
-                    disabled={removingItemId === it.id}
-                    aria-label={t("removeItem")}
-                    className="text-text-muted hover:text-error transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setAttachmentTarget(it)}
+                      aria-label={t("attachmentsTitle")}
+                      className="inline-flex items-center gap-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                    >
+                      <Paperclip className="w-4 h-4" />
+                      {(it.attachments?.length ?? 0) > 0 && (
+                        <span className="text-xs tabular-nums">
+                          {it.attachments!.length}
+                        </span>
+                      )}
+                    </button>
+                    {isDraft && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(it.id)}
+                        disabled={removingItemId === it.id}
+                        aria-label={t("removeItem")}
+                        className="text-text-muted hover:text-error transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 )
               : undefined
           }
@@ -726,6 +757,20 @@ export default function OrderRfqDetailPage({
           mutateQuotes();
           mutateComparison();
           mutate();
+        }}
+      />
+
+      <RfqItemAttachmentsDialog
+        projectId={projectId}
+        rfqId={rfqId}
+        item={attachmentTarget}
+        open={attachmentTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setAttachmentTarget(null);
+        }}
+        onSaved={() => {
+          mutate();
+          setAttachmentTarget(null);
         }}
       />
     </div>

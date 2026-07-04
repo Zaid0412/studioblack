@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import { toIsoDate } from "@/lib/formatDate";
+import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
 import type { Rfq } from "@/types";
 
 interface Props {
@@ -42,9 +44,13 @@ export function RfqEditDialog({
   onSaved,
 }: Props) {
   const t = useTranslations("rfq.edit");
+  const tRfq = useTranslations("rfq");
   const { update } = useRfqMutations(projectId);
 
   const [title, setTitle] = useState(rfq.title);
+  const [packageType, setPackageType] = useState<RfqPackageType | "">(
+    (rfq.package_type as RfqPackageType | null) ?? ""
+  );
   const [scopeOfWork, setScopeOfWork] = useState(rfq.scope_of_work ?? "");
   const [termsConditions, setTermsConditions] = useState(
     rfq.terms_conditions ?? ""
@@ -64,6 +70,7 @@ export function RfqEditDialog({
   useEffect(() => {
     if (open) {
       setTitle(rfq.title);
+      setPackageType((rfq.package_type as RfqPackageType | null) ?? "");
       setScopeOfWork(rfq.scope_of_work ?? "");
       setTermsConditions(rfq.terms_conditions ?? "");
       setDeadline(
@@ -82,6 +89,7 @@ export function RfqEditDialog({
     setSaving(true);
     const result = await update(rfq.id, {
       title: title.trim(),
+      packageType: packageType || null,
       scopeOfWork: scopeOfWork.trim() || null,
       termsConditions: termsConditions.trim() || null,
       responseDeadline: deadline ? toIsoDate(deadline) : null,
@@ -115,6 +123,17 @@ export function RfqEditDialog({
             onChange={(e) => setTitle(e.target.value)}
             required
             maxLength={255}
+          />
+
+          <LabeledSelect
+            label={t("packageTypeField")}
+            value={packageType}
+            onChange={(v) => setPackageType(v as RfqPackageType)}
+            options={RFQ_PACKAGE_TYPES.map((pt) => ({
+              value: pt,
+              label: tRfq(`packageType.${pt}`),
+            }))}
+            placeholder={t("packageTypePlaceholder")}
           />
 
           <div className="flex flex-col gap-1.5">

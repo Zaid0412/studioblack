@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
-import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
+import { AttachmentsEditor } from "@/components/ui/AttachmentsEditor";
 import { toast } from "@/components/ui/useToast";
 import { quotes as quotesApi } from "@/lib/api";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
@@ -70,7 +70,6 @@ export function ManualQuoteDialog({
   const [paymentTerms, setPaymentTerms] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<QuoteAttachment[]>([]);
-  const [uploadKey, setUploadKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   const existing = useMemo(
@@ -322,47 +321,11 @@ export function ManualQuoteDialog({
             <label className="text-[13px] font-medium text-text-secondary">
               Evidence
             </label>
-            {attachments.length > 0 && (
-              <ul className="flex flex-col gap-1">
-                {attachments.map((a, i) => (
-                  <li
-                    key={a.url}
-                    className="flex items-center justify-between gap-2 rounded-md border border-border-default px-3 py-1.5 text-sm"
-                  >
-                    <a
-                      href={a.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="truncate text-accent hover:underline"
-                    >
-                      {a.fileName}
-                    </a>
-                    <button
-                      type="button"
-                      aria-label="Remove"
-                      onClick={() =>
-                        setAttachments((s) => s.filter((_, idx) => idx !== i))
-                      }
-                      className="text-text-muted hover:text-text-primary"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {attachments.length < 20 && (
-              <FileUploadSlot
-                key={uploadKey}
-                variant="file"
-                url={null}
-                onUploaded={({ url, fileName }) => {
-                  setAttachments((s) => [...s, { url, fileName }]);
-                  setUploadKey((k) => k + 1);
-                }}
-                onCleared={() => {}}
-              />
-            )}
+            <AttachmentsEditor
+              value={attachments}
+              onChange={setAttachments}
+              removeLabel="Remove"
+            />
           </div>
         </div>
 

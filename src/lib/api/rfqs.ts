@@ -144,3 +144,14 @@ export function addItems(
 export function removeItem(projectId: string, rfqId: string, itemId: string) {
   return apiDelete<{ ok: true }>(API.rfqItem(projectId, rfqId, itemId));
 }
+
+export function updateItemAttachments(
+  projectId: string,
+  rfqId: string,
+  itemId: string,
+  attachments: { url: string; fileName: string }[]
+) {
+  return apiPatch<{ ok: true }>(API.rfqItem(projectId, rfqId, itemId), {
+    attachments,
+  });
+}

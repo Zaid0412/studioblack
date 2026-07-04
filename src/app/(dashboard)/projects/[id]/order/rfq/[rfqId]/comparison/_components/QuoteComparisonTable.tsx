@@ -41,6 +41,9 @@ export function QuoteComparisonTable({ comparison }: Props) {
               <th className="text-left px-3 py-3 font-medium text-text-muted">
                 Qty / Unit
               </th>
+              <th className="text-right px-3 py-3 font-medium text-text-muted whitespace-nowrap">
+                Proposed
+              </th>
               {comparison.vendors.map((v) => (
                 <th
                   key={v.vendor_id}
@@ -82,6 +85,14 @@ export function QuoteComparisonTable({ comparison }: Props) {
                 </td>
                 <td className="px-3 py-3 text-text-secondary tabular-nums whitespace-nowrap align-top">
                   {row.quantity} {row.unit}
+                </td>
+                <td className="px-3 py-3 text-right text-text-muted tabular-nums whitespace-nowrap align-top">
+                  {row.proposed_price === null
+                    ? "—"
+                    : row.proposed_price.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                 </td>
                 {comparison.vendors.map((v) => {
                   const line = row.vendor_prices[v.vendor_id];
@@ -142,7 +153,7 @@ export function QuoteComparisonTable({ comparison }: Props) {
           <tfoot>
             <tr className="border-t-2 border-border-default bg-bg-elevated">
               <td
-                colSpan={2}
+                colSpan={3}
                 className="sticky left-0 bg-bg-elevated px-4 py-3 text-right font-semibold text-text-primary border-r border-border-default"
               >
                 Grand total
@@ -166,7 +177,7 @@ export function QuoteComparisonTable({ comparison }: Props) {
             </tr>
             <tr className="bg-bg-elevated text-xs text-text-muted">
               <td
-                colSpan={2}
+                colSpan={3}
                 className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
               >
                 Delivery
@@ -182,7 +193,7 @@ export function QuoteComparisonTable({ comparison }: Props) {
             </tr>
             <tr className="bg-bg-elevated text-xs text-text-muted">
               <td
-                colSpan={2}
+                colSpan={3}
                 className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
               >
                 Payment terms
@@ -198,7 +209,7 @@ export function QuoteComparisonTable({ comparison }: Props) {
             </tr>
             <tr className="bg-bg-elevated text-xs text-text-muted">
               <td
-                colSpan={2}
+                colSpan={3}
                 className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
               >
                 Valid until

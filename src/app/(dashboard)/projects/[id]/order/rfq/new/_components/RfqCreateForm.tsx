@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -14,6 +15,7 @@ import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
+import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
 import type { BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
 
@@ -36,6 +38,7 @@ export function RfqCreateForm({ projectId }: Props) {
   const { create } = useRfqMutations(projectId);
 
   const [title, setTitle] = useState("");
+  const [packageType, setPackageType] = useState<RfqPackageType | "">("");
   const [scopeOfWork, setScopeOfWork] = useState("");
   const [termsConditions, setTermsConditions] = useState("");
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
@@ -93,6 +96,7 @@ export function RfqCreateForm({ projectId }: Props) {
 
     const rfq = await create({
       title: title.trim(),
+      packageType: packageType || null,
       scopeOfWork: scopeOfWork.trim() || null,
       termsConditions: termsConditions.trim() || null,
       responseDeadline: deadline ? toIsoDate(deadline) : null,
@@ -133,6 +137,17 @@ export function RfqCreateForm({ projectId }: Props) {
           required
           maxLength={255}
           placeholder={t("create.titlePlaceholder")}
+        />
+
+        <LabeledSelect
+          label={t("create.packageTypeField")}
+          value={packageType}
+          onChange={(v) => setPackageType(v as RfqPackageType)}
+          options={RFQ_PACKAGE_TYPES.map((pt) => ({
+            value: pt,
+            label: t(`packageType.${pt}`),
+          }))}
+          placeholder={t("create.packageTypePlaceholder")}
         />
 
         <div className="flex flex-col gap-1.5">

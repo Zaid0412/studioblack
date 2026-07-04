@@ -1188,6 +1188,8 @@ export interface Rfq {
   response_deadline: string | null;
   award_date: string | null;
   awarded_vendor_id: string | null;
+  /** PRD §9 procurement package type: material / labor / mixed. */
+  package_type: string | null;
   scope_of_work: string | null;
   terms_conditions: string | null;
   attachments: unknown | null;
@@ -1220,6 +1222,10 @@ export interface RfqItem {
   quantity: number;
   spec_notes: string | null;
   sort_order: number;
+  /** PRD §11: the BOQ proposed (sell) price snapshotted at RFQ creation. */
+  proposed_price: string | null;
+  /** PRD §11: per-line reference files (spec drawings) — {url, fileName}[]. */
+  attachments: QuoteAttachment[];
   awarded_vendor_id: string | null;
   awarded_quote_item_id: string | null;
   /**
@@ -1359,6 +1365,8 @@ export interface QuoteComparisonRow {
   quantity: number;
   spec_notes: string | null;
   sort_order: number;
+  /** PRD §11: proposed (BOQ sell) price snapshot — a reference vs vendor quotes. */
+  proposed_price: number | null;
   vendor_prices: Record<
     string,
     {

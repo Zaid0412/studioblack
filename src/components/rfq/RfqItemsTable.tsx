@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Paperclip } from "lucide-react";
 
 interface RfqItemRow {
   id: string;
@@ -8,6 +9,7 @@ interface RfqItemRow {
   unit: string;
   quantity: string | number;
   spec_notes: string | null;
+  attachments?: { url: string; fileName: string }[];
 }
 
 interface Labels {
@@ -51,7 +53,25 @@ export function RfqItemsTable({ items, labels, renderActions }: Props) {
         <tbody>
           {items.map((it) => (
             <tr key={it.id} className="border-t border-border-default">
-              <td className="px-4 py-3 text-text-primary">{it.description}</td>
+              <td className="px-4 py-3 text-text-primary">
+                {it.description}
+                {it.attachments && it.attachments.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {it.attachments.map((a) => (
+                      <a
+                        key={a.url}
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded border border-border-default bg-bg-elevated px-1.5 py-0.5 text-xs text-text-secondary hover:text-text-primary hover:border-text-muted/40 transition-colors max-w-[180px]"
+                      >
+                        <Paperclip className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{a.fileName}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </td>
               <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
               <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
                 {it.quantity}

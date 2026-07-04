@@ -11,10 +11,14 @@ import {
   addRfqItems,
   hasProjectAccess,
   removeRfqItem,
+  updateRfqItemAttachments,
   verifyRfqOwnership,
 } from "@/lib/queries";
 import { POST as POST_ITEMS } from "@/app/api/projects/[id]/rfqs/[rfqId]/items/route";
-import { DELETE as DELETE_ITEM } from "@/app/api/projects/[id]/rfqs/[rfqId]/items/[itemId]/route";
+import {
+  DELETE as DELETE_ITEM,
+  PATCH as PATCH_ITEM,
+} from "@/app/api/projects/[id]/rfqs/[rfqId]/items/[itemId]/route";
 import {
   buildRequest,
   buildParams,
@@ -259,6 +263,85 @@ describe("DELETE /api/projects/[id]/rfqs/[rfqId]/items/[itemId]", () => {
       buildRequest(
         `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
         { method: "DELETE" }
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("PATCH /api/projects/[id]/rfqs/[rfqId]/items/[itemId] — attachments (§11)", () => {
+  const body = {
+    attachments: [{ url: "https://x.test/spec.pdf", fileName: "spec.pdf" }],
+  };
+
+  it("PM replaces the line's attachments", async () => {
+    vi.mocked(updateRfqItemAttachments).mockResolvedValue({ ok: true });
+    const res = await PATCH_ITEM(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
+        { method: "PATCH", body }
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(200);
+    expect(updateRfqItemAttachments).toHaveBeenCalledWith(
+      RFQ_ID,
+      ITEM_ID,
+      body.attachments
+    );
+  });
+
+  it("400 on an invalid attachment url", async () => {
+    const res = await PATCH_ITEM(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
+        {
+          method: "PATCH",
+          body: { attachments: [{ url: "nope", fileName: "x" }] },
+        }
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("409 when the RFQ is terminal (wrong_status)", async () => {
+    vi.mocked(updateRfqItemAttachments).mockResolvedValue({
+      ok: false,
+      reason: "wrong_status",
+    });
+    const res = await PATCH_ITEM(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
+        { method: "PATCH", body }
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it("404 when the item is gone", async () => {
+    vi.mocked(updateRfqItemAttachments).mockResolvedValue({
+      ok: false,
+      reason: "not_found",
+    });
+    const res = await PATCH_ITEM(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
+        { method: "PATCH", body }
+      ),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("blocks vendor", async () => {
+    setupAuth(mocks.auth, vendorSession);
+    const res = await PATCH_ITEM(
+      buildRequest(
+        `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
+        { method: "PATCH", body }
       ),
       buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
     );

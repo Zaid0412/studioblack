@@ -238,8 +238,10 @@ export async function getQuoteComparison(
       quantity: string;
       spec_notes: string | null;
       sort_order: number;
+      proposed_price: string | null;
     }>(
-      `SELECT id, boq_item_id, description, unit, quantity, spec_notes, sort_order
+      `SELECT id, boq_item_id, description, unit, quantity, spec_notes, sort_order,
+              proposed_price
          FROM rfq_item
         WHERE rfq_id = $1
         ORDER BY sort_order, description`,
@@ -350,6 +352,8 @@ export async function getQuoteComparison(
       quantity,
       spec_notes: row.spec_notes,
       sort_order: row.sort_order,
+      proposed_price:
+        row.proposed_price === null ? null : Number(row.proposed_price),
       vendor_prices,
     };
   });

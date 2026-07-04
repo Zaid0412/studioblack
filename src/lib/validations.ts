@@ -1479,8 +1479,13 @@ const rfqItemInputSchema = z.object({
   specNotes: z.string().trim().max(2000).optional().nullable(),
 });
 
+/** PRD §9 RFQ "Package Type" (Material / Labor / Mixed). */
+export const RFQ_PACKAGE_TYPES = ["material", "labor", "mixed"] as const;
+export type RfqPackageType = (typeof RFQ_PACKAGE_TYPES)[number];
+
 export const createRfqSchema = z.object({
   title: z.string().trim().min(1).max(255),
+  packageType: z.enum(RFQ_PACKAGE_TYPES).optional().nullable(),
   scopeOfWork: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
   termsConditions: z
     .string()
@@ -1500,6 +1505,7 @@ export const createRfqSchema = z.object({
 export const updateRfqSchema = z
   .object({
     title: z.string().trim().min(1).max(255).optional(),
+    packageType: z.enum(RFQ_PACKAGE_TYPES).nullable().optional(),
     scopeOfWork: z
       .string()
       .trim()
@@ -1614,6 +1620,11 @@ export const quoteAttachmentSchema = z.object({
   fileName: z.string().trim().min(1).max(255),
 });
 export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
+
+/** PRD §11: per-line RFQ attachments (spec drawings / reference docs). */
+export const updateRfqItemAttachmentsSchema = z.object({
+  attachments: z.array(quoteAttachmentSchema).max(20),
+});
 
 /**
  * A PM records a quote received off-channel on behalf of an already-invited

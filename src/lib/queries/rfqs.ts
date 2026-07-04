@@ -11,7 +11,7 @@ import type {
   VendorLite,
 } from "@/types";
 import { escapeSqlLike } from "./helpers";
-import { nextSequenceNumbers } from "./boq";
+import { BOQ_SELL_PRICE_SQL, nextSequenceNumbers } from "./boq";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
@@ -179,8 +179,8 @@ export async function getRfqDetail(
       // Join the live boq_item so the detail read can flag divergence (RFQ-3c)
       // and scope removal (RFQ-3d).
       `SELECT ri.id, ri.rfq_id, ri.boq_item_id, ri.description, ri.unit,
-              ri.quantity, ri.spec_notes, ri.sort_order,
-              ri.awarded_vendor_id, ri.awarded_quote_item_id,
+              ri.quantity, ri.spec_notes, ri.sort_order, ri.proposed_price,
+              ri.attachments, ri.awarded_vendor_id, ri.awarded_quote_item_id,
               bi.quantity AS boq_quantity, bi.description AS boq_description,
               bi.unit AS boq_unit, bi.is_excluded AS boq_excluded
        FROM rfq_item ri
@@ -545,8 +545,11 @@ export async function getRfqDetailForVendor(
   // Items + events in parallel — independent post-header.
   const [itemRes, studioEvents] = await Promise.all([
     pool.query<RfqItem>(
+      // `proposed_price` is the internal (client-facing) price — never exposed
+      // to vendors; nulled here. `attachments` (spec files) they DO need.
       `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
-              sort_order, awarded_vendor_id, awarded_quote_item_id
+              sort_order, NULL AS proposed_price, attachments,
+              awarded_vendor_id, awarded_quote_item_id
        FROM rfq_item
        WHERE rfq_id = $1
        ORDER BY sort_order, description`,
@@ -674,6 +677,7 @@ export interface NewRfqItem {
 
 export interface CreateRfqInput {
   title: string;
+  packageType?: string | null;
   scopeOfWork?: string | null;
   termsConditions?: string | null;
   responseDeadline?: string | null;
@@ -693,11 +697,15 @@ async function bulkInsertRfqItems(
 ): Promise<void> {
   if (items.length === 0) return;
   await client.query(
-    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
-     SELECT $1::uuid, boq_item_id, description, unit, quantity, spec_notes, sort_order
+    // proposed_price is the per-UNIT proposed rate (sell line total ÷ qty) so it
+    // lines up with the vendor unit prices in the comparison sheet (§11).
+    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
+     SELECT $1::uuid, t.boq_item_id, t.description, t.unit, t.quantity, t.spec_notes, t.sort_order,
+            (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0)
      FROM UNNEST(
        $2::uuid[], $3::text[], $4::text[], $5::numeric[], $6::text[], $7::int[]
-     ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)`,
+     ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)
+     LEFT JOIN boq_item bi ON bi.id = t.boq_item_id`,
     [
       rfqId,
       items.map((i) => i.boqItemId),
@@ -801,15 +809,16 @@ export async function createRfqDraft(
 
     const { rows: rfqRows } = await client.query<Rfq>(
       `INSERT INTO rfq (
-         org_id, project_id, rfq_number, title, status,
+         org_id, project_id, rfq_number, title, status, package_type,
          scope_of_work, terms_conditions, response_deadline, created_by
-       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8)
+       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         orgId,
         projectId,
         rfqNumber,
         input.title,
+        input.packageType ?? null,
         input.scopeOfWork ?? null,
         input.termsConditions ?? null,
         input.responseDeadline ?? null,
@@ -838,6 +847,7 @@ export async function createRfqDraft(
 
 export interface UpdateRfqInput {
   title?: string;
+  packageType?: string | null;
   scopeOfWork?: string | null;
   termsConditions?: string | null;
   responseDeadline?: string | null;
@@ -986,8 +996,37 @@ export async function removeRfqItem(
   }
 }
 
+/**
+ * PRD §11: replace an RFQ line's reference attachments ({url, fileName}[]).
+ * Allowed while the RFQ is live (not terminal) — attaching a clarifying spec
+ * after issue is legitimate. Verifies the item belongs to the RFQ.
+ */
+export async function updateRfqItemAttachments(
+  rfqId: string,
+  rfqItemId: string,
+  attachments: { url: string; fileName: string }[]
+): Promise<{ ok: true } | { ok: false; reason: "not_found" | "wrong_status" }> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: string }>(
+    `SELECT r.status
+       FROM rfq_item ri JOIN rfq r ON r.id = ri.rfq_id
+      WHERE ri.id = $1 AND ri.rfq_id = $2`,
+    [rfqItemId, rfqId]
+  );
+  if (rows.length === 0) return { ok: false, reason: "not_found" };
+  if ((RFQ_TERMINAL_STATUSES as readonly string[]).includes(rows[0].status)) {
+    return { ok: false, reason: "wrong_status" };
+  }
+  await pool.query(
+    `UPDATE rfq_item SET attachments = $3::jsonb WHERE id = $1 AND rfq_id = $2`,
+    [rfqItemId, rfqId, JSON.stringify(attachments)]
+  );
+  return { ok: true };
+}
+
 const RFQ_HEADER_COLS: Record<keyof UpdateRfqInput, string> = {
   title: "title",
+  packageType: "package_type",
   scopeOfWork: "scope_of_work",
   termsConditions: "terms_conditions",
   responseDeadline: "response_deadline",
@@ -1369,13 +1408,15 @@ export async function cloneRfqAsRevision(
 
     // Items: description/unit/quantity are sourced from the LIVE boq_item so the
     // revision reflects the current BOQ (RFQ-3c) — the whole point of revising
-    // after a scope change. spec_notes + sort_order stay RFQ-specific. Award
-    // links reset by omission (default null on the fresh rows). Items removed
-    // from scope (excluded) are dropped from the revision (RFQ-3d).
+    // after a scope change. spec_notes + sort_order + attachments stay
+    // RFQ-specific and carry over. Award links reset by omission (default null
+    // on the fresh rows). Items removed from scope (excluded) are dropped
+    // (RFQ-3d). proposed_price re-snapshots the per-unit rate from the live BOQ.
     await client.query(
-      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
+      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, attachments, proposed_price)
        SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
-              ri.spec_notes, ri.sort_order
+              ri.spec_notes, ri.sort_order, ri.attachments,
+              (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0)
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
        WHERE ri.rfq_id = $2 AND NOT bi.is_excluded`,

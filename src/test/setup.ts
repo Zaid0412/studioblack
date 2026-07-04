@@ -498,6 +498,7 @@ vi.mock("@/lib/queries", () => ({
     .mockResolvedValue({ ok: false, reason: "not_found" }),
   addRfqItems: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   removeRfqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
+  updateRfqItemAttachments: vi.fn().mockResolvedValue({ ok: true }),
   cancelRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   cloneRfqAsRevision: vi
     .fn()

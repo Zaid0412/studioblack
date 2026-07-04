@@ -11,6 +11,8 @@ export interface RfqIssueContext {
   rfqTitle: string;
   projectName: string;
   responseDeadline: string | null;
+  /** >0 when issuing an RFQ revision — drives the "please requote" wording. */
+  revisionNumber: number;
 }
 
 /**
@@ -69,6 +71,7 @@ export async function notifyRfqIssued(
         rfqTitle: ctx.rfqTitle,
         responseDeadline: ctx.responseDeadline,
         deepLink,
+        revisionNumber: ctx.revisionNumber,
       });
     } catch (err) {
       logger.warn("RFQ issue email failed", {

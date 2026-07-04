@@ -259,6 +259,29 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
+  const updateItemAttachments = useCallback(
+    async (
+      rfqId: string,
+      itemId: string,
+      attachments: { url: string; fileName: string }[]
+    ) => {
+      try {
+        await rfqApi.updateItemAttachments(
+          projectId,
+          rfqId,
+          itemId,
+          attachments
+        );
+        await invalidateList();
+        return true;
+      } catch (err) {
+        handleError(err, "Could not update attachments");
+        return false;
+      }
+    },
+    [projectId, invalidateList]
+  );
+
   return {
     create,
     update,
@@ -266,6 +289,7 @@ export function useRfqMutations(projectId: string) {
     invite,
     addItems,
     removeItem,
+    updateItemAttachments,
     cancel,
     revise,
     syncBoq,
