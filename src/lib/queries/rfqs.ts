@@ -330,6 +330,14 @@ const VENDOR_BEARING_ACTIONS = new Set<string>([
   AUDIT_ACTIONS.RFQ_ISSUED,
   AUDIT_ACTIONS.RFQ_VENDORS_ADDED,
 ]);
+/**
+ * Studio-internal audit actions that must never surface in the vendor portal.
+ * A logged communication carries free-text `remarks` and can name a specific
+ * (possibly competing) vendor — it's a private studio note, not vendor-facing.
+ */
+const STUDIO_ONLY_ACTIONS = new Set<string>([
+  AUDIT_ACTIONS.RFQ_COMMUNICATION_LOGGED,
+]);
 
 async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
   const pool = getPool();
@@ -588,6 +596,8 @@ export async function getRfqDetailForVendor(
   //    they don't see competitors' submission activity at all
   const events: RfqEvent[] = studioEvents
     .filter((e) => {
+      // Studio-internal notes (e.g. logged communications) never go to vendors.
+      if (STUDIO_ONLY_ACTIONS.has(e.action)) return false;
       if (
         e.action === "quote.submitted" ||
         e.action === "quote.revised" ||

@@ -16,6 +16,15 @@ export const POST = withAuth(
     const resolved = await resolveRfqId(params.id, params.rfqId);
     if (!resolved.ok) return resolved.response;
 
+    // The audit event is this route's only persistence — without an org we'd
+    // silently drop it while returning success, so fail fast instead.
+    if (!orgId) {
+      return NextResponse.json(
+        { error: "No active organisation" },
+        { status: 400 }
+      );
+    }
+
     const parsed = await parseRequest(req, logRfqCommunicationSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
@@ -34,21 +43,19 @@ export const POST = withAuth(
       );
     }
 
-    if (orgId) {
-      await logAuditSafe({
-        orgId,
-        actorId: user.id,
-        action: AUDIT_ACTIONS.RFQ_COMMUNICATION_LOGGED,
-        targetTable: "rfq",
-        targetId: resolved.rfqId,
-        metadata: {
-          channel,
-          vendor_id: vendorId ?? null,
-          vendor_name: vendorName,
-          remarks,
-        },
-      });
-    }
+    await logAuditSafe({
+      orgId,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.RFQ_COMMUNICATION_LOGGED,
+      targetTable: "rfq",
+      targetId: resolved.rfqId,
+      metadata: {
+        channel,
+        vendor_id: vendorId ?? null,
+        vendor_name: vendorName,
+        remarks,
+      },
+    });
     return NextResponse.json({ ok: true });
   }
 );
