@@ -46,6 +46,7 @@ beforeEach(() => {
   vi.mocked(getRfqsByProject).mockResolvedValue({
     rows: [sampleRow],
     total: 1,
+    readyNotInRfq: 0,
   });
 });
 
@@ -66,6 +67,20 @@ describe("GET /api/projects/[id]/rfqs", () => {
     expect(body.total).toBe(1);
     expect(body.page).toBe(1);
     expect(body.limit).toBe(25);
+  });
+
+  it("passes the readyNotInRfq count through (RFQ-3d)", async () => {
+    vi.mocked(getRfqsByProject).mockResolvedValue({
+      rows: [sampleRow],
+      total: 1,
+      readyNotInRfq: 4,
+    });
+    const res = await GET_LIST(
+      buildRequest(`/api/projects/${PROJECT_ID}/rfqs`),
+      buildParams({ id: PROJECT_ID })
+    );
+    const { body } = await parseResponse<{ readyNotInRfq: number }>(res);
+    expect(body.readyNotInRfq).toBe(4);
   });
 
   it("allows architect", async () => {

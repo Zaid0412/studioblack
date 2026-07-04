@@ -23,6 +23,8 @@ type CancelInput = z.infer<typeof cancelRfqSchema>;
 export interface ListRfqsResponse {
   rows: RfqListRow[];
   total: number;
+  /** RFQ-3d: count of ready-for-procurement BOQ items not yet on any live RFQ. */
+  readyNotInRfq: number;
   page: number;
   limit: number;
 }

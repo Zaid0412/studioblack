@@ -60,6 +60,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const currentUserId = session?.user?.id ?? null;
   const {
     updateItem,
+    setItemExcluded,
     moveItem,
     bulkMoveItems,
     bulkDeleteItems,
@@ -88,6 +89,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [deleteItemTarget, setDeleteItemTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [deletingItem, setDeletingItem] = useState(false);
+  // RFQ-3d: a delete request for an item on a live RFQ opens this "remove from
+  // scope instead" prompt on the first click, rather than a failing delete.
+  const [rfqBlockedItem, setRfqBlockedItem] =
+    useState<BoqItemWithComputed | null>(null);
+  const [excludingBlocked, setExcludingBlocked] = useState(false);
   const [applyRateTarget, setApplyRateTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
@@ -447,6 +453,27 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
+  // RFQ-3d: route a delete request — an item on a live RFQ can't be deleted, so
+  // prompt to remove it from scope instead of letting the delete fail.
+  const requestDeleteItem = (item: BoqItemWithComputed) => {
+    if (item.on_rfq) setRfqBlockedItem(item);
+    else setDeleteItemTarget(item);
+  };
+
+  const confirmRemoveFromScope = async () => {
+    if (!rfqBlockedItem) return;
+    setExcludingBlocked(true);
+    try {
+      const res = await setItemExcluded(rfqBlockedItem, true);
+      if (res) {
+        toast({ title: "Removed from scope", variant: "success" });
+        setRfqBlockedItem(null);
+      }
+    } finally {
+      setExcludingBlocked(false);
+    }
+  };
+
   const handleReorderSections = (orderedIds: string[]) => {
     if (!boq) return;
     reorderSections(boq.id, orderedIds).catch(() => {
@@ -541,7 +568,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqCreatorId={boq.created_by}
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
-        onDeleteItem={async (item) => setDeleteItemTarget(item)}
+        onDeleteItem={async (item) => requestDeleteItem(item)}
         onApplyRate={setApplyRateTarget}
         onMoveItem={moveItem}
         onCreateAndMoveItem={setCreateAndMoveTarget}
@@ -632,6 +659,29 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onConfirm={confirmDeleteItem}
       />
 
+      {/* RFQ-3d: an item on a live RFQ can't be deleted — offer the remedy
+          (remove from scope) on the first delete click instead of failing. */}
+      <ConfirmDialog
+        open={rfqBlockedItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setRfqBlockedItem(null);
+        }}
+        title="Remove from scope instead?"
+        description={
+          rfqBlockedItem ? (
+            <>
+              <span className="font-medium text-text-primary">
+                {rfqBlockedItem.item_code}
+              </span>
+              {` is on an RFQ, so it can't be deleted. Remove it from scope — the line stays for history, drops out of totals, and the RFQ shows it as removed.`}
+            </>
+          ) : null
+        }
+        confirmLabel="Remove from scope"
+        submitting={excludingBlocked}
+        onConfirm={confirmRemoveFromScope}
+      />
+
       <BoqDeleteSectionDialog
         target={deleteSectionTarget}
         itemCount={
@@ -700,6 +750,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         description="This permanently removes the selected items. Sections stay in place."
         confirmLabel={`Delete ${selection.selected.size} item${selection.selected.size === 1 ? "" : "s"}`}
         destructive
+        submitting={bulkPending}
         onConfirm={handleBulkDelete}
       />
 
@@ -721,7 +772,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           // Close the drawer first so the confirm dialog isn't stacked
           // on top of the open sheet — single modal layer at a time.
           setDrawerItem(null);
-          setDeleteItemTarget(item);
+          requestDeleteItem(item);
         }}
         onOpenOtherItem={(itemId) => {
           const next = boq.items.find((it) => it.id === itemId);

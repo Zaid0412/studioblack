@@ -74,6 +74,10 @@ describe("cloneRfqAsRevision (RFQ-3b)", () => {
     expect(
       sqls.some((s) => /INSERT INTO rfq_item[\s\S]*JOIN boq_item/.test(s))
     ).toBe(true);
+    // RFQ-3d: items removed from scope (excluded) are dropped from the revision.
+    expect(
+      sqls.some((s) => /INSERT INTO rfq_item[\s\S]*NOT bi\.is_excluded/.test(s))
+    ).toBe(true);
     expect(
       sqls.some((s) => /INSERT INTO rfq_vendor[\s\S]*SELECT/.test(s))
     ).toBe(true);

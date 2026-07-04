@@ -395,7 +395,7 @@ vi.mock("@/lib/queries", () => ({
   moveBoqItemsBulk: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),
-  deleteBoqItemsBulk: vi.fn().mockResolvedValue(0),
+  deleteBoqItemsBulk: vi.fn().mockResolvedValue({ deleted: 0, blocked: 0 }),
   reorderBoqItems: vi.fn().mockResolvedValue(undefined),
   addElementToBoq: vi.fn().mockResolvedValue(null),
   addElementsToBoq: vi.fn().mockResolvedValue(null),
@@ -481,7 +481,9 @@ vi.mock("@/lib/queries", () => ({
   removeRateContractItem: vi.fn().mockResolvedValue(true),
   // RFQ (Feature 9)
   verifyRfqOwnership: vi.fn().mockResolvedValue(true),
-  getRfqsByProject: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getRfqsByProject: vi
+    .fn()
+    .mockResolvedValue({ rows: [], total: 0, readyNotInRfq: 0 }),
   getRfqDetail: vi.fn().mockResolvedValue(null),
   getSuggestedVendorsForRfq: vi.fn().mockResolvedValue([]),
   getAllVendorsForRfq: vi.fn().mockResolvedValue([]),

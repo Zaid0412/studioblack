@@ -328,7 +328,8 @@ export function BoqItemDrawer({
   onOpenOtherItem,
 }: BoqItemDrawerProps) {
   const t = useTranslations("boq.table");
-  const { updateItem, setItemPhase } = useBoqMutations(projectId);
+  const { updateItem, setItemExcluded, setItemPhase } =
+    useBoqMutations(projectId);
   const isExternal = isExternalViewer(role);
   // Buffered edit state. Seeded when a new item opens; NOT re-seeded on SWR
   // revalidation, so a background refresh can't clobber in-progress edits.
@@ -336,6 +337,9 @@ export function BoqItemDrawer({
     item ? seedDraft(item) : EMPTY_DRAFT
   );
   const [saving, setSaving] = useState(false);
+  // RFQ-3d: in-flight state + confirm for the remove-from-scope action.
+  const [excluding, setExcluding] = useState(false);
+  const [showExcludeConfirm, setShowExcludeConfirm] = useState(false);
   // Deferred-close / re-approval prompts.
   const [showDiscard, setShowDiscard] = useState(false);
   const [showReopen, setShowReopen] = useState(false);
@@ -470,6 +474,37 @@ export function BoqItemDrawer({
       return;
     }
     void persist();
+  };
+
+  // RFQ-3d: toggle the item in/out of scope (is_excluded). A non-destructive
+  // alternative to deleting an item that's on an RFQ — the RFQ surfaces the
+  // removal and routes it to a revision.
+  const doToggleExclude = async () => {
+    const removing = !item.is_excluded;
+    setExcluding(true);
+    try {
+      const res = await setItemExcluded(item, removing);
+      if (res === null || res === undefined) return; // 409 handled by the hook
+      toast({
+        title: removing ? "Removed from scope" : "Restored to scope",
+        variant: "success",
+      });
+    } finally {
+      setExcluding(false);
+      setShowExcludeConfirm(false);
+    }
+  };
+
+  const handleToggleExclude = () => {
+    if (excluding || dirty) return;
+    // Removing an item that's on a live RFQ has downstream impact (it shows as
+    // removed on the RFQ) — confirm first. `on_rfq` (not po_status) is the right
+    // signal: draft-RFQ items keep po_status='none'. Restoring is quiet.
+    if (!item.is_excluded && item.on_rfq) {
+      setShowExcludeConfirm(true);
+      return;
+    }
+    void doToggleExclude();
   };
 
   const fireTransition = async (next: BoqItemPhase, comment?: string) => {
@@ -820,6 +855,32 @@ export function BoqItemDrawer({
               </section>
             )}
 
+            {/* RFQ-3d: remove from / restore to scope. Non-destructive — the
+                line stays for history but drops out of totals, and any RFQ it's
+                on flags it as removed. */}
+            {canEdit && (
+              <section className="flex flex-col gap-2">
+                <span className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+                  Scope
+                </span>
+                <div>
+                  <Button
+                    type="button"
+                    variant={item.is_excluded ? "secondary" : "danger"}
+                    size="sm"
+                    disabled={excluding || dirty}
+                    onClick={handleToggleExclude}
+                  >
+                    {excluding
+                      ? "Working..."
+                      : item.is_excluded
+                        ? "Restore to scope"
+                        : "Remove from scope"}
+                  </Button>
+                </div>
+              </section>
+            )}
+
             <section className="grid grid-cols-2 gap-3 text-xs text-text-muted">
               <span>Created {new Date(item.created_at).toLocaleString()}</span>
               <span>Updated {new Date(item.updated_at).toLocaleString()}</span>
@@ -886,6 +947,19 @@ export function BoqItemDrawer({
           }
           setPendingDestructive(null);
         }}
+      />
+
+      <ConfirmDialog
+        open={showExcludeConfirm}
+        onOpenChange={(next) => {
+          if (!next) setShowExcludeConfirm(false);
+        }}
+        title="Remove this item from scope?"
+        description="This item is on an RFQ. Removing it keeps the line for history but flags it as removed on the RFQ, where you can raise a revision to drop it."
+        confirmLabel="Remove from scope"
+        destructive
+        submitting={excluding}
+        onConfirm={doToggleExclude}
       />
 
       <ConfirmDialog

@@ -201,10 +201,13 @@ export function bulkDeleteItems(
   boqId: string,
   itemIds: string[]
 ) {
-  return apiPost<{ deletedCount: number }>(API.boqItemsBulkDelete(projectId), {
-    boqId,
-    itemIds,
-  });
+  return apiPost<{ deletedCount: number; blockedCount: number }>(
+    API.boqItemsBulkDelete(projectId),
+    {
+      boqId,
+      itemIds,
+    }
+  );
 }
 
 /** Persist a new ordering of items inside a section (or the unassigned bucket when `sectionId` is null). */

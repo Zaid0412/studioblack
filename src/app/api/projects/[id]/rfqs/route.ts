@@ -30,6 +30,7 @@ export const GET = withAuth(
     return NextResponse.json({
       rows: result.rows,
       total: result.total,
+      readyNotInRfq: result.readyNotInRfq,
       page: parsed.data.page,
       limit: parsed.data.limit,
     });

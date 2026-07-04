@@ -1104,6 +1104,7 @@
     "title": "RFQs",
     "subtitle": "Request quotes from vendors for picked BOQ items.",
     "newRfq": "New RFQ",
+    "readyNotInRfq": "{count, plural, =1 {# item is} other {# items are}} ready for procurement and not in an RFQ yet",
     "noRfqs": "No RFQs yet",
     "noRfqsHint": "Create one from your BOQ items to request vendor quotes.",
     "noResults": "No matches",
@@ -1208,6 +1209,7 @@
       "reviseReasonPlaceholder": "e.g. Client added two wardrobes to the scope",
       "moreActions": "More actions",
       "boqChangedTitle": "{count, plural, =1 {# item} other {# items}} changed in the BOQ since this RFQ was issued",
+      "boqRemovedTitle": "{count, plural, =1 {# item} other {# items}} removed from the BOQ since this RFQ was issued",
       "boqChangeField": {
         "quantity": "Qty",
         "description": "Spec",

@@ -94,6 +94,18 @@ export function useBoqMutations(projectId: string) {
     [projectId, key]
   );
 
+  // RFQ-3d: remove from / restore to scope. Shared by the drawer's Scope action
+  // and the delete-blocked prompt so the payload + 409 handling stay in one
+  // place. Returns the updated row, or null on a 409 (already toasted).
+  const setItemExcluded = useCallback(
+    (item: BoqItemWithComputed, excluded: boolean) =>
+      updateItem(item.id, {
+        updatedAt: item.updated_at,
+        isExcluded: excluded,
+      }),
+    [updateItem]
+  );
+
   const moveItem = useCallback(
     async (item: BoqItemWithComputed, targetSectionId: string | null) => {
       // Same-section move is a no-op — short-circuit so we don't bump
@@ -240,19 +252,30 @@ export function useBoqMutations(projectId: string) {
           },
           { revalidate: false }
         );
-        const { deletedCount } = await boqApi.bulkDeleteItems(
+        const { deletedCount, blockedCount } = await boqApi.bulkDeleteItems(
           projectId,
           boqId,
           itemIds
         );
         await globalMutate(key);
-        toast({
-          title:
-            deletedCount === 1
-              ? "Item deleted"
-              : `${deletedCount} items deleted`,
-          variant: "success",
-        });
+        // RFQ-3d: items on an RFQ are skipped server-side (FK restrict) — warn
+        // rather than silently under-deleting.
+        if (blockedCount > 0) {
+          toast({
+            title: `${deletedCount} deleted · ${blockedCount} skipped`,
+            description:
+              "Items that are part of an RFQ can't be deleted — remove them from scope instead.",
+            variant: "warning",
+          });
+        } else {
+          toast({
+            title:
+              deletedCount === 1
+                ? "Item deleted"
+                : `${deletedCount} items deleted`,
+            variant: "success",
+          });
+        }
         return deletedCount;
       } catch (err) {
         await globalMutate(key); // rollback by refetching
@@ -439,6 +462,7 @@ export function useBoqMutations(projectId: string) {
     createBoq,
     updateBoq,
     updateItem,
+    setItemExcluded,
     moveItem,
     bulkMoveItems,
     bulkDeleteItems,

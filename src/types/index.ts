@@ -720,6 +720,8 @@ export interface BoqItemWithComputed extends BoqItem {
   margin_alert: boolean;
   over_budget: boolean;
   budget_variance_pct: string | null;
+  /** RFQ-3d: item is on a live (non-terminal) RFQ, so it can't be hard-deleted. */
+  on_rfq: boolean;
 }
 
 /** Aggregate totals for a BOQ (used by /summary and the full-BOQ response). */
@@ -1226,6 +1228,11 @@ export interface RfqItem {
    * otherwise (draft/terminal, vendor portal, list rows).
    */
   boq_changes?: RfqItemBoqChange[];
+  /**
+   * RFQ-3d: the live BOQ item was removed from scope (excluded) after this RFQ
+   * was issued. Populated only on the studio detail read for in-flight RFQs.
+   */
+  boq_removed?: boolean;
 }
 
 export interface RfqVendorInvite {

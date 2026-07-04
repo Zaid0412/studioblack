@@ -540,6 +540,27 @@ describe("DELETE /api/projects/[id]/boq/items/[itemId]", () => {
     expect(body.code).toBe("OPTIMISTIC_LOCK_CONFLICT");
   });
 
+  it("returns 422 when the item is on an RFQ (RFQ-3d)", async () => {
+    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(true);
+    vi.mocked(deleteBoqItem).mockResolvedValue({
+      ok: false,
+      reason: "in_rfq",
+    });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}`,
+      { method: "DELETE", body: { updatedAt: UPDATED_AT } }
+    );
+    const res = await DELETE_ITEM(
+      req,
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(422);
+    expect(body.error).toMatch(/RFQ/i);
+  });
+
   it("returns 404 when the row doesn't exist", async () => {
     vi.mocked(verifyBoqItemOwnership).mockResolvedValue(true);
     vi.mocked(deleteBoqItem).mockResolvedValue({

@@ -68,7 +68,16 @@ const ITEM_COMPUTED_COLS = `
   CASE
     WHEN bi.budget_rate IS NULL OR bi.budget_rate = 0 THEN NULL
     ELSE ROUND((bi.unit_cost - bi.budget_rate) / bi.budget_rate * 100, 1)
-  END AS budget_variance_pct
+  END AS budget_variance_pct,
+  -- RFQ-3d: is this item on a LIVE RFQ? Gates the "can't hard-delete" UI
+  -- (dead cancelled/superseded RFQs are released on delete, so they don't
+  -- count). Matches the delete guard's live-only semantics.
+  EXISTS (
+    SELECT 1 FROM rfq_item ri
+    JOIN rfq r ON r.id = ri.rfq_id
+    WHERE ri.boq_item_id = bi.id
+      AND r.status NOT IN ('cancelled', 'superseded')
+  ) AS on_rfq
 `;
 
 /**
@@ -1339,7 +1348,7 @@ export async function applyRateContractToBoqItem(
 
 export type DeleteBoqItemOutcome =
   | { ok: true }
-  | { ok: false; reason: "not_found" | "conflict" };
+  | { ok: false; reason: "not_found" | "conflict" | "in_rfq" };
 
 export type MoveBoqItemOutcome =
   | { ok: true; item: BoqItemWithComputed }
@@ -1420,6 +1429,26 @@ export async function moveBoqItem(
   return { ok: false, reason: "conflict" };
 }
 
+/**
+ * RFQ-3d: release BOQ items from cancelled/superseded RFQs so their dead
+ * rfq_item rows don't block a hard-delete — only a LIVE RFQ should (its
+ * ON DELETE RESTRICT ref then trips 23503). Runs on the caller's transaction
+ * client so it commits/rolls back with the delete. The `= ANY` form covers both
+ * the single- and bulk-delete callers.
+ */
+async function releaseFromTerminalRfqs(
+  client: PoolClient,
+  itemIds: string[]
+): Promise<void> {
+  await client.query(
+    `DELETE FROM rfq_item ri USING rfq r
+      WHERE ri.rfq_id = r.id
+        AND ri.boq_item_id = ANY($1::uuid[])
+        AND r.status IN ('cancelled', 'superseded')`,
+    [itemIds]
+  );
+}
+
 /** Delete a BOQ item with optimistic locking via `updated_at`. */
 export async function deleteBoqItem(
   itemId: string,
@@ -1427,22 +1456,42 @@ export async function deleteBoqItem(
 ): Promise<DeleteBoqItemOutcome> {
   // See `updateBoqItem` above for why the comparison truncates to ms.
   const pool = getPool();
-  const { rowCount } = await pool.query(
-    `DELETE FROM boq_item
-     WHERE id = $1
-       AND date_trunc('milliseconds', updated_at)
-           = date_trunc('milliseconds', $2::timestamptz)`,
-    [itemId, expectedUpdatedAt]
-  );
-  if ((rowCount ?? 0) > 0) return { ok: true };
-
-  const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
-    itemId,
-  ]);
-  return {
-    ok: false,
-    reason: exists.rows.length > 0 ? "conflict" : "not_found",
-  };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Release from dead RFQs first; a live reference then trips the FK
+    // (23503 → in_rfq). Tx so a no-op delete (stale token) rolls the release
+    // back too.
+    await releaseFromTerminalRfqs(client, [itemId]);
+    const { rowCount } = await client.query(
+      `DELETE FROM boq_item
+       WHERE id = $1
+         AND date_trunc('milliseconds', updated_at)
+             = date_trunc('milliseconds', $2::timestamptz)`,
+      [itemId, expectedUpdatedAt]
+    );
+    if ((rowCount ?? 0) > 0) {
+      await client.query("COMMIT");
+      return { ok: true };
+    }
+    // 0 rows — stale token or gone. Roll back the release and disambiguate.
+    await client.query("ROLLBACK");
+    const exists = await client.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
+      itemId,
+    ]);
+    return {
+      ok: false,
+      reason: exists.rows.length > 0 ? "conflict" : "not_found",
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    if ((err as { code?: string }).code === "23503") {
+      return { ok: false, reason: "in_rfq" };
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Reorder items within a section (or the BOQ root if sectionId is null). */
@@ -1677,21 +1726,56 @@ export async function moveBoqItemsBulk(
 }
 
 /**
- * Delete many BOQ items in one statement. `boqId` scopes the delete so
- * a forged itemId list can't reach into other projects' BOQs. Returns
- * the number of rows actually removed.
+ * Delete many BOQ items. `boqId` scopes the delete so a forged itemId list
+ * can't reach into other projects' BOQs.
+ *
+ * RFQ-3d: releases the requested items from cancelled/superseded RFQs first,
+ * then deletes those not on a LIVE RFQ (the FK to rfq_item is ON DELETE
+ * RESTRICT — a live reference blocks the delete). Returns the count removed and
+ * the count blocked *specifically because they're on a live RFQ* — counted via
+ * EXISTS after the release, so ids that were stale, duplicated, or from another
+ * BOQ don't get miscounted as "blocked by RFQ" and mislead the warning. Wrapped
+ * in a tx so the release + delete are atomic.
  */
 export async function deleteBoqItemsBulk(
   itemIds: string[],
   boqId: string
-): Promise<number> {
-  if (itemIds.length === 0) return 0;
+): Promise<{ deleted: number; blocked: number }> {
+  if (itemIds.length === 0) return { deleted: 0, blocked: 0 };
   const pool = getPool();
-  const { rowCount } = await pool.query(
-    `DELETE FROM boq_item WHERE id = ANY($1::uuid[]) AND boq_id = $2`,
-    [itemIds, boqId]
-  );
-  return rowCount ?? 0;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await releaseFromTerminalRfqs(client, itemIds);
+    // Runs after the release above (separate statement → sees the release), so
+    // NOT EXISTS/EXISTS reflect only live rfq_item rows.
+    const { rows } = await client.query<{ deleted: number; blocked: number }>(
+      `WITH del AS (
+         DELETE FROM boq_item bi
+          WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+            AND NOT EXISTS (
+              SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+            )
+         RETURNING bi.id
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM del) AS deleted,
+         (SELECT COUNT(*)::int FROM boq_item bi
+           WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+             AND EXISTS (
+               SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+             )
+         ) AS blocked`,
+      [itemIds, boqId]
+    );
+    await client.query("COMMIT");
+    return { deleted: rows[0]?.deleted ?? 0, blocked: rows[0]?.blocked ?? 0 };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Sources allowed to transition INTO each target phase. Pre-computed once. */
