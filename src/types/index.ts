@@ -1224,6 +1224,8 @@ export interface RfqItem {
   sort_order: number;
   /** PRD §11: the BOQ proposed (sell) price snapshotted at RFQ creation. */
   proposed_price: string | null;
+  /** PRD §11: per-line reference files (spec drawings) — {url, fileName}[]. */
+  attachments: QuoteAttachment[];
   awarded_vendor_id: string | null;
   awarded_quote_item_id: string | null;
   /**

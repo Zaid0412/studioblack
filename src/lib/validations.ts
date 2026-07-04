@@ -1621,6 +1621,11 @@ export const quoteAttachmentSchema = z.object({
 });
 export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
 
+/** PRD §11: per-line RFQ attachments (spec drawings / reference docs). */
+export const updateRfqItemAttachmentsSchema = z.object({
+  attachments: z.array(quoteAttachmentSchema).max(20),
+});
+
 /**
  * A PM records a quote received off-channel on behalf of an already-invited
  * vendor. Reuses the vendor submit shape + who/how/when it arrived + evidence.

@@ -180,7 +180,7 @@ export async function getRfqDetail(
       // and scope removal (RFQ-3d).
       `SELECT ri.id, ri.rfq_id, ri.boq_item_id, ri.description, ri.unit,
               ri.quantity, ri.spec_notes, ri.sort_order, ri.proposed_price,
-              ri.awarded_vendor_id, ri.awarded_quote_item_id,
+              ri.attachments, ri.awarded_vendor_id, ri.awarded_quote_item_id,
               bi.quantity AS boq_quantity, bi.description AS boq_description,
               bi.unit AS boq_unit, bi.is_excluded AS boq_excluded
        FROM rfq_item ri
@@ -545,8 +545,11 @@ export async function getRfqDetailForVendor(
   // Items + events in parallel — independent post-header.
   const [itemRes, studioEvents] = await Promise.all([
     pool.query<RfqItem>(
+      // `proposed_price` is the internal (client-facing) price — never exposed
+      // to vendors; nulled here. `attachments` (spec files) they DO need.
       `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
-              sort_order, awarded_vendor_id, awarded_quote_item_id
+              sort_order, NULL AS proposed_price, attachments,
+              awarded_vendor_id, awarded_quote_item_id
        FROM rfq_item
        WHERE rfq_id = $1
        ORDER BY sort_order, description`,
@@ -1001,6 +1004,34 @@ export async function removeRfqItem(
   } finally {
     client.release();
   }
+}
+
+/**
+ * PRD §11: replace an RFQ line's reference attachments ({url, fileName}[]).
+ * Allowed while the RFQ is live (not terminal) — attaching a clarifying spec
+ * after issue is legitimate. Verifies the item belongs to the RFQ.
+ */
+export async function updateRfqItemAttachments(
+  rfqId: string,
+  rfqItemId: string,
+  attachments: { url: string; fileName: string }[]
+): Promise<{ ok: true } | { ok: false; reason: "not_found" | "wrong_status" }> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ status: string }>(
+    `SELECT r.status
+       FROM rfq_item ri JOIN rfq r ON r.id = ri.rfq_id
+      WHERE ri.id = $1 AND ri.rfq_id = $2`,
+    [rfqItemId, rfqId]
+  );
+  if (rows.length === 0) return { ok: false, reason: "not_found" };
+  if ((RFQ_TERMINAL_STATUSES as readonly string[]).includes(rows[0].status)) {
+    return { ok: false, reason: "wrong_status" };
+  }
+  await pool.query(
+    `UPDATE rfq_item SET attachments = $3::jsonb WHERE id = $1 AND rfq_id = $2`,
+    [rfqItemId, rfqId, JSON.stringify(attachments)]
+  );
+  return { ok: true };
 }
 
 const RFQ_HEADER_COLS: Record<keyof UpdateRfqInput, string> = {
