@@ -179,7 +179,7 @@ export async function getRfqDetail(
       // Join the live boq_item so the detail read can flag divergence (RFQ-3c)
       // and scope removal (RFQ-3d).
       `SELECT ri.id, ri.rfq_id, ri.boq_item_id, ri.description, ri.unit,
-              ri.quantity, ri.spec_notes, ri.sort_order,
+              ri.quantity, ri.spec_notes, ri.sort_order, ri.proposed_price,
               ri.awarded_vendor_id, ri.awarded_quote_item_id,
               bi.quantity AS boq_quantity, bi.description AS boq_description,
               bi.unit AS boq_unit, bi.is_excluded AS boq_excluded
@@ -686,6 +686,18 @@ export interface CreateRfqInput {
  * round-trip regardless of item count. `startSortOrder` lets a caller
  * append to an existing item list without colliding sort values.
  */
+/**
+ * The BOQ line's total proposed (sell) price — quantity × unit cost, marked up
+ * by overhead, service charge and margin. Mirrors `sell_price` in
+ * `boq.ITEM_COMPUTED_COLS`; snapshotted onto `rfq_item.proposed_price` at
+ * RFQ/revision creation as a stable reference for the comparison sheet (§11).
+ */
+const BOQ_SELL_PRICE_EXPR = `
+  bi.quantity * bi.unit_cost
+    * (1 + COALESCE(bi.overhead_pct, 0) / 100)
+    * (1 + COALESCE(bi.service_charge_pct, 0) / 100)
+    * (1 + bi.margin_pct / 100)`;
+
 async function bulkInsertRfqItems(
   client: import("pg").PoolClient,
   rfqId: string,
@@ -694,11 +706,13 @@ async function bulkInsertRfqItems(
 ): Promise<void> {
   if (items.length === 0) return;
   await client.query(
-    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
-     SELECT $1::uuid, boq_item_id, description, unit, quantity, spec_notes, sort_order
+    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
+     SELECT $1::uuid, t.boq_item_id, t.description, t.unit, t.quantity, t.spec_notes, t.sort_order,
+            ${BOQ_SELL_PRICE_EXPR}
      FROM UNNEST(
        $2::uuid[], $3::text[], $4::text[], $5::numeric[], $6::text[], $7::int[]
-     ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)`,
+     ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)
+     LEFT JOIN boq_item bi ON bi.id = t.boq_item_id`,
     [
       rfqId,
       items.map((i) => i.boqItemId),
@@ -1377,9 +1391,9 @@ export async function cloneRfqAsRevision(
     // links reset by omission (default null on the fresh rows). Items removed
     // from scope (excluded) are dropped from the revision (RFQ-3d).
     await client.query(
-      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
+      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
        SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
-              ri.spec_notes, ri.sort_order
+              ri.spec_notes, ri.sort_order, ${BOQ_SELL_PRICE_EXPR}
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
        WHERE ri.rfq_id = $2 AND NOT bi.is_excluded`,

@@ -1222,6 +1222,8 @@ export interface RfqItem {
   quantity: number;
   spec_notes: string | null;
   sort_order: number;
+  /** PRD §11: the BOQ proposed (sell) price snapshotted at RFQ creation. */
+  proposed_price: string | null;
   awarded_vendor_id: string | null;
   awarded_quote_item_id: string | null;
   /**
@@ -1361,6 +1363,8 @@ export interface QuoteComparisonRow {
   quantity: number;
   spec_notes: string | null;
   sort_order: number;
+  /** PRD §11: proposed (BOQ sell) price snapshot — a reference vs vendor quotes. */
+  proposed_price: number | null;
   vendor_prices: Record<
     string,
     {
