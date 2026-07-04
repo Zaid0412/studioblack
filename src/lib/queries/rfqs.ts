@@ -11,7 +11,7 @@ import type {
   VendorLite,
 } from "@/types";
 import { escapeSqlLike } from "./helpers";
-import { nextSequenceNumbers } from "./boq";
+import { BOQ_SELL_PRICE_SQL, nextSequenceNumbers } from "./boq";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
@@ -689,18 +689,6 @@ export interface CreateRfqInput {
  * round-trip regardless of item count. `startSortOrder` lets a caller
  * append to an existing item list without colliding sort values.
  */
-/**
- * The BOQ line's total proposed (sell) price — quantity × unit cost, marked up
- * by overhead, service charge and margin. Mirrors `sell_price` in
- * `boq.ITEM_COMPUTED_COLS`; snapshotted onto `rfq_item.proposed_price` at
- * RFQ/revision creation as a stable reference for the comparison sheet (§11).
- */
-const BOQ_SELL_PRICE_EXPR = `
-  bi.quantity * bi.unit_cost
-    * (1 + COALESCE(bi.overhead_pct, 0) / 100)
-    * (1 + COALESCE(bi.service_charge_pct, 0) / 100)
-    * (1 + bi.margin_pct / 100)`;
-
 async function bulkInsertRfqItems(
   client: import("pg").PoolClient,
   rfqId: string,
@@ -711,7 +699,7 @@ async function bulkInsertRfqItems(
   await client.query(
     `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
      SELECT $1::uuid, t.boq_item_id, t.description, t.unit, t.quantity, t.spec_notes, t.sort_order,
-            ${BOQ_SELL_PRICE_EXPR}
+            ${BOQ_SELL_PRICE_SQL}
      FROM UNNEST(
        $2::uuid[], $3::text[], $4::text[], $5::numeric[], $6::text[], $7::int[]
      ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)
@@ -1424,7 +1412,7 @@ export async function cloneRfqAsRevision(
     await client.query(
       `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
        SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
-              ri.spec_notes, ri.sort_order, ${BOQ_SELL_PRICE_EXPR}
+              ri.spec_notes, ri.sort_order, ${BOQ_SELL_PRICE_SQL}
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
        WHERE ri.rfq_id = $2 AND NOT bi.is_excluded`,

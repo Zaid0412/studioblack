@@ -49,7 +49,6 @@ import {
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
 import { RfqItemAttachmentsDialog } from "./_components/RfqItemAttachmentsDialog";
-import type { RfqItem } from "@/types";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
@@ -101,9 +100,11 @@ export default function OrderRfqDetailPage({
   const [reviseReason, setReviseReason] = useState("");
   const [syncingBoq, setSyncingBoq] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
-  const [attachmentTarget, setAttachmentTarget] = useState<RfqItem | null>(
-    null
-  );
+  const [attachmentTarget, setAttachmentTarget] = useState<{
+    id: string;
+    description: string;
+    attachments?: { url: string; fileName: string }[];
+  } | null>(null);
   const [awardOpen, setAwardOpen] = useState(false);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
   const [manualQuoteVendorId, setManualQuoteVendorId] = useState<string | null>(
@@ -536,11 +537,7 @@ export default function OrderRfqDetailPage({
                   <div className="flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      onClick={() =>
-                        setAttachmentTarget(
-                          rfq.items.find((i) => i.id === it.id) ?? null
-                        )
-                      }
+                      onClick={() => setAttachmentTarget(it)}
                       aria-label={t("attachmentsTitle")}
                       className="inline-flex items-center gap-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
                     >

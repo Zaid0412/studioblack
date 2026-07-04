@@ -45,15 +45,25 @@ import type { boqImportRowSchema } from "@/lib/validations";
  *
  * Callers MUST join `boq b ON b.id = bi.boq_id` when using this fragment.
  */
+/**
+ * Per-line sell price: qty × unit cost, marked up by overhead, service charge
+ * and margin. THE single source of truth for this formula — reused by the item
+ * read, the BOQ summary aggregates, and (imported) by the RFQ proposed-price
+ * snapshot, so financial logic can never silently drift across those surfaces.
+ * A bare scalar over `bi` (the boq_item alias every caller uses).
+ */
+export const BOQ_SELL_PRICE_SQL = `
+  bi.quantity * bi.unit_cost
+    * (1 + COALESCE(bi.overhead_pct, 0)/100)
+    * (1 + COALESCE(bi.service_charge_pct, 0)/100)
+    * (1 + bi.margin_pct/100)`;
+
 const ITEM_COMPUTED_COLS = `
   bi.quantity * bi.unit_cost AS total_cost,
   bi.quantity * bi.unit_cost
     * (1 + COALESCE(bi.overhead_pct, 0)/100)
     * (1 + COALESCE(bi.service_charge_pct, 0)/100) AS subtotal,
-  bi.quantity * bi.unit_cost
-    * (1 + COALESCE(bi.overhead_pct, 0)/100)
-    * (1 + COALESCE(bi.service_charge_pct, 0)/100)
-    * (1 + bi.margin_pct/100) AS sell_price,
+  ${BOQ_SELL_PRICE_SQL} AS sell_price,
   CASE
     WHEN bi.installed_qty > 0
     THEN ROUND(bi.installed_qty / NULLIF(bi.quantity, 0) * 100, 1)
@@ -1972,12 +1982,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
     pool.query(
       `SELECT
          COALESCE(SUM(bi.quantity * bi.unit_cost), 0) AS total_cost,
-         COALESCE(SUM(
-           bi.quantity * bi.unit_cost
-           * (1 + COALESCE(bi.overhead_pct, 0)/100)
-           * (1 + COALESCE(bi.service_charge_pct, 0)/100)
-           * (1 + bi.margin_pct/100)
-         ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
+         COALESCE(SUM(${BOQ_SELL_PRICE_SQL}) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COALESCE(AVG(bi.margin_pct) FILTER (WHERE NOT bi.is_excluded), 0) AS average_margin_pct,
          COUNT(*) FILTER (WHERE bi.margin_pct < b.minimum_margin_pct AND NOT bi.is_excluded) AS margin_bleed_count,
          COUNT(*) FILTER (WHERE bi.phase IN ('internal_review', 'sent_to_client', 'client_reviewing')) AS pending_approvals,
@@ -1998,12 +2003,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
          bi.section_id,
          s.title AS section_title,
          COALESCE(SUM(bi.quantity * bi.unit_cost), 0) AS total_cost,
-         COALESCE(SUM(
-           bi.quantity * bi.unit_cost
-           * (1 + COALESCE(bi.overhead_pct, 0)/100)
-           * (1 + COALESCE(bi.service_charge_pct, 0)/100)
-           * (1 + bi.margin_pct/100)
-         ) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
+         COALESCE(SUM(${BOQ_SELL_PRICE_SQL}) FILTER (WHERE NOT bi.is_excluded), 0) AS total_sell_price,
          COUNT(*) AS item_count
        FROM boq_item bi
        LEFT JOIN boq_section s ON s.id = bi.section_id

@@ -352,7 +352,8 @@ export async function getQuoteComparison(
       quantity,
       spec_notes: row.spec_notes,
       sort_order: row.sort_order,
-      proposed_price: row.proposed_price === null ? null : Number(row.proposed_price),
+      proposed_price:
+        row.proposed_price === null ? null : Number(row.proposed_price),
       vendor_prices,
     };
   });

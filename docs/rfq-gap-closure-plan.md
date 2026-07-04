@@ -33,6 +33,7 @@ PRs, sequenced small → large.
 ## PR A — RFQ item & header enhancements
 
 **Package Type (PRD §9)**
+
 - New `RFQ_PACKAGE_TYPES = ['material','labor','mixed']` + `parse` helpers.
 - Migration: `rfq.package_type text` + CHECK.
 - Schema: `packageType` on `createRfqSchema` + `updateRfqSchema`.
@@ -41,23 +42,35 @@ PRs, sequenced small → large.
 - UI: `Select` on `RfqCreateForm` + `RfqEditDialog`; show on the detail header.
 
 **Proposed Price (PRD §11)**
+
 - Migration: `rfq_item.proposed_price numeric` (nullable).
 - Snapshot the BOQ item `sell_price` onto `rfq_item.proposed_price` at RFQ
   creation (createRfqDraft + addRfqItems + revision clone).
 - Surface as a reference column in the quote comparison sheet.
 
 **Revision message (PRD §24)**
+
 - When issuing an RFQ with `revision_number > 0`, send a "Revision issued —
   please submit a revised quotation" email variant instead of the standard
   issue email. Locate the issue/notify path and branch on revision number.
 
-**Per-item attachments (PRD §11)**
-- Migration: `rfq_item_attachment` (id, rfq_item_id FK, org_id, file metadata,
-  uploaded_by, created_at) — reuse the existing storage/attachment pattern.
-- Upload + list per RFQ line on the create/detail screens.
+**Per-item attachments (PRD §11)** — SHIPPED as JSONB, not a table
+
+- Implemented as an `rfq_item.attachments` JSONB `{url, fileName}[]` column
+  (mirroring the vendor-quote evidence pattern) rather than a normalized
+  `rfq_item_attachment` table. Chosen for DRY (reuses `quoteAttachmentSchema`,
+  the `QuoteAttachment` type, and the shared `AttachmentsEditor`); reference
+  docs are low-volume.
+- Managed on the RFQ **detail** page (studio) via a dialog; vendors see the
+  files read-only on both the studio + vendor item tables.
+- Known trade-offs of the JSONB choice (accepted): no per-file audit
+  (uploaded_by/created_at/size), whole-array replace on save has a lost-update
+  window if two PMs edit the same line concurrently, and removing a file
+  orphans the storage object (no delete hook). Revisit with a normalized table
+  only if per-file audit or storage GC becomes a requirement.
 
 **Migrations:** `rfq.package_type`, `rfq_item.proposed_price`,
-`rfq_item_attachment` table.
+`rfq_item.attachments` (JSONB).
 
 ---
 
