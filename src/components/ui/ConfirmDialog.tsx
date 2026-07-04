@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -71,7 +71,8 @@ export function ConfirmDialog({
             }}
             disabled={submitting}
           >
-            {submitting ? "Working..." : confirmLabel}
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {submitting ? "Working…" : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

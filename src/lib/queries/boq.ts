@@ -68,7 +68,16 @@ const ITEM_COMPUTED_COLS = `
   CASE
     WHEN bi.budget_rate IS NULL OR bi.budget_rate = 0 THEN NULL
     ELSE ROUND((bi.unit_cost - bi.budget_rate) / bi.budget_rate * 100, 1)
-  END AS budget_variance_pct
+  END AS budget_variance_pct,
+  -- RFQ-3d: is this item on a LIVE RFQ? Gates the "can't hard-delete" UI
+  -- (dead cancelled/superseded RFQs are released on delete, so they don't
+  -- count). Matches the delete guard's live-only semantics.
+  EXISTS (
+    SELECT 1 FROM rfq_item ri
+    JOIN rfq r ON r.id = ri.rfq_id
+    WHERE ri.boq_item_id = bi.id
+      AND r.status NOT IN ('cancelled', 'superseded')
+  ) AS on_rfq
 `;
 
 /**
@@ -1427,34 +1436,50 @@ export async function deleteBoqItem(
 ): Promise<DeleteBoqItemOutcome> {
   // See `updateBoqItem` above for why the comparison truncates to ms.
   const pool = getPool();
+  const client = await pool.connect();
   try {
-    const { rowCount } = await pool.query(
+    await client.query("BEGIN");
+    // RFQ-3d: release the item from cancelled/superseded RFQs so their dead
+    // rfq_item rows don't block the delete — only a LIVE RFQ should. A live
+    // reference then trips the ON DELETE RESTRICT FK (23503 → in_rfq), where
+    // the PM removes it from scope (excludes it) instead. Wrapped in a tx so a
+    // no-op delete (stale token) rolls the release back too.
+    await client.query(
+      `DELETE FROM rfq_item ri USING rfq r
+        WHERE ri.rfq_id = r.id
+          AND ri.boq_item_id = $1
+          AND r.status IN ('cancelled', 'superseded')`,
+      [itemId]
+    );
+    const { rowCount } = await client.query(
       `DELETE FROM boq_item
        WHERE id = $1
          AND date_trunc('milliseconds', updated_at)
              = date_trunc('milliseconds', $2::timestamptz)`,
       [itemId, expectedUpdatedAt]
     );
-    if ((rowCount ?? 0) > 0) return { ok: true };
+    if ((rowCount ?? 0) > 0) {
+      await client.query("COMMIT");
+      return { ok: true };
+    }
+    // 0 rows — stale token or gone. Roll back the release and disambiguate.
+    await client.query("ROLLBACK");
+    const exists = await client.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
+      itemId,
+    ]);
+    return {
+      ok: false,
+      reason: exists.rows.length > 0 ? "conflict" : "not_found",
+    };
   } catch (err) {
-    // RFQ-3d: the FK to rfq_item is ON DELETE RESTRICT — an item on any RFQ
-    // can't be hard-deleted (a quoted line keeps its history). Catch the FK
-    // violation (23503) rather than pre-checking: the happy path stays one
-    // round-trip and there's no TOCTOU window. The PM removes it from scope
-    // (excludes it) instead.
+    await client.query("ROLLBACK");
     if ((err as { code?: string }).code === "23503") {
       return { ok: false, reason: "in_rfq" };
     }
     throw err;
+  } finally {
+    client.release();
   }
-
-  const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
-    itemId,
-  ]);
-  return {
-    ok: false,
-    reason: exists.rows.length > 0 ? "conflict" : "not_found",
-  };
 }
 
 /** Reorder items within a section (or the BOQ root if sectionId is null). */
@@ -1689,15 +1714,16 @@ export async function moveBoqItemsBulk(
 }
 
 /**
- * Delete many BOQ items in one statement. `boqId` scopes the delete so
- * a forged itemId list can't reach into other projects' BOQs.
+ * Delete many BOQ items. `boqId` scopes the delete so a forged itemId list
+ * can't reach into other projects' BOQs.
  *
- * RFQ-3d: items referenced by any RFQ are skipped (the FK is ON DELETE
- * RESTRICT — including them would fail the whole statement). Returns the count
- * removed and the count blocked *specifically because they're on an RFQ* (a
- * data-modifying CTE + sibling count, both over the pre-delete snapshot) — so
- * ids that were stale, duplicated, or from another BOQ don't get miscounted as
- * "blocked by RFQ" and mislead the warning.
+ * RFQ-3d: releases the requested items from cancelled/superseded RFQs first,
+ * then deletes those not on a LIVE RFQ (the FK to rfq_item is ON DELETE
+ * RESTRICT — a live reference blocks the delete). Returns the count removed and
+ * the count blocked *specifically because they're on a live RFQ* — counted via
+ * EXISTS after the release, so ids that were stale, duplicated, or from another
+ * BOQ don't get miscounted as "blocked by RFQ" and mislead the warning. Wrapped
+ * in a tx so the release + delete are atomic.
  */
 export async function deleteBoqItemsBulk(
   itemIds: string[],
@@ -1705,26 +1731,45 @@ export async function deleteBoqItemsBulk(
 ): Promise<{ deleted: number; blocked: number }> {
   if (itemIds.length === 0) return { deleted: 0, blocked: 0 };
   const pool = getPool();
-  const { rows } = await pool.query<{ deleted: number; blocked: number }>(
-    `WITH del AS (
-       DELETE FROM boq_item bi
-        WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
-          AND NOT EXISTS (
-            SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
-          )
-       RETURNING bi.id
-     )
-     SELECT
-       (SELECT COUNT(*)::int FROM del) AS deleted,
-       (SELECT COUNT(*)::int FROM boq_item bi
-         WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
-           AND EXISTS (
-             SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
-           )
-       ) AS blocked`,
-    [itemIds, boqId]
-  );
-  return { deleted: rows[0]?.deleted ?? 0, blocked: rows[0]?.blocked ?? 0 };
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `DELETE FROM rfq_item ri USING rfq r
+        WHERE ri.rfq_id = r.id
+          AND ri.boq_item_id = ANY($1::uuid[])
+          AND r.status IN ('cancelled', 'superseded')`,
+      [itemIds]
+    );
+    // Runs after the release above (separate statement → sees the release), so
+    // NOT EXISTS/EXISTS reflect only live rfq_item rows.
+    const { rows } = await client.query<{ deleted: number; blocked: number }>(
+      `WITH del AS (
+         DELETE FROM boq_item bi
+          WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+            AND NOT EXISTS (
+              SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+            )
+         RETURNING bi.id
+       )
+       SELECT
+         (SELECT COUNT(*)::int FROM del) AS deleted,
+         (SELECT COUNT(*)::int FROM boq_item bi
+           WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+             AND EXISTS (
+               SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+             )
+         ) AS blocked`,
+      [itemIds, boqId]
+    );
+    await client.query("COMMIT");
+    return { deleted: rows[0]?.deleted ?? 0, blocked: rows[0]?.blocked ?? 0 };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Sources allowed to transition INTO each target phase. Pre-computed once. */

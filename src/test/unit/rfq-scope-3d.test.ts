@@ -9,9 +9,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  *  - getRfqsByProject counts ready-for-procurement items not on any live RFQ.
  *  - getRfqDetail flags an excluded item as removed (in-flight only).
  */
-const { mockQuery } = vi.hoisted(() => ({ mockQuery: vi.fn() }));
+// `mockQuery` = pool.query (getRfqsByProject / getRfqDetail). `mockClientQuery`
+// = the transactional client used by the delete guards (BEGIN/COMMIT + tx SQL).
+const { mockQuery, mockClientQuery, mockRelease } = vi.hoisted(() => ({
+  mockQuery: vi.fn(),
+  mockClientQuery: vi.fn(),
+  mockRelease: vi.fn(),
+}));
 vi.mock("@/lib/db", () => ({
-  getPool: () => ({ query: mockQuery, connect: vi.fn() }),
+  getPool: () => ({
+    query: mockQuery,
+    connect: () =>
+      Promise.resolve({ query: mockClientQuery, release: mockRelease }),
+  }),
 }));
 
 import { deleteBoqItem, deleteBoqItemsBulk } from "@/lib/queries/boq";
@@ -19,11 +29,15 @@ import { getRfqsByProject, getRfqDetail } from "@/lib/queries/rfqs";
 
 beforeEach(() => {
   mockQuery.mockReset();
+  mockClientQuery.mockReset();
+  mockRelease.mockReset();
 });
 
-describe("deleteBoqItem — RFQ-3d in-RFQ guard", () => {
-  it("maps the FK violation (23503) to in_rfq", async () => {
-    mockQuery.mockImplementation((sql: string) => {
+const clientSqls = () => mockClientQuery.mock.calls.map((c) => String(c[0]));
+
+describe("deleteBoqItem — RFQ-3d live-RFQ guard", () => {
+  it("maps the FK violation (23503) to in_rfq and rolls back", async () => {
+    mockClientQuery.mockImplementation((sql: string) => {
       if (/DELETE FROM boq_item/.test(sql))
         return Promise.reject({ code: "23503" });
       return Promise.resolve({ rows: [], rowCount: 0 });
@@ -31,10 +45,11 @@ describe("deleteBoqItem — RFQ-3d in-RFQ guard", () => {
 
     const res = await deleteBoqItem("item-1", "2026-07-04T00:00:00.000Z");
     expect(res).toEqual({ ok: false, reason: "in_rfq" });
+    expect(clientSqls()).toContain("ROLLBACK");
   });
 
-  it("deletes when the item is on no RFQ", async () => {
-    mockQuery.mockImplementation((sql: string) => {
+  it("releases cancelled/superseded RFQ rows, then deletes when not on a live RFQ", async () => {
+    mockClientQuery.mockImplementation((sql: string) => {
       if (/DELETE FROM boq_item/.test(sql))
         return Promise.resolve({ rowCount: 1 });
       return Promise.resolve({ rows: [] });
@@ -42,10 +57,18 @@ describe("deleteBoqItem — RFQ-3d in-RFQ guard", () => {
 
     const res = await deleteBoqItem("item-1", "2026-07-04T00:00:00.000Z");
     expect(res).toEqual({ ok: true });
+    const sqls = clientSqls();
+    // Terminal RFQ references are released before the delete.
+    expect(
+      sqls.some((s) =>
+        /DELETE FROM rfq_item[\s\S]*'cancelled', 'superseded'/.test(s)
+      )
+    ).toBe(true);
+    expect(sqls).toContain("COMMIT");
   });
 
   it("rethrows non-FK errors", async () => {
-    mockQuery.mockImplementation((sql: string) => {
+    mockClientQuery.mockImplementation((sql: string) => {
       if (/DELETE FROM boq_item/.test(sql))
         return Promise.reject({ code: "08006" });
       return Promise.resolve({ rows: [] });
@@ -57,22 +80,32 @@ describe("deleteBoqItem — RFQ-3d in-RFQ guard", () => {
   });
 });
 
-describe("deleteBoqItemsBulk — RFQ-3d skips RFQ-linked items", () => {
-  it("reports deleted + the true RFQ-blocked count (not requested - deleted)", async () => {
-    // One removed, one blocked because it's on an RFQ — counted directly.
-    mockQuery.mockResolvedValue({ rows: [{ deleted: 1, blocked: 1 }] });
+describe("deleteBoqItemsBulk — RFQ-3d live-RFQ guard", () => {
+  it("reports deleted + the true live-RFQ-blocked count (not requested - deleted)", async () => {
+    // BEGIN → release → the counting SELECT → COMMIT.
+    mockClientQuery.mockImplementation((sql: string) => {
+      if (/WITH del AS/.test(sql))
+        return Promise.resolve({ rows: [{ deleted: 1, blocked: 1 }] });
+      return Promise.resolve({ rows: [] });
+    });
     const res = await deleteBoqItemsBulk(["a", "b"], "boq-1");
     expect(res).toEqual({ deleted: 1, blocked: 1 });
-    const sql = String(mockQuery.mock.calls[0][0]);
-    // Delete skips RFQ-linked items; blocked is counted via EXISTS, not math.
-    expect(sql).toMatch(/NOT EXISTS[\s\S]*rfq_item/);
-    expect(sql).toMatch(/EXISTS[\s\S]*rfq_item[\s\S]*\) AS blocked/);
+    const sqls = clientSqls();
+    expect(
+      sqls.some((s) =>
+        /DELETE FROM rfq_item[\s\S]*'cancelled', 'superseded'/.test(s)
+      )
+    ).toBe(true);
+    expect(
+      sqls.some((s) => /EXISTS[\s\S]*rfq_item[\s\S]*\) AS blocked/.test(s))
+    ).toBe(true);
+    expect(sqls).toContain("COMMIT");
   });
 
   it("short-circuits on an empty list", async () => {
     const res = await deleteBoqItemsBulk([], "boq-1");
     expect(res).toEqual({ deleted: 0, blocked: 0 });
-    expect(mockQuery).not.toHaveBeenCalled();
+    expect(mockClientQuery).not.toHaveBeenCalled();
   });
 });
 
