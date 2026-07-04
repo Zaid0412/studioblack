@@ -24,7 +24,11 @@ export const POST = withAuth(
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }
 
-    const result = await cloneRfqAsRevision(resolved.rfqId, user.id);
+    const result = await cloneRfqAsRevision(
+      resolved.rfqId,
+      user.id,
+      parsed.data.reason ?? null
+    );
     if (!result.ok) {
       if (result.reason === "not_found") {
         return NextResponse.json({ error: "RFQ not found" }, { status: 404 });

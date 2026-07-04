@@ -207,6 +207,24 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
+  const syncBoq = useCallback(
+    async (rfqId: string) => {
+      try {
+        const res = await rfqApi.syncBoq(projectId, rfqId);
+        await invalidateList();
+        toast({
+          title: `Synced ${res.synced} item${res.synced === 1 ? "" : "s"} from the BOQ`,
+          variant: "success",
+        });
+        return res;
+      } catch (err) {
+        handleError(err, "Could not sync from the BOQ");
+        return null;
+      }
+    },
+    [projectId, invalidateList]
+  );
+
   const addItems = useCallback(
     async (rfqId: string, data: z.infer<typeof addRfqItemsSchema>) => {
       try {
@@ -249,6 +267,7 @@ export function useRfqMutations(projectId: string) {
     removeItem,
     cancel,
     revise,
+    syncBoq,
     invalidateList,
   };
 }

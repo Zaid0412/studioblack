@@ -3,6 +3,7 @@ import type {
   Rfq,
   RfqEvent,
   RfqItem,
+  RfqItemBoqChange,
   RfqVendorInvite,
   RfqListRow,
   RfqStatus,
@@ -14,6 +15,7 @@ import { nextSequenceNumbers } from "./boq";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
+  QUOTE_SUBMITTABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
   RFQ_REVISABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
@@ -140,12 +142,23 @@ export async function getRfqDetail(
   // header beyond the rfqId — fetch in parallel to cut detail-page latency
   // from 4 sequential RTTs to ~max-of-3.
   const [itemRes, vendorRes, events, chainRes] = await Promise.all([
-    pool.query<RfqItem>(
-      `SELECT id, rfq_id, boq_item_id, description, unit, quantity, spec_notes,
-              sort_order, awarded_vendor_id, awarded_quote_item_id
-       FROM rfq_item
-       WHERE rfq_id = $1
-       ORDER BY sort_order, description`,
+    pool.query<
+      RfqItem & {
+        boq_quantity: string;
+        boq_description: string;
+        boq_unit: string;
+      }
+    >(
+      // Join the live boq_item so the detail read can flag divergence (RFQ-3c).
+      `SELECT ri.id, ri.rfq_id, ri.boq_item_id, ri.description, ri.unit,
+              ri.quantity, ri.spec_notes, ri.sort_order,
+              ri.awarded_vendor_id, ri.awarded_quote_item_id,
+              bi.quantity AS boq_quantity, bi.description AS boq_description,
+              bi.unit AS boq_unit
+       FROM rfq_item ri
+       JOIN boq_item bi ON bi.id = ri.boq_item_id
+       WHERE ri.rfq_id = $1
+       ORDER BY ri.sort_order, ri.description`,
       [rfqId]
     ),
     pool.query<RfqVendorInvite>(
@@ -187,14 +200,51 @@ export async function getRfqDetail(
       : null;
   };
 
+  // Divergence only matters while the RFQ is live (vendors are quoting against
+  // the snapshot). Draft/terminal RFQs don't surface it.
+  const inFlight = (
+    QUOTE_SUBMITTABLE_RFQ_STATUSES as readonly string[]
+  ).includes(rfq.status);
+
   return {
     ...rfq,
-    items: itemRes.rows.map((i) => ({ ...i, quantity: Number(i.quantity) })),
+    items: itemRes.rows.map((r) => {
+      const { boq_quantity, boq_description, boq_unit, ...item } = r;
+      const quantity = Number(item.quantity);
+      const boq_changes = inFlight
+        ? boqDivergence(
+            { description: item.description, unit: item.unit, quantity },
+            {
+              description: boq_description,
+              unit: boq_unit,
+              quantity: Number(boq_quantity),
+            }
+          )
+        : undefined;
+      return { ...item, quantity, boq_changes };
+    }),
     vendors: vendorRes.rows,
     events,
     supersedes: chainRef("parent"),
     superseded_by: chainRef("child"),
   };
+}
+
+type BoqItemSnapshot = { description: string; unit: string; quantity: number };
+const BOQ_DIVERGENCE_FIELDS = ["quantity", "description", "unit"] as const;
+
+/** Fields where the live BOQ item differs from the RFQ's snapshot (RFQ-3c). */
+export function boqDivergence(
+  snapshot: BoqItemSnapshot,
+  live: BoqItemSnapshot
+): RfqItemBoqChange[] {
+  const changes: RfqItemBoqChange[] = [];
+  for (const field of BOQ_DIVERGENCE_FIELDS) {
+    if (snapshot[field] !== live[field]) {
+      changes.push({ field, from: snapshot[field], to: live[field] });
+    }
+  }
+  return changes;
 }
 
 /**
@@ -1237,7 +1287,8 @@ export async function cancelRfq(
  */
 export async function cloneRfqAsRevision(
   rfqId: string,
-  userId: string
+  userId: string,
+  reason?: string | null
 ): Promise<
   { ok: true; rfq: Rfq } | { ok: false; reason: "not_found" | "wrong_status" }
 > {
@@ -1264,8 +1315,8 @@ export async function cloneRfqAsRevision(
       `INSERT INTO rfq (
          org_id, project_id, rfq_number, title, status,
          scope_of_work, terms_conditions, response_deadline, created_by,
-         revision_number, supersedes_rfq_id
-       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, $10)
+         revision_number, supersedes_rfq_id, revision_reason
+       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         old.org_id,
@@ -1278,16 +1329,22 @@ export async function cloneRfqAsRevision(
         userId,
         old.revision_number + 1,
         old.id,
+        reason ?? null,
       ]
     );
     const next = newRows[0];
 
-    // Items: award links (awarded_vendor_id / awarded_quote_item_id) reset by
-    // omission — they default null on the fresh rows.
+    // Items: description/unit/quantity are sourced from the LIVE boq_item so the
+    // revision reflects the current BOQ (RFQ-3c) — the whole point of revising
+    // after a scope change. spec_notes + sort_order stay RFQ-specific. Award
+    // links reset by omission (default null on the fresh rows).
     await client.query(
       `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
-       SELECT $1, boq_item_id, description, unit, quantity, spec_notes, sort_order
-       FROM rfq_item WHERE rfq_id = $2`,
+       SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
+              ri.spec_notes, ri.sort_order
+       FROM rfq_item ri
+       JOIN boq_item bi ON bi.id = ri.boq_item_id
+       WHERE ri.rfq_id = $2`,
       [next.id, old.id]
     );
 
@@ -1308,6 +1365,60 @@ export async function cloneRfqAsRevision(
   } catch (err) {
     // No user-supplied data reaches a constraint here (numbers/ids are copied
     // from the locked source row), so there's nothing to map — just rethrow.
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Pull current BOQ quantities into a live RFQ's items (RFQ-3c "Sync from BOQ").
+ * Quantity ONLY — per PRD §22 a specification change requires a re-quote (that
+ * routes to a revision), so it is deliberately NOT synced in place here.
+ * Refused unless the RFQ is in-flight (issued / quotes_received / under_review).
+ */
+export async function syncRfqItemsFromBoq(
+  rfqId: string
+): Promise<
+  | { ok: true; synced: number }
+  | { ok: false; reason: "not_found" | "wrong_status" }
+> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query<{ status: string }>(
+      `SELECT status FROM rfq WHERE id = $1 FOR UPDATE`,
+      [rfqId]
+    );
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "not_found" };
+    }
+    if (
+      !(QUOTE_SUBMITTABLE_RFQ_STATUSES as readonly string[]).includes(
+        rows[0].status
+      )
+    ) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "wrong_status" };
+    }
+
+    const res = await client.query(
+      `UPDATE rfq_item ri
+          SET quantity = bi.quantity
+         FROM boq_item bi
+        WHERE bi.id = ri.boq_item_id
+          AND ri.rfq_id = $1
+          AND ri.quantity <> bi.quantity`,
+      [rfqId]
+    );
+
+    await client.query("COMMIT");
+    return { ok: true, synced: res.rowCount ?? 0 };
+  } catch (err) {
     await client.query("ROLLBACK");
     throw err;
   } finally {

@@ -500,6 +500,9 @@ vi.mock("@/lib/queries", () => ({
   cloneRfqAsRevision: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),
+  syncRfqItemsFromBoq: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "not_found" }),
   // Vendor Quotes (Feature 10)
   getQuotesByRfq: vi.fn().mockResolvedValue([]),
   getQuoteDetail: vi.fn().mockResolvedValue(null),

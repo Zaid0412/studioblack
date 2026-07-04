@@ -1193,9 +1193,20 @@ export interface Rfq {
   revision_number: number;
   /** The RFQ this one revised, or null for an original. */
   supersedes_rfq_id: string | null;
+  /** Why this revision was raised (from the revise dialog). Null for originals. */
+  revision_reason: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** One field where the live BOQ item has drifted from this RFQ's snapshot (RFQ-3c). */
+export interface RfqItemBoqChange {
+  field: "quantity" | "description" | "unit";
+  /** The RFQ's snapshot value (what vendors quoted against). */
+  from: string | number;
+  /** The current BOQ value. */
+  to: string | number;
 }
 
 export interface RfqItem {
@@ -1209,6 +1220,12 @@ export interface RfqItem {
   sort_order: number;
   awarded_vendor_id: string | null;
   awarded_quote_item_id: string | null;
+  /**
+   * RFQ-3c: fields where the live BOQ item now differs from this RFQ's snapshot.
+   * Populated only on the studio detail read for in-flight RFQs; undefined
+   * otherwise (draft/terminal, vendor portal, list rows).
+   */
+  boq_changes?: RfqItemBoqChange[];
 }
 
 export interface RfqVendorInvite {

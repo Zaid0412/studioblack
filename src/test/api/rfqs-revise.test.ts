@@ -80,7 +80,11 @@ describe("POST /api/projects/[id]/rfqs/[rfqId]/revise", () => {
     expect(body.id).toBe(REVISION_ID);
     expect(body.status).toBe("draft");
     expect(body.revision_number).toBe(1);
-    expect(cloneRfqAsRevision).toHaveBeenCalledWith(RFQ_ID, "user-test-001");
+    expect(cloneRfqAsRevision).toHaveBeenCalledWith(
+      RFQ_ID,
+      "user-test-001",
+      "scope grew"
+    );
   });
 
   it("architect can also revise", async () => {
