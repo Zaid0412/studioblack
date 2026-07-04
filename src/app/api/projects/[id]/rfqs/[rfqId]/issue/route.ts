@@ -57,6 +57,7 @@ export const POST = withAuth(
       rfqTitle: result.rfq.title,
       projectName: projectName ?? "Project",
       responseDeadline: result.rfq.response_deadline,
+      revisionNumber: result.rfq.revision_number,
     }).catch((err: unknown) => {
       logger.warn("RFQ issue email fan-out failed", {
         rfqId: resolved.rfqId,

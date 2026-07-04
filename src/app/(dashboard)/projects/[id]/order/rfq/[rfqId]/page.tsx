@@ -70,6 +70,7 @@ export default function OrderRfqDetailPage({
   const { id: projectId, rfqId } = use(params);
   const router = useRouter();
   const t = useTranslations("rfq.detail");
+  const tRfq = useTranslations("rfq");
   const { role } = useUserRole();
   const isPM = role === "pm";
   const canManage = role === "pm" || role === "architect";
@@ -404,6 +405,12 @@ export default function OrderRfqDetailPage({
           label={t("responseDeadline")}
           value={
             rfq.response_deadline ? formatDate(rfq.response_deadline) : "—"
+          }
+        />
+        <RfqDetailRow
+          label={t("packageType")}
+          value={
+            rfq.package_type ? tRfq(`packageType.${rfq.package_type}`) : "—"
           }
         />
         <RfqDetailRow

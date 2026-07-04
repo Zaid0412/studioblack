@@ -674,6 +674,7 @@ export interface NewRfqItem {
 
 export interface CreateRfqInput {
   title: string;
+  packageType?: string | null;
   scopeOfWork?: string | null;
   termsConditions?: string | null;
   responseDeadline?: string | null;
@@ -801,15 +802,16 @@ export async function createRfqDraft(
 
     const { rows: rfqRows } = await client.query<Rfq>(
       `INSERT INTO rfq (
-         org_id, project_id, rfq_number, title, status,
+         org_id, project_id, rfq_number, title, status, package_type,
          scope_of_work, terms_conditions, response_deadline, created_by
-       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8)
+       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         orgId,
         projectId,
         rfqNumber,
         input.title,
+        input.packageType ?? null,
         input.scopeOfWork ?? null,
         input.termsConditions ?? null,
         input.responseDeadline ?? null,
@@ -838,6 +840,7 @@ export async function createRfqDraft(
 
 export interface UpdateRfqInput {
   title?: string;
+  packageType?: string | null;
   scopeOfWork?: string | null;
   termsConditions?: string | null;
   responseDeadline?: string | null;
@@ -988,6 +991,7 @@ export async function removeRfqItem(
 
 const RFQ_HEADER_COLS: Record<keyof UpdateRfqInput, string> = {
   title: "title",
+  packageType: "package_type",
   scopeOfWork: "scope_of_work",
   termsConditions: "terms_conditions",
   responseDeadline: "response_deadline",

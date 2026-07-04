@@ -1188,6 +1188,8 @@ export interface Rfq {
   response_deadline: string | null;
   award_date: string | null;
   awarded_vendor_id: string | null;
+  /** PRD §9 procurement package type: material / labor / mixed. */
+  package_type: string | null;
   scope_of_work: string | null;
   terms_conditions: string | null;
   attachments: unknown | null;

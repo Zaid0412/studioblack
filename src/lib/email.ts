@@ -468,28 +468,39 @@ export async function sendRfqIssuedEmail(
     rfqTitle: string;
     responseDeadline: string | null;
     deepLink: string;
+    /** >0 when this issue is an RFQ revision — changes the wording (PRD §24). */
+    revisionNumber: number;
   }
 ) {
   const safeContact = escapeHtml(args.contactName);
   const safeProject = escapeHtml(args.projectName);
+  const isRevision = args.revisionNumber > 0;
   const deadline = args.responseDeadline
     ? `Response due by <strong style="color: ${colors.white};">${escapeHtml(args.responseDeadline)}</strong>.`
     : "";
+  const subject = isRevision
+    ? `${getEnvTag()}${branding.appName} | RFQ Revision ${escapeHtml(args.rfqNumber)} · Rev ${args.revisionNumber}`
+    : `${getEnvTag()}${branding.appName} | New RFQ ${escapeHtml(args.rfqNumber)}`;
+  const heading = isRevision ? "RFQ Revision Issued" : "New RFQ Issued";
+  const intro = isRevision
+    ? `Hi ${safeContact}, the RFQ on <strong style="color: ${colors.white};">${safeProject}</strong> has been revised. Please submit a revised quotation.`
+    : `Hi ${safeContact}, you've been invited to submit a quote on <strong style="color: ${colors.white};">${safeProject}</strong>.`;
+  const revLabel = isRevision ? ` · Rev ${args.revisionNumber}` : "";
   await sendEmail(
     email,
-    `${getEnvTag()}${branding.appName} | New RFQ ${escapeHtml(args.rfqNumber)}`,
+    subject,
     emailLayout(
-      "New RFQ Issued",
-      `${bodyText(`Hi ${safeContact}, you've been invited to submit a quote on <strong style="color: ${colors.white};">${safeProject}</strong>.`)}
+      heading,
+      `${bodyText(intro)}
       <div style="text-align: center; margin: 0 0 24px;">
-        ${orgPill(`${args.rfqNumber} — ${args.rfqTitle}`)}
+        ${orgPill(`${args.rfqNumber}${revLabel} — ${args.rfqTitle}`)}
       </div>
       ${deadline ? bodyText(deadline) : ""}
       ${divider()}
       <div style="padding-top: 24px;">
-        ${ctaButton(args.deepLink, "View RFQ")}
+        ${ctaButton(args.deepLink, isRevision ? "View revised RFQ" : "View RFQ")}
       </div>
-      ${hintText("Open the link to review the scope and submit your quote.")}`,
+      ${hintText(isRevision ? "Open the link to review the changes and submit your revised quote." : "Open the link to review the scope and submit your quote.")}`,
       "If you weren't expecting this RFQ, you can safely ignore this email."
     )
   );
