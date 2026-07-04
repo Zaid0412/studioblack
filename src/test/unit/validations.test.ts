@@ -29,6 +29,7 @@ import {
   enterQuoteSchema,
   awardRfqSingleSchema,
   awardRfqSplitSchema,
+  logRfqCommunicationSchema,
   parseBody,
   parseRequest,
   TASK_STATUSES,
@@ -1623,5 +1624,48 @@ describe("awardRfqSplitSchema (F10)", () => {
 
   it("rejects empty awards array", () => {
     expectFail(awardRfqSplitSchema, { awards: [] });
+  });
+});
+
+describe("logRfqCommunicationSchema (§17)", () => {
+  const valid = { channel: "whatsapp", remarks: "reminder sent" };
+
+  it("accepts a minimal valid log (no vendor)", () => {
+    expectPass(logRfqCommunicationSchema, valid);
+  });
+
+  it("accepts an optional vendorId", () => {
+    expectPass(logRfqCommunicationSchema, { ...valid, vendorId: VALID_UUID });
+  });
+
+  it("accepts a null vendorId", () => {
+    expectPass(logRfqCommunicationSchema, { ...valid, vendorId: null });
+  });
+
+  it("rejects channel 'portal' (vendor self-service, not a manual log)", () => {
+    expectFail(logRfqCommunicationSchema, { ...valid, channel: "portal" });
+  });
+
+  it("rejects an unknown channel", () => {
+    expectFail(logRfqCommunicationSchema, { ...valid, channel: "pigeon" });
+  });
+
+  it("rejects empty remarks", () => {
+    expectFail(logRfqCommunicationSchema, { ...valid, remarks: "" });
+  });
+
+  it("rejects whitespace-only remarks (trimmed)", () => {
+    expectFail(logRfqCommunicationSchema, { ...valid, remarks: "   " });
+  });
+
+  it("rejects remarks over 2000 chars", () => {
+    expectFail(logRfqCommunicationSchema, {
+      ...valid,
+      remarks: "x".repeat(2001),
+    });
+  });
+
+  it("rejects a non-uuid vendorId", () => {
+    expectFail(logRfqCommunicationSchema, { ...valid, vendorId: "abc" });
   });
 });

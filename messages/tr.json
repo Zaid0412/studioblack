@@ -1245,8 +1245,22 @@
       "rfqAwardedVerb": "talebi sonuçlandırdı",
       "quoteAwardedVerb": "şuna ihale verdi:",
       "splitAward": "kalem bazlı ihale",
+      "commLoggedVerb": "bir iletişim kaydetti",
       "itemsCount": "{count, plural, =1 {# kalem} other {# kalem}}",
       "vendorsCount": "{count, plural, =1 {# tedarikçi} other {# tedarikçi}}"
+    },
+    "logComm": {
+      "title": "İletişim kaydet",
+      "description": "Sistem dışı bir iletişimi kaydedin; talep zaman çizelgesinde görünür.",
+      "channelLabel": "Kanal",
+      "channelPlaceholder": "Nasıl gerçekleşti?",
+      "vendorLabel": "Tedarikçi (isteğe bağlı)",
+      "vendorNone": "Belirli bir tedarikçi yok",
+      "remarksLabel": "Notlar",
+      "remarksPlaceholder": "ör. WhatsApp hatırlatması gönderildi; tedarikçi Cuma'ya kadar teklif verecek.",
+      "save": "Kaydet",
+      "cancel": "İptal",
+      "saved": "İletişim kaydedildi"
     },
     "issue": {
       "title": "Tedarikçilere gönder",

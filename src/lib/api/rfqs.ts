@@ -9,6 +9,7 @@ import type {
   inviteRfqVendorsSchema,
   issueRfqSchema,
   listRfqsQuerySchema,
+  logRfqCommunicationSchema,
   updateRfqSchema,
 } from "@/lib/validations";
 
@@ -154,4 +155,12 @@ export function updateItemAttachments(
   return apiPatch<{ ok: true }>(API.rfqItem(projectId, rfqId, itemId), {
     attachments,
   });
+}
+
+export function logCommunication(
+  projectId: string,
+  rfqId: string,
+  data: z.infer<typeof logRfqCommunicationSchema>
+) {
+  return apiPost<{ ok: true }>(API.rfqCommunications(projectId, rfqId), data);
 }

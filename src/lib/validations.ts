@@ -1614,6 +1614,18 @@ export const RFQ_MANUAL_RESPONSE_SOURCES = [
   "excel",
   "manual",
 ] as const;
+export type RfqManualResponseSource =
+  (typeof RFQ_MANUAL_RESPONSE_SOURCES)[number];
+
+/**
+ * PRD §17: log a manual, off-system communication against an RFQ (channel +
+ * remarks). Excludes `portal` — that's vendor self-service, not a manual log.
+ */
+export const logRfqCommunicationSchema = z.object({
+  channel: z.enum(RFQ_MANUAL_RESPONSE_SOURCES),
+  vendorId: z.string().uuid().nullable().optional(),
+  remarks: z.string().trim().min(1).max(2000),
+});
 
 export const quoteAttachmentSchema = z.object({
   url: z.string().url().max(2048),

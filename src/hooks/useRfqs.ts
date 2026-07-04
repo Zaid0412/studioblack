@@ -14,6 +14,7 @@ import type {
   createRfqSchema,
   inviteRfqVendorsSchema,
   issueRfqSchema,
+  logRfqCommunicationSchema,
   updateRfqSchema,
 } from "@/lib/validations";
 
@@ -282,6 +283,19 @@ export function useRfqMutations(projectId: string) {
     [projectId, invalidateList]
   );
 
+  const logCommunication = useCallback(
+    async (rfqId: string, data: z.infer<typeof logRfqCommunicationSchema>) => {
+      try {
+        await rfqApi.logCommunication(projectId, rfqId, data);
+        return true;
+      } catch (err) {
+        handleError(err, "Could not log communication");
+        return false;
+      }
+    },
+    [projectId]
+  );
+
   return {
     create,
     update,
@@ -290,6 +304,7 @@ export function useRfqMutations(projectId: string) {
     addItems,
     removeItem,
     updateItemAttachments,
+    logCommunication,
     cancel,
     revise,
     syncBoq,

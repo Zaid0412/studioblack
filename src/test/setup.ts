@@ -499,6 +499,7 @@ vi.mock("@/lib/queries", () => ({
   addRfqItems: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   removeRfqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   updateRfqItemAttachments: vi.fn().mockResolvedValue({ ok: true }),
+  getRfqVendorName: vi.fn().mockResolvedValue(null),
   cancelRfq: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   cloneRfqAsRevision: vi
     .fn()
@@ -552,6 +553,9 @@ vi.mock("@/lib/queries", () => ({
     RFQ_VENDORS_ADDED: "rfq.vendors_added",
     RFQ_CANCELLED: "rfq.cancelled",
     RFQ_AWARDED: "rfq.awarded",
+    RFQ_REVISED: "rfq.revised",
+    RFQ_SYNCED_FROM_BOQ: "rfq.synced_from_boq",
+    RFQ_COMMUNICATION_LOGGED: "rfq.communication_logged",
     QUOTE_SUBMITTED: "quote.submitted",
     QUOTE_REVISED: "quote.revised",
     QUOTE_UNDER_REVIEW: "quote.under_review",
