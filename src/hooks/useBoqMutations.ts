@@ -240,19 +240,30 @@ export function useBoqMutations(projectId: string) {
           },
           { revalidate: false }
         );
-        const { deletedCount } = await boqApi.bulkDeleteItems(
+        const { deletedCount, blockedCount } = await boqApi.bulkDeleteItems(
           projectId,
           boqId,
           itemIds
         );
         await globalMutate(key);
-        toast({
-          title:
-            deletedCount === 1
-              ? "Item deleted"
-              : `${deletedCount} items deleted`,
-          variant: "success",
-        });
+        // RFQ-3d: items on an RFQ are skipped server-side (FK restrict) — warn
+        // rather than silently under-deleting.
+        if (blockedCount > 0) {
+          toast({
+            title: `${deletedCount} deleted · ${blockedCount} skipped`,
+            description:
+              "Items that are part of an RFQ can't be deleted — remove them from scope instead.",
+            variant: "warning",
+          });
+        } else {
+          toast({
+            title:
+              deletedCount === 1
+                ? "Item deleted"
+                : `${deletedCount} items deleted`,
+            variant: "success",
+          });
+        }
         return deletedCount;
       } catch (err) {
         await globalMutate(key); // rollback by refetching

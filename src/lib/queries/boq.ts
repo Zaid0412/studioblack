@@ -1339,7 +1339,7 @@ export async function applyRateContractToBoqItem(
 
 export type DeleteBoqItemOutcome =
   | { ok: true }
-  | { ok: false; reason: "not_found" | "conflict" };
+  | { ok: false; reason: "not_found" | "conflict" | "in_rfq" };
 
 export type MoveBoqItemOutcome =
   | { ok: true; item: BoqItemWithComputed }
@@ -1427,14 +1427,26 @@ export async function deleteBoqItem(
 ): Promise<DeleteBoqItemOutcome> {
   // See `updateBoqItem` above for why the comparison truncates to ms.
   const pool = getPool();
-  const { rowCount } = await pool.query(
-    `DELETE FROM boq_item
-     WHERE id = $1
-       AND date_trunc('milliseconds', updated_at)
-           = date_trunc('milliseconds', $2::timestamptz)`,
-    [itemId, expectedUpdatedAt]
-  );
-  if ((rowCount ?? 0) > 0) return { ok: true };
+  try {
+    const { rowCount } = await pool.query(
+      `DELETE FROM boq_item
+       WHERE id = $1
+         AND date_trunc('milliseconds', updated_at)
+             = date_trunc('milliseconds', $2::timestamptz)`,
+      [itemId, expectedUpdatedAt]
+    );
+    if ((rowCount ?? 0) > 0) return { ok: true };
+  } catch (err) {
+    // RFQ-3d: the FK to rfq_item is ON DELETE RESTRICT — an item on any RFQ
+    // can't be hard-deleted (a quoted line keeps its history). Catch the FK
+    // violation (23503) rather than pre-checking: the happy path stays one
+    // round-trip and there's no TOCTOU window. The PM removes it from scope
+    // (excludes it) instead.
+    if ((err as { code?: string }).code === "23503") {
+      return { ok: false, reason: "in_rfq" };
+    }
+    throw err;
+  }
 
   const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [
     itemId,
@@ -1678,20 +1690,29 @@ export async function moveBoqItemsBulk(
 
 /**
  * Delete many BOQ items in one statement. `boqId` scopes the delete so
- * a forged itemId list can't reach into other projects' BOQs. Returns
- * the number of rows actually removed.
+ * a forged itemId list can't reach into other projects' BOQs.
+ *
+ * RFQ-3d: items referenced by any RFQ are skipped (the FK is ON DELETE
+ * RESTRICT — including them would fail the whole statement). Returns both the
+ * count removed and the count blocked so the caller can warn the user, who
+ * removes those from scope instead.
  */
 export async function deleteBoqItemsBulk(
   itemIds: string[],
   boqId: string
-): Promise<number> {
-  if (itemIds.length === 0) return 0;
+): Promise<{ deleted: number; blocked: number }> {
+  if (itemIds.length === 0) return { deleted: 0, blocked: 0 };
   const pool = getPool();
   const { rowCount } = await pool.query(
-    `DELETE FROM boq_item WHERE id = ANY($1::uuid[]) AND boq_id = $2`,
+    `DELETE FROM boq_item bi
+      WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+        AND NOT EXISTS (
+          SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+        )`,
     [itemIds, boqId]
   );
-  return rowCount ?? 0;
+  const deleted = rowCount ?? 0;
+  return { deleted, blocked: itemIds.length - deleted };
 }
 
 /** Sources allowed to transition INTO each target phase. Pre-computed once. */

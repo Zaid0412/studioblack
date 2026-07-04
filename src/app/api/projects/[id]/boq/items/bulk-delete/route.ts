@@ -23,10 +23,10 @@ export const POST = withAuth(
     );
     if (!result.ok) return result.response;
 
-    const deletedCount = await deleteBoqItemsBulk(
+    const { deleted, blocked } = await deleteBoqItemsBulk(
       result.data.itemIds,
       result.boqId
     );
-    return NextResponse.json({ deletedCount });
+    return NextResponse.json({ deletedCount: deleted, blockedCount: blocked });
   }
 );

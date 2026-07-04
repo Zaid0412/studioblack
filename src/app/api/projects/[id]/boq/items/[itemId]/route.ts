@@ -47,6 +47,15 @@ export const DELETE = withAuth(
 
     const outcome = await deleteBoqItem(itemId, parsed.data.updatedAt);
     if (outcome.ok) return NextResponse.json({ ok: true });
+    if (outcome.reason === "in_rfq") {
+      return NextResponse.json(
+        {
+          error:
+            "This item is part of an RFQ. Remove it from scope instead of deleting it.",
+        },
+        { status: 422 }
+      );
+    }
     return optimisticFailureResponse(outcome.reason);
   }
 );

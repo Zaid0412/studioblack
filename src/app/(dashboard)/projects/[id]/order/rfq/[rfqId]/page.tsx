@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
+import { use, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -28,6 +28,7 @@ import {
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useRfqLastViewed } from "@/hooks/useRfqLastViewed";
 import { useRfqDetail, useRfqMutations } from "@/hooks/useRfqs";
@@ -246,6 +247,8 @@ export default function OrderRfqDetailPage({
   const hasQtyChange = boqChangedItems.some((i) =>
     i.boq_changes?.some((c) => c.field === "quantity")
   );
+  // RFQ-3d: items removed from the BOQ (excluded) after the RFQ went out.
+  const boqRemovedItems = rfq.items.filter((i) => i.boq_removed);
 
   return (
     <div className="flex flex-col gap-6 p-4 lg:p-10">
@@ -414,55 +417,74 @@ export default function OrderRfqDetailPage({
           went out. Qty changes can be synced (reuse rate); spec changes need a
           revision (re-quote). */}
       {boqChangedItems.length > 0 && (
-        <section className="rounded-xl border border-warning/40 bg-warning/10 p-4 flex flex-col gap-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-text-primary">
-                {t("boqChangedTitle", { count: boqChangedItems.length })}
-              </p>
-              <ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-secondary">
-                {boqChangedItems.map((it) => (
-                  <li
-                    key={it.id}
-                    className="flex flex-wrap items-baseline gap-x-3"
-                  >
-                    <span className="font-medium text-text-primary">
-                      {it.description}
-                    </span>
-                    {(it.boq_changes ?? []).map((c) => (
-                      <span key={c.field} className="tabular-nums">
-                        {t(`boqChangeField.${c.field}`)}{" "}
-                        <span className="line-through text-text-muted">
-                          {String(c.from)}
-                        </span>{" "}
-                        → {String(c.to)}
-                      </span>
-                    ))}
-                  </li>
+        <RfqImpactBanner
+          tone="warning"
+          title={t("boqChangedTitle", { count: boqChangedItems.length })}
+          footer={
+            <>
+              {hasQtyChange && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSyncBoq}
+                  disabled={syncingBoq}
+                >
+                  {t("syncBoqBtn")}
+                </Button>
+              )}
+              {canRevise && (
+                <Button size="sm" onClick={() => setReviseOpen(true)}>
+                  <GitBranch className="w-4 h-4" />
+                  {t("reviseBtn")}
+                </Button>
+              )}
+            </>
+          }
+        >
+          <ul className="mt-1.5 flex flex-col gap-1 text-xs text-text-secondary">
+            {boqChangedItems.map((it) => (
+              <li key={it.id} className="flex flex-wrap items-baseline gap-x-3">
+                <span className="font-medium text-text-primary">
+                  {it.description}
+                </span>
+                {(it.boq_changes ?? []).map((c) => (
+                  <span key={c.field} className="tabular-nums">
+                    {t(`boqChangeField.${c.field}`)}{" "}
+                    <span className="line-through text-text-muted">
+                      {String(c.from)}
+                    </span>{" "}
+                    → {String(c.to)}
+                  </span>
                 ))}
-              </ul>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            {hasQtyChange && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleSyncBoq}
-                disabled={syncingBoq}
-              >
-                {t("syncBoqBtn")}
-              </Button>
-            )}
-            {canRevise && (
+              </li>
+            ))}
+          </ul>
+        </RfqImpactBanner>
+      )}
+
+      {/* RFQ-3d: items removed from the BOQ after this RFQ went out. Removal
+          needs a re-quote, so the only path is a revision (which drops them). */}
+      {boqRemovedItems.length > 0 && (
+        <RfqImpactBanner
+          tone="error"
+          title={t("boqRemovedTitle", { count: boqRemovedItems.length })}
+          footer={
+            canRevise && (
               <Button size="sm" onClick={() => setReviseOpen(true)}>
                 <GitBranch className="w-4 h-4" />
                 {t("reviseBtn")}
               </Button>
-            )}
-          </div>
-        </section>
+            )
+          }
+        >
+          <ul className="mt-1.5 flex flex-col gap-1 text-xs">
+            {boqRemovedItems.map((it) => (
+              <li key={it.id} className="line-through text-text-muted truncate">
+                {it.description}
+              </li>
+            ))}
+          </ul>
+        </RfqImpactBanner>
       )}
 
       {/* Items */}
@@ -702,5 +724,47 @@ export default function OrderRfqDetailPage({
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Warning/error callout used for the RFQ-3c (changed) and RFQ-3d (removed) BOQ
+ * impact banners — shared chrome so the two stay visually aligned; callers
+ * supply the item list (`children`) and the action buttons (`footer`).
+ */
+function RfqImpactBanner({
+  tone,
+  title,
+  children,
+  footer,
+}: {
+  tone: "warning" | "error";
+  title: string;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-xl border p-4 flex flex-col gap-3",
+        tone === "error"
+          ? "border-error/40 bg-error/10"
+          : "border-warning/40 bg-warning/10"
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle
+          className={cn(
+            "w-4 h-4 mt-0.5 shrink-0",
+            tone === "error" ? "text-error" : "text-warning"
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-text-primary">{title}</p>
+          {children}
+        </div>
+      </div>
+      {footer && <div className="flex justify-end gap-2">{footer}</div>}
+    </section>
   );
 }

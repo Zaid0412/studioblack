@@ -1226,6 +1226,11 @@ export interface RfqItem {
    * otherwise (draft/terminal, vendor portal, list rows).
    */
   boq_changes?: RfqItemBoqChange[];
+  /**
+   * RFQ-3d: the live BOQ item was removed from scope (excluded) after this RFQ
+   * was issued. Populated only on the studio detail read for in-flight RFQs.
+   */
+  boq_removed?: boolean;
 }
 
 export interface RfqVendorInvite {

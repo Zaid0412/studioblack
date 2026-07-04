@@ -1104,6 +1104,7 @@
     "title": "Teklif Talepleri",
     "subtitle": "Seçili BOQ kalemleri için tedarikçilerden teklif isteyin.",
     "newRfq": "Yeni Talep",
+    "readyNotInRfq": "{count, plural, =1 {# kalem} other {# kalem}} tedariğe hazır ve henüz bir talepte değil",
     "noRfqs": "Henüz talep yok",
     "noRfqsHint": "Tedarikçilerden teklif almak için BOQ kalemlerinden bir tane oluşturun.",
     "noResults": "Eşleşme yok",
@@ -1208,6 +1209,7 @@
       "reviseReasonPlaceholder": "ör. Müşteri kapsama iki gardırop ekledi",
       "moreActions": "Diğer işlemler",
       "boqChangedTitle": "Bu talep gönderildikten sonra BOQ'da {count, plural, =1 {# kalem} other {# kalem}} değişti",
+      "boqRemovedTitle": "Bu talep gönderildikten sonra BOQ'dan {count, plural, =1 {# kalem} other {# kalem}} kaldırıldı",
       "boqChangeField": {
         "quantity": "Adet",
         "description": "Spek",

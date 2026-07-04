@@ -58,6 +58,7 @@ export function useRfqList(
   return {
     rows: data?.rows ?? [],
     total: data?.total ?? 0,
+    readyNotInRfq: data?.readyNotInRfq ?? 0,
     isLoading,
     isValidating,
     error,

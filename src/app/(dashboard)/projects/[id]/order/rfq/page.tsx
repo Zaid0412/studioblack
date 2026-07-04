@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, PackageCheck } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
@@ -36,15 +36,13 @@ export default function OrderRfqPage({
 
   const [state, setState] = useState<RfqListState>(INITIAL_STATE);
 
-  const { rows, total, isLoading, isValidating, mutate } = useRfqList(
-    projectId,
-    {
+  const { rows, total, readyNotInRfq, isLoading, isValidating, mutate } =
+    useRfqList(projectId, {
       search: state.search || undefined,
       status: state.status ?? undefined,
       page: state.page,
       limit: PAGE_SIZE,
-    }
-  );
+    });
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const isRefreshing = isValidating && !isLoading;
@@ -72,6 +70,22 @@ export default function OrderRfqPage({
           </>
         }
       />
+
+      {/* RFQ-3d: nudge when procurement-ready BOQ items aren't on any RFQ yet. */}
+      {canManage && readyNotInRfq > 0 && (
+        <Link
+          href={`/projects/${projectId}/order/rfq/new`}
+          className="flex items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-text-primary hover:border-accent/60 transition-colors"
+        >
+          <PackageCheck className="w-5 h-5 text-accent shrink-0" />
+          <span className="flex-1 min-w-0">
+            {t("readyNotInRfq", { count: readyNotInRfq })}
+          </span>
+          <span className="text-accent font-medium shrink-0">
+            {t("newRfq")}
+          </span>
+        </Link>
+      )}
 
       <RfqList
         projectId={projectId}

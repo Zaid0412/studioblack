@@ -233,7 +233,7 @@ describe("POST /api/projects/[id]/boq/items/bulk-move", () => {
 
 describe("POST /api/projects/[id]/boq/items/bulk-delete", () => {
   it("deletes the supplied items", async () => {
-    vi.mocked(deleteBoqItemsBulk).mockResolvedValue(2);
+    vi.mocked(deleteBoqItemsBulk).mockResolvedValue({ deleted: 2, blocked: 0 });
 
     const req = buildRequest(
       `/api/projects/${PROJECT_ID}/boq/items/bulk-delete`,
@@ -243,14 +243,39 @@ describe("POST /api/projects/[id]/boq/items/bulk-delete", () => {
       }
     );
     const res = await POST_BULK_DELETE(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse<{ deletedCount: number }>(res);
+    const { status, body } = await parseResponse<{
+      deletedCount: number;
+      blockedCount: number;
+    }>(res);
 
     expect(status).toBe(200);
     expect(body.deletedCount).toBe(2);
+    expect(body.blockedCount).toBe(0);
     expect(deleteBoqItemsBulk).toHaveBeenCalledWith(
       [ITEM_ID_1, ITEM_ID_2],
       BOQ_ID
     );
+  });
+
+  it("reports items skipped because they're on an RFQ (RFQ-3d)", async () => {
+    vi.mocked(deleteBoqItemsBulk).mockResolvedValue({ deleted: 1, blocked: 1 });
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/bulk-delete`,
+      {
+        method: "POST",
+        body: { boqId: BOQ_ID, itemIds: [ITEM_ID_1, ITEM_ID_2] },
+      }
+    );
+    const res = await POST_BULK_DELETE(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{
+      deletedCount: number;
+      blockedCount: number;
+    }>(res);
+
+    expect(status).toBe(200);
+    expect(body.deletedCount).toBe(1);
+    expect(body.blockedCount).toBe(1);
   });
 
   it("returns 400 when itemIds is empty", async () => {

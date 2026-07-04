@@ -60,7 +60,7 @@ export async function verifyRfqOwnership(
 export async function getRfqsByProject(
   projectId: string,
   filters: RfqListFilters
-): Promise<{ rows: RfqListRow[]; total: number }> {
+): Promise<{ rows: RfqListRow[]; total: number; readyNotInRfq: number }> {
   const pool = getPool();
   const conditions: string[] = ["r.project_id = $1"];
   const params: unknown[] = [projectId];
@@ -87,24 +87,49 @@ export async function getRfqsByProject(
   params.push(offset);
   const offsetIdx = params.length;
 
-  const { rows } = await pool.query(
-    `SELECT
-       r.id, r.rfq_number, r.title, r.status, r.revision_number,
-       r.issued_date, r.response_deadline, r.created_at,
-       (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
-       (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
-       (SELECT MAX(vq.submitted_at)
-        FROM vendor_quote vq
-        WHERE vq.rfq_id = r.id AND vq.is_current) AS latest_quote_submitted_at,
-       COUNT(*) OVER ()::int AS total
-     FROM rfq r
-     WHERE ${where}
-     ORDER BY r.created_at DESC
-     LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
-    params
-  );
+  // The paged list and the project-global "ready, not in an RFQ" count are
+  // independent — run them in one round-trip. (The count can't fold into the
+  // list query: an empty list has no row to carry it, which is exactly when
+  // the nudge matters most — a project with ready items but no RFQs yet.)
+  const [listRes, readyRes] = await Promise.all([
+    pool.query(
+      `SELECT
+         r.id, r.rfq_number, r.title, r.status, r.revision_number,
+         r.issued_date, r.response_deadline, r.created_at,
+         (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
+         (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
+         (SELECT MAX(vq.submitted_at)
+          FROM vendor_quote vq
+          WHERE vq.rfq_id = r.id AND vq.is_current) AS latest_quote_submitted_at,
+         COUNT(*) OVER ()::int AS total
+       FROM rfq r
+       WHERE ${where}
+       ORDER BY r.created_at DESC
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      params
+    ),
+    // RFQ-3d: ready-for-procurement items not on any live RFQ (a draft keeps
+    // po_status='none', so check RFQ membership directly rather than po_status).
+    pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n
+         FROM boq_item bi
+         JOIN boq b ON b.id = bi.boq_id
+        WHERE b.project_id = $1
+          AND bi.phase = 'ready_for_procurement'
+          AND NOT bi.is_excluded
+          AND NOT EXISTS (
+            SELECT 1 FROM rfq_item ri
+            JOIN rfq r ON r.id = ri.rfq_id
+            WHERE ri.boq_item_id = bi.id
+              AND r.status NOT IN ('cancelled', 'superseded')
+          )`,
+      [projectId]
+    ),
+  ]);
 
+  const rows = listRes.rows;
   const total = rows[0]?.total ?? 0;
+
   return {
     rows: rows.map((r) => ({
       id: r.id,
@@ -120,6 +145,7 @@ export async function getRfqsByProject(
       revision_number: r.revision_number,
     })),
     total,
+    readyNotInRfq: readyRes.rows[0]?.n ?? 0,
   };
 }
 
@@ -147,14 +173,16 @@ export async function getRfqDetail(
         boq_quantity: string;
         boq_description: string;
         boq_unit: string;
+        boq_excluded: boolean;
       }
     >(
-      // Join the live boq_item so the detail read can flag divergence (RFQ-3c).
+      // Join the live boq_item so the detail read can flag divergence (RFQ-3c)
+      // and scope removal (RFQ-3d).
       `SELECT ri.id, ri.rfq_id, ri.boq_item_id, ri.description, ri.unit,
               ri.quantity, ri.spec_notes, ri.sort_order,
               ri.awarded_vendor_id, ri.awarded_quote_item_id,
               bi.quantity AS boq_quantity, bi.description AS boq_description,
-              bi.unit AS boq_unit
+              bi.unit AS boq_unit, bi.is_excluded AS boq_excluded
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
        WHERE ri.rfq_id = $1
@@ -209,19 +237,24 @@ export async function getRfqDetail(
   return {
     ...rfq,
     items: itemRes.rows.map((r) => {
-      const { boq_quantity, boq_description, boq_unit, ...item } = r;
+      const { boq_quantity, boq_description, boq_unit, boq_excluded, ...item } =
+        r;
       const quantity = Number(item.quantity);
-      const boq_changes = inFlight
-        ? boqDivergence(
-            { description: item.description, unit: item.unit, quantity },
-            {
-              description: boq_description,
-              unit: boq_unit,
-              quantity: Number(boq_quantity),
-            }
-          )
-        : undefined;
-      return { ...item, quantity, boq_changes };
+      // A removed (excluded) item can't also diverge on qty/spec — surface it
+      // only as removed so the banner routes it to a revision, not a sync.
+      const boq_removed = inFlight ? boq_excluded : undefined;
+      const boq_changes =
+        inFlight && !boq_excluded
+          ? boqDivergence(
+              { description: item.description, unit: item.unit, quantity },
+              {
+                description: boq_description,
+                unit: boq_unit,
+                quantity: Number(boq_quantity),
+              }
+            )
+          : undefined;
+      return { ...item, quantity, boq_changes, boq_removed };
     }),
     vendors: vendorRes.rows,
     events,
@@ -1337,14 +1370,15 @@ export async function cloneRfqAsRevision(
     // Items: description/unit/quantity are sourced from the LIVE boq_item so the
     // revision reflects the current BOQ (RFQ-3c) — the whole point of revising
     // after a scope change. spec_notes + sort_order stay RFQ-specific. Award
-    // links reset by omission (default null on the fresh rows).
+    // links reset by omission (default null on the fresh rows). Items removed
+    // from scope (excluded) are dropped from the revision (RFQ-3d).
     await client.query(
       `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order)
        SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
               ri.spec_notes, ri.sort_order
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
-       WHERE ri.rfq_id = $2`,
+       WHERE ri.rfq_id = $2 AND NOT bi.is_excluded`,
       [next.id, old.id]
     );
 
