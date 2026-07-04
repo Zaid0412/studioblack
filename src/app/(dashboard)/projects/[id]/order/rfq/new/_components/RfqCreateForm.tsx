@@ -67,20 +67,21 @@ export function RfqCreateForm({ projectId }: Props) {
   // PR C: flag eligible items that already have an active matching rate
   // contract, so the PM can procure via contract instead of requesting a quote.
   const elementIds = useMemo(
-    () => [
-      ...new Set(
-        items
-          .map((it) => it.element_id)
-          .filter((id): id is string => id !== null)
-      ),
-    ],
+    () =>
+      [
+        ...new Set(
+          items
+            .map((it) => it.element_id)
+            .filter((id): id is string => id !== null)
+        ),
+      ].sort(),
     [items]
   );
   const elementIdsKey = elementIds.join(",");
 
-  // Keyed on the element-id set (not the array ref) so a BOQ refetch that
-  // returns the same elements doesn't refire. Non-fatal on error — the hints
-  // just won't show.
+  // Keyed on the sorted element-id set (not the array ref) so a BOQ refetch
+  // that returns the same elements — in any order — doesn't refire. Non-fatal
+  // on error: the hints just won't show.
   const { data: rateData } = useSWR(
     elementIds.length
       ? [API.boqRateAvailability(projectId), elementIdsKey]

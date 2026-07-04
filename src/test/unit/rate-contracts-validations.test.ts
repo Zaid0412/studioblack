@@ -4,6 +4,7 @@ import {
   updateRateContractSchema,
   addRateContractItemsSchema,
   transitionRateContractSchema,
+  boqRateAvailabilitySchema,
   RATE_CONTRACT_ACTIONS,
   RATE_CONTRACT_STATUSES,
   RATE_CONTRACT_TRANSITIONS,
@@ -290,6 +291,34 @@ describe("addRateContractItemsSchema", () => {
     expect(
       parseBody(addRateContractItemsSchema, {
         items: [{ categoryId: CATEGORY_ID, unit: "shells", rate: 1 }],
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe("boqRateAvailabilitySchema", () => {
+  it("accepts a valid element-id array", () => {
+    expect(
+      parseBody(boqRateAvailabilitySchema, { elementIds: [ELEMENT_ID] }).success
+    ).toBe(true);
+  });
+
+  it("rejects an empty array", () => {
+    expect(
+      parseBody(boqRateAvailabilitySchema, { elementIds: [] }).success
+    ).toBe(false);
+  });
+
+  it("rejects a non-uuid element id", () => {
+    expect(
+      parseBody(boqRateAvailabilitySchema, { elementIds: ["nope"] }).success
+    ).toBe(false);
+  });
+
+  it("rejects more than 200 element ids", () => {
+    expect(
+      parseBody(boqRateAvailabilitySchema, {
+        elementIds: Array.from({ length: 201 }, () => ELEMENT_ID),
       }).success
     ).toBe(false);
   });
