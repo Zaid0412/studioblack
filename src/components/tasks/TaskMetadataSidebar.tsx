@@ -402,6 +402,8 @@ function ReadOnlySidebar({
   values,
   labels,
 }: TaskMetadataSidebarProps & { labels: ReadOnlyLabels }) {
+  const PriorityIcon = PRIORITY_ICON[values.priority as TaskPriority] ?? Flag;
+  const CategoryIcon = CATEGORY_ICON[values.category as TaskCategory] ?? Tag;
   return (
     <div className="rounded-xl border border-border-default bg-bg-secondary divide-y divide-border-default">
       <ReadRow icon={User} label="Assignees">
@@ -444,13 +446,13 @@ function ReadOnlySidebar({
         <span
           className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass(values.priority)}`}
         >
-          <Flag className="w-3 h-3" />
+          <PriorityIcon className="w-3 h-3" />
           {capitalize(values.priority)}
         </span>
       </ReadRow>
       <ReadRow icon={Tag} label="Category">
         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-info/10 text-info text-xs font-semibold">
-          <Tag className="w-3 h-3" />
+          <CategoryIcon className="w-3 h-3" />
           {capitalize(values.category)}
         </span>
       </ReadRow>
