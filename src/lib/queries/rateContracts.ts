@@ -323,6 +323,27 @@ export async function getActiveRatesForBoqItem(
   return rows.map((r) => ({ ...r, rate: Number(r.rate) })) as AvailableRate[];
 }
 
+/**
+ * Batch rate lookup keyed by element. For each distinct element id, returns the
+ * best-matching active rate (most-specific then cheapest — the top of
+ * `getActiveRatesForBoqItem`'s ranking) or null when none applies. Powers the
+ * "rate contract available" hints on the RFQ-create picker, where one BOQ
+ * section's worth of items is checked at once.
+ */
+export async function getBestRateForElements(
+  orgId: string,
+  elementIds: string[]
+): Promise<Record<string, AvailableRate | null>> {
+  const unique = [...new Set(elementIds)];
+  const entries = await Promise.all(
+    unique.map(async (elementId) => {
+      const rates = await getActiveRatesForBoqItem(orgId, elementId);
+      return [elementId, rates[0] ?? null] as const;
+    })
+  );
+  return Object.fromEntries(entries);
+}
+
 /** Browse mode: every active contract item across the org. Used by the BOQ picker. */
 export async function getAvailableRatesForBoqPicker(
   orgId: string,

@@ -104,6 +104,14 @@ export function getByElement(elementId: string, vendorId?: string) {
   );
 }
 
+/** Best matching active rate per element (or null), keyed by element id. */
+export function getRateAvailability(projectId: string, elementIds: string[]) {
+  return apiPost<{ availability: Record<string, AvailableRate | null> }>(
+    API.boqRateAvailability(projectId),
+    { elementIds }
+  );
+}
+
 /** Browse mode: every active rate-contract item across the org (BOQ picker). */
 export function availableRatesKey(search?: string): string {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";

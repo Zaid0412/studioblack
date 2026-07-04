@@ -116,6 +116,7 @@ export const API = {
   boqItem:               (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}`,
   boqItemMove:           (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/move`,
   boqItemApplyRate:      (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/apply-rate`,
+  boqRateAvailability:   (pid: string)                       => `/api/projects/${pid}/boq/rate-availability`,
   boqItemsBulkMove:      (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-move`,
   boqItemsBulkDelete:    (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-delete`,
   boqItemsReorder:       (pid: string)                       => `/api/projects/${pid}/boq/items/reorder`,

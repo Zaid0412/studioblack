@@ -1,7 +1,10 @@
 "use client";
 
+import { BadgeCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { BoqItemWithComputed } from "@/types";
+import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/formatCurrency";
+import type { AvailableRate, BoqItemWithComputed } from "@/types";
 
 interface Labels {
   selectAll: string;
@@ -9,6 +12,9 @@ interface Labels {
   description: string;
   unit: string;
   quantity: string;
+  /** RFQ-create only — header + action for the rate-contract column. */
+  rateContract?: string;
+  useContract?: string;
 }
 
 interface Props {
@@ -17,6 +23,13 @@ interface Props {
   onToggleItem: (id: string) => void;
   onToggleAll: () => void;
   labels: Labels;
+  /**
+   * Best matching active rate per element id (RFQ-create only). When provided
+   * together with `onUseContract`, a "rate contract available" column renders
+   * with a one-click "Use contract" action.
+   */
+  rateAvailability?: Record<string, AvailableRate | null>;
+  onUseContract?: (item: BoqItemWithComputed) => void;
 }
 
 /**
@@ -30,9 +43,12 @@ export function BoqItemsPickerTable({
   onToggleItem,
   onToggleAll,
   labels,
+  rateAvailability,
+  onUseContract,
 }: Props) {
   const allSelected = items.length > 0 && selected.size === items.length;
   const someSelected = selected.size > 0 && selected.size < items.length;
+  const showRates = !!rateAvailability && !!onUseContract;
 
   return (
     <table className="w-full text-sm">
@@ -52,37 +68,71 @@ export function BoqItemsPickerTable({
           <th className="px-4 py-2.5 font-medium text-right">
             {labels.quantity}
           </th>
+          {showRates && (
+            <th className="px-4 py-2.5 font-medium">{labels.rateContract}</th>
+          )}
         </tr>
       </thead>
       <tbody>
-        {items.map((it) => (
-          <tr
-            key={it.id}
-            className="border-t border-border-default hover:bg-bg-elevated/30 cursor-pointer"
-            onClick={() => onToggleItem(it.id)}
-          >
-            <td className="px-4 py-3">
-              <span
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex"
-              >
-                <Checkbox
-                  checked={selected.has(it.id)}
-                  onCheckedChange={() => onToggleItem(it.id)}
-                  aria-label={it.description}
-                />
-              </span>
-            </td>
-            <td className="px-4 py-3 font-mono text-xs text-text-muted">
-              {it.item_code}
-            </td>
-            <td className="px-4 py-3 text-text-primary">{it.description}</td>
-            <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
-            <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-              {it.quantity}
-            </td>
-          </tr>
-        ))}
+        {items.map((it) => {
+          const rate =
+            showRates && it.element_id
+              ? (rateAvailability?.[it.element_id] ?? null)
+              : null;
+          return (
+            <tr
+              key={it.id}
+              className="border-t border-border-default hover:bg-bg-elevated/30 cursor-pointer"
+              onClick={() => onToggleItem(it.id)}
+            >
+              <td className="px-4 py-3">
+                <span
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex"
+                >
+                  <Checkbox
+                    checked={selected.has(it.id)}
+                    onCheckedChange={() => onToggleItem(it.id)}
+                    aria-label={it.description}
+                  />
+                </span>
+              </td>
+              <td className="px-4 py-3 font-mono text-xs text-text-muted">
+                {it.item_code}
+              </td>
+              <td className="px-4 py-3 text-text-primary">{it.description}</td>
+              <td className="px-4 py-3 text-text-secondary">{it.unit}</td>
+              <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
+                {it.quantity}
+              </td>
+              {showRates && (
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  {rate ? (
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+                        <BadgeCheck className="w-3.5 h-3.5 text-success shrink-0" />
+                        <span className="truncate max-w-[180px]">
+                          {rate.vendor_name} ·{" "}
+                          {formatCurrency(rate.rate, rate.currency)}/{rate.unit}
+                        </span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => onUseContract?.(it)}
+                      >
+                        {labels.useContract}
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-text-muted">—</span>
+                  )}
+                </td>
+              )}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
