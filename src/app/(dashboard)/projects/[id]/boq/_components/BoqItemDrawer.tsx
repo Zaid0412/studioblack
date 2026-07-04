@@ -328,7 +328,8 @@ export function BoqItemDrawer({
   onOpenOtherItem,
 }: BoqItemDrawerProps) {
   const t = useTranslations("boq.table");
-  const { updateItem, setItemPhase } = useBoqMutations(projectId);
+  const { updateItem, setItemExcluded, setItemPhase } =
+    useBoqMutations(projectId);
   const isExternal = isExternalViewer(role);
   // Buffered edit state. Seeded when a new item opens; NOT re-seeded on SWR
   // revalidation, so a background refresh can't clobber in-progress edits.
@@ -482,10 +483,7 @@ export function BoqItemDrawer({
     const removing = !item.is_excluded;
     setExcluding(true);
     try {
-      const res = await updateItem(item.id, {
-        updatedAt: item.updated_at,
-        isExcluded: removing,
-      });
+      const res = await setItemExcluded(item, removing);
       if (res === null || res === undefined) return; // 409 handled by the hook
       toast({
         title: removing ? "Removed from scope" : "Restored to scope",
@@ -499,9 +497,10 @@ export function BoqItemDrawer({
 
   const handleToggleExclude = () => {
     if (excluding || dirty) return;
-    // Removing an item that's already committed to an RFQ has downstream impact
-    // (it shows as removed on the RFQ) — confirm first. Restoring is quiet.
-    if (!item.is_excluded && item.po_status !== "none") {
+    // Removing an item that's on a live RFQ has downstream impact (it shows as
+    // removed on the RFQ) — confirm first. `on_rfq` (not po_status) is the right
+    // signal: draft-RFQ items keep po_status='none'. Restoring is quiet.
+    if (!item.is_excluded && item.on_rfq) {
       setShowExcludeConfirm(true);
       return;
     }

@@ -71,8 +71,14 @@ export function ConfirmDialog({
             }}
             disabled={submitting}
           >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? "Working…" : confirmLabel}
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Working…
+              </>
+            ) : (
+              confirmLabel
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

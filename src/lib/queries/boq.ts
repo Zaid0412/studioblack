@@ -1429,6 +1429,26 @@ export async function moveBoqItem(
   return { ok: false, reason: "conflict" };
 }
 
+/**
+ * RFQ-3d: release BOQ items from cancelled/superseded RFQs so their dead
+ * rfq_item rows don't block a hard-delete — only a LIVE RFQ should (its
+ * ON DELETE RESTRICT ref then trips 23503). Runs on the caller's transaction
+ * client so it commits/rolls back with the delete. The `= ANY` form covers both
+ * the single- and bulk-delete callers.
+ */
+async function releaseFromTerminalRfqs(
+  client: PoolClient,
+  itemIds: string[]
+): Promise<void> {
+  await client.query(
+    `DELETE FROM rfq_item ri USING rfq r
+      WHERE ri.rfq_id = r.id
+        AND ri.boq_item_id = ANY($1::uuid[])
+        AND r.status IN ('cancelled', 'superseded')`,
+    [itemIds]
+  );
+}
+
 /** Delete a BOQ item with optimistic locking via `updated_at`. */
 export async function deleteBoqItem(
   itemId: string,
@@ -1439,18 +1459,10 @@ export async function deleteBoqItem(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    // RFQ-3d: release the item from cancelled/superseded RFQs so their dead
-    // rfq_item rows don't block the delete — only a LIVE RFQ should. A live
-    // reference then trips the ON DELETE RESTRICT FK (23503 → in_rfq), where
-    // the PM removes it from scope (excludes it) instead. Wrapped in a tx so a
-    // no-op delete (stale token) rolls the release back too.
-    await client.query(
-      `DELETE FROM rfq_item ri USING rfq r
-        WHERE ri.rfq_id = r.id
-          AND ri.boq_item_id = $1
-          AND r.status IN ('cancelled', 'superseded')`,
-      [itemId]
-    );
+    // Release from dead RFQs first; a live reference then trips the FK
+    // (23503 → in_rfq). Tx so a no-op delete (stale token) rolls the release
+    // back too.
+    await releaseFromTerminalRfqs(client, [itemId]);
     const { rowCount } = await client.query(
       `DELETE FROM boq_item
        WHERE id = $1
@@ -1734,13 +1746,7 @@ export async function deleteBoqItemsBulk(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(
-      `DELETE FROM rfq_item ri USING rfq r
-        WHERE ri.rfq_id = r.id
-          AND ri.boq_item_id = ANY($1::uuid[])
-          AND r.status IN ('cancelled', 'superseded')`,
-      [itemIds]
-    );
+    await releaseFromTerminalRfqs(client, itemIds);
     // Runs after the release above (separate statement → sees the release), so
     // NOT EXISTS/EXISTS reflect only live rfq_item rows.
     const { rows } = await client.query<{ deleted: number; blocked: number }>(

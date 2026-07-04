@@ -60,6 +60,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const currentUserId = session?.user?.id ?? null;
   const {
     updateItem,
+    setItemExcluded,
     moveItem,
     bulkMoveItems,
     bulkDeleteItems,
@@ -463,10 +464,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     if (!rfqBlockedItem) return;
     setExcludingBlocked(true);
     try {
-      const res = await updateItem(rfqBlockedItem.id, {
-        updatedAt: rfqBlockedItem.updated_at,
-        isExcluded: true,
-      });
+      const res = await setItemExcluded(rfqBlockedItem, true);
       if (res) {
         toast({ title: "Removed from scope", variant: "success" });
         setRfqBlockedItem(null);
