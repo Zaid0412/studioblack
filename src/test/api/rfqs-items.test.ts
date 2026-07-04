@@ -272,9 +272,7 @@ describe("DELETE /api/projects/[id]/rfqs/[rfqId]/items/[itemId]", () => {
 
 describe("PATCH /api/projects/[id]/rfqs/[rfqId]/items/[itemId] — attachments (§11)", () => {
   const body = {
-    attachments: [
-      { url: "https://x.test/spec.pdf", fileName: "spec.pdf" },
-    ],
+    attachments: [{ url: "https://x.test/spec.pdf", fileName: "spec.pdf" }],
   };
 
   it("PM replaces the line's attachments", async () => {
@@ -298,7 +296,10 @@ describe("PATCH /api/projects/[id]/rfqs/[rfqId]/items/[itemId] — attachments (
     const res = await PATCH_ITEM(
       buildRequest(
         `/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/items/${ITEM_ID}`,
-        { method: "PATCH", body: { attachments: [{ url: "nope", fileName: "x" }] } }
+        {
+          method: "PATCH",
+          body: { attachments: [{ url: "nope", fileName: "x" }] },
+        }
       ),
       buildParams({ id: PROJECT_ID, rfqId: RFQ_ID, itemId: ITEM_ID })
     );
