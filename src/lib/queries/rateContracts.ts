@@ -16,6 +16,7 @@ import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
+import { runWithConcurrency } from "@/lib/concurrency";
 
 export interface RateContractFilters {
   search?: string;
@@ -335,13 +336,14 @@ export async function getBestRateForElements(
   elementIds: string[]
 ): Promise<Record<string, AvailableRate | null>> {
   const unique = [...new Set(elementIds)];
-  const entries = await Promise.all(
-    unique.map(async (elementId) => {
-      const rates = await getActiveRatesForBoqItem(orgId, elementId);
-      return [elementId, rates[0] ?? null] as const;
-    })
-  );
-  return Object.fromEntries(entries);
+  const result: Record<string, AvailableRate | null> = {};
+  // Each lookup runs a recursive-CTE ancestor walk; cap concurrency so a large
+  // section can't fire hundreds of them at the pg pool in one request.
+  await runWithConcurrency(unique, 8, async (elementId) => {
+    const rates = await getActiveRatesForBoqItem(orgId, elementId);
+    result[elementId] = rates[0] ?? null;
+  });
+  return result;
 }
 
 /** Browse mode: every active contract item across the org. Used by the BOQ picker. */

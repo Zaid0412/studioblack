@@ -618,22 +618,22 @@ export function BoqItemDrawer({
                     : "over budget"}
                 </Badge>
               )}
-              {!isExternal && item.rate_contract_item_id ? (
-                <Badge variant="info" className="gap-1">
-                  <BadgeCheck className="h-3 w-3" />
-                  {appliedRate
-                    ? tRc("drawerApplied", { vendor: appliedRate.vendor_name })
-                    : tRc("drawerAppliedGeneric")}
-                </Badge>
-              ) : (
-                !isExternal &&
-                availableRates.length > 0 && (
+              {!isExternal &&
+                (item.rate_contract_item_id ? (
+                  <Badge variant="info" className="gap-1">
+                    <BadgeCheck className="h-3 w-3" />
+                    {appliedRate
+                      ? tRc("drawerApplied", {
+                          vendor: appliedRate.vendor_name,
+                        })
+                      : tRc("drawerAppliedGeneric")}
+                  </Badge>
+                ) : availableRates.length > 0 ? (
                   <Badge variant="info" className="gap-1">
                     <BadgeCheck className="h-3 w-3" />
                     {tRc("drawerAvailable")}
                   </Badge>
-                )
-              )}
+                ) : null)}
             </div>
           </SheetHeader>
 

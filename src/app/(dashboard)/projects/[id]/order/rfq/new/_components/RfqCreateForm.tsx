@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -18,6 +19,7 @@ import { toIsoDate } from "@/lib/formatDate";
 import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
 import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
 import { rateContracts as rateContractsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import type { AvailableRate, BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
 import { BoqApplyRateDialog } from "../../../../boq/_components/BoqApplyRateDialog";
@@ -25,6 +27,8 @@ import { BoqApplyRateDialog } from "../../../../boq/_components/BoqApplyRateDial
 interface Props {
   projectId: string;
 }
+
+const EMPTY_AVAILABILITY: Record<string, AvailableRate | null> = {};
 
 /**
  * Single-page RFQ creator. Title is required; at least one BOQ item must be
@@ -47,9 +51,6 @@ export function RfqCreateForm({ projectId }: Props) {
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
-  const [rateAvailability, setRateAvailability] = useState<
-    Record<string, AvailableRate | null>
-  >({});
   const [applyRateItem, setApplyRateItem] =
     useState<BoqItemWithComputed | null>(null);
 
@@ -77,25 +78,19 @@ export function RfqCreateForm({ projectId }: Props) {
   );
   const elementIdsKey = elementIds.join(",");
 
-  useEffect(() => {
-    if (elementIds.length === 0) {
-      setRateAvailability({});
-      return;
-    }
-    let cancelled = false;
-    rateContractsApi
-      .getRateAvailability(projectId, elementIds)
-      .then((res) => {
-        if (!cancelled) setRateAvailability(res.availability);
-      })
-      .catch(() => {
-        // Non-fatal: the hints just won't show.
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, elementIdsKey]);
+  // Keyed on the element-id set (not the array ref) so a BOQ refetch that
+  // returns the same elements doesn't refire. Non-fatal on error — the hints
+  // just won't show.
+  const { data: rateData } = useSWR(
+    elementIds.length
+      ? [API.boqRateAvailability(projectId), elementIdsKey]
+      : null,
+    () =>
+      rateContractsApi
+        .getRateAvailability(projectId, elementIds)
+        .then((res) => res.availability)
+  );
+  const rateAvailability = rateData ?? EMPTY_AVAILABILITY;
 
   const availableCount = useMemo(
     () =>
