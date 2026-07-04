@@ -697,9 +697,11 @@ async function bulkInsertRfqItems(
 ): Promise<void> {
   if (items.length === 0) return;
   await client.query(
+    // proposed_price is the per-UNIT proposed rate (sell line total ÷ qty) so it
+    // lines up with the vendor unit prices in the comparison sheet (§11).
     `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
      SELECT $1::uuid, t.boq_item_id, t.description, t.unit, t.quantity, t.spec_notes, t.sort_order,
-            ${BOQ_SELL_PRICE_SQL}
+            (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0)
      FROM UNNEST(
        $2::uuid[], $3::text[], $4::text[], $5::numeric[], $6::text[], $7::int[]
      ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)
@@ -1406,13 +1408,15 @@ export async function cloneRfqAsRevision(
 
     // Items: description/unit/quantity are sourced from the LIVE boq_item so the
     // revision reflects the current BOQ (RFQ-3c) — the whole point of revising
-    // after a scope change. spec_notes + sort_order stay RFQ-specific. Award
-    // links reset by omission (default null on the fresh rows). Items removed
-    // from scope (excluded) are dropped from the revision (RFQ-3d).
+    // after a scope change. spec_notes + sort_order + attachments stay
+    // RFQ-specific and carry over. Award links reset by omission (default null
+    // on the fresh rows). Items removed from scope (excluded) are dropped
+    // (RFQ-3d). proposed_price re-snapshots the per-unit rate from the live BOQ.
     await client.query(
-      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
+      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, attachments, proposed_price)
        SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
-              ri.spec_notes, ri.sort_order, ${BOQ_SELL_PRICE_SQL}
+              ri.spec_notes, ri.sort_order, ri.attachments,
+              (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0)
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
        WHERE ri.rfq_id = $2 AND NOT bi.is_excluded`,

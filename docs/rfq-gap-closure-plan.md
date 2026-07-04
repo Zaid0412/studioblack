@@ -18,8 +18,10 @@ PRs, sequenced small → large.
 
 ## Reusable building blocks (verified)
 
-- `RATE_CONTRACT_TYPES = ['material','labor','mixed']` (validations.ts) — mirror
-  for `RFQ_PACKAGE_TYPES`.
+- `RATE_CONTRACT_TYPES` (validations.ts) is the 5-value contract set
+  (`material, labor, equipment, subcontract, mixed`); `RFQ_PACKAGE_TYPES` is a
+  deliberately narrower 3-value sibling (`material, labor, mixed`) per PRD §9 —
+  a distinct set, not shared (RFQ must not offer equipment/subcontract).
 - `RFQ_RESPONSE_SOURCES` (portal/email/whatsapp/phone/pdf/excel/manual) — reuse
   as the communication channel enum.
 - `getActiveRatesForBoqItem(orgId, elementId, vendorId?)` (rateContracts.ts) —

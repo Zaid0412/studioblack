@@ -74,7 +74,9 @@ export const POST = withAuth(
       rfqTitle: result.rfq.title,
       projectName: projectName ?? "Project",
       responseDeadline: result.rfq.response_deadline,
-      revisionNumber: result.rfq.revision_number,
+      // Invite-more targets vendors new to this RFQ — even on a revision they
+      // have no prior quote to "revise", so send the standard new-RFQ wording.
+      revisionNumber: 0,
     }).catch((err: unknown) => {
       logger.warn("RFQ invite-more email fan-out failed", {
         rfqId: resolved.rfqId,

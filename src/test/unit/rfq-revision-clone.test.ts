@@ -78,6 +78,10 @@ describe("cloneRfqAsRevision (RFQ-3b)", () => {
     expect(
       sqls.some((s) => /INSERT INTO rfq_item[\s\S]*NOT bi\.is_excluded/.test(s))
     ).toBe(true);
+    // §11: per-line attachments carry over to the revision (not dropped).
+    expect(
+      sqls.some((s) => /INSERT INTO rfq_item[\s\S]*ri\.attachments/.test(s))
+    ).toBe(true);
     expect(
       sqls.some((s) => /INSERT INTO rfq_vendor[\s\S]*SELECT/.test(s))
     ).toBe(true);
