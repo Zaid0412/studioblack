@@ -58,15 +58,15 @@ describe("deleteBoqItem — RFQ-3d in-RFQ guard", () => {
 });
 
 describe("deleteBoqItemsBulk — RFQ-3d skips RFQ-linked items", () => {
-  it("reports deleted + blocked counts (blocked = requested - deleted)", async () => {
-    // Two requested, the DELETE (guarded by NOT EXISTS rfq_item) removes one.
-    mockQuery.mockResolvedValue({ rowCount: 1 });
+  it("reports deleted + the true RFQ-blocked count (not requested - deleted)", async () => {
+    // One removed, one blocked because it's on an RFQ — counted directly.
+    mockQuery.mockResolvedValue({ rows: [{ deleted: 1, blocked: 1 }] });
     const res = await deleteBoqItemsBulk(["a", "b"], "boq-1");
     expect(res).toEqual({ deleted: 1, blocked: 1 });
-    // The delete must carry the NOT EXISTS rfq_item guard.
-    expect(String(mockQuery.mock.calls[0][0])).toMatch(
-      /NOT EXISTS[\s\S]*rfq_item/
-    );
+    const sql = String(mockQuery.mock.calls[0][0]);
+    // Delete skips RFQ-linked items; blocked is counted via EXISTS, not math.
+    expect(sql).toMatch(/NOT EXISTS[\s\S]*rfq_item/);
+    expect(sql).toMatch(/EXISTS[\s\S]*rfq_item[\s\S]*\) AS blocked/);
   });
 
   it("short-circuits on an empty list", async () => {

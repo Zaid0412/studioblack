@@ -174,8 +174,13 @@ export default function OrderRfqDetailPage({
   // inside the edit dialog tells the PM vendors will see the change.
   const isEditable = !isTerminal;
   const isCancellable = !isTerminal;
+  // PM or architect can revise — matches the revise route (blockedRoles:
+  // client/vendor) and RFQ-4a's "arch or PM initiate". Gating this on isPM
+  // alone left an architect who removed an in-flight item staring at a
+  // dead-end impact banner with no action.
   const canRevise =
-    isPM && (RFQ_REVISABLE_STATUSES as readonly string[]).includes(rfq.status);
+    canManage &&
+    (RFQ_REVISABLE_STATUSES as readonly string[]).includes(rfq.status);
   const hasMenuActions =
     (canManage && isEditable) || canRevise || (isPM && isCancellable);
 

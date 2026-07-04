@@ -481,7 +481,9 @@ vi.mock("@/lib/queries", () => ({
   removeRateContractItem: vi.fn().mockResolvedValue(true),
   // RFQ (Feature 9)
   verifyRfqOwnership: vi.fn().mockResolvedValue(true),
-  getRfqsByProject: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+  getRfqsByProject: vi
+    .fn()
+    .mockResolvedValue({ rows: [], total: 0, readyNotInRfq: 0 }),
   getRfqDetail: vi.fn().mockResolvedValue(null),
   getSuggestedVendorsForRfq: vi.fn().mockResolvedValue([]),
   getAllVendorsForRfq: vi.fn().mockResolvedValue([]),

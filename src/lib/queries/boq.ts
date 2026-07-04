@@ -1693,9 +1693,11 @@ export async function moveBoqItemsBulk(
  * a forged itemId list can't reach into other projects' BOQs.
  *
  * RFQ-3d: items referenced by any RFQ are skipped (the FK is ON DELETE
- * RESTRICT — including them would fail the whole statement). Returns both the
- * count removed and the count blocked so the caller can warn the user, who
- * removes those from scope instead.
+ * RESTRICT — including them would fail the whole statement). Returns the count
+ * removed and the count blocked *specifically because they're on an RFQ* (a
+ * data-modifying CTE + sibling count, both over the pre-delete snapshot) — so
+ * ids that were stale, duplicated, or from another BOQ don't get miscounted as
+ * "blocked by RFQ" and mislead the warning.
  */
 export async function deleteBoqItemsBulk(
   itemIds: string[],
@@ -1703,16 +1705,26 @@ export async function deleteBoqItemsBulk(
 ): Promise<{ deleted: number; blocked: number }> {
   if (itemIds.length === 0) return { deleted: 0, blocked: 0 };
   const pool = getPool();
-  const { rowCount } = await pool.query(
-    `DELETE FROM boq_item bi
-      WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
-        AND NOT EXISTS (
-          SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
-        )`,
+  const { rows } = await pool.query<{ deleted: number; blocked: number }>(
+    `WITH del AS (
+       DELETE FROM boq_item bi
+        WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+          AND NOT EXISTS (
+            SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+          )
+       RETURNING bi.id
+     )
+     SELECT
+       (SELECT COUNT(*)::int FROM del) AS deleted,
+       (SELECT COUNT(*)::int FROM boq_item bi
+         WHERE bi.id = ANY($1::uuid[]) AND bi.boq_id = $2
+           AND EXISTS (
+             SELECT 1 FROM rfq_item ri WHERE ri.boq_item_id = bi.id
+           )
+       ) AS blocked`,
     [itemIds, boqId]
   );
-  const deleted = rowCount ?? 0;
-  return { deleted, blocked: itemIds.length - deleted };
+  return { deleted: rows[0]?.deleted ?? 0, blocked: rows[0]?.blocked ?? 0 };
 }
 
 /** Sources allowed to transition INTO each target phase. Pre-computed once. */
