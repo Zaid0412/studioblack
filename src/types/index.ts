@@ -1193,6 +1193,8 @@ export interface Rfq {
   revision_number: number;
   /** The RFQ this one revised, or null for an original. */
   supersedes_rfq_id: string | null;
+  /** Why this revision was raised (from the revise dialog). Null for originals. */
+  revision_reason: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -82,6 +82,31 @@ describe("cloneRfqAsRevision (RFQ-3b)", () => {
     expect(sqls).toContain("COMMIT");
   });
 
+  it("persists the revision reason on the new draft when given (RFQ-3c)", async () => {
+    wireHappyPath();
+    await cloneRfqAsRevision(
+      "old-rfq-1",
+      "user-pm",
+      "Client added two wardrobes"
+    );
+    const insertRfq = mockClientQuery.mock.calls.find((c) =>
+      /INSERT INTO rfq \(/.test(String(c[0]))
+    );
+    expect(String(insertRfq![0])).toMatch(/revision_reason/);
+    expect(insertRfq![1]).toContain("Client added two wardrobes");
+  });
+
+  it("stores null revision reason when none is given", async () => {
+    wireHappyPath();
+    await cloneRfqAsRevision("old-rfq-1", "user-pm");
+    const insertRfq = mockClientQuery.mock.calls.find((c) =>
+      /INSERT INTO rfq \(/.test(String(c[0]))
+    );
+    // The reason param is the last positional value on the rfq insert.
+    const params = insertRfq![1] as unknown[];
+    expect(params[params.length - 1]).toBeNull();
+  });
+
   it("refuses a draft (non-revisable) status and rolls back", async () => {
     wireHappyPath({ ...OLD, status: "draft" });
     const res = await cloneRfqAsRevision("old-rfq-1", "user-pm");

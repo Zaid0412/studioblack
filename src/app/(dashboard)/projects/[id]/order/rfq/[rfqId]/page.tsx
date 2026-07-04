@@ -365,6 +365,14 @@ export default function OrderRfqDetailPage({
           })}
         </Link>
       )}
+      {rfq.supersedes && rfq.revision_reason && (
+        <p className="-mt-1 pl-1 text-sm text-text-secondary">
+          <span className="font-medium text-text-primary">
+            {t("revisionReasonLabel")}:
+          </span>{" "}
+          {rfq.revision_reason}
+        </p>
+      )}
       {rfq.superseded_by && (
         <Link
           href={`/projects/${projectId}/order/rfq/${rfq.superseded_by.id}`}

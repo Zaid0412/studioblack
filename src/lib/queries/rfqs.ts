@@ -1287,7 +1287,8 @@ export async function cancelRfq(
  */
 export async function cloneRfqAsRevision(
   rfqId: string,
-  userId: string
+  userId: string,
+  reason?: string | null
 ): Promise<
   { ok: true; rfq: Rfq } | { ok: false; reason: "not_found" | "wrong_status" }
 > {
@@ -1314,8 +1315,8 @@ export async function cloneRfqAsRevision(
       `INSERT INTO rfq (
          org_id, project_id, rfq_number, title, status,
          scope_of_work, terms_conditions, response_deadline, created_by,
-         revision_number, supersedes_rfq_id
-       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, $10)
+         revision_number, supersedes_rfq_id, revision_reason
+       ) VALUES ($1, $2, $3, $4, 'draft', $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         old.org_id,
@@ -1328,6 +1329,7 @@ export async function cloneRfqAsRevision(
         userId,
         old.revision_number + 1,
         old.id,
+        reason ?? null,
       ]
     );
     const next = newRows[0];

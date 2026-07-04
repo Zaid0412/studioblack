@@ -1200,6 +1200,7 @@
       "reviseBtn": "Create revision",
       "revisionOf": "Rev {rev} · supersedes {number}",
       "supersededBy": "Superseded by {number} · Rev {rev}",
+      "revisionReasonLabel": "Revision reason",
       "reviseConfirmTitle": "Create a revision of this RFQ?",
       "reviseConfirmDescription": "A new draft revision is created with the same items and vendors; this RFQ is marked superseded. You can then adjust scope and re-issue.",
       "reviseConfirm": "Create revision",
