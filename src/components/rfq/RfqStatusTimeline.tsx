@@ -7,12 +7,15 @@ import {
   FilePlus2,
   GitBranch,
   Mail,
+  MessageSquare,
   MessageSquareReply,
   UserPlus2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/formatTime";
+import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
+import type { RfqResponseSource } from "@/lib/validations";
 import type { RfqEvent } from "@/types";
 
 interface Props {
@@ -26,6 +29,7 @@ const ICONS: Record<string, LucideIcon> = {
   "rfq.cancelled": Ban,
   "rfq.revised": GitBranch,
   "rfq.awarded": Award,
+  "rfq.communication_logged": MessageSquare,
   "quote.submitted": MessageSquareReply,
   "quote.revised": MessageSquareReply,
   "quote.awarded": Award,
@@ -207,6 +211,24 @@ function EventBody({
         <>
           <span>{t("quoteAwardedVerb")}</span>
           {vendorName && <Pill>{vendorName}</Pill>}
+        </>
+      );
+    }
+    case "rfq.communication_logged": {
+      const channel = typeof m.channel === "string" ? m.channel : null;
+      const vendorName =
+        typeof m.vendor_name === "string" ? m.vendor_name : null;
+      const remarks = typeof m.remarks === "string" ? m.remarks : null;
+      return (
+        <>
+          <span>{t("commLoggedVerb")}</span>
+          {channel && (
+            <Pill>
+              {RESPONSE_SOURCE_LABELS[channel as RfqResponseSource] ?? channel}
+            </Pill>
+          )}
+          {vendorName && <Pill>{vendorName}</Pill>}
+          {remarks && <span className="text-text-secondary">— {remarks}</span>}
         </>
       );
     }

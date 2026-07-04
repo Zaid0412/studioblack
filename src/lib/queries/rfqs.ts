@@ -281,6 +281,26 @@ export function boqDivergence(
 }
 
 /**
+ * PRD §17: the display name of a vendor invited to this RFQ, or null if the
+ * vendor isn't on the RFQ (so a logged communication can't reference an
+ * unrelated vendor). Used to denormalise `vendor_name` into the audit metadata
+ * the timeline renders.
+ */
+export async function getRfqVendorName(
+  rfqId: string,
+  vendorId: string
+): Promise<string | null> {
+  const pool = getPool();
+  const { rows } = await pool.query<{ company_name: string }>(
+    `SELECT v.company_name
+       FROM rfq_vendor rv JOIN vendor v ON v.id = rv.vendor_id
+      WHERE rv.rfq_id = $1 AND rv.vendor_id = $2`,
+    [rfqId, vendorId]
+  );
+  return rows[0]?.company_name ?? null;
+}
+
+/**
  * Audit events for an RFQ, joined with `user.name` so the timeline can show
  * "Issued by Zaid" without a second round-trip. Ordered oldest-first so a
  * client renders top-to-bottom as the story unfolded. `rfq.updated` is
@@ -299,6 +319,7 @@ const RFQ_TIMELINE_ACTIONS = [
   AUDIT_ACTIONS.RFQ_CANCELLED,
   AUDIT_ACTIONS.RFQ_AWARDED,
   AUDIT_ACTIONS.RFQ_REVISED,
+  AUDIT_ACTIONS.RFQ_COMMUNICATION_LOGGED,
 ] as const;
 const QUOTE_TIMELINE_ACTIONS = [
   AUDIT_ACTIONS.QUOTE_SUBMITTED,

@@ -10,6 +10,7 @@ import {
   FileText,
   GitBranch,
   Mail,
+  MessageSquare,
   MoreHorizontal,
   Paperclip,
   Pencil,
@@ -49,6 +50,7 @@ import {
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqItemsTable } from "@/components/rfq/RfqItemsTable";
 import { RfqItemAttachmentsDialog } from "./_components/RfqItemAttachmentsDialog";
+import { RfqLogCommunicationDialog } from "./_components/RfqLogCommunicationDialog";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
@@ -105,6 +107,7 @@ export default function OrderRfqDetailPage({
     description: string;
     attachments?: { url: string; fileName: string }[];
   } | null>(null);
+  const [logCommOpen, setLogCommOpen] = useState(false);
   const [awardOpen, setAwardOpen] = useState(false);
   const [manualQuoteOpen, setManualQuoteOpen] = useState(false);
   const [manualQuoteVendorId, setManualQuoteVendorId] = useState<string | null>(
@@ -641,10 +644,20 @@ export default function OrderRfqDetailPage({
 
       {/* Activity timeline — at the bottom of the page, GH/tasks-style. */}
       <section className="rounded-xl border border-border-default bg-bg-secondary overflow-hidden">
-        <div className="px-6 py-4 border-b border-border-default">
+        <div className="px-6 py-4 border-b border-border-default flex items-center justify-between gap-4">
           <h2 className="text-sm font-semibold text-text-primary">
             {t("timelineHeading")}
           </h2>
+          {canManage && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setLogCommOpen(true)}
+            >
+              <MessageSquare className="w-4 h-4" />
+              {tRfq("logComm.title")}
+            </Button>
+          )}
         </div>
         <RfqStatusTimeline events={rfq.events} />
       </section>
@@ -772,6 +785,15 @@ export default function OrderRfqDetailPage({
           mutate();
           setAttachmentTarget(null);
         }}
+      />
+
+      <RfqLogCommunicationDialog
+        projectId={projectId}
+        rfqId={rfqId}
+        vendors={rfq.vendors}
+        open={logCommOpen}
+        onOpenChange={setLogCommOpen}
+        onLogged={() => mutate()}
       />
     </div>
   );

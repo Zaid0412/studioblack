@@ -41,6 +41,8 @@ export const AUDIT_ACTIONS = {
   RFQ_AWARDED: "rfq.awarded",
   RFQ_REVISED: "rfq.revised",
   RFQ_SYNCED_FROM_BOQ: "rfq.synced_from_boq",
+  // PRD §17: a manually-logged off-system communication (channel + remarks).
+  RFQ_COMMUNICATION_LOGGED: "rfq.communication_logged",
   // ── Vendor Quotes (F10) ────────────────────────────────────────────────
   QUOTE_SUBMITTED: "quote.submitted",
   QUOTE_REVISED: "quote.revised",

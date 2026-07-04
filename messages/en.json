@@ -1245,8 +1245,22 @@
       "rfqAwardedVerb": "awarded the RFQ",
       "quoteAwardedVerb": "awarded",
       "splitAward": "split award",
+      "commLoggedVerb": "logged a communication",
       "itemsCount": "{count, plural, =1 {# item} other {# items}}",
       "vendorsCount": "{count, plural, =1 {# vendor} other {# vendors}}"
+    },
+    "logComm": {
+      "title": "Log communication",
+      "description": "Record an off-system communication so it shows in the RFQ timeline.",
+      "channelLabel": "Channel",
+      "channelPlaceholder": "How did it happen?",
+      "vendorLabel": "Vendor (optional)",
+      "vendorNone": "No specific vendor",
+      "remarksLabel": "Remarks",
+      "remarksPlaceholder": "e.g. WhatsApp reminder sent; vendor will quote by Friday.",
+      "save": "Log",
+      "cancel": "Cancel",
+      "saved": "Communication logged"
     },
     "issue": {
       "title": "Issue to vendors",
