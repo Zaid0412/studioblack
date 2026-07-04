@@ -10,7 +10,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
+import { RATE_CONTRACT_STATUS_ICONS } from "@/lib/rateContractLabels";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -127,7 +129,9 @@ export function RateContractList({
               <SelectItem value={ALL}>{t("allStatuses")}</SelectItem>
               {RATE_CONTRACT_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`status_${s}`)}
+                  <OptionWithIcon icon={RATE_CONTRACT_STATUS_ICONS[s]}>
+                    {t(`status_${s}`)}
+                  </OptionWithIcon>
                 </SelectItem>
               ))}
             </SelectContent>

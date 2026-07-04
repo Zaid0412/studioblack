@@ -8,7 +8,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
+import {
+  VENDOR_STATUS_ICONS,
+  VENDOR_KYC_STATUS_ICONS,
+} from "@/lib/vendorLabels";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -124,7 +129,9 @@ export function VendorList({
               <SelectItem value={ALL_STATUS}>{t("allStatuses")}</SelectItem>
               {VENDOR_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`status_${s}`)}
+                  <OptionWithIcon icon={VENDOR_STATUS_ICONS[s]}>
+                    {t(`status_${s}`)}
+                  </OptionWithIcon>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -147,7 +154,9 @@ export function VendorList({
               <SelectItem value={ALL_STATUS}>{t("allKycStatuses")}</SelectItem>
               {VENDOR_KYC_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`kycStatus_${s}`)}
+                  <OptionWithIcon icon={VENDOR_KYC_STATUS_ICONS[s]}>
+                    {t(`kycStatus_${s}`)}
+                  </OptionWithIcon>
                 </SelectItem>
               ))}
             </SelectContent>

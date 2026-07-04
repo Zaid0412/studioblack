@@ -8,12 +8,16 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
 import {
   STATUSES,
   PRIORITIES,
   CATEGORIES,
   STATUS_LABEL,
+  STATUS_ICON,
+  PRIORITY_ICON,
+  CATEGORY_ICON,
   capitalize,
 } from "@/lib/taskUtils";
 
@@ -63,7 +67,9 @@ export function TaskFilterBar({
             <SelectItem value="all">{t("allStatus")}</SelectItem>
             {STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {STATUS_LABEL[s]}
+                <OptionWithIcon icon={STATUS_ICON[s]}>
+                  {STATUS_LABEL[s]}
+                </OptionWithIcon>
               </SelectItem>
             ))}
           </SelectContent>
@@ -79,7 +85,9 @@ export function TaskFilterBar({
             <SelectItem value="all">{t("allPriority")}</SelectItem>
             {PRIORITIES.map((p) => (
               <SelectItem key={p} value={p}>
-                {capitalize(p)}
+                <OptionWithIcon icon={PRIORITY_ICON[p]}>
+                  {capitalize(p)}
+                </OptionWithIcon>
               </SelectItem>
             ))}
           </SelectContent>
@@ -95,7 +103,9 @@ export function TaskFilterBar({
             <SelectItem value="all">{t("allCategory")}</SelectItem>
             {CATEGORIES.map((c) => (
               <SelectItem key={c} value={c}>
-                {capitalize(c)}
+                <OptionWithIcon icon={CATEGORY_ICON[c]}>
+                  {capitalize(c)}
+                </OptionWithIcon>
               </SelectItem>
             ))}
           </SelectContent>

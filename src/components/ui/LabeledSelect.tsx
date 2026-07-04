@@ -7,6 +7,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  OptionWithIcon,
 } from "@/components/ui/select";
 
 export interface LabeledSelectOption {
@@ -48,21 +49,11 @@ export function LabeledSelect({
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
-          {options.map((o) => {
-            const Icon = o.icon;
-            return (
-              <SelectItem key={o.value} value={o.value}>
-                {Icon ? (
-                  <span className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-text-muted" />
-                    {o.label}
-                  </span>
-                ) : (
-                  o.label
-                )}
-              </SelectItem>
-            );
-          })}
+          {options.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              <OptionWithIcon icon={o.icon}>{o.label}</OptionWithIcon>
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

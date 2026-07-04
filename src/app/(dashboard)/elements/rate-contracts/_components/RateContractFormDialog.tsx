@@ -29,6 +29,10 @@ import {
   type RateContractType,
   type RateContractPriceBasis,
 } from "@/lib/validations";
+import {
+  RATE_CONTRACT_TYPE_ICONS,
+  RATE_CONTRACT_PRICE_BASIS_ICONS,
+} from "@/lib/rateContractLabels";
 import type { RateContract } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
@@ -296,6 +300,7 @@ export function RateContractFormDialog({
               options={RATE_CONTRACT_TYPES.map((ct) => ({
                 value: ct,
                 label: t(`contractType_${ct}`),
+                icon: RATE_CONTRACT_TYPE_ICONS[ct],
               }))}
               placeholder={t("contractTypePlaceholder")}
               disabled={isLocked}
@@ -307,6 +312,7 @@ export function RateContractFormDialog({
               options={RATE_CONTRACT_PRICE_BASES.map((pb) => ({
                 value: pb,
                 label: t(`priceBasis_${pb}`),
+                icon: RATE_CONTRACT_PRICE_BASIS_ICONS[pb],
               }))}
               placeholder={t("priceBasisPlaceholder")}
               disabled={isLocked}

@@ -1,3 +1,19 @@
+import {
+  AlertTriangle,
+  Archive,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Circle,
+  CircleCheck,
+  CircleDashed,
+  Eye,
+  Factory,
+  PackageCheck,
+  PenTool,
+  RefreshCw,
+  type LucideIcon,
+} from "lucide-react";
 import type { Task, TaskPriority, TaskStatus, TaskCategory } from "@/types";
 import { deriveInitials } from "@/lib/utils";
 import { pinCommentReviewHref } from "./pinUtils";
@@ -73,6 +89,30 @@ export const STATUS_DOT: Record<TaskStatus, string> = {
   in_progress: "bg-yellow-500",
   completed: "bg-green-500",
   archived: "bg-gray-500",
+};
+
+/** Icons for task select/picker options (labels come from the maps above). */
+export const PRIORITY_ICON: Record<TaskPriority, LucideIcon> = {
+  low: ArrowDown,
+  medium: ArrowRight,
+  high: ArrowUp,
+  urgent: AlertTriangle,
+};
+
+export const CATEGORY_ICON: Record<TaskCategory, LucideIcon> = {
+  general: Circle,
+  design: PenTool,
+  review: Eye,
+  revision: RefreshCw,
+  production: Factory,
+  handover: PackageCheck,
+};
+
+export const STATUS_ICON: Record<TaskStatus, LucideIcon> = {
+  todo: Circle,
+  in_progress: CircleDashed,
+  completed: CircleCheck,
+  archived: Archive,
 };
 
 export const STATUS_BADGE_VARIANT: Record<

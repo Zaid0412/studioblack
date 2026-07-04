@@ -16,7 +16,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
+import { VENDOR_STATUS_ICONS } from "@/lib/vendorLabels";
 import {
   Dialog,
   DialogClose,
@@ -373,7 +375,9 @@ export function VendorFormDialog({
                 <SelectContent>
                   {VENDOR_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {t(`status_${s}`)}
+                      <OptionWithIcon icon={VENDOR_STATUS_ICONS[s]}>
+                        {t(`status_${s}`)}
+                      </OptionWithIcon>
                     </SelectItem>
                   ))}
                 </SelectContent>

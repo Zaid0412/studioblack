@@ -12,7 +12,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
+import { RFQ_STATUS_ICONS } from "@/lib/rfqLabels";
 import { Pagination } from "@/components/ui/Pagination";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
@@ -68,7 +70,9 @@ export default function VendorPortalRfqsPage() {
             {RFQ_STATUSES.filter((s) => s !== "draft" && s !== "cancelled").map(
               (s) => (
                 <SelectItem key={s} value={s}>
-                  {t(`status.${s}`)}
+                  <OptionWithIcon icon={RFQ_STATUS_ICONS[s]}>
+                    {t(`status.${s}`)}
+                  </OptionWithIcon>
                 </SelectItem>
               )
             )}

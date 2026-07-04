@@ -11,7 +11,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  OptionWithIcon,
 } from "@/components/ui/select";
+import { VENDOR_PROFICIENCY_ICONS } from "@/lib/vendorLabels";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import { API } from "@/lib/api/routes";
 import { VENDOR_PROFICIENCIES } from "@/lib/validations";
@@ -107,7 +109,9 @@ export function VendorTradesEditor({ trades, onChange }: Props) {
                   <SelectContent>
                     {VENDOR_PROFICIENCIES.map((p) => (
                       <SelectItem key={p} value={p}>
-                        {t(`proficiency_${p}`)}
+                        <OptionWithIcon icon={VENDOR_PROFICIENCY_ICONS[p]}>
+                          {t(`proficiency_${p}`)}
+                        </OptionWithIcon>
                       </SelectItem>
                     ))}
                   </SelectContent>

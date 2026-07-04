@@ -2,8 +2,30 @@
 
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/**
+ * Renders a select/menu option's optional leading icon alongside its label.
+ * Returns the label bare when no icon is given, so it's safe to wrap every
+ * option. Shared so raw `<SelectItem>` call sites and `LabeledSelect` render
+ * icons identically.
+ */
+function OptionWithIcon({
+  icon: Icon,
+  children,
+}: {
+  icon?: LucideIcon;
+  children: React.ReactNode;
+}) {
+  if (!Icon) return <>{children}</>;
+  return (
+    <span className="flex items-center gap-2">
+      <Icon className="w-4 h-4 text-text-muted" />
+      {children}
+    </span>
+  );
+}
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
@@ -161,4 +183,5 @@ export {
   SelectSeparator,
   SelectScrollUpButton,
   SelectScrollDownButton,
+  OptionWithIcon,
 };

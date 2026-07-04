@@ -16,6 +16,7 @@ import { useRfqMutations } from "@/hooks/useRfqs";
 import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
 import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
+import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
 import type { BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
 
@@ -146,6 +147,7 @@ export function RfqCreateForm({ projectId }: Props) {
           options={RFQ_PACKAGE_TYPES.map((pt) => ({
             value: pt,
             label: t(`packageType.${pt}`),
+            icon: RFQ_PACKAGE_TYPE_ICONS[pt],
           }))}
           placeholder={t("create.packageTypePlaceholder")}
         />
