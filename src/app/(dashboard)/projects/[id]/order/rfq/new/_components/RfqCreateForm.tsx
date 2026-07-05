@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import useSWR from "swr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, BadgeCheck, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
@@ -17,12 +18,17 @@ import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
 import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
 import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
-import type { BoqItemWithComputed } from "@/types";
+import { rateContracts as rateContractsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
+import type { AvailableRate, BoqItemWithComputed } from "@/types";
 import { BoqItemsPickerTable } from "../../_components/BoqItemsPickerTable";
+import { BoqApplyRateDialog } from "../../../../boq/_components/BoqApplyRateDialog";
 
 interface Props {
   projectId: string;
 }
+
+const EMPTY_AVAILABILITY: Record<string, AvailableRate | null> = {};
 
 /**
  * Single-page RFQ creator. Title is required; at least one BOQ item must be
@@ -35,7 +41,7 @@ interface Props {
 export function RfqCreateForm({ projectId }: Props) {
   const t = useTranslations("rfq");
   const router = useRouter();
-  const { boq, isLoading: boqLoading } = useBoq(projectId);
+  const { boq, isLoading: boqLoading, mutate: mutateBoq } = useBoq(projectId);
   const { create } = useRfqMutations(projectId);
 
   const [title, setTitle] = useState("");
@@ -45,6 +51,8 @@ export function RfqCreateForm({ projectId }: Props) {
   const [deadline, setDeadline] = useState<Date | undefined>(undefined);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [applyRateItem, setApplyRateItem] =
+    useState<BoqItemWithComputed | null>(null);
 
   // RFQ-4a: only items the PM has marked Ready for Procurement and that aren't
   // already committed to an RFQ are eligible.
@@ -55,6 +63,56 @@ export function RfqCreateForm({ projectId }: Props) {
       ),
     [boq?.items]
   );
+
+  // PR C: flag eligible items that already have an active matching rate
+  // contract, so the PM can procure via contract instead of requesting a quote.
+  const elementIds = useMemo(
+    () =>
+      [
+        ...new Set(
+          items
+            .map((it) => it.element_id)
+            .filter((id): id is string => id !== null)
+        ),
+      ].sort(),
+    [items]
+  );
+  const elementIdsKey = elementIds.join(",");
+
+  // Keyed on the sorted element-id set (not the array ref) so a BOQ refetch
+  // that returns the same elements — in any order — doesn't refire. Non-fatal
+  // on error: the hints just won't show.
+  const { data: rateData } = useSWR(
+    elementIds.length
+      ? [API.boqRateAvailability(projectId), elementIdsKey]
+      : null,
+    () =>
+      rateContractsApi
+        .getRateAvailability(projectId, elementIds)
+        .then((res) => res.availability)
+  );
+  const rateAvailability = rateData ?? EMPTY_AVAILABILITY;
+
+  const availableCount = useMemo(
+    () =>
+      items.filter((it) => it.element_id && rateAvailability[it.element_id])
+        .length,
+    [items, rateAvailability]
+  );
+
+  // "Use contract" applied a rate: the item's price changed so it reopens to
+  // sent_to_client server-side — drop it from the selection and refetch so it
+  // leaves the eligible list.
+  const handleContractApplied = () => {
+    if (applyRateItem) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(applyRateItem.id);
+        return next;
+      });
+    }
+    void mutateBoq();
+  };
 
   const toggleItem = (id: string) => {
     setSelected((prev) => {
@@ -209,6 +267,15 @@ export function RfqCreateForm({ projectId }: Props) {
           )}
         </div>
 
+        {!boqLoading && availableCount > 0 && (
+          <div className="mx-6 mb-3 flex items-center gap-2 rounded-lg border border-info/30 bg-info/10 px-4 py-2.5 text-sm text-text-secondary">
+            <BadgeCheck className="w-4 h-4 text-info shrink-0" />
+            <span>
+              {t("create.rateContractBanner", { count: availableCount })}
+            </span>
+          </div>
+        )}
+
         {boqLoading ? (
           <p className="px-6 py-8 text-sm text-text-muted">
             {t("create.loadingBoq")}
@@ -230,17 +297,30 @@ export function RfqCreateForm({ projectId }: Props) {
               selected={selected}
               onToggleItem={toggleItem}
               onToggleAll={toggleAll}
+              rateAvailability={rateAvailability}
+              onUseContract={setApplyRateItem}
               labels={{
                 selectAll: t("create.selectAll"),
                 code: t("create.col.code"),
                 description: t("create.col.description"),
                 unit: t("create.col.unit"),
                 quantity: t("create.col.quantity"),
+                rateContract: t("create.col.rateContract"),
+                useContract: t("create.useContract"),
               }}
             />
           </div>
         )}
       </section>
+
+      <BoqApplyRateDialog
+        projectId={projectId}
+        item={applyRateItem}
+        onOpenChange={(open) => {
+          if (!open) setApplyRateItem(null);
+        }}
+        onApplied={handleContractApplied}
+      />
 
       <div className="flex items-center justify-end gap-3 mt-auto pt-4 border-t border-border-default -mx-4 lg:-mx-10 px-4 lg:px-10">
         <Link href={`/projects/${projectId}/order/rfq`}>

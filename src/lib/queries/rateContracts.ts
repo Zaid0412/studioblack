@@ -16,6 +16,7 @@ import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
+import { runWithConcurrency } from "@/lib/concurrency";
 
 export interface RateContractFilters {
   search?: string;
@@ -321,6 +322,28 @@ export async function getActiveRatesForBoqItem(
     params
   );
   return rows.map((r) => ({ ...r, rate: Number(r.rate) })) as AvailableRate[];
+}
+
+/**
+ * Batch rate lookup keyed by element. For each distinct element id, returns the
+ * best-matching active rate (most-specific then cheapest — the top of
+ * `getActiveRatesForBoqItem`'s ranking) or null when none applies. Powers the
+ * "rate contract available" hints on the RFQ-create picker, where one BOQ
+ * section's worth of items is checked at once.
+ */
+export async function getBestRateForElements(
+  orgId: string,
+  elementIds: string[]
+): Promise<Record<string, AvailableRate | null>> {
+  const unique = [...new Set(elementIds)];
+  const result: Record<string, AvailableRate | null> = {};
+  // Each lookup runs a recursive-CTE ancestor walk; cap concurrency so a large
+  // section can't fire hundreds of them at the pg pool in one request.
+  await runWithConcurrency(unique, 8, async (elementId) => {
+    const rates = await getActiveRatesForBoqItem(orgId, elementId);
+    result[elementId] = rates[0] ?? null;
+  });
+  return result;
 }
 
 /** Browse mode: every active contract item across the org. Used by the BOQ picker. */

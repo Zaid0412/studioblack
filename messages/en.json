@@ -1167,8 +1167,11 @@
         "code": "Code",
         "description": "Description",
         "unit": "Unit",
-        "quantity": "Qty"
+        "quantity": "Qty",
+        "rateContract": "Rate contract"
       },
+      "useContract": "Use contract",
+      "rateContractBanner": "{count, plural, =1 {# item has an active rate contract available} other {# items have an active rate contract available}} — apply the contract rate instead of requesting a quote.",
       "cancel": "Cancel",
       "save": "Save draft",
       "successToast": "RFQ created",
@@ -1416,6 +1419,9 @@
     "applyApplied": "Applied",
     "applyToastSuccess": "Rate applied from contract",
     "applyToastError": "Failed to apply rate",
+    "drawerAvailable": "Rate contract available",
+    "drawerApplied": "Rate contract · {vendor}",
+    "drawerAppliedGeneric": "Rate contract applied",
     "matchElement": "Exact element",
     "matchServiceArea": "Service area",
     "matchAncestor": "Parent area",

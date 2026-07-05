@@ -910,6 +910,11 @@ export const applyRateToBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
 });
 
+/** Batch check: which of these elements have an active matching rate contract. */
+export const boqRateAvailabilitySchema = z.object({
+  elementIds: z.array(uuid).min(1).max(200),
+});
+
 export const moveBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   /** `null` moves the item back to the Unassigned bucket. */

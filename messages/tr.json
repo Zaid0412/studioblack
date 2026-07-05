@@ -1167,8 +1167,11 @@
         "code": "Kod",
         "description": "Açıklama",
         "unit": "Birim",
-        "quantity": "Mik."
+        "quantity": "Mik.",
+        "rateContract": "Birim fiyat sözleşmesi"
       },
+      "useContract": "Sözleşmeyi kullan",
+      "rateContractBanner": "{count, plural, =1 {# kalem için aktif bir birim fiyat sözleşmesi mevcut} other {# kalem için aktif birim fiyat sözleşmesi mevcut}} — teklif istemek yerine sözleşme fiyatını uygulayabilirsiniz.",
       "cancel": "İptal",
       "save": "Taslağı kaydet",
       "successToast": "Talep oluşturuldu",
@@ -1416,6 +1419,9 @@
     "applyApplied": "Uygulandı",
     "applyToastSuccess": "Fiyat sözleşmeden uygulandı",
     "applyToastError": "Fiyat uygulanamadı",
+    "drawerAvailable": "Birim fiyat sözleşmesi mevcut",
+    "drawerApplied": "Birim fiyat sözleşmesi · {vendor}",
+    "drawerAppliedGeneric": "Birim fiyat sözleşmesi uygulandı",
     "matchElement": "Tam eleman",
     "matchServiceArea": "Hizmet alanı",
     "matchAncestor": "Üst alan",

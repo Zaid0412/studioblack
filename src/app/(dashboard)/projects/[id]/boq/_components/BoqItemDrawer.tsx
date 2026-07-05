@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import { AlertTriangle, FileText, History, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  FileText,
+  History,
+  Trash2,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,7 +24,13 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/useToast";
 import { cn } from "@/lib/utils";
-import type { BoqItemWithComputed, BoqSection, UserRole } from "@/types";
+import { API } from "@/lib/api/routes";
+import type {
+  AvailableRate,
+  BoqItemWithComputed,
+  BoqSection,
+  UserRole,
+} from "@/types";
 import type { BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
@@ -328,9 +341,17 @@ export function BoqItemDrawer({
   onOpenOtherItem,
 }: BoqItemDrawerProps) {
   const t = useTranslations("boq.table");
+  const tRc = useTranslations("rateContracts");
   const { updateItem, setItemExcluded, setItemPhase } =
     useBoqMutations(projectId);
   const isExternal = isExternalViewer(role);
+  // PR C: studio-only "rate contract available/applied" indicator. The
+  // by-element endpoint is pm/architect only, so skip the fetch for viewers.
+  const { data: rateData } = useSWR<{ rates: AvailableRate[] }>(
+    open && !isExternal && item?.element_id
+      ? API.rateContractsByElement(item.element_id)
+      : null
+  );
   // Buffered edit state. Seeded when a new item opens; NOT re-seeded on SWR
   // revalidation, so a background refresh can't clobber in-progress edits.
   const [draft, setDraft] = useState<DrawerDraft>(() =>
@@ -369,6 +390,12 @@ export function BoqItemDrawer({
   if (!item) return null;
 
   const section = sections.find((s) => s.id === item.section_id) ?? null;
+  const availableRates = rateData?.rates ?? [];
+  const appliedRate = item.rate_contract_item_id
+    ? availableRates.find(
+        (r) => r.rate_contract_item_id === item.rate_contract_item_id
+      )
+    : undefined;
   const tier = marginTier(toNum(item.margin_pct), toNum(minimumMarginPct));
   const marginColor =
     tier === "success"
@@ -591,6 +618,22 @@ export function BoqItemDrawer({
                     : "over budget"}
                 </Badge>
               )}
+              {!isExternal &&
+                (item.rate_contract_item_id ? (
+                  <Badge variant="info" className="gap-1">
+                    <BadgeCheck className="h-3 w-3" />
+                    {appliedRate
+                      ? tRc("drawerApplied", {
+                          vendor: appliedRate.vendor_name,
+                        })
+                      : tRc("drawerAppliedGeneric")}
+                  </Badge>
+                ) : availableRates.length > 0 ? (
+                  <Badge variant="info" className="gap-1">
+                    <BadgeCheck className="h-3 w-3" />
+                    {tRc("drawerAvailable")}
+                  </Badge>
+                ) : null)}
             </div>
           </SheetHeader>
 
