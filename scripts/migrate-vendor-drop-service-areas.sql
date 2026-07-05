@@ -2,7 +2,7 @@
 --
 -- Service areas are now the leaf (level-3) nodes of the shared element_category
 -- tree; vendors map to them via vendor_trade (vendor_id → category_id). The old
--- free-text array is redundant. See docs/shared-taxonomy-plan.md.
+-- free-text array is redundant.
 --
 -- Safe: checked prod (0 vendors with service_areas) and dev (1 test value) before
 -- dropping — nothing to migrate.

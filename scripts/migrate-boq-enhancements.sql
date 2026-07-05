@@ -1,5 +1,5 @@
 -- F6.1: BOQ table enhancements — provenance + service-charge pricing.
--- See docs/boq-enhancements-plan.md.
+-- Shipped in PR #81 (2026-04-29).
 
 BEGIN;
 

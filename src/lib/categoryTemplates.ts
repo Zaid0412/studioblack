@@ -1,6 +1,6 @@
 /**
  * Master classification taxonomy — the single shared hierarchy used across
- * Elements, Vendors, BOQ, RFQs, POs and reporting (see docs/shared-taxonomy-plan.md).
+ * Elements, Vendors, BOQ, RFQs, POs and reporting.
  *
  * Three levels: Category (L1) -> Sub-category (L2) -> Service Area (L3), each with a
  * path code (KIT / KIT-CAB / KIT-CAB-BASE). Seeded via the "Use a starter set" flow;

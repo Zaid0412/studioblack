@@ -1,6 +1,6 @@
 # StudioBlack — Progress Tracker
 
-> **Updated:** 2026-03-25 | **Ref:** [RDash](https://rdash.io/) | **Branch:** `main`
+> **Updated:** 2026-07-05 | **Ref:** [RDash](https://rdash.io/) | **Branch:** `main`
 
 ---
 
@@ -18,16 +18,24 @@
 | **Notifications**   | Batch inserts (no N+1), review/upload/assignment notifications, bell with unread count                                                                                                                          |
 | **Auth & Security** | Email/password auth, centralized `withAuth()`, CSRF fail-closed, role-based access via org membership, SSRF-safe proxy, rate limiting, input validation, type-safe env (`src/env.ts`)                           |
 | **Settings**        | Profile, password, preferences (theme/language), danger zone                                                                                                                                                    |
+| **Taxonomy**        | Shared 3-level master taxonomy (Category → Sub-category → Service Area, 14 categories, coded), used by elements, vendors, BOQ, RFQs, rate contracts; starter-set seeding; category management on /vendors         |
+| **Element Library** | Element CRUD with cost build-up, service-area classification, library → BOQ default-flow                                                                                                                         |
+| **BOQ**             | Sections + per-section totals, item drawer, cost build-up (overhead / service-charge / margin), client rate & budget rate, source provenance, contingency & VAT, Excel import/export round-trip, phase lifecycle (draft → client-approved → ready-for-procurement), immutable item-change versioning |
+| **Vendor Mgmt**     | Vendor master (code, legal name, contacts, tax/GSTIN, website, rating, preferred), service-area mapping via shared taxonomy, KYC + bank tabs, Rate Contracts tab                                                  |
+| **Rate Contracts**  | Full lifecycle (draft → under-review → approved → active → suspended/closed/expired/cancelled) + approval, contract items by service area (+ optional element), commercial terms, apply-rate to BOQ               |
+| **RFQ & Quotes**    | Procurement packages (multi-item, multi-vendor), service-area vendor suggestion, issue/invite (email fan-out), vendor portal submit/revise, manual & multi-channel quote entry + evidence, quote versioning, comparison matrix, single + split award, RFQ revisions (supersede), scope-change impact routing, communication timeline, audit trail |
 
 ---
 
 ## Not Yet Built
 
-**High:** Inter-org task collaboration, design sections & tags, RFIs, reporting dashboard
+**High:** Purchase Orders + Change Orders, Inter-org task collaboration, design sections & tags, RFIs, reporting dashboard
 
-**Medium:** WBS / activity schedule, Gantt chart scheduling, budget tracking, snaglist / punch list, quality audits
+**Medium:** Progress tracking / vendor-wise scope, WBS / activity schedule, Gantt chart scheduling, snaglist / punch list, quality audits
 
-**Low:** Vendor & procurement, field operations, mobile app (PWA), WhatsApp integration
+**Low:** Field operations, mobile app (PWA), live email/WhatsApp integration (OCR, auto-reminders, AI vendor recommendation)
+
+> **RFQ module Phase 2 (planned, not started):** partial per-item bidding, quote evidence metadata, RFQ distribution tracking, comparison decision criteria — see `docs/rfq-gap-closure-phase2-plan.md`.
 
 ---
 

@@ -2,7 +2,7 @@
 --
 -- The unified taxonomy uses full path codes at each level — Category `KIT`,
 -- Sub-category `KIT-CAB`, Service Area `KIT-CAB-BASE` (up to ~14 chars). The
--- original VARCHAR(10) only fit the top-level prefix. See docs/shared-taxonomy-plan.md.
+-- original VARCHAR(10) only fit the top-level prefix.
 --
 -- Run: psql $DATABASE_URL -f scripts/migrate-category-code-width.sql
 

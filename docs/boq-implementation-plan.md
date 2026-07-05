@@ -1,8 +1,8 @@
 # ArchBuild Implementation Plan
 
-> **Companion plans:**
+> **Shipped sub-plans:**
 >
-> - `docs/boq-enhancements-plan.md` — F6.1 (BOQ table enhancements: section chips, source column, service charge). **Status: shipped in PR #81 (2026-04-29).** Lives in a separate file because it touches already-shipped code.
+> - F6.1 (BOQ table enhancements: section chips, source column, service charge). **Status: shipped in PR #81 (2026-04-29).**
 >
 > **Source PRD** (Google Docs — 6 tabs):
 >
@@ -19,6 +19,15 @@
 > - [Price Terminology (multi-stage pricing)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.e92hrz2qe5w1)
 > - [RFQ & Vendor Management FRD](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xa6xrobksshj)
 > - [Vendor Master Taxonomy](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.ahdn7rk1bmeb)
+>
+> **Later tabs** (added after the addendum — RFQ / rate-contract / procurement material; tab names are the doc's current labels):
+>
+> - [RFQ - NEW](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.tb2wrtgb4f1f)
+> - [RFQ - detailed REQ New](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.wt5zwx8zv889)
+> - [Vendor-cat/sub/service (current taxonomy)](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.byxoydqtjbd3)
+> - [Rate contract](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.csq1hgbovm1)
+> - [PO/Invoice](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.gpgps6teep6q)
+> - [Awards & PO](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.xs6yeduybzkk)
 
 ## Overview
 
@@ -1365,7 +1374,7 @@ CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
 
 **BOQ integration** — extend the shipped `BoqElementPickerDialog`:
 
-- Add a third tab: `From Rate Contract`. Lists elements available across active rate contracts, with vendor + rate displayed. Selecting a row creates a `boq_item` with `source = 'rate_contract'` (see `docs/boq-enhancements-plan.md` F6.1) and `unit_cost = rate`.
+- Add a third tab: `From Rate Contract`. Lists elements available across active rate contracts, with vendor + rate displayed. Selecting a row creates a `boq_item` with `source = 'rate_contract'` (F6.1, shipped PR #81) and `unit_cost = rate`.
 - Backend: extend `addElementToBoq` to accept an optional `rate_contract_item_id` and copy the rate when present. Persist the link by adding `rate_contract_item_id UUID REFERENCES rate_contract_item(id) ON DELETE SET NULL` to `boq_item` in this feature's migration.
 
 **Zod Schemas**: rate-contract create/update + item-bulk-add schemas in `src/lib/validations.ts`.
@@ -2723,7 +2732,7 @@ F1 (Categories) ──→ F2 (Elements) ──→ F3 (Excel Import)
                                                                                                        ▼
                                                                                                   F14 (POs) ──→ F14.5 (Compare BOQ vs Order) ──→ F15 (Invoices)
 
-F6.1 (BOQ Table Enhancements) — see docs/boq-enhancements-plan.md
+F6.1 (BOQ Table Enhancements) — shipped PR #81
 F16 (Progress) — depends on F4 (BOQ items exist)
 F16.5 (Vendor-Wise Scope) — depends on F4, F14, F16
 F8.5 (Vendor Self-Service Profile) — depends on F8, F7, F7.1
