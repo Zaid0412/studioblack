@@ -110,7 +110,6 @@ export function Sidebar({
     ...(vendorManagementEnabled
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
       : []),
-    { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
   const pmNav = [
@@ -123,7 +122,6 @@ export function Sidebar({
   const clientNav = [
     { href: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/projects", label: t("projects"), icon: FolderOpen },
-    { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
   const vendorNav = [
@@ -146,7 +144,6 @@ export function Sidebar({
     { href: "/vendor-portal/invoices", label: t("invoices"), icon: Receipt },
     { href: "/vendor-portal/profile", label: t("profile"), icon: UserCog },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
-    { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
   const navMap = {
@@ -231,7 +228,7 @@ export function Sidebar({
           onClick={toggle}
           className={cn(
             "flex items-center rounded-lg text-sm text-text-muted hover:text-text-primary hover:bg-bg-elevated/50 transition-all duration-200 cursor-pointer w-full overflow-hidden py-2",
-            isCollapsed ? "gap-0 px-2" : "gap-2 px-4"
+            isCollapsed ? "justify-center gap-0 px-2" : "gap-2 px-4"
           )}
           aria-label={isCollapsed ? t("expandSidebar") : t("collapseSidebar")}
         >
@@ -244,7 +241,7 @@ export function Sidebar({
           <span
             className={cn(
               "text-xs whitespace-nowrap transition-opacity duration-200",
-              isCollapsed ? "opacity-0" : "opacity-100"
+              isCollapsed ? "hidden" : "opacity-100"
             )}
           >
             {t("collapseSidebar")}
@@ -252,13 +249,20 @@ export function Sidebar({
         </button>
       </div>
 
-      {/* User menu */}
+      {/* Settings + user menu */}
       <div
         className={cn(
-          "border-t border-border-default transition-all duration-200",
+          "flex flex-col gap-1 border-t border-border-default transition-all duration-200",
           isCollapsed ? "p-2" : "px-3 py-2"
         )}
       >
+        <NavItem
+          href="/settings"
+          label={t("settings")}
+          icon={Settings}
+          isCollapsed={isCollapsed}
+        />
+        <div className="border-t border-border-default my-1" />
         <Popover>
           <PopoverTrigger asChild>
             {isCollapsed ? (
@@ -271,7 +275,7 @@ export function Sidebar({
                 />
               </button>
             ) : (
-              <button className="flex items-center gap-2.5 w-full cursor-pointer rounded-lg px-2 py-1.5 hover:bg-bg-elevated/50 transition-colors overflow-hidden">
+              <button className="group flex items-center gap-2.5 w-full cursor-pointer rounded-lg px-2 py-1.5 hover:bg-bg-elevated/50 transition-colors overflow-hidden">
                 <Avatar
                   initials={user.initials}
                   size="sm"
@@ -286,7 +290,7 @@ export function Sidebar({
                     {user.email}
                   </span>
                 </div>
-                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+                <ChevronUp className="h-3.5 w-3.5 shrink-0 text-text-muted transition-transform duration-200 group-data-[state=open]:rotate-180" />
               </button>
             )}
           </PopoverTrigger>

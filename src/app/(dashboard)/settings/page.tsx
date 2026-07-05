@@ -146,34 +146,36 @@ function SettingsPageInner() {
     }
   }
 
+  function renderNavLink(s: NavEntry) {
+    const Icon = s.icon;
+    const isActive = s.id === active;
+    return (
+      <Link
+        key={s.id}
+        href={`/settings?section=${s.id}`}
+        scroll={false}
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+          isActive
+            ? "bg-bg-elevated text-text-primary font-medium"
+            : "text-text-secondary hover:bg-bg-elevated/60 hover:text-text-primary",
+          s.danger && !isActive && "text-error/80 hover:text-error"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {s.label}
+      </Link>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
-        {/* Vertical section nav */}
+        {/* Vertical section nav — Categories (link-out) sits above Danger. */}
         <nav className="flex flex-col gap-1">
-          {navItems.map((s) => {
-            const Icon = s.icon;
-            const isActive = s.id === active;
-            return (
-              <Link
-                key={s.id}
-                href={`/settings?section=${s.id}`}
-                scroll={false}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-bg-elevated text-text-primary font-medium"
-                    : "text-text-secondary hover:bg-bg-elevated/60 hover:text-text-primary",
-                  s.danger && !isActive && "text-error/80 hover:text-error"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {s.label}
-              </Link>
-            );
-          })}
+          {navItems.filter((s) => s.id !== "danger").map(renderNavLink)}
           {showCategoriesLink && (
             <Link
               href="/settings/element-categories"
@@ -183,6 +185,7 @@ function SettingsPageInner() {
               {t("nav.categories")}
             </Link>
           )}
+          {navItems.filter((s) => s.id === "danger").map(renderNavLink)}
         </nav>
 
         {/* Active section */}
