@@ -136,6 +136,23 @@ describe("POST /api/projects/[id]/rfqs/[rfqId]/award (single)", () => {
     );
   });
 
+  it("returns 409 when the winning quote doesn't cover every item", async () => {
+    // §14: a partial quote can't win a single-vendor award — items would be
+    // left unpriced. The query returns `incomplete_quote`; the route maps 409.
+    vi.mocked(awardRfqSingle).mockResolvedValue({
+      ok: false,
+      reason: "incomplete_quote",
+    });
+    const res = await AWARD_SINGLE(
+      buildRequest(`/api/projects/${PROJECT_ID}/rfqs/${RFQ_ID}/award`, {
+        method: "POST",
+        body: { quoteId: QUOTE_ID },
+      }),
+      buildParams({ id: PROJECT_ID, rfqId: RFQ_ID })
+    );
+    expect(res.status).toBe(409);
+  });
+
   it("blocks non-PM (architect)", async () => {
     setupAuth(mocks.auth, architectSession);
     vi.mocked(getOrgRole).mockResolvedValue("member");

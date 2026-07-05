@@ -110,15 +110,22 @@ export function ManualQuoteDialog({
     return sum;
   }, [rfq.items, prices]);
 
-  const pricesFilled = useMemo(() => {
-    if (rfq.items.length === 0) return false;
-    return rfq.items.every((it) => {
-      const price = Number(prices.get(it.id));
-      return Number.isFinite(price) && price >= 0 && prices.get(it.id) !== "";
-    });
-  }, [rfq.items, prices]);
+  // A line is "filled" when it has a non-empty, valid (>= 0) price. A blank line
+  // means "not quoting" this item (§14 partial bidding) — only filled lines are
+  // submitted, and at least one is required.
+  const isFilled = (id: string): boolean => {
+    const raw = prices.get(id);
+    if (raw === undefined || raw === "") return false;
+    const price = Number(raw);
+    return Number.isFinite(price) && price >= 0;
+  };
+  const hasAnyPrice = useMemo(
+    () => rfq.items.some((it) => isFilled(it.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isFilled closes over `prices`
+    [rfq.items, prices]
+  );
 
-  const canSubmit = vendorId && source && receivedDate && pricesFilled;
+  const canSubmit = vendorId && source && receivedDate && hasAnyPrice;
 
   async function handleSubmit() {
     if (!canSubmit || submitting || !receivedDate) return;
@@ -134,10 +141,12 @@ export function ManualQuoteDialog({
         paymentTerms: paymentTerms || null,
         notes: notes || null,
         attachments,
-        items: rfq.items.map((it) => ({
-          rfqItemId: it.id,
-          unitPrice: Number(prices.get(it.id) ?? 0),
-        })),
+        items: rfq.items
+          .filter((it) => isFilled(it.id))
+          .map((it) => ({
+            rfqItemId: it.id,
+            unitPrice: Number(prices.get(it.id)),
+          })),
       });
       toast({ title: existing ? "Quote updated" : "Quote recorded" });
       onEntered();
@@ -246,6 +255,11 @@ export function ManualQuoteDialog({
                           }}
                           className="text-right"
                         />
+                        {raw === "" && (
+                          <div className="text-[11px] text-text-muted mt-0.5">
+                            Not quoting
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-text-primary">
                         {lineTotal.toLocaleString(undefined, {

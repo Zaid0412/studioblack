@@ -1397,6 +1397,10 @@ export interface QuoteComparisonVendorColumn {
   currency: string;
   grand_total: number;
   submitted_at: string;
+  /** Vendor's star rating (0–5), null if unrated — a comparison criterion (§19). */
+  vendor_rating: number | null;
+  /** Distinct prior RFQs this vendor has won (single or split), excluding this one. */
+  vendor_prior_awards: number;
 }
 
 /** Denormalised shape consumed by the comparison page. */

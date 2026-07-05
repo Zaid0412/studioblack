@@ -64,6 +64,14 @@ export function QuoteComparisonTable({ comparison }: Props) {
                         </span>
                       )}
                     </div>
+                    <span className="text-[11px] font-normal text-text-muted">
+                      {
+                        comparison.items.filter(
+                          (r) => r.vendor_prices[v.vendor_id]
+                        ).length
+                      }
+                      /{comparison.items.length} items quoted
+                    </span>
                   </div>
                 </th>
               ))}
@@ -172,6 +180,45 @@ export function QuoteComparisonTable({ comparison }: Props) {
                     maximumFractionDigits: 2,
                   })}{" "}
                   <span className="text-xs text-text-muted">{v.currency}</span>
+                </td>
+              ))}
+            </tr>
+            <tr className="bg-bg-elevated text-xs text-text-muted">
+              <td
+                colSpan={3}
+                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
+              >
+                Rating
+              </td>
+              {comparison.vendors.map((v) => (
+                <td
+                  key={v.vendor_id}
+                  className="px-4 py-2 text-right border-l border-border-default"
+                >
+                  {v.vendor_rating === null ? (
+                    "—"
+                  ) : (
+                    <span className="inline-flex items-center justify-end gap-0.5">
+                      <Star className="w-3 h-3 text-warning fill-warning" />
+                      {v.vendor_rating.toFixed(1)}
+                    </span>
+                  )}
+                </td>
+              ))}
+            </tr>
+            <tr className="bg-bg-elevated text-xs text-text-muted">
+              <td
+                colSpan={3}
+                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
+              >
+                Prior awards
+              </td>
+              {comparison.vendors.map((v) => (
+                <td
+                  key={v.vendor_id}
+                  className="px-4 py-2 text-right border-l border-border-default"
+                >
+                  {v.vendor_prior_awards}
                 </td>
               ))}
             </tr>
