@@ -271,7 +271,7 @@ export const auth = betterAuth({
           try {
             await bulkCreateCategoriesFromTemplates(
               organization.id,
-              [...MASTER_TAXONOMY] as BulkCategoryNode[]
+              MASTER_TAXONOMY as readonly BulkCategoryNode[]
             );
           } catch (err) {
             logger.error("Failed to seed default categories for new org", {

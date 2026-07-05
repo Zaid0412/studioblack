@@ -1063,7 +1063,6 @@
     "kycConfirmRemoveTitle": "Bu belge kaldırılsın mı?",
     "kycConfirmRemoveDesc": "Kayıt tedarikçiden kaldırılır. Depolamadaki dosya saklanır.",
     "featureDisabled": "Tedarikçi yönetimi özelliği henüz açık değil.",
-    "manageCategories": "Kategorileri yönet",
     "tabRateContracts": "Birim Fiyat Sözleşmeleri",
     "rcEmptyTitle": "Birim fiyat sözleşmesi yok",
     "rcEmptyHint": "Bu tedarikçiyle önceden anlaşılan fiyatlar burada görünür.",

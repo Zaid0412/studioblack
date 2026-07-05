@@ -144,7 +144,7 @@ export async function createCategory(
  */
 export async function bulkCreateCategoriesFromTemplates(
   orgId: string,
-  templates: BulkCategoryNode[]
+  templates: readonly BulkCategoryNode[]
 ): Promise<{ created: ElementCategory[]; skipped: string[] }> {
   const pool = getPool();
   const client = await pool.connect();

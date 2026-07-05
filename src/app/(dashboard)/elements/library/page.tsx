@@ -1,21 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import {
-  Download,
-  FolderTree,
-  MoreHorizontal,
-  Plus,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Download, MoreHorizontal, Plus, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { ManageCategoriesButton } from "@/components/elements/ManageCategoriesButton";
 import {
   Dialog,
   DialogClose,
@@ -34,7 +27,6 @@ import { toast } from "@/components/ui/useToast";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useFlag } from "@/hooks/useFlag";
-import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import { saveBlob } from "@/lib/download";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { useElementFilters } from "../_hooks/useElementFilters";
@@ -53,9 +45,7 @@ type SubmitValues = Parameters<
 export default function ElementsPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  const router = useRouter();
   const elementLibraryEnabled = useFlag("elementLibrary");
-  const { canManage: canManageCategories } = useCanManageCategories();
 
   const {
     state,
@@ -193,18 +183,7 @@ export default function ElementsPage() {
                 mutate();
               }}
             />
-            {canManageCategories && (
-              <Button
-                variant="secondary"
-                onClick={() => router.push("/categories")}
-                aria-label={t("manageCategories")}
-              >
-                <FolderTree className="w-4 h-4" />
-                <span className="hidden sm:inline">
-                  {t("manageCategories")}
-                </span>
-              </Button>
-            )}
+            <ManageCategoriesButton />
             <div className="hidden md:flex items-center gap-3">
               <Button
                 variant="secondary"

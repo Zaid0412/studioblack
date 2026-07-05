@@ -1,17 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { FolderTree, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { ManageCategoriesButton } from "@/components/elements/ManageCategoriesButton";
 import { vendors as vendorsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useFlag } from "@/hooks/useFlag";
-import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useVendors } from "@/hooks/useVendors";
 import type { ElementCategoryNode, VendorWithRelations } from "@/types";
@@ -27,9 +26,7 @@ import {
 /** Vendor management page — gated on the `vendorManagement` feature flag. */
 export default function VendorsPage() {
   const t = useTranslations("vendors");
-  const router = useRouter();
   const vendorManagementEnabled = useFlag("vendorManagement");
-  const { canManage: canManageCategories } = useCanManageCategories();
 
   const { role } = useUserRole();
   const isPm = role === "pm";
@@ -134,18 +131,7 @@ export default function VendorsPage() {
                 mutate();
               }}
             />
-            {canManageCategories && (
-              <Button
-                variant="secondary"
-                onClick={() => router.push("/categories")}
-                aria-label={t("manageCategories")}
-              >
-                <FolderTree className="w-4 h-4" />
-                <span className="hidden sm:inline">
-                  {t("manageCategories")}
-                </span>
-              </Button>
-            )}
+            <ManageCategoriesButton />
             {isPm && (
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4" />
