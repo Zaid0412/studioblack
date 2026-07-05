@@ -109,7 +109,7 @@ export function InvitationBanner() {
       // Invalidate shared cache so both banner and notification panel update
       globalMutate("invitations");
       window.dispatchEvent(new Event("notifications-changed"));
-      router.push("/organisation");
+      router.push("/settings?section=organization");
     },
     [t, router]
   );

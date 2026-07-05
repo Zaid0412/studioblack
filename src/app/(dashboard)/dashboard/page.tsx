@@ -298,7 +298,7 @@ export default function DashboardPage() {
           label={t("teamMembers")}
           value={String(data?.stats.teamMembers ?? 0)}
           icon={Users}
-          href="/organisation"
+          href="/settings?section=organization"
         />
       </div>
 
