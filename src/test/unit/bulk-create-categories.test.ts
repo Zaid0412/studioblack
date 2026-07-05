@@ -108,9 +108,7 @@ describe("bulkCreateCategoriesFromTemplates — level batching", () => {
     const { created, skipped } = await bulkCreateCategoriesFromTemplates(ORG, [
       {
         name: "Kitchen",
-        children: [
-          { name: "Cabinets", children: [{ name: "Base Cabinets" }] },
-        ],
+        children: [{ name: "Cabinets", children: [{ name: "Base Cabinets" }] }],
       },
     ]);
 
