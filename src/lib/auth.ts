@@ -10,12 +10,8 @@ import {
 } from "@/lib/email";
 import { features } from "@/config/features";
 import { getPool } from "@/lib/db";
-import {
-  linkVendorContactByEmail,
-  bulkCreateCategoriesFromTemplates,
-} from "@/lib/queries";
-import { MASTER_TAXONOMY } from "@/lib/categoryTemplates";
-import type { BulkCategoryNode } from "@/lib/validations";
+import { linkVendorContactByEmail } from "@/lib/queries";
+import { provisionNewOrg } from "@/lib/orgProvisioning";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
 
@@ -262,19 +258,16 @@ export const auth = betterAuth({
         );
       },
       organizationHooks: {
-        // Every new org gets the shared master taxonomy (Category → Sub-category
-        // → Service Area) seeded by default, so categories exist out of the box
-        // instead of requiring the "Use a starter set" flow. Idempotent, and
-        // wrapped so a seeding failure never blocks org creation (it can be
-        // re-run from the /categories page).
+        // Every new org is provisioned with its default data (currently the
+        // shared master taxonomy) so categories exist out of the box instead of
+        // requiring the "Restore defaults" flow. Wrapped so a provisioning
+        // failure never blocks org creation — it's idempotent and re-runnable
+        // from the /categories page.
         afterCreateOrganization: async ({ organization }) => {
           try {
-            await bulkCreateCategoriesFromTemplates(
-              organization.id,
-              MASTER_TAXONOMY as readonly BulkCategoryNode[]
-            );
+            await provisionNewOrg(organization.id);
           } catch (err) {
-            logger.error("Failed to seed default categories for new org", {
+            logger.error("Failed to provision new org with defaults", {
               orgId: organization.id,
               error: err,
             });
