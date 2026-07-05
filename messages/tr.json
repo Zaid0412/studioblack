@@ -470,6 +470,14 @@
   "settings": {
     "title": "Kullanıcı Ayarları",
     "subtitle": "Hesabınızı ve tercihlerinizi yönetin",
+    "nav": {
+      "profile": "Profil",
+      "security": "Güvenlik",
+      "preferences": "Tercihler",
+      "organization": "Organizasyon",
+      "categories": "Kategoriler",
+      "danger": "Tehlike bölgesi"
+    },
     "profile": "Profil",
     "preferences": "Tercihler",
     "elementCategoriesTitle": "Element kategorileri",

@@ -1,155 +1,204 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronRight, FolderTree } from "lucide-react";
+import {
+  User,
+  Lock,
+  SlidersHorizontal,
+  Building2,
+  FolderTree,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { useFlag } from "@/hooks/useFlag";
+import { useUserRole } from "@/hooks/useUserRole";
 import { useSettings } from "./_hooks/useSettings";
 import { ProfileSection } from "./_components/ProfileSection";
 import { PasswordSection } from "./_components/PasswordSection";
 import { PreferencesSection } from "./_components/PreferencesSection";
 import { DangerZoneSection } from "./_components/DangerZoneSection";
-import { useUserRole } from "@/hooks/useUserRole";
+import { OrganizationSection } from "./_components/OrganizationSection";
 
-/** User profile and preferences settings — adapts sections based on role. */
+type SectionId =
+  | "profile"
+  | "security"
+  | "preferences"
+  | "organization"
+  | "danger";
+
+/** Sectioned user settings — vertical nav, section chosen via `?section=`. */
 export default function SettingsPage() {
+  // useSearchParams needs a Suspense boundary to satisfy the App Router.
+  return (
+    <Suspense fallback={null}>
+      <SettingsPageInner />
+    </Suspense>
+  );
+}
+
+function SettingsPageInner() {
   const t = useTranslations("settings");
   const settings = useSettings();
   const { role } = useUserRole();
   const isClient = role === "client";
   const isVendor = role === "vendor";
+  const isPM = role === "pm";
   const elementLibraryEnabled = useFlag("elementLibrary");
+  const searchParams = useSearchParams();
 
-  if (settings.loading) {
-    const inputRowsSkeleton = (
-      <div className="flex flex-col gap-4">
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-      </div>
-    );
-    return (
-      <div className="flex flex-col gap-6 max-w-[700px]">
-        <PageHeader title={t("title")} subtitle={t("subtitle")} />
-        {/* Profile section skeleton */}
-        <Card>
-          <div className="flex flex-col gap-6">
-            <Skeleton className="h-5 w-16" />
-            <div className="flex items-center gap-4">
-              <Skeleton className="w-16 h-16 rounded-full shrink-0" />
-              <div className="flex flex-col gap-1.5">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            </div>
-            {inputRowsSkeleton}
-          </div>
-        </Card>
-        {/* Password section skeleton */}
-        <Card>
-          <div className="flex flex-col gap-6">
-            <div>
-              <Skeleton className="h-5 w-40 mb-2" />
-              <Skeleton className="h-3.5 w-64" />
-            </div>
-            {inputRowsSkeleton}
-          </div>
-        </Card>
-        {/* Preferences section skeleton */}
-        <Card>
-          <div className="flex flex-col gap-5">
-            <Skeleton className="h-5 w-28" />
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <Skeleton className="h-4 w-36" />
-                  <Skeleton className="h-3 w-52" />
-                </div>
-                <Skeleton className="h-6 w-10 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-    );
+  // In-page sections, gated by role. `categories` is a separate link-out to
+  // the existing full-page element-category manager (kept as its own route).
+  type NavEntry = {
+    id: SectionId;
+    label: string;
+    icon: LucideIcon;
+    danger?: boolean;
+  };
+  const navItems: NavEntry[] = [
+    { id: "profile", label: t("nav.profile"), icon: User },
+  ];
+  if (!isClient)
+    navItems.push({ id: "security", label: t("nav.security"), icon: Lock });
+  navItems.push({
+    id: "preferences",
+    label: t("nav.preferences"),
+    icon: SlidersHorizontal,
+  });
+  if (isPM)
+    navItems.push({
+      id: "organization",
+      label: t("nav.organization"),
+      icon: Building2,
+    });
+  navItems.push({
+    id: "danger",
+    label: t("nav.danger"),
+    icon: Trash2,
+    danger: true,
+  });
+
+  const requested = searchParams.get("section") as SectionId | null;
+  const active: SectionId =
+    navItems.find((s) => s.id === requested)?.id ?? "profile";
+
+  const showCategoriesLink = !isClient && !isVendor && elementLibraryEnabled;
+
+  function renderSection() {
+    switch (active) {
+      case "profile":
+        return (
+          <ProfileSection
+            name={settings.name}
+            setName={settings.setName}
+            email={settings.email}
+            userId={settings.userId}
+            initials={settings.initials}
+            avatarUrl={settings.avatarUrl}
+            isSaving={settings.isSaving}
+            isUploading={settings.isUploading}
+            fileInputRef={settings.fileInputRef}
+            handleAvatarChange={settings.handleAvatarChange}
+            handleSave={settings.handleSave}
+            openFilePicker={settings.openFilePicker}
+            newEmail={settings.newEmail}
+            setNewEmail={settings.setNewEmail}
+            isChangingEmail={settings.isChangingEmail}
+            emailChangeRequested={settings.emailChangeRequested}
+            emailChangeError={settings.emailChangeError}
+            handleChangeEmail={settings.handleChangeEmail}
+          />
+        );
+      case "security":
+        return (
+          <PasswordSection
+            email={settings.email}
+            currentPassword={settings.currentPassword}
+            setCurrentPassword={settings.setCurrentPassword}
+            newPassword={settings.newPassword}
+            setNewPassword={settings.setNewPassword}
+            confirmNewPassword={settings.confirmNewPassword}
+            setConfirmNewPassword={settings.setConfirmNewPassword}
+            isChangingPassword={settings.isChangingPassword}
+            handleChangePassword={settings.handleChangePassword}
+          />
+        );
+      case "preferences":
+        return <PreferencesSection />;
+      case "organization":
+        return <OrganizationSection />;
+      case "danger":
+        return (
+          <DangerZoneSection
+            deleteOpen={settings.deleteOpen}
+            setDeleteOpen={settings.setDeleteOpen}
+            deletePassword={settings.deletePassword}
+            setDeletePassword={settings.setDeletePassword}
+            isDeleting={settings.isDeleting}
+            handleDeleteAccount={settings.handleDeleteAccount}
+          />
+        );
+    }
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[700px]">
+    <div className="flex flex-col gap-6">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
-      <ProfileSection
-        name={settings.name}
-        setName={settings.setName}
-        email={settings.email}
-        userId={settings.userId}
-        initials={settings.initials}
-        avatarUrl={settings.avatarUrl}
-        isSaving={settings.isSaving}
-        isUploading={settings.isUploading}
-        fileInputRef={settings.fileInputRef}
-        handleAvatarChange={settings.handleAvatarChange}
-        handleSave={settings.handleSave}
-        openFilePicker={settings.openFilePicker}
-        newEmail={settings.newEmail}
-        setNewEmail={settings.setNewEmail}
-        isChangingEmail={settings.isChangingEmail}
-        emailChangeRequested={settings.emailChangeRequested}
-        emailChangeError={settings.emailChangeError}
-        handleChangeEmail={settings.handleChangeEmail}
-      />
+      <div className="grid gap-8 md:grid-cols-[220px_1fr]">
+        {/* Vertical section nav */}
+        <nav className="flex flex-col gap-1">
+          {navItems.map((s) => {
+            const Icon = s.icon;
+            const isActive = s.id === active;
+            return (
+              <Link
+                key={s.id}
+                href={`/settings?section=${s.id}`}
+                scroll={false}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                  isActive
+                    ? "bg-bg-elevated text-text-primary font-medium"
+                    : "text-text-secondary hover:bg-bg-elevated/60 hover:text-text-primary",
+                  s.danger && !isActive && "text-error/80 hover:text-error"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {s.label}
+              </Link>
+            );
+          })}
+          {showCategoriesLink && (
+            <Link
+              href="/settings/element-categories"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-elevated/60 hover:text-text-primary"
+            >
+              <FolderTree className="h-4 w-4 shrink-0" />
+              {t("nav.categories")}
+            </Link>
+          )}
+        </nav>
 
-      {!isClient && (
-        <PasswordSection
-          email={settings.email}
-          currentPassword={settings.currentPassword}
-          setCurrentPassword={settings.setCurrentPassword}
-          newPassword={settings.newPassword}
-          setNewPassword={settings.setNewPassword}
-          confirmNewPassword={settings.confirmNewPassword}
-          setConfirmNewPassword={settings.setConfirmNewPassword}
-          isChangingPassword={settings.isChangingPassword}
-          handleChangePassword={settings.handleChangePassword}
-        />
-      )}
-
-      <PreferencesSection />
-
-      {!isClient && !isVendor && elementLibraryEnabled && (
-        <Link
-          href="/settings/element-categories"
-          className="block rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-5 transition-colors hover:border-border-light hover:bg-bg-elevated"
-        >
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
-                <FolderTree className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-text-primary">
-                  {t("elementCategoriesTitle")}
-                </span>
-                <span className="text-[13px] text-text-muted">
-                  {t("elementCategoriesDesc")}
-                </span>
-              </div>
+        {/* Active section */}
+        <div className="min-w-0 max-w-[700px]">
+          {settings.loading ? (
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
             </div>
-            <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
-          </div>
-        </Link>
-      )}
-
-      <DangerZoneSection
-        deleteOpen={settings.deleteOpen}
-        setDeleteOpen={settings.setDeleteOpen}
-        deletePassword={settings.deletePassword}
-        setDeletePassword={settings.setDeletePassword}
-        isDeleting={settings.isDeleting}
-        handleDeleteAccount={settings.handleDeleteAccount}
-      />
+          ) : (
+            renderSection()
+          )}
+        </div>
+      </div>
     </div>
   );
 }

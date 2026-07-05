@@ -262,7 +262,7 @@ export function useNotifications({
     });
     removeInvitation(notifId);
     onClose();
-    onNavigate("/organisation");
+    onNavigate("/settings?section=organization");
   };
 
   const handleRejectInvite = async (notifId: string) => {

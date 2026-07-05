@@ -110,7 +110,6 @@ export function Sidebar({
     ...(vendorManagementEnabled
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
       : []),
-    { href: "/organisation", label: t("organisation"), icon: Building2 },
     { href: "/settings", label: t("settings"), icon: Settings },
   ];
 
@@ -295,7 +294,7 @@ export function Sidebar({
             {orgName && variant !== "client" && variant !== "vendor" && (
               <>
                 <Link
-                  href="/organisation"
+                  href="/settings?section=organization"
                   className="flex items-center gap-2.5 px-2.5 py-2 rounded-md text-text-primary hover:bg-bg-elevated transition-colors text-[13px] font-medium"
                 >
                   <Building2 className="h-4 w-4 shrink-0" />

@@ -470,6 +470,14 @@
   "settings": {
     "title": "User Settings",
     "subtitle": "Manage your account and preferences",
+    "nav": {
+      "profile": "Profile",
+      "security": "Security",
+      "preferences": "Preferences",
+      "organization": "Organization",
+      "categories": "Categories",
+      "danger": "Danger zone"
+    },
     "profile": "Profile",
     "preferences": "Preferences",
     "elementCategoriesTitle": "Element categories",

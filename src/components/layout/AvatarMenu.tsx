@@ -75,7 +75,7 @@ export function AvatarMenu({ user }: AvatarMenuProps) {
           </button>
           {isStaff && (
             <button
-              onClick={() => router.push("/organisation")}
+              onClick={() => router.push("/settings?section=organization")}
               className="flex items-center gap-3 w-full px-4 py-2.5 text-[15px] font-semibold text-text-primary hover:bg-bg-elevated/50 transition-colors cursor-pointer"
             >
               <Building2 className="w-5 h-5 text-text-primary" />
