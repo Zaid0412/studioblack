@@ -13,6 +13,7 @@ import {
   ChevronUp,
   CheckSquare,
   Layers,
+  FolderTree,
   Briefcase,
   FileText,
   Receipt,
@@ -109,6 +110,9 @@ export function Sidebar({
       : []),
     ...(vendorManagementEnabled
       ? [{ href: "/vendors", label: t("vendors"), icon: Briefcase }]
+      : []),
+    ...(elementLibraryEnabled
+      ? [{ href: "/categories", label: t("categories"), icon: FolderTree }]
       : []),
   ];
 

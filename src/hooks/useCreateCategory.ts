@@ -8,8 +8,8 @@ import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 import type { ElementCategory } from "@/types";
 
 /**
- * Shared submit handler for the "create category" flow used by both
- * CategorySelect and CategoryTreeSidebar — manages the in-flight flag,
+ * Shared submit handler for the "create category" flow used by
+ * CategorySelect and the Categories management page — manages the in-flight flag,
  * revalidates the categories cache, toasts on success/error, and runs
  * `onCreated` only on success (matching the prior call-site behaviour
  * where the dialog stayed open on error so the user could retry).

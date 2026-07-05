@@ -9,14 +9,12 @@ import {
   Lock,
   SlidersHorizontal,
   Building2,
-  FolderTree,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/utils";
-import { useFlag } from "@/hooks/useFlag";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSettings } from "./_hooks/useSettings";
 import { ProfileSection } from "./_components/ProfileSection";
@@ -47,13 +45,10 @@ function SettingsPageInner() {
   const settings = useSettings();
   const { role } = useUserRole();
   const isClient = role === "client";
-  const isVendor = role === "vendor";
   const isPM = role === "pm";
-  const elementLibraryEnabled = useFlag("elementLibrary");
   const searchParams = useSearchParams();
 
-  // In-page sections, gated by role. `categories` is a separate link-out to
-  // the existing full-page element-category manager (kept as its own route).
+  // In-page sections, gated by role.
   type NavEntry = {
     id: SectionId;
     label: string;
@@ -86,8 +81,6 @@ function SettingsPageInner() {
   const requested = searchParams.get("section") as SectionId | null;
   const active: SectionId =
     navItems.find((s) => s.id === requested)?.id ?? "profile";
-
-  const showCategoriesLink = !isClient && !isVendor && elementLibraryEnabled;
 
   function renderSection() {
     switch (active) {
@@ -173,20 +166,8 @@ function SettingsPageInner() {
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
-        {/* Vertical section nav — Categories (link-out) sits above Danger. */}
-        <nav className="flex flex-col gap-1">
-          {navItems.filter((s) => s.id !== "danger").map(renderNavLink)}
-          {showCategoriesLink && (
-            <Link
-              href="/settings/element-categories"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-elevated/60 hover:text-text-primary"
-            >
-              <FolderTree className="h-4 w-4 shrink-0" />
-              {t("nav.categories")}
-            </Link>
-          )}
-          {navItems.filter((s) => s.id === "danger").map(renderNavLink)}
-        </nav>
+        {/* Vertical section nav */}
+        <nav className="flex flex-col gap-1">{navItems.map(renderNavLink)}</nav>
 
         {/* Active section */}
         <div className="min-w-0 max-w-[700px]">

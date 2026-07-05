@@ -26,9 +26,14 @@ import {
   type SortConfig,
 } from "@/components/ui/SortableHeader";
 import { VENDOR_STATUSES, VENDOR_KYC_STATUSES } from "@/lib/validations";
-import type { VendorStatus, VendorKycStatus } from "@/types";
+import type {
+  VendorStatus,
+  VendorKycStatus,
+  ElementCategoryNode,
+} from "@/types";
 import type { VendorSortField, SortOrder } from "@/lib/validations";
 import type { VendorListRow } from "@/lib/api/vendors";
+import { CategoryFilterSelect } from "@/app/(dashboard)/elements/_components/CategoryFilterSelect";
 import { VendorRow } from "./VendorRow";
 import type { VendorFilterState } from "../_hooks/useVendorFilters";
 
@@ -36,6 +41,7 @@ type SortKey = VendorSortField;
 
 interface Props {
   state: VendorFilterState;
+  categoryTree: ElementCategoryNode[];
   rows: VendorListRow[];
   total: number;
   totalPages: number;
@@ -44,6 +50,7 @@ interface Props {
   isRefreshing: boolean;
   canDelete: boolean;
   onSearchChange: (v: string) => void;
+  onCategoryChange: (id: string | null) => void;
   onStatusChange: (v: VendorStatus | null) => void;
   onKycStatusChange: (v: VendorKycStatus | null) => void;
   onPreferredChange: (v: boolean) => void;
@@ -61,6 +68,7 @@ const ALL_STATUS = "__all__";
 /** Vendors table with filter bar, pagination, and per-row action menu. */
 export function VendorList({
   state,
+  categoryTree,
   rows,
   total,
   totalPages,
@@ -69,6 +77,7 @@ export function VendorList({
   isRefreshing,
   canDelete,
   onSearchChange,
+  onCategoryChange,
   onStatusChange,
   onKycStatusChange,
   onPreferredChange,
@@ -112,6 +121,14 @@ export function VendorList({
             value={state.search}
             debounceMs={300}
             onDebouncedChange={onSearchChange}
+          />
+        </div>
+
+        <div className="w-full lg:w-56">
+          <CategoryFilterSelect
+            value={state.tradeCategoryId}
+            onChange={onCategoryChange}
+            tree={categoryTree}
           />
         </div>
 

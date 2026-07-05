@@ -52,6 +52,13 @@ const nextConfig: NextConfig = {
         destination: "/projects/:id/order/rfq/:rest*",
         permanent: true,
       },
+      // Category management moved from a settings sub-page to a top-level
+      // route. Keep old bookmarks/deep links (incl. `?from=` variants) working.
+      {
+        source: "/settings/element-categories",
+        destination: "/categories",
+        permanent: true,
+      },
     ];
   },
   images: {
