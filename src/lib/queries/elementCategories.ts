@@ -129,11 +129,29 @@ export async function createCategory(
   return rows[0] as ElementCategory;
 }
 
+/** One node of the flattened template tree, linked to its parent for id resolution. */
+interface SeedItem {
+  node: BulkCategoryNode;
+  parent: SeedItem | null;
+  path: string;
+  /** Resolved category id — existing, freshly inserted, or a same-batch duplicate's. */
+  id?: string;
+  /** Set when a sibling with the same name was already queued this batch. */
+  dupOf?: SeedItem;
+}
+
 /**
  * Seed a (sub)tree of categories in one transaction, up to 3 levels deep.
  * Idempotent: a node whose `name` already exists under the same parent is
  * reused (and its missing children still get added), so re-running the
- * "Use a starter set" dialog never creates duplicates.
+ * "Restore defaults" flow never creates duplicates.
+ *
+ * Inserts are batched **one level at a time** — a single multi-row INSERT per
+ * depth — because siblings are independent and only need parent ids resolved
+ * from the level above. This turns a full taxonomy (~150 nodes) from ~150
+ * sequential round-trips into 3, which matters when this runs synchronously in
+ * the org-creation path. Postgres returns the rows of a multi-row INSERT in
+ * VALUES order, so `RETURNING *` aligns 1:1 with the pending list.
  *
  * Returns the rows actually inserted plus the skipped paths so the UI can
  * surface "X created, Y skipped (already existed)".
@@ -144,7 +162,7 @@ export async function createCategory(
  */
 export async function bulkCreateCategoriesFromTemplates(
   orgId: string,
-  templates: BulkCategoryNode[]
+  templates: readonly BulkCategoryNode[]
 ): Promise<{ created: ElementCategory[]; skipped: string[] }> {
   const pool = getPool();
   const client = await pool.connect();
@@ -154,8 +172,8 @@ export async function bulkCreateCategoriesFromTemplates(
   try {
     await client.query("BEGIN");
 
-    // One round-trip up front: pull every existing node so the recursive
-    // insert can dedupe by (parent, name) without per-node SELECTs.
+    // One round-trip up front: pull every existing node so the batched insert
+    // can dedupe by (parent, name) without per-node SELECTs.
     const { rows: existingRows } = await client.query<{
       id: string;
       name: string;
@@ -182,52 +200,101 @@ export async function bulkCreateCategoriesFromTemplates(
       maxSort.set(k, Math.max(maxSort.get(k) ?? -1, r.sort_order));
     }
 
-    const insertNode = async (
+    // Flatten the templates into levels 1..3, keeping each node's parent link
+    // so a child can read its parent's resolved id after the parent's level.
+    const levels: SeedItem[][] = [[], [], []];
+    const collect = (
       node: BulkCategoryNode,
-      parentId: string | null,
+      parent: SeedItem | null,
       level: number,
       path: string
-    ): Promise<void> => {
-      const k = keyOf(parentId);
-      const siblings = siblingsFor(k);
-      const nameKey = node.name.toLowerCase();
-      let id = siblings.get(nameKey);
-
-      if (id) {
-        skipped.push(path);
-      } else {
-        const sort = (maxSort.get(k) ?? -1) + 1;
-        maxSort.set(k, sort);
-        const { rows } = await client.query<ElementCategory>(
-          `INSERT INTO element_category
-             (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING *`,
-          [
-            orgId,
-            node.name,
-            parentId,
-            level,
-            node.codePrefix ?? null,
-            sort,
-            node.icon ?? null,
-            node.color ?? null,
-          ]
-        );
-        id = rows[0].id;
-        siblings.set(nameKey, id);
-        created.push(rows[0]);
-      }
-
-      if (node.children && level < 3) {
+    ) => {
+      if (level > 3) return;
+      const item: SeedItem = { node, parent, path };
+      levels[level - 1].push(item);
+      if (node.children) {
         for (const child of node.children) {
-          await insertNode(child, id, level + 1, `${path} / ${child.name}`);
+          collect(child, item, level + 1, `${path} / ${child.name}`);
         }
       }
     };
+    for (const top of templates) collect(top, null, 1, top.name);
 
-    for (const top of templates) {
-      await insertNode(top, null, 1, top.name);
+    for (let level = 1; level <= 3; level++) {
+      const items = levels[level - 1];
+      if (items.length === 0) continue;
+
+      const pending: SeedItem[] = [];
+      const values: unknown[] = [];
+      const rowsSql: string[] = [];
+      // parentKey → names already queued this batch (dedupe intra-payload).
+      const queued = new Map<string, Map<string, SeedItem>>();
+
+      for (const item of items) {
+        const parentId = item.parent ? (item.parent.id ?? null) : null;
+        // Parent couldn't be resolved (should not happen) — can't place child.
+        if (item.parent && item.parent.id == null) continue;
+
+        const k = keyOf(parentId);
+        const nameKey = item.node.name.toLowerCase();
+
+        const existingId = siblingsFor(k).get(nameKey);
+        if (existingId) {
+          item.id = existingId;
+          skipped.push(item.path);
+          continue;
+        }
+
+        let names = queued.get(k);
+        if (!names) queued.set(k, (names = new Map()));
+        const firstDup = names.get(nameKey);
+        if (firstDup) {
+          item.dupOf = firstDup;
+          skipped.push(item.path);
+          continue;
+        }
+        names.set(nameKey, item);
+
+        const sort = (maxSort.get(k) ?? -1) + 1;
+        maxSort.set(k, sort);
+        const b = values.length;
+        rowsSql.push(
+          `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}, $${b + 8})`
+        );
+        values.push(
+          orgId,
+          item.node.name,
+          parentId,
+          level,
+          item.node.codePrefix ?? null,
+          sort,
+          item.node.icon ?? null,
+          item.node.color ?? null
+        );
+        pending.push(item);
+      }
+
+      if (pending.length > 0) {
+        const { rows } = await client.query<ElementCategory>(
+          `INSERT INTO element_category
+             (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
+           VALUES ${rowsSql.join(", ")}
+           RETURNING *`,
+          values
+        );
+        rows.forEach((row, i) => {
+          const item = pending[i];
+          item.id = row.id;
+          const pid = item.parent ? (item.parent.id ?? null) : null;
+          siblingsFor(keyOf(pid)).set(item.node.name.toLowerCase(), row.id);
+          created.push(row);
+        });
+      }
+
+      // Resolve intra-batch duplicates to the sibling that was actually inserted.
+      for (const item of items) {
+        if (!item.id && item.dupOf) item.id = item.dupOf.id;
+      }
     }
 
     await client.query("COMMIT");

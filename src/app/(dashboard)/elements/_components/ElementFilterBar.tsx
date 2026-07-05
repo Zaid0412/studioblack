@@ -7,20 +7,26 @@ import { UnitFilterSelect } from "@/components/ui/UnitFilterSelect";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { Button } from "@/components/ui/button";
 import { type ElementUnit } from "@/lib/validations";
+import type { ElementCategoryNode } from "@/types";
+import { CategoryFilterSelect } from "./CategoryFilterSelect";
 import type { ElementFilterState } from "../_hooks/useElementFilters";
 
 interface Props {
   state: ElementFilterState;
+  categoryTree: ElementCategoryNode[];
   onSearchChange: (value: string) => void;
+  onCategoryChange: (id: string | null) => void;
   onUnitChange: (unit: ElementUnit | null) => void;
   onShowArchivedChange: (archived: boolean) => void;
   onClear: () => void;
 }
 
-/** Search/unit/archived filter row above the elements table, with a clear-all button when any filter is active. */
+/** Search/category/unit/archived filter row above the elements table, with a clear-all button when any filter is active. */
 export function ElementFilterBar({
   state,
+  categoryTree,
   onSearchChange,
+  onCategoryChange,
   onUnitChange,
   onShowArchivedChange,
   onClear,
@@ -37,6 +43,14 @@ export function ElementFilterBar({
           value={state.search}
           debounceMs={300}
           onDebouncedChange={onSearchChange}
+        />
+      </div>
+
+      <div className="w-full lg:w-56">
+        <CategoryFilterSelect
+          value={state.categoryId}
+          onChange={onCategoryChange}
+          tree={categoryTree}
         />
       </div>
 

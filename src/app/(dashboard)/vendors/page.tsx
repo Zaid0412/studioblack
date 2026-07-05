@@ -1,21 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { ChevronDown, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { ManageCategoriesButton } from "@/components/elements/ManageCategoriesButton";
 import { vendors as vendorsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
-import { buildCategoryMap } from "@/lib/elementCategories";
 import { useFlag } from "@/hooks/useFlag";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useVendors } from "@/hooks/useVendors";
@@ -23,7 +17,6 @@ import type { ElementCategoryNode, VendorWithRelations } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { useVendorFilters } from "./_hooks/useVendorFilters";
 import { VendorList } from "./_components/VendorList";
-import { VendorCategoryTreeSidebar } from "./_components/VendorCategoryTreeSidebar";
 import { VendorDrawer } from "./_components/VendorDrawer";
 import {
   VendorFormDialog,
@@ -75,23 +68,14 @@ export default function VendorsPage() {
     page: state.page,
   });
 
-  // Deduped with the sidebar's fetch (same SWR key) — used for the mobile
-  // category button label.
+  // Category tree for the list filter dropdown (shared element-category taxonomy).
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     API.elementCategories()
   );
-  const categoryMap = useMemo(
-    () => (catData?.tree ? buildCategoryMap(catData.tree) : new Map()),
-    [catData]
-  );
-  const selectedCategoryLabel = state.tradeCategoryId
-    ? (categoryMap.get(state.tradeCategoryId) ?? t("allCategories"))
-    : t("allCategories");
 
   const [drawerId, setDrawerId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<VendorWithRelations | null>(null);
-  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
 
   const openCreate = () => {
     setEditing(null);
@@ -147,6 +131,7 @@ export default function VendorsPage() {
                 mutate();
               }}
             />
+            <ManageCategoriesButton />
             {isPm && (
               <Button onClick={openCreate}>
                 <Plus className="w-4 h-4" />
@@ -157,69 +142,33 @@ export default function VendorsPage() {
         }
       />
 
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-        <div className="hidden lg:flex">
-          <VendorCategoryTreeSidebar
-            selectedId={state.tradeCategoryId}
-            onSelect={setTradeCategoryId}
-          />
-        </div>
-
-        <div className="flex-1 min-w-0 flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={() => setMobileCategoriesOpen(true)}
-            className="lg:hidden flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary shadow-sm hover:bg-bg-elevated transition-colors"
-          >
-            <span className="truncate">{selectedCategoryLabel}</span>
-            <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
-          </button>
-
-          <VendorList
-            state={state}
-            rows={rows}
-            total={total}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            isLoading={isLoading}
-            isRefreshing={isRefreshing}
-            canDelete={isPm}
-            onSearchChange={setSearch}
-            onStatusChange={setStatus}
-            onKycStatusChange={setKycStatus}
-            onPreferredChange={setPreferred}
-            onSortChange={setSort}
-            onPageChange={setPage}
-            onClear={clear}
-            onRowClick={(v) => setDrawerId(v.id)}
-            onEdit={openEdit}
-            onSoftDelete={(v) => {
-              void remove(v.id);
-            }}
-            onHardDelete={(v) => {
-              void removeHard(v.id);
-            }}
-          />
-        </div>
-      </div>
-
-      <Dialog
-        open={mobileCategoriesOpen}
-        onOpenChange={setMobileCategoriesOpen}
-      >
-        <DialogContent className="lg:hidden p-0">
-          <DialogHeader className="px-4 pt-4">
-            <DialogTitle>{t("categories")}</DialogTitle>
-          </DialogHeader>
-          <VendorCategoryTreeSidebar
-            selectedId={state.tradeCategoryId}
-            onSelect={(id) => {
-              setTradeCategoryId(id);
-              setMobileCategoriesOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      <VendorList
+        state={state}
+        categoryTree={catData?.tree ?? []}
+        rows={rows}
+        total={total}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        isLoading={isLoading}
+        isRefreshing={isRefreshing}
+        canDelete={isPm}
+        onSearchChange={setSearch}
+        onCategoryChange={setTradeCategoryId}
+        onStatusChange={setStatus}
+        onKycStatusChange={setKycStatus}
+        onPreferredChange={setPreferred}
+        onSortChange={setSort}
+        onPageChange={setPage}
+        onClear={clear}
+        onRowClick={(v) => setDrawerId(v.id)}
+        onEdit={openEdit}
+        onSoftDelete={(v) => {
+          void remove(v.id);
+        }}
+        onHardDelete={(v) => {
+          void removeHard(v.id);
+        }}
+      />
 
       <VendorDrawer
         vendorId={drawerId}

@@ -27,10 +27,17 @@ interface Props {
   placeholder?: string;
   /** Show the in-dropdown "Uncategorized" reset option. Default true. */
   clearable?: boolean;
+  /** Show the "New category" quick-create header. Default true; set false for filter use. */
+  allowCreate?: boolean;
+  /** Trigger sizing — `"sm"` matches filter-bar controls. Default `"default"`. */
+  size?: "default" | "sm";
 }
 
 interface FlatOption {
   id: string;
+  /** The node's own name (shown as the row label; hierarchy comes from indent). */
+  name: string;
+  /** Full breadcrumb path — used for search matching + as searching context. */
   label: string;
   depth: number;
   icon: string | null;
@@ -48,6 +55,7 @@ function flattenWithIcons(tree: ElementCategoryNode[]): FlatOption[] {
       const nextPath = [...path, n.name];
       out.push({
         id: n.id,
+        name: n.name,
         label: nextPath.join(" › "),
         depth,
         icon: n.icon,
@@ -73,8 +81,11 @@ export function CategorySelect({
   minDepth = 0,
   placeholder,
   clearable = true,
+  allowCreate = true,
+  size = "default",
 }: Props) {
   const t = useTranslations("elements");
+  const tCommon = useTranslations("common");
   const [createOpen, setCreateOpen] = useState(false);
 
   const options = useMemo(
@@ -99,24 +110,29 @@ export function CategorySelect({
         minContentWidth={280}
         maxListHeight={240}
         isEmpty={false}
-        headerSlot={(close) => (
-          <button
-            type="button"
-            onClick={() => {
-              close();
-              setCreateOpen(true);
-            }}
-            className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t("newCategory")}
-          </button>
-        )}
+        headerSlot={
+          allowCreate
+            ? (close) => (
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    setCreateOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t("newCategory")}
+                </button>
+              )
+            : undefined
+        }
         trigger={
           <button
             type="button"
             className={cn(
-              "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary",
+              "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input text-sm text-text-primary",
+              size === "sm" ? "px-3 py-2" : "px-4 py-3",
               "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
             )}
           >
@@ -131,7 +147,7 @@ export function CategorySelect({
                   <span className="truncate">{selectedOption.label}</span>
                 </>
               ) : (
-                <span className="italic text-text-muted">
+                <span className="text-text-muted">
                   {placeholder ?? t("uncategorized")}
                 </span>
               )}
@@ -161,14 +177,14 @@ export function CategorySelect({
                   <span className="w-4">
                     {value === null && <Check className="h-4 w-4" />}
                   </span>
-                  <span className="italic text-text-muted">
-                    {t("uncategorized")}
+                  <span className="text-text-muted">
+                    {placeholder ?? t("uncategorized")}
                   </span>
                 </button>
               )}
               {filtered.length === 0 ? (
                 <p className="px-3 py-4 text-sm text-text-muted text-center">
-                  {query ? t("noResults") : t("categoryEmpty")}
+                  {query ? tCommon("noResults") : t("categoryEmpty")}
                 </p>
               ) : (
                 filtered.map((opt) => {
@@ -195,7 +211,24 @@ export function CategorySelect({
                         color={opt.color}
                         size={14}
                       />
-                      <span className="truncate">{opt.label}</span>
+                      {/* Row shows the node's own name; hierarchy is conveyed by
+                          indentation (L1 emphasised). While searching, the full
+                          breadcrumb path is surfaced to disambiguate matches. */}
+                      <span className="flex min-w-0 flex-col">
+                        <span
+                          className={cn(
+                            "truncate",
+                            opt.depth === 0 && "font-semibold"
+                          )}
+                        >
+                          {opt.name}
+                        </span>
+                        {query && (
+                          <span className="truncate text-[11px] text-text-muted">
+                            {opt.label}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   );
                 })
@@ -205,14 +238,16 @@ export function CategorySelect({
         }}
       </SearchableDropdown>
 
-      <CategoryEditDialog
-        open={createOpen}
-        mode="create"
-        parentOptions={flattenCategories(tree)}
-        submitting={submitting}
-        onOpenChange={setCreateOpen}
-        onSubmit={handleCreate}
-      />
+      {allowCreate && (
+        <CategoryEditDialog
+          open={createOpen}
+          mode="create"
+          parentOptions={flattenCategories(tree)}
+          submitting={submitting}
+          onOpenChange={setCreateOpen}
+          onSubmit={handleCreate}
+        />
+      )}
     </div>
   );
 }

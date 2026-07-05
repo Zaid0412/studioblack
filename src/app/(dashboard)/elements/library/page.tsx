@@ -3,18 +3,12 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
-import {
-  ChevronDown,
-  Download,
-  MoreHorizontal,
-  Plus,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { Download, MoreHorizontal, Plus, Trash2, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
 import { RefreshButton } from "@/components/ui/RefreshButton";
+import { ManageCategoriesButton } from "@/components/elements/ManageCategoriesButton";
 import {
   Dialog,
   DialogClose,
@@ -37,7 +31,6 @@ import { saveBlob } from "@/lib/download";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { useElementFilters } from "../_hooks/useElementFilters";
 import { useElements } from "../_hooks/useElements";
-import { CategoryTreeSidebar } from "../_components/CategoryTreeSidebar";
 import { ElementFilterBar } from "../_components/ElementFilterBar";
 import { ElementTable } from "../_components/ElementTable";
 import { buildCategoryMap } from "@/lib/elementCategories";
@@ -95,11 +88,6 @@ export default function ElementsPage() {
   const [archiving, setArchiving] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
-
-  const selectedCategoryLabel = state.categoryId
-    ? (categoryMap.get(state.categoryId) ?? t("allCategories"))
-    : t("allCategories");
 
   const handleExport = async () => {
     if (exporting) return;
@@ -195,6 +183,7 @@ export default function ElementsPage() {
                 mutate();
               }}
             />
+            <ManageCategoriesButton />
             <div className="hidden md:flex items-center gap-3">
               <Button
                 variant="secondary"
@@ -240,68 +229,52 @@ export default function ElementsPage() {
         }
       />
 
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-        <div className="hidden lg:flex">
-          <CategoryTreeSidebar
-            selectedId={state.categoryId}
-            onSelect={setCategoryId}
+      <div className="flex flex-col gap-4">
+        <ElementFilterBar
+          state={state}
+          categoryTree={catData?.tree ?? []}
+          onSearchChange={setSearch}
+          onCategoryChange={setCategoryId}
+          onUnitChange={setUnit}
+          onShowArchivedChange={(archived) => setShowArchived(archived)}
+          onClear={clear}
+        />
+
+        <div
+          className={`transition-opacity ${
+            isRefreshing ? "opacity-60 pointer-events-none" : ""
+          }`}
+        >
+          <ElementTable
+            rows={rows}
+            isLoading={isLoading}
+            categoryMap={categoryMap}
+            sortBy={state.sortBy}
+            sortOrder={state.sortOrder}
+            onSortChange={setSort}
+            onRowClick={openEdit}
+            onEdit={openEdit}
+            onDuplicate={(el) => {
+              void duplicate(el.id);
+            }}
+            onArchive={setArchiveTarget}
+            onRestore={(el) => {
+              void restore(el.id);
+            }}
           />
-        </div>
 
-        <div className="flex-1 min-w-0 flex flex-col gap-4">
-          <button
-            type="button"
-            onClick={() => setMobileCategoriesOpen(true)}
-            className="lg:hidden flex h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary shadow-sm hover:bg-bg-elevated transition-colors"
-          >
-            <span className="truncate">{selectedCategoryLabel}</span>
-            <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
-          </button>
-
-          <ElementFilterBar
-            state={state}
-            onSearchChange={setSearch}
-            onUnitChange={setUnit}
-            onShowArchivedChange={(archived) => setShowArchived(archived)}
-            onClear={clear}
-          />
-
-          <div
-            className={`transition-opacity ${
-              isRefreshing ? "opacity-60 pointer-events-none" : ""
-            }`}
-          >
-            <ElementTable
-              rows={rows}
-              isLoading={isLoading}
-              categoryMap={categoryMap}
-              sortBy={state.sortBy}
-              sortOrder={state.sortOrder}
-              onSortChange={setSort}
-              onRowClick={openEdit}
-              onEdit={openEdit}
-              onDuplicate={(el) => {
-                void duplicate(el.id);
-              }}
-              onArchive={setArchiveTarget}
-              onRestore={(el) => {
-                void restore(el.id);
-              }}
+          {!isLoading && total > 0 && (
+            <Pagination
+              currentPage={state.page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              showingText={t("pagination", {
+                from: startIdx + 1,
+                to: endIdx,
+                total,
+              })}
             />
-
-            {!isLoading && total > 0 && (
-              <Pagination
-                currentPage={state.page}
-                totalPages={totalPages}
-                onPageChange={setPage}
-                showingText={t("pagination", {
-                  from: startIdx + 1,
-                  to: endIdx,
-                  total,
-                })}
-              />
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -321,24 +294,6 @@ export default function ElementsPage() {
         onOpenChange={setImportOpen}
         onSuccess={() => mutate()}
       />
-
-      <Dialog
-        open={mobileCategoriesOpen}
-        onOpenChange={setMobileCategoriesOpen}
-      >
-        <DialogContent className="lg:hidden p-0">
-          <DialogHeader className="px-4 pt-4">
-            <DialogTitle>{t("categories")}</DialogTitle>
-          </DialogHeader>
-          <CategoryTreeSidebar
-            selectedId={state.categoryId}
-            onSelect={(id) => {
-              setCategoryId(id);
-              setMobileCategoriesOpen(false);
-            }}
-          />
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={!!archiveTarget}

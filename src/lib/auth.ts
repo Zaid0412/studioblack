@@ -11,6 +11,7 @@ import {
 import { features } from "@/config/features";
 import { getPool } from "@/lib/db";
 import { linkVendorContactByEmail } from "@/lib/queries";
+import { provisionNewOrg } from "@/lib/orgProvisioning";
 import { env } from "@/env";
 import { logger } from "@/lib/logger";
 
@@ -257,6 +258,21 @@ export const auth = betterAuth({
         );
       },
       organizationHooks: {
+        // Every new org is provisioned with its default data (currently the
+        // shared master taxonomy) so categories exist out of the box instead of
+        // requiring the "Restore defaults" flow. Wrapped so a provisioning
+        // failure never blocks org creation — it's idempotent and re-runnable
+        // from the /categories page.
+        afterCreateOrganization: async ({ organization }) => {
+          try {
+            await provisionNewOrg(organization.id);
+          } catch (err) {
+            logger.error("Failed to provision new org with defaults", {
+              orgId: organization.id,
+              error: err,
+            });
+          }
+        },
         // Catches the existing-user-accepts-vendor-invite path. The user-table
         // databaseHook only fires for new signups; once the user already exists,
         // the org plugin's `acceptInvitation` calls `adapter.create` for the

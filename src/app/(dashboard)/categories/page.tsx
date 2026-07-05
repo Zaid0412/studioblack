@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
-import { ArrowLeft, Plus, Sparkles } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -121,8 +119,8 @@ function reorderSiblings(
   return walk(tree);
 }
 
-/** Settings page for managing the element-category tree: CRUD, drag-to-reorder, collapse/expand. */
-export default function ElementCategoriesSettingsPage() {
+/** Central page for managing the shared category tree: CRUD, drag-to-reorder, collapse/expand. */
+export default function CategoriesPage() {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
   const { canManage, loading: roleLoading } = useCanManageCategories();
@@ -187,18 +185,6 @@ export default function ElementCategoriesSettingsPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
-
-  // Link from the elements sidebar sets ?from=elements. document.referrer is
-  // unreliable with Next.js client-side nav (stays frozen at the initial load
-  // referrer), so the entry point tells us explicitly where to go back to.
-  const searchParams = useSearchParams();
-  const from = searchParams.get("from");
-  const back: { href: string; label: string } =
-    from === "elements"
-      ? { href: "/elements", label: "backToElements" }
-      : from === "vendors"
-        ? { href: "/vendors", label: "backToVendors" }
-        : { href: "/settings", label: "backToSettings" };
 
   const openCreate = (parentId?: string | null) => {
     setDialogMode("create");
@@ -340,13 +326,6 @@ export default function ElementCategoriesSettingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Link
-        href={back.href}
-        className="inline-flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-primary transition-colors w-fit"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        {t(back.label)}
-      </Link>
       <PageHeader
         title={t("manageCategories")}
         subtitle={t("subtitle")}
