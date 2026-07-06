@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Paperclip, X } from "lucide-react";
 import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { Input } from "@/components/ui/input";
+import { splitFileName } from "@/lib/fileUtils";
 
 export interface AttachmentRef {
   url: string;
@@ -29,12 +30,8 @@ interface Props {
 
 /** Extension of a filename (lowercased, capped), or null when there isn't one. */
 function extensionOf(fileName: string): string | null {
-  const i = fileName.lastIndexOf(".");
-  if (i < 0 || i === fileName.length - 1) return null;
-  return fileName
-    .slice(i + 1)
-    .toLowerCase()
-    .slice(0, 20);
+  const { ext } = splitFileName(fileName); // ".pdf" | "" (also handles dotfiles)
+  return ext ? ext.slice(1).toLowerCase().slice(0, 20) : null;
 }
 
 /**

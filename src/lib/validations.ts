@@ -1588,13 +1588,21 @@ export const QUOTE_CURRENCIES = ["USD", "EUR", "TRY", "GBP", "INR"] as const;
 export type QuoteCurrency = (typeof QUOTE_CURRENCIES)[number];
 
 /**
+ * Base attachment reference — a file the client points us at (already uploaded
+ * to storage). Used for §11 per-line RFQ docs and as the base for §15 evidence.
+ */
+export const quoteAttachmentSchema = z.object({
+  url: z.string().url().max(2048),
+  fileName: z.string().trim().min(1).max(255),
+});
+export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
+
+/**
  * Quote evidence (§15). The client supplies only the file + descriptive fields;
  * `uploadedBy` / `uploadedAt` / `source` are server-stamped and intentionally
  * absent here so a client can't forge provenance.
  */
-export const quoteEvidenceSchema = z.object({
-  url: z.string().url().max(2048),
-  fileName: z.string().trim().min(1).max(255),
+export const quoteEvidenceSchema = quoteAttachmentSchema.extend({
   fileType: z.string().trim().max(100).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
@@ -1645,12 +1653,6 @@ export const logRfqCommunicationSchema = z.object({
   vendorId: z.string().uuid().nullable().optional(),
   remarks: z.string().trim().min(1).max(2000),
 });
-
-export const quoteAttachmentSchema = z.object({
-  url: z.string().url().max(2048),
-  fileName: z.string().trim().min(1).max(255),
-});
-export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
 
 /** PRD §11: per-line RFQ attachments (spec drawings / reference docs). */
 export const updateRfqItemAttachmentsSchema = z.object({
