@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Award, Clock, History } from "lucide-react";
+import { ArrowRight, Award, Clock, History, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
+import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
 import { formatDate } from "@/lib/formatDate";
 import { versionColor } from "@/lib/fileUtils";
 import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
@@ -128,6 +129,48 @@ export function RfqQuotesSection({
                       <> · Valid until {formatDate(q.valid_until)}</>
                     )}
                   </div>
+                  {q.attachments && q.attachments.length > 0 && (
+                    <ul className="mt-1.5 flex flex-col gap-1">
+                      {q.attachments.map((a, i) => {
+                        const meta = [
+                          a.fileType?.toUpperCase(),
+                          a.source && RESPONSE_SOURCE_LABELS[a.source],
+                          a.uploadedAt && formatDate(a.uploadedAt),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ");
+                        return (
+                          <li
+                            key={`${a.url}-${i}`}
+                            className="flex items-start gap-1.5 text-xs min-w-0"
+                          >
+                            <Paperclip className="w-3 h-3 text-text-muted shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <a
+                                href={a.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-text-secondary hover:text-text-primary break-all"
+                              >
+                                {a.fileName}
+                              </a>
+                              {meta && (
+                                <span className="text-text-muted">
+                                  {" "}
+                                  · {meta}
+                                </span>
+                              )}
+                              {a.notes && (
+                                <div className="text-text-muted italic break-words">
+                                  {a.notes}
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
                 <div className="text-right tabular-nums text-sm shrink-0">
                   <div className="text-text-primary font-medium">

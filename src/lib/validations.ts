@@ -1587,6 +1587,27 @@ const submitQuoteItemSchema = z.object({
 export const QUOTE_CURRENCIES = ["USD", "EUR", "TRY", "GBP", "INR"] as const;
 export type QuoteCurrency = (typeof QUOTE_CURRENCIES)[number];
 
+/**
+ * Base attachment reference — a file the client points us at (already uploaded
+ * to storage). Used for §11 per-line RFQ docs and as the base for §15 evidence.
+ */
+export const quoteAttachmentSchema = z.object({
+  url: z.string().url().max(2048),
+  fileName: z.string().trim().min(1).max(255),
+});
+export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
+
+/**
+ * Quote evidence (§15). The client supplies only the file + descriptive fields;
+ * `uploadedBy` / `uploadedAt` / `source` are server-stamped and intentionally
+ * absent here so a client can't forge provenance.
+ */
+export const quoteEvidenceSchema = quoteAttachmentSchema.extend({
+  fileType: z.string().trim().max(100).optional().nullable(),
+  notes: z.string().trim().max(2000).optional().nullable(),
+});
+export type QuoteEvidenceInput = z.infer<typeof quoteEvidenceSchema>;
+
 export const submitQuoteSchema = z.object({
   validUntil: z.string().date().optional().nullable(),
   currency: z.enum(QUOTE_CURRENCIES).default("USD"),
@@ -1596,6 +1617,7 @@ export const submitQuoteSchema = z.object({
   exclusions: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
   notes: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),
   items: z.array(submitQuoteItemSchema).min(1).max(500),
+  attachments: z.array(quoteEvidenceSchema).max(20).optional().default([]),
 });
 
 /** How a quote reached us. `portal` = vendor self-service; the rest PM-recorded. */
@@ -1632,12 +1654,6 @@ export const logRfqCommunicationSchema = z.object({
   remarks: z.string().trim().min(1).max(2000),
 });
 
-export const quoteAttachmentSchema = z.object({
-  url: z.string().url().max(2048),
-  fileName: z.string().trim().min(1).max(255),
-});
-export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
-
 /** PRD §11: per-line RFQ attachments (spec drawings / reference docs). */
 export const updateRfqItemAttachmentsSchema = z.object({
   attachments: z.array(quoteAttachmentSchema).max(20),
@@ -1651,7 +1667,7 @@ export const enterQuoteSchema = submitQuoteSchema.extend({
   vendorId: z.string().uuid(),
   responseSource: z.enum(RFQ_MANUAL_RESPONSE_SOURCES),
   receivedDate: z.string().date(),
-  attachments: z.array(quoteAttachmentSchema).max(20).optional().default([]),
+  // `attachments` (evidence) is inherited from submitQuoteSchema.
 });
 
 export const awardRfqSingleSchema = z.object({

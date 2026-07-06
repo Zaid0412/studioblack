@@ -1,6 +1,6 @@
 import { getPool } from "@/lib/db";
 import type {
-  QuoteAttachment,
+  QuoteEvidence,
   QuoteComparison,
   QuoteComparisonRow,
   QuoteComparisonVendorColumn,
@@ -10,7 +10,7 @@ import type {
   VendorQuoteStatus,
   VendorQuoteWithItems,
 } from "@/types";
-import type { RfqResponseSource } from "@/lib/validations";
+import type { RfqResponseSource, QuoteEvidenceInput } from "@/lib/validations";
 import {
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
@@ -556,7 +556,36 @@ export interface SubmitQuoteMeta {
   responseSource?: RfqResponseSource | null;
   receivedDate?: string | null;
   enteredBy?: string | null;
-  attachments?: QuoteAttachment[] | null;
+  /** Evidence files as supplied by the client (provenance is server-stamped). */
+  attachments?: QuoteEvidenceInput[] | null;
+  /** User uploading the evidence (PM for manual entry, vendor for portal). */
+  uploaderId?: string | null;
+}
+
+/**
+ * Stamp client-supplied evidence with server-owned provenance (§15). New files
+ * get `uploadedBy`/`uploadedAt`/`source` set now; files that already existed on
+ * the prior version (matched by url) keep their original provenance so a
+ * revision never rewrites history. The client's `fileType`/`notes` are kept.
+ */
+export function stampQuoteEvidence(
+  input: readonly QuoteEvidenceInput[],
+  prior: readonly QuoteEvidence[],
+  opts: { uploaderId: string | null; source: RfqResponseSource; at: string }
+): QuoteEvidence[] {
+  const priorByUrl = new Map(prior.map((a) => [a.url, a]));
+  return input.map((a) => {
+    const p = priorByUrl.get(a.url);
+    return {
+      url: a.url,
+      fileName: a.fileName,
+      fileType: a.fileType ?? null,
+      notes: a.notes ?? null,
+      uploadedBy: p?.uploadedBy ?? opts.uploaderId ?? null,
+      uploadedAt: p?.uploadedAt ?? opts.at,
+      source: p?.source ?? opts.source,
+    };
+  });
 }
 
 /**
@@ -673,8 +702,9 @@ export async function submitOrUpdateQuote(
       id: string;
       status: VendorQuoteStatus;
       version: number;
+      attachments: QuoteEvidence[] | null;
     }>(
-      `SELECT id, status, version FROM vendor_quote
+      `SELECT id, status, version, attachments FROM vendor_quote
         WHERE rfq_id = $1 AND vendor_id = $2 AND is_current
         FOR UPDATE`,
       [rfqId, vendorId]
@@ -690,8 +720,19 @@ export async function submitOrUpdateQuote(
     const responseSource = meta.responseSource ?? null;
     const receivedDate = meta.receivedDate ?? null;
     const enteredBy = meta.enteredBy ?? null;
-    const attachmentsJson = meta.attachments
-      ? JSON.stringify(meta.attachments)
+
+    // Stamp evidence provenance server-side (§15), preserving original
+    // uploader/date/source across revisions (matched by url).
+    const stampedAttachments =
+      meta.attachments && meta.attachments.length > 0
+        ? stampQuoteEvidence(meta.attachments, existing?.attachments ?? [], {
+            uploaderId: meta.uploaderId ?? null,
+            source: responseSource ?? "portal",
+            at: new Date().toISOString(),
+          })
+        : null;
+    const attachmentsJson = stampedAttachments
+      ? JSON.stringify(stampedAttachments)
       : null;
 
     // Retire the current version before inserting the new one (keeps the

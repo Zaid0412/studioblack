@@ -1306,6 +1306,20 @@ export interface QuoteAttachment {
   fileName: string;
 }
 
+/**
+ * A quote's evidence file (§15): the base attachment plus provenance metadata.
+ * The trust-sensitive fields (`uploadedBy`, `uploadedAt`, `source`) are
+ * server-stamped — never accepted from the client. All metadata is optional so
+ * pre-§15 rows (`{url, fileName}` only) still read cleanly.
+ */
+export interface QuoteEvidence extends QuoteAttachment {
+  fileType?: string | null;
+  notes?: string | null;
+  uploadedBy?: string | null;
+  uploadedAt?: string | null;
+  source?: RfqResponseSource | null;
+}
+
 export interface VendorQuote {
   id: string;
   rfq_id: string;
@@ -1329,7 +1343,7 @@ export interface VendorQuote {
   inclusions: string | null;
   exclusions: string | null;
   notes: string | null;
-  attachments: QuoteAttachment[] | null;
+  attachments: QuoteEvidence[] | null;
   is_late: boolean;
   awarded_at: string | null;
   awarded_by: string | null;

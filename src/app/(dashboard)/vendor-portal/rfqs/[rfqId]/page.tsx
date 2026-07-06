@@ -146,7 +146,7 @@ export default function VendorPortalRfqDetailPage({
                 onClick={() => setSubmitOpen(true)}
                 className="cursor-pointer"
               >
-                {quote ? "Update quote" : "Submit quote"}
+                {quote ? "Revise quote" : "Submit quote"}
               </Button>
             )}
             <RefreshButton

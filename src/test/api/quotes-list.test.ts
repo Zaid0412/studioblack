@@ -144,6 +144,35 @@ describe("POST /api/projects/[id]/rfqs/[rfqId]/quotes (manual entry)", () => {
     );
   });
 
+  it("passes evidence attachments + uploader to the query (§15)", async () => {
+    vi.mocked(submitOrUpdateQuote).mockResolvedValue({
+      ok: true,
+      quote: quoteFixture() as never,
+      isNew: true,
+      orgId: "org-1",
+      projectId: PROJECT_ID,
+      rfqNumber: "RFQ-1",
+      rfqTitle: "T",
+    });
+    const res = await post({
+      ...enterBody,
+      attachments: [
+        {
+          url: "https://x.co/a.pdf",
+          fileName: "a.pdf",
+          fileType: "pdf",
+          notes: "emailed scan",
+        },
+      ],
+    });
+    expect(res.status).toBe(200);
+    const meta = vi.mocked(submitOrUpdateQuote).mock.calls[0]![3];
+    expect(meta?.uploaderId).toBe(pmSession.user.id);
+    expect(meta?.attachments).toEqual([
+      expect.objectContaining({ url: "https://x.co/a.pdf", fileType: "pdf" }),
+    ]);
+  });
+
   it("400s on an invalid body (missing responseSource)", async () => {
     const { responseSource: _omit, ...bad } = enterBody;
     const res = await post(bad);

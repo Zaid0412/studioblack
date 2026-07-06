@@ -11,6 +11,7 @@
     "collapse": "Collapse",
     "upload": "Upload",
     "replace": "Replace",
+    "uploadFailed": "Upload failed",
     "search": "Search",
     "filter": "Filter",
     "noResults": "No results found",

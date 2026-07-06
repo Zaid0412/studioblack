@@ -11,6 +11,7 @@
     "collapse": "Daralt",
     "upload": "Yükle",
     "replace": "Değiştir",
+    "uploadFailed": "Yükleme başarısız",
     "search": "Ara",
     "filter": "Filtrele",
     "noResults": "Sonuç bulunamadı",
