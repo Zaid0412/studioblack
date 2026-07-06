@@ -5,7 +5,7 @@
  *
  * Critical pins:
  *  - vendor must be invited to the RFQ (403)
- *  - missing items / extra items → 400 (full coverage required)
+ *  - extra items → 400; partial (subset) quotes are accepted (§14)
  *  - quote locked once status moves past `submitted` (409)
  *  - first submission flips rfq.issued → quotes_received (verified via
  *    submitOrUpdateQuote contract — the route just hands input through)
@@ -240,19 +240,21 @@ describe("PUT /api/vendor-portal/rfqs/[rfqId]/quote", () => {
     expect(body.code).toBe("quote_locked");
   });
 
-  it("returns 400 when items don't cover every RFQ item", async () => {
-    vi.mocked(submitOrUpdateQuote).mockResolvedValue({
-      ok: false,
-      reason: "missing_items",
-    });
+  it("accepts a partial quote (some items left unpriced)", async () => {
+    // §14 partial bidding: the route passes a subset payload straight through —
+    // there's no server-side full-coverage check anymore (beforeEach mocks ok).
     const res = await PUT(
       buildRequest(`/api/vendor-portal/rfqs/${RFQ_ID}/quote`, {
         method: "PUT",
-        body: validBody,
+        body: {
+          ...validBody,
+          items: [{ rfqItemId: RFQ_ITEM_ID_1, unitPrice: 50 }],
+        },
       }),
       buildParams({ rfqId: RFQ_ID })
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBeLessThan(400);
+    expect(vi.mocked(submitOrUpdateQuote)).toHaveBeenCalled();
   });
 
   it("returns 400 when an unknown rfqItemId is included", async () => {

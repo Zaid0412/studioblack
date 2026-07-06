@@ -77,7 +77,6 @@ export const PUT = withAuth(
           "rfq_wrong_status",
         ],
         vendor_not_invited: [403, "Vendor is not invited to this RFQ"],
-        missing_items: [400, "Quote must cover every RFQ item"],
         extra_items: [400, "Quote contains items not in this RFQ"],
         quote_locked: [
           409,

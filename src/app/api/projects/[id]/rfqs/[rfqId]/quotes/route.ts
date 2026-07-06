@@ -61,7 +61,6 @@ export const POST = withAuth(
         rfq_not_found: [404, "RFQ not found"],
         rfq_wrong_status: [409, "This RFQ no longer accepts quotes"],
         vendor_not_invited: [409, "Invite the vendor before entering a quote"],
-        missing_items: [400, "A price is required for every RFQ item"],
         extra_items: [400, "Quote includes items not on this RFQ"],
         quote_locked: [409, "This quote can no longer be edited"],
       };

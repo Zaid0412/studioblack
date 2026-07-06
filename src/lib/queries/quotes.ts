@@ -247,8 +247,28 @@ export async function getQuoteComparison(
         ORDER BY sort_order, description`,
       [rfqId]
     ),
-    pool.query<QuoteRow>(
-      `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code
+    pool.query<
+      QuoteRow & { vendor_rating: string | null; prior_awards: string }
+    >(
+      // prior_awards = distinct *logical* RFQs (by rfq_number) this vendor has
+      // won — single (rfq.awarded_vendor_id) or split (rfq_item.awarded_vendor_id).
+      // "Live wins only": superseded revisions are excluded, and the current
+      // RFQ's own number is excluded so earlier versions of it don't count.
+      // Org-scoped so the awarded_vendor_id partial indexes can be used.
+      `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code,
+              v.rating AS vendor_rating,
+              (SELECT COUNT(DISTINCT r.rfq_number)
+                 FROM rfq r
+                WHERE r.org_id = (SELECT org_id FROM rfq WHERE id = $1)
+                  AND r.status <> 'superseded'
+                  AND r.rfq_number <> (SELECT rfq_number FROM rfq WHERE id = $1)
+                  AND (r.awarded_vendor_id = vq.vendor_id
+                       OR EXISTS (
+                         SELECT 1 FROM rfq_item ri
+                          WHERE ri.rfq_id = r.id
+                            AND ri.awarded_vendor_id = vq.vendor_id
+                       ))
+              ) AS prior_awards
          FROM vendor_quote vq
          JOIN vendor v ON v.id = vq.vendor_id
         WHERE vq.rfq_id = $1 AND vq.is_current`,
@@ -386,6 +406,8 @@ export async function getQuoteComparison(
       currency: q.currency,
       grand_total: totalByVendor.get(q.vendor_id) ?? 0,
       submitted_at: q.submitted_at,
+      vendor_rating: q.vendor_rating === null ? null : Number(q.vendor_rating),
+      vendor_prior_awards: Number(q.prior_awards),
     })
   );
   // Sort vendors: non-expired first, then by grand_total ASC, then by name.
@@ -571,7 +593,6 @@ export async function submitOrUpdateQuote(
         | "rfq_not_found"
         | "rfq_wrong_status"
         | "vendor_not_invited"
-        | "missing_items"
         | "extra_items"
         | "quote_locked";
     }
@@ -635,15 +656,14 @@ export async function submitOrUpdateQuote(
       await client.query("ROLLBACK");
       return { ok: false, reason: "extra_items" };
     }
+    // Partial bids are allowed (§14): a vendor may price some, all, or (via a
+    // single blank line) none of the items — "no bid" is simply the absence of
+    // a `vendor_quote_item`. Only reject items that aren't part of this RFQ.
     for (const id of inputIds) {
       if (!rfqItemIds.has(id)) {
         await client.query("ROLLBACK");
         return { ok: false, reason: "extra_items" };
       }
-    }
-    if (inputIds.size !== rfqItemIds.size) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "missing_items" };
     }
 
     // The current version (if any). A revision retires it and inserts a new
@@ -804,6 +824,7 @@ type AwardFailure = {
     | "rfq_wrong_status"
     | "quote_not_found"
     | "quote_expired"
+    | "incomplete_quote"
     | "incomplete_split";
 };
 
@@ -866,6 +887,29 @@ export async function awardRfqSingle(
     if (winner.status !== "submitted" && winner.status !== "under_review") {
       await client.query("ROLLBACK");
       return { ok: false, reason: "quote_expired" };
+    }
+
+    // Now that partial bids are allowed (§14), a single-vendor award must still
+    // cover the whole RFQ — otherwise items would be left unpriced. Reject when
+    // the winning quote hasn't bid on every item (use split award instead).
+    const { rows: coverageRows } = await client.query<{
+      total_items: string;
+      covered_items: string;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM rfq_item WHERE rfq_id = $1) AS total_items,
+         (SELECT COUNT(*) FROM vendor_quote_item vqi
+            JOIN rfq_item ri ON ri.id = vqi.rfq_item_id AND ri.rfq_id = $1
+           WHERE vqi.quote_id = $2) AS covered_items`,
+      [rfqId, winner.id]
+    );
+    const coverage = coverageRows[0];
+    if (
+      !coverage ||
+      Number(coverage.covered_items) < Number(coverage.total_items)
+    ) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "incomplete_quote" };
     }
 
     // Winner -> awarded.

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { formatDate, fromIsoDate } from "@/lib/formatDate";
+import { isPriceFilled } from "@/lib/quoteTotal";
 import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
 import type { QuoteCurrency } from "@/lib/validations";
 
@@ -47,9 +48,10 @@ export interface SubmitPayload {
 
 /**
  * Vendor quote submission / revision form. Pre-fills from `existing` when
- * the vendor has already submitted. Submission is blocked client-side
- * until every RFQ item has a non-negative unit price — the server enforces
- * the same check, but failing fast keeps the dialog responsive.
+ * the vendor has already submitted. Partial bids are allowed (§14): a vendor
+ * may price some items and leave others blank ("not quoting"). Submission is
+ * blocked client-side until at least one item has a non-negative price; only
+ * filled lines are sent.
  */
 export function VendorQuoteSubmitDialog({
   rfq,
@@ -106,25 +108,18 @@ export function VendorQuoteSubmitDialog({
     let sum = 0;
     for (const it of rfq.items) {
       const raw = prices.get(it.id);
-      const price = raw ? Number(raw) : NaN;
-      if (Number.isFinite(price) && price >= 0) {
-        sum += price * Number(it.quantity);
-      }
+      if (isPriceFilled(raw)) sum += Number(raw) * Number(it.quantity);
     }
     return sum;
   }, [rfq.items, prices]);
 
-  const allFilled = useMemo(() => {
-    for (const it of rfq.items) {
-      const raw = prices.get(it.id);
-      const price = raw ? Number(raw) : NaN;
-      if (!Number.isFinite(price) || price < 0) return false;
-    }
-    return rfq.items.length > 0;
-  }, [rfq.items, prices]);
+  // A blank line means "not quoting" this item (§14 partial bidding). Only
+  // filled lines are sent, and at least one is required to submit.
+  const isFilled = (id: string) => isPriceFilled(prices.get(id));
+  const hasAnyPrice = rfq.items.some((it) => isFilled(it.id));
 
   async function handleSubmit() {
-    if (!allFilled || submitting) return;
+    if (!hasAnyPrice || submitting) return;
     setSubmitting(true);
     try {
       await onSubmit({
@@ -132,10 +127,12 @@ export function VendorQuoteSubmitDialog({
         deliveryPeriod: deliveryPeriod || null,
         paymentTerms: paymentTerms || null,
         notes: notes || null,
-        items: rfq.items.map((it) => ({
-          rfqItemId: it.id,
-          unitPrice: Number(prices.get(it.id) ?? 0),
-        })),
+        items: rfq.items
+          .filter((it) => isFilled(it.id))
+          .map((it) => ({
+            rfqItemId: it.id,
+            unitPrice: Number(prices.get(it.id)),
+          })),
       });
       onOpenChange(false);
     } finally {
@@ -222,6 +219,11 @@ export function VendorQuoteSubmitDialog({
                           }}
                           className="text-right"
                         />
+                        {raw === "" && (
+                          <div className="text-[11px] text-text-muted mt-0.5">
+                            Not quoting
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-text-primary">
                         {lineTotal.toLocaleString(undefined, {
@@ -296,7 +298,7 @@ export function VendorQuoteSubmitDialog({
           </DialogClose>
           <Button
             onClick={handleSubmit}
-            disabled={!allFilled || submitting}
+            disabled={!hasAnyPrice || submitting}
             className="cursor-pointer"
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
