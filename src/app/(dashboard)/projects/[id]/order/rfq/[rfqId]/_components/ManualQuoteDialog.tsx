@@ -15,7 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
-import { AttachmentsEditor } from "@/components/ui/AttachmentsEditor";
+import {
+  AttachmentsEditor,
+  type AttachmentRef,
+} from "@/components/ui/AttachmentsEditor";
 import { toast } from "@/components/ui/useToast";
 import { quotes as quotesApi } from "@/lib/api";
 import { isPriceFilled } from "@/lib/quoteTotal";
@@ -25,12 +28,7 @@ import {
   QUOTE_CURRENCIES,
 } from "@/lib/validations";
 import { RESPONSE_SOURCE_ICONS, RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
-import type {
-  RfqItem,
-  RfqWithItems,
-  VendorQuoteWithItems,
-  QuoteAttachment,
-} from "@/types";
+import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
 
 interface Props {
   projectId: string;
@@ -70,7 +68,7 @@ export function ManualQuoteDialog({
   const [deliveryPeriod, setDeliveryPeriod] = useState("");
   const [paymentTerms, setPaymentTerms] = useState("");
   const [notes, setNotes] = useState("");
-  const [attachments, setAttachments] = useState<QuoteAttachment[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const existing = useMemo(
@@ -99,7 +97,7 @@ export function ManualQuoteDialog({
         ? existing.response_source
         : "email"
     );
-    setAttachments((existing?.attachments as QuoteAttachment[] | null) ?? []);
+    setAttachments(existing?.attachments ?? []);
   }, [open, vendorId, existing, rfq.items]);
 
   const grandTotal = useMemo(() => {
@@ -331,6 +329,8 @@ export function ManualQuoteDialog({
               value={attachments}
               onChange={setAttachments}
               removeLabel="Remove"
+              withNotes
+              notesPlaceholder="Note (optional)"
             />
           </div>
         </div>

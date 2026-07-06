@@ -66,7 +66,11 @@ export const PUT = withAuth(
       params.rfqId,
       vendorId!,
       parsed.data,
-      { responseSource: "portal" }
+      {
+        responseSource: "portal",
+        attachments: parsed.data.attachments,
+        uploaderId: user.id,
+      }
     );
     if (!result.ok) {
       const map: Record<typeof result.reason, [number, string, string?]> = {

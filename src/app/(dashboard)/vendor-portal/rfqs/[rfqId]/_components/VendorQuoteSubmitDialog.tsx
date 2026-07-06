@@ -14,6 +14,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
+import {
+  AttachmentsEditor,
+  type AttachmentRef,
+} from "@/components/ui/AttachmentsEditor";
 import { formatDate, fromIsoDate } from "@/lib/formatDate";
 import { isPriceFilled } from "@/lib/quoteTotal";
 import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
@@ -44,6 +48,7 @@ export interface SubmitPayload {
     notes?: string | null;
     alternativeSpec?: string | null;
   }>;
+  attachments?: AttachmentRef[];
 }
 
 /**
@@ -82,6 +87,9 @@ export function VendorQuoteSubmitDialog({
     existing?.payment_terms ?? ""
   );
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [attachments, setAttachments] = useState<AttachmentRef[]>(
+    existing?.attachments ?? []
+  );
   const [submitting, setSubmitting] = useState(false);
 
   // Reset form whenever the dialog opens with a different state.
@@ -96,6 +104,7 @@ export function VendorQuoteSubmitDialog({
       setDeliveryPeriod(existing?.delivery_period ?? "");
       setPaymentTerms(existing?.payment_terms ?? "");
       setNotes(existing?.notes ?? "");
+      setAttachments(existing?.attachments ?? []);
     }
   }, [open, existing, initialPrices]);
 
@@ -133,6 +142,7 @@ export function VendorQuoteSubmitDialog({
             rfqItemId: it.id,
             unitPrice: Number(prices.get(it.id)),
           })),
+        attachments,
       });
       onOpenChange(false);
     } finally {
@@ -285,6 +295,18 @@ export function VendorQuoteSubmitDialog({
                 rows={3}
                 placeholder="Any clarifications, exclusions, or alternative specs."
                 className="w-full rounded-md border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-medium text-text-muted mb-1.5 block">
+                Evidence
+              </label>
+              <AttachmentsEditor
+                value={attachments}
+                onChange={setAttachments}
+                removeLabel="Remove"
+                withNotes
+                notesPlaceholder="Note (optional)"
               />
             </div>
           </div>

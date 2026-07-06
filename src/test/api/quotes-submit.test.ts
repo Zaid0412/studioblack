@@ -191,6 +191,32 @@ describe("PUT /api/vendor-portal/rfqs/[rfqId]/quote", () => {
     );
   });
 
+  it("passes evidence attachments + uploader to the query (§15)", async () => {
+    const res = await PUT(
+      buildRequest(`/api/vendor-portal/rfqs/${RFQ_ID}/quote`, {
+        method: "PUT",
+        body: {
+          ...validBody,
+          attachments: [
+            {
+              url: "https://x.co/a.pdf",
+              fileName: "a.pdf",
+              fileType: "pdf",
+              notes: "scan",
+            },
+          ],
+        },
+      }),
+      buildParams({ rfqId: RFQ_ID })
+    );
+    expect(res.status).toBeLessThan(400);
+    const meta = vi.mocked(submitOrUpdateQuote).mock.calls[0]![3];
+    expect(meta?.uploaderId).toEqual(expect.any(String));
+    expect(meta?.attachments).toEqual([
+      expect.objectContaining({ url: "https://x.co/a.pdf", fileType: "pdf" }),
+    ]);
+  });
+
   it("returns 403 when vendor is not invited", async () => {
     vi.mocked(submitOrUpdateQuote).mockResolvedValue({
       ok: false,

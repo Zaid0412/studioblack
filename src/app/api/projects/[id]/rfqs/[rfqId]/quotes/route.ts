@@ -30,8 +30,7 @@ export const GET = withAuth(
  * POST /api/projects/[id]/rfqs/[rfqId]/quotes — a PM records a quote received
  * off-portal (email/WhatsApp/phone/…) on behalf of an already-invited vendor,
  * tagging the source + received date + evidence. Reuses the vendor-submit
- * path via `meta`, so it inherits the same rule: a price is required for every
- * RFQ item (full coverage — partial quotes aren't supported yet, per F10).
+ * path via `meta`; partial (per-item) quotes are allowed (§14).
  */
 export const POST = withAuth(
   { projectAccess: true, blockedRoles: ["client", "vendor"] },
@@ -53,6 +52,7 @@ export const POST = withAuth(
         receivedDate: parsed.data.receivedDate,
         enteredBy: user.id,
         attachments: parsed.data.attachments,
+        uploaderId: user.id,
       }
     );
 
