@@ -446,7 +446,8 @@ export async function getSuggestedVendorsForRfq(
      -- with "ORDER BY expressions must appear in select list".
      matches AS (
        SELECT DISTINCT
-         v.id, v.company_name, v.vendor_code, v.status, v.rating,
+         v.id, v.company_name, v.vendor_code, v.status,
+         v.rating::float8 AS rating,
          (SELECT email FROM vendor_contact
           WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
        FROM vendor v
@@ -474,7 +475,8 @@ export async function getAllVendorsForRfq(
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT
-       v.id, v.company_name, v.vendor_code, v.status, v.rating,
+       v.id, v.company_name, v.vendor_code, v.status,
+       v.rating::float8 AS rating,
        (SELECT email FROM vendor_contact
         WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
      FROM vendor v
