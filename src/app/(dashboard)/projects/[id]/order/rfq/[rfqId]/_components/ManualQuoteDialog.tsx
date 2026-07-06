@@ -18,6 +18,7 @@ import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { AttachmentsEditor } from "@/components/ui/AttachmentsEditor";
 import { toast } from "@/components/ui/useToast";
 import { quotes as quotesApi } from "@/lib/api";
+import { isPriceFilled } from "@/lib/quoteTotal";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import {
   RFQ_MANUAL_RESPONSE_SOURCES,
@@ -104,26 +105,16 @@ export function ManualQuoteDialog({
   const grandTotal = useMemo(() => {
     let sum = 0;
     for (const it of rfq.items) {
-      const price = Number(prices.get(it.id));
-      if (Number.isFinite(price) && price >= 0) sum += price * it.quantity;
+      const raw = prices.get(it.id);
+      if (isPriceFilled(raw)) sum += Number(raw) * it.quantity;
     }
     return sum;
   }, [rfq.items, prices]);
 
-  // A line is "filled" when it has a non-empty, valid (>= 0) price. A blank line
-  // means "not quoting" this item (§14 partial bidding) — only filled lines are
-  // submitted, and at least one is required.
-  const isFilled = (id: string): boolean => {
-    const raw = prices.get(id);
-    if (raw === undefined || raw === "") return false;
-    const price = Number(raw);
-    return Number.isFinite(price) && price >= 0;
-  };
-  const hasAnyPrice = useMemo(
-    () => rfq.items.some((it) => isFilled(it.id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isFilled closes over `prices`
-    [rfq.items, prices]
-  );
+  // A blank line means "not quoting" this item (§14 partial bidding) — only
+  // filled lines are submitted, and at least one is required.
+  const isFilled = (id: string) => isPriceFilled(prices.get(id));
+  const hasAnyPrice = rfq.items.some((it) => isFilled(it.id));
 
   const canSubmit = vendorId && source && receivedDate && hasAnyPrice;
 

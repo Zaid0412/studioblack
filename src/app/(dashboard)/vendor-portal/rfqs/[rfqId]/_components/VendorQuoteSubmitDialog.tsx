@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { formatDate, fromIsoDate } from "@/lib/formatDate";
+import { isPriceFilled } from "@/lib/quoteTotal";
 import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
 import type { QuoteCurrency } from "@/lib/validations";
 
@@ -107,27 +108,15 @@ export function VendorQuoteSubmitDialog({
     let sum = 0;
     for (const it of rfq.items) {
       const raw = prices.get(it.id);
-      const price = raw ? Number(raw) : NaN;
-      if (Number.isFinite(price) && price >= 0) {
-        sum += price * Number(it.quantity);
-      }
+      if (isPriceFilled(raw)) sum += Number(raw) * Number(it.quantity);
     }
     return sum;
   }, [rfq.items, prices]);
 
   // A blank line means "not quoting" this item (§14 partial bidding). Only
   // filled lines are sent, and at least one is required to submit.
-  const isFilled = (id: string): boolean => {
-    const raw = prices.get(id);
-    if (raw === undefined || raw === "") return false;
-    const price = Number(raw);
-    return Number.isFinite(price) && price >= 0;
-  };
-  const hasAnyPrice = useMemo(
-    () => rfq.items.some((it) => isFilled(it.id)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isFilled closes over `prices`
-    [rfq.items, prices]
-  );
+  const isFilled = (id: string) => isPriceFilled(prices.get(id));
+  const hasAnyPrice = rfq.items.some((it) => isFilled(it.id));
 
   async function handleSubmit() {
     if (!hasAnyPrice || submitting) return;

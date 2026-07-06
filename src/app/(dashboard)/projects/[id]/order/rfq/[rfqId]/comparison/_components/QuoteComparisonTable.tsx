@@ -1,10 +1,11 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Star } from "lucide-react";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
-import type { QuoteComparison } from "@/types";
+import type { QuoteComparison, QuoteComparisonVendorColumn } from "@/types";
 
 interface Props {
   comparison: QuoteComparison;
@@ -44,37 +45,37 @@ export function QuoteComparisonTable({ comparison }: Props) {
               <th className="text-right px-3 py-3 font-medium text-text-muted whitespace-nowrap">
                 Proposed
               </th>
-              {comparison.vendors.map((v) => (
-                <th
-                  key={v.vendor_id}
-                  className={`text-right px-4 py-3 font-medium border-l border-border-default min-w-[160px] ${
-                    v.quote_status === "expired"
-                      ? "text-text-muted opacity-60"
-                      : "text-text-primary"
-                  }`}
-                >
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-text-primary">{v.vendor_name}</span>
-                    <div className="flex items-center gap-1.5">
-                      <QuoteStatusBadge status={v.quote_status} />
-                      <ResponseSourceBadge source={v.response_source} />
-                      {v.is_late && (
-                        <span className="text-[10px] font-medium text-warning bg-warning/10 px-1 py-0.5 rounded">
-                          Late
-                        </span>
-                      )}
+              {comparison.vendors.map((v) => {
+                const quotedCount = comparison.items.filter(
+                  (r) => r.vendor_prices[v.vendor_id]
+                ).length;
+                return (
+                  <th
+                    key={v.vendor_id}
+                    className={`text-right px-4 py-3 font-medium border-l border-border-default min-w-[160px] ${
+                      v.quote_status === "expired"
+                        ? "text-text-muted opacity-60"
+                        : "text-text-primary"
+                    }`}
+                  >
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-text-primary">{v.vendor_name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <QuoteStatusBadge status={v.quote_status} />
+                        <ResponseSourceBadge source={v.response_source} />
+                        {v.is_late && (
+                          <span className="text-[10px] font-medium text-warning bg-warning/10 px-1 py-0.5 rounded">
+                            Late
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] font-normal text-text-muted">
+                        {quotedCount}/{comparison.items.length} items quoted
+                      </span>
                     </div>
-                    <span className="text-[11px] font-normal text-text-muted">
-                      {
-                        comparison.items.filter(
-                          (r) => r.vendor_prices[v.vendor_id]
-                        ).length
-                      }
-                      /{comparison.items.length} items quoted
-                    </span>
-                  </div>
-                </th>
-              ))}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -183,96 +184,77 @@ export function QuoteComparisonTable({ comparison }: Props) {
                 </td>
               ))}
             </tr>
-            <tr className="bg-bg-elevated text-xs text-text-muted">
-              <td
-                colSpan={3}
-                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
-              >
-                Rating
-              </td>
-              {comparison.vendors.map((v) => (
-                <td
-                  key={v.vendor_id}
-                  className="px-4 py-2 text-right border-l border-border-default"
-                >
-                  {v.vendor_rating === null ? (
-                    "—"
-                  ) : (
-                    <span className="inline-flex items-center justify-end gap-0.5">
-                      <Star className="w-3 h-3 text-warning fill-warning" />
-                      {v.vendor_rating.toFixed(1)}
-                    </span>
-                  )}
-                </td>
-              ))}
-            </tr>
-            <tr className="bg-bg-elevated text-xs text-text-muted">
-              <td
-                colSpan={3}
-                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
-              >
-                Prior awards
-              </td>
-              {comparison.vendors.map((v) => (
-                <td
-                  key={v.vendor_id}
-                  className="px-4 py-2 text-right border-l border-border-default"
-                >
-                  {v.vendor_prior_awards}
-                </td>
-              ))}
-            </tr>
-            <tr className="bg-bg-elevated text-xs text-text-muted">
-              <td
-                colSpan={3}
-                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
-              >
-                Delivery
-              </td>
-              {comparison.vendors.map((v) => (
-                <td
-                  key={v.vendor_id}
-                  className="px-4 py-2 text-right border-l border-border-default"
-                >
-                  {v.delivery_period ?? "—"}
-                </td>
-              ))}
-            </tr>
-            <tr className="bg-bg-elevated text-xs text-text-muted">
-              <td
-                colSpan={3}
-                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
-              >
-                Payment terms
-              </td>
-              {comparison.vendors.map((v) => (
-                <td
-                  key={v.vendor_id}
-                  className="px-4 py-2 text-right border-l border-border-default"
-                >
-                  {v.payment_terms ?? "—"}
-                </td>
-              ))}
-            </tr>
-            <tr className="bg-bg-elevated text-xs text-text-muted">
-              <td
-                colSpan={3}
-                className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
-              >
-                Valid until
-              </td>
-              {comparison.vendors.map((v) => (
-                <td
-                  key={v.vendor_id}
-                  className="px-4 py-2 text-right border-l border-border-default"
-                >
-                  {v.valid_until ? formatDate(v.valid_until) : "—"}
-                </td>
-              ))}
-            </tr>
+            <FooterRow
+              label="Rating"
+              vendors={comparison.vendors}
+              render={(v) =>
+                v.vendor_rating === null ? (
+                  "—"
+                ) : (
+                  <span className="inline-flex items-center justify-end gap-0.5">
+                    <Star className="w-3 h-3 text-warning fill-warning" />
+                    {v.vendor_rating.toFixed(1)}
+                  </span>
+                )
+              }
+            />
+            <FooterRow
+              label="Prior awards"
+              vendors={comparison.vendors}
+              render={(v) => v.vendor_prior_awards}
+            />
+            <FooterRow
+              label="Delivery"
+              vendors={comparison.vendors}
+              render={(v) => v.delivery_period ?? "—"}
+            />
+            <FooterRow
+              label="Payment terms"
+              vendors={comparison.vendors}
+              render={(v) => v.payment_terms ?? "—"}
+            />
+            <FooterRow
+              label="Valid until"
+              vendors={comparison.vendors}
+              render={(v) => (v.valid_until ? formatDate(v.valid_until) : "—")}
+            />
           </tfoot>
         </table>
       </div>
     </div>
+  );
+}
+
+/**
+ * One per-vendor summary row in the comparison footer: a sticky label cell
+ * spanning the fixed columns, then a right-aligned cell per vendor rendered
+ * by `render`. Keeps the repeated row scaffold in one place.
+ */
+function FooterRow({
+  label,
+  vendors,
+  render,
+}: {
+  label: string;
+  vendors: QuoteComparisonVendorColumn[];
+  render: (v: QuoteComparisonVendorColumn) => ReactNode;
+}) {
+  return (
+    <tr className="bg-bg-elevated text-xs text-text-muted">
+      <td
+        colSpan={3}
+        className="sticky left-0 bg-bg-elevated px-4 py-2 text-right border-r border-border-default"
+      >
+        {label}
+      </td>
+      {vendors.map((v) => (
+        <td
+          key={v.vendor_id}
+          className="px-4 py-2 text-right border-l border-border-default"
+        >
+          {render(v)}
+        </td>
+      ))}
+    </tr>
   );
 }
