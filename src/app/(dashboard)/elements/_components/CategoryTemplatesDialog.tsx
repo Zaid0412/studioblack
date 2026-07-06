@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { mutate as globalMutate } from "swr";
-import { Sparkles, Save } from "lucide-react";
+import useSWR, { mutate as globalMutate } from "swr";
+import { Sparkles, Save, Check, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -26,6 +26,8 @@ import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
 import { MASTER_TAXONOMY, type SeedCategory } from "@/lib/categoryTemplates";
 import type { BulkCategoryNode } from "@/lib/validations";
+import type { ElementCategoryNode } from "@/types";
+import { computeRestoreStatus } from "../_lib/categoryRestoreStatus";
 
 interface Props {
   open: boolean;
@@ -53,6 +55,28 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
   const allCodes = useMemo(() => MASTER_TAXONOMY.map((c) => c.codePrefix), []);
   const [checked, setChecked] = useState<Set<string>>(() => new Set(allCodes));
   const [submitting, setSubmitting] = useState(false);
+
+  // Compare the org's current tree against the defaults so the dialog can show,
+  // per category, what's already present vs. what "Restore" would actually add.
+  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
+    open ? API.elementCategories() : null
+  );
+  const status = useMemo(
+    () =>
+      catData ? computeRestoreStatus(catData.tree, MASTER_TAXONOMY) : null,
+    [catData]
+  );
+  // New nodes the current selection would create (0 = all selected already exist).
+  const selectedNew = useMemo(() => {
+    if (!status) return null;
+    let n = 0;
+    for (const c of MASTER_TAXONOMY) {
+      if (checked.has(c.codePrefix)) {
+        n += status.byCode.get(c.codePrefix)?.missing ?? 0;
+      }
+    }
+    return n;
+  }, [status, checked]);
 
   // Reset selections each time the dialog opens.
   useEffect(() => {
@@ -118,10 +142,24 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
           <DialogDescription>{t("starterDialogDesc")}</DialogDescription>
         </DialogHeader>
 
+        {status && status.totalMissing === 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-status-approved-arch/40 bg-status-approved-arch/10 px-3 py-2 text-sm text-text-primary">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 text-status-approved-arch shrink-0" />
+            <span>
+              {status.customTopLevel > 0
+                ? t("starterAllPresentCustom", {
+                    count: status.customTopLevel,
+                  })
+                : t("starterExactMatch")}
+            </span>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2">
           {MASTER_TAXONOMY.map((c) => {
             const code = c.codePrefix;
             const { subs, services } = counts(c);
+            const st = status?.byCode.get(code);
             return (
               <label
                 key={code}
@@ -150,6 +188,17 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
                     {t("starterCategoryCounts", { subs, services })}
                   </TooltipContent>
                 </Tooltip>
+                {st &&
+                  (st.missing === 0 ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-status-approved-arch whitespace-nowrap">
+                      <Check className="h-3 w-3" />
+                      {t("starterRowPresent")}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-medium text-accent whitespace-nowrap">
+                      {t("starterRowMissing", { count: st.missing })}
+                    </span>
+                  ))}
               </label>
             );
           })}
@@ -164,12 +213,20 @@ export function CategoryTemplatesDialog({ open, onOpenChange }: Props) {
           <Button
             type="button"
             onClick={handleCreate}
-            disabled={submitting || selectedCount === 0}
+            disabled={
+              submitting ||
+              selectedCount === 0 ||
+              (selectedNew !== null && selectedNew === 0)
+            }
           >
             <Save className="h-4 w-4" />
             {submitting
               ? tCommon("loading")
-              : t("starterCreateBtn", { count: selectedCount })}
+              : selectedNew !== null && selectedNew === 0
+                ? t("starterNothingToAdd")
+                : t("starterCreateBtn", {
+                    count: selectedNew ?? selectedCount,
+                  })}
           </Button>
         </DialogFooter>
       </DialogContent>
