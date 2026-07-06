@@ -324,7 +324,7 @@ export function VendorQuoteSubmitDialog({
             className="cursor-pointer"
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {existing ? "Update quote" : "Submit quote"}
+            {existing ? "Save revision" : "Submit quote"}
           </Button>
         </DialogFooter>
       </DialogContent>

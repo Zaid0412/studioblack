@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import { Upload, X, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { toast } from "@/components/ui/useToast";
+import { UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
 
 interface BaseProps {
   /** Free-form label rendered above the slot. */
@@ -54,14 +56,21 @@ export function FileUploadSlot(props: Props) {
       await uploadAndAttach(file, async (result) => {
         props.onUploaded(result);
       });
-    } catch {
-      /* error already surfaced by the shared hook */
+    } catch (err) {
+      // Surface the failure — a rejected file type, size cap, or network
+      // error otherwise fails silently and the slot just resets to empty.
+      toast({
+        title: t("uploadFailed"),
+        description: err instanceof Error ? err.message : undefined,
+        variant: "error",
+      });
     }
   };
 
   const onPick = () => inputRef.current?.click();
   const accept =
-    props.accept ?? (props.variant === "image" ? "image/*" : undefined);
+    props.accept ??
+    (props.variant === "image" ? "image/*" : UPLOAD_ACCEPTED_TYPES);
   const size = props.variant === "image" ? (props.size ?? 96) : 0;
 
   return (

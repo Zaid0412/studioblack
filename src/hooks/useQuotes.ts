@@ -142,7 +142,7 @@ export function useVendorSubmitQuote(rfqId: string) {
         void globalMutate(API.vendorPortalRfqQuote(rfqId));
         void globalMutate(API.vendorPortalRfq(rfqId));
         toast({
-          title: res.isNew ? "Quote submitted" : "Quote updated",
+          title: res.isNew ? "Quote submitted" : "Revision saved",
           description: res.isNew
             ? "The studio has been notified."
             : "Your revised quote has been sent.",

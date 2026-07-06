@@ -137,7 +137,7 @@ export function ManualQuoteDialog({
             unitPrice: Number(prices.get(it.id)),
           })),
       });
-      toast({ title: existing ? "Quote updated" : "Quote recorded" });
+      toast({ title: existing ? "Revision saved" : "Quote recorded" });
       onEntered();
       onOpenChange(false);
     } catch (err) {
@@ -341,7 +341,7 @@ export function ManualQuoteDialog({
           </DialogClose>
           <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {existing ? "Update quote" : "Save quote"}
+            {existing ? "Save revision" : "Save quote"}
           </Button>
         </DialogFooter>
       </DialogContent>
