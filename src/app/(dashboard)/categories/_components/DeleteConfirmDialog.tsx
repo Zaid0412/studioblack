@@ -39,7 +39,13 @@ export function DeleteConfirmDialog({
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
-  const blocked = subtreeElementCount > 0;
+  // Surface both block reasons up front so the user isn't hit with a server
+  // error after confirming: a node with sub-categories can't be deleted, and
+  // neither can one whose subtree still has elements attached.
+  const childCount = target?.children.length ?? 0;
+  const blockedByChildren = childCount > 0;
+  const blockedByElements = !blockedByChildren && subtreeElementCount > 0;
+  const blocked = blockedByChildren || blockedByElements;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -47,7 +53,7 @@ export function DeleteConfirmDialog({
         <DialogHeader>
           <DialogTitle>
             {blocked
-              ? tCommon("error")
+              ? t("categoryDeleteBlockedTitle")
               : target?.level === 2
                 ? t("subcategoryDeleteConfirm")
                 : target?.level === 3
@@ -57,13 +63,21 @@ export function DeleteConfirmDialog({
           <DialogDescription>
             {blocked ? (
               <span className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-error shrink-0 mt-0.5" />
+                <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                 <span>
-                  {t("categoryDeleteBlocked", { count: subtreeElementCount })}
+                  {blockedByChildren
+                    ? t("categoryDeleteHasChildren", {
+                        name: target?.name ?? "",
+                        count: childCount,
+                      })
+                    : t("categoryDeleteBlocked", {
+                        name: target?.name ?? "",
+                        count: subtreeElementCount,
+                      })}
                 </span>
               </span>
             ) : (
-              <>{target?.name ? `"${target.name}"` : ""}</>
+              t("categoryDeletePermanent", { name: target?.name ?? "" })
             )}
           </DialogDescription>
         </DialogHeader>
