@@ -687,6 +687,7 @@ export default function OrderRfqDetailPage({
         onOpenChange={setInviteOpen}
         onConfirm={handleInvite}
         mode="invite"
+        lockedVendorIds={preselectedVendorIds}
       />
 
       <RfqEditDialog

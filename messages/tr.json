@@ -1303,7 +1303,8 @@
       "noVendorsHint": "Eşleşen ticarete sahip bir tedarikçi ekleyin veya her tedarikçiyi görmek için \"Tümünü göster\" seçeneğini kullanın.",
       "emailWarning": "Yeni davet edilen her tedarikçinin RFQ alıcısı kontakları hemen e-posta alır. Zaten davetli olanlar sessizce atlanır.",
       "cancel": "İptal",
-      "confirm": "{count, plural, =0 {Davet et} =1 {1 tedarikçi davet et} other {# tedarikçi davet et}}"
+      "confirm": "{count, plural, =0 {Davet et} =1 {1 tedarikçi davet et} other {# tedarikçi davet et}}",
+      "alreadyInvited": "Davetli"
     },
     "addItems": {
       "title": "Kalem ekle",
