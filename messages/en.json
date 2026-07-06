@@ -847,6 +847,8 @@
     "categoryUpdatedToast": "Category updated",
     "categoryDeletedToast": "Category deleted",
     "categoryDeleteConfirm": "Delete this category?",
+    "subcategoryDeleteConfirm": "Delete this sub-category?",
+    "serviceAreaDeleteConfirm": "Delete this service area?",
     "categoryDeleteBlocked": "Can't delete — {count} elements still use this category (or a sub-category). Move or reassign them first.",
     "categoryInUse": "{count} elements",
     "categoryEmpty": "No categories yet",

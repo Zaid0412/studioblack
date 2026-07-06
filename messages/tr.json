@@ -847,6 +847,8 @@
     "categoryUpdatedToast": "Kategori güncellendi",
     "categoryDeletedToast": "Kategori silindi",
     "categoryDeleteConfirm": "Bu kategori silinsin mi?",
+    "subcategoryDeleteConfirm": "Bu alt kategori silinsin mi?",
+    "serviceAreaDeleteConfirm": "Bu hizmet bölgesi silinsin mi?",
     "categoryDeleteBlocked": "Silinemiyor — bu kategoriyi (veya alt kategorilerini) hâlâ {count} element kullanıyor. Önce onları taşıyın veya yeniden atayın.",
     "categoryInUse": "{count} element",
     "categoryEmpty": "Henüz kategori yok",
