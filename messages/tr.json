@@ -1215,6 +1215,7 @@
       "vendorsHeading": "Davet edilen tedarikçiler ({count})",
       "vendorsEmpty": "Henüz tedarikçi davet edilmedi. Göndermek için \"Tedarikçilere gönder\"i tıklayın.",
       "invitedAt": "Davet edildi",
+      "invitedBy": "{name} tarafından",
       "col": {
         "description": "Açıklama",
         "unit": "Birim",

@@ -191,9 +191,11 @@ export async function getRfqDetail(
     ),
     pool.query<RfqVendorInvite>(
       `SELECT rv.rfq_id, rv.vendor_id, v.company_name AS vendor_name,
-              v.vendor_code, rv.invited_at, rv.invited_by
+              v.vendor_code, rv.invited_at, rv.invited_by,
+              u.name AS invited_by_name, rv.distribution_method
        FROM rfq_vendor rv
        JOIN vendor v ON v.id = rv.vendor_id
+       LEFT JOIN "user" u ON u.id = rv.invited_by
        WHERE rv.rfq_id = $1
        ORDER BY lower(v.company_name)`,
       [rfqId]
@@ -762,9 +764,15 @@ async function bulkInsertRfqVendors(
   invitedBy: string
 ): Promise<string[]> {
   if (vendorIds.length === 0) return [];
+  // Stamp the §11 distribution method per vendor: `email` if the issue fan-out
+  // will reach a receives_rfq contact, else `portal` (invited but portal-only).
   const { rows } = await client.query<{ vendor_id: string }>(
-    `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
-     SELECT $1::uuid, vendor_id, $3
+    `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by, distribution_method)
+     SELECT $1::uuid, t.vendor_id, $3,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM vendor_contact vc
+              WHERE vc.vendor_id = t.vendor_id AND vc.receives_rfq = true
+            ) THEN 'email' ELSE 'portal' END
      FROM UNNEST($2::uuid[]) AS t(vendor_id)
      ON CONFLICT (rfq_id, vendor_id) DO NOTHING
      RETURNING vendor_id`,
@@ -1454,10 +1462,16 @@ export async function cloneRfqAsRevision(
       [next.id, old.id]
     );
 
-    // Invited vendors copied as a default; re-stamped to the reviser/now.
+    // Invited vendors copied as a default; re-stamped to the reviser/now, with
+    // the §11 distribution method re-derived (a revision is re-issued fresh).
     await client.query(
-      `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by)
-       SELECT $1, vendor_id, $2 FROM rfq_vendor WHERE rfq_id = $3`,
+      `INSERT INTO rfq_vendor (rfq_id, vendor_id, invited_by, distribution_method)
+       SELECT $1, rv.vendor_id, $2,
+              CASE WHEN EXISTS (
+                SELECT 1 FROM vendor_contact vc
+                WHERE vc.vendor_id = rv.vendor_id AND vc.receives_rfq = true
+              ) THEN 'email' ELSE 'portal' END
+       FROM rfq_vendor rv WHERE rv.rfq_id = $3`,
       [next.id, userId, old.id]
     );
 

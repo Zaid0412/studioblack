@@ -16,6 +16,7 @@ import type {
   RateContractPriceBasis,
   VendorQuoteStatus,
   RfqResponseSource,
+  RfqDistributionMethod,
 } from "@/lib/validations";
 
 export type {
@@ -1248,6 +1249,10 @@ export interface RfqVendorInvite {
   vendor_code: string | null;
   invited_at: string;
   invited_by: string | null;
+  /** Resolved display name for `invited_by` (null if the user was removed). */
+  invited_by_name: string | null;
+  /** How the RFQ was sent to this vendor (§11); null for pre-tracking invites. */
+  distribution_method: RfqDistributionMethod | null;
 }
 
 /**

@@ -85,6 +85,14 @@ describe("cloneRfqAsRevision (RFQ-3b)", () => {
     expect(
       sqls.some((s) => /INSERT INTO rfq_vendor[\s\S]*SELECT/.test(s))
     ).toBe(true);
+    // §11: copied invites re-derive their distribution_method (email/portal).
+    expect(
+      sqls.some((s) =>
+        /INSERT INTO rfq_vendor[\s\S]*distribution_method[\s\S]*receives_rfq/.test(
+          s
+        )
+      )
+    ).toBe(true);
     expect(sqls.some((s) => /status = 'superseded'/.test(s))).toBe(true);
     expect(sqls).toContain("BEGIN");
     expect(sqls).toContain("COMMIT");

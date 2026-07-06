@@ -1645,6 +1645,20 @@ export type RfqManualResponseSource =
   (typeof RFQ_MANUAL_RESPONSE_SOURCES)[number];
 
 /**
+ * How an RFQ was distributed to a vendor (§11). `email` = the issue fan-out
+ * reached a `receives_rfq` contact; `portal` = invited but portal-only.
+ * `whatsapp`/`manual` are recorded post-issue via the §17 communication log.
+ * Matches the `rfq_vendor.distribution_method` CHECK constraint.
+ */
+export const RFQ_DISTRIBUTION_METHODS = [
+  "portal",
+  "email",
+  "whatsapp",
+  "manual",
+] as const;
+export type RfqDistributionMethod = (typeof RFQ_DISTRIBUTION_METHODS)[number];
+
+/**
  * PRD §17: log a manual, off-system communication against an RFQ (channel +
  * remarks). Excludes `portal` — that's vendor self-service, not a manual log.
  */
