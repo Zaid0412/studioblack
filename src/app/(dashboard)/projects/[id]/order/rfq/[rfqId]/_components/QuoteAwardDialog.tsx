@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -53,10 +53,38 @@ export function QuoteAwardDialog({
     () => quotes.filter((q) => q.status !== "expired"),
     [quotes]
   );
-  const [mode, setMode] = useState<Mode>(initialMode);
-  const [singleChoice, setSingleChoice] = useState<string>(
-    preselectedQuoteId ?? awardableQuotes[0]?.id ?? ""
+
+  // §14: a single-vendor award must cover every item, so partial quotes can't
+  // win the whole RFQ (the server returns `incomplete_quote`). Gate them out of
+  // the single tab up front using per-vendor coverage from the comparison.
+  const itemCount = comparison?.items.length ?? 0;
+  const coverageByVendor = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!comparison) return m;
+    for (const v of comparison.vendors) {
+      m.set(
+        v.vendor_id,
+        comparison.items.filter((it) => it.vendor_prices[v.vendor_id]).length
+      );
+    }
+    return m;
+  }, [comparison]);
+  // When coverage can't be determined (no comparison), allow — the server guards.
+  const isFullCoverage = useCallback(
+    (q: VendorQuoteWithItems) =>
+      !comparison ||
+      itemCount === 0 ||
+      (coverageByVendor.get(q.vendor_id) ?? 0) >= itemCount,
+    [comparison, itemCount, coverageByVendor]
   );
+  const pickDefaultSingle = useCallback(() => {
+    const pre = awardableQuotes.find((q) => q.id === preselectedQuoteId);
+    if (pre && isFullCoverage(pre)) return pre.id;
+    return awardableQuotes.find(isFullCoverage)?.id ?? "";
+  }, [awardableQuotes, preselectedQuoteId, isFullCoverage]);
+
+  const [mode, setMode] = useState<Mode>(initialMode);
+  const [singleChoice, setSingleChoice] = useState<string>(pickDefaultSingle);
   const [splitAssignments, setSplitAssignments] = useState<Map<string, string>>(
     new Map()
   );
@@ -66,7 +94,7 @@ export function QuoteAwardDialog({
   useEffect(() => {
     if (open) {
       setMode(initialMode);
-      setSingleChoice(preselectedQuoteId ?? awardableQuotes[0]?.id ?? "");
+      setSingleChoice(pickDefaultSingle());
       // Default split: pick the lowest-price vendor per row.
       const initial = new Map<string, string>();
       if (comparison) {
@@ -83,7 +111,7 @@ export function QuoteAwardDialog({
       }
       setSplitAssignments(initial);
     }
-  }, [open, awardableQuotes, comparison, preselectedQuoteId, initialMode]);
+  }, [open, comparison, initialMode, pickDefaultSingle]);
 
   const allAssigned = useMemo(
     () =>
@@ -160,16 +188,27 @@ export function QuoteAwardDialog({
                     (sum, i) => sum + Number(i.unit_price),
                     0
                   );
+                  const full = isFullCoverage(q);
+                  const covered = coverageByVendor.get(q.vendor_id) ?? 0;
                   return (
                     <li key={q.id}>
-                      <label className="flex items-center gap-3 px-3 py-3 cursor-pointer hover:bg-bg-elevated">
+                      <label
+                        className={`flex items-center gap-3 px-3 py-3 ${
+                          full
+                            ? "cursor-pointer hover:bg-bg-elevated"
+                            : "opacity-60 cursor-not-allowed"
+                        }`}
+                      >
                         <input
                           type="radio"
                           name="award-single"
                           value={q.id}
                           checked={singleChoice === q.id}
+                          disabled={!full}
                           onChange={() => setSingleChoice(q.id)}
-                          className="cursor-pointer"
+                          className={
+                            full ? "cursor-pointer" : "cursor-not-allowed"
+                          }
                         />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-text-primary">
@@ -178,6 +217,12 @@ export function QuoteAwardDialog({
                           <div className="text-xs text-text-muted">
                             {q.is_late ? "Late · " : ""}Submitted{" "}
                             {new Date(q.submitted_at).toLocaleDateString()}
+                            {!full && comparison && (
+                              <span className="text-warning">
+                                {" · "}Partial {covered}/{itemCount} — use Split
+                                award
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="text-right tabular-nums text-sm">

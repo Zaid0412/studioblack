@@ -250,11 +250,18 @@ export async function getQuoteComparison(
     pool.query<
       QuoteRow & { vendor_rating: string | null; prior_awards: string }
     >(
+      // prior_awards = distinct *logical* RFQs (by rfq_number) this vendor has
+      // won — single (rfq.awarded_vendor_id) or split (rfq_item.awarded_vendor_id).
+      // "Live wins only": superseded revisions are excluded, and the current
+      // RFQ's own number is excluded so earlier versions of it don't count.
+      // Org-scoped so the awarded_vendor_id partial indexes can be used.
       `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code,
               v.rating AS vendor_rating,
-              (SELECT COUNT(DISTINCT r.id)
+              (SELECT COUNT(DISTINCT r.rfq_number)
                  FROM rfq r
-                WHERE r.id <> vq.rfq_id
+                WHERE r.org_id = (SELECT org_id FROM rfq WHERE id = $1)
+                  AND r.status <> 'superseded'
+                  AND r.rfq_number <> (SELECT rfq_number FROM rfq WHERE id = $1)
                   AND (r.awarded_vendor_id = vq.vendor_id
                        OR EXISTS (
                          SELECT 1 FROM rfq_item ri
