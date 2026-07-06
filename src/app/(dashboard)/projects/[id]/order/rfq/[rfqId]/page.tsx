@@ -53,6 +53,7 @@ import { RfqItemAttachmentsDialog } from "./_components/RfqItemAttachmentsDialog
 import { RfqLogCommunicationDialog } from "./_components/RfqLogCommunicationDialog";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
+import { DistributionMethodBadge } from "@/components/rfq/DistributionMethodBadge";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
@@ -624,8 +625,13 @@ export default function OrderRfqDetailPage({
                 className="px-6 py-3 flex items-center justify-between"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-text-primary truncate">
-                    {v.vendor_name}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text-primary truncate">
+                      {v.vendor_name}
+                    </span>
+                    {v.distribution_method && (
+                      <DistributionMethodBadge method={v.distribution_method} />
+                    )}
                   </div>
                   {v.vendor_code && (
                     <div className="text-xs text-text-muted">
@@ -633,8 +639,11 @@ export default function OrderRfqDetailPage({
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-text-muted shrink-0">
+                <span className="text-xs text-text-muted shrink-0 text-right">
                   {t("invitedAt")} · {formatDate(v.invited_at)}
+                  {v.invited_by_name && (
+                    <> · {t("invitedBy", { name: v.invited_by_name })}</>
+                  )}
                 </span>
               </li>
             ))}
@@ -678,6 +687,7 @@ export default function OrderRfqDetailPage({
         onOpenChange={setInviteOpen}
         onConfirm={handleInvite}
         mode="invite"
+        lockedVendorIds={preselectedVendorIds}
       />
 
       <RfqEditDialog

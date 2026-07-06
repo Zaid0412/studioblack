@@ -34,6 +34,11 @@ interface Props {
    * revision, which carries its parent RFQ's vendors as a default (RFQ-3b).
    */
   preselectedVendorIds?: string[];
+  /**
+   * Vendor ids already invited to this RFQ — shown checked + disabled with an
+   * "Invited" tag so the invite-more flow only adds genuinely new vendors.
+   */
+  lockedVendorIds?: string[];
 }
 
 /**
@@ -52,6 +57,7 @@ export function RfqIssueDialog({
   onConfirm,
   mode = "issue",
   preselectedVendorIds,
+  lockedVendorIds,
 }: Props) {
   const tIssue = useTranslations("rfq.issue");
   const tInvite = useTranslations("rfq.invite");
@@ -60,6 +66,8 @@ export function RfqIssueDialog({
   const [showAll, setShowAll] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+
+  const locked = new Set(lockedVendorIds ?? []);
 
   // Seed once per open: a revision starts from its copied vendors; a normal
   // issue starts empty. Picks shouldn't survive a cancel, and a background
@@ -82,6 +90,7 @@ export function RfqIssueDialog({
   );
 
   const toggle = (id: string) => {
+    if (locked.has(id)) return; // already invited — not togglable
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -139,40 +148,55 @@ export function RfqIssueDialog({
             />
           ) : (
             <ul className="divide-y divide-border-default">
-              {vendors.map((v) => (
-                <li
-                  key={v.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-bg-elevated/40 cursor-pointer"
-                  onClick={() => toggle(v.id)}
-                >
-                  <span
-                    onClick={(e) => e.stopPropagation()}
-                    className="inline-flex"
+              {vendors.map((v) => {
+                const isLocked = locked.has(v.id);
+                return (
+                  <li
+                    key={v.id}
+                    className={`flex items-center gap-3 px-4 py-3 ${
+                      isLocked
+                        ? "opacity-60 cursor-default"
+                        : "hover:bg-bg-elevated/40 cursor-pointer"
+                    }`}
+                    onClick={() => toggle(v.id)}
                   >
-                    <Checkbox
-                      checked={selected.has(v.id)}
-                      onCheckedChange={() => toggle(v.id)}
-                      aria-label={v.company_name}
-                    />
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-text-primary truncate">
-                      {v.company_name}
-                    </div>
-                    <div className="text-xs text-text-muted truncate">
-                      {v.vendor_code ?? "—"}
-                      {v.primary_contact_email
-                        ? ` · ${v.primary_contact_email}`
-                        : ""}
-                    </div>
-                  </div>
-                  {v.rating > 0 && (
-                    <span className="text-xs text-text-secondary tabular-nums">
-                      {v.rating.toFixed(1)} ★
+                    <span
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex"
+                    >
+                      <Checkbox
+                        checked={isLocked || selected.has(v.id)}
+                        disabled={isLocked}
+                        onCheckedChange={() => toggle(v.id)}
+                        aria-label={v.company_name}
+                      />
                     </span>
-                  )}
-                </li>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-text-primary truncate">
+                          {v.company_name}
+                        </span>
+                        {isLocked && (
+                          <span className="shrink-0 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+                            {t("alreadyInvited")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-text-muted truncate">
+                        {v.vendor_code ?? "—"}
+                        {v.primary_contact_email
+                          ? ` · ${v.primary_contact_email}`
+                          : ""}
+                      </div>
+                    </div>
+                    {v.rating > 0 && (
+                      <span className="text-xs text-text-secondary tabular-nums">
+                        {v.rating.toFixed(1)} ★
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
