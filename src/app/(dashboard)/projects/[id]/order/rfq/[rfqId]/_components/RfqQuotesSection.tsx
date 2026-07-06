@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
+import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
 import { formatDate } from "@/lib/formatDate";
 import { versionColor } from "@/lib/fileUtils";
 import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
@@ -133,7 +134,7 @@ export function RfqQuotesSection({
                       {q.attachments.map((a, i) => {
                         const meta = [
                           a.fileType?.toUpperCase(),
-                          a.source,
+                          a.source && RESPONSE_SOURCE_LABELS[a.source],
                           a.uploadedAt && formatDate(a.uploadedAt),
                         ]
                           .filter(Boolean)
