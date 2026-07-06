@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/AttachmentsEditor";
 import { formatDate, fromIsoDate } from "@/lib/formatDate";
 import { isPriceFilled } from "@/lib/quoteTotal";
+import { serializeQuoteDraft } from "@/lib/quoteDraft";
 import type { RfqItem, RfqWithItems, VendorQuoteWithItems } from "@/types";
 import type { QuoteCurrency } from "@/lib/validations";
 
@@ -91,22 +92,45 @@ export function VendorQuoteSubmitDialog({
     existing?.attachments ?? []
   );
   const [submitting, setSubmitting] = useState(false);
+  // Snapshot of the pre-filled form when revising, so a no-op save is blocked.
+  const [baseline, setBaseline] = useState<string | null>(null);
 
   // Reset form whenever the dialog opens with a different state.
   useEffect(() => {
-    if (open) {
-      setPrices(initialPrices);
-      setValidUntil(
-        existing?.valid_until
-          ? new Date(`${existing.valid_until}T00:00:00`)
-          : undefined
-      );
-      setDeliveryPeriod(existing?.delivery_period ?? "");
-      setPaymentTerms(existing?.payment_terms ?? "");
-      setNotes(existing?.notes ?? "");
-      setAttachments(existing?.attachments ?? []);
-    }
-  }, [open, existing, initialPrices]);
+    if (!open) return;
+    const initValidUntil = existing?.valid_until
+      ? new Date(`${existing.valid_until}T00:00:00`)
+      : undefined;
+    const initDelivery = existing?.delivery_period ?? "";
+    const initPayment = existing?.payment_terms ?? "";
+    const initNotes = existing?.notes ?? "";
+    const initAttachments = existing?.attachments ?? [];
+
+    setPrices(initialPrices);
+    setValidUntil(initValidUntil);
+    setDeliveryPeriod(initDelivery);
+    setPaymentTerms(initPayment);
+    setNotes(initNotes);
+    setAttachments(initAttachments);
+
+    setBaseline(
+      existing
+        ? serializeQuoteDraft({
+            validUntil: initValidUntil
+              ? initValidUntil.toISOString().slice(0, 10)
+              : null,
+            deliveryPeriod: initDelivery,
+            paymentTerms: initPayment,
+            notes: initNotes,
+            prices: rfq.items.map((it) => {
+              const raw = initialPrices.get(it.id) ?? "";
+              return isPriceFilled(raw) ? Number(raw) : null;
+            }),
+            attachments: initAttachments,
+          })
+        : null
+    );
+  }, [open, existing, initialPrices, rfq.items]);
 
   const isLate = useMemo(() => {
     if (!rfq.response_deadline) return false;
@@ -127,8 +151,35 @@ export function VendorQuoteSubmitDialog({
   const isFilled = (id: string) => isPriceFilled(prices.get(id));
   const hasAnyPrice = rfq.items.some((it) => isFilled(it.id));
 
+  // Serialise the live form the same way as the baseline; a revision is only
+  // saveable once something actually differs from the quote being revised.
+  const current = useMemo(
+    () =>
+      serializeQuoteDraft({
+        validUntil: validUntil ? validUntil.toISOString().slice(0, 10) : null,
+        deliveryPeriod,
+        paymentTerms,
+        notes,
+        prices: rfq.items.map((it) => {
+          const raw = prices.get(it.id) ?? "";
+          return isPriceFilled(raw) ? Number(raw) : null;
+        }),
+        attachments,
+      }),
+    [
+      validUntil,
+      deliveryPeriod,
+      paymentTerms,
+      notes,
+      prices,
+      attachments,
+      rfq.items,
+    ]
+  );
+  const isDirty = !existing || (baseline !== null && current !== baseline);
+
   async function handleSubmit() {
-    if (!hasAnyPrice || submitting) return;
+    if (!hasAnyPrice || submitting || !isDirty) return;
     setSubmitting(true);
     try {
       await onSubmit({
@@ -320,7 +371,7 @@ export function VendorQuoteSubmitDialog({
           </DialogClose>
           <Button
             onClick={handleSubmit}
-            disabled={!hasAnyPrice || submitting}
+            disabled={!hasAnyPrice || submitting || !isDirty}
             className="cursor-pointer"
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}

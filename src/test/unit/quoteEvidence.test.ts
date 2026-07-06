@@ -12,13 +12,11 @@ import type { QuoteEvidence } from "@/types";
 async function stamp(
   input: QuoteEvidenceInput[],
   prior: QuoteEvidence[],
-  opts: Parameters<
-    typeof import("@/lib/queries/quotes").stampQuoteEvidence
-  >[2]
+  opts: Parameters<typeof import("@/lib/queries/quotes").stampQuoteEvidence>[2]
 ) {
-  const actual = await vi.importActual<
-    typeof import("@/lib/queries/quotes")
-  >("@/lib/queries/quotes");
+  const actual = await vi.importActual<typeof import("@/lib/queries/quotes")>(
+    "@/lib/queries/quotes"
+  );
   return actual.stampQuoteEvidence(input, prior, opts);
 }
 

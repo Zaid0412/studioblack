@@ -22,6 +22,7 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { quotes as quotesApi } from "@/lib/api";
 import { isPriceFilled } from "@/lib/quoteTotal";
+import { serializeQuoteDraft } from "@/lib/quoteDraft";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import {
   RFQ_MANUAL_RESPONSE_SOURCES,
@@ -70,6 +71,8 @@ export function ManualQuoteDialog({
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<AttachmentRef[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Snapshot of the pre-filled form when revising, so a no-op save is blocked.
+  const [baseline, setBaseline] = useState<string | null>(null);
 
   const existing = useMemo(
     () => quotes.find((q) => q.vendor_id === vendorId) ?? null,
@@ -85,19 +88,46 @@ export function ManualQuoteDialog({
       const line = existing?.items.find((li) => li.rfq_item_id === it.id);
       map.set(it.id, line ? String(line.unit_price) : "");
     }
-    setPrices(map);
-    setCurrency(existing?.currency ?? "USD");
-    setDeliveryPeriod(existing?.delivery_period ?? "");
-    setPaymentTerms(existing?.payment_terms ?? "");
-    setNotes(existing?.notes ?? "");
-    setValidUntil(fromIsoDate(existing?.valid_until));
-    setReceivedDate(fromIsoDate(existing?.received_date) ?? new Date());
-    setSource(
+    const initCurrency = existing?.currency ?? "USD";
+    const initDelivery = existing?.delivery_period ?? "";
+    const initPayment = existing?.payment_terms ?? "";
+    const initNotes = existing?.notes ?? "";
+    const initValidUntil = fromIsoDate(existing?.valid_until);
+    const initReceived = fromIsoDate(existing?.received_date) ?? new Date();
+    const initSource =
       existing && existing.response_source !== "portal"
         ? existing.response_source
-        : "email"
+        : "email";
+    const initAttachments = existing?.attachments ?? [];
+
+    setPrices(map);
+    setCurrency(initCurrency);
+    setDeliveryPeriod(initDelivery);
+    setPaymentTerms(initPayment);
+    setNotes(initNotes);
+    setValidUntil(initValidUntil);
+    setReceivedDate(initReceived);
+    setSource(initSource);
+    setAttachments(initAttachments);
+
+    setBaseline(
+      existing
+        ? serializeQuoteDraft({
+            source: initSource,
+            receivedDate: toIsoDate(initReceived),
+            currency: initCurrency,
+            validUntil: initValidUntil ? toIsoDate(initValidUntil) : null,
+            deliveryPeriod: initDelivery,
+            paymentTerms: initPayment,
+            notes: initNotes,
+            prices: rfq.items.map((it) => {
+              const raw = map.get(it.id) ?? "";
+              return isPriceFilled(raw) ? Number(raw) : null;
+            }),
+            attachments: initAttachments,
+          })
+        : null
     );
-    setAttachments(existing?.attachments ?? []);
   }, [open, vendorId, existing, rfq.items]);
 
   const grandTotal = useMemo(() => {
@@ -114,7 +144,41 @@ export function ManualQuoteDialog({
   const isFilled = (id: string) => isPriceFilled(prices.get(id));
   const hasAnyPrice = rfq.items.some((it) => isFilled(it.id));
 
-  const canSubmit = vendorId && source && receivedDate && hasAnyPrice;
+  // Serialise the live form the same way as the baseline; a revision is only
+  // saveable once something actually differs from the quote being revised.
+  const current = useMemo(
+    () =>
+      serializeQuoteDraft({
+        source,
+        receivedDate: receivedDate ? toIsoDate(receivedDate) : null,
+        currency,
+        validUntil: validUntil ? toIsoDate(validUntil) : null,
+        deliveryPeriod,
+        paymentTerms,
+        notes,
+        prices: rfq.items.map((it) => {
+          const raw = prices.get(it.id) ?? "";
+          return isPriceFilled(raw) ? Number(raw) : null;
+        }),
+        attachments,
+      }),
+    [
+      source,
+      receivedDate,
+      currency,
+      validUntil,
+      deliveryPeriod,
+      paymentTerms,
+      notes,
+      prices,
+      attachments,
+      rfq.items,
+    ]
+  );
+  const isDirty = !existing || (baseline !== null && current !== baseline);
+
+  const canSubmit =
+    vendorId && source && receivedDate && hasAnyPrice && isDirty;
 
   async function handleSubmit() {
     if (!canSubmit || submitting || !receivedDate) return;
