@@ -16,7 +16,11 @@ import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
 import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
-import { RFQ_PACKAGE_TYPES, type RfqPackageType } from "@/lib/validations";
+import {
+  RFQ_ELIGIBLE_PHASES,
+  RFQ_PACKAGE_TYPES,
+  type RfqPackageType,
+} from "@/lib/validations";
 import { RFQ_PACKAGE_TYPE_ICONS } from "@/lib/rfqLabels";
 import { rateContracts as rateContractsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
@@ -59,7 +63,8 @@ export function RfqCreateForm({ projectId }: Props) {
   const items: BoqItemWithComputed[] = useMemo(
     () =>
       (boq?.items ?? []).filter(
-        (it) => it.phase === "ready_for_procurement" && it.po_status === "none"
+        (it) =>
+          RFQ_ELIGIBLE_PHASES.includes(it.phase) && it.po_status === "none"
       ),
     [boq?.items]
   );

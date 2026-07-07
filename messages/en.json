@@ -1288,6 +1288,7 @@
       "noVendors": "No matching vendors",
       "noVendorsHint": "Register a vendor with a matching trade, or use \"Show all vendors\" to see every vendor.",
       "emailWarning": "Each selected vendor's \"receives RFQ\" contacts will get an email immediately.",
+      "preferred": "Preferred",
       "cancel": "Cancel",
       "confirm": "{count, plural, =0 {Issue} =1 {Issue to 1 vendor} other {Issue to # vendors}}"
     },
@@ -1304,7 +1305,8 @@
       "emailWarning": "Each newly-invited vendor's \"receives RFQ\" contacts will get an email immediately. Vendors already on this RFQ are skipped silently.",
       "cancel": "Cancel",
       "confirm": "{count, plural, =0 {Invite} =1 {Invite 1 vendor} other {Invite # vendors}}",
-      "alreadyInvited": "Invited"
+      "alreadyInvited": "Invited",
+      "preferred": "Preferred"
     },
     "addItems": {
       "title": "Add items",

@@ -16,6 +16,7 @@ import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
+  RFQ_ELIGIBLE_PHASES,
   RFQ_INVITEABLE_STATUSES,
   RFQ_REVISABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
@@ -115,7 +116,7 @@ export async function getRfqsByProject(
          FROM boq_item bi
          JOIN boq b ON b.id = bi.boq_id
         WHERE b.project_id = $1
-          AND bi.phase = 'ready_for_procurement'
+          AND bi.phase = ANY($2::text[])
           AND NOT bi.is_excluded
           AND NOT EXISTS (
             SELECT 1 FROM rfq_item ri
@@ -123,7 +124,7 @@ export async function getRfqsByProject(
             WHERE ri.boq_item_id = bi.id
               AND r.status NOT IN ('cancelled', 'superseded')
           )`,
-      [projectId]
+      [projectId, [...RFQ_ELIGIBLE_PHASES]]
     ),
   ]);
 
@@ -447,7 +448,7 @@ export async function getSuggestedVendorsForRfq(
      matches AS (
        SELECT DISTINCT
          v.id, v.company_name, v.vendor_code, v.status,
-         v.rating::float8 AS rating,
+         v.rating::float8 AS rating, v.preferred_vendor,
          (SELECT email FROM vendor_contact
           WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
        FROM vendor v
@@ -457,7 +458,7 @@ export async function getSuggestedVendorsForRfq(
          AND v.org_id = (SELECT org_id FROM rfq WHERE id = $1)
      )
      SELECT * FROM matches
-     ORDER BY rating DESC NULLS LAST, lower(company_name)`,
+     ORDER BY preferred_vendor DESC, rating DESC NULLS LAST, lower(company_name)`,
     [rfqId]
   );
   return rows as VendorLite[];
@@ -476,13 +477,13 @@ export async function getAllVendorsForRfq(
   const { rows } = await pool.query(
     `SELECT
        v.id, v.company_name, v.vendor_code, v.status,
-       v.rating::float8 AS rating,
+       v.rating::float8 AS rating, v.preferred_vendor,
        (SELECT email FROM vendor_contact
         WHERE vendor_id = v.id AND is_primary = true LIMIT 1) AS primary_contact_email
      FROM vendor v
      WHERE v.status = 'active'
        AND v.org_id = (SELECT org_id FROM rfq WHERE id = $1)
-     ORDER BY v.rating DESC NULLS LAST, lower(v.company_name)`,
+     ORDER BY v.preferred_vendor DESC, v.rating DESC NULLS LAST, lower(v.company_name)`,
     [rfqId]
   );
   return rows as VendorLite[];
@@ -832,9 +833,9 @@ export async function createRfqDraft(
     const { rows: eligible } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM boq_item
         WHERE id = ANY($1::uuid[])
-          AND phase = 'ready_for_procurement'
+          AND phase = ANY($2::text[])
           AND po_status = 'none'`,
-      [boqItemIds]
+      [boqItemIds, [...RFQ_ELIGIBLE_PHASES]]
     );
     if (Number(eligible[0]?.count ?? 0) !== boqItemIds.length) {
       await client.query("ROLLBACK");
@@ -961,9 +962,9 @@ export async function addRfqItems(
     const { rows: eligible } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM boq_item
         WHERE id = ANY($1::uuid[])
-          AND phase = 'ready_for_procurement'
+          AND phase = ANY($2::text[])
           AND po_status = 'none'`,
-      [boqItemIds]
+      [boqItemIds, [...RFQ_ELIGIBLE_PHASES]]
     );
     if (Number(eligible[0]?.count ?? 0) !== boqItemIds.length) {
       await client.query("ROLLBACK");

@@ -176,6 +176,11 @@ export function RfqIssueDialog({
                         <span className="text-sm font-medium text-text-primary truncate">
                           {v.company_name}
                         </span>
+                        {v.preferred_vendor && (
+                          <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                            {t("preferred")}
+                          </span>
+                        )}
                         {isLocked && (
                           <span className="shrink-0 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
                             {t("alreadyInvited")}

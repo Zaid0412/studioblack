@@ -753,6 +753,16 @@ const PHASES_REQUIRING_COMMENT: readonly BoqItemPhase[] = [
 ];
 
 /**
+ * BOQ phases eligible to enter an RFQ (RFQ-4a): the PM must explicitly mark an
+ * item `ready_for_procurement` — client approval alone isn't enough, so the PM
+ * controls when sourcing starts. Shared by the server-side eligibility gate and
+ * the client-side item picker so the two can't drift apart.
+ */
+export const RFQ_ELIGIBLE_PHASES: readonly BoqItemPhase[] = [
+  "ready_for_procurement",
+];
+
+/**
  * Move a single item to a new phase. `comment` is optional except when the
  * target is a kick-back (`*_changes_requested`) — the creator needs to know
  * what to fix.

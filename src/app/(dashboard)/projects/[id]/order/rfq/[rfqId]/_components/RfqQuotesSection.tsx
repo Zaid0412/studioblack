@@ -136,6 +136,7 @@ export function RfqQuotesSection({
                           a.fileType?.toUpperCase(),
                           a.source && RESPONSE_SOURCE_LABELS[a.source],
                           a.uploadedAt && formatDate(a.uploadedAt),
+                          a.uploadedByName && `by ${a.uploadedByName}`,
                         ]
                           .filter(Boolean)
                           .join(" · ");

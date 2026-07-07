@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { getUsersByIds } from "./users";
 import type {
   QuoteEvidence,
   QuoteComparison,
@@ -130,10 +131,47 @@ export async function getQuotesByRfq(
     itemsByQuote.set(row.quote_id, list);
   }
 
-  return headerRes.rows.map((h) => ({
+  const quotes = headerRes.rows.map((h) => ({
     ...mapQuoteRow(h),
     items: itemsByQuote.get(h.id) ?? [],
   }));
+
+  await resolveEvidenceUploaders(quotes);
+  return quotes;
+}
+
+/**
+ * Resolve evidence `uploadedBy` ids to display names (§15) in one batched
+ * lookup across every quote, tagging each attachment with `uploadedByName`. The
+ * id stays stored; the name is joined at read time (as the document module does).
+ */
+async function resolveEvidenceUploaders(
+  quotes: VendorQuoteWithItems[]
+): Promise<void> {
+  const ids = Array.from(
+    new Set(
+      quotes.flatMap((q) =>
+        (q.attachments ?? [])
+          .map((a) => a.uploadedBy)
+          .filter((x): x is string => !!x)
+      )
+    )
+  );
+  if (ids.length === 0) return;
+
+  const users = await getUsersByIds(ids);
+  const nameById = new Map<string, string>(
+    users.map((u): [string, string] => [u.id, u.name])
+  );
+  for (const q of quotes) {
+    if (!q.attachments) continue;
+    q.attachments = q.attachments.map((a) => ({
+      ...a,
+      uploadedByName: a.uploadedBy
+        ? (nameById.get(a.uploadedBy) ?? null)
+        : null,
+    }));
+  }
 }
 
 /**
