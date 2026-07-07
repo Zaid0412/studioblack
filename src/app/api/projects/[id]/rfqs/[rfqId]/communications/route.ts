@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
-import { AUDIT_ACTIONS, getRfqVendorName, logAuditSafe } from "@/lib/queries";
+import {
+  AUDIT_ACTIONS,
+  getRfqVendorName,
+  logAuditSafe,
+  markVendorDistributionMixed,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { logRfqCommunicationSchema, parseRequest } from "@/lib/validations";
 import { resolveRfqId } from "../../_helpers";
+
+// Channels that represent reaching a vendor (outbound distribution). `pdf` /
+// `excel` are quote-receipt formats, so they don't change how the RFQ was sent.
+const DISTRIBUTION_CHANNELS = new Set(["email", "whatsapp", "phone", "manual"]);
 
 /**
  * POST /api/projects/[id]/rfqs/[rfqId]/communications — pm/architect. Log a
@@ -56,6 +65,13 @@ export const POST = withAuth(
         remarks,
       },
     });
+
+    // §11: reaching a vendor through a channel other than how the RFQ was first
+    // distributed makes their distribution "mixed".
+    if (vendorId && DISTRIBUTION_CHANNELS.has(channel)) {
+      await markVendorDistributionMixed(resolved.rfqId, vendorId, channel);
+    }
+
     return NextResponse.json({ ok: true });
   }
 );

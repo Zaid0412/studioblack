@@ -641,6 +641,9 @@ export default function OrderRfqDetailPage({
                 </div>
                 <span className="text-xs text-text-muted shrink-0 text-right">
                   {t("invitedAt")} · {formatDate(v.invited_at)}
+                  {v.contact_name && (
+                    <> · {t("sentTo", { name: v.contact_name })}</>
+                  )}
                   {v.invited_by_name && (
                     <> · {t("invitedBy", { name: v.invited_by_name })}</>
                   )}

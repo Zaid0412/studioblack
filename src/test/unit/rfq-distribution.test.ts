@@ -63,6 +63,8 @@ describe("issueRfq — §11 distribution stamping", () => {
     expect(insert).toMatch(/receives_rfq/);
     expect(insert).toMatch(/'email'/);
     expect(insert).toMatch(/'portal'/);
+    // …and the contact snapshot (§11).
+    expect(insert).toMatch(/contact_name/);
 
     const sqls = sqlsOf();
     expect(sqls).toContain("BEGIN");

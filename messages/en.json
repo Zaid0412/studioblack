@@ -1216,6 +1216,7 @@
       "vendorsEmpty": "No vendors invited yet. Click \"Issue to vendors\" to send this RFQ out.",
       "invitedAt": "Invited",
       "invitedBy": "by {name}",
+      "sentTo": "to {name}",
       "col": {
         "description": "Description",
         "unit": "Unit",

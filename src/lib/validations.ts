@@ -1657,14 +1657,17 @@ export type RfqManualResponseSource =
 /**
  * How an RFQ was distributed to a vendor (§11). `email` = the issue fan-out
  * reached a `receives_rfq` contact; `portal` = invited but portal-only.
- * `whatsapp`/`manual` are recorded post-issue via the §17 communication log.
- * Matches the `rfq_vendor.distribution_method` CHECK constraint.
+ * `mixed` = reached through more than one channel (e.g. emailed at issue, then
+ * a WhatsApp/phone contact logged via the §17 communication log — see
+ * `markVendorDistributionMixed`). Matches the `rfq_vendor.distribution_method`
+ * CHECK constraint.
  */
 export const RFQ_DISTRIBUTION_METHODS = [
   "portal",
   "email",
   "whatsapp",
   "manual",
+  "mixed",
 ] as const;
 export type RfqDistributionMethod = (typeof RFQ_DISTRIBUTION_METHODS)[number];
 
