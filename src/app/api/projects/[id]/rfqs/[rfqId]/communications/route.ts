@@ -6,12 +6,12 @@ import {
   markVendorDistributionMixed,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { logRfqCommunicationSchema, parseRequest } from "@/lib/validations";
+import {
+  logRfqCommunicationSchema,
+  parseRequest,
+  RFQ_DISTRIBUTION_CHANNELS,
+} from "@/lib/validations";
 import { resolveRfqId } from "../../_helpers";
-
-// Channels that represent reaching a vendor (outbound distribution). `pdf` /
-// `excel` are quote-receipt formats, so they don't change how the RFQ was sent.
-const DISTRIBUTION_CHANNELS = new Set(["email", "whatsapp", "phone", "manual"]);
 
 /**
  * POST /api/projects/[id]/rfqs/[rfqId]/communications — pm/architect. Log a
@@ -68,7 +68,7 @@ export const POST = withAuth(
 
     // §11: reaching a vendor through a channel other than how the RFQ was first
     // distributed makes their distribution "mixed".
-    if (vendorId && DISTRIBUTION_CHANNELS.has(channel)) {
+    if (vendorId && RFQ_DISTRIBUTION_CHANNELS.has(channel)) {
       await markVendorDistributionMixed(resolved.rfqId, vendorId, channel);
     }
 
