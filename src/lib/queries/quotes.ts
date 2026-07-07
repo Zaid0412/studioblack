@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { getUsersByIds } from "./users";
 import type {
   QuoteEvidence,
   QuoteComparison,
@@ -135,18 +136,17 @@ export async function getQuotesByRfq(
     items: itemsByQuote.get(h.id) ?? [],
   }));
 
-  await resolveEvidenceUploaders(quotes, pool);
+  await resolveEvidenceUploaders(quotes);
   return quotes;
 }
 
 /**
- * Resolve evidence `uploadedBy` ids to display names (§15) in one lookup across
- * every quote, mutating each attachment in place with `uploadedByName`. The id
- * stays stored; the name is joined at read time (as the document module does).
+ * Resolve evidence `uploadedBy` ids to display names (§15) in one batched
+ * lookup across every quote, tagging each attachment with `uploadedByName`. The
+ * id stays stored; the name is joined at read time (as the document module does).
  */
 async function resolveEvidenceUploaders(
-  quotes: VendorQuoteWithItems[],
-  pool: ReturnType<typeof getPool>
+  quotes: VendorQuoteWithItems[]
 ): Promise<void> {
   const ids = Array.from(
     new Set(
@@ -159,11 +159,10 @@ async function resolveEvidenceUploaders(
   );
   if (ids.length === 0) return;
 
-  const { rows } = await pool.query<{ id: string; name: string }>(
-    `SELECT id, name FROM "user" WHERE id = ANY($1::text[])`,
-    [ids]
+  const users = await getUsersByIds(ids);
+  const nameById = new Map<string, string>(
+    users.map((u): [string, string] => [u.id, u.name])
   );
-  const nameById = new Map(rows.map((u) => [u.id, u.name]));
   for (const q of quotes) {
     if (!q.attachments) continue;
     q.attachments = q.attachments.map((a) => ({

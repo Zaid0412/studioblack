@@ -112,8 +112,7 @@ describe("deleteBoqItemsBulk — RFQ-3d live-RFQ guard", () => {
 describe("getRfqsByProject — RFQ-3d ready-not-in-RFQ count", () => {
   it("returns the ready-for-procurement count alongside the rows", async () => {
     mockQuery.mockImplementation((sql: string) => {
-      if (/ready_for_procurement/.test(sql))
-        return Promise.resolve({ rows: [{ n: 3 }] });
+      if (/phase = ANY/.test(sql)) return Promise.resolve({ rows: [{ n: 3 }] });
       // Main list query — no rows is fine for this assertion.
       return Promise.resolve({ rows: [] });
     });
@@ -123,7 +122,7 @@ describe("getRfqsByProject — RFQ-3d ready-not-in-RFQ count", () => {
     // The count excludes excluded items and items on a live RFQ.
     const countSql = mockQuery.mock.calls
       .map((c) => String(c[0]))
-      .find((s) => /ready_for_procurement/.test(s))!;
+      .find((s) => /phase = ANY/.test(s))!;
     expect(countSql).toMatch(/NOT bi\.is_excluded/);
     expect(countSql).toMatch(/NOT IN \('cancelled', 'superseded'\)/);
   });

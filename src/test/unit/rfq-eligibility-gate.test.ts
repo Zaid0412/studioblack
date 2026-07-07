@@ -34,9 +34,7 @@ const ITEMS = [
 
 const sqlsOf = () => mockClientQuery.mock.calls.map((c) => String(c[0]));
 const eligibilityCall = () =>
-  mockClientQuery.mock.calls.find((c) =>
-    /ready_for_procurement/.test(String(c[0]))
-  );
+  mockClientQuery.mock.calls.find((c) => /AND phase = ANY/.test(String(c[0])));
 
 /**
  * @param eligibleCount how many of the requested items the eligibility COUNT
@@ -55,7 +53,7 @@ function wire(eligibleCount: number) {
     if (/JOIN boq b/.test(sql))
       return Promise.resolve({ rows: [{ count: String(ITEMS.length) }] });
     // Eligibility COUNT.
-    if (/ready_for_procurement/.test(sql))
+    if (/phase = ANY/.test(sql))
       return Promise.resolve({ rows: [{ count: String(eligibleCount) }] });
     return Promise.resolve({ rows: [] });
   });
@@ -97,11 +95,12 @@ describe("createRfqDraft — RFQ-4a eligibility gate", () => {
     const call = eligibilityCall();
     expect(call).toBeTruthy();
     const sql = String(call![0]);
-    expect(sql).toMatch(
-      /phase IN \('client_approved', 'ready_for_procurement'\)/
-    );
+    expect(sql).toMatch(/phase = ANY\(\$2::text\[\]\)/);
     expect(sql).toMatch(/po_status = 'none'/);
-    expect(call![1]).toEqual([["boq-1", "boq-2"]]);
+    expect(call![1]).toEqual([
+      ["boq-1", "boq-2"],
+      ["client_approved", "ready_for_procurement"],
+    ]);
   });
 });
 

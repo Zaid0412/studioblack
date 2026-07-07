@@ -16,6 +16,7 @@ import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
+  RFQ_ELIGIBLE_PHASES,
   RFQ_INVITEABLE_STATUSES,
   RFQ_REVISABLE_STATUSES,
   RFQ_TERMINAL_STATUSES,
@@ -115,7 +116,7 @@ export async function getRfqsByProject(
          FROM boq_item bi
          JOIN boq b ON b.id = bi.boq_id
         WHERE b.project_id = $1
-          AND bi.phase IN ('client_approved', 'ready_for_procurement')
+          AND bi.phase = ANY($2::text[])
           AND NOT bi.is_excluded
           AND NOT EXISTS (
             SELECT 1 FROM rfq_item ri
@@ -123,7 +124,7 @@ export async function getRfqsByProject(
             WHERE ri.boq_item_id = bi.id
               AND r.status NOT IN ('cancelled', 'superseded')
           )`,
-      [projectId]
+      [projectId, [...RFQ_ELIGIBLE_PHASES]]
     ),
   ]);
 
@@ -832,9 +833,9 @@ export async function createRfqDraft(
     const { rows: eligible } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM boq_item
         WHERE id = ANY($1::uuid[])
-          AND phase IN ('client_approved', 'ready_for_procurement')
+          AND phase = ANY($2::text[])
           AND po_status = 'none'`,
-      [boqItemIds]
+      [boqItemIds, [...RFQ_ELIGIBLE_PHASES]]
     );
     if (Number(eligible[0]?.count ?? 0) !== boqItemIds.length) {
       await client.query("ROLLBACK");
@@ -962,9 +963,9 @@ export async function addRfqItems(
     const { rows: eligible } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM boq_item
         WHERE id = ANY($1::uuid[])
-          AND phase IN ('client_approved', 'ready_for_procurement')
+          AND phase = ANY($2::text[])
           AND po_status = 'none'`,
-      [boqItemIds]
+      [boqItemIds, [...RFQ_ELIGIBLE_PHASES]]
     );
     if (Number(eligible[0]?.count ?? 0) !== boqItemIds.length) {
       await client.query("ROLLBACK");
