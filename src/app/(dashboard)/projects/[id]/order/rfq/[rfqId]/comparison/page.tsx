@@ -14,7 +14,10 @@ import {
   useQuoteComparison,
   useQuotesForRfq,
 } from "@/hooks/useQuotes";
-import { QUOTE_AWARDABLE_RFQ_STATUSES } from "@/lib/validations";
+import {
+  isAwardableQuote,
+  QUOTE_AWARDABLE_RFQ_STATUSES,
+} from "@/lib/validations";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { QuoteAwardDialog } from "../_components/QuoteAwardDialog";
 import { QuoteComparisonTable } from "./_components/QuoteComparisonTable";
@@ -53,7 +56,7 @@ export default function RfqComparisonPage({
   const canAward =
     rfq != null &&
     (QUOTE_AWARDABLE_RFQ_STATUSES as readonly string[]).includes(rfq.status) &&
-    quotes.some((q) => q.status !== "expired");
+    quotes.some((q) => isAwardableQuote(q.status));
 
   if (isLoading) {
     return (

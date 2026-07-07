@@ -43,6 +43,7 @@ import { quotes as quotesApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { formatDate } from "@/lib/formatDate";
 import {
+  isAwardableQuote,
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
@@ -187,7 +188,7 @@ export default function OrderRfqDetailPage({
   );
   const canAward =
     (QUOTE_AWARDABLE_RFQ_STATUSES as readonly string[]).includes(rfq.status) &&
-    quotes.some((q) => q.status !== "expired");
+    quotes.some((q) => isAwardableQuote(q.status));
   // §14: a PM can record a decline for an invited vendor that hasn't responded
   // yet (a declined/submitted vendor already has a quote row).
   const respondedVendorIds = new Set(quotes.map((q) => q.vendor_id));

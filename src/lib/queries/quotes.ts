@@ -15,7 +15,15 @@ import type { RfqResponseSource, QuoteEvidenceInput } from "@/lib/validations";
 import {
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
+  REVISABLE_QUOTE_STATUSES,
 } from "@/lib/validations";
+
+/** A fresh submission may overwrite these (revise a quote, or un-decline). */
+function isRevisableQuote(status: VendorQuoteStatus): boolean {
+  return (REVISABLE_QUOTE_STATUSES as readonly VendorQuoteStatus[]).includes(
+    status
+  );
+}
 
 /**
  * F10 — Vendor Quotes query layer. Sits on top of F9's RFQ tables.
@@ -751,11 +759,7 @@ export async function submitOrUpdateQuote(
     const isNew = !existing;
     // A `submitted` quote can be revised; a `declined` one can be replaced with
     // a real submission (§14 un-decline). Awarded/rejected/expired are locked.
-    if (
-      existing &&
-      existing.status !== "submitted" &&
-      existing.status !== "declined"
-    ) {
+    if (existing && !isRevisableQuote(existing.status)) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "quote_locked" };
     }
@@ -884,7 +888,6 @@ export async function declineQuote(
       orgId: string;
       projectId: string;
       rfqNumber: string;
-      rfqTitle: string;
       vendorName: string;
     }
   | {
@@ -907,10 +910,9 @@ export async function declineQuote(
       org_id: string;
       project_id: string;
       rfq_number: string;
-      title: string;
       is_late_now: boolean;
     }>(
-      `SELECT id, status, org_id, project_id, rfq_number, title,
+      `SELECT id, status, org_id, project_id, rfq_number,
               (response_deadline IS NOT NULL AND CURRENT_DATE > response_deadline) AS is_late_now
          FROM rfq WHERE id = $1 FOR UPDATE`,
       [rfqId]
@@ -953,11 +955,7 @@ export async function declineQuote(
       [rfqId, vendorId]
     );
     const existing = existingRows[0];
-    if (
-      existing &&
-      existing.status !== "submitted" &&
-      existing.status !== "declined"
-    ) {
+    if (existing && !isRevisableQuote(existing.status)) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "quote_locked" };
     }
@@ -996,7 +994,6 @@ export async function declineQuote(
       orgId: rfq.org_id,
       projectId: rfq.project_id,
       rfqNumber: rfq.rfq_number,
-      rfqTitle: rfq.title,
       vendorName,
     };
   } catch (err) {

@@ -15,6 +15,7 @@ import { RESPONSE_SOURCE_LABELS } from "@/lib/rfqLabels";
 import { formatDate } from "@/lib/formatDate";
 import { versionColor } from "@/lib/fileUtils";
 import { sumQuoteUnitPrices } from "@/lib/quoteTotal";
+import { isAwardableQuote } from "@/lib/validations";
 import type { VendorQuoteWithItems } from "@/types";
 import { QuoteVersionHistoryDialog } from "./QuoteVersionHistoryDialog";
 
@@ -212,18 +213,16 @@ export function RfqQuotesSection({
                     )}
                   </div>
                 )}
-                {isPM &&
-                  canAward &&
-                  (q.status === "submitted" || q.status === "under_review") && (
-                    <Button
-                      size="sm"
-                      onClick={() => onAwardClick(q.id)}
-                      className="cursor-pointer shrink-0"
-                    >
-                      <Award className="w-4 h-4" />
-                      Award
-                    </Button>
-                  )}
+                {isPM && canAward && isAwardableQuote(q.status) && (
+                  <Button
+                    size="sm"
+                    onClick={() => onAwardClick(q.id)}
+                    className="cursor-pointer shrink-0"
+                  >
+                    <Award className="w-4 h-4" />
+                    Award
+                  </Button>
+                )}
               </li>
             );
           })}
