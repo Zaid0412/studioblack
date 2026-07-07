@@ -101,7 +101,8 @@ export async function getRfqsByProject(
          (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
          (SELECT MAX(vq.submitted_at)
           FROM vendor_quote vq
-          WHERE vq.rfq_id = r.id AND vq.is_current) AS latest_quote_submitted_at,
+          WHERE vq.rfq_id = r.id AND vq.is_current
+            AND vq.status <> 'declined') AS latest_quote_submitted_at,
          COUNT(*) OVER ()::int AS total
        FROM rfq r
        WHERE ${where}
@@ -607,10 +608,13 @@ export async function getRfqDetailForVendor(
       if (
         e.action === "quote.submitted" ||
         e.action === "quote.revised" ||
+        e.action === "quote.declined" ||
         e.action === "quote.awarded" ||
         e.action === "quote.rejected" ||
         e.action === "quote.under_review"
       ) {
+        // Own-quote events only — never surface a competitor's submission or
+        // decline (identity + reason) to other invited vendors.
         const meta = e.metadata as Record<string, unknown> | null;
         return meta?.vendor_id === vendorId;
       }

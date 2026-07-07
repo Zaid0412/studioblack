@@ -752,7 +752,9 @@ export async function submitOrUpdateQuote(
       [rfqId, vendorId]
     );
     const existing = existingRows[0];
-    const isNew = !existing;
+    // Un-declining (a prior `declined` row) is the vendor's FIRST real bid, so
+    // it counts as new — not a revision — for audit/notification/email.
+    const isNew = !existing || existing.status === "declined";
     // A `submitted` quote can be revised; a `declined` one can be replaced with
     // a real submission (§14 un-decline). Awarded/rejected/expired are locked.
     if (existing && !isRevisableQuote(existing.status)) {
@@ -1047,6 +1049,7 @@ type AwardFailure = {
     | "rfq_wrong_status"
     | "quote_not_found"
     | "quote_expired"
+    | "quote_declined"
     | "incomplete_quote"
     | "incomplete_split";
 };
@@ -1109,7 +1112,11 @@ export async function awardRfqSingle(
     }
     if (!isAwardableQuote(winner.status)) {
       await client.query("ROLLBACK");
-      return { ok: false, reason: "quote_expired" };
+      return {
+        ok: false,
+        reason:
+          winner.status === "declined" ? "quote_declined" : "quote_expired",
+      };
     }
 
     // Now that partial bids are allowed (§14), a single-vendor award must still

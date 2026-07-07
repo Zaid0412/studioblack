@@ -56,6 +56,7 @@ export function QuoteVersionHistoryDialog({
               ))
             : versions.map((v) => {
                 const total = sumQuoteUnitPrices(v.items);
+                const isDeclined = v.status === "declined";
                 return (
                   <div
                     key={v.id}
@@ -82,17 +83,25 @@ export function QuoteVersionHistoryDialog({
                         <QuoteStatusBadge status={v.status} />
                         <ResponseSourceBadge source={v.response_source} />
                       </div>
-                      <span className="text-sm tabular-nums text-text-primary shrink-0">
-                        {total.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}{" "}
-                        {v.currency}
+                      <span className="text-sm tabular-nums text-text-muted shrink-0">
+                        {isDeclined ? (
+                          "No bid"
+                        ) : (
+                          <>
+                            {total.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            {v.currency}
+                          </>
+                        )}
                       </span>
                     </div>
                     <div className="text-xs text-text-muted mt-1">
-                      {v.items.length} item{v.items.length === 1 ? "" : "s"} ·{" "}
-                      {formatDate(v.received_date ?? v.submitted_at)}
+                      {isDeclined
+                        ? "Declined"
+                        : `${v.items.length} item${v.items.length === 1 ? "" : "s"}`}{" "}
+                      · {formatDate(v.received_date ?? v.submitted_at)}
                     </div>
                   </div>
                 );

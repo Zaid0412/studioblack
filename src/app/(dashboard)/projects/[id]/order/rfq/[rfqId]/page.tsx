@@ -834,6 +834,7 @@ export default function OrderRfqDetailPage({
               title: err instanceof Error ? err.message : t("declineFailed"),
               variant: "error",
             });
+            throw err; // keep the dialog open so the typed reason isn't lost
           }
         }}
       />

@@ -46,7 +46,9 @@ export function RfqQuotesSection({
   lastViewedAt,
   onAwardClick,
 }: Props) {
-  const responseRate = `${quotes.length} of ${invitedCount}`;
+  // A decline is a response, but not a quote — count it separately.
+  const declinedCount = quotes.filter((q) => q.status === "declined").length;
+  const quotedCount = quotes.length - declinedCount;
   const [historyQuote, setHistoryQuote] = useState<VendorQuoteWithItems | null>(
     null
   );
@@ -62,7 +64,8 @@ export function RfqQuotesSection({
             Quotes received
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
-            {responseRate} vendors responded
+            {quotedCount} of {invitedCount} vendors quoted
+            {declinedCount > 0 && ` · ${declinedCount} declined`}
           </p>
         </div>
         {quotes.length > 0 && (

@@ -58,8 +58,10 @@ export const POST = withAuth(
           409,
           "An awarded quote has expired — request a fresh submission",
         ],
-        // Not reachable via split award (only single award coverage-checks),
-        // but the shared AwardFailure union requires the branch.
+        // Not reachable via split award (a declined quote has no line items to
+        // assign, and only single award coverage-checks), but the shared
+        // AwardFailure union requires the branch.
+        quote_declined: [409, "This vendor declined to quote this RFQ"],
         incomplete_quote: [409, "This quote doesn't cover every RFQ item"],
         incomplete_split: [
           400,
