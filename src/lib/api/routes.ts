@@ -173,6 +173,7 @@ export const API = {
 
   // ── Vendor Quotes (Feature 10) ──────────────────
   rfqQuotes:                   (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/quotes`,
+  rfqQuoteDecline:             (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/quotes/decline`,
   rfqQuote:                    (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}`,
   rfqQuoteReview:              (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}/review`,
   rfqQuoteVersions:            (pid: string, rfqId: string, quoteId: string) => `/api/projects/${pid}/rfqs/${rfqId}/quotes/${quoteId}/versions`,
@@ -180,6 +181,7 @@ export const API = {
   rfqAward:                    (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/award`,
   rfqAwardSplit:               (pid: string, rfqId: string)        => `/api/projects/${pid}/rfqs/${rfqId}/award-split`,
   vendorPortalRfqQuote:        (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}/quote`,
+  vendorPortalRfqDecline:      (rfqId: string)                     => `/api/vendor-portal/rfqs/${rfqId}/decline`,
 
   // ── Project Documents ───────────────────────────
   projectDocumentSections:        (pid: string)                       => `/api/projects/${pid}/document-sections`,

@@ -7,6 +7,7 @@ const VARIANT: Record<VendorQuoteStatus, BadgeVariant> = {
   awarded: "approved-arch",
   rejected: "archived",
   expired: "archived",
+  declined: "archived",
 };
 
 const LABEL: Record<VendorQuoteStatus, string> = {
@@ -15,6 +16,7 @@ const LABEL: Record<VendorQuoteStatus, string> = {
   awarded: "Awarded",
   rejected: "Rejected",
   expired: "Expired",
+  declined: "Declined",
 };
 
 /** Coloured pill matching the vendor quote lifecycle states. */

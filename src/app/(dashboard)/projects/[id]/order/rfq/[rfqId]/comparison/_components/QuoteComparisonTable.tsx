@@ -53,7 +53,8 @@ export function QuoteComparisonTable({ comparison }: Props) {
                   <th
                     key={v.vendor_id}
                     className={`text-right px-4 py-3 font-medium border-l border-border-default min-w-[160px] ${
-                      v.quote_status === "expired"
+                      v.quote_status === "expired" ||
+                      v.quote_status === "declined"
                         ? "text-text-muted opacity-60"
                         : "text-text-primary"
                     }`}
@@ -105,7 +106,9 @@ export function QuoteComparisonTable({ comparison }: Props) {
                 </td>
                 {comparison.vendors.map((v) => {
                   const line = row.vendor_prices[v.vendor_id];
-                  const dim = v.quote_status === "expired";
+                  const dim =
+                    v.quote_status === "expired" ||
+                    v.quote_status === "declined";
                   if (!line) {
                     return (
                       <td
@@ -171,7 +174,8 @@ export function QuoteComparisonTable({ comparison }: Props) {
                 <td
                   key={v.vendor_id}
                   className={`px-4 py-3 text-right tabular-nums border-l border-border-default font-semibold ${
-                    v.quote_status === "expired"
+                    v.quote_status === "expired" ||
+                    v.quote_status === "declined"
                       ? "opacity-60 text-text-muted"
                       : "text-text-primary"
                   }`}

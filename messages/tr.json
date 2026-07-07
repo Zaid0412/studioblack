@@ -1217,6 +1217,9 @@
       "invitedAt": "Davet edildi",
       "invitedBy": "{name} tarafından",
       "sentTo": "{name} kişisine",
+      "recordDecline": "Reddi kaydet",
+      "declineRecorded": "Ret kaydedildi",
+      "declineFailed": "Ret kaydedilemedi",
       "col": {
         "description": "Açıklama",
         "unit": "Birim",

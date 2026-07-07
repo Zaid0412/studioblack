@@ -89,6 +89,7 @@ export function RfqQuotesSection({
       ) : (
         <ul className="divide-y divide-border-default">
           {quotes.map((q) => {
+            const isDeclined = q.status === "declined";
             const total = sumQuoteUnitPrices(q.items);
             const isNew =
               lastViewedAt === null || q.submitted_at > lastViewedAt;
@@ -124,10 +125,12 @@ export function RfqQuotesSection({
                     )}
                   </div>
                   <div className="text-xs text-text-muted mt-0.5">
-                    Submitted {formatDate(q.submitted_at)}
+                    {isDeclined ? "Declined" : "Submitted"}{" "}
+                    {formatDate(q.submitted_at)}
                     {q.valid_until && (
                       <> · Valid until {formatDate(q.valid_until)}</>
                     )}
+                    {isDeclined && q.notes && <> · {q.notes}</>}
                   </div>
                   {q.attachments && q.attachments.length > 0 && (
                     <ul className="mt-1.5 flex flex-col gap-1">
@@ -174,13 +177,21 @@ export function RfqQuotesSection({
                   )}
                 </div>
                 <div className="text-right tabular-nums text-sm shrink-0">
-                  <div className="text-text-primary font-medium">
-                    {total.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </div>
-                  <div className="text-xs text-text-muted">{q.currency}</div>
+                  {isDeclined ? (
+                    <div className="text-xs text-text-muted">No bid</div>
+                  ) : (
+                    <>
+                      <div className="text-text-primary font-medium">
+                        {total.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </div>
+                      <div className="text-xs text-text-muted">
+                        {q.currency}
+                      </div>
+                    </>
+                  )}
                 </div>
                 {hasHistory && (
                   <div className="w-8 shrink-0">
@@ -201,16 +212,18 @@ export function RfqQuotesSection({
                     )}
                   </div>
                 )}
-                {isPM && canAward && q.status !== "expired" && (
-                  <Button
-                    size="sm"
-                    onClick={() => onAwardClick(q.id)}
-                    className="cursor-pointer shrink-0"
-                  >
-                    <Award className="w-4 h-4" />
-                    Award
-                  </Button>
-                )}
+                {isPM &&
+                  canAward &&
+                  (q.status === "submitted" || q.status === "under_review") && (
+                    <Button
+                      size="sm"
+                      onClick={() => onAwardClick(q.id)}
+                      className="cursor-pointer shrink-0"
+                    >
+                      <Award className="w-4 h-4" />
+                      Award
+                    </Button>
+                  )}
               </li>
             );
           })}

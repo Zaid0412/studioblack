@@ -524,6 +524,9 @@ vi.mock("@/lib/queries", () => ({
   submitOrUpdateQuote: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "rfq_not_found" }),
+  declineQuote: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "rfq_not_found" }),
   setQuoteUnderReview: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "not_found" }),

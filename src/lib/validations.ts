@@ -1571,8 +1571,21 @@ export const VENDOR_QUOTE_STATUSES = [
   "awarded",
   "rejected",
   "expired",
+  // §14: the vendor declined to quote — a current row with zero line items.
+  "declined",
 ] as const;
 export type VendorQuoteStatus = (typeof VENDOR_QUOTE_STATUSES)[number];
+
+/** §14: a vendor (or PM, off-portal) declining to quote — optional reason. */
+export const declineQuoteSchema = z.object({
+  reason: z.string().trim().max(2000).optional().nullable(),
+});
+export type DeclineQuoteInput = z.infer<typeof declineQuoteSchema>;
+
+/** Studio variant — the PM records a specific vendor's off-portal decline. */
+export const enterDeclineSchema = declineQuoteSchema.extend({
+  vendorId: z.string().uuid(),
+});
 
 /** RFQ statuses where a vendor can still submit / revise a quote. */
 export const QUOTE_SUBMITTABLE_RFQ_STATUSES = [

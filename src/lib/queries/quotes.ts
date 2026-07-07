@@ -749,7 +749,13 @@ export async function submitOrUpdateQuote(
     );
     const existing = existingRows[0];
     const isNew = !existing;
-    if (existing && existing.status !== "submitted") {
+    // A `submitted` quote can be revised; a `declined` one can be replaced with
+    // a real submission (§14 un-decline). Awarded/rejected/expired are locked.
+    if (
+      existing &&
+      existing.status !== "submitted" &&
+      existing.status !== "declined"
+    ) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "quote_locked" };
     }
@@ -847,6 +853,151 @@ export async function submitOrUpdateQuote(
       projectId: rfq.project_id,
       rfqNumber: rfq.rfq_number,
       rfqTitle: rfq.title,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * §14: record that a vendor won't quote this RFQ — a current `vendor_quote` row
+ * with status `declined` and zero line items (reason → `notes`). Retires the
+ * vendor's prior current version so history is preserved. Can decline from
+ * scratch, over a `submitted` quote, or re-decline; awarded/rejected/expired are
+ * locked. Does NOT flip the RFQ to `quotes_received` — a decline isn't a quote.
+ */
+export async function declineQuote(
+  rfqId: string,
+  vendorId: string,
+  meta: {
+    reason?: string | null;
+    responseSource?: RfqResponseSource | null;
+    enteredBy?: string | null;
+  } = {}
+): Promise<
+  | {
+      ok: true;
+      quote: VendorQuote;
+      orgId: string;
+      projectId: string;
+      rfqNumber: string;
+      rfqTitle: string;
+      vendorName: string;
+    }
+  | {
+      ok: false;
+      reason:
+        | "rfq_not_found"
+        | "rfq_wrong_status"
+        | "vendor_not_invited"
+        | "quote_locked";
+    }
+> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: rfqRows } = await client.query<{
+      id: string;
+      status: Rfq["status"];
+      org_id: string;
+      project_id: string;
+      rfq_number: string;
+      title: string;
+      is_late_now: boolean;
+    }>(
+      `SELECT id, status, org_id, project_id, rfq_number, title,
+              (response_deadline IS NOT NULL AND CURRENT_DATE > response_deadline) AS is_late_now
+         FROM rfq WHERE id = $1 FOR UPDATE`,
+      [rfqId]
+    );
+    const rfq = rfqRows[0];
+    if (!rfq) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "rfq_not_found" };
+    }
+    if (
+      !(QUOTE_SUBMITTABLE_RFQ_STATUSES as readonly string[]).includes(
+        rfq.status
+      )
+    ) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "rfq_wrong_status" };
+    }
+
+    // Vendor must be invited; grab the name for the studio notification.
+    const { rows: vendorRows } = await client.query<{ company_name: string }>(
+      `SELECT v.company_name
+         FROM rfq_vendor rv JOIN vendor v ON v.id = rv.vendor_id
+        WHERE rv.rfq_id = $1 AND rv.vendor_id = $2`,
+      [rfqId, vendorId]
+    );
+    const vendorName = vendorRows[0]?.company_name;
+    if (!vendorName) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "vendor_not_invited" };
+    }
+
+    const { rows: existingRows } = await client.query<{
+      id: string;
+      status: VendorQuoteStatus;
+      version: number;
+    }>(
+      `SELECT id, status, version FROM vendor_quote
+        WHERE rfq_id = $1 AND vendor_id = $2 AND is_current
+        FOR UPDATE`,
+      [rfqId, vendorId]
+    );
+    const existing = existingRows[0];
+    if (
+      existing &&
+      existing.status !== "submitted" &&
+      existing.status !== "declined"
+    ) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "quote_locked" };
+    }
+
+    if (existing) {
+      await client.query(
+        `UPDATE vendor_quote SET is_current = false, updated_at = now()
+          WHERE id = $1`,
+        [existing.id]
+      );
+    }
+    const version = existing ? existing.version + 1 : 1;
+
+    // A decline carries no line items; `currency` falls back to its default.
+    const { rows: inserted } = await client.query<VendorQuote>(
+      `INSERT INTO vendor_quote (
+          rfq_id, vendor_id, status, version, is_current, notes, is_late,
+          response_source, entered_by
+        ) VALUES ($1, $2, 'declined', $3, true, $4, $5, COALESCE($6, 'portal'), $7)
+        RETURNING *`,
+      [
+        rfqId,
+        vendorId,
+        version,
+        meta.reason ?? null,
+        rfq.is_late_now,
+        meta.responseSource ?? null,
+        meta.enteredBy ?? null,
+      ]
+    );
+
+    await client.query("COMMIT");
+    return {
+      ok: true,
+      quote: inserted[0],
+      orgId: rfq.org_id,
+      projectId: rfq.project_id,
+      rfqNumber: rfq.rfq_number,
+      rfqTitle: rfq.title,
+      vendorName,
     };
   } catch (err) {
     await client.query("ROLLBACK");

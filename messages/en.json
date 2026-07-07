@@ -1217,6 +1217,9 @@
       "invitedAt": "Invited",
       "invitedBy": "by {name}",
       "sentTo": "to {name}",
+      "recordDecline": "Record decline",
+      "declineRecorded": "Decline recorded",
+      "declineFailed": "Could not record the decline",
       "col": {
         "description": "Description",
         "unit": "Unit",
