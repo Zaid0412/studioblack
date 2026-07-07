@@ -20,17 +20,26 @@ live WhatsApp/OCR/AI integrations.
 
 ## PR sequence
 
-### PR 1 — Quick wins + BOQ gate widen · effort S
+### PR 1 — Quick wins · effort S · **shipped (PR #173)**
 
-| Item                   | Change                                                                                                                                                                                                                | Files                                                                                            |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| RC sort bug            | `RATE_CONTRACT_SORT_SQL.status` CASE covers only 4 of 8 statuses → NULL sort key. Extend to all 8 in lifecycle order.                                                                                                 | `src/lib/queries/rateContracts.ts:43-48`                                                         |
-| RFQ §8 preferred-first | Add `preferred_vendor` to the `matches` CTE SELECT + `ORDER BY v.preferred_vendor DESC, rating DESC…` in both pickers; add to `VendorLite`; "Preferred" chip in the picker.                                           | `queries/rfqs.ts:449-460,477-485`, `types/index.ts` (VendorLite), `RfqIssueDialog.tsx`           |
-| RFQ §15 uploadedBy     | In `getQuotesByRfq`, batch-resolve evidence `uploadedBy` ids → names (one `SELECT id,name FROM "user" WHERE id = ANY(...)`, map onto each JSONB evidence row as `uploadedByName`). Surface in the evidence meta line. | `queries/quotes.ts` (quote read), `RfqQuotesSection.tsx:131-171`, `types` (QuoteEvidence + name) |
-| RC line-no             | Add `line_no INTEGER` to `rate_contract_item` (migration, backfilled by current order); set on insert; order + display by it.                                                                                         | new `scripts/migrate-rate-contract-line-no.sql`, `rateContracts.ts`, `RateContractItemTable.tsx` |
-| BOQ §5 widen           | Admit `client_approved` **and** `ready_for_procurement` in the RFQ eligibility gate + available-count query. Keep `po_status='none'`.                                                                                 | `queries/rfqs.ts:113-127,832-844,961-971`, update gate tests                                     |
+| Item                   | Change                                                                                                                                          | Files                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| RC sort bug            | `RATE_CONTRACT_SORT_SQL.status` CASE covered only 4 of 8 statuses → NULL sort key. Extended to all 8 in lifecycle order.                        | `src/lib/queries/rateContracts.ts`                                   |
+| RFQ §8 preferred-first | Added `preferred_vendor` to both vendor pickers + `ORDER BY v.preferred_vendor DESC, …`; added to `VendorLite`; "Preferred" chip in the picker. | `queries/rfqs.ts`, `types/index.ts`, `RfqIssueDialog.tsx`            |
+| RFQ §15 uploadedBy     | In `getQuotesByRfq`, batch-resolve evidence `uploadedBy` ids → names via the existing `getUsersByIds`; surface in the evidence meta line.       | `queries/quotes.ts`, `RfqQuotesSection.tsx`, `types` (QuoteEvidence) |
+| RC line-no             | **No change needed** — the item table already renders a 1-based row index; persisting a `line_no` column would fight the `ON CONFLICT` dedup.   | —                                                                    |
 
-Tests: RC sort ordering, preferred-vendor ordering, eligibility now admits client_approved, evidence name resolution.
+> **BOQ §5 gate — considered, then kept as-is.** We briefly widened RFQ
+> eligibility to admit `client_approved` items (spec §5 lists both statuses),
+> but that would make `ready_for_procurement` a vestigial gate. Client sign-off
+> ≠ the PM's decision to start sourcing, so `ready_for_procurement` **remains the
+> required gate** (RFQ-4a). The `RFQ_ELIGIBLE_PHASES` constant (single value,
+> `phase = ANY($n)`) was kept as a dedup across the server gate + client picker.
+
+Also applied a /simplify pass: extracted `RFQ_ELIGIBLE_PHASES`, routed the
+uploader lookup through `getUsersByIds`.
+
+Tests shipped: RC sort ordering, preferred-vendor ordering, evidence name resolution.
 
 ### PR 2 — RFQ completeness (§11 + §14) · effort M
 
@@ -100,7 +109,7 @@ audit, notifications).
 
 ## Sequencing & risk
 
-- **Order:** PR1 → PR4 as written. Small/independent first (1–3), gate widen (1), then the
+- **Order:** PR1 → PR5 as written. Small/independent first (1–3), then the
   Scope-Change workflow (4–5) on a stable base.
 - **Highest risk:** PR2 §14 decline (touches the award/comparison invariants — a declined
   vendor must be excluded from award and shown distinctly) and PR4/5 (spans BOQ + RFQ +
@@ -115,7 +124,7 @@ audit, notifications).
 
 | PR  | Scope                               | Effort |
 | --- | ----------------------------------- | ------ |
-| 1   | Quick wins + BOQ gate               | S      |
+| 1   | Quick wins (shipped, PR #173)       | S      |
 | 2   | RFQ §11 mixed/contact + §14 decline | M      |
 | 3   | RC multi-attachment + history       | M      |
 | 4   | Scope-change backend + studio       | L      |
