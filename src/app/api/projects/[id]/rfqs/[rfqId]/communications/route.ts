@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
-import { AUDIT_ACTIONS, getRfqVendorName, logAuditSafe } from "@/lib/queries";
+import {
+  AUDIT_ACTIONS,
+  getRfqVendorName,
+  logAuditSafe,
+  markVendorDistributionMixed,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { logRfqCommunicationSchema, parseRequest } from "@/lib/validations";
+import {
+  logRfqCommunicationSchema,
+  parseRequest,
+  RFQ_DISTRIBUTION_CHANNELS,
+} from "@/lib/validations";
 import { resolveRfqId } from "../../_helpers";
 
 /**
@@ -56,6 +65,13 @@ export const POST = withAuth(
         remarks,
       },
     });
+
+    // §11: reaching a vendor through a channel other than how the RFQ was first
+    // distributed makes their distribution "mixed".
+    if (vendorId && RFQ_DISTRIBUTION_CHANNELS.has(channel)) {
+      await markVendorDistributionMixed(resolved.rfqId, vendorId, channel);
+    }
+
     return NextResponse.json({ ok: true });
   }
 );

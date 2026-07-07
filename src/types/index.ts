@@ -1254,6 +1254,8 @@ export interface RfqVendorInvite {
   invited_by_name: string | null;
   /** How the RFQ was sent to this vendor (§11); null for pre-tracking invites. */
   distribution_method: RfqDistributionMethod | null;
+  /** Contact the RFQ was sent to, snapshot at issue (§11); null if portal-only. */
+  contact_name: string | null;
 }
 
 /**

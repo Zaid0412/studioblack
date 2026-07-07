@@ -1655,16 +1655,30 @@ export type RfqManualResponseSource =
   (typeof RFQ_MANUAL_RESPONSE_SOURCES)[number];
 
 /**
+ * Manual channels that represent *reaching* a vendor (outbound distribution):
+ * `RFQ_MANUAL_RESPONSE_SOURCES` minus the receipt formats (`pdf`/`excel`, which
+ * are how a quote arrived, not how the RFQ was sent). Derived from the enum so
+ * a new channel can't silently miss the §11 "mixed" upgrade.
+ */
+export const RFQ_DISTRIBUTION_CHANNELS: ReadonlySet<RfqManualResponseSource> =
+  new Set(
+    RFQ_MANUAL_RESPONSE_SOURCES.filter((c) => c !== "pdf" && c !== "excel")
+  );
+
+/**
  * How an RFQ was distributed to a vendor (§11). `email` = the issue fan-out
  * reached a `receives_rfq` contact; `portal` = invited but portal-only.
- * `whatsapp`/`manual` are recorded post-issue via the §17 communication log.
- * Matches the `rfq_vendor.distribution_method` CHECK constraint.
+ * `mixed` = reached through more than one channel (e.g. emailed at issue, then
+ * a WhatsApp/phone contact logged via the §17 communication log — see
+ * `markVendorDistributionMixed`). Matches the `rfq_vendor.distribution_method`
+ * CHECK constraint.
  */
 export const RFQ_DISTRIBUTION_METHODS = [
   "portal",
   "email",
   "whatsapp",
   "manual",
+  "mixed",
 ] as const;
 export type RfqDistributionMethod = (typeof RFQ_DISTRIBUTION_METHODS)[number];
 

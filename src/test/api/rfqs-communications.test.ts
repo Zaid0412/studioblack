@@ -8,6 +8,7 @@ import {
   getRfqVendorName,
   hasProjectAccess,
   logAuditSafe,
+  markVendorDistributionMixed,
   verifyRfqOwnership,
 } from "@/lib/queries";
 import { POST as POST_COMM } from "@/app/api/projects/[id]/rfqs/[rfqId]/communications/route";
@@ -75,6 +76,28 @@ describe("POST .../communications", () => {
         }),
       })
     );
+  });
+
+  it("flips the vendor's distribution to mixed for a per-vendor outbound channel (§11)", async () => {
+    vi.mocked(getRfqVendorName).mockResolvedValue("Acme Co");
+    const res = await post({
+      channel: "whatsapp",
+      vendorId: VENDOR_ID,
+      remarks: "reminder",
+    });
+    expect(res.status).toBe(200);
+    expect(vi.mocked(markVendorDistributionMixed)).toHaveBeenCalledWith(
+      RFQ_ID,
+      VENDOR_ID,
+      "whatsapp"
+    );
+  });
+
+  it("does NOT touch distribution for a receipt-format channel (pdf) or a no-vendor log", async () => {
+    vi.mocked(getRfqVendorName).mockResolvedValue("Acme Co");
+    await post({ channel: "pdf", vendorId: VENDOR_ID, remarks: "quote pdf" });
+    await post({ channel: "whatsapp", remarks: "broadcast" }); // no vendorId
+    expect(vi.mocked(markVendorDistributionMixed)).not.toHaveBeenCalled();
   });
 
   it("400 when the vendor isn't on this RFQ", async () => {
