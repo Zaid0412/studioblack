@@ -58,8 +58,8 @@ export function RfqCreateForm({ projectId }: Props) {
   const [applyRateItem, setApplyRateItem] =
     useState<BoqItemWithComputed | null>(null);
 
-  // §5 eligibility: client-approved or PM-marked ready-for-procurement items
-  // that aren't already committed to an RFQ.
+  // RFQ-4a: only items the PM has marked Ready for Procurement and that aren't
+  // already committed to an RFQ are eligible.
   const items: BoqItemWithComputed[] = useMemo(
     () =>
       (boq?.items ?? []).filter(

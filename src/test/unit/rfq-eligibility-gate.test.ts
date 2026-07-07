@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * §5: only BOQ items that are `client_approved` or `ready_for_procurement` (and
- * that aren't already committed to an RFQ, i.e. `po_status = 'none'`) may enter
- * an RFQ. The gate lives inside `createRfqDraft` and `addRfqItems`, AFTER the
+ * RFQ-4a: only BOQ items the PM has marked `ready_for_procurement` (and that
+ * aren't already committed to an RFQ, i.e. `po_status = 'none'`) may enter an
+ * RFQ. The gate lives inside `createRfqDraft` and `addRfqItems`, AFTER the
  * project-ownership check, so both entry points are covered.
  *
  * We run the REAL query fns (imported by file path, bypassing the global
@@ -82,7 +82,7 @@ describe("createRfqDraft — RFQ-4a eligibility gate", () => {
     expect(sqlsOf().some((s) => /INSERT INTO rfq \(/.test(s))).toBe(false);
   });
 
-  it("scopes the eligibility check to client_approved/ready_for_procurement + po_status none, over the requested ids", async () => {
+  it("scopes the eligibility check to ready_for_procurement + po_status none, over the requested ids", async () => {
     wire(1);
     await createRfqDraft("proj-1", "user-pm", {
       title: "Bathroom",
@@ -97,10 +97,7 @@ describe("createRfqDraft — RFQ-4a eligibility gate", () => {
     const sql = String(call![0]);
     expect(sql).toMatch(/phase = ANY\(\$2::text\[\]\)/);
     expect(sql).toMatch(/po_status = 'none'/);
-    expect(call![1]).toEqual([
-      ["boq-1", "boq-2"],
-      ["client_approved", "ready_for_procurement"],
-    ]);
+    expect(call![1]).toEqual([["boq-1", "boq-2"], ["ready_for_procurement"]]);
   });
 });
 

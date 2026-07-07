@@ -828,8 +828,8 @@ export async function createRfqDraft(
       await client.query("ROLLBACK");
       throw new Error("One or more BOQ items do not belong to this project");
     }
-    // §5 eligibility gate: every item must be client-approved or ready for
-    // procurement, and not already committed to another RFQ.
+    // RFQ-4a eligibility gate: every item must be marked Ready for Procurement
+    // (the PM's approval-for-RFQ) and not already committed to another RFQ.
     const { rows: eligible } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM boq_item
         WHERE id = ANY($1::uuid[])
@@ -958,8 +958,7 @@ export async function addRfqItems(
       await client.query("ROLLBACK");
       return { ok: false, reason: "bad_items" };
     }
-    // §5 eligibility gate: client-approved or ready-for-procurement + not
-    // already in an RFQ.
+    // RFQ-4a eligibility gate: Ready for Procurement + not already in an RFQ.
     const { rows: eligible } = await client.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM boq_item
         WHERE id = ANY($1::uuid[])
