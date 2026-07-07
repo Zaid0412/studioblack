@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { isAwardableQuote } from "@/lib/validations";
+import { isAwardableQuote, isInactiveQuote } from "@/lib/validations";
 import type { QuoteComparison, VendorQuoteWithItems } from "@/types";
 
 type Mode = "single" | "split";
@@ -283,7 +283,7 @@ export function QuoteAwardDialog({
                               const v = comparison.vendors.find(
                                 (col) => col.vendor_id === vendorId
                               );
-                              if (!v || v.quote_status === "expired") {
+                              if (!v || isInactiveQuote(v.quote_status)) {
                                 return null;
                               }
                               return (

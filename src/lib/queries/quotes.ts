@@ -13,17 +13,12 @@ import type {
 } from "@/types";
 import type { RfqResponseSource, QuoteEvidenceInput } from "@/lib/validations";
 import {
+  isAwardableQuote,
+  isInactiveQuote,
+  isRevisableQuote,
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
-  REVISABLE_QUOTE_STATUSES,
 } from "@/lib/validations";
-
-/** A fresh submission may overwrite these (revise a quote, or un-decline). */
-function isRevisableQuote(status: VendorQuoteStatus): boolean {
-  return (REVISABLE_QUOTE_STATUSES as readonly VendorQuoteStatus[]).includes(
-    status
-  );
-}
 
 /**
  * F10 — Vendor Quotes query layer. Sits on top of F9's RFQ tables.
@@ -456,11 +451,12 @@ export async function getQuoteComparison(
       vendor_prior_awards: Number(q.prior_awards),
     })
   );
-  // Sort vendors: non-expired first, then by grand_total ASC, then by name.
+  // Sort vendors: live quotes first (an expired/declined column has no bid, so
+  // keep it off the top), then by grand_total ASC, then by name.
   vendorColumns.sort((a, b) => {
-    const aExpired = a.quote_status === "expired" ? 1 : 0;
-    const bExpired = b.quote_status === "expired" ? 1 : 0;
-    if (aExpired !== bExpired) return aExpired - bExpired;
+    const aInactive = isInactiveQuote(a.quote_status) ? 1 : 0;
+    const bInactive = isInactiveQuote(b.quote_status) ? 1 : 0;
+    if (aInactive !== bInactive) return aInactive - bInactive;
     if (a.grand_total !== b.grand_total) return a.grand_total - b.grand_total;
     return a.vendor_name.localeCompare(b.vendor_name);
   });
@@ -1111,7 +1107,7 @@ export async function awardRfqSingle(
       await client.query("ROLLBACK");
       return { ok: false, reason: "quote_not_found" };
     }
-    if (winner.status !== "submitted" && winner.status !== "under_review") {
+    if (!isAwardableQuote(winner.status)) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "quote_expired" };
     }
@@ -1293,7 +1289,7 @@ export async function awardRfqSplit(
         await client.query("ROLLBACK");
         return { ok: false, reason: "quote_not_found" };
       }
-      if (qi.quote_status === "expired") {
+      if (isInactiveQuote(qi.quote_status)) {
         await client.query("ROLLBACK");
         return { ok: false, reason: "quote_expired" };
       }

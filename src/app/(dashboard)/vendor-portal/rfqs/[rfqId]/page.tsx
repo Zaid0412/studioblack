@@ -17,6 +17,7 @@ import {
   useVendorDeclineQuote,
 } from "@/hooks/useQuotes";
 import { DeclineQuoteDialog } from "@/components/rfq/DeclineQuoteDialog";
+import { isRevisableQuote } from "@/lib/validations";
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
@@ -80,9 +81,7 @@ export default function VendorPortalRfqDetailPage({
   const canSubmit =
     rfq != null &&
     ["issued", "quotes_received", "under_review"].includes(rfq.status) &&
-    (quote == null ||
-      quote.status === "submitted" ||
-      quote.status === "declined");
+    (quote == null || isRevisableQuote(quote.status));
   // Offer "Decline" only when they could quote and haven't already declined.
   const canDecline = canSubmit && quote?.status !== "declined";
   const isAwardedToMe = quote?.status === "awarded";

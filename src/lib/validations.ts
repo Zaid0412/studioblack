@@ -1576,20 +1576,17 @@ export const VENDOR_QUOTE_STATUSES = [
 ] as const;
 export type VendorQuoteStatus = (typeof VENDOR_QUOTE_STATUSES)[number];
 
-/** Quote statuses that can still be awarded (live responses). */
-export const AWARDABLE_QUOTE_STATUSES = [
+// Quote-status sets — each backs one exported `is*Quote` predicate below and is
+// not referenced elsewhere, so they stay module-private.
+const AWARDABLE_QUOTE_STATUSES = [
   "submitted",
   "under_review",
 ] as const satisfies readonly VendorQuoteStatus[];
-
-/** Quote statuses shown dimmed + excluded from award (lapsed or declined). */
-export const INACTIVE_QUOTE_STATUSES = [
+const INACTIVE_QUOTE_STATUSES = [
   "expired",
   "declined",
 ] as const satisfies readonly VendorQuoteStatus[];
-
-/** Quote statuses a fresh submission may overwrite (revise, or un-decline). */
-export const REVISABLE_QUOTE_STATUSES = [
+const REVISABLE_QUOTE_STATUSES = [
   "submitted",
   "declined",
 ] as const satisfies readonly VendorQuoteStatus[];
@@ -1604,6 +1601,13 @@ export function isAwardableQuote(status: VendorQuoteStatus): boolean {
 /** A lapsed or declined quote — dimmed and never awardable. */
 export function isInactiveQuote(status: VendorQuoteStatus): boolean {
   return (INACTIVE_QUOTE_STATUSES as readonly VendorQuoteStatus[]).includes(
+    status
+  );
+}
+
+/** A quote a fresh submission may overwrite (revise, or un-decline). */
+export function isRevisableQuote(status: VendorQuoteStatus): boolean {
+  return (REVISABLE_QUOTE_STATUSES as readonly VendorQuoteStatus[]).includes(
     status
   );
 }
