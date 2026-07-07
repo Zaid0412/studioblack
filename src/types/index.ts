@@ -1056,6 +1056,7 @@ export interface VendorLite {
   vendor_code: string | null;
   status: VendorStatus;
   rating: number;
+  preferred_vendor: boolean;
   primary_contact_email: string | null;
 }
 
@@ -1321,6 +1322,8 @@ export interface QuoteEvidence extends QuoteAttachment {
   fileType?: string | null;
   notes?: string | null;
   uploadedBy?: string | null;
+  /** Resolved display name for `uploadedBy`, joined at read time (not stored). */
+  uploadedByName?: string | null;
   uploadedAt?: string | null;
   source?: RfqResponseSource | null;
 }

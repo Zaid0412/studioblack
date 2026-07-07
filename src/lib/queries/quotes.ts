@@ -130,10 +130,49 @@ export async function getQuotesByRfq(
     itemsByQuote.set(row.quote_id, list);
   }
 
-  return headerRes.rows.map((h) => ({
+  const quotes = headerRes.rows.map((h) => ({
     ...mapQuoteRow(h),
     items: itemsByQuote.get(h.id) ?? [],
   }));
+
+  await resolveEvidenceUploaders(quotes, pool);
+  return quotes;
+}
+
+/**
+ * Resolve evidence `uploadedBy` ids to display names (§15) in one lookup across
+ * every quote, mutating each attachment in place with `uploadedByName`. The id
+ * stays stored; the name is joined at read time (as the document module does).
+ */
+async function resolveEvidenceUploaders(
+  quotes: VendorQuoteWithItems[],
+  pool: ReturnType<typeof getPool>
+): Promise<void> {
+  const ids = Array.from(
+    new Set(
+      quotes.flatMap((q) =>
+        (q.attachments ?? [])
+          .map((a) => a.uploadedBy)
+          .filter((x): x is string => !!x)
+      )
+    )
+  );
+  if (ids.length === 0) return;
+
+  const { rows } = await pool.query<{ id: string; name: string }>(
+    `SELECT id, name FROM "user" WHERE id = ANY($1::text[])`,
+    [ids]
+  );
+  const nameById = new Map(rows.map((u) => [u.id, u.name]));
+  for (const q of quotes) {
+    if (!q.attachments) continue;
+    q.attachments = q.attachments.map((a) => ({
+      ...a,
+      uploadedByName: a.uploadedBy
+        ? (nameById.get(a.uploadedBy) ?? null)
+        : null,
+    }));
+  }
 }
 
 /**

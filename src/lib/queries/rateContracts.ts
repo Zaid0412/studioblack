@@ -41,10 +41,14 @@ const RATE_CONTRACT_SORT_SQL: Record<
   start_date: "rc.start_date",
   end_date: "rc.end_date",
   status: `CASE rc.status
-             WHEN 'draft'     THEN 0
-             WHEN 'active'    THEN 1
-             WHEN 'expired'   THEN 2
-             WHEN 'cancelled' THEN 3
+             WHEN 'draft'        THEN 0
+             WHEN 'under_review' THEN 1
+             WHEN 'approved'     THEN 2
+             WHEN 'active'       THEN 3
+             WHEN 'suspended'    THEN 4
+             WHEN 'expired'      THEN 5
+             WHEN 'closed'       THEN 6
+             WHEN 'cancelled'    THEN 7
            END`,
   updated_at: "rc.updated_at",
 };
