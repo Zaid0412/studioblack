@@ -65,6 +65,7 @@ export const POST = withAuth(
           409,
           "Quote has expired and cannot be awarded — request a fresh submission",
         ],
+        quote_declined: [409, "This vendor declined to quote this RFQ"],
         incomplete_quote: [
           409,
           "This quote doesn't cover every RFQ item — use a split award or request full pricing before awarding to a single vendor",

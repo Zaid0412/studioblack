@@ -11,7 +11,13 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
-import { useVendorQuote, useVendorSubmitQuote } from "@/hooks/useQuotes";
+import {
+  useVendorQuote,
+  useVendorSubmitQuote,
+  useVendorDeclineQuote,
+} from "@/hooks/useQuotes";
+import { DeclineQuoteDialog } from "@/components/rfq/DeclineQuoteDialog";
+import { isRevisableQuote } from "@/lib/validations";
 import { RfqDetailRow } from "@/components/rfq/RfqDetailRow";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
@@ -40,7 +46,9 @@ export default function VendorPortalRfqDetailPage({
   } = useVendorRfqDetail(rfqId);
   const { quote, mutate: mutateQuote } = useVendorQuote(rfqId);
   const submitQuote = useVendorSubmitQuote(rfqId);
+  const declineQuote = useVendorDeclineQuote(rfqId);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [declineOpen, setDeclineOpen] = useState(false);
   // Two-phase dismiss: `closing` plays the collapse animation, then
   // `dismissed` unmounts the banner so it doesn't leave a flex gap.
   // localStorage persists across refreshes.
@@ -73,7 +81,9 @@ export default function VendorPortalRfqDetailPage({
   const canSubmit =
     rfq != null &&
     ["issued", "quotes_received", "under_review"].includes(rfq.status) &&
-    (quote == null || quote.status === "submitted");
+    (quote == null || isRevisableQuote(quote.status));
+  // Offer "Decline" only when they could quote and haven't already declined.
+  const canDecline = canSubmit && quote?.status !== "declined";
   const isAwardedToMe = quote?.status === "awarded";
   const isAwardedToOther =
     rfq?.status === "awarded" && quote?.status !== "awarded";
@@ -141,12 +151,23 @@ export default function VendorPortalRfqDetailPage({
             {quote && quote.status !== "awarded" && (
               <QuoteStatusBadge status={quote.status} />
             )}
+            {canDecline && (
+              <Button
+                variant="secondary"
+                onClick={() => setDeclineOpen(true)}
+                className="cursor-pointer"
+              >
+                Decline
+              </Button>
+            )}
             {canSubmit && (
               <Button
                 onClick={() => setSubmitOpen(true)}
                 className="cursor-pointer"
               >
-                {quote ? "Revise quote" : "Submit quote"}
+                {quote && quote.status !== "declined"
+                  ? "Revise quote"
+                  : "Submit quote"}
               </Button>
             )}
             <RefreshButton
@@ -256,6 +277,14 @@ export default function VendorPortalRfqDetailPage({
         onOpenChange={setSubmitOpen}
         onSubmit={async (payload) => {
           await submitQuote(payload);
+        }}
+      />
+
+      <DeclineQuoteDialog
+        open={declineOpen}
+        onOpenChange={setDeclineOpen}
+        onConfirm={async (reason) => {
+          await declineQuote(reason);
         }}
       />
     </div>

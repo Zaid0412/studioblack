@@ -29,6 +29,19 @@ export function enter(projectId: string, rfqId: string, data: EnterInput) {
   );
 }
 
+/** Studio: PM records that an invited vendor declined off-portal (§14). */
+export function decline(
+  projectId: string,
+  rfqId: string,
+  vendorId: string,
+  reason?: string | null
+) {
+  return apiPost<{ quote: VendorQuoteWithItems }>(
+    API.rfqQuoteDecline(projectId, rfqId),
+    { vendorId, reason: reason ?? null }
+  );
+}
+
 /** Studio: single quote detail. */
 export function get(projectId: string, rfqId: string, quoteId: string) {
   return apiGet<VendorQuoteWithItems>(API.rfqQuote(projectId, rfqId, quoteId));
@@ -84,5 +97,13 @@ export function vendorSubmit(rfqId: string, data: SubmitInput) {
   return apiPut<{ quote: VendorQuoteWithItems; isNew: boolean }>(
     API.vendorPortalRfqQuote(rfqId),
     data
+  );
+}
+
+/** Vendor portal: decline to quote this RFQ (§14). */
+export function vendorDecline(rfqId: string, reason?: string | null) {
+  return apiPut<{ quote: VendorQuoteWithItems }>(
+    API.vendorPortalRfqDecline(rfqId),
+    { reason: reason ?? null }
   );
 }

@@ -163,3 +163,28 @@ export function useVendorSubmitQuote(rfqId: string) {
     [rfqId]
   );
 }
+
+/** Vendor portal: decline to quote this RFQ (§14). */
+export function useVendorDeclineQuote(rfqId: string) {
+  return useCallback(
+    async (reason: string | null) => {
+      try {
+        const res = await quoteApi.vendorDecline(rfqId, reason);
+        void globalMutate(API.vendorPortalRfqQuote(rfqId));
+        void globalMutate(API.vendorPortalRfq(rfqId));
+        toast({
+          title: "Marked as declined",
+          description: "The studio has been notified.",
+          variant: "success",
+        });
+        return res;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Could not decline";
+        toast({ title: "Failed", description: message, variant: "error" });
+        throw err;
+      }
+    },
+    [rfqId]
+  );
+}

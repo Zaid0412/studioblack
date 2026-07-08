@@ -39,8 +39,11 @@ import {
   useQuoteComparison,
   useQuotesForRfq,
 } from "@/hooks/useQuotes";
+import { quotes as quotesApi } from "@/lib/api";
+import { toast } from "@/components/ui/useToast";
 import { formatDate } from "@/lib/formatDate";
 import {
+  isAwardableQuote,
   QUOTE_AWARDABLE_RFQ_STATUSES,
   QUOTE_SUBMITTABLE_RFQ_STATUSES,
   RFQ_INVITEABLE_STATUSES,
@@ -54,6 +57,7 @@ import { RfqLogCommunicationDialog } from "./_components/RfqLogCommunicationDial
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 import { DistributionMethodBadge } from "@/components/rfq/DistributionMethodBadge";
+import { DeclineQuoteDialog } from "@/components/rfq/DeclineQuoteDialog";
 import { RfqAddItemsDialog } from "./_components/RfqAddItemsDialog";
 import { RfqEditDialog } from "./_components/RfqEditDialog";
 import { RfqIssueDialog } from "./_components/RfqIssueDialog";
@@ -117,6 +121,10 @@ export default function OrderRfqDetailPage({
   const [preselectedQuoteId, setPreselectedQuoteId] = useState<
     string | undefined
   >();
+  const [declineVendor, setDeclineVendor] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Stable ref so the issue dialog's seed effect doesn't re-fire every render.
   // For a revision this carries the copied vendors; empty for a normal RFQ.
@@ -180,7 +188,13 @@ export default function OrderRfqDetailPage({
   );
   const canAward =
     (QUOTE_AWARDABLE_RFQ_STATUSES as readonly string[]).includes(rfq.status) &&
-    quotes.some((q) => q.status !== "expired");
+    quotes.some((q) => isAwardableQuote(q.status));
+  // §14: a PM can record a decline for an invited vendor that hasn't responded
+  // yet (a declined/submitted vendor already has a quote row).
+  const respondedVendorIds = new Set(quotes.map((q) => q.vendor_id));
+  const canRecordResponse =
+    canManage &&
+    (QUOTE_SUBMITTABLE_RFQ_STATUSES as readonly string[]).includes(rfq.status);
   // Edit + Cancel are both gated on non-terminal status. Edits post-issue
   // are intentional (typo fixes / deadline extensions); a warning banner
   // inside the edit dialog tells the PM vendors will see the change.
@@ -639,15 +653,33 @@ export default function OrderRfqDetailPage({
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-text-muted shrink-0 text-right">
-                  {t("invitedAt")} · {formatDate(v.invited_at)}
-                  {v.contact_name && (
-                    <> · {t("sentTo", { name: v.contact_name })}</>
-                  )}
-                  {v.invited_by_name && (
-                    <> · {t("invitedBy", { name: v.invited_by_name })}</>
-                  )}
-                </span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs text-text-muted text-right">
+                    {t("invitedAt")} · {formatDate(v.invited_at)}
+                    {v.contact_name && (
+                      <> · {t("sentTo", { name: v.contact_name })}</>
+                    )}
+                    {v.invited_by_name && (
+                      <> · {t("invitedBy", { name: v.invited_by_name })}</>
+                    )}
+                  </span>
+                  {canRecordResponse &&
+                    !respondedVendorIds.has(v.vendor_id) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setDeclineVendor({
+                            id: v.vendor_id,
+                            name: v.vendor_name,
+                          })
+                        }
+                        className="cursor-pointer"
+                      >
+                        {t("recordDecline")}
+                      </Button>
+                    )}
+                </div>
               </li>
             ))}
           </ul>
@@ -783,6 +815,27 @@ export default function OrderRfqDetailPage({
           mutateQuotes();
           mutateComparison();
           mutate();
+        }}
+      />
+
+      <DeclineQuoteDialog
+        open={declineVendor !== null}
+        onOpenChange={(o) => !o && setDeclineVendor(null)}
+        vendorName={declineVendor?.name}
+        onConfirm={async (reason) => {
+          if (!declineVendor) return;
+          try {
+            await quotesApi.decline(projectId, rfqId, declineVendor.id, reason);
+            toast({ title: t("declineRecorded") });
+            mutateQuotes();
+            mutateComparison();
+          } catch (err) {
+            toast({
+              title: err instanceof Error ? err.message : t("declineFailed"),
+              variant: "error",
+            });
+            throw err; // keep the dialog open so the typed reason isn't lost
+          }
         }}
       />
 
