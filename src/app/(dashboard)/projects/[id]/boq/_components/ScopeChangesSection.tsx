@@ -10,10 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/useToast";
 import { scopeChanges as scopeChangesApi } from "@/lib/api";
 import type { ListScopeChangesResponse } from "@/lib/api/scopeChanges";
-import type {
-  ScopeChangeAction,
-  ScopeChangeStatus,
-} from "@/lib/validations";
+import type { ScopeChangeAction, ScopeChangeStatus } from "@/lib/validations";
 import { ScopeChangeDialog } from "./ScopeChangeDialog";
 
 interface Props {
@@ -27,12 +24,6 @@ const STATUS_VARIANT: Record<ScopeChangeStatus, BadgeVariant> = {
   approved: "approved-client",
   implemented: "active",
   rejected: "error",
-};
-
-/** Studio actions offered for each status (client actions live in the portal). */
-const STUDIO_ACTIONS: Partial<Record<ScopeChangeStatus, ScopeChangeAction[]>> = {
-  requested: ["submit"],
-  under_review: ["send_to_client", "reject_review"],
 };
 
 /**
@@ -90,7 +81,9 @@ export function ScopeChangesSection({ boqItemId }: Props) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-text-primary">{t("title")}</h4>
+        <h4 className="text-sm font-semibold text-text-primary">
+          {t("title")}
+        </h4>
         <Button
           type="button"
           variant="secondary"
@@ -107,7 +100,6 @@ export function ScopeChangesSection({ boqItemId }: Props) {
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((sc) => {
-            const actions = STUDIO_ACTIONS[sc.status] ?? [];
             const busy = busyId === sc.id;
             return (
               <li
@@ -131,22 +123,24 @@ export function ScopeChangesSection({ boqItemId }: Props) {
                   </p>
                 )}
                 {sc.status === "client_approval" && (
-                  <p className="text-xs text-text-muted">{t("awaitingClient")}</p>
+                  <p className="text-xs text-text-muted">
+                    {t("awaitingClient")}
+                  </p>
                 )}
 
-                {(actions.length > 0 || sc.status === "approved") && (
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {actions.includes("submit") && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => runTransition(sc.id, "submit")}
-                      >
-                        {t("action_submit")}
-                      </Button>
-                    )}
-                    {actions.includes("send_to_client") && (
+                <div className="flex flex-wrap gap-2 empty:hidden pt-1">
+                  {sc.status === "requested" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => runTransition(sc.id, "submit")}
+                    >
+                      {t("action_submit")}
+                    </Button>
+                  )}
+                  {sc.status === "under_review" && (
+                    <>
                       <Button
                         type="button"
                         size="sm"
@@ -155,8 +149,6 @@ export function ScopeChangesSection({ boqItemId }: Props) {
                       >
                         {t("action_send_to_client")}
                       </Button>
-                    )}
-                    {actions.includes("reject_review") && (
                       <Button
                         type="button"
                         size="sm"
@@ -169,19 +161,19 @@ export function ScopeChangesSection({ boqItemId }: Props) {
                       >
                         {t("action_reject_review")}
                       </Button>
-                    )}
-                    {sc.status === "approved" && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => setImplementing(sc.id)}
-                      >
-                        {t("action_implement")}
-                      </Button>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                  {sc.status === "approved" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => setImplementing(sc.id)}
+                    >
+                      {t("action_implement")}
+                    </Button>
+                  )}
+                </div>
               </li>
             );
           })}

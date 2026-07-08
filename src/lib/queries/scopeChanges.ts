@@ -353,18 +353,7 @@ export async function implementScopeChange(
   }
   const sc = claim.rows[0];
 
-  // 2. Latest BOQ version for the item (edits go through the normal BOQ flow,
-  //    which snapshots a version); link it for traceability.
-  const { rows: verRows } = await pool.query<{ id: string }>(
-    `SELECT id FROM boq_item_version
-      WHERE boq_item_id = $1
-      ORDER BY version_number DESC
-      LIMIT 1`,
-    [sc.boq_item_id]
-  );
-  const versionId = verRows[0]?.id ?? null;
-
-  // 3. Run the impact. Each sub-operation is atomic on its own connection; we
+  // 2. Run the impact. Each sub-operation is atomic on its own connection; we
   //    hold none here. A draft/terminal RFQ that isn't revisable is a no-op
   //    (nothing to sync/revise yet) — not an error.
   let rfqId: string | null = null;
@@ -395,15 +384,22 @@ export async function implementScopeChange(
   }
   // new_rfq: intentionally no side effect (see doc comment).
 
-  // 4. Link the results onto the (already-implemented) row.
+  // 3. Link the results onto the (already-implemented) row. The BOQ version is
+  //    the item's latest (edits go through the normal BOQ flow, which snapshots
+  //    a version) — resolved inline to save a round trip.
   const { rows } = await pool.query<ScopeChange>(
     `UPDATE scope_change
-        SET boq_item_version_id = $3,
+        SET boq_item_version_id = (
+              SELECT id FROM boq_item_version
+               WHERE boq_item_id = $3
+               ORDER BY version_number DESC
+               LIMIT 1
+            ),
             rfq_id = COALESCE($4, rfq_id),
             updated_at = now()
       WHERE id = $1 AND org_id = $2
       RETURNING *`,
-    [id, orgId, versionId, rfqId]
+    [id, orgId, sc.boq_item_id, rfqId]
   );
   return { ok: true, row: rows[0] };
 }

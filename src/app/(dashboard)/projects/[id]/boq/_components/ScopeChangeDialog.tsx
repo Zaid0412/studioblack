@@ -30,6 +30,9 @@ interface Props {
   onCreated: () => void;
 }
 
+/** Default reason a fresh form opens with (impact derives from it). */
+const DEFAULT_REASON: ScopeChangeReason = "quantity";
+
 /** Raise a scope change against a BOQ item (studio). */
 export function ScopeChangeDialog({
   open,
@@ -39,9 +42,9 @@ export function ScopeChangeDialog({
 }: Props) {
   const t = useTranslations("scopeChanges");
   const tCommon = useTranslations("common");
-  const [reason, setReason] = useState<ScopeChangeReason>("quantity");
+  const [reason, setReason] = useState<ScopeChangeReason>(DEFAULT_REASON);
   const [impact, setImpact] = useState<ScopeChangeImpact>(
-    DEFAULT_IMPACT_FOR_REASON.quantity
+    DEFAULT_IMPACT_FOR_REASON[DEFAULT_REASON]
   );
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -49,8 +52,8 @@ export function ScopeChangeDialog({
   // Reset to defaults whenever the dialog re-opens.
   useEffect(() => {
     if (!open) return;
-    setReason("quantity");
-    setImpact(DEFAULT_IMPACT_FOR_REASON.quantity);
+    setReason(DEFAULT_REASON);
+    setImpact(DEFAULT_IMPACT_FOR_REASON[DEFAULT_REASON]);
     setDescription("");
   }, [open]);
 
