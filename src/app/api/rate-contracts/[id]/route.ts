@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getRateContractById, updateRateContract } from "@/lib/queries";
+import {
+  AUDIT_ACTIONS,
+  getRateContractById,
+  logAuditSafe,
+  updateRateContract,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, updateRateContractSchema } from "@/lib/validations";
 
@@ -24,7 +29,7 @@ export const GET = withAuth(
 /** PATCH /api/rate-contracts/[id] — update header (allow-list once active). */
 export const PATCH = withAuth(
   { allowedRoles: ["pm", "architect"] },
-  async (req, { orgId }, params) => {
+  async (req, { orgId, user }, params) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
@@ -51,6 +56,18 @@ export const PATCH = withAuth(
         );
       }
       return NextResponse.json({ error: result.reason }, { status: 400 });
+    }
+    // Only audit a real write — a no-op / all-ignored-keys PATCH changes no
+    // columns, so skip it rather than log a phantom "updated" event.
+    if (result.changedColumns.length > 0) {
+      void logAuditSafe({
+        orgId,
+        actorId: user.id,
+        action: AUDIT_ACTIONS.RATE_CONTRACT_UPDATED,
+        targetTable: "rate_contract",
+        targetId: params.id,
+        metadata: { fields: result.changedColumns },
+      });
     }
     return NextResponse.json(result.row);
   }

@@ -79,18 +79,29 @@ describe("createRateContractSchema", () => {
     expect(r.success).toBe(false);
   });
 
-  it("accepts a valid agreementUrl", () => {
+  it("accepts a list of attachments", () => {
     const r = parseBody(createRateContractSchema, {
       ...valid,
-      agreementUrl: "https://example.com/agreement.pdf",
+      attachments: [
+        { url: "https://example.com/agreement.pdf", fileName: "Agreement.pdf" },
+        { url: "https://example.com/annex.pdf", fileName: "Annex.pdf" },
+      ],
     });
     expect(r.success).toBe(true);
   });
 
-  it("rejects a non-URL agreementUrl", () => {
+  it("rejects an attachment with a non-URL", () => {
     const r = parseBody(createRateContractSchema, {
       ...valid,
-      agreementUrl: "not a url",
+      attachments: [{ url: "not a url", fileName: "Agreement.pdf" }],
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects an attachment with an empty fileName", () => {
+    const r = parseBody(createRateContractSchema, {
+      ...valid,
+      attachments: [{ url: "https://example.com/agreement.pdf", fileName: "" }],
     });
     expect(r.success).toBe(false);
   });

@@ -9,6 +9,8 @@ import {
   removeRateContractItem,
   getActiveRatesForBoqItem,
   getMemberRole,
+  logAuditSafe,
+  AUDIT_ACTIONS,
 } from "@/lib/queries";
 import { GET as LIST, POST as CREATE } from "@/app/api/rate-contracts/route";
 import { GET as DETAIL, PATCH } from "@/app/api/rate-contracts/[id]/route";
@@ -44,7 +46,7 @@ const fakeContract: RateContract = {
   agreement_signed_date: null,
   currency: "USD",
   payment_terms: null,
-  agreement_url: null,
+  attachments: null,
   terms_and_conditions: null,
   notes: null,
   project_id: null,
@@ -113,6 +115,13 @@ describe("POST /api/rate-contracts", () => {
     const { status, body } = await parseResponse<RateContract>(res);
     expect(status).toBe(201);
     expect(body.id).toBe(RC_ID);
+    expect(logAuditSafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_ACTIONS.RATE_CONTRACT_CREATED,
+        targetTable: "rate_contract",
+        targetId: RC_ID,
+      })
+    );
   });
 
   it("rejects endDate before startDate", async () => {
@@ -175,10 +184,11 @@ describe("GET /api/rate-contracts/[id]", () => {
 // ── PATCH /api/rate-contracts/[id] ─────────────────────────────────────────
 
 describe("PATCH /api/rate-contracts/[id]", () => {
-  it("updates a draft contract", async () => {
+  it("updates a draft contract and audits the changed columns", async () => {
     vi.mocked(updateRateContract).mockResolvedValue({
       ok: true,
       row: { ...fakeContract, name: "Renamed" },
+      changedColumns: ["name"],
     });
     const res = await PATCH(
       buildRequest(`/api/rate-contracts/${RC_ID}`, {
@@ -188,6 +198,30 @@ describe("PATCH /api/rate-contracts/[id]", () => {
       buildParams({ id: RC_ID })
     );
     expect(res.status).toBe(200);
+    expect(logAuditSafe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AUDIT_ACTIONS.RATE_CONTRACT_UPDATED,
+        targetId: RC_ID,
+        metadata: { fields: ["name"] },
+      })
+    );
+  });
+
+  it("does not audit a no-op PATCH that changed no columns", async () => {
+    vi.mocked(updateRateContract).mockResolvedValue({
+      ok: true,
+      row: fakeContract,
+      changedColumns: [],
+    });
+    const res = await PATCH(
+      buildRequest(`/api/rate-contracts/${RC_ID}`, {
+        method: "PATCH",
+        body: {},
+      }),
+      buildParams({ id: RC_ID })
+    );
+    expect(res.status).toBe(200);
+    expect(logAuditSafe).not.toHaveBeenCalled();
   });
 
   it("returns 409 when active contract is locked", async () => {

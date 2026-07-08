@@ -4,6 +4,7 @@ import type {
   RateContractListRow,
   RateContractWithDetails,
   AvailableRate,
+  QuoteAttachment,
 } from "@/types";
 import type {
   RateContractStatus,
@@ -57,7 +58,7 @@ interface RateContractFieldsInput {
   agreementSignedDate?: string | null;
   currency?: string;
   paymentTerms?: string | null;
-  agreementUrl?: string | null;
+  attachments?: QuoteAttachment[] | null;
   termsAndConditions?: string | null;
   notes?: string | null;
   contractType?: RateContractType | null;
@@ -91,7 +92,6 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
   agreementSignedDate: "agreement_signed_date",
   currency: "currency",
   paymentTerms: "payment_terms",
-  agreementUrl: "agreement_url",
   termsAndConditions: "terms_and_conditions",
   notes: "notes",
   contractType: "contract_type",
@@ -103,6 +103,18 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
   taxIncluded: "tax_included",
   taxPercentage: "tax_percentage",
 };
+
+/**
+ * Serialise the attachments list for a JSONB bind param. An empty or absent
+ * list collapses to SQL NULL so create and update agree on "no attachments".
+ */
+function attachmentsJson(
+  attachments: QuoteAttachment[] | null | undefined
+): string | null {
+  return attachments && attachments.length > 0
+    ? JSON.stringify(attachments)
+    : null;
+}
 
 /**
  * Auto-expire active contracts whose end_date is in the past.
@@ -163,7 +175,7 @@ export async function listRateContracts(
     SELECT
       rc.id, rc.org_id, rc.vendor_id, rc.contract_number, rc.name, rc.status,
       rc.start_date, rc.end_date, rc.agreement_signed_date, rc.currency,
-      rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
+      rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
       rc.created_by, rc.created_at, rc.updated_at,
@@ -205,7 +217,7 @@ export async function getRateContractById(
     SELECT
       rc.id, rc.org_id, rc.vendor_id, rc.contract_number, rc.name, rc.status,
       rc.start_date, rc.end_date, rc.agreement_signed_date, rc.currency,
-      rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
+      rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
       rc.submitted_at, rc.approved_by, rc.approved_at, rc.review_note,
@@ -419,7 +431,7 @@ export async function createRateContract(
       `INSERT INTO rate_contract (
          org_id, vendor_id, contract_number, name, status,
          start_date, end_date, agreement_signed_date,
-         currency, payment_terms, agreement_url,
+         currency, payment_terms, attachments,
          terms_and_conditions, notes, created_by,
          contract_type, credit_period_days, delivery_terms,
          price_basis, renewal_date,
@@ -427,7 +439,7 @@ export async function createRateContract(
        )
        VALUES ($1, $2, $3, $4, 'draft',
                $5, $6, $7,
-               COALESCE($8, 'USD'), $9, $10, $11, $12, $13,
+               COALESCE($8, 'USD'), $9, $10::jsonb, $11, $12, $13,
                $14, $15, $16, $17, $18,
                $19, COALESCE($20, false), $21)
        RETURNING *`,
@@ -441,7 +453,7 @@ export async function createRateContract(
         input.agreementSignedDate ?? null,
         input.currency ?? null,
         input.paymentTerms ?? null,
-        input.agreementUrl ?? null,
+        attachmentsJson(input.attachments),
         input.termsAndConditions ?? null,
         input.notes ?? null,
         userId,
@@ -463,7 +475,7 @@ export async function createRateContract(
 
 /**
  * Update header fields. Once the contract is `active`, only `notes`,
- * `terms_and_conditions`, `agreement_url`, `payment_terms`, and explicit
+ * `terms_and_conditions`, `attachments`, `payment_terms`, and explicit
  * status transitions (active → cancelled) are accepted. Returns null when
  * the row is missing or 409 when a disallowed mutation is attempted.
  */
@@ -471,7 +483,10 @@ export async function updateRateContract(
   orgId: string,
   id: string,
   patch: UpdateRateContractInput
-): Promise<{ ok: true; row: RateContract } | { ok: false; reason: string }> {
+): Promise<
+  | { ok: true; row: RateContract; changedColumns: string[] }
+  | { ok: false; reason: string }
+> {
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -491,7 +506,7 @@ export async function updateRateContract(
       const ALLOWED_AFTER_ACTIVE = new Set([
         "notes",
         "termsAndConditions",
-        "agreementUrl",
+        "attachments",
         "paymentTerms",
       ]);
       const offenders = Object.keys(patch).filter(
@@ -503,18 +518,31 @@ export async function updateRateContract(
       }
     }
 
+    // Track the actual columns written so callers (audit) report what really
+    // changed — not just what the client sent (schema-stripped / ignored keys
+    // never reach the SET clause).
+    const changedColumns: string[] = [];
     const setClauses: string[] = [];
     const params: unknown[] = [id, orgId];
     for (const [key, col] of Object.entries(HEADER_UPDATE_COLS)) {
       if (key in patch) {
         params.push((patch as Record<string, unknown>)[key]);
         setClauses.push(`${col} = $${params.length}`);
+        changedColumns.push(col);
       }
+    }
+    // attachments is JSONB — serialise + cast rather than pass a raw array.
+    if ("attachments" in patch) {
+      params.push(attachmentsJson(patch.attachments));
+      setClauses.push(`attachments = $${params.length}::jsonb`);
+      changedColumns.push("attachments");
     }
 
     if (setClauses.length === 0) {
+      // Nothing maps to a real column — no write, no updated_at bump. Return an
+      // empty changedColumns so the caller skips the audit event.
       await client.query("ROLLBACK");
-      return { ok: true, row: current };
+      return { ok: true, row: current, changedColumns };
     }
 
     setClauses.push(`updated_at = now()`);
@@ -525,7 +553,7 @@ export async function updateRateContract(
       params
     );
     await client.query("COMMIT");
-    return { ok: true, row: updated.rows[0] as RateContract };
+    return { ok: true, row: updated.rows[0] as RateContract, changedColumns };
   } catch (err) {
     await client.query("ROLLBACK");
     throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));

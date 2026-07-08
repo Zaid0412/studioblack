@@ -1087,7 +1087,8 @@ export interface RateContract {
   agreement_signed_date: string | null;
   currency: string;
   payment_terms: string | null;
-  agreement_url: string | null;
+  /** Signed agreement + related documents. */
+  attachments: QuoteAttachment[] | null;
   terms_and_conditions: string | null;
   notes: string | null;
   contract_type: RateContractType | null;
