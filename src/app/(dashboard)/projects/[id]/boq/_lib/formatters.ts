@@ -34,7 +34,6 @@ const PHASE_DISPLAY: Record<
     label: "Ready for Procurement",
     variant: "active",
   },
-  cancelled: { label: "Cancelled", variant: "error" },
 };
 
 /**
