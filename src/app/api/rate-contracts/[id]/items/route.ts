@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { addRateContractItems } from "@/lib/queries";
+import {
+  AUDIT_ACTIONS,
+  addRateContractItems,
+  logAuditSafe,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, addRateContractItemsSchema } from "@/lib/validations";
 
@@ -9,7 +13,7 @@ export const POST = withAuth(
     allowedRoles: ["pm", "architect"],
     rateLimit: { limit: 30, windowMs: 60_000 },
   },
-  async (req, { orgId }, params) => {
+  async (req, { orgId, user }, params) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
@@ -52,6 +56,14 @@ export const POST = withAuth(
       }
       return NextResponse.json({ error: result.reason }, { status: 400 });
     }
+    void logAuditSafe({
+      orgId,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.RATE_CONTRACT_ITEMS_UPSERTED,
+      targetTable: "rate_contract",
+      targetId: params.id,
+      metadata: { count: result.count },
+    });
     return NextResponse.json({ success: true, count: result.count });
   }
 );

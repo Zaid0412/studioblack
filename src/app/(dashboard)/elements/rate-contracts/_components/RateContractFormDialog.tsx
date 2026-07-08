@@ -19,7 +19,10 @@ import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
+import {
+  AttachmentsEditor,
+  type AttachmentRef,
+} from "@/components/ui/AttachmentsEditor";
 import { API } from "@/lib/api/routes";
 import { rateContracts as rcApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
@@ -52,8 +55,7 @@ interface FormState {
   agreementSignedDate: string;
   currency: string;
   paymentTerms: string;
-  agreementUrl: string | null;
-  agreementFileName: string | null;
+  attachments: AttachmentRef[];
   termsAndConditions: string;
   notes: string;
   contractType: RateContractType | "";
@@ -74,8 +76,7 @@ const EMPTY: FormState = {
   agreementSignedDate: "",
   currency: "USD",
   paymentTerms: "",
-  agreementUrl: null,
-  agreementFileName: null,
+  attachments: [],
   termsAndConditions: "",
   notes: "",
   contractType: "",
@@ -108,8 +109,7 @@ function contractToForm(c: RateContract): FormState {
     agreementSignedDate: toDateInput(c.agreement_signed_date),
     currency: c.currency,
     paymentTerms: c.payment_terms ?? "",
-    agreementUrl: c.agreement_url,
-    agreementFileName: null,
+    attachments: c.attachments ?? [],
     termsAndConditions: c.terms_and_conditions ?? "",
     notes: c.notes ?? "",
     contractType: c.contract_type ?? "",
@@ -186,7 +186,10 @@ export function RateContractFormDialog({
     // when isLocked.
     const editableFields = {
       paymentTerms: opt(values.paymentTerms),
-      agreementUrl: values.agreementUrl,
+      attachments: values.attachments.map((a) => ({
+        url: a.url,
+        fileName: a.fileName,
+      })),
       termsAndConditions: opt(values.termsAndConditions),
       notes: opt(values.notes),
     };
@@ -367,20 +370,16 @@ export function RateContractFormDialog({
             disabled={isLocked}
           />
 
-          <FileUploadSlot
-            variant="file"
-            label={t("agreementFile")}
-            url={values.agreementUrl}
-            fileName={values.agreementFileName}
-            onUploaded={({ url, fileName }) => {
-              set("agreementUrl", url);
-              set("agreementFileName", fileName);
-            }}
-            onCleared={() => {
-              set("agreementUrl", null);
-              set("agreementFileName", null);
-            }}
-          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("agreementFiles")}
+            </label>
+            <AttachmentsEditor
+              value={values.attachments}
+              onChange={(next) => set("attachments", next)}
+              removeLabel={t("removeAttachment")}
+            />
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[13px] font-medium text-text-secondary">

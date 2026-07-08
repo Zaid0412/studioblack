@@ -1354,6 +1354,12 @@ export type RateContractSortField = (typeof RATE_CONTRACT_SORT_FIELDS)[number];
 
 const isoDate = z.string().date();
 
+/** A rate-contract document reference (already uploaded to storage). */
+const rateContractAttachmentSchema = z.object({
+  url: z.string().url().max(2048),
+  fileName: z.string().trim().min(1).max(255),
+});
+
 export const createRateContractSchema = z
   .object({
     vendorId: uuid,
@@ -1363,7 +1369,11 @@ export const createRateContractSchema = z
     agreementSignedDate: isoDate.nullable().optional(),
     currency: z.string().length(3).optional(),
     paymentTerms: z.string().max(100).optional().nullable(),
-    agreementUrl: z.string().url().max(2048).optional().nullable(),
+    attachments: z
+      .array(rateContractAttachmentSchema)
+      .max(20)
+      .optional()
+      .nullable(),
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
     contractType: z.enum(RATE_CONTRACT_TYPES).optional().nullable(),
@@ -1388,7 +1398,11 @@ export const updateRateContractSchema = z
     agreementSignedDate: isoDate.nullable().optional(),
     currency: z.string().length(3).optional(),
     paymentTerms: z.string().max(100).optional().nullable(),
-    agreementUrl: z.string().url().max(2048).optional().nullable(),
+    attachments: z
+      .array(rateContractAttachmentSchema)
+      .max(20)
+      .optional()
+      .nullable(),
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
     // status is not editable here — it moves only through the transition

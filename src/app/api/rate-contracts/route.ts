@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { listRateContracts, createRateContract } from "@/lib/queries";
+import {
+  AUDIT_ACTIONS,
+  createRateContract,
+  listRateContracts,
+  logAuditSafe,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
@@ -51,6 +56,17 @@ export const POST = withAuth(
 
     try {
       const created = await createRateContract(orgId, user.id, parsed.data);
+      void logAuditSafe({
+        orgId,
+        actorId: user.id,
+        action: AUDIT_ACTIONS.RATE_CONTRACT_CREATED,
+        targetTable: "rate_contract",
+        targetId: created.id,
+        metadata: {
+          contract_number: created.contract_number,
+          vendor_id: created.vendor_id,
+        },
+      });
       return NextResponse.json(created, { status: 201 });
     } catch (err) {
       const message =

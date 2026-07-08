@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { removeRateContractItem } from "@/lib/queries";
+import {
+  AUDIT_ACTIONS,
+  logAuditSafe,
+  removeRateContractItem,
+} from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 
 /** DELETE /api/rate-contracts/[id]/items/[itemId] — remove a single item. */
 export const DELETE = withAuth(
   { allowedRoles: ["pm", "architect"] },
-  async (_req, { orgId }, params) => {
+  async (_req, { orgId, user }, params) => {
     if (!orgId) {
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
@@ -16,6 +20,14 @@ export const DELETE = withAuth(
         { status: 404 }
       );
     }
+    void logAuditSafe({
+      orgId,
+      actorId: user.id,
+      action: AUDIT_ACTIONS.RATE_CONTRACT_ITEM_REMOVED,
+      targetTable: "rate_contract",
+      targetId: params.id,
+      metadata: { item_id: params.itemId },
+    });
     return NextResponse.json({ success: true });
   }
 );

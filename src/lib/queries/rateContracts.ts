@@ -57,7 +57,7 @@ interface RateContractFieldsInput {
   agreementSignedDate?: string | null;
   currency?: string;
   paymentTerms?: string | null;
-  agreementUrl?: string | null;
+  attachments?: { url: string; fileName: string }[] | null;
   termsAndConditions?: string | null;
   notes?: string | null;
   contractType?: RateContractType | null;
@@ -91,7 +91,6 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
   agreementSignedDate: "agreement_signed_date",
   currency: "currency",
   paymentTerms: "payment_terms",
-  agreementUrl: "agreement_url",
   termsAndConditions: "terms_and_conditions",
   notes: "notes",
   contractType: "contract_type",
@@ -163,7 +162,7 @@ export async function listRateContracts(
     SELECT
       rc.id, rc.org_id, rc.vendor_id, rc.contract_number, rc.name, rc.status,
       rc.start_date, rc.end_date, rc.agreement_signed_date, rc.currency,
-      rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
+      rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
       rc.created_by, rc.created_at, rc.updated_at,
@@ -205,7 +204,7 @@ export async function getRateContractById(
     SELECT
       rc.id, rc.org_id, rc.vendor_id, rc.contract_number, rc.name, rc.status,
       rc.start_date, rc.end_date, rc.agreement_signed_date, rc.currency,
-      rc.payment_terms, rc.agreement_url, rc.terms_and_conditions, rc.notes,
+      rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
       rc.submitted_at, rc.approved_by, rc.approved_at, rc.review_note,
@@ -419,7 +418,7 @@ export async function createRateContract(
       `INSERT INTO rate_contract (
          org_id, vendor_id, contract_number, name, status,
          start_date, end_date, agreement_signed_date,
-         currency, payment_terms, agreement_url,
+         currency, payment_terms, attachments,
          terms_and_conditions, notes, created_by,
          contract_type, credit_period_days, delivery_terms,
          price_basis, renewal_date,
@@ -427,7 +426,7 @@ export async function createRateContract(
        )
        VALUES ($1, $2, $3, $4, 'draft',
                $5, $6, $7,
-               COALESCE($8, 'USD'), $9, $10, $11, $12, $13,
+               COALESCE($8, 'USD'), $9, $10::jsonb, $11, $12, $13,
                $14, $15, $16, $17, $18,
                $19, COALESCE($20, false), $21)
        RETURNING *`,
@@ -441,7 +440,9 @@ export async function createRateContract(
         input.agreementSignedDate ?? null,
         input.currency ?? null,
         input.paymentTerms ?? null,
-        input.agreementUrl ?? null,
+        input.attachments && input.attachments.length > 0
+          ? JSON.stringify(input.attachments)
+          : null,
         input.termsAndConditions ?? null,
         input.notes ?? null,
         userId,
@@ -463,7 +464,7 @@ export async function createRateContract(
 
 /**
  * Update header fields. Once the contract is `active`, only `notes`,
- * `terms_and_conditions`, `agreement_url`, `payment_terms`, and explicit
+ * `terms_and_conditions`, `attachments`, `payment_terms`, and explicit
  * status transitions (active → cancelled) are accepted. Returns null when
  * the row is missing or 409 when a disallowed mutation is attempted.
  */
@@ -491,7 +492,7 @@ export async function updateRateContract(
       const ALLOWED_AFTER_ACTIVE = new Set([
         "notes",
         "termsAndConditions",
-        "agreementUrl",
+        "attachments",
         "paymentTerms",
       ]);
       const offenders = Object.keys(patch).filter(
@@ -510,6 +511,11 @@ export async function updateRateContract(
         params.push((patch as Record<string, unknown>)[key]);
         setClauses.push(`${col} = $${params.length}`);
       }
+    }
+    // attachments is JSONB — serialise + cast rather than pass a raw array.
+    if ("attachments" in patch) {
+      params.push(patch.attachments ? JSON.stringify(patch.attachments) : null);
+      setClauses.push(`attachments = $${params.length}::jsonb`);
     }
 
     if (setClauses.length === 0) {

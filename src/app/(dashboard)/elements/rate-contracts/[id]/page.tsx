@@ -294,17 +294,23 @@ export default function RateContractDetailPage({ params }: Props) {
             </span>
           </Field>
         )}
-        {data.agreement_url && (
-          <Field label={t("agreementFile")}>
-            <a
-              href={data.agreement_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
-            >
-              {t("openAgreement")}
-              <ExternalLink className="w-3 h-3" />
-            </a>
+        {data.attachments && data.attachments.length > 0 && (
+          <Field label={t("agreementFiles")}>
+            <ul className="flex flex-col gap-1">
+              {data.attachments.map((f) => (
+                <li key={f.url}>
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
+                  >
+                    {f.fileName}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </li>
+              ))}
+            </ul>
           </Field>
         )}
       </section>
