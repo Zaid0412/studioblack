@@ -27,6 +27,7 @@ export * from "./elementCategories";
 export * from "./boq";
 export * from "./vendors";
 export * from "./rateContracts";
+export * from "./scopeChanges";
 export * from "./rfqs";
 export * from "./quotes";
 export * from "./audit";

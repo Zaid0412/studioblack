@@ -1038,7 +1038,13 @@ function deriveChangeReason(
 }
 
 export type UpdateBoqItemOutcome =
-  | { ok: true; item: BoqItemWithComputed }
+  | {
+      ok: true;
+      item: BoqItemWithComputed;
+      /** Id of the boq_item_version snapshotted by this edit, or null when the
+       * edit touched no material field (no version was created). */
+      versionId: string | null;
+    }
   | { ok: false; reason: "not_found" | "conflict" };
 
 /**
@@ -1121,7 +1127,9 @@ export async function updateBoqItem(
   // `pg` deserializes TIMESTAMPTZ into JS Date (ms precision), so the
   // round-tripped token loses the row's microseconds. Truncate both sides.
   const pool = getPool();
-  const { rows } = await pool.query<BoqItemWithComputed>(
+  const { rows } = await pool.query<
+    BoqItemWithComputed & { created_version_id: string | null }
+  >(
     `WITH prev AS (
        SELECT * FROM boq_item bi
        WHERE bi.id = $${pId}
@@ -1141,7 +1149,7 @@ export async function updateBoqItem(
          $${pReason}, $${pNote}, $${pActor}, to_jsonb(prev.*)
        FROM prev
        WHERE $${pShould}::boolean
-       RETURNING 1
+       RETURNING id
      ),
      updated AS (
        UPDATE boq_item bi
@@ -1150,14 +1158,18 @@ export async function updateBoqItem(
        WHERE bi.id = prev.id
        RETURNING bi.*
      )
-     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS}
+     SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS},
+            (SELECT id FROM ver) AS created_version_id
      FROM updated bi
      JOIN boq b ON b.id = bi.boq_id
      ${ITEM_LIBRARY_JOIN}`,
     values
   );
 
-  if (rows.length > 0) return { ok: true, item: rows[0] };
+  if (rows.length > 0) {
+    const { created_version_id, ...item } = rows[0];
+    return { ok: true, item, versionId: created_version_id ?? null };
+  }
 
   // 0 rows updated — either the row doesn't exist, or updated_at drifted.
   const exists = await pool.query(`SELECT 1 FROM boq_item WHERE id = $1`, [

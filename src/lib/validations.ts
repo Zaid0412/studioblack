@@ -120,6 +120,9 @@ export const BOQ_ITEM_PHASES = [
   // RFQ-4a: PM marks a client-approved item ready to enter an RFQ. Only items
   // in this phase are eligible for RFQ. PM-only forward transition.
   "ready_for_procurement",
+  // §22: terminal state set by an approved scope-change `cancel_item` impact
+  // (never a user-driven phase button — see updateScopeChange/implement).
+  "cancelled",
 ] as const;
 export type BoqItemPhase = (typeof BOQ_ITEM_PHASES)[number];
 
@@ -185,6 +188,8 @@ export const BOQ_ITEM_PHASE_TRANSITIONS: Record<BoqItemPhase, BoqItemPhase[]> =
     // pull-back to internal changes; a material edit auto-flips it to
     // sent_to_client (re-approval) — see updateBoqItem.
     ready_for_procurement: ["internal_changes_requested"],
+    // Terminal: an item cancelled by a scope-change has no user-driven exit.
+    cancelled: [],
   };
 
 export const BOQ_ITEM_PO_STATUSES = [
@@ -1457,6 +1462,167 @@ export const listRateContractsQuerySchema = z.object({
   status: z.enum(RATE_CONTRACT_STATUSES).optional(),
   sortBy: z.enum(RATE_CONTRACT_SORT_FIELDS).optional(),
   sortOrder: z.enum(SORT_ORDERS).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(25),
+});
+
+// ─── Scope Changes (§21–22) ─────────────────────────────────────────────────
+
+// Keep in sync with the DB CHECK in scripts/migrate-scope-changes.sql.
+export const SCOPE_CHANGE_STATUSES = [
+  "requested",
+  "under_review",
+  "client_approval",
+  "approved",
+  "implemented",
+  "rejected",
+] as const;
+export type ScopeChangeStatus = (typeof SCOPE_CHANGE_STATUSES)[number];
+
+/** Why the BOQ item is changing. Subset of BOQ_ITEM_CHANGE_REASONS (no "other"). */
+export const SCOPE_CHANGE_REASONS = [
+  "quantity",
+  "specification",
+  "scope_add",
+  "scope_remove",
+] as const;
+export type ScopeChangeReason = (typeof SCOPE_CHANGE_REASONS)[number];
+
+/** How an approved scope change is executed on implement. */
+export const SCOPE_CHANGE_IMPACTS = [
+  "update_rfq",
+  "requote",
+  "new_rfq",
+  "cancel_item",
+] as const;
+export type ScopeChangeImpact = (typeof SCOPE_CHANGE_IMPACTS)[number];
+
+/** Default impact suggested from the change reason (the requester may override). */
+export const DEFAULT_IMPACT_FOR_REASON: Record<
+  ScopeChangeReason,
+  ScopeChangeImpact
+> = {
+  quantity: "update_rfq",
+  specification: "requote",
+  scope_add: "new_rfq",
+  scope_remove: "cancel_item",
+};
+
+/** Lifecycle actions that move a scope change between statuses (excludes the
+ * side-effecting `implement`, which is its own route/orchestrator). */
+export const SCOPE_CHANGE_ACTIONS = [
+  "submit",
+  "send_to_client",
+  "approve",
+  "reject_review",
+  "reject_client",
+] as const;
+export type ScopeChangeAction = (typeof SCOPE_CHANGE_ACTIONS)[number];
+
+/**
+ * A column write applied alongside the status change. `now` → `now()`,
+ * `clear` → `NULL`, `actor` → acting user id, `note` → the request's note.
+ * The column is a fixed literal (never user input), safe to interpolate.
+ */
+type ScopeChangeEffect =
+  | { col: "submitted_at"; op: "now" }
+  | { col: "reviewed_by"; op: "actor" }
+  | { col: "reviewed_at"; op: "now" }
+  | { col: "review_note"; op: "note" }
+  | { col: "client_decision_by"; op: "actor" }
+  | { col: "client_decided_at"; op: "now" }
+  | { col: "client_decision_note"; op: "note" };
+
+interface ScopeChangeTransition {
+  /** Statuses this action may be applied from. */
+  from: readonly ScopeChangeStatus[];
+  /** Status the scope change moves to. */
+  to: ScopeChangeStatus;
+  /** Effective roles allowed to fire this action. */
+  roles: readonly ("pm" | "architect" | "client")[];
+  /** Metadata writes applied with the transition. */
+  effects?: readonly ScopeChangeEffect[];
+}
+
+/**
+ * The scope-change state machine. Single source of truth for the server
+ * (transitionScopeChange) and the UI. `implement` (approved → implemented) is
+ * intentionally absent — it runs side effects and lives in its own orchestrator.
+ */
+export const SCOPE_CHANGE_TRANSITIONS: Record<
+  ScopeChangeAction,
+  ScopeChangeTransition
+> = {
+  submit: {
+    from: ["requested"],
+    to: "under_review",
+    roles: ["pm", "architect"],
+    effects: [{ col: "submitted_at", op: "now" }],
+  },
+  send_to_client: {
+    from: ["under_review"],
+    to: "client_approval",
+    roles: ["pm", "architect"],
+    effects: [
+      { col: "reviewed_by", op: "actor" },
+      { col: "reviewed_at", op: "now" },
+    ],
+  },
+  approve: {
+    from: ["client_approval"],
+    to: "approved",
+    roles: ["client"],
+    effects: [
+      { col: "client_decision_by", op: "actor" },
+      { col: "client_decided_at", op: "now" },
+    ],
+  },
+  reject_review: {
+    from: ["under_review"],
+    to: "rejected",
+    roles: ["pm", "architect"],
+    effects: [
+      { col: "reviewed_by", op: "actor" },
+      { col: "reviewed_at", op: "now" },
+      { col: "review_note", op: "note" },
+    ],
+  },
+  reject_client: {
+    from: ["client_approval"],
+    to: "rejected",
+    roles: ["client"],
+    effects: [
+      { col: "client_decision_by", op: "actor" },
+      { col: "client_decided_at", op: "now" },
+      { col: "client_decision_note", op: "note" },
+    ],
+  },
+};
+
+export const createScopeChangeSchema = z.object({
+  boqItemId: uuid,
+  changeReason: z.enum(SCOPE_CHANGE_REASONS),
+  description: z.string().max(2000).optional().nullable(),
+  // Optional — defaults from changeReason (DEFAULT_IMPACT_FOR_REASON) if omitted.
+  impact: z.enum(SCOPE_CHANGE_IMPACTS).optional(),
+});
+
+export const updateScopeChangeSchema = z.object({
+  changeReason: z.enum(SCOPE_CHANGE_REASONS).optional(),
+  description: z.string().max(2000).optional().nullable(),
+  impact: z.enum(SCOPE_CHANGE_IMPACTS).optional(),
+});
+
+export const transitionScopeChangeSchema = z.object({
+  action: z.enum(SCOPE_CHANGE_ACTIONS),
+  /** Required for reject actions — the reason shown to the other party. */
+  note: z.string().max(2000).optional().nullable(),
+});
+
+export const listScopeChangesQuerySchema = z.object({
+  projectId: optionalUuid,
+  boqItemId: optionalUuid,
+  status: z.enum(SCOPE_CHANGE_STATUSES).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(25),
 });
