@@ -82,36 +82,52 @@ Tests shipped: RC sort ordering, preferred-vendor ordering, evidence name resolu
   `validations.ts`, `RateContractFormDialog.tsx`, RC detail page, `auditConstants.ts`,
   `types/index.ts`, tests. Migration applied to dev + prod (prod backfilled 1 contract).
 
-### PR 4 — Scope-Change workflow, backend + studio (§21–22) · effort L · **next**
+### PR 4 — Scope-Change workflow, backend + studio (§21–22) · effort L · **shipped (PR #177)**
 
-New governed entity reusing existing building blocks (BOQ versioning, RFQ revision,
-audit, notifications).
+New governed `scope_change` entity, modelled on the RC approval pattern.
 
-- **Schema** `scope_change`: id, org_id, project_id, boq_item_id, change_reason
-  (quantity/specification/scope_add/scope_remove), description, status
+- **Schema** `scope_change` (migration `scripts/migrate-scope-changes.sql`): id, org_id,
+  project_id, boq_item_id, sc_number, change_reason, description, status
   (`requested → under_review → client_approval → approved → implemented`; `rejected`
   terminal), impact (`update_rfq | requote | new_rfq | cancel_item`, defaulted from
-  reason), requested_by, reviewed_by, client_decision_by + note, linked
-  `boq_item_version_id` / `rfq_id` (resulting revision), timestamps.
-- **State machine** in `validations.ts` (mirrors the RC approval-transition pattern).
-- **Queries + routes**: create, transition (submit/approve/reject/client-decide),
-  implement (executes the impact — triggers a BOQ item edit → version, and/or
-  `cloneRfqAsRevision`, linking the result). Org/role gated via `withAuth`.
-- **Studio UI**: "Raise scope change" from the BOQ item drawer; a review/approve panel;
-  an "Implement" action that routes per `impact`.
-- **Reuses:** `boq_item_version` (§20), `cloneRfqAsRevision` (§23), `audit_event` (§25),
-  divergence banners (§22) as the impact hints.
-- Tests: state-machine transitions, impact routing, gating.
+  reason), requested_by, reviewed_by/at + review_note, client_decision_by/at + note,
+  linked `boq_item_version_id` / `rfq_id`, timestamps. Also widened the `boq_item`
+  phase CHECK with a terminal `cancelled`.
+- **State machine** `SCOPE_CHANGE_*` in `validations.ts` with **per-action role gating**
+  (`roles`): submit/send_to_client/reject_review are studio; approve/reject_client are
+  client-only.
+- **Queries + routes**: create / update (requested-only) / transition / list / get +
+  `implementScopeChange` orchestrator. Impact routing: `cancel_item` → `cancelled` phase
+  + `is_excluded`; `update_rfq` → `syncRfqItemsFromBoq`; `requote` → `cloneRfqAsRevision`;
+  `new_rfq` → governance-only (in-procurement item fails `createRfqDraft`'s eligibility
+  gate). Implement **claims** `approved→implemented` atomically (no held connection across
+  the RFQ sub-transactions; reverts the claim on impact error so it's retryable).
+- **Studio UI**: raise + review/implement panel in the BOQ item drawer.
+- **/simplify + /review applied**: dropped a redundant action map, folded a version
+  lookup, reverted a dead `updateBoqItem.versionId`. Migration applied to dev + prod.
 
-### PR 5 — Scope-Change: client approval + notifications · effort M
+> **Scope boundary carried into PR 5:** the transition route is studio-gated
+> `["pm","architect"]`, so a scope change reaches `client_approval` and **stops there** —
+> `approve`/`reject_client` (client-role) have no client-accessible route yet, so the
+> `approved → implement` path is unreachable end-to-end until PR 5 lands.
 
-- **Client portal**: pending scope-changes list + approve/reject with note (reuse the
-  existing project-approval UI patterns and `useUserRole`).
-- **Notifications**: on each transition (→ reviewer, → client, → back to PM on decision),
-  via the existing notification + `notifications-changed` event.
-- **Vendor notification** on the resulting RFQ revision already exists (§24) — just wire
-  the implement step to it.
-- Tests: client approve/reject path, notification fan-out.
+### PR 5 — Scope-Change: client approval + notifications · effort M · **next**
+
+Unblocks the client half of the §21–22 workflow (the backend transitions already exist).
+
+- **Client route**: a client-accessible transition path (mirror
+  `api/projects/[id]/approvals`, `allowedRoles: ["client"]`, `projectAccess: true`) that
+  reuses `transitionScopeChange` for `approve` / `reject_client` — the studio route stays
+  pm/architect-only.
+- **Client UI**: a pending-scope-changes list + approve/reject-with-note (reuse the
+  `ReviewSubmitBar` pattern + `useUserRole`), scoped to the client's projects.
+- **Notifications**: `createNotificationForClient` on `→ client_approval`; team notify
+  (`createNotificationsForTeam` + email) back to the PM on the client decision; add a
+  `scope_change` branch to `notificationDestination` for deep-linking. Dispatch
+  `notifications-changed` after the client's own action.
+- **Optional polish** (from the /review altitude notes): a "PM must raise the RFQ" hint
+  keyed off `impact === 'new_rfq' && !rfq_id` on an implemented change.
+- Tests: client transition route (approve/reject gating), notification fan-out.
 
 ---
 
