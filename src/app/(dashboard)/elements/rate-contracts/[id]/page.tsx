@@ -297,8 +297,8 @@ export default function RateContractDetailPage({ params }: Props) {
         {data.attachments && data.attachments.length > 0 && (
           <Field label={t("agreementFiles")}>
             <ul className="flex flex-col gap-1">
-              {data.attachments.map((f) => (
-                <li key={f.url}>
+              {data.attachments.map((f, i) => (
+                <li key={`${f.url}-${i}`}>
                   <a
                     href={f.url}
                     target="_blank"

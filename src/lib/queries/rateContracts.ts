@@ -4,6 +4,7 @@ import type {
   RateContractListRow,
   RateContractWithDetails,
   AvailableRate,
+  QuoteAttachment,
 } from "@/types";
 import type {
   RateContractStatus,
@@ -57,7 +58,7 @@ interface RateContractFieldsInput {
   agreementSignedDate?: string | null;
   currency?: string;
   paymentTerms?: string | null;
-  attachments?: { url: string; fileName: string }[] | null;
+  attachments?: QuoteAttachment[] | null;
   termsAndConditions?: string | null;
   notes?: string | null;
   contractType?: RateContractType | null;
@@ -108,7 +109,7 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
  * list collapses to SQL NULL so create and update agree on "no attachments".
  */
 function attachmentsJson(
-  attachments: { url: string; fileName: string }[] | null | undefined
+  attachments: QuoteAttachment[] | null | undefined
 ): string | null {
   return attachments && attachments.length > 0
     ? JSON.stringify(attachments)
@@ -482,7 +483,10 @@ export async function updateRateContract(
   orgId: string,
   id: string,
   patch: UpdateRateContractInput
-): Promise<{ ok: true; row: RateContract } | { ok: false; reason: string }> {
+): Promise<
+  | { ok: true; row: RateContract; changedColumns: string[] }
+  | { ok: false; reason: string }
+> {
   const pool = getPool();
   const client = await pool.connect();
   try {
@@ -514,23 +518,31 @@ export async function updateRateContract(
       }
     }
 
+    // Track the actual columns written so callers (audit) report what really
+    // changed — not just what the client sent (schema-stripped / ignored keys
+    // never reach the SET clause).
+    const changedColumns: string[] = [];
     const setClauses: string[] = [];
     const params: unknown[] = [id, orgId];
     for (const [key, col] of Object.entries(HEADER_UPDATE_COLS)) {
       if (key in patch) {
         params.push((patch as Record<string, unknown>)[key]);
         setClauses.push(`${col} = $${params.length}`);
+        changedColumns.push(col);
       }
     }
     // attachments is JSONB — serialise + cast rather than pass a raw array.
     if ("attachments" in patch) {
       params.push(attachmentsJson(patch.attachments));
       setClauses.push(`attachments = $${params.length}::jsonb`);
+      changedColumns.push("attachments");
     }
 
     if (setClauses.length === 0) {
+      // Nothing maps to a real column — no write, no updated_at bump. Return an
+      // empty changedColumns so the caller skips the audit event.
       await client.query("ROLLBACK");
-      return { ok: true, row: current };
+      return { ok: true, row: current, changedColumns };
     }
 
     setClauses.push(`updated_at = now()`);
@@ -541,7 +553,7 @@ export async function updateRateContract(
       params
     );
     await client.query("COMMIT");
-    return { ok: true, row: updated.rows[0] as RateContract };
+    return { ok: true, row: updated.rows[0] as RateContract, changedColumns };
   } catch (err) {
     await client.query("ROLLBACK");
     throw new Error(mapPgError(err as Parameters<typeof mapPgError>[0]));

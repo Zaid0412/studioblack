@@ -57,14 +57,18 @@ export const PATCH = withAuth(
       }
       return NextResponse.json({ error: result.reason }, { status: 400 });
     }
-    void logAuditSafe({
-      orgId,
-      actorId: user.id,
-      action: AUDIT_ACTIONS.RATE_CONTRACT_UPDATED,
-      targetTable: "rate_contract",
-      targetId: params.id,
-      metadata: { fields: Object.keys(parsed.data) },
-    });
+    // Only audit a real write — a no-op / all-ignored-keys PATCH changes no
+    // columns, so skip it rather than log a phantom "updated" event.
+    if (result.changedColumns.length > 0) {
+      void logAuditSafe({
+        orgId,
+        actorId: user.id,
+        action: AUDIT_ACTIONS.RATE_CONTRACT_UPDATED,
+        targetTable: "rate_contract",
+        targetId: params.id,
+        metadata: { fields: result.changedColumns },
+      });
+    }
     return NextResponse.json(result.row);
   }
 );
