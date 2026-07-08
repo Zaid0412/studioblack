@@ -1354,11 +1354,23 @@ export type RateContractSortField = (typeof RATE_CONTRACT_SORT_FIELDS)[number];
 
 const isoDate = z.string().date();
 
-/** A rate-contract document reference (already uploaded to storage). */
-const rateContractAttachmentSchema = z.object({
+/**
+ * Base attachment reference — a file the client points us at (already uploaded
+ * to storage). Shared by §11 RFQ line docs, §15 quote evidence, and
+ * rate-contract agreement documents. `quoteAttachmentSchema` below re-exports
+ * it; defined here so the rate-contract schemas can reference it without a TDZ.
+ */
+const attachmentRefSchema = z.object({
   url: z.string().url().max(2048),
   fileName: z.string().trim().min(1).max(255),
 });
+
+/** Bounded, optional list of attachment references (rate-contract documents). */
+const attachmentRefListField = z
+  .array(attachmentRefSchema)
+  .max(20)
+  .optional()
+  .nullable();
 
 export const createRateContractSchema = z
   .object({
@@ -1369,11 +1381,7 @@ export const createRateContractSchema = z
     agreementSignedDate: isoDate.nullable().optional(),
     currency: z.string().length(3).optional(),
     paymentTerms: z.string().max(100).optional().nullable(),
-    attachments: z
-      .array(rateContractAttachmentSchema)
-      .max(20)
-      .optional()
-      .nullable(),
+    attachments: attachmentRefListField,
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
     contractType: z.enum(RATE_CONTRACT_TYPES).optional().nullable(),
@@ -1398,11 +1406,7 @@ export const updateRateContractSchema = z
     agreementSignedDate: isoDate.nullable().optional(),
     currency: z.string().length(3).optional(),
     paymentTerms: z.string().max(100).optional().nullable(),
-    attachments: z
-      .array(rateContractAttachmentSchema)
-      .max(20)
-      .optional()
-      .nullable(),
+    attachments: attachmentRefListField,
     termsAndConditions: z.string().max(10_000).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
     // status is not editable here — it moves only through the transition
@@ -1663,11 +1667,9 @@ export type QuoteCurrency = (typeof QUOTE_CURRENCIES)[number];
 /**
  * Base attachment reference — a file the client points us at (already uploaded
  * to storage). Used for §11 per-line RFQ docs and as the base for §15 evidence.
+ * Aliases `attachmentRefSchema` (defined earlier for the rate-contract schemas).
  */
-export const quoteAttachmentSchema = z.object({
-  url: z.string().url().max(2048),
-  fileName: z.string().trim().min(1).max(255),
-});
+export const quoteAttachmentSchema = attachmentRefSchema;
 export type QuoteAttachmentInput = z.infer<typeof quoteAttachmentSchema>;
 
 /**

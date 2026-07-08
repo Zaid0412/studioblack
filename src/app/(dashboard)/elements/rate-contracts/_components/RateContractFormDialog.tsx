@@ -186,10 +186,9 @@ export function RateContractFormDialog({
     // when isLocked.
     const editableFields = {
       paymentTerms: opt(values.paymentTerms),
-      attachments: values.attachments.map((a) => ({
-        url: a.url,
-        fileName: a.fileName,
-      })),
+      // AttachmentRef carries url + fileName (plus optional fileType/notes that
+      // the server's schema strips) — pass it straight through.
+      attachments: values.attachments,
       termsAndConditions: opt(values.termsAndConditions),
       notes: opt(values.notes),
     };

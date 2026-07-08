@@ -104,6 +104,18 @@ const HEADER_UPDATE_COLS: Record<string, string> = {
 };
 
 /**
+ * Serialise the attachments list for a JSONB bind param. An empty or absent
+ * list collapses to SQL NULL so create and update agree on "no attachments".
+ */
+function attachmentsJson(
+  attachments: { url: string; fileName: string }[] | null | undefined
+): string | null {
+  return attachments && attachments.length > 0
+    ? JSON.stringify(attachments)
+    : null;
+}
+
+/**
  * Auto-expire active contracts whose end_date is in the past.
  *
  * Called once per detail-view render (`getRateContractById`) — that's the
@@ -440,9 +452,7 @@ export async function createRateContract(
         input.agreementSignedDate ?? null,
         input.currency ?? null,
         input.paymentTerms ?? null,
-        input.attachments && input.attachments.length > 0
-          ? JSON.stringify(input.attachments)
-          : null,
+        attachmentsJson(input.attachments),
         input.termsAndConditions ?? null,
         input.notes ?? null,
         userId,
@@ -514,7 +524,7 @@ export async function updateRateContract(
     }
     // attachments is JSONB — serialise + cast rather than pass a raw array.
     if ("attachments" in patch) {
-      params.push(patch.attachments ? JSON.stringify(patch.attachments) : null);
+      params.push(attachmentsJson(patch.attachments));
       setClauses.push(`attachments = $${params.length}::jsonb`);
     }
 
