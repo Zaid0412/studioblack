@@ -41,7 +41,7 @@ uploader lookup through `getUsersByIds`.
 
 Tests shipped: RC sort ordering, preferred-vendor ordering, evidence name resolution.
 
-### PR 2 — RFQ completeness (§11 + §14) · effort M
+### PR 2 — RFQ completeness (§11 + §14) · effort M · **shipped (§11 PR #174, §14 PR #175)**
 
 - **§11 "Mixed" method + Vendor-Contact snapshot**
   - Add `'mixed'` to the `distribution_method` CHECK (migration ALTER).
@@ -64,17 +64,25 @@ Tests shipped: RC sort ordering, preferred-vendor ordering, evidence name resolu
     route(s), `VendorQuoteSubmitDialog.tsx` / portal page, `RfqQuotesSection.tsx`,
     `QuoteComparisonTable.tsx`, validations, tests.
 
-### PR 3 — Rate-Contract completeness · effort M
+### PR 3 — Rate-Contract completeness · effort M · **shipped (PR #176)**
 
-- **Multi-attachment table** `rate_contract_attachment` (contract_id, url, file_name,
-  file_type, uploaded_by, uploaded_at); migrate the single `agreement_url` into it;
-  `AttachmentsEditor` on the contract form. Keep `agreement_url` read path for back-compat.
-- **History/audit**: extend `logAuditSafe` coverage to RC create / update / item-edit
-  (today only transitions are audited).
+- **Multi-attachment `attachments` JSONB** (not a side table — chose JSONB per the §15
+  quote-evidence precedent, no cross-contract attachment queries needed). Replaced the
+  single `agreement_url` column: migration adds `attachments`, backfills the old URL as
+  the first `{url, fileName:'Signed agreement'}`, then **drops** `agreement_url`. Reuses
+  the shared `AttachmentsEditor` on the contract form; detail page renders the doc list.
+- **History/audit**: extended `logAuditSafe` to RC create / update / items-upserted /
+  item-removed (previously only transitions were audited). The update route audits only a
+  **real** write — `updateRateContract` returns `changedColumns`, so a no-op / all-ignored
+  PATCH logs nothing (and `fields` reports the actual columns, not the raw request keys).
+- **/simplify + /review applied**: shared `attachmentRefSchema`/`attachmentRefListField`
+  (folded `quoteAttachmentSchema` onto the base), single `attachmentsJson()` serialiser
+  (empty list → SQL NULL on both create + update).
 - Files: `scripts/migrate-rate-contract-attachments.sql`, `queries/rateContracts.ts`,
-  RC form UI, `auditConstants.ts`, tests.
+  `validations.ts`, `RateContractFormDialog.tsx`, RC detail page, `auditConstants.ts`,
+  `types/index.ts`, tests. Migration applied to dev + prod (prod backfilled 1 contract).
 
-### PR 4 — Scope-Change workflow, backend + studio (§21–22) · effort L
+### PR 4 — Scope-Change workflow, backend + studio (§21–22) · effort L · **next**
 
 New governed entity reusing existing building blocks (BOQ versioning, RFQ revision,
 audit, notifications).
