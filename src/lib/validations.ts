@@ -1508,8 +1508,10 @@ export const DEFAULT_IMPACT_FOR_REASON: Record<
   scope_remove: "cancel_item",
 };
 
-/** Lifecycle actions that move a scope change between statuses (excludes the
- * side-effecting `implement`, which is its own route/orchestrator). */
+/**
+ * Lifecycle actions that move a scope change between statuses (excludes the
+ * side-effecting `implement`, which is its own route/orchestrator).
+ */
 export const SCOPE_CHANGE_ACTIONS = [
   "submit",
   "send_to_client",
@@ -1615,7 +1617,7 @@ export const updateScopeChangeSchema = z.object({
 
 export const transitionScopeChangeSchema = z.object({
   action: z.enum(SCOPE_CHANGE_ACTIONS),
-  /** Required for reject actions — the reason shown to the other party. */
+  /** Optional reason, stored on reject actions and shown to the other party. */
   note: z.string().max(2000).optional().nullable(),
 });
 

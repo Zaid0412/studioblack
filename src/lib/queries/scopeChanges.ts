@@ -353,53 +353,68 @@ export async function implementScopeChange(
   }
   const sc = claim.rows[0];
 
-  // 2. Run the impact. Each sub-operation is atomic on its own connection; we
-  //    hold none here. A draft/terminal RFQ that isn't revisable is a no-op
+  // 2. Run the impact + link the results. Each sub-operation is atomic on its
+  //    own connection; we hold none here. If the impact throws, revert the
+  //    claim to `approved` so the action is retryable rather than stuck
+  //    `implemented` with its effect unapplied — safe because the sub-functions
+  //    each roll back their own transaction on failure (no partial side effect
+  //    to double-run). A draft/terminal RFQ that isn't revisable is a no-op
   //    (nothing to sync/revise yet) — not an error.
-  let rfqId: string | null = null;
-  if (sc.impact === "cancel_item") {
-    await pool.query(
-      `UPDATE boq_item bi
-          SET phase = 'cancelled', is_excluded = true, updated_at = now()
-         FROM boq b
-        WHERE bi.id = $1 AND bi.boq_id = b.id AND b.project_id = $2`,
-      [sc.boq_item_id, sc.project_id]
-    );
-  } else if (sc.impact === "update_rfq") {
-    const activeRfq = await getActiveRfqIdForBoqItem(orgId, sc.boq_item_id);
-    if (activeRfq) {
-      const synced = await syncRfqItemsFromBoq(activeRfq);
-      if (synced.ok) rfqId = activeRfq;
-    }
-  } else if (sc.impact === "requote") {
-    const activeRfq = await getActiveRfqIdForBoqItem(orgId, sc.boq_item_id);
-    if (activeRfq) {
-      const revised = await cloneRfqAsRevision(
-        activeRfq,
-        actor.userId,
-        sc.description
+  let rows: ScopeChange[];
+  try {
+    let rfqId: string | null = null;
+    if (sc.impact === "cancel_item") {
+      await pool.query(
+        `UPDATE boq_item bi
+            SET phase = 'cancelled', is_excluded = true, updated_at = now()
+           FROM boq b
+          WHERE bi.id = $1 AND bi.boq_id = b.id AND b.project_id = $2`,
+        [sc.boq_item_id, sc.project_id]
       );
-      if (revised.ok) rfqId = revised.rfq.id;
+    } else if (sc.impact === "update_rfq") {
+      const activeRfq = await getActiveRfqIdForBoqItem(orgId, sc.boq_item_id);
+      if (activeRfq) {
+        const synced = await syncRfqItemsFromBoq(activeRfq);
+        if (synced.ok) rfqId = activeRfq;
+      }
+    } else if (sc.impact === "requote") {
+      const activeRfq = await getActiveRfqIdForBoqItem(orgId, sc.boq_item_id);
+      if (activeRfq) {
+        const revised = await cloneRfqAsRevision(
+          activeRfq,
+          actor.userId,
+          sc.description
+        );
+        if (revised.ok) rfqId = revised.rfq.id;
+      }
     }
-  }
-  // new_rfq: intentionally no side effect (see doc comment).
+    // new_rfq: intentionally no side effect (see doc comment).
 
-  // 3. Link the results onto the (already-implemented) row. The BOQ version is
-  //    the item's latest (edits go through the normal BOQ flow, which snapshots
-  //    a version) — resolved inline to save a round trip.
-  const { rows } = await pool.query<ScopeChange>(
-    `UPDATE scope_change
-        SET boq_item_version_id = (
-              SELECT id FROM boq_item_version
-               WHERE boq_item_id = $3
-               ORDER BY version_number DESC
-               LIMIT 1
-            ),
-            rfq_id = COALESCE($4, rfq_id),
-            updated_at = now()
-      WHERE id = $1 AND org_id = $2
-      RETURNING *`,
-    [id, orgId, sc.boq_item_id, rfqId]
-  );
+    // 3. Link the results onto the (already-implemented) row. The BOQ version
+    //    is the item's latest (edits go through the normal BOQ flow, which
+    //    snapshots a version) — resolved inline to save a round trip.
+    const res = await pool.query<ScopeChange>(
+      `UPDATE scope_change
+          SET boq_item_version_id = (
+                SELECT id FROM boq_item_version
+                 WHERE boq_item_id = $3
+                 ORDER BY version_number DESC
+                 LIMIT 1
+              ),
+              rfq_id = COALESCE($4, rfq_id),
+              updated_at = now()
+        WHERE id = $1 AND org_id = $2
+        RETURNING *`,
+      [id, orgId, sc.boq_item_id, rfqId]
+    );
+    rows = res.rows;
+  } catch (err) {
+    await pool.query(
+      `UPDATE scope_change SET status = 'approved', updated_at = now()
+        WHERE id = $1 AND org_id = $2 AND status = 'implemented'`,
+      [id, orgId]
+    );
+    throw err;
+  }
   return { ok: true, row: rows[0] };
 }
