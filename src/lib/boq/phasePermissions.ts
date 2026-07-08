@@ -43,5 +43,9 @@ export function canFireBoqPhaseTransition(opts: {
       return isPM;
     case "draft":
       return isCreator || isPM;
+    case "cancelled":
+      // Terminal — only an approved scope-change `cancel_item` sets this,
+      // never the manual phase-transition matrix.
+      return false;
   }
 }

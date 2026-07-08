@@ -17,6 +17,9 @@ import type {
   VendorQuoteStatus,
   RfqResponseSource,
   RfqDistributionMethod,
+  ScopeChangeStatus,
+  ScopeChangeReason,
+  ScopeChangeImpact,
 } from "@/lib/validations";
 
 export type {
@@ -27,6 +30,9 @@ export type {
   RateContractStatus,
   RfqStatus,
   VendorQuoteStatus,
+  ScopeChangeStatus,
+  ScopeChangeReason,
+  ScopeChangeImpact,
 };
 
 /** Roles available to authenticated users. */
@@ -1151,6 +1157,44 @@ export interface RateContractWithDetails extends RateContractListRow {
   items: RateContractItemWithTarget[];
   /** Display name of the approver (null until approved). */
   approved_by_name: string | null;
+}
+
+/**
+ * A governed request to change a BOQ item after it entered procurement (§21–22).
+ * Lifecycle mirrors the rate-contract approval workflow; on implement it edits
+ * the BOQ item (→ version) and/or revises an RFQ per {@link impact}.
+ */
+export interface ScopeChange {
+  id: string;
+  org_id: string;
+  project_id: string;
+  boq_item_id: string;
+  sc_number: string;
+  change_reason: ScopeChangeReason;
+  description: string | null;
+  impact: ScopeChangeImpact;
+  status: ScopeChangeStatus;
+  requested_by: string | null;
+  submitted_at: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  client_decision_by: string | null;
+  client_decided_at: string | null;
+  client_decision_note: string | null;
+  /** Set by implement: the BOQ version this change produced. */
+  boq_item_version_id: string | null;
+  /** Set by implement: the resulting RFQ (revision or new), if any. */
+  rfq_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScopeChangeListRow extends ScopeChange {
+  boq_item_name: string | null;
+  boq_item_code: string | null;
+  project_name: string | null;
+  requested_by_name: string | null;
 }
 
 /** Why an available rate matched a BOQ item (most specific first). */
