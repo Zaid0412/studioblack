@@ -1371,8 +1371,7 @@
       "title": "Teklif karşılaştırması",
       "backToRfq": "{number} talebine dön",
       "splitAward": "Kalem bazlı ihale",
-      "waitingOnPrefix": "Beklenen:",
-      "waitingOnSuffix": "teklif vermesi bekleniyor."
+      "waitingOn": "{names} tedarikçisinin teklif vermesi bekleniyor."
     },
     "quotes": {
       "late": "Gecikmiş",
@@ -1402,10 +1401,10 @@
     },
     "quoteEntry": {
       "title": "Teklif gir",
-      "vendorLabel": "Tedarikçi *",
+      "vendorLabel": "Tedarikçi",
       "vendorPlaceholder": "Bir tedarikçi seçin",
-      "receivedViaLabel": "Alınma şekli *",
-      "receivedDateLabel": "Alınma tarihi *",
+      "receivedViaLabel": "Alınma şekli",
+      "receivedDateLabel": "Alınma tarihi",
       "partialBiddingHint": "Yalnızca teklif verdiğiniz satırları fiyatlandırın — gerisini boş bırakın.",
       "col": {
         "item": "Kalem",

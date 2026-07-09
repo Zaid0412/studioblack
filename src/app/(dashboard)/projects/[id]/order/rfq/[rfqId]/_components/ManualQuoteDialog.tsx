@@ -179,16 +179,15 @@ export function ManualQuoteDialog({
   );
   const isDirty = !existing || (baseline !== null && current !== baseline);
 
-  const canSubmit =
-    vendorId && source && receivedDate && hasAnyPrice && isDirty;
+  const hasRequiredFields = vendorId && source && receivedDate && hasAnyPrice;
+  const canSubmit = hasRequiredFields && isDirty;
 
   // Explains why Save is disabled — shown only while the button is disabled.
-  const disabledHint =
-    vendorId && source && receivedDate && hasAnyPrice && !isDirty
+  const disabledHint = !hasRequiredFields
+    ? t("hintMissingFields")
+    : !isDirty
       ? t("hintNoChanges")
-      : !canSubmit
-        ? t("hintMissingFields")
-        : null;
+      : null;
 
   async function handleSubmit() {
     if (!canSubmit || submitting || !receivedDate) return;
@@ -242,6 +241,7 @@ export function ManualQuoteDialog({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <LabeledSelect
               label={t("vendorLabel")}
+              required
               value={vendorId}
               onChange={setVendorId}
               options={vendors.map((v) => ({
@@ -252,6 +252,7 @@ export function ManualQuoteDialog({
             />
             <LabeledSelect
               label={t("receivedViaLabel")}
+              required
               value={source}
               onChange={setSource}
               options={RFQ_MANUAL_RESPONSE_SOURCES.map((s) => ({
@@ -262,6 +263,7 @@ export function ManualQuoteDialog({
             />
             <DatePicker
               label={t("receivedDateLabel")}
+              required
               value={receivedDate}
               onChange={setReceivedDate}
             />

@@ -142,13 +142,11 @@ export default function RfqComparisonPage({
 
       {comparison && comparison.invited_no_response.length > 0 && (
         <div className="rounded-xl border border-border-default bg-bg-secondary px-4 py-3 text-xs text-text-muted">
-          {t("comparison.waitingOnPrefix")}{" "}
-          <span className="text-text-secondary">
-            {comparison.invited_no_response
+          {t("comparison.waitingOn", {
+            names: comparison.invited_no_response
               .map((v) => v.vendor_name)
-              .join(", ")}
-          </span>{" "}
-          {t("comparison.waitingOnSuffix")}
+              .join(", "),
+          })}
         </div>
       )}
 

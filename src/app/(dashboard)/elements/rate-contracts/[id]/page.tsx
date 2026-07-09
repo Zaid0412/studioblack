@@ -34,7 +34,7 @@ import { rateContracts as rcApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFlag } from "@/hooks/useFlag";
-import type { RateContractStatus, RateContractWithDetails } from "@/types";
+import type { RateContractWithDetails } from "@/types";
 import type { ElementUnit, RateContractAction } from "@/lib/validations";
 import {
   RATE_CONTRACT_ACTIONS,
@@ -198,19 +198,6 @@ export default function RateContractDetailPage({ params }: Props) {
     data.status === "expired" ||
     data.status === "cancelled" ||
     data.status === "closed";
-  // One-line explainer of what the current status means and what happens
-  // next — surfaced under the status badge so a first-time PM doesn't have
-  // to guess that "Approved" still needs an explicit Activate step.
-  const statusCaptions: Record<RateContractStatus, string> = {
-    draft: t("statusCaption_draft"),
-    under_review: t("statusCaption_under_review"),
-    approved: t("statusCaption_approved"),
-    active: t("statusCaption_active"),
-    suspended: t("statusCaption_suspended"),
-    expired: t("statusCaption_expired"),
-    closed: t("statusCaption_closed"),
-    cancelled: t("statusCaption_cancelled"),
-  };
   // Actions legal from the current status, gated by role (PM-only approvals).
   const availableActions = RATE_CONTRACT_ACTIONS.filter((action) => {
     const transition = RATE_CONTRACT_TRANSITIONS[action];
@@ -296,8 +283,10 @@ export default function RateContractDetailPage({ params }: Props) {
         <Field label={t("status")}>
           <div className="flex flex-col gap-1">
             <RateContractStatusBadge status={data.status} />
+            {/* One-line explainer of the current status + next step (e.g.
+                "Approved" still needs an explicit Activate). */}
             <span className="text-xs text-text-muted">
-              {statusCaptions[data.status]}
+              {t(`statusCaption_${data.status}`)}
             </span>
           </div>
         </Field>

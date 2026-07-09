@@ -1371,8 +1371,7 @@
       "title": "Quote comparison",
       "backToRfq": "Back to {number}",
       "splitAward": "Split award",
-      "waitingOnPrefix": "Waiting on",
-      "waitingOnSuffix": "to submit a quote."
+      "waitingOn": "Waiting on {names} to submit a quote."
     },
     "quotes": {
       "late": "Late",
@@ -1402,10 +1401,10 @@
     },
     "quoteEntry": {
       "title": "Enter quote",
-      "vendorLabel": "Vendor *",
+      "vendorLabel": "Vendor",
       "vendorPlaceholder": "Select a vendor",
-      "receivedViaLabel": "Received via *",
-      "receivedDateLabel": "Received date *",
+      "receivedViaLabel": "Received via",
+      "receivedDateLabel": "Received date",
       "partialBiddingHint": "Price only the lines you're quoting — leave the rest blank.",
       "col": {
         "item": "Item",

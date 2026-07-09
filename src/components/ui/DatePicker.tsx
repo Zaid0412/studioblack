@@ -22,6 +22,8 @@ interface DatePickerProps {
   className?: string;
   /** Whether the picker is disabled. */
   disabled?: boolean;
+  /** Render a red `*` after the label, matching `Input`. */
+  required?: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ function DatePicker({
   defaultValue,
   className,
   disabled,
+  required,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const [internalDate, setInternalDate] = React.useState<Date | undefined>(
@@ -62,6 +65,7 @@ function DatePicker({
       {label && (
         <span className="text-[13px] font-medium text-text-secondary">
           {label}
+          {required && <span className="text-error ml-0.5">*</span>}
         </span>
       )}
       <Popover open={open} onOpenChange={setOpen}>
