@@ -480,21 +480,6 @@ vi.mock("@/lib/queries", () => ({
     .mockResolvedValue({ ok: false, reason: "not_found" }),
   addRateContractItems: vi.fn().mockResolvedValue({ ok: true, count: 0 }),
   removeRateContractItem: vi.fn().mockResolvedValue(true),
-  // Scope Changes (§21–22)
-  listScopeChanges: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
-  getScopeChangeById: vi.fn().mockResolvedValue(null),
-  createScopeChange: vi
-    .fn()
-    .mockResolvedValue({ ok: false, reason: "boq_item_not_found" }),
-  updateScopeChange: vi
-    .fn()
-    .mockResolvedValue({ ok: false, reason: "not_found" }),
-  transitionScopeChange: vi
-    .fn()
-    .mockResolvedValue({ ok: false, reason: "not_found" }),
-  implementScopeChange: vi
-    .fn()
-    .mockResolvedValue({ ok: false, reason: "not_found" }),
   // RFQ (Feature 9)
   verifyRfqOwnership: vi.fn().mockResolvedValue(true),
   getRfqsByProject: vi
@@ -571,10 +556,6 @@ vi.mock("@/lib/queries", () => ({
     RATE_CONTRACT_CANCELLED: "rate_contract.cancelled",
     RATE_CONTRACT_ITEMS_UPSERTED: "rate_contract.items_upserted",
     RATE_CONTRACT_ITEM_REMOVED: "rate_contract.item_removed",
-    SCOPE_CHANGE_CREATED: "scope_change.created",
-    SCOPE_CHANGE_UPDATED: "scope_change.updated",
-    SCOPE_CHANGE_TRANSITIONED: "scope_change.transitioned",
-    SCOPE_CHANGE_IMPLEMENTED: "scope_change.implemented",
     RFQ_CREATED: "rfq.created",
     RFQ_UPDATED: "rfq.updated",
     RFQ_ISSUED: "rfq.issued",

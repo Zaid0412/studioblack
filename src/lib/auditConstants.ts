@@ -36,11 +36,6 @@ export const AUDIT_ACTIONS = {
   RATE_CONTRACT_TRANSITIONED: "rate_contract.transitioned",
   RATE_CONTRACT_ITEMS_UPSERTED: "rate_contract.items_upserted",
   RATE_CONTRACT_ITEM_REMOVED: "rate_contract.item_removed",
-  // ── Scope Changes (§21–22) ─────────────────────────────────────────────
-  SCOPE_CHANGE_CREATED: "scope_change.created",
-  SCOPE_CHANGE_UPDATED: "scope_change.updated",
-  SCOPE_CHANGE_TRANSITIONED: "scope_change.transitioned",
-  SCOPE_CHANGE_IMPLEMENTED: "scope_change.implemented",
   // ── RFQ (F9) ───────────────────────────────────────────────────────────
   RFQ_CREATED: "rfq.created",
   RFQ_UPDATED: "rfq.updated",

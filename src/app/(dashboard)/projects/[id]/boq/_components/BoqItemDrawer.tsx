@@ -40,7 +40,6 @@ import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqDimensionUnitToggle } from "./BoqDimensionUnitToggle";
 import { BoqItemActivity } from "./BoqItemActivity";
 import { BoqItemChangeHistory } from "./BoqItemChangeHistory";
-import { ScopeChangesSection } from "./ScopeChangesSection";
 import type { UpdateItemPayload } from "@/lib/api/boq";
 import {
   convertDimensions,
@@ -98,8 +97,6 @@ const ACTION_LABEL: Record<BoqItemPhase, string> = {
   client_changes_requested: "Request Changes",
   client_approved: "Mark Client Approved",
   ready_for_procurement: "Mark Ready for Procurement",
-  // Terminal — set by a scope-change, never offered as a phase button.
-  cancelled: "Cancel Item",
 };
 
 /** Clients drop the "Mark Client" prefix — they're the client. */
@@ -942,7 +939,6 @@ export function BoqItemDrawer({
                 onOpenOtherItem={onOpenOtherItem}
               />
               <BoqItemChangeHistory projectId={projectId} itemId={item.id} />
-              {!isExternal && <ScopeChangesSection boqItemId={item.id} />}
             </SheetBody>
           )}
 

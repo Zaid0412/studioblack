@@ -240,7 +240,5 @@ function phaseTitle(
       return `BOQ ${noun} moved back to draft: ${boqTitle}`;
     case "ready_for_procurement":
       return `BOQ ${noun} ready for procurement: ${boqTitle}`;
-    case "cancelled":
-      return `BOQ ${noun} cancelled: ${boqTitle}`;
   }
 }

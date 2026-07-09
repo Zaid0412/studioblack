@@ -204,10 +204,4 @@ export const API = {
   rateContractTransition:      (id: string)                          => `/api/rate-contracts/${id}/transition`,
   rateContractsByElement:      (elementId: string)                   => `/api/rate-contracts/by-element/${elementId}`,
   rateContractAvailableRates:  ()                                    => "/api/rate-contracts/available-rates",
-
-  // ── Scope Changes (§21–22) ──────────────────────
-  scopeChanges:                ()                                    => "/api/scope-changes",
-  scopeChange:                 (id: string)                          => `/api/scope-changes/${id}`,
-  scopeChangeTransition:       (id: string)                          => `/api/scope-changes/${id}/transition`,
-  scopeChangeImplement:        (id: string)                          => `/api/scope-changes/${id}/implement`,
 } as const;
