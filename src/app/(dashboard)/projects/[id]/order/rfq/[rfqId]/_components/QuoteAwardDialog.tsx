@@ -13,6 +13,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { isAwardableQuote, isInactiveQuote } from "@/lib/validations";
 import type { QuoteComparison, VendorQuoteWithItems } from "@/types";
 
@@ -303,47 +310,49 @@ export function QuoteAwardDialog({
                         {row.description}
                       </td>
                       <td className="px-3 py-2">
-                        <select
-                          value={splitAssignments.get(row.rfq_item_id) ?? ""}
-                          onChange={(e) => {
+                        <Select
+                          value={
+                            splitAssignments.get(row.rfq_item_id) || undefined
+                          }
+                          onValueChange={(val) => {
                             const next = new Map(splitAssignments);
-                            if (e.target.value) {
-                              next.set(row.rfq_item_id, e.target.value);
-                            } else {
-                              next.delete(row.rfq_item_id);
-                            }
+                            if (val) next.set(row.rfq_item_id, val);
+                            else next.delete(row.rfq_item_id);
                             setSplitAssignments(next);
                           }}
-                          className="w-full rounded-md border border-border-default bg-bg-input px-2 py-1.5 text-sm cursor-pointer"
                         >
-                          <option value="">
-                            {t("quotes.chooseVendorPlaceholder")}
-                          </option>
-                          {Object.entries(row.vendor_prices).map(
-                            ([vendorId, line]) => {
-                              const v = comparison.vendors.find(
-                                (col) => col.vendor_id === vendorId
-                              );
-                              if (!v || isInactiveQuote(v.quote_status)) {
-                                return null;
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={t("quotes.chooseVendorPlaceholder")}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(row.vendor_prices).map(
+                              ([vendorId, line]) => {
+                                const v = comparison.vendors.find(
+                                  (col) => col.vendor_id === vendorId
+                                );
+                                if (!v || isInactiveQuote(v.quote_status)) {
+                                  return null;
+                                }
+                                return (
+                                  <SelectItem
+                                    key={vendorId}
+                                    value={line.quote_item_id}
+                                  >
+                                    {v.vendor_name} —{" "}
+                                    {line.unit_price.toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}{" "}
+                                    / {row.unit}
+                                    {line.is_lowest ? " ★" : ""}
+                                  </SelectItem>
+                                );
                               }
-                              return (
-                                <option
-                                  key={vendorId}
-                                  value={line.quote_item_id}
-                                >
-                                  {v.vendor_name} —{" "}
-                                  {line.unit_price.toLocaleString(undefined, {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}{" "}
-                                  / {row.unit}
-                                  {line.is_lowest ? " ★" : ""}
-                                </option>
-                              );
-                            }
-                          )}
-                        </select>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </td>
                     </tr>
                   ))}
