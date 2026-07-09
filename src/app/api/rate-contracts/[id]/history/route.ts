@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRateContractById, getRateContractHistory } from "@/lib/queries";
+import { rateContractExists, getRateContractHistory } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
 import type { RateContractHistoryEvent } from "@/types";
 
@@ -15,8 +15,7 @@ export const GET = withAuth(
       return NextResponse.json({ error: "No organisation" }, { status: 400 });
     }
     // 404 on an unknown/foreign contract so history can't be probed cross-org.
-    const rc = await getRateContractById(orgId, params.id);
-    if (!rc) {
+    if (!(await rateContractExists(orgId, params.id))) {
       return NextResponse.json(
         { error: "Rate contract not found" },
         { status: 404 }

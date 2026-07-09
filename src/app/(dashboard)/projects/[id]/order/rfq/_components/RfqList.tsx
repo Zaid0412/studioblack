@@ -23,11 +23,7 @@ import { formatDate } from "@/lib/formatDate";
 import { useRfqLastViewedReadOnly } from "@/hooks/useRfqLastViewed";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { RespondedChip } from "@/components/rfq/RespondedChip";
 
 const ALL = "__all__";
 
@@ -35,15 +31,11 @@ const ALL = "__all__";
 function RfqRow({
   row,
   onNavigate,
-  t,
 }: {
   row: RfqListRow;
   onNavigate: (id: string) => void;
-  t: ReturnType<typeof useTranslations>;
 }) {
   const lastViewedAt = useRfqLastViewedReadOnly(row.id);
-  const allResponded =
-    row.responded_count != null && row.responded_count >= row.vendor_count;
   const hasNewQuote =
     row.latest_quote_submitted_at !== null &&
     (lastViewedAt === null || row.latest_quote_submitted_at > lastViewedAt);
@@ -73,21 +65,10 @@ function RfqRow({
       </td>
       <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
         {row.responded_count != null && row.vendor_count > 0 ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className={allResponded ? "text-success" : undefined}>
-                {row.responded_count}/{row.vendor_count}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              {allResponded
-                ? t("responded.all", { total: row.vendor_count })
-                : t("responded.partial", {
-                    responded: row.responded_count,
-                    total: row.vendor_count,
-                  })}
-            </TooltipContent>
-          </Tooltip>
+          <RespondedChip
+            responded={row.responded_count}
+            total={row.vendor_count}
+          />
         ) : (
           row.vendor_count
         )}
@@ -240,7 +221,6 @@ export function RfqList({
                   <RfqRow
                     key={row.id}
                     row={row}
-                    t={t}
                     onNavigate={(id) =>
                       router.push(`/projects/${projectId}/order/rfq/${id}`)
                     }

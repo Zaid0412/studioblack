@@ -8,6 +8,7 @@ import {
   addRateContractItems,
   removeRateContractItem,
   getActiveRatesForBoqItem,
+  rateContractExists,
   getRateContractHistory,
   getMemberRole,
   logAuditSafe,
@@ -443,7 +444,7 @@ describe("GET /api/rate-contracts/by-element/[elementId]", () => {
 
 describe("GET /api/rate-contracts/[id]/history", () => {
   it("returns the activity timeline", async () => {
-    vi.mocked(getRateContractById).mockResolvedValue(fakeContract as never);
+    vi.mocked(rateContractExists).mockResolvedValue(true);
     vi.mocked(getRateContractHistory).mockResolvedValue([
       {
         id: "ev-1",
@@ -466,7 +467,7 @@ describe("GET /api/rate-contracts/[id]/history", () => {
   });
 
   it("404s for an unknown contract", async () => {
-    vi.mocked(getRateContractById).mockResolvedValue(null);
+    vi.mocked(rateContractExists).mockResolvedValue(false);
     const res = await HISTORY(
       buildRequest(`/api/rate-contracts/${RC_ID}/history`),
       buildParams({ id: RC_ID })

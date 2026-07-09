@@ -708,8 +708,6 @@ export interface BoqItem {
   element_name: string | null;
   /** Service-area name for `category_id` (joined). Null when unclassified. */
   category_name: string | null;
-  /** Service-area code prefix for `category_id` (joined). Null when unclassified. */
-  category_code: string | null;
   installed_qty: string;
   has_snag: boolean;
   po_status: BoqItemPoStatus;

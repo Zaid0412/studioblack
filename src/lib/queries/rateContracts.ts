@@ -16,6 +16,7 @@ import type {
 } from "@/lib/validations";
 import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
+import { toIso } from "@/lib/formatTime";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
 import { runWithConcurrency } from "@/lib/concurrency";
@@ -274,6 +275,19 @@ export async function getRateContractById(
   return (rows[0] as RateContractWithDetails) ?? null;
 }
 
+/** Cheap existence + org-scope check (no joins / json_agg). */
+export async function rateContractExists(
+  orgId: string,
+  id: string
+): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(
+    `SELECT 1 FROM rate_contract WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+  return (rowCount ?? 0) > 0;
+}
+
 /**
  * Activity timeline for a rate contract — every `rate_contract.*` audit event
  * against it, newest first. Mirrors `getBoqItemHistory` but keyed on the raw
@@ -285,7 +299,15 @@ export async function getRateContractHistory(
   rcId: string
 ): Promise<RateContractHistoryEvent[]> {
   const pool = getPool();
-  const { rows } = await pool.query(
+  const { rows } = await pool.query<{
+    id: string;
+    action: string;
+    actor_id: string | null;
+    actor_name: string | null;
+    actor_role: RateContractHistoryEvent["actor_role"];
+    metadata: Record<string, unknown> | null;
+    created_at: string | Date;
+  }>(
     `SELECT
        ae.id::text   AS id,
        ae.action     AS action,
@@ -305,18 +327,7 @@ export async function getRateContractHistory(
      LIMIT 100`,
     [orgId, rcId]
   );
-  return rows.map((r) => ({
-    id: r.id as string,
-    action: r.action as string,
-    actor_id: r.actor_id as string | null,
-    actor_name: r.actor_name as string | null,
-    actor_role: r.actor_role as RateContractHistoryEvent["actor_role"],
-    metadata: r.metadata as Record<string, unknown> | null,
-    created_at:
-      r.created_at instanceof Date
-        ? r.created_at.toISOString()
-        : String(r.created_at),
-  }));
+  return rows.map((r) => ({ ...r, created_at: toIso(r.created_at) }));
 }
 
 /**

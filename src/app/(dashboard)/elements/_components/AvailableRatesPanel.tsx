@@ -7,13 +7,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Badge } from "@/components/ui/badge";
 import { API } from "@/lib/api/routes";
 import { formatCurrency } from "@/lib/formatCurrency";
-import type { AvailableRate, RateMatchType } from "@/types";
-
-const MATCH_LABEL: Record<RateMatchType, string> = {
-  element: "matchElement",
-  service_area: "matchServiceArea",
-  ancestor: "matchAncestor",
-};
+import { MATCH_LABEL_KEY } from "@/lib/rateContractLabels";
+import type { AvailableRate } from "@/types";
 
 interface Props {
   elementId: string;
@@ -59,7 +54,7 @@ export function AvailableRatesPanel({ elementId }: Props) {
                 <div className="text-xs text-text-muted">{r.contract_name}</div>
               </div>
               {r.match_type && (
-                <Badge variant="info">{t(MATCH_LABEL[r.match_type])}</Badge>
+                <Badge variant="info">{t(MATCH_LABEL_KEY[r.match_type])}</Badge>
               )}
               <div className="shrink-0 text-right tabular-nums text-text-primary">
                 {formatCurrency(r.rate, r.currency)}

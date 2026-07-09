@@ -99,7 +99,7 @@ const ITEM_COMPUTED_COLS = `
  * and vice-versa. Used by `ITEM_SELECT` and the four mutation queries that
  * return a fresh item row (create / update / move / lifecycle).
  */
-const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived, cat.name AS category_name, cat.code_prefix AS category_code`;
+const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived, cat.name AS category_name`;
 const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id LEFT JOIN element_category cat ON cat.id = bi.category_id`;
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN}`;
