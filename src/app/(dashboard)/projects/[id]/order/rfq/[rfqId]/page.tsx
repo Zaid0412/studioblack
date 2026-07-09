@@ -27,6 +27,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -332,7 +337,7 @@ export default function OrderRfqDetailPage({
                 }}
               >
                 <FileText className="w-4 h-4" />
-                Enter quote
+                {t("enterQuoteBtn")}
               </Button>
             )}
           {isPM && canAward && (
@@ -657,7 +662,17 @@ export default function OrderRfqDetailPage({
                   <span className="text-xs text-text-muted text-right">
                     {t("invitedAt")} · {formatDate(v.invited_at)}
                     {v.contact_name && (
-                      <> · {t("sentTo", { name: v.contact_name })}</>
+                      <>
+                        {" · "}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-default">
+                              {t("sentTo", { name: v.contact_name })}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{t("sentToTooltip")}</TooltipContent>
+                        </Tooltip>
+                      </>
                     )}
                     {v.invited_by_name && (
                       <> · {t("invitedBy", { name: v.invited_by_name })}</>

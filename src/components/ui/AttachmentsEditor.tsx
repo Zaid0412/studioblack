@@ -105,11 +105,23 @@ export function AttachmentsEditor({
           key={uploadKey}
           variant="file"
           url={null}
+          multiple
           onUploaded={({ url, fileName }) => {
             onChange([
               ...value,
               { url, fileName, fileType: extensionOf(fileName) },
             ]);
+            setUploadKey((k) => k + 1);
+          }}
+          onUploadedMany={(items) => {
+            // Respect the cap: only append up to the remaining slots.
+            const room = Math.max(0, max - value.length);
+            const added = items.slice(0, room).map(({ url, fileName }) => ({
+              url,
+              fileName,
+              fileType: extensionOf(fileName),
+            }));
+            if (added.length > 0) onChange([...value, ...added]);
             setUploadKey((k) => k + 1);
           }}
           onCleared={() => {}}

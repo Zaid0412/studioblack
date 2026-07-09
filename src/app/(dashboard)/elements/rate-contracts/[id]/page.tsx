@@ -24,6 +24,11 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/useToast";
 import { rateContracts as rcApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
@@ -231,17 +236,35 @@ export default function RateContractDetailPage({ params }: Props) {
               {availableActions.map((action) => {
                 const meta = ACTION_META[action];
                 const Icon = meta.icon;
+                const activateBlocked =
+                  action === "activate" && data.items.length === 0;
+                if (!activateBlocked) {
+                  return (
+                    <Button
+                      key={action}
+                      size="sm"
+                      variant={meta.variant}
+                      onClick={() => setPendingAction(action)}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {t(`action_${action}`)}
+                    </Button>
+                  );
+                }
                 return (
-                  <Button
-                    key={action}
-                    size="sm"
-                    variant={meta.variant}
-                    disabled={action === "activate" && data.items.length === 0}
-                    onClick={() => setPendingAction(action)}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {t(`action_${action}`)}
-                  </Button>
+                  <Tooltip key={action}>
+                    <TooltipTrigger asChild>
+                      {/* Disabled buttons don't reliably fire hover events —
+                          wrap in a span so the tooltip still triggers. */}
+                      <span>
+                        <Button size="sm" variant={meta.variant} disabled>
+                          <Icon className="w-4 h-4" />
+                          {t(`action_${action}`)}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("activateDisabledHint")}</TooltipContent>
+                  </Tooltip>
                 );
               })}
             </>
@@ -258,7 +281,14 @@ export default function RateContractDetailPage({ params }: Props) {
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-border-default bg-bg-secondary p-4">
         <Field label={t("status")}>
-          <RateContractStatusBadge status={data.status} />
+          <div className="flex flex-col gap-1">
+            <RateContractStatusBadge status={data.status} />
+            {/* One-line explainer of the current status + next step (e.g.
+                "Approved" still needs an explicit Activate). */}
+            <span className="text-xs text-text-muted">
+              {t(`statusCaption_${data.status}`)}
+            </span>
+          </div>
         </Field>
         <Field label={t("currency")}>
           <span className="text-sm text-text-primary">{data.currency}</span>

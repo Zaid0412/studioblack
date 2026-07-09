@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowRight, Award, Clock, History, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +47,7 @@ export function RfqQuotesSection({
   lastViewedAt,
   onAwardClick,
 }: Props) {
+  const t = useTranslations("rfq");
   // A decline is a response, but not a quote — count it separately.
   const declinedCount = quotes.filter((q) => q.status === "declined").length;
   const quotedCount = quotes.length - declinedCount;
@@ -61,11 +63,15 @@ export function RfqQuotesSection({
       <div className="px-6 py-4 border-b border-border-default flex items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-text-primary">
-            Quotes received
+            {t("quotes.title")}
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
-            {quotedCount} of {invitedCount} vendors quoted
-            {declinedCount > 0 && ` · ${declinedCount} declined`}
+            {t("quotes.summary", {
+              quoted: quotedCount,
+              invited: invitedCount,
+            })}
+            {declinedCount > 0 &&
+              ` · ${t("quotes.declinedCount", { count: declinedCount })}`}
           </p>
         </div>
         {quotes.length > 0 && (
@@ -73,7 +79,7 @@ export function RfqQuotesSection({
             href={`/projects/${projectId}/order/rfq/${rfqId}/comparison`}
             className="group inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border-default bg-bg-elevated text-[13px] font-medium text-text-primary hover:bg-bg-input hover:border-text-muted/40 transition-colors"
           >
-            <span>View comparison</span>
+            <span>{t("quotes.viewComparison")}</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
         )}
@@ -83,11 +89,10 @@ export function RfqQuotesSection({
         <div className="px-6 py-10 text-center">
           <Clock className="w-8 h-8 text-text-muted mx-auto mb-3" />
           <p className="text-sm text-text-secondary">
-            Waiting for vendors to respond.
+            {t("quotes.waitingTitle")}
           </p>
           <p className="text-xs text-text-muted mt-1">
-            Invited vendors will see this RFQ in their portal and submit quotes
-            from there.
+            {t("quotes.waitingHint")}
           </p>
         </div>
       ) : (
@@ -119,20 +124,25 @@ export function RfqQuotesSection({
                     <ResponseSourceBadge source={q.response_source} />
                     {isNew && (
                       <span className="text-xs font-medium text-status-submitted bg-status-submitted/10 px-1.5 py-0.5 rounded">
-                        New
+                        {t("quotes.newBadge")}
                       </span>
                     )}
                     {q.is_late && (
                       <span className="text-xs font-medium text-warning bg-warning/10 px-1.5 py-0.5 rounded">
-                        Late
+                        {t("quotes.late")}
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-text-muted mt-0.5">
-                    {isDeclined ? "Declined" : "Submitted"}{" "}
+                    {isDeclined
+                      ? t("quotes.declinedLabel")
+                      : t("quotes.submittedLabel")}{" "}
                     {formatDate(q.submitted_at)}
                     {q.valid_until && (
-                      <> · Valid until {formatDate(q.valid_until)}</>
+                      <>
+                        {" · "}
+                        {t("comparison.validUntil")} {formatDate(q.valid_until)}
+                      </>
                     )}
                     {isDeclined && q.notes && <> · {q.notes}</>}
                   </div>
@@ -143,7 +153,8 @@ export function RfqQuotesSection({
                           a.fileType?.toUpperCase(),
                           a.source && RESPONSE_SOURCE_LABELS[a.source],
                           a.uploadedAt && formatDate(a.uploadedAt),
-                          a.uploadedByName && `by ${a.uploadedByName}`,
+                          a.uploadedByName &&
+                            t("quotes.uploadedBy", { name: a.uploadedByName }),
                         ]
                           .filter(Boolean)
                           .join(" · ");
@@ -182,7 +193,9 @@ export function RfqQuotesSection({
                 </div>
                 <div className="text-right tabular-nums text-sm shrink-0">
                   {isDeclined ? (
-                    <div className="text-xs text-text-muted">No bid</div>
+                    <div className="text-xs text-text-muted">
+                      {t("quotes.noBid")}
+                    </div>
                   ) : (
                     <>
                       <div className="text-text-primary font-medium">
@@ -205,13 +218,15 @@ export function RfqQuotesSection({
                           <button
                             type="button"
                             onClick={() => setHistoryQuote(q)}
-                            aria-label="Version history"
+                            aria-label={t("quotes.versionHistory")}
                             className="inline-flex items-center justify-center w-8 h-8 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-elevated transition-colors cursor-pointer"
                           >
                             <History className="w-4 h-4" />
                           </button>
                         </TooltipTrigger>
-                        <TooltipContent>Version history</TooltipContent>
+                        <TooltipContent>
+                          {t("quotes.versionHistory")}
+                        </TooltipContent>
                       </Tooltip>
                     )}
                   </div>
@@ -223,7 +238,7 @@ export function RfqQuotesSection({
                     className="cursor-pointer shrink-0"
                   >
                     <Award className="w-4 h-4" />
-                    Award
+                    {t("quotes.award")}
                   </Button>
                 )}
               </li>

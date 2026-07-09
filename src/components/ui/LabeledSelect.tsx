@@ -24,6 +24,8 @@ interface Props {
   options: LabeledSelectOption[];
   placeholder?: string;
   disabled?: boolean;
+  /** Render a red `*` after the label, matching `Input`. */
+  required?: boolean;
 }
 
 /**
@@ -38,11 +40,13 @@ export function LabeledSelect({
   options,
   placeholder,
   disabled,
+  required,
 }: Props) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-text-secondary">
         {label}
+        {required && <span className="text-error ml-0.5">*</span>}
       </label>
       <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger>

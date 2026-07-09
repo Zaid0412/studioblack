@@ -169,7 +169,10 @@ export function RfqCreateForm({ projectId }: Props) {
     setSubmitting(false);
     if (rfq) {
       toast({ title: t("create.successToast"), variant: "success" });
-      router.push(`/projects/${projectId}/order/rfq`);
+      // Land on the RFQ's own detail page (not the list) so "Issue to
+      // vendors" is right there — vendor selection is a separate step the
+      // PM would otherwise have no cue to go find.
+      router.push(`/projects/${projectId}/order/rfq/${rfq.id}`);
     }
   };
 

@@ -34,6 +34,13 @@ interface ImageSlotProps extends BaseProps {
 
 interface FileSlotProps extends BaseProps {
   variant: "file";
+  /** Allow picking several files at once (file variant only). */
+  multiple?: boolean;
+  /**
+   * Called with every successful upload when `multiple` is set — lets a
+   * controlled parent append the whole batch in one state update.
+   */
+  onUploadedMany?: (items: { url: string; fileName: string }[]) => void;
 }
 
 type Props = ImageSlotProps | FileSlotProps;
@@ -50,6 +57,15 @@ export function FileUploadSlot(props: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { uploading, uploadAndAttach } = useFileUpload();
 
+  const notifyFailure = (err: unknown) =>
+    // Surface the failure — a rejected file type, size cap, or network
+    // error otherwise fails silently and the slot just resets to empty.
+    toast({
+      title: t("uploadFailed"),
+      description: err instanceof Error ? err.message : undefined,
+      variant: "error",
+    });
+
   const handleFile = async (file: File | null) => {
     if (!file) return;
     try {
@@ -57,14 +73,30 @@ export function FileUploadSlot(props: Props) {
         props.onUploaded(result);
       });
     } catch (err) {
-      // Surface the failure — a rejected file type, size cap, or network
-      // error otherwise fails silently and the slot just resets to empty.
-      toast({
-        title: t("uploadFailed"),
-        description: err instanceof Error ? err.message : undefined,
-        variant: "error",
-      });
+      notifyFailure(err);
     }
+  };
+
+  /**
+   * Upload several picked files, then hand the whole batch back in one call so
+   * a controlled parent (AttachmentsEditor) can append them in a single state
+   * update — calling `onUploaded` per file would clobber controlled state.
+   */
+  const handleFiles = async (files: File[]) => {
+    const done: { url: string; fileName: string }[] = [];
+    for (const file of files) {
+      try {
+        await uploadAndAttach(file, async (result) => {
+          done.push(result);
+        });
+      } catch (err) {
+        notifyFailure(err);
+      }
+    }
+    if (done.length === 0) return;
+    const many = props.variant === "file" ? props.onUploadedMany : undefined;
+    if (many) many(done);
+    else done.forEach((r) => props.onUploaded(r));
   };
 
   const onPick = () => inputRef.current?.click();
@@ -192,9 +224,15 @@ export function FileUploadSlot(props: Props) {
         ref={inputRef}
         type="file"
         accept={accept}
+        multiple={props.variant === "file" && !!props.multiple}
         className="hidden"
         onChange={(e) => {
-          void handleFile(e.target.files?.[0] ?? null);
+          const files = Array.from(e.target.files ?? []);
+          if (props.variant === "file" && props.multiple && files.length > 1) {
+            void handleFiles(files);
+          } else {
+            void handleFile(files[0] ?? null);
+          }
           e.target.value = "";
         }}
       />

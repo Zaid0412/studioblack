@@ -13,8 +13,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useRfqSuggestedVendors } from "@/hooks/useRfqs";
 
 interface Props {
@@ -64,6 +70,7 @@ export function RfqIssueDialog({
   const t = mode === "invite" ? tInvite : tIssue;
 
   const [showAll, setShowAll] = useState(true);
+  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,6 +86,7 @@ export function RfqIssueDialog({
     if (open) {
       setSelected(new Set(preselectRef.current ?? []));
       setShowAll(true);
+      setQuery("");
     }
   }, [open]);
 
@@ -88,6 +96,18 @@ export function RfqIssueDialog({
     open,
     showAll
   );
+
+  // Client-side filter over the already-fetched list — matches name, code, or
+  // primary contact email.
+  const q = query.trim().toLowerCase();
+  const filteredVendors = q
+    ? vendors.filter(
+        (v) =>
+          v.company_name.toLowerCase().includes(q) ||
+          (v.vendor_code ?? "").toLowerCase().includes(q) ||
+          (v.primary_contact_email ?? "").toLowerCase().includes(q)
+      )
+    : vendors;
 
   const toggle = (id: string) => {
     if (locked.has(id)) return; // already invited — not togglable
@@ -121,6 +141,12 @@ export function RfqIssueDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("searchPlaceholder")}
+        />
+
         <div className="flex items-center justify-between gap-2 pb-1">
           <span className="text-xs text-text-muted">
             {showAll ? t("allLabel") : t("suggestedLabel")}
@@ -140,15 +166,15 @@ export function RfqIssueDialog({
             <p className="px-4 py-8 text-sm text-text-muted text-center">
               {t("loading")}
             </p>
-          ) : vendors.length === 0 ? (
+          ) : filteredVendors.length === 0 ? (
             <EmptyState
               icon={UsersRound}
               title={t("noVendors")}
-              description={t("noVendorsHint")}
+              description={q ? t("noSearchMatch") : t("noVendorsHint")}
             />
           ) : (
             <ul className="divide-y divide-border-default">
-              {vendors.map((v) => {
+              {filteredVendors.map((v) => {
                 const isLocked = locked.has(v.id);
                 return (
                   <li
@@ -177,9 +203,16 @@ export function RfqIssueDialog({
                           {v.company_name}
                         </span>
                         {v.preferred_vendor && (
-                          <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-                            {t("preferred")}
-                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent cursor-default">
+                                {t("preferred")}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {t("preferredTooltip")}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                         {isLocked && (
                           <span className="shrink-0 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
