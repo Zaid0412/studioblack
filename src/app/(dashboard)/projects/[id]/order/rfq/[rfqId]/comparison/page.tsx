@@ -113,6 +113,27 @@ export default function RfqComparisonPage({
           <p className="text-sm text-text-secondary mt-1">
             {rfq.rfq_number} — {rfq.title}
           </p>
+          {comparison &&
+            comparison.vendors.length + comparison.invited_no_response.length >
+              0 &&
+            (() => {
+              const responded = comparison.vendors.length;
+              const total = responded + comparison.invited_no_response.length;
+              const all = responded >= total;
+              return (
+                <span
+                  className={`inline-flex items-center mt-2 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    all
+                      ? "bg-success/10 text-success"
+                      : "bg-bg-secondary text-text-muted"
+                  }`}
+                >
+                  {all
+                    ? t("responded.all", { total })
+                    : t("responded.partial", { responded, total })}
+                </span>
+              );
+            })()}
         </div>
         {isPM && canAward && (
           <div className="flex items-center gap-2 shrink-0">

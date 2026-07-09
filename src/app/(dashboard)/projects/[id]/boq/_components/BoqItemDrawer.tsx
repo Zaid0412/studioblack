@@ -29,8 +29,10 @@ import type {
   AvailableRate,
   BoqItemWithComputed,
   BoqSection,
+  ElementCategoryNode,
   UserRole,
 } from "@/types";
+import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import type { BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
@@ -141,6 +143,8 @@ interface DrawerDraft {
   dimensionUnit: DimensionUnit;
   notes: string;
   clientNotes: string;
+  /** Service-area category id ("" = unclassified). Reclassification only. */
+  categoryId: string;
 }
 
 /** Keys compared numerically so "18" and "18.000" don't read as a change. */
@@ -198,6 +202,7 @@ const EMPTY_DRAFT: DrawerDraft = {
   dimensionUnit: "m",
   notes: "",
   clientNotes: "",
+  categoryId: "",
 };
 
 function seedDraft(item: BoqItemWithComputed): DrawerDraft {
@@ -224,6 +229,7 @@ function seedDraft(item: BoqItemWithComputed): DrawerDraft {
     dimensionUnit: item.dimension_unit,
     notes: item.notes ?? "",
     clientNotes: item.client_notes ?? "",
+    categoryId: item.category_id ?? "",
   };
 }
 
@@ -276,6 +282,9 @@ function buildPatch(
         break;
       case "clientNotes":
         patch.clientNotes = draft.clientNotes.trim() || null;
+        break;
+      case "categoryId":
+        patch.categoryId = draft.categoryId || null;
         break;
       case "quantity":
         patch.quantity = parseFloat(draft.quantity);
@@ -345,13 +354,19 @@ export function BoqItemDrawer({
   const { updateItem, setItemExcluded, setItemPhase } =
     useBoqMutations(projectId);
   const isExternal = isExternalViewer(role);
-  // PR C: studio-only "rate contract available/applied" indicator. The
-  // by-element endpoint is pm/architect only, so skip the fetch for viewers.
+  // PR C: studio-only "rate contract available/applied" indicator. The per-item
+  // rates endpoint is pm/architect only, so skip the fetch for viewers. Resolves
+  // by the item's service area, so free-text lines (no element) also match.
   const { data: rateData } = useSWR<{ rates: AvailableRate[] }>(
-    open && !isExternal && item?.element_id
-      ? API.rateContractsByElement(item.element_id)
+    open && !isExternal && item && (item.element_id || item.category_id)
+      ? API.boqItemRates(projectId, item.id)
       : null
   );
+  // Service-area tree for the reclassify picker (studio-only).
+  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
+    open && !isExternal ? API.elementCategories() : null
+  );
+  const categoryTree = catData?.tree ?? [];
   // Buffered edit state. Seeded when a new item opens; NOT re-seeded on SWR
   // revalidation, so a background refresh can't clobber in-progress edits.
   const [draft, setDraft] = useState<DrawerDraft>(() =>
@@ -698,6 +713,24 @@ export function BoqItemDrawer({
                   onSave={(next) => setField({ unit: next })}
                 />
               </div>
+              {!isExternal && (
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-medium text-text-secondary">
+                    {tRc("colServiceArea")}
+                  </span>
+                  {fieldsDisabled ? (
+                    <span className="text-sm text-text-primary">
+                      {item.category_name ?? "—"}
+                    </span>
+                  ) : (
+                    <CategorySelect
+                      value={draft.categoryId || null}
+                      onChange={(id) => setField({ categoryId: id ?? "" })}
+                      tree={categoryTree}
+                    />
+                  )}
+                </div>
+              )}
             </section>
 
             <section className="grid grid-cols-2 gap-3 text-sm">

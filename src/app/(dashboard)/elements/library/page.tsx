@@ -36,10 +36,10 @@ import { ElementTable } from "../_components/ElementTable";
 import { buildCategoryMap } from "@/lib/elementCategories";
 import { ElementFormDialog } from "../_components/ElementFormDialog";
 import { ImportDialog } from "../_components/ImportDialog";
-
-type SubmitValues = Parameters<
-  React.ComponentProps<typeof ElementFormDialog>["onSubmit"]
->[0];
+import {
+  buildElementMutationPayload,
+  type ElementSubmitValues as SubmitValues,
+} from "../_lib/elementFormPayload";
 
 /** Element Library page — master catalogue of construction elements. */
 export default function ElementsPage() {
@@ -136,7 +136,7 @@ export default function ElementsPage() {
   };
 
   const handleSubmit = async (values: SubmitValues) => {
-    const payload = buildMutationPayload(values);
+    const payload = buildElementMutationPayload(values);
     if (editing) {
       await update(editing.id, payload);
     } else {
@@ -326,35 +326,3 @@ export default function ElementsPage() {
 }
 
 /** Normalise form values into the API create/update payload shape. */
-function buildMutationPayload(values: SubmitValues) {
-  return {
-    code: values.code,
-    name: values.name,
-    description: values.description || undefined,
-    categoryId: values.categoryId ?? undefined,
-    unit: values.unit,
-    unitCost: values.unitCost,
-    currency: values.currency,
-    materialCost: values.materialCost,
-    labourCost: values.labourCost,
-    overheadPct: values.overheadPct,
-    serviceChargePct: values.serviceChargePct,
-    marginPct: values.marginPct,
-    clientRate: values.clientRate,
-    budgetRate: values.budgetRate,
-    specReference: values.specReference || undefined,
-    drawingRef: values.drawingRef || undefined,
-    tags: values.tags,
-    attributes: values.attributes.map((a, i) => ({
-      attribute_key: a.attribute_key,
-      attribute_value: a.attribute_value,
-      unit: a.unit,
-      sort_order: i,
-    })),
-    imageUrl: values.imageUrl,
-    drawingFileUrl: values.drawingFileUrl,
-    drawingFileName: values.drawingFileName,
-    specFileUrl: values.specFileUrl,
-    specFileName: values.specFileName,
-  };
-}

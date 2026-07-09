@@ -67,3 +67,28 @@ export function elementAncestorCategoryIdsSql(
     SELECT id FROM anc
   )`;
 }
+
+/**
+ * SQL fragment resolving the category bound to `$<categoryParamIndex>` plus
+ * every ancestor, for use inside an `IN (...)` clause. The category-keyed twin
+ * of `elementAncestorCategoryIdsSql` — lets a line that carries only a
+ * `category_id` (a free-text BOQ item with no element) match rates and vendors
+ * the same way an element-backed line does. Same "ancestor covers descendant"
+ * rule, keyed off a category rather than an element.
+ */
+export function categoryAncestorCategoryIdsSql(
+  categoryParamIndex: number
+): string {
+  return `(
+    WITH RECURSIVE anc AS (
+      SELECT ec.id, ec.parent_id
+        FROM element_category ec
+       WHERE ec.id = $${categoryParamIndex}
+      UNION ALL
+      SELECT p.id, p.parent_id
+        FROM element_category p
+        JOIN anc ON p.id = anc.parent_id
+    )
+    SELECT id FROM anc
+  )`;
+}

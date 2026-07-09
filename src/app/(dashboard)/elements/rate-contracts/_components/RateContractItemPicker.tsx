@@ -70,6 +70,7 @@ interface DraftRow {
   leadTimeDays: string;
   validUntil: string;
   taxPct: string;
+  notes: string;
   /** Whether the optional-detail section is expanded for this draft. */
   expanded: boolean;
 }
@@ -157,6 +158,7 @@ export function RateContractItemPicker({
         leadTimeDays: "",
         validUntil: "",
         taxPct: "",
+        notes: "",
         expanded: false,
       },
     ]);
@@ -174,7 +176,8 @@ export function RateContractItemPicker({
       d.maxQty ||
       d.leadTimeDays ||
       d.validUntil ||
-      d.taxPct
+      d.taxPct ||
+      d.notes
     );
 
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
@@ -210,6 +213,7 @@ export function RateContractItemPicker({
             leadTimeDays: numOrNull(d.leadTimeDays),
             validUntil: d.validUntil || null,
             taxPct: numOrNull(d.taxPct),
+            notes: d.notes.trim() || null,
           }))
       );
       onOpenChange(false);
@@ -443,6 +447,15 @@ export function RateContractItemPicker({
                               step="0.01"
                             />
                           </div>
+                          <Input
+                            label={t("itemNotes")}
+                            value={d.notes}
+                            onChange={(e) =>
+                              updateDraft(d.key, { notes: e.target.value })
+                            }
+                            placeholder={t("itemNotesPlaceholder")}
+                            maxLength={2000}
+                          />
                         </div>
                       </div>
                     </div>

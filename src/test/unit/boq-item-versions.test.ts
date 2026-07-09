@@ -40,12 +40,12 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
     await updateBoqItem(
       ITEM_ID,
       TOKEN,
-      { quantity: 20, changeReason: "scope_add", changeNote: "extra unit" },
+      { quantity: 20, changeReason: "specification", changeNote: "extra unit" },
       ACTOR
     );
 
     const params = mockQuery.mock.calls[0][1] as unknown[];
-    expect(params).toContain("scope_add");
+    expect(params).toContain("specification");
     expect(params).toContain("extra unit");
     expect(params).not.toContain("quantity");
   });

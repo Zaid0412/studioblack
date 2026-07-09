@@ -17,7 +17,7 @@ export const GET = withAuth(
     const vendorId = req.nextUrl.searchParams.get("vendorId") ?? undefined;
     const rates = await getActiveRatesForBoqItem(
       orgId,
-      params.elementId,
+      { elementId: params.elementId },
       vendorId
     );
     return NextResponse.json({ rates });

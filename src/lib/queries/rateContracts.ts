@@ -3,6 +3,7 @@ import type {
   RateContract,
   RateContractListRow,
   RateContractWithDetails,
+  RateContractHistoryEvent,
   AvailableRate,
   QuoteAttachment,
 } from "@/types";
@@ -14,7 +15,7 @@ import type {
   RateContractPriceBasis,
 } from "@/lib/validations";
 import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
-import { escapeSqlLike, elementAncestorCategoryIdsSql } from "./helpers";
+import { escapeSqlLike } from "./helpers";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
 import { runWithConcurrency } from "@/lib/concurrency";
@@ -220,11 +221,13 @@ export async function getRateContractById(
       rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
+      rc.project_id, rc.tax_included, rc.tax_percentage,
       rc.submitted_at, rc.approved_by, rc.approved_at, rc.review_note,
       rc.created_by, rc.created_at, rc.updated_at,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
       approver.name AS approved_by_name,
+      proj.name AS project_name,
       COALESCE(
         (
           SELECT json_agg(
@@ -264,6 +267,7 @@ export async function getRateContractById(
     FROM rate_contract rc
     JOIN vendor v ON v.id = rc.vendor_id
     LEFT JOIN "user" approver ON approver.id = rc.approved_by
+    LEFT JOIN project proj ON proj.id = rc.project_id
     WHERE rc.id = $1 AND rc.org_id = $2
   `;
   const { rows } = await pool.query(sql, [id, orgId]);
@@ -271,27 +275,94 @@ export async function getRateContractById(
 }
 
 /**
- * Active rates that apply to a BOQ item's element: an exact element rate, a rate
- * on the element's own service area, or a rate on any ancestor category. Each
- * row is tagged with `match_type` and sorted most-specific then cheapest first.
+ * Activity timeline for a rate contract — every `rate_contract.*` audit event
+ * against it, newest first. Mirrors `getBoqItemHistory` but keyed on the raw
+ * audit action + metadata (rate contracts have no phase model). Org-scoped,
+ * capped at 100.
+ */
+export async function getRateContractHistory(
+  orgId: string,
+  rcId: string
+): Promise<RateContractHistoryEvent[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT
+       ae.id::text   AS id,
+       ae.action     AS action,
+       ae.actor_id   AS actor_id,
+       u.name        AS actor_name,
+       m.role        AS actor_role,
+       ae.metadata   AS metadata,
+       ae.created_at AS created_at
+     FROM audit_event ae
+     LEFT JOIN "user" u ON u.id = ae.actor_id
+     LEFT JOIN member m ON m."userId" = ae.actor_id AND m."organizationId" = ae.org_id
+     WHERE ae.org_id = $1
+       AND ae.target_table = 'rate_contract'
+       AND ae.target_id = $2::uuid
+       AND ae.action LIKE 'rate_contract.%'
+     ORDER BY ae.created_at DESC, ae.id DESC
+     LIMIT 100`,
+    [orgId, rcId]
+  );
+  return rows.map((r) => ({
+    id: r.id as string,
+    action: r.action as string,
+    actor_id: r.actor_id as string | null,
+    actor_name: r.actor_name as string | null,
+    actor_role: r.actor_role as RateContractHistoryEvent["actor_role"],
+    metadata: r.metadata as Record<string, unknown> | null,
+    created_at:
+      r.created_at instanceof Date
+        ? r.created_at.toISOString()
+        : String(r.created_at),
+  }));
+}
+
+/**
+ * Active rates that apply to a BOQ line's service area: an exact element rate, a
+ * rate on the effective service area (the element's category, or a free-text
+ * line's own `category_id`), or a rate on any ancestor category. Each row is
+ * tagged with `match_type` and sorted most-specific then cheapest first.
  * Excludes archived elements and non-active contracts. Optional `vendorId`
- * scopes the result.
+ * scopes the result. `target` carries whichever of element/category the line
+ * has — a free-text line (no element) still matches via its category.
  */
 export async function getActiveRatesForBoqItem(
   orgId: string,
-  elementId: string,
+  target: { elementId?: string | null; categoryId?: string | null },
   vendorId?: string
 ): Promise<AvailableRate[]> {
+  const elementId = target.elementId ?? null;
+  const categoryId = target.categoryId ?? null;
+  if (!elementId && !categoryId) return [];
+
   const pool = getPool();
-  const params: unknown[] = [orgId, elementId];
+  const params: unknown[] = [orgId, elementId, categoryId];
   let vendorClause = "";
   if (vendorId) {
     params.push(vendorId);
     vendorClause = `AND rc.vendor_id = $${params.length}`;
   }
   const { rows } = await pool.query(
-    // `elem` resolves the target element's service area once (not per row).
-    `WITH elem AS (SELECT category_id FROM element WHERE id = $2)
+    // `effective` resolves the line's element (if any) + service area once: an
+    // element's own category wins; otherwise the free-text line's category_id.
+    // `anc` walks that category to the root so ancestor rates match too.
+    `WITH RECURSIVE effective AS (
+       SELECT
+         $2::uuid AS element_id,
+         COALESCE(
+           (SELECT category_id FROM element WHERE id = $2::uuid),
+           $3::uuid
+         ) AS category_id
+     ),
+     anc AS (
+       SELECT ec.id, ec.parent_id FROM element_category ec
+        WHERE ec.id = (SELECT category_id FROM effective)
+       UNION ALL
+       SELECT p.id, p.parent_id FROM element_category p
+        JOIN anc ON p.id = anc.parent_id
+     )
      SELECT * FROM (
        SELECT
          rci.id AS rate_contract_item_id,
@@ -311,12 +382,12 @@ export async function getActiveRatesForBoqItem(
          rc.currency,
          rc.end_date,
          CASE
-           WHEN rci.element_id = $2 THEN 'element'
-           WHEN rci.category_id = elem.category_id THEN 'service_area'
+           WHEN eff.element_id IS NOT NULL AND rci.element_id = eff.element_id THEN 'element'
+           WHEN rci.category_id = eff.category_id THEN 'service_area'
            ELSE 'ancestor'
          END AS match_type
        FROM rate_contract_item rci
-       CROSS JOIN elem
+       CROSS JOIN effective eff
        JOIN rate_contract rc ON rc.id = rci.rate_contract_id
        JOIN vendor v ON v.id = rc.vendor_id
        JOIN element_category cat ON cat.id = rci.category_id
@@ -327,9 +398,8 @@ export async function getActiveRatesForBoqItem(
          ${vendorClause}
          AND (rci.element_id IS NULL OR e.is_active = true)
          AND (
-           rci.element_id = $2
-           OR (rci.element_id IS NULL
-               AND rci.category_id IN ${elementAncestorCategoryIdsSql(2)})
+           (eff.element_id IS NOT NULL AND rci.element_id = eff.element_id)
+           OR (rci.element_id IS NULL AND rci.category_id IN (SELECT id FROM anc))
          )
      ) ranked
      ORDER BY
@@ -338,6 +408,30 @@ export async function getActiveRatesForBoqItem(
     params
   );
   return rows.map((r) => ({ ...r, rate: Number(r.rate) })) as AvailableRate[];
+}
+
+/**
+ * Active rates for an existing BOQ item, resolved by its id. Reads the item's
+ * element + own category, then defers to `getActiveRatesForBoqItem`. Works for
+ * free-text lines (no element) via their `category_id`. Returns `[]` for an
+ * unknown item or one with neither element nor category.
+ */
+export async function getActiveRatesForBoqItemById(
+  orgId: string,
+  itemId: string,
+  vendorId?: string
+): Promise<AvailableRate[]> {
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `SELECT element_id, category_id FROM boq_item WHERE id = $1`,
+    [itemId]
+  );
+  if (rows.length === 0) return [];
+  return getActiveRatesForBoqItem(
+    orgId,
+    { elementId: rows[0].element_id, categoryId: rows[0].category_id },
+    vendorId
+  );
 }
 
 /**
@@ -356,7 +450,7 @@ export async function getBestRateForElements(
   // Each lookup runs a recursive-CTE ancestor walk; cap concurrency so a large
   // section can't fire hundreds of them at the pg pool in one request.
   await runWithConcurrency(unique, 8, async (elementId) => {
-    const rates = await getActiveRatesForBoqItem(orgId, elementId);
+    const rates = await getActiveRatesForBoqItem(orgId, { elementId });
     result[elementId] = rates[0] ?? null;
   });
   return result;

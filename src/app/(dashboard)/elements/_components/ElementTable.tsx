@@ -1,11 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
   MoreHorizontal,
   Copy,
   Edit3,
+  Eye,
   Archive,
   ArchiveRestore,
   Layers,
@@ -252,6 +254,12 @@ function ElementRow({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <Link href={`/elements/${element.id}`}>
+            <Eye className="w-4 h-4" />
+            {t("detailView")}
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={onEdit}>
           <Edit3 className="w-4 h-4" />
           {tCommon("edit")}

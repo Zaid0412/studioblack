@@ -109,6 +109,7 @@ export function RateContractItemTable({
                     : null,
                   it.tax_pct != null ? `${t("colTax")} ${it.tax_pct}%` : null,
                   it.valid_until ? `→ ${it.valid_until.slice(0, 10)}` : null,
+                  it.notes ? `${t("itemNotes")}: ${it.notes}` : null,
                 ]
                   .filter(Boolean)
                   .join(" · ");

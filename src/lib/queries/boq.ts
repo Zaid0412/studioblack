@@ -2,7 +2,10 @@ import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
-import { elementAncestorCategoryIdsSql } from "./helpers";
+import {
+  elementAncestorCategoryIdsSql,
+  categoryAncestorCategoryIdsSql,
+} from "./helpers";
 import type {
   Boq,
   BoqElementLite,
@@ -96,8 +99,8 @@ const ITEM_COMPUTED_COLS = `
  * and vice-versa. Used by `ITEM_SELECT` and the four mutation queries that
  * return a fresh item row (create / update / move / lifecycle).
  */
-const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived`;
-const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id`;
+const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived, cat.name AS category_name, cat.code_prefix AS category_code`;
+const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id LEFT JOIN element_category cat ON cat.id = bi.category_id`;
 
 const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN}`;
 
@@ -818,6 +821,8 @@ export async function reorderBoqSections(
 export interface CreateBoqItemInput {
   sectionId?: string | null;
   elementId?: string | null;
+  /** Direct service-area link (any tree level). Classifies free-text lines. */
+  categoryId?: string | null;
   /** Provenance — set by the create flow, not user-editable. Defaults to 'custom'. */
   source?: BoqItemSource;
   rateContractItemId?: string | null;
@@ -872,7 +877,7 @@ export async function createBoqItem(
          client_rate, budget_rate,
          length, breadth, height, dimension_unit,
          notes, client_notes,
-         sort_order, is_provisional, is_excluded
+         sort_order, is_provisional, is_excluded, category_id
        ) VALUES (
          $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
          $6, $7, $8, $9,
@@ -882,7 +887,7 @@ export async function createBoqItem(
          $19::numeric, $20::numeric, $21::numeric, COALESCE($22, 'm'),
          $23, $24,
          COALESCE($25::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         COALESCE($26, false), COALESCE($27, false)
+         COALESCE($26, false), COALESCE($27, false), $28::uuid
        )
        RETURNING *
      )
@@ -918,6 +923,7 @@ export async function createBoqItem(
       input.sortOrder ?? null,
       input.isProvisional ?? null,
       input.isExcluded ?? null,
+      input.categoryId ?? null,
     ]
   );
   return rows[0];
@@ -925,6 +931,8 @@ export async function createBoqItem(
 
 export interface UpdateBoqItemInput {
   sectionId?: string | null;
+  /** Reclassify the line's service area. Internal — not a material change. */
+  categoryId?: string | null;
   itemCode?: string;
   name?: string | null;
   description?: string;
@@ -959,6 +967,7 @@ const ITEM_COLS: Record<
   string
 > = {
   sectionId: "section_id",
+  categoryId: "category_id",
   itemCode: "item_code",
   name: "name",
   description: "description",
@@ -1279,15 +1288,16 @@ export type ApplyRateOutcome =
   | { ok: true; item: BoqItemWithComputed }
   | {
       ok: false;
-      reason: "not_found" | "conflict" | "no_element" | "rate_not_applicable";
+      reason: "not_found" | "conflict" | "no_category" | "rate_not_applicable";
     };
 
 /**
  * Apply a rate-contract item's rate to an EXISTING BOQ item. The rate must
- * cover the item's element — by exact element, the element's service area, or
- * an ancestor category (same precedence as `getActiveRatesForBoqItem`). Sets
- * the unit cost + unit, marks the item `source='rate_contract'`, links the
- * rate, and re-opens client-approved items. Optimistic-locked on `updated_at`.
+ * cover the item's service area — by exact element, the effective service area
+ * (the element's category, or the free-text line's own `category_id`), or an
+ * ancestor category (same precedence as `getActiveRatesForBoqItem`). Sets the
+ * unit cost + unit, marks the item `source='rate_contract'`, links the rate,
+ * and re-opens client-approved items. Optimistic-locked on `updated_at`.
  */
 export async function applyRateContractToBoqItem(
   orgId: string,
@@ -1297,13 +1307,21 @@ export async function applyRateContractToBoqItem(
 ): Promise<ApplyRateOutcome> {
   const pool = getPool();
 
+  // Effective service area: an element's category wins over the line's own
+  // `category_id`; a free-text line falls back to its `category_id`.
   const itemRes = await pool.query(
-    `SELECT element_id FROM boq_item WHERE id = $1`,
+    `SELECT bi.element_id,
+            COALESCE(e.category_id, bi.category_id) AS category_id
+       FROM boq_item bi
+       LEFT JOIN element e ON e.id = bi.element_id
+      WHERE bi.id = $1`,
     [itemId]
   );
   if (itemRes.rows.length === 0) return { ok: false, reason: "not_found" };
   const elementId = itemRes.rows[0].element_id as string | null;
-  if (!elementId) return { ok: false, reason: "no_element" };
+  const categoryId = itemRes.rows[0].category_id as string | null;
+  // Unclassified line (no element AND no category) can't match any rate.
+  if (!elementId && !categoryId) return { ok: false, reason: "no_category" };
 
   const rateRes = await pool.query(
     `SELECT rci.rate, rci.unit
@@ -1314,11 +1332,12 @@ export async function applyRateContractToBoqItem(
         AND rc.org_id = $2
         AND rc.status = 'active'
         AND (
-          rci.element_id = $3
-          OR (rci.element_id IS NULL
-              AND rci.category_id IN ${elementAncestorCategoryIdsSql(3)})
+          ($3::uuid IS NOT NULL AND rci.element_id = $3)
+          OR ($4::uuid IS NOT NULL
+              AND rci.element_id IS NULL
+              AND rci.category_id IN ${categoryAncestorCategoryIdsSql(4)})
         )`,
-    [rateContractItemId, orgId, elementId]
+    [rateContractItemId, orgId, elementId, categoryId]
   );
   if (rateRes.rows.length === 0) {
     return { ok: false, reason: "rate_not_applicable" };
@@ -1541,7 +1560,8 @@ export async function addElementToBoq(
   const pool = getPool();
   const { rows: elementRows } = await pool.query(
     `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
-            overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate
+            overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate,
+            category_id
      FROM element WHERE id = $1`,
     [params.elementId]
   );
@@ -1581,6 +1601,7 @@ export async function addElementToBoq(
   return createBoqItem(boqId, orgId, {
     sectionId: params.sectionId,
     elementId: params.elementId,
+    categoryId: e.category_id ?? null,
     source,
     rateContractItemId: params.rateContractItemId ?? null,
     itemCode: e.code,

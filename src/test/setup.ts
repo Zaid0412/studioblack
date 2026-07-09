@@ -468,7 +468,9 @@ vi.mock("@/lib/queries", () => ({
   // Rate Contracts (Feature 7.5)
   listRateContracts: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
   getRateContractById: vi.fn().mockResolvedValue(null),
+  getRateContractHistory: vi.fn().mockResolvedValue([]),
   getActiveRatesForBoqItem: vi.fn().mockResolvedValue([]),
+  getActiveRatesForBoqItemById: vi.fn().mockResolvedValue([]),
   getBestRateForElements: vi.fn().mockResolvedValue({}),
   getAvailableRatesForBoqPicker: vi.fn().mockResolvedValue([]),
   createRateContract: vi.fn(),

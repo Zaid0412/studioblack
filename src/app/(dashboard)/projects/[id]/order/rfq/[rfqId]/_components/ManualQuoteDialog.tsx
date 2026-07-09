@@ -179,7 +179,9 @@ export function ManualQuoteDialog({
   );
   const isDirty = !existing || (baseline !== null && current !== baseline);
 
-  const hasRequiredFields = vendorId && source && receivedDate && hasAnyPrice;
+  // §16: Remarks are mandatory when a PM records a quote on the vendor's behalf.
+  const hasRequiredFields =
+    vendorId && source && receivedDate && hasAnyPrice && notes.trim();
   const canSubmit = hasRequiredFields && isDirty;
 
   // Explains why Save is disabled — shown only while the button is disabled.
@@ -201,7 +203,7 @@ export function ManualQuoteDialog({
         validUntil: validUntil ? toIsoDate(validUntil) : null,
         deliveryPeriod: deliveryPeriod || null,
         paymentTerms: paymentTerms || null,
-        notes: notes || null,
+        notes: notes.trim(),
         attachments,
         items: rfq.items
           .filter((it) => isFilled(it.id))
@@ -395,11 +397,13 @@ export function ManualQuoteDialog({
             <div className="md:col-span-2">
               <label className="text-[13px] font-medium text-text-secondary mb-1.5 block">
                 {t("notesLabel")}
+                <span className="text-error ml-0.5">*</span>
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
+                placeholder={t("notesRequiredPlaceholder")}
                 className="w-full rounded-lg border border-border-default bg-bg-input p-2 text-sm text-text-primary"
                 maxLength={10000}
               />

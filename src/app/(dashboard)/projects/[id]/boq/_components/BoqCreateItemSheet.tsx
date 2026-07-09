@@ -75,7 +75,12 @@ interface FormState {
   attributes: Attribute[];
   notes: string;
   saveAsElement: boolean;
-  saveCategoryId: string | null;
+  /**
+   * Service area for the line (any tree level). Classifies the BOQ item so it
+   * matches rate contracts / drives vendor suggestion even when it's free-text
+   * (not saved to the library). Reused as the element's category when saving.
+   */
+  categoryId: string | null;
 }
 
 const INITIAL: FormState = {
@@ -109,7 +114,7 @@ const INITIAL: FormState = {
   attributes: [],
   notes: "",
   saveAsElement: false,
-  saveCategoryId: null,
+  categoryId: null,
 };
 
 interface Props {
@@ -360,7 +365,7 @@ export function BoqCreateItemSheet({
           code: trimmedCode,
           name: trimmedName,
           description: trimmedDesc,
-          categoryId: v.saveCategoryId ?? undefined,
+          categoryId: v.categoryId ?? undefined,
           unit: v.unit,
           unitCost: num(v.unitCost, 0),
           currency: v.currency,
@@ -390,6 +395,7 @@ export function BoqCreateItemSheet({
         boqId,
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
         elementId,
+        categoryId: v.categoryId ?? null,
         itemCode: trimmedCode || undefined,
         // Persist even when `saveAsElement` is off — the BOQ item's own
         // `name` is what the drawer shows when there's no linked element.
@@ -494,6 +500,15 @@ export function BoqCreateItemSheet({
               projectId={projectId}
               boqId={boqId}
               nextSortOrder={sections.length}
+            />
+
+            {/* Service area — classifies the line so it can match rate
+                contracts / vendor suggestion, even when it's free-text. */}
+            <CategorySelect
+              label="Service area"
+              value={v.categoryId}
+              onChange={(id) => set("categoryId", id)}
+              tree={categoryTree}
             />
 
             {/* Description */}
@@ -832,27 +847,7 @@ export function BoqCreateItemSheet({
                   </span>
                 </label>
               </div>
-              {/* Animated reveal: grid-rows trick lets us transition from
-                  0 → auto height without a fixed pixel target. */}
-              <div
-                className={`grid transition-[grid-template-rows,opacity,margin-top] duration-200 ease-out ${
-                  v.saveAsElement
-                    ? "grid-rows-[1fr] opacity-100 mt-3"
-                    : "grid-rows-[0fr] opacity-0 mt-0"
-                }`}
-                aria-hidden={!v.saveAsElement}
-              >
-                <div className="overflow-hidden">
-                  <div className="pl-7">
-                    <CategorySelect
-                      label="Save under category"
-                      value={v.saveCategoryId}
-                      onChange={(id) => set("saveCategoryId", id)}
-                      tree={categoryTree}
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Saving to the library reuses the Service area chosen above. */}
             </div>
             <div className="flex flex-row justify-end gap-2 px-6 py-3">
               <SheetClose asChild>
