@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { Star } from "lucide-react";
 import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
@@ -18,14 +19,16 @@ interface Props {
  * are dimmed. Footer shows grand totals per vendor.
  */
 export function QuoteComparisonTable({ comparison }: Props) {
+  const t = useTranslations("rfq");
+
   if (comparison.vendors.length === 0) {
     return (
       <div className="rounded-xl border border-border-default bg-bg-secondary p-10 text-center">
         <p className="text-sm text-text-secondary">
-          No quotes have been submitted yet.
+          {t("comparison.emptyTitle")}
         </p>
         <p className="text-xs text-text-muted mt-1">
-          Vendors invited to this RFQ can submit quotes from their portal.
+          {t("comparison.emptyHint")}
         </p>
       </div>
     );
@@ -38,13 +41,13 @@ export function QuoteComparisonTable({ comparison }: Props) {
           <thead className="bg-bg-elevated">
             <tr>
               <th className="sticky left-0 z-10 bg-bg-elevated text-left px-4 py-3 font-medium text-text-muted border-r border-border-default min-w-[240px]">
-                Item
+                {t("comparison.colItem")}
               </th>
               <th className="text-left px-3 py-3 font-medium text-text-muted">
-                Qty / Unit
+                {t("comparison.colQtyUnit")}
               </th>
               <th className="text-right px-3 py-3 font-medium text-text-muted whitespace-nowrap">
-                Proposed
+                {t("comparison.colEstimate")}
               </th>
               {comparison.vendors.map((v) => {
                 const quotedCount = comparison.items.filter(
@@ -66,12 +69,15 @@ export function QuoteComparisonTable({ comparison }: Props) {
                         <ResponseSourceBadge source={v.response_source} />
                         {v.is_late && (
                           <span className="text-[10px] font-medium text-warning bg-warning/10 px-1 py-0.5 rounded">
-                            Late
+                            {t("quotes.late")}
                           </span>
                         )}
                       </div>
                       <span className="text-[11px] font-normal text-text-muted">
-                        {quotedCount}/{comparison.items.length} items quoted
+                        {t("comparison.itemsQuotedCount", {
+                          quoted: quotedCount,
+                          total: comparison.items.length,
+                        })}
                       </span>
                     </div>
                   </th>
@@ -166,27 +172,38 @@ export function QuoteComparisonTable({ comparison }: Props) {
                 colSpan={3}
                 className="sticky left-0 bg-bg-elevated px-4 py-3 text-right font-semibold text-text-primary border-r border-border-default"
               >
-                Grand total
+                {t("comparison.grandTotal")}
               </td>
-              {comparison.vendors.map((v) => (
-                <td
-                  key={v.vendor_id}
-                  className={`px-4 py-3 text-right tabular-nums border-l border-border-default font-semibold ${
-                    isInactiveQuote(v.quote_status)
-                      ? "opacity-60 text-text-muted"
-                      : "text-text-primary"
-                  }`}
-                >
-                  {v.grand_total.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  <span className="text-xs text-text-muted">{v.currency}</span>
-                </td>
-              ))}
+              {comparison.vendors.map((v) => {
+                const inactive = isInactiveQuote(v.quote_status);
+                return (
+                  <td
+                    key={v.vendor_id}
+                    className={`px-4 py-3 text-right tabular-nums border-l border-border-default font-semibold ${
+                      inactive
+                        ? "opacity-60 text-text-muted"
+                        : "text-text-primary"
+                    }`}
+                  >
+                    {inactive ? (
+                      t("quotes.noBid")
+                    ) : (
+                      <>
+                        {v.grand_total.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        <span className="text-xs text-text-muted">
+                          {v.currency}
+                        </span>
+                      </>
+                    )}
+                  </td>
+                );
+              })}
             </tr>
             <FooterRow
-              label="Rating"
+              label={t("comparison.rating")}
               vendors={comparison.vendors}
               render={(v) =>
                 v.vendor_rating === null ? (
@@ -200,27 +217,34 @@ export function QuoteComparisonTable({ comparison }: Props) {
               }
             />
             <FooterRow
-              label="Prior awards"
+              label={t("comparison.priorAwards")}
               vendors={comparison.vendors}
               render={(v) => v.vendor_prior_awards}
             />
             <FooterRow
-              label="Delivery"
+              label={t("comparison.delivery")}
               vendors={comparison.vendors}
               render={(v) => v.delivery_period ?? "—"}
             />
             <FooterRow
-              label="Payment terms"
+              label={t("comparison.paymentTerms")}
               vendors={comparison.vendors}
               render={(v) => v.payment_terms ?? "—"}
             />
             <FooterRow
-              label="Valid until"
+              label={t("comparison.validUntil")}
               vendors={comparison.vendors}
               render={(v) => (v.valid_until ? formatDate(v.valid_until) : "—")}
             />
           </tfoot>
         </table>
+      </div>
+      <div className="px-4 py-2.5 border-t border-border-default bg-bg-elevated flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
+        <span className="inline-flex items-center gap-1">
+          <Star className="w-3 h-3 text-status-approved-arch fill-status-approved-arch" />
+          {t("comparison.legendLowest")}
+        </span>
+        <span>{t("comparison.legendInactive")}</span>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { use, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ArrowLeft, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -33,6 +34,7 @@ export default function RfqComparisonPage({
   params: Promise<{ id: string; rfqId: string }>;
 }) {
   const { id: projectId, rfqId } = use(params);
+  const t = useTranslations("rfq");
   const { role } = useUserRole();
   const isPM = role === "pm";
 
@@ -75,14 +77,14 @@ export default function RfqComparisonPage({
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to RFQs
+          {t("detail.back")}
         </Link>
         <EmptyState
           icon={FileText}
-          title="RFQ not found"
-          description="This RFQ may have been cancelled or moved."
+          title={t("detail.notFound")}
+          description={t("detail.notFoundHint")}
           action={{
-            label: "Back to RFQs",
+            label: t("detail.back"),
             href: `/projects/${projectId}/order/rfq`,
           }}
         />
@@ -97,14 +99,14 @@ export default function RfqComparisonPage({
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to {rfq.rfq_number}
+        {t("comparison.backToRfq", { number: rfq.rfq_number })}
       </Link>
 
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl lg:text-2xl font-bold text-text-primary">
-              Quote comparison
+              {t("comparison.title")}
             </h1>
             <RfqStatusBadge status={rfq.status} />
           </div>
@@ -122,7 +124,7 @@ export default function RfqComparisonPage({
               }}
               className="cursor-pointer"
             >
-              Split award
+              {t("comparison.splitAward")}
             </Button>
             <Button
               onClick={() => {
@@ -132,7 +134,7 @@ export default function RfqComparisonPage({
               className="cursor-pointer"
             >
               <Award className="w-4 h-4" />
-              Award
+              {t("quotes.award")}
             </Button>
           </div>
         )}
@@ -140,13 +142,13 @@ export default function RfqComparisonPage({
 
       {comparison && comparison.invited_no_response.length > 0 && (
         <div className="rounded-xl border border-border-default bg-bg-secondary px-4 py-3 text-xs text-text-muted">
-          Waiting on{" "}
+          {t("comparison.waitingOnPrefix")}{" "}
           <span className="text-text-secondary">
             {comparison.invited_no_response
               .map((v) => v.vendor_name)
               .join(", ")}
           </span>{" "}
-          to submit a quote.
+          {t("comparison.waitingOnSuffix")}
         </div>
       )}
 

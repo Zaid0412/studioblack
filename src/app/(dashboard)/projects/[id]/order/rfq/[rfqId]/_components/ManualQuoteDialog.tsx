@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -60,6 +61,7 @@ export function ManualQuoteDialog({
   preselectedVendorId,
   onEntered,
 }: Props) {
+  const t = useTranslations("rfq.quoteEntry");
   const [vendorId, setVendorId] = useState(preselectedVendorId ?? "");
   const [source, setSource] = useState<string>("email");
   const [receivedDate, setReceivedDate] = useState<Date | undefined>(undefined);
@@ -180,6 +182,14 @@ export function ManualQuoteDialog({
   const canSubmit =
     vendorId && source && receivedDate && hasAnyPrice && isDirty;
 
+  // Explains why Save is disabled — shown only while the button is disabled.
+  const disabledHint =
+    vendorId && source && receivedDate && hasAnyPrice && !isDirty
+      ? t("hintNoChanges")
+      : !canSubmit
+        ? t("hintMissingFields")
+        : null;
+
   async function handleSubmit() {
     if (!canSubmit || submitting || !receivedDate) return;
     setSubmitting(true);
@@ -201,12 +211,14 @@ export function ManualQuoteDialog({
             unitPrice: Number(prices.get(it.id)),
           })),
       });
-      toast({ title: existing ? "Revision saved" : "Quote recorded" });
+      toast({
+        title: existing ? t("revisionSavedToast") : t("quoteRecordedToast"),
+      });
       onEntered();
       onOpenChange(false);
     } catch (err) {
       toast({
-        title: err instanceof Error ? err.message : "Failed to save quote",
+        title: err instanceof Error ? err.message : t("saveFailedToast"),
         variant: "error",
       });
     } finally {
@@ -218,7 +230,7 @@ export function ManualQuoteDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Enter quote</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
             {rfq.rfq_number} — {rfq.title}
           </DialogDescription>
@@ -229,17 +241,17 @@ export function ManualQuoteDialog({
         <div className="max-h-[65vh] overflow-y-auto space-y-5 -mx-1.5 px-1.5">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <LabeledSelect
-              label="Vendor"
+              label={t("vendorLabel")}
               value={vendorId}
               onChange={setVendorId}
               options={vendors.map((v) => ({
                 value: v.vendor_id,
                 label: v.vendor_name,
               }))}
-              placeholder="Select a vendor"
+              placeholder={t("vendorPlaceholder")}
             />
             <LabeledSelect
-              label="Received via"
+              label={t("receivedViaLabel")}
               value={source}
               onChange={setSource}
               options={RFQ_MANUAL_RESPONSE_SOURCES.map((s) => ({
@@ -249,24 +261,32 @@ export function ManualQuoteDialog({
               }))}
             />
             <DatePicker
-              label="Received date"
+              label={t("receivedDateLabel")}
               value={receivedDate}
               onChange={setReceivedDate}
             />
           </div>
 
+          {/* Partial bidding (§14): pricing some lines and leaving others
+              blank is expected — call it out once, above the table. */}
+          <p className="text-xs text-text-muted -mb-1">
+            {t("partialBiddingHint")}
+          </p>
+
           <div className="overflow-x-auto rounded-md border border-border-default">
             <table className="w-full text-sm">
               <thead className="bg-bg-elevated text-text-muted">
                 <tr className="text-left">
-                  <th className="px-3 py-2 font-medium">Item</th>
-                  <th className="px-3 py-2 font-medium">Unit</th>
-                  <th className="px-3 py-2 font-medium text-right">Qty</th>
+                  <th className="px-3 py-2 font-medium">{t("col.item")}</th>
+                  <th className="px-3 py-2 font-medium">{t("col.unit")}</th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    {t("col.qty")}
+                  </th>
                   <th className="px-3 py-2 font-medium text-right w-36">
-                    Unit price
+                    {t("col.unitPrice")}
                   </th>
                   <th className="px-3 py-2 font-medium text-right w-28">
-                    Total
+                    {t("col.total")}
                   </th>
                 </tr>
               </thead>
@@ -310,7 +330,7 @@ export function ManualQuoteDialog({
                         />
                         {raw === "" && (
                           <div className="text-[11px] text-text-muted mt-0.5">
-                            Not quoting
+                            {t("notQuoting")}
                           </div>
                         )}
                       </td>
@@ -330,7 +350,7 @@ export function ManualQuoteDialog({
                     colSpan={4}
                     className="px-3 py-2 text-right text-sm font-medium text-text-primary"
                   >
-                    Grand total ({currency})
+                    {t("grandTotal", { currency })}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold text-text-primary">
                     {grandTotal.toLocaleString(undefined, {
@@ -345,34 +365,34 @@ export function ManualQuoteDialog({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <LabeledSelect
-              label="Currency"
+              label={t("currencyLabel")}
               value={currency}
               onChange={setCurrency}
               options={QUOTE_CURRENCIES.map((c) => ({ value: c, label: c }))}
             />
             <DatePicker
-              label="Valid until"
+              label={t("validUntilLabel")}
               value={validUntil}
               onChange={setValidUntil}
-              placeholder="Optional"
+              placeholder={t("optionalPlaceholder")}
             />
             <Input
-              label="Delivery period"
-              placeholder="e.g. 4–6 weeks"
+              label={t("deliveryPeriodLabel")}
+              placeholder={t("deliveryPeriodPlaceholder")}
               value={deliveryPeriod}
               onChange={(e) => setDeliveryPeriod(e.target.value)}
               maxLength={100}
             />
             <Input
-              label="Payment terms"
-              placeholder="e.g. 50% advance"
+              label={t("paymentTermsLabel")}
+              placeholder={t("paymentTermsPlaceholder")}
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
               maxLength={100}
             />
             <div className="md:col-span-2">
               <label className="text-[13px] font-medium text-text-secondary mb-1.5 block">
-                Notes
+                {t("notesLabel")}
               </label>
               <textarea
                 value={notes}
@@ -387,25 +407,31 @@ export function ManualQuoteDialog({
           {/* Evidence — the emailed PDF / screenshot / scanned quote. */}
           <div className="flex flex-col gap-2">
             <label className="text-[13px] font-medium text-text-secondary">
-              Evidence
+              {t("evidenceLabel")}
             </label>
+            <p className="text-xs text-text-muted -mt-1">{t("evidenceHint")}</p>
             <AttachmentsEditor
               value={attachments}
               onChange={setAttachments}
-              removeLabel="Remove"
+              removeLabel={t("removeAttachment")}
               withNotes
-              notesPlaceholder="Note (optional)"
+              notesPlaceholder={t("attachmentNotePlaceholder")}
             />
           </div>
         </div>
 
+        {disabledHint && (
+          <p className="text-xs text-text-muted text-right -mb-1">
+            {disabledHint}
+          </p>
+        )}
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="secondary">Cancel</Button>
+            <Button variant="secondary">{t("cancel")}</Button>
           </DialogClose>
           <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {existing ? "Save revision" : "Save quote"}
+            {existing ? t("saveRevision") : t("saveQuote")}
           </Button>
         </DialogFooter>
       </DialogContent>

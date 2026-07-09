@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -50,6 +51,8 @@ export function QuoteAwardDialog({
   onAwardSplit,
   initialMode = "single",
 }: Props) {
+  const t = useTranslations("rfq");
+  const tCommon = useTranslations("common");
   const awardableQuotes = useMemo(
     () => quotes.filter((q) => isAwardableQuote(q.status)),
     [quotes]
@@ -121,6 +124,34 @@ export function QuoteAwardDialog({
     [comparison, splitAssignments]
   );
 
+  // Running total for the split tab: sum the line total (unit price × qty)
+  // of whichever vendor is currently chosen per item. Currency is shown only
+  // when every assigned line shares one — split awards can mix vendors with
+  // different currencies, which the server-side award still allows per item.
+  const splitTotal = useMemo(() => {
+    if (!comparison) return null;
+    let sum = 0;
+    let assignedCount = 0;
+    const currencies = new Set<string>();
+    for (const row of comparison.items) {
+      const quoteItemId = splitAssignments.get(row.rfq_item_id);
+      if (!quoteItemId) continue;
+      for (const [vendorId, line] of Object.entries(row.vendor_prices)) {
+        if (line.quote_item_id === quoteItemId) {
+          sum += line.line_total;
+          assignedCount += 1;
+          const vendorCol = comparison.vendors.find(
+            (v) => v.vendor_id === vendorId
+          );
+          if (vendorCol) currencies.add(vendorCol.currency);
+          break;
+        }
+      }
+    }
+    if (assignedCount === 0) return null;
+    return { sum, currency: currencies.size === 1 ? [...currencies][0] : null };
+  }, [comparison, splitAssignments]);
+
   async function handleSubmit() {
     if (submitting) return;
     setSubmitting(true);
@@ -145,7 +176,7 @@ export function QuoteAwardDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Award RFQ</DialogTitle>
+          <DialogTitle>{t("quotes.awardDialogTitle")}</DialogTitle>
           <DialogDescription>
             {rfqNumber} — {rfqTitle}
           </DialogDescription>
@@ -161,7 +192,7 @@ export function QuoteAwardDialog({
                 : "border-transparent text-text-muted hover:text-text-primary"
             }`}
           >
-            Single vendor
+            {t("quotes.singleVendorTab")}
           </button>
           <button
             type="button"
@@ -172,7 +203,7 @@ export function QuoteAwardDialog({
                 : "border-transparent text-text-muted hover:text-text-primary"
             }`}
           >
-            Split per item
+            {t("quotes.splitPerItemTab")}
           </button>
         </div>
 
@@ -180,7 +211,7 @@ export function QuoteAwardDialog({
           <div className="max-h-[50vh] overflow-y-auto">
             {awardableQuotes.length === 0 ? (
               <p className="text-sm text-text-muted py-6 text-center">
-                No quotes are available to award.
+                {t("quotes.noAwardableQuotes")}
               </p>
             ) : (
               <ul className="divide-y divide-border-default">
@@ -216,12 +247,16 @@ export function QuoteAwardDialog({
                             {q.vendor_name}
                           </div>
                           <div className="text-xs text-text-muted">
-                            {q.is_late ? "Late · " : ""}Submitted{" "}
+                            {q.is_late ? `${t("quotes.late")} · ` : ""}
+                            {t("quotes.submittedLabel")}{" "}
                             {new Date(q.submitted_at).toLocaleDateString()}
                             {!full && comparison && (
                               <span className="text-warning">
-                                {" · "}Partial {covered}/{itemCount} — use Split
-                                award
+                                {" · "}
+                                {t("quotes.partialCoverage", {
+                                  covered,
+                                  total: itemCount,
+                                })}
                               </span>
                             )}
                           </div>
@@ -244,14 +279,18 @@ export function QuoteAwardDialog({
           <div className="max-h-[50vh] overflow-y-auto">
             {!comparison || comparison.items.length === 0 ? (
               <p className="text-sm text-text-muted py-6 text-center">
-                No comparison data available yet.
+                {t("quotes.noComparisonData")}
               </p>
             ) : (
               <table className="w-full text-sm">
                 <thead className="bg-bg-elevated text-text-muted">
                   <tr className="text-left">
-                    <th className="px-3 py-2 font-medium">Item</th>
-                    <th className="px-3 py-2 font-medium">Vendor</th>
+                    <th className="px-3 py-2 font-medium">
+                      {t("comparison.colItem")}
+                    </th>
+                    <th className="px-3 py-2 font-medium">
+                      {t("quotes.colVendor")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -277,7 +316,9 @@ export function QuoteAwardDialog({
                           }}
                           className="w-full rounded-md border border-border-default bg-bg-input px-2 py-1.5 text-sm cursor-pointer"
                         >
-                          <option value="">Choose vendor…</option>
+                          <option value="">
+                            {t("quotes.chooseVendorPlaceholder")}
+                          </option>
                           {Object.entries(row.vendor_prices).map(
                             ([vendorId, line]) => {
                               const v = comparison.vendors.find(
@@ -309,13 +350,27 @@ export function QuoteAwardDialog({
                 </tbody>
               </table>
             )}
+            {splitTotal && (
+              <div className="flex items-center justify-end gap-2 px-3 py-2.5 mt-1 border-t border-border-default text-sm">
+                <span className="text-text-muted">
+                  {t("quotes.splitTotal")}
+                </span>
+                <span className="font-semibold text-text-primary tabular-nums">
+                  {splitTotal.sum.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                  {splitTotal.currency ? ` ${splitTotal.currency}` : ""}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="secondary" className="cursor-pointer">
-              Cancel
+              {tCommon("cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -326,7 +381,7 @@ export function QuoteAwardDialog({
             className="cursor-pointer"
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Confirm award
+            {t("quotes.confirmAward")}
           </Button>
         </DialogFooter>
       </DialogContent>

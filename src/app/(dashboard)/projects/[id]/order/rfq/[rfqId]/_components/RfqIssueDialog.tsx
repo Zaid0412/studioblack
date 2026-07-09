@@ -15,6 +15,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useRfqSuggestedVendors } from "@/hooks/useRfqs";
 
 interface Props {
@@ -177,9 +182,16 @@ export function RfqIssueDialog({
                           {v.company_name}
                         </span>
                         {v.preferred_vendor && (
-                          <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-                            {t("preferred")}
-                          </span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="shrink-0 rounded-md bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent cursor-default">
+                                {t("preferred")}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {t("preferredTooltip")}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                         {isLocked && (
                           <span className="shrink-0 rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">

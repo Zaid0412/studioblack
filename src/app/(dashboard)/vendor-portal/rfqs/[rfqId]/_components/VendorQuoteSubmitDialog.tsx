@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -66,6 +67,7 @@ export function VendorQuoteSubmitDialog({
   onOpenChange,
   onSubmit,
 }: Props) {
+  const t = useTranslations("vendorPortal.quote");
   const initialPrices = useMemo(() => {
     const map = new Map<string, string>();
     for (const it of rfq.items) {
@@ -137,6 +139,11 @@ export function VendorQuoteSubmitDialog({
     return new Date() > new Date(`${rfq.response_deadline}T23:59:59`);
   }, [rfq.response_deadline]);
 
+  // The RFQ itself carries no currency — only a submitted quote does. For a
+  // fresh submission there's nothing to read yet, so fall back to the same
+  // default the API applies server-side (see quote schema in lib/validations).
+  const currency = existing?.currency ?? "USD";
+
   const grandTotal = useMemo(() => {
     let sum = 0;
     for (const it of rfq.items) {
@@ -178,6 +185,14 @@ export function VendorQuoteSubmitDialog({
   );
   const isDirty = !existing || (baseline !== null && current !== baseline);
 
+  // Explains why Submit/Save is disabled — shown only while the button is
+  // disabled.
+  const disabledHint = !hasAnyPrice
+    ? t("hintMissingPrice")
+    : !isDirty
+      ? t("hintNoChanges")
+      : null;
+
   async function handleSubmit() {
     if (!hasAnyPrice || submitting || !isDirty) return;
     setSubmitting(true);
@@ -206,7 +221,7 @@ export function VendorQuoteSubmitDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            {existing ? "Revise quote" : "Submit quote"}
+            {existing ? t("titleRevise") : t("titleSubmit")}
           </DialogTitle>
           <DialogDescription>
             {rfq.rfq_number} — {rfq.title}
@@ -217,28 +232,36 @@ export function VendorQuoteSubmitDialog({
           <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-text-primary">
             <AlertTriangle className="w-4 h-4 mt-0.5 text-warning" />
             <div>
-              <p className="font-medium">Late submission</p>
+              <p className="font-medium">{t("lateBadgeTitle")}</p>
               <p className="text-text-secondary">
-                The deadline ({formatDate(rfq.response_deadline!)}) has passed.
-                Your quote will be flagged as late.
+                {t("lateBadgeDescription", {
+                  deadline: formatDate(rfq.response_deadline!),
+                })}
               </p>
             </div>
           </div>
         )}
+
+        {/* Partial bidding (§14): pricing some lines and leaving others
+            blank is expected — call it out once, above the table. This
+            matters most here since the vendor has the least context. */}
+        <p className="text-xs text-text-muted">{t("partialBiddingHint")}</p>
 
         <div className="max-h-[60vh] overflow-y-auto space-y-5 pr-1">
           <div className="overflow-x-auto rounded-md border border-border-default">
             <table className="w-full text-sm">
               <thead className="bg-bg-elevated text-text-muted">
                 <tr className="text-left">
-                  <th className="px-3 py-2 font-medium">Item</th>
-                  <th className="px-3 py-2 font-medium">Unit</th>
-                  <th className="px-3 py-2 font-medium text-right">Qty</th>
+                  <th className="px-3 py-2 font-medium">{t("col.item")}</th>
+                  <th className="px-3 py-2 font-medium">{t("col.unit")}</th>
+                  <th className="px-3 py-2 font-medium text-right">
+                    {t("col.qty")}
+                  </th>
                   <th className="px-3 py-2 font-medium text-right w-36">
-                    Unit price
+                    {t("col.unitPrice", { currency })}
                   </th>
                   <th className="px-3 py-2 font-medium text-right w-28">
-                    Total
+                    {t("col.total")}
                   </th>
                 </tr>
               </thead>
@@ -282,7 +305,7 @@ export function VendorQuoteSubmitDialog({
                         />
                         {raw === "" && (
                           <div className="text-[11px] text-text-muted mt-0.5">
-                            Not quoting
+                            {t("notQuoting")}
                           </div>
                         )}
                       </td>
@@ -302,7 +325,7 @@ export function VendorQuoteSubmitDialog({
                     colSpan={4}
                     className="px-3 py-2 text-right text-sm font-medium text-text-primary"
                   >
-                    Grand total
+                    {t("grandTotal", { currency })}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold text-text-primary">
                     {grandTotal.toLocaleString(undefined, {
@@ -317,56 +340,64 @@ export function VendorQuoteSubmitDialog({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <DatePicker
-              label="Valid until"
+              label={t("validUntilLabel")}
               value={validUntil}
               onChange={setValidUntil}
-              placeholder="Optional"
+              placeholder={t("optionalPlaceholder")}
             />
             <Input
-              label="Delivery period"
-              placeholder="e.g. 4–6 weeks"
+              label={t("deliveryPeriodLabel")}
+              placeholder={t("deliveryPeriodPlaceholder")}
               value={deliveryPeriod}
               onChange={(e) => setDeliveryPeriod(e.target.value)}
               maxLength={100}
             />
             <Input
-              label="Payment terms"
-              placeholder="e.g. 50% advance, 50% on delivery"
+              label={t("paymentTermsLabel")}
+              placeholder={t("paymentTermsPlaceholder")}
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
               maxLength={100}
             />
             <div className="md:col-span-2">
               <label className="text-xs font-medium text-text-muted mb-1.5 block">
-                Notes
+                {t("notesLabel")}
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                placeholder="Any clarifications, exclusions, or alternative specs."
+                placeholder={t("notesPlaceholder")}
                 className="w-full rounded-md border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary/40"
               />
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-medium text-text-muted mb-1.5 block">
-                Evidence
+                {t("evidenceLabel")}
               </label>
+              <p className="text-xs text-text-muted mb-2">
+                {t("evidenceHint")}
+              </p>
               <AttachmentsEditor
                 value={attachments}
                 onChange={setAttachments}
-                removeLabel="Remove"
+                removeLabel={t("removeAttachment")}
                 withNotes
-                notesPlaceholder="Note (optional)"
+                notesPlaceholder={t("attachmentNotePlaceholder")}
               />
             </div>
           </div>
         </div>
 
+        {disabledHint && (
+          <p className="text-xs text-text-muted text-right -mb-1">
+            {disabledHint}
+          </p>
+        )}
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="secondary" className="cursor-pointer">
-              Cancel
+              {t("cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -375,7 +406,7 @@ export function VendorQuoteSubmitDialog({
             className="cursor-pointer"
           >
             {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            {existing ? "Save revision" : "Submit quote"}
+            {existing ? t("saveRevision") : t("titleSubmit")}
           </Button>
         </DialogFooter>
       </DialogContent>

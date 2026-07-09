@@ -24,12 +24,17 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/useToast";
 import { rateContracts as rcApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useFlag } from "@/hooks/useFlag";
-import type { RateContractWithDetails } from "@/types";
+import type { RateContractStatus, RateContractWithDetails } from "@/types";
 import type { ElementUnit, RateContractAction } from "@/lib/validations";
 import {
   RATE_CONTRACT_ACTIONS,
@@ -193,6 +198,19 @@ export default function RateContractDetailPage({ params }: Props) {
     data.status === "expired" ||
     data.status === "cancelled" ||
     data.status === "closed";
+  // One-line explainer of what the current status means and what happens
+  // next — surfaced under the status badge so a first-time PM doesn't have
+  // to guess that "Approved" still needs an explicit Activate step.
+  const statusCaptions: Record<RateContractStatus, string> = {
+    draft: t("statusCaption_draft"),
+    under_review: t("statusCaption_under_review"),
+    approved: t("statusCaption_approved"),
+    active: t("statusCaption_active"),
+    suspended: t("statusCaption_suspended"),
+    expired: t("statusCaption_expired"),
+    closed: t("statusCaption_closed"),
+    cancelled: t("statusCaption_cancelled"),
+  };
   // Actions legal from the current status, gated by role (PM-only approvals).
   const availableActions = RATE_CONTRACT_ACTIONS.filter((action) => {
     const transition = RATE_CONTRACT_TRANSITIONS[action];
@@ -231,17 +249,35 @@ export default function RateContractDetailPage({ params }: Props) {
               {availableActions.map((action) => {
                 const meta = ACTION_META[action];
                 const Icon = meta.icon;
+                const activateBlocked =
+                  action === "activate" && data.items.length === 0;
+                if (!activateBlocked) {
+                  return (
+                    <Button
+                      key={action}
+                      size="sm"
+                      variant={meta.variant}
+                      onClick={() => setPendingAction(action)}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {t(`action_${action}`)}
+                    </Button>
+                  );
+                }
                 return (
-                  <Button
-                    key={action}
-                    size="sm"
-                    variant={meta.variant}
-                    disabled={action === "activate" && data.items.length === 0}
-                    onClick={() => setPendingAction(action)}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {t(`action_${action}`)}
-                  </Button>
+                  <Tooltip key={action}>
+                    <TooltipTrigger asChild>
+                      {/* Disabled buttons don't reliably fire hover events —
+                          wrap in a span so the tooltip still triggers. */}
+                      <span>
+                        <Button size="sm" variant={meta.variant} disabled>
+                          <Icon className="w-4 h-4" />
+                          {t(`action_${action}`)}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("activateDisabledHint")}</TooltipContent>
+                  </Tooltip>
                 );
               })}
             </>
@@ -258,7 +294,12 @@ export default function RateContractDetailPage({ params }: Props) {
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4 rounded-lg border border-border-default bg-bg-secondary p-4">
         <Field label={t("status")}>
-          <RateContractStatusBadge status={data.status} />
+          <div className="flex flex-col gap-1">
+            <RateContractStatusBadge status={data.status} />
+            <span className="text-xs text-text-muted">
+              {statusCaptions[data.status]}
+            </span>
+          </div>
         </Field>
         <Field label={t("currency")}>
           <span className="text-sm text-text-primary">{data.currency}</span>

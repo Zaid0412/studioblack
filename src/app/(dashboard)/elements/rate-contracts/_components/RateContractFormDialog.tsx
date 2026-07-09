@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -18,6 +18,11 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { LabeledSearchableSelect } from "@/components/ui/LabeledSearchableSelect";
 import { LabeledSelect } from "@/components/ui/LabeledSelect";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AttachmentsEditor,
@@ -122,6 +127,31 @@ function contractToForm(c: RateContract): FormState {
     taxIncluded: c.tax_included,
     taxPercentage: c.tax_percentage != null ? String(c.tax_percentage) : "",
   };
+}
+
+/**
+ * Wraps a field so hovering it explains why it's disabled. No-ops (renders
+ * children unwrapped) when `active` is false, so it never affects layout or
+ * interaction on editable fields.
+ */
+function LockHint({
+  active,
+  hint,
+  children,
+}: {
+  active: boolean;
+  hint: string;
+  children: ReactNode;
+}) {
+  if (!active) return <>{children}</>;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div>{children}</div>
+      </TooltipTrigger>
+      <TooltipContent>{hint}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 /** Create / edit dialog for the rate-contract header. */
@@ -252,42 +282,54 @@ export function RateContractFormDialog({
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <LabeledSearchableSelect
-              label={t("vendor")}
-              required
-              disabled={isEdit}
-              value={values.vendorId}
-              onChange={(id) => set("vendorId", id)}
-              options={vendors.map((v) => ({
-                code: v.id,
-                name: v.company_name,
-              }))}
-              triggerPlaceholder={t("vendorPickerPlaceholder")}
-              hideTriggerCode
-              codeColumnClassName="hidden"
-              minContentWidth={320}
-            />
-            <Input
-              label={t("contractName")}
-              value={values.name}
-              onChange={(e) => set("name", e.target.value)}
-              required
-              maxLength={255}
-              disabled={isLocked}
-            />
-            <DatePicker label={t("startDate")} {...dateProps("startDate")} />
-            <DatePicker label={t("endDate")} {...dateProps("endDate")} />
-            <DatePicker
-              label={t("agreementSignedDate")}
-              {...dateProps("agreementSignedDate")}
-            />
-            <CurrencySelect
-              label={t("currency")}
-              value={values.currency}
-              onChange={(c) => set("currency", c)}
-              required
-              disabled={isLocked}
-            />
+            <LockHint active={isEdit} hint={t("vendorLockedHint")}>
+              <LabeledSearchableSelect
+                label={t("vendor")}
+                required
+                disabled={isEdit}
+                value={values.vendorId}
+                onChange={(id) => set("vendorId", id)}
+                options={vendors.map((v) => ({
+                  code: v.id,
+                  name: v.company_name,
+                }))}
+                triggerPlaceholder={t("vendorPickerPlaceholder")}
+                hideTriggerCode
+                codeColumnClassName="hidden"
+                minContentWidth={320}
+              />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("lockedFieldHint")}>
+              <Input
+                label={t("contractName")}
+                value={values.name}
+                onChange={(e) => set("name", e.target.value)}
+                required
+                maxLength={255}
+                disabled={isLocked}
+              />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("lockedFieldHint")}>
+              <DatePicker label={t("startDate")} {...dateProps("startDate")} />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("lockedFieldHint")}>
+              <DatePicker label={t("endDate")} {...dateProps("endDate")} />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("agreementSignedLockedHint")}>
+              <DatePicker
+                label={t("agreementSignedDate")}
+                {...dateProps("agreementSignedDate")}
+              />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("lockedFieldHint")}>
+              <CurrencySelect
+                label={t("currency")}
+                value={values.currency}
+                onChange={(c) => set("currency", c)}
+                required
+                disabled={isLocked}
+              />
+            </LockHint>
             <Input
               label={t("paymentTerms")}
               value={values.paymentTerms}

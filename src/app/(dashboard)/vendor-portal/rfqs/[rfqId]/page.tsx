@@ -157,7 +157,7 @@ export default function VendorPortalRfqDetailPage({
                 onClick={() => setDeclineOpen(true)}
                 className="cursor-pointer"
               >
-                Decline
+                {t("declineBtn")}
               </Button>
             )}
             {canSubmit && (
@@ -166,8 +166,8 @@ export default function VendorPortalRfqDetailPage({
                 className="cursor-pointer"
               >
                 {quote && quote.status !== "declined"
-                  ? "Revise quote"
-                  : "Submit quote"}
+                  ? t("reviseBtn")
+                  : t("submitBtn")}
               </Button>
             )}
             <RefreshButton
@@ -192,16 +192,16 @@ export default function VendorPortalRfqDetailPage({
               <CheckCircle2 className="w-5 h-5 mt-0.5 text-status-approved-arch shrink-0" />
               <div className="pr-6">
                 <div className="font-medium text-text-primary">
-                  Your quote was awarded
+                  {t("awardedBannerTitle")}
                 </div>
                 <div className="text-text-secondary text-xs">
-                  The studio will follow up with a purchase order shortly.
+                  {t("awardedBannerDesc")}
                 </div>
               </div>
               <button
                 type="button"
                 onClick={dismissBanner}
-                aria-label="Dismiss"
+                aria-label={t("awardedBannerDismiss")}
                 className="absolute top-2 right-2 p-1 rounded text-text-muted hover:text-text-primary hover:bg-black/5 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -216,10 +216,10 @@ export default function VendorPortalRfqDetailPage({
           <XCircle className="w-5 h-5 mt-0.5 text-text-muted shrink-0" />
           <div>
             <div className="font-medium text-text-primary">
-              This RFQ has been awarded
+              {t("awardedToOtherTitle")}
             </div>
             <div className="text-text-secondary text-xs">
-              Thank you for quoting — a different vendor was selected this time.
+              {t("awardedToOtherDesc")}
             </div>
           </div>
         </div>

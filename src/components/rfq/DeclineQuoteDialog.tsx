@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface Props {
@@ -22,6 +23,7 @@ export function DeclineQuoteDialog({
   vendorName,
   onConfirm,
 }: Props) {
+  const t = useTranslations("rfq.decline");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,26 +46,26 @@ export function DeclineQuoteDialog({
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Decline to quote"
-      description={`${
+      title={t("title")}
+      description={
         vendorName
-          ? `Record that ${vendorName} won't be quoting this RFQ.`
-          : "Let the studio know you won't be quoting this RFQ."
-      } You can still submit a quote later.`}
-      confirmLabel="Decline"
+          ? t("descriptionStudio", { vendor: vendorName })
+          : t("descriptionVendor")
+      }
+      confirmLabel={t("confirmLabel")}
       submitting={submitting}
       onConfirm={handleConfirm}
     >
       <div className="flex flex-col gap-2">
         <label className="text-[13px] font-medium text-text-secondary">
-          Reason (optional)
+          {t("reasonLabel")}
         </label>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
           maxLength={2000}
-          placeholder="e.g. outside our current capacity"
+          placeholder={t("reasonPlaceholder")}
           className="w-full rounded-lg border border-border-default bg-bg-input p-2 text-sm text-text-primary"
         />
       </div>
