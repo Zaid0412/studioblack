@@ -857,9 +857,9 @@ export interface CreateBoqItemInput {
  * Insert a BOQ item, auto-generating its `item_code` from the org sequence when
  * none is supplied. Pass `executor` (a transaction client) to run the insert
  * inside a caller-owned transaction — `addElementsToBoq` uses this so a batch is
- * atomic and each row's in-tx `MAX(sort_order)` sees the prior inserts. When an
- * `executor` is supplied the caller must provide `itemCode` (sequence
- * generation still uses the pool, which would sit outside that transaction).
+ * atomic and each row's in-tx `MAX(sort_order)` sees the prior inserts. The
+ * `item_code` sequence advance runs on the same `executor`, so a ROLLBACK
+ * reverses it (no burned codes / gaps).
  */
 export async function createBoqItem(
   boqId: string,
@@ -869,7 +869,7 @@ export async function createBoqItem(
 ): Promise<BoqItemWithComputed> {
   const itemCode = input.itemCode?.trim()
     ? input.itemCode.trim()
-    : await getNextSequenceNumber(orgId, "BOQ");
+    : await getNextSequenceNumber(orgId, "BOQ", executor);
 
   // Explicit ::numeric / ::int casts on numeric placeholders. Without them
   // pg infers the type from `COALESCE($N, 0)` as INTEGER (because the literal
@@ -1548,6 +1548,66 @@ export async function reorderBoqItems(
   );
 }
 
+/** The element cost columns both add-to-BOQ flows snapshot onto a line. */
+interface ElementCostRow {
+  code: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  unit_cost: string | number;
+  material_cost: string | number | null;
+  labour_cost: string | number | null;
+  overhead_pct: string | number | null;
+  service_charge_pct: string | number | null;
+  margin_pct: string | number | null;
+  client_rate: string | number | null;
+  budget_rate: string | number | null;
+  category_id: string | null;
+}
+
+/**
+ * Map a fetched element row (+ an optional resolved rate-contract rate) to a
+ * `createBoqItem` input. Shared by the single (`addElementToBoq`) and batch
+ * (`addElementsToBoq`) flows so the element→line field mapping and its
+ * null-coercion rules live in exactly one place.
+ */
+function elementRowToBoqItemInput(
+  e: ElementCostRow,
+  opts: {
+    sectionId: string | null;
+    elementId: string;
+    quantity?: number;
+    rateContractItemId?: string | null;
+    rc: { rate: string; unit: string } | null;
+  }
+): CreateBoqItemInput {
+  const { rc } = opts;
+  return {
+    sectionId: opts.sectionId,
+    elementId: opts.elementId,
+    categoryId: e.category_id ?? null,
+    source: rc ? "rate_contract" : "library",
+    rateContractItemId: opts.rateContractItemId ?? null,
+    itemCode: e.code,
+    description: e.description || e.name,
+    unit: rc ? rc.unit : e.unit,
+    quantity: opts.quantity ?? 1,
+    unitCost: rc ? Number(rc.rate) : Number(e.unit_cost),
+    materialCost: e.material_cost !== null ? Number(e.material_cost) : null,
+    labourCost: e.labour_cost !== null ? Number(e.labour_cost) : null,
+    overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,
+    serviceChargePct:
+      e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
+    marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
+    // Library default-flow: copy rates onto the line. The line can be
+    // edited independently after — changing one doesn't ripple to the
+    // library element or vice versa. `!= null` (loose) so an undefined
+    // (e.g. a test mock that omits the column) is treated as missing.
+    clientRate: e.client_rate != null ? Number(e.client_rate) : null,
+    budgetRate: e.budget_rate != null ? Number(e.budget_rate) : null,
+  };
+}
+
 /**
  * Snapshot a library element's costs into a new BOQ item. Returns null if the
  * element no longer exists. When `rateContractItemId` is supplied the unit
@@ -1565,20 +1625,17 @@ export async function addElementToBoq(
   }
 ): Promise<BoqItemWithComputed | null> {
   const pool = getPool();
-  const { rows: elementRows } = await pool.query(
+  const { rows: elementRows } = await pool.query<ElementCostRow>(
     `SELECT code, name, description, unit, unit_cost, material_cost, labour_cost,
             overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate,
             category_id
-     FROM element WHERE id = $1`,
-    [params.elementId]
+     FROM element WHERE id = $1 AND org_id = $2`,
+    [params.elementId, orgId]
   );
   if (elementRows.length === 0) return null;
   const e = elementRows[0];
 
-  let unitCost = Number(e.unit_cost);
-  let unit: string = e.unit;
-  let source: BoqItemSource = "library";
-
+  let rc: { rate: string; unit: string } | null = null;
   if (params.rateContractItemId) {
     const { rows: rcRows } = await pool.query(
       `SELECT rci.rate, rci.unit
@@ -1600,35 +1657,20 @@ export async function addElementToBoq(
         "Rate contract item not active or doesn't cover the chosen element"
       );
     }
-    unitCost = Number(rcRows[0].rate);
-    unit = rcRows[0].unit;
-    source = "rate_contract";
+    rc = { rate: String(rcRows[0].rate), unit: rcRows[0].unit };
   }
 
-  return createBoqItem(boqId, orgId, {
-    sectionId: params.sectionId,
-    elementId: params.elementId,
-    categoryId: e.category_id ?? null,
-    source,
-    rateContractItemId: params.rateContractItemId ?? null,
-    itemCode: e.code,
-    description: e.description || e.name,
-    unit,
-    quantity: params.quantity ?? 1,
-    unitCost,
-    materialCost: e.material_cost !== null ? Number(e.material_cost) : null,
-    labourCost: e.labour_cost !== null ? Number(e.labour_cost) : null,
-    overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,
-    serviceChargePct:
-      e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
-    marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
-    // Library default-flow: copy rates onto the line. The line can be
-    // edited independently after — changing one doesn't ripple to the
-    // library element or vice versa. `!= null` (loose) so an undefined
-    // (e.g. a test mock that omits the column) is treated as missing.
-    clientRate: e.client_rate != null ? Number(e.client_rate) : null,
-    budgetRate: e.budget_rate != null ? Number(e.budget_rate) : null,
-  });
+  return createBoqItem(
+    boqId,
+    orgId,
+    elementRowToBoqItemInput(e, {
+      sectionId: params.sectionId,
+      elementId: params.elementId,
+      quantity: params.quantity,
+      rateContractItemId: params.rateContractItemId ?? null,
+      rc,
+    })
+  );
 }
 
 /**
@@ -1753,27 +1795,13 @@ export async function addElementsToBoq(
       const inserted = await createBoqItem(
         boqId,
         orgId,
-        {
+        elementRowToBoqItemInput(e, {
           sectionId: params.sectionId,
           elementId: item.elementId,
-          categoryId: e.category_id ?? null,
-          source: rc ? "rate_contract" : "library",
+          quantity: item.quantity,
           rateContractItemId: item.rateContractItemId ?? null,
-          itemCode: e.code,
-          description: e.description || e.name,
-          unit: rc ? rc.unit : e.unit,
-          quantity: item.quantity ?? 1,
-          unitCost: rc ? Number(rc.rate) : Number(e.unit_cost),
-          materialCost:
-            e.material_cost !== null ? Number(e.material_cost) : null,
-          labourCost: e.labour_cost !== null ? Number(e.labour_cost) : null,
-          overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,
-          serviceChargePct:
-            e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
-          marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
-          clientRate: e.client_rate != null ? Number(e.client_rate) : null,
-          budgetRate: e.budget_rate != null ? Number(e.budget_rate) : null,
-        },
+          rc,
+        }),
         client
       );
       created.push(inserted);
@@ -2194,14 +2222,18 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
 /**
  * Atomically increment (or create) the counter for `(orgId, prefix, year)` and
  * return a formatted sequence string like `BOQ-2026-001`.
+ *
+ * Pass `executor` (a transaction client) to advance the counter inside a
+ * caller-owned transaction, so a ROLLBACK reverses the advance instead of
+ * burning a code and leaving a gap. Defaults to the pool for standalone use.
  */
 export async function getNextSequenceNumber(
   orgId: string,
-  prefix: string
+  prefix: string,
+  executor: Pool | PoolClient = getPool()
 ): Promise<string> {
   const year = new Date().getUTCFullYear();
-  const pool = getPool();
-  const { rows } = await pool.query<{ current_value: number }>(
+  const { rows } = await executor.query<{ current_value: number }>(
     `INSERT INTO sequence_counter (org_id, prefix, year, current_value)
      VALUES ($1, $2, $3, 1)
      ON CONFLICT (org_id, prefix, year)

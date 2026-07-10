@@ -70,10 +70,12 @@ describe("addElementToBoq", () => {
       quantity: 3,
     });
 
-    // First call is the element SELECT — verify it pulls service_charge_pct.
+    // First call is the element SELECT — verify it pulls service_charge_pct
+    // and is org-scoped (element must belong to the caller's org).
     const selectCall = mocks.db.query.mock.calls[0]!;
     expect(selectCall[0]).toContain("service_charge_pct");
-    expect(selectCall[1]).toEqual([ELEMENT_ID]);
+    expect(selectCall[0]).toContain("org_id = $2");
+    expect(selectCall[1]).toEqual([ELEMENT_ID, ORG]);
 
     // Second call is the createBoqItem INSERT — verify the params carry
     // source='library' (param $4) and the element's service_charge_pct
