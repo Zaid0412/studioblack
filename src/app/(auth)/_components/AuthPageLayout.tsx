@@ -54,7 +54,7 @@ export function AuthPageLayout({
         <div className="relative z-10 flex flex-col justify-end p-16 pb-20">
           {/* Logo */}
           <div className="flex items-center gap-3 -ml-5">
-            <BrandLogo size="lg" />
+            <BrandLogo size="lg" priority />
             {branding.showLogoText && (
               <span className="text-lg font-semibold text-text-primary">
                 {branding.appName}

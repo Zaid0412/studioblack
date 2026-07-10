@@ -15,6 +15,19 @@ export function SplashScreen() {
   const [hidden, setHidden] = useState(false);
   const [removed, setRemoved] = useState(false);
 
+  // The theme is known before hydration: ThemeProvider's blocking <script>
+  // stamps `data-theme` on <html> in <head>. Read it once on mount so only the
+  // active logo variant is fetched (mirrors BrandLogo.tsx / sidebar.tsx:
+  // dark → logoUrl, light → logoUrlDark ?? logoUrl).
+  const [isDark] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.documentElement.dataset.theme === "dark"
+  );
+  const logoSrc = isDark
+    ? branding.logoUrl
+    : (branding.logoUrlDark ?? branding.logoUrl);
+
   useEffect(() => {
     // Fade out after hydration + small delay for smoothness
     const timer = setTimeout(() => setHidden(true), 300);
@@ -36,24 +49,17 @@ export function SplashScreen() {
       style={{ opacity: hidden ? 0 : 1 }}
       aria-hidden="true"
     >
-      {/* Logo — two images, CSS hides the wrong one based on data-theme.
-           data-theme is set by ThemeProvider's blocking <script> in <head>,
-           so the correct logo shows before React hydrates. */}
+      {/* Logo — only the active theme variant is rendered/fetched. The variant
+           is chosen from the pre-hydration `data-theme` (see `isDark` above),
+           so the correct logo shows before React hydrates without a second
+           wasted high-priority fetch. */}
       <Image
-        src={branding.logoUrl}
+        src={logoSrc}
         alt=""
         width={branding.showLogoText ? 64 : 160}
         height={branding.showLogoText ? 64 : 160}
         priority
-        className={`${branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"} splash-logo-dark`}
-      />
-      <Image
-        src={branding.logoUrlDark ?? branding.logoUrl}
-        alt=""
-        width={branding.showLogoText ? 64 : 160}
-        height={branding.showLogoText ? 64 : 160}
-        priority
-        className={`${branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"} splash-logo-light`}
+        className={branding.showLogoText ? "w-16 h-16 rounded-xl" : "h-40 w-40"}
       />
 
       {/* Animated dots */}

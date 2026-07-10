@@ -31,6 +31,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { branding } from "@/config/branding";
@@ -177,10 +178,11 @@ export function Sidebar({
         )}
       >
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={logoSrc}
             alt={branding.appName}
+            width={96}
+            height={96}
             className={cn(
               "object-contain transition-all duration-200 ease-out",
               branding.showLogoText

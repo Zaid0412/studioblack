@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
@@ -19,6 +20,16 @@ const sizeStyles: Record<AvatarSize, string> = {
   xl: "w-16 h-16 text-xl",
 };
 
+// Numeric px map mirroring the Tailwind widths in `sizeStyles` so `next/image`
+// gets real dimensions (w-5/w-7/w-9/w-11/w-16 = 20/28/36/44/64px).
+const sizePx: Record<AvatarSize, number> = {
+  xs: 20,
+  sm: 28,
+  md: 36,
+  lg: 44,
+  xl: 64,
+};
+
 /**
  * Circular avatar displaying either an image or initials.
  *
@@ -34,10 +45,12 @@ export function Avatar({
 }: AvatarProps) {
   if (src) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={src}
         alt={initials}
+        width={sizePx[size]}
+        height={sizePx[size]}
+        sizes={`${sizePx[size]}px`}
         className={cn("rounded-full object-cover", sizeStyles[size], className)}
       />
     );

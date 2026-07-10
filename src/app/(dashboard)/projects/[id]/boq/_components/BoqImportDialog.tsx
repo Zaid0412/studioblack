@@ -46,6 +46,11 @@ const PREVIEW_COLUMNS = [
   { key: "unitCost", label: "Unit Cost" },
 ] as const;
 
+// Cap how many preview rows are rendered to the DOM. The full dataset (up to
+// the 5,000-row server cap) still submits on confirm — only the table render is
+// capped to avoid building tens of thousands of nodes synchronously.
+const PREVIEW_RENDER_CAP = 100;
+
 interface BoqImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -364,7 +369,7 @@ export function BoqImportDialog({
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.rows.map((row) => {
+                      {preview.rows.slice(0, PREVIEW_RENDER_CAP).map((row) => {
                         const parsed = row.parsed;
                         return (
                           <tr
@@ -410,6 +415,12 @@ export function BoqImportDialog({
                       })}
                     </tbody>
                   </table>
+                  {preview.rows.length > PREVIEW_RENDER_CAP && (
+                    <p className="px-3 py-2 text-sm text-text-muted italic">
+                      …and {preview.rows.length - PREVIEW_RENDER_CAP} more rows
+                      (all will be imported)
+                    </p>
+                  )}
                 </div>
               </div>
             )}
