@@ -60,6 +60,32 @@ interface QuoteRow extends VendorQuote {
   vendor_code: string | null;
 }
 
+/**
+ * Trimmed quote row for the comparison view — only the scalar columns
+ * `vendorColumns` renders (drops the `attachments` JSONB + other unused
+ * fields), plus the joined vendor info and the computed prior-awards count.
+ */
+type ComparisonQuoteRow = Pick<
+  VendorQuote,
+  | "id"
+  | "vendor_id"
+  | "status"
+  | "response_source"
+  | "is_late"
+  | "valid_until"
+  | "delivery_period"
+  | "payment_terms"
+  | "inclusions"
+  | "exclusions"
+  | "currency"
+  | "submitted_at"
+> & {
+  vendor_name: string;
+  vendor_code: string | null;
+  vendor_rating: string | null;
+  prior_awards: string;
+};
+
 function mapQuoteRow(r: QuoteRow): Omit<VendorQuoteWithItems, "items"> {
   return {
     id: r.id,
@@ -288,30 +314,45 @@ export async function getQuoteComparison(
         ORDER BY sort_order, description`,
       [rfqId]
     ),
-    pool.query<
-      QuoteRow & { vendor_rating: string | null; prior_awards: string }
-    >(
+    pool.query<ComparisonQuoteRow>(
       // prior_awards = distinct *logical* RFQs (by rfq_number) this vendor has
       // won — single (rfq.awarded_vendor_id) or split (rfq_item.awarded_vendor_id).
       // "Live wins only": superseded revisions are excluded, and the current
       // RFQ's own number is excluded so earlier versions of it don't count.
       // Org-scoped so the awarded_vendor_id partial indexes can be used.
-      `SELECT vq.*, v.company_name AS vendor_name, v.vendor_code,
+      //
+      // Computed ONCE via CTEs (was a per-vendor-row correlated subquery that
+      // also re-ran the two scalar org/rfq_number lookups V times): `this_rfq`
+      // hoists this RFQ's identity, `prior_awards` aggregates the org's wins by
+      // vendor, then a LEFT JOIN attaches the count. Columns are enumerated (not
+      // `vq.*`) to drop the unused `attachments` JSONB from the payload.
+      `WITH this_rfq AS (SELECT org_id, rfq_number FROM rfq WHERE id = $1),
+       prior_awards AS (
+         SELECT vendor_id, COUNT(DISTINCT rfq_number) AS cnt
+         FROM (
+           SELECT r.rfq_number, r.awarded_vendor_id AS vendor_id
+             FROM rfq r, this_rfq t
+            WHERE r.org_id = t.org_id AND r.status <> 'superseded'
+              AND r.rfq_number <> t.rfq_number
+              AND r.awarded_vendor_id IS NOT NULL
+           UNION ALL
+           SELECT r.rfq_number, ri.awarded_vendor_id AS vendor_id
+             FROM rfq r JOIN rfq_item ri ON ri.rfq_id = r.id, this_rfq t
+            WHERE r.org_id = t.org_id AND r.status <> 'superseded'
+              AND r.rfq_number <> t.rfq_number
+              AND ri.awarded_vendor_id IS NOT NULL
+         ) wins
+         GROUP BY vendor_id
+       )
+       SELECT vq.id, vq.vendor_id, vq.status, vq.response_source, vq.is_late,
+              vq.valid_until, vq.delivery_period, vq.payment_terms,
+              vq.inclusions, vq.exclusions, vq.currency, vq.submitted_at,
+              v.company_name AS vendor_name, v.vendor_code,
               v.rating AS vendor_rating,
-              (SELECT COUNT(DISTINCT r.rfq_number)
-                 FROM rfq r
-                WHERE r.org_id = (SELECT org_id FROM rfq WHERE id = $1)
-                  AND r.status <> 'superseded'
-                  AND r.rfq_number <> (SELECT rfq_number FROM rfq WHERE id = $1)
-                  AND (r.awarded_vendor_id = vq.vendor_id
-                       OR EXISTS (
-                         SELECT 1 FROM rfq_item ri
-                          WHERE ri.rfq_id = r.id
-                            AND ri.awarded_vendor_id = vq.vendor_id
-                       ))
-              ) AS prior_awards
+              COALESCE(pa.cnt, 0) AS prior_awards
          FROM vendor_quote vq
          JOIN vendor v ON v.id = vq.vendor_id
+         LEFT JOIN prior_awards pa ON pa.vendor_id = vq.vendor_id
         WHERE vq.rfq_id = $1 AND vq.is_current`,
       [rfqId]
     ),
@@ -341,10 +382,8 @@ export async function getQuoteComparison(
 
   // Index quote items by (rfq_item_id, vendor_id) via quote_id → vendor_id.
   const vendorByQuoteId = new Map<string, string>();
-  const quoteById = new Map<string, QuoteRow>();
   for (const q of quoteRes.rows) {
     vendorByQuoteId.set(q.id, q.vendor_id);
-    quoteById.set(q.id, q);
   }
 
   // rfq_item_id → vendor_id → quote line

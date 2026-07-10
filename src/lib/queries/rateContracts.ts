@@ -186,11 +186,13 @@ export async function listRateContracts(
       COUNT(*) OVER() AS total
     FROM rate_contract rc
     JOIN vendor v ON v.id = rc.vendor_id
-    LEFT JOIN (
-      SELECT rate_contract_id, COUNT(*) AS cnt
-        FROM rate_contract_item
-       GROUP BY rate_contract_id
-    ) i ON i.rate_contract_id = rc.id
+    -- LATERAL per-row count (idx_rate_contract_item_contract) instead of a
+    -- GROUP BY over all rate_contract_item across every tenant.
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*) AS cnt
+        FROM rate_contract_item rci
+       WHERE rci.rate_contract_id = rc.id
+    ) i ON true
     WHERE ${conditions.join(" AND ")}
     ORDER BY ${orderBy}
     LIMIT $${limitIdx} OFFSET $${offsetIdx}

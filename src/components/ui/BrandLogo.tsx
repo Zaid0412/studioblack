@@ -33,7 +33,13 @@ const sizeMap = {
 } as const;
 
 /** Renders the app logo with optional text, adapting to the current theme. */
-export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+export function BrandLogo({
+  size = "md",
+  priority = false,
+}: {
+  size?: "sm" | "md" | "lg";
+  priority?: boolean;
+}) {
   const { mode } = useTheme();
   const textSize = size === "sm" ? "text-base" : "text-lg";
   const rounded = size === "sm" ? "rounded-md" : "rounded-lg";
@@ -51,6 +57,7 @@ export function BrandLogo({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
       alt={branding.appName}
       width={imgSize}
       height={imgSize}
+      priority={priority}
       className={`${dims} ${rounded} object-contain`}
     />
   ) : (
