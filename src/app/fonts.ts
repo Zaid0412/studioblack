@@ -9,12 +9,16 @@ import localFont from "next/font/local";
  * Weights mirror what Fontshare actually served: Satoshi ships no 600 file, so
  * `font-semibold` renders via the browser's weight synthesis exactly as before.
  * Satoshi 300 (light) is dropped — unused (`font-light` has zero call sites).
+ * `style` defaults to "normal", so it's omitted per face.
+ *
+ * NB: `next/font/local` statically analyzes these calls at build time — every
+ * option must be an inline literal (no shared `const` for `fallback`, etc.).
  */
 export const satoshi = localFont({
   src: [
-    { path: "./fonts/satoshi-400.woff2", weight: "400", style: "normal" },
-    { path: "./fonts/satoshi-500.woff2", weight: "500", style: "normal" },
-    { path: "./fonts/satoshi-700.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/satoshi-400.woff2", weight: "400" },
+    { path: "./fonts/satoshi-500.woff2", weight: "500" },
+    { path: "./fonts/satoshi-700.woff2", weight: "700" },
   ],
   variable: "--font-satoshi",
   display: "swap",
@@ -23,26 +27,10 @@ export const satoshi = localFont({
 
 export const cabinetGrotesk = localFont({
   src: [
-    {
-      path: "./fonts/cabinet-grotesk-400.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/cabinet-grotesk-500.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "./fonts/cabinet-grotesk-700.woff2",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "./fonts/cabinet-grotesk-800.woff2",
-      weight: "800",
-      style: "normal",
-    },
+    { path: "./fonts/cabinet-grotesk-400.woff2", weight: "400" },
+    { path: "./fonts/cabinet-grotesk-500.woff2", weight: "500" },
+    { path: "./fonts/cabinet-grotesk-700.woff2", weight: "700" },
+    { path: "./fonts/cabinet-grotesk-800.woff2", weight: "800" },
   ],
   variable: "--font-cabinet-grotesk",
   display: "swap",

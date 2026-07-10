@@ -6,8 +6,8 @@ import type { ReactNode } from "react";
 /* ─── Mocks ─── */
 
 vi.mock("@/config/themes", () => ({
-  defaultTheme: { colors: { "bg-primary": "#000" }, font: { sans: "Inter" } },
-  lightTheme: { colors: { "bg-primary": "#fff" }, font: { sans: "Inter" } },
+  defaultTheme: { colors: { "bg-primary": "#000" } },
+  lightTheme: { colors: { "bg-primary": "#fff" } },
 }));
 
 /* ─── Imports (after mocks) ─── */

@@ -13,6 +13,11 @@ if (key && typeof window !== "undefined") {
   // "history_change"` still fires the first pageview on init, and
   // `capture_performance.web_vitals` reports from buffered PerformanceObserver
   // entries, so a late attach still collects vitals.
+  //
+  // Accepted tradeoff: `capture_exceptions` only attaches at init, so an error
+  // thrown in the up-to-2s pre-init window is NOT captured (no buffered replay
+  // for exceptions, unlike vitals). Hydration-time errors are rare and covered
+  // by Next's error boundaries; revisit with an eager error buffer if needed.
   const start = () => {
     posthog.init(key, {
       api_host: "/ingest",

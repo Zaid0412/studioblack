@@ -15,10 +15,14 @@ import {
 import { mocks } from "../setup";
 
 const PROJECT_ID = "proj-1";
+const URL_ = `/api/projects/${PROJECT_ID}/attachments/phase-counts`;
 const SAMPLE_COUNTS = [
   { phase_id: "phase-1", count: 3 },
   { phase_id: "phase-2", count: 1 },
 ];
+
+/** Fire the phase-counts GET for the fixture project. */
+const call = () => GET(buildRequest(URL_), buildParams({ id: PROJECT_ID }));
 
 describe("GET /api/projects/[id]/attachments/phase-counts", () => {
   beforeEach(() => {
@@ -28,11 +32,7 @@ describe("GET /api/projects/[id]/attachments/phase-counts", () => {
   it("returns 401 without session", async () => {
     setupAuth(mocks.auth, null);
 
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/attachments/phase-counts`
-    );
-    const res = await GET(req, buildParams({ id: PROJECT_ID }));
-    const { status } = await parseResponse(res);
+    const { status } = await parseResponse(await call());
 
     expect(status).toBe(401);
   });
@@ -42,11 +42,7 @@ describe("GET /api/projects/[id]/attachments/phase-counts", () => {
     setupAuth(mocks.auth, session);
     vi.mocked(getAttachmentPhaseCounts).mockResolvedValue(SAMPLE_COUNTS);
 
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/attachments/phase-counts`
-    );
-    const res = await GET(req, buildParams({ id: PROJECT_ID }));
-    const { status, body } = await parseResponse(res);
+    const { status, body } = await parseResponse(await call());
 
     expect(status).toBe(200);
     expect(body).toEqual(SAMPLE_COUNTS);
@@ -66,11 +62,7 @@ describe("GET /api/projects/[id]/attachments/phase-counts", () => {
       { phase_id: "phase-1", count: 1 },
     ]);
 
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/attachments/phase-counts`
-    );
-    const res = await GET(req, buildParams({ id: PROJECT_ID }));
-    const { status } = await parseResponse(res);
+    const { status } = await parseResponse(await call());
 
     expect(status).toBe(200);
     // Client → clientOnly true so only files sent to the client are counted.
@@ -86,11 +78,7 @@ describe("GET /api/projects/[id]/attachments/phase-counts", () => {
     vi.mocked(getOrgRole).mockResolvedValue(null as never);
     vi.mocked(hasProjectAccess).mockResolvedValue(false);
 
-    const req = buildRequest(
-      `/api/projects/${PROJECT_ID}/attachments/phase-counts`
-    );
-    const res = await GET(req, buildParams({ id: PROJECT_ID }));
-    const { status } = await parseResponse(res);
+    const { status } = await parseResponse(await call());
 
     expect(status).toBe(403);
     expect(getAttachmentPhaseCounts).not.toHaveBeenCalled();
@@ -117,7 +105,9 @@ describe("getAttachmentPhaseCounts (query)", () => {
   it("counts the latest version per group, grouped by phase", async () => {
     mocks.db.query.mockResolvedValueOnce({ rows: SAMPLE_COUNTS });
 
-    const result = await realGetAttachmentPhaseCounts({ projectId: PROJECT_ID });
+    const result = await realGetAttachmentPhaseCounts({
+      projectId: PROJECT_ID,
+    });
 
     expect(result).toEqual(SAMPLE_COUNTS);
     const [sql, params] = mocks.db.query.mock.calls[0]!;

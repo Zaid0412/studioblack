@@ -46,11 +46,6 @@ const lightTheme: Theme = {
     "danger-muted": "rgba(220, 38, 38, 0.1)",
     "danger-border": "rgba(220, 38, 38, 0.3)",
   },
-  font: {
-    sans: "var(--font-satoshi), ui-sans-serif, system-ui, sans-serif",
-    heading:
-      "var(--font-cabinet-grotesk), var(--font-satoshi), ui-sans-serif, system-ui, sans-serif",
-  },
 };
 
 export default lightTheme;
