@@ -46,22 +46,26 @@ export function SpreadsheetViewer({
       new URL("./spreadsheet.worker.ts", import.meta.url)
     );
 
+    // Every failure mode (fetch, parse, worker) surfaces the same message; the
+    // console log keeps them distinguishable for debugging.
+    const fail = (log: string, detail?: unknown) => {
+      if (cancelled) return;
+      console.error(log, detail);
+      setError("Failed to load spreadsheet.");
+      setLoading(false);
+    };
+
     worker.onmessage = (e: MessageEvent<SpreadsheetWorkerResult>) => {
       if (cancelled) return;
       if (e.data.ok) {
         setSheetData(e.data.sheets);
+        setLoading(false);
       } else {
-        console.error("[SpreadsheetViewer] Parse error:", e.data.error);
-        setError("Failed to load spreadsheet.");
+        fail("[SpreadsheetViewer] Parse error:", e.data.error);
       }
-      setLoading(false);
     };
-    worker.onerror = (e) => {
-      if (cancelled) return;
-      console.error("[SpreadsheetViewer] Worker error:", e.message);
-      setError("Failed to load spreadsheet.");
-      setLoading(false);
-    };
+    worker.onerror = (e) =>
+      fail("[SpreadsheetViewer] Worker error:", e.message);
 
     async function load() {
       setLoading(true);
@@ -75,11 +79,7 @@ export function SpreadsheetViewer({
         // Transfer the buffer (detaches it here) to avoid a copy.
         worker.postMessage(data, [data]);
       } catch (err) {
-        console.error("[SpreadsheetViewer] Load error:", err);
-        if (!cancelled) {
-          setError("Failed to load spreadsheet.");
-          setLoading(false);
-        }
+        fail("[SpreadsheetViewer] Load error:", err);
       }
     }
 
