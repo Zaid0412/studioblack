@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+import type { Pool, PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
@@ -853,21 +853,28 @@ export interface CreateBoqItemInput {
   isExcluded?: boolean;
 }
 
-/** Insert a BOQ item, auto-generating its `item_code` from the org sequence when none is supplied. */
+/**
+ * Insert a BOQ item, auto-generating its `item_code` from the org sequence when
+ * none is supplied. Pass `executor` (a transaction client) to run the insert
+ * inside a caller-owned transaction — `addElementsToBoq` uses this so a batch is
+ * atomic and each row's in-tx `MAX(sort_order)` sees the prior inserts. When an
+ * `executor` is supplied the caller must provide `itemCode` (sequence
+ * generation still uses the pool, which would sit outside that transaction).
+ */
 export async function createBoqItem(
   boqId: string,
   orgId: string,
-  input: CreateBoqItemInput
+  input: CreateBoqItemInput,
+  executor: Pool | PoolClient = getPool()
 ): Promise<BoqItemWithComputed> {
   const itemCode = input.itemCode?.trim()
     ? input.itemCode.trim()
     : await getNextSequenceNumber(orgId, "BOQ");
 
-  const pool = getPool();
   // Explicit ::numeric / ::int casts on numeric placeholders. Without them
   // pg infers the type from `COALESCE($N, 0)` as INTEGER (because the literal
   // `0` is INTEGER) and rejects fractional values like "2.5".
-  const { rows } = await pool.query<BoqItemWithComputed>(
+  const { rows } = await executor.query<BoqItemWithComputed>(
     `WITH inserted AS (
        INSERT INTO boq_item (
          boq_id, section_id, element_id, source, rate_contract_item_id,
@@ -1625,15 +1632,14 @@ export async function addElementToBoq(
 }
 
 /**
- * Batch variant of {@link addElementToBoq} — same per-row semantics, but
- * called inside a single query loop so the caller can present a single
- * "Add N to BoQ" action. Returns `null` when ANY element id doesn't
- * resolve so the UI can surface a single error rather than partial
- * insertion. (Each insert is autocommitted because the underlying
- * `createBoqItem` doesn't expose a client transaction; if a later row
- * fails after earlier rows succeeded, this function still returns
- * `null` and the caller can refetch — the partially-added rows are
- * consistent on their own and the user can retry the missing ones.)
+ * Batch variant of {@link addElementToBoq} — same per-row semantics, run in ONE
+ * transaction so the whole "Add N to BoQ" action is atomic. Batches the element
+ * fetch and rate-contract coverage checks into a single query each (was ~3-4
+ * pool round-trips per element), then reuses `createBoqItem`'s insert on the
+ * transaction client so each row's in-tx `MAX(sort_order)` sees the prior
+ * inserts. Returns `null` when ANY element id doesn't resolve (nothing is
+ * inserted — now genuinely all-or-nothing, not the old partial-insert
+ * behaviour); throws if a supplied rate-contract item doesn't cover its element.
  */
 export async function addElementsToBoq(
   boqId: string,
@@ -1647,18 +1653,140 @@ export async function addElementsToBoq(
     }>;
   }
 ): Promise<BoqItemWithComputed[] | null> {
-  const created: BoqItemWithComputed[] = [];
-  for (const item of params.items) {
-    const inserted = await addElementToBoq(boqId, orgId, {
-      sectionId: params.sectionId,
-      elementId: item.elementId,
-      quantity: item.quantity,
-      rateContractItemId: item.rateContractItemId,
-    });
-    if (!inserted) return null;
-    created.push(inserted);
+  if (params.items.length === 0) return [];
+
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Serialise concurrent adds to the same BOQ (auto-released on COMMIT/ROLLBACK).
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [
+      `boq:${boqId}`,
+    ]);
+
+    // 1. One fetch for every distinct element (org-scoped for safety).
+    const elementIds = [...new Set(params.items.map((i) => i.elementId))];
+    const { rows: elemRows } = await client.query(
+      `SELECT id, code, name, description, unit, unit_cost, material_cost,
+              labour_cost, overhead_pct, service_charge_pct, margin_pct,
+              client_rate, budget_rate, category_id
+         FROM element WHERE id = ANY($1::uuid[]) AND org_id = $2`,
+      [elementIds, orgId]
+    );
+    const elemById = new Map<string, (typeof elemRows)[number]>(
+      elemRows.map((r) => [r.id, r])
+    );
+    if (elementIds.some((id) => !elemById.has(id))) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+
+    // 2. One coverage check for every (rate_contract_item, element) pair. The
+    // `anc` CTE walks each element's category to the root, tagged with the leaf
+    // it descends from, so an ancestor rate only matches the element it covers.
+    const rcItems = params.items.filter((i) => i.rateContractItemId);
+    const rateByPair = new Map<string, { rate: string; unit: string }>();
+    if (rcItems.length > 0) {
+      const { rows: rcRows } = await client.query<{
+        rci_id: string;
+        element_id: string;
+        rate: string;
+        unit: string;
+      }>(
+        `WITH RECURSIVE pairs AS (
+           SELECT rci_id, element_id
+           FROM unnest($1::uuid[], $2::uuid[]) AS t(rci_id, element_id)
+         ),
+         elem_cat AS (
+           SELECT DISTINCT p.element_id, e.category_id
+           FROM pairs p JOIN element e ON e.id = p.element_id
+         ),
+         anc AS (
+           SELECT ec.id AS leaf_id, ec.id, ec.parent_id FROM element_category ec
+            WHERE ec.id IN (SELECT category_id FROM elem_cat WHERE category_id IS NOT NULL)
+           UNION ALL
+           SELECT a.leaf_id, pc.id, pc.parent_id
+             FROM element_category pc JOIN anc a ON pc.id = a.parent_id
+         )
+         SELECT p.rci_id, p.element_id, rci.rate::text AS rate, rci.unit
+         FROM pairs p
+         JOIN elem_cat ec ON ec.element_id = p.element_id
+         JOIN rate_contract_item rci ON rci.id = p.rci_id
+         JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+         JOIN element_category cat ON cat.id = rci.category_id AND cat.is_active = true
+         WHERE rc.org_id = $3 AND rc.status = 'active'
+           AND (
+             rci.element_id = p.element_id
+             OR (rci.element_id IS NULL
+                 AND rci.category_id IN (SELECT id FROM anc WHERE leaf_id = ec.category_id))
+           )`,
+        [
+          rcItems.map((i) => i.rateContractItemId!),
+          rcItems.map((i) => i.elementId),
+          orgId,
+        ]
+      );
+      for (const r of rcRows) {
+        rateByPair.set(`${r.rci_id}:${r.element_id}`, {
+          rate: r.rate,
+          unit: r.unit,
+        });
+      }
+      for (const i of rcItems) {
+        if (!rateByPair.has(`${i.rateContractItemId}:${i.elementId}`)) {
+          // Throw — the catch below rolls the transaction back.
+          throw new Error(
+            "Rate contract item not active or doesn't cover the chosen element"
+          );
+        }
+      }
+    }
+
+    // 3. Insert each row on the transaction client (createBoqItem's in-tx
+    // MAX(sort_order) sees the prior inserts, so ordering stays correct).
+    const created: BoqItemWithComputed[] = [];
+    for (const item of params.items) {
+      const e = elemById.get(item.elementId)!;
+      const rc = item.rateContractItemId
+        ? rateByPair.get(`${item.rateContractItemId}:${item.elementId}`)!
+        : null;
+      const inserted = await createBoqItem(
+        boqId,
+        orgId,
+        {
+          sectionId: params.sectionId,
+          elementId: item.elementId,
+          categoryId: e.category_id ?? null,
+          source: rc ? "rate_contract" : "library",
+          rateContractItemId: item.rateContractItemId ?? null,
+          itemCode: e.code,
+          description: e.description || e.name,
+          unit: rc ? rc.unit : e.unit,
+          quantity: item.quantity ?? 1,
+          unitCost: rc ? Number(rc.rate) : Number(e.unit_cost),
+          materialCost:
+            e.material_cost !== null ? Number(e.material_cost) : null,
+          labourCost: e.labour_cost !== null ? Number(e.labour_cost) : null,
+          overheadPct: e.overhead_pct !== null ? Number(e.overhead_pct) : 0,
+          serviceChargePct:
+            e.service_charge_pct !== null ? Number(e.service_charge_pct) : 0,
+          marginPct: e.margin_pct !== null ? Number(e.margin_pct) : 0,
+          clientRate: e.client_rate != null ? Number(e.client_rate) : null,
+          budgetRate: e.budget_rate != null ? Number(e.budget_rate) : null,
+        },
+        client
+      );
+      created.push(inserted);
+    }
+
+    await client.query("COMMIT");
+    return created;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
-  return created;
 }
 
 export type MoveBoqItemsBulkOutcome =

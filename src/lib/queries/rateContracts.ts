@@ -19,7 +19,6 @@ import { escapeSqlLike } from "./helpers";
 import { toIso } from "@/lib/formatTime";
 import { mapPgError } from "./_pgErrors";
 import { getNextSequenceNumber } from "./boq";
-import { runWithConcurrency } from "@/lib/concurrency";
 
 export interface RateContractFilters {
   search?: string;
@@ -458,12 +457,85 @@ export async function getBestRateForElements(
 ): Promise<Record<string, AvailableRate | null>> {
   const unique = [...new Set(elementIds)];
   const result: Record<string, AvailableRate | null> = {};
-  // Each lookup runs a recursive-CTE ancestor walk; cap concurrency so a large
-  // section can't fire hundreds of them at the pg pool in one request.
-  await runWithConcurrency(unique, 8, async (elementId) => {
-    const rates = await getActiveRatesForBoqItem(orgId, { elementId });
-    result[elementId] = rates[0] ?? null;
-  });
+  // Seed every input id to null so no-match elements still appear (matches the
+  // old per-element `rates[0] ?? null` contract).
+  for (const id of unique) result[id] = null;
+  if (unique.length === 0) return result;
+
+  // One set-based query instead of N per-element recursive-CTE lookups. `eff`
+  // resolves each input element's service area once; `anc` walks every distinct
+  // category to its root a single time, tagged with the `leaf_id` it descends
+  // from so an ancestor rate only matches the element it actually covers.
+  // `DISTINCT ON (input_element_id)` + the ranking ORDER BY reproduces "take the
+  // best (element > service_area > ancestor, then cheapest, then latest end)".
+  const pool = getPool();
+  const { rows } = await pool.query(
+    `WITH RECURSIVE eff AS (
+       SELECT DISTINCT e.id AS element_id, e.category_id
+       FROM unnest($2::uuid[]) AS t(id)
+       JOIN element e ON e.id = t.id
+     ),
+     anc AS (
+       SELECT ec.id AS leaf_id, ec.id, ec.parent_id
+         FROM element_category ec
+        WHERE ec.id IN (SELECT category_id FROM eff WHERE category_id IS NOT NULL)
+       UNION ALL
+       SELECT a.leaf_id, p.id, p.parent_id
+         FROM element_category p
+         JOIN anc a ON p.id = a.parent_id
+     ),
+     candidate AS (
+       SELECT
+         eff.element_id AS input_element_id,
+         rci.id AS rate_contract_item_id,
+         rc.id AS rate_contract_id,
+         rc.contract_number,
+         rc.name AS contract_name,
+         rc.vendor_id,
+         v.company_name AS vendor_name,
+         cat.id AS category_id,
+         cat.name AS category_name,
+         cat.code_prefix AS category_code,
+         e.id AS element_id,
+         e.code AS element_code,
+         e.name AS element_name,
+         rci.unit,
+         rci.rate,
+         rc.currency,
+         rc.end_date,
+         CASE
+           WHEN rci.element_id = eff.element_id THEN 'element'
+           WHEN rci.category_id = eff.category_id THEN 'service_area'
+           ELSE 'ancestor'
+         END AS match_type
+       FROM eff
+       JOIN rate_contract_item rci
+         ON (rci.element_id = eff.element_id)
+         OR (rci.element_id IS NULL
+             AND rci.category_id IN (SELECT id FROM anc WHERE leaf_id = eff.category_id))
+       JOIN rate_contract rc ON rc.id = rci.rate_contract_id
+       JOIN vendor v ON v.id = rc.vendor_id
+       JOIN element_category cat ON cat.id = rci.category_id AND cat.is_active = true
+       LEFT JOIN element e ON e.id = rci.element_id
+       WHERE rc.org_id = $1
+         AND rc.status = 'active'
+         AND (rci.element_id IS NULL OR e.is_active = true)
+     )
+     SELECT DISTINCT ON (input_element_id) *
+     FROM candidate
+     ORDER BY input_element_id,
+       CASE match_type WHEN 'element' THEN 0 WHEN 'service_area' THEN 1 ELSE 2 END,
+       rate ASC, end_date DESC`,
+    [orgId, unique]
+  );
+
+  for (const r of rows) {
+    const { input_element_id, ...rate } = r;
+    result[input_element_id] = {
+      ...rate,
+      rate: Number(rate.rate),
+    } as AvailableRate;
+  }
   return result;
 }
 
