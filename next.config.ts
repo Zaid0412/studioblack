@@ -18,6 +18,11 @@ const POSTHOG_ASSETS_HOST =
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
+  // CI already runs `tsc --noEmit` on every push (lint.yml), and prod only
+  // deploys from `main` (which passed CI), so re-type-checking during the
+  // Vercel build is redundant — skipping it cuts ~30s off every build.
+  // (Next 16 no longer runs ESLint during build, so nothing to skip there.)
+  typescript: { ignoreBuildErrors: true },
   // PostHog reverse proxy: route SDK traffic through our own domain so
   // ad-blockers don't drop ingestion / replay requests.
   skipTrailingSlashRedirect: true,
@@ -107,8 +112,13 @@ const nextConfig: NextConfig = {
 
 const intlConfig = withNextIntl(nextConfig);
 
-// Source map upload only when both creds are set, so local builds skip it.
-export default process.env.POSTHOG_API_KEY && process.env.POSTHOG_PROJECT_ID
+// Upload source maps to PostHog only on PRODUCTION Vercel builds. Staging and
+// PR previews don't need error-tracking maps, and skipping the upload (+ its
+// scan of ~900 map files) saves ~30s/build. Local builds skip it too (no
+// VERCEL_ENV / creds).
+export default process.env.VERCEL_ENV === "production" &&
+process.env.POSTHOG_API_KEY &&
+process.env.POSTHOG_PROJECT_ID
   ? withPostHogConfig(intlConfig, {
       personalApiKey: process.env.POSTHOG_API_KEY,
       projectId: process.env.POSTHOG_PROJECT_ID,
