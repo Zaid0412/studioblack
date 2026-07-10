@@ -1,5 +1,7 @@
 # Lazy-load the task side panel (drop react-markdown from the shared chunk)
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · High · S
 - **Area:** bundle
 - **Files:** `src/components/tasks/TaskSidePanelHost.tsx:7,44-56`, `src/app/(dashboard)/layout.tsx:17,126-128`

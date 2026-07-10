@@ -1,5 +1,7 @@
 # Right-size the pg pool for serverless + confirm the Supabase pooler
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · Med · S
 - **Area:** infra
 - **Files:** `src/lib/db.ts:20-25`, `.env.local.example:12`

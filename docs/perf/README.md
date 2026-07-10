@@ -8,7 +8,7 @@ Baseline note: the app is already disciplined (visibility-gated polling, server
 pagination, heavy libs lazy-loaded server-side, good indexes). These are targeted
 wins, not a rescue.
 
-## Tier 1 — high impact, low effort (do first)
+## Tier 1 — ✅ Shipped (PR #183)
 
 | Plan                                       | Fix                                                 | Impact / Effort |
 | ------------------------------------------ | --------------------------------------------------- | --------------- |

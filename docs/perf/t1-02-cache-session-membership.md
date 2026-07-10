@@ -1,5 +1,7 @@
 # Cache per-request session + membership reads
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · High · M
 - **Area:** data-fetching
 - **Files:** `src/lib/withAuth.ts:123-125,163-168,207-212,245-249`, `src/lib/queries/roles.ts:8-95`, `src/lib/effectiveRole.ts:16-37`, `src/app/(dashboard)/layout.tsx:34-58`, `src/app/(dashboard)/organisation/layout.tsx`, `src/app/(dashboard)/projects/new/layout.tsx`, `src/app/(dashboard)/vendor-portal/layout.tsx`

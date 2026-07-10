@@ -1,5 +1,7 @@
 # Exclude /api from middleware (drop redundant edge hop + fix 307-vs-401)
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · Med · S
 - **Area:** infra
 - **Files:** `src/middleware.ts:39-46,55-66`, `src/lib/swr.ts:49-50`, `src/lib/withAuth.ts:125-132`

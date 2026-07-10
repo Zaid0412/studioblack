@@ -1,5 +1,7 @@
 # Make the pg pool shutdown handler idempotent
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · High · S
 - **Area:** infra
 - **Files:** `src/lib/db.ts:30-32`, `src/lib/auth.ts:320-335`

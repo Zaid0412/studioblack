@@ -1,5 +1,7 @@
 # Stabilize BOQ row handler props so `memo` actually holds
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · Med · M
 - **Area:** rendering
 - **Files:** `src/app/(dashboard)/projects/[id]/boq/_components/BoqTable.tsx:383-385,663-665,727`, `src/app/(dashboard)/projects/[id]/_components/BoqTab.tsx:571`, `src/hooks/useBoqSelection.ts:52-59`, `src/lib/constants.ts:29`

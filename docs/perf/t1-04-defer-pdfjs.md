@@ -1,5 +1,7 @@
 # Defer pdfjs-dist to runtime (only load it for PDFs)
 
+> ✅ **Status:** Implemented in PR #183.
+
 - **Tier / Impact / Effort:** T1 · High · S
 - **Area:** bundle
 - **Files:** `src/components/review/DocumentViewer.tsx:11,24,62,72-79,97-133`
