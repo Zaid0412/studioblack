@@ -425,7 +425,7 @@ export default function DesignReviewPage({
     await refreshAttachment();
   }
 
-  if (review.loading) {
+  if (review.initialLoading) {
     return (
       <div className="flex -m-4 lg:-m-8" style={{ height: "calc(100vh)" }}>
         {/* Thumbnail panel skeleton */}

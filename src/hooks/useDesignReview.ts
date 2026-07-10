@@ -122,6 +122,11 @@ export function useDesignReview({
     filesLoading,
     phaseName,
     loading,
+    // True only on the very first load (no attachment yet). `keepPreviousData`
+    // retains the previous file's data across a switch, but SWR's `isLoading`
+    // still flips true for an uncached key — so gate the full-page skeleton on
+    // this, not raw `loading`, or switching files re-skeletons the whole chrome.
+    initialLoading: loading && !attachment,
     reviews,
   };
 }
