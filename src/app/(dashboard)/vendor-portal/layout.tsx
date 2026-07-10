@@ -1,7 +1,6 @@
-import { headers } from "next/headers";
 import { Clock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "@/lib/serverSession";
 import { getServerFeatureFlag } from "@/lib/posthog-server";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -21,8 +20,7 @@ export default async function VendorPortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const reqHeaders = await headers();
-  const session = await auth.api.getSession({ headers: reqHeaders });
+  const session = await getServerSession();
   const enabled = session
     ? await getServerFeatureFlag("vendorPortal", session.user.id, false)
     : false;

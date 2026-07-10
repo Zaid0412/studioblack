@@ -1,6 +1,5 @@
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getServerSession } from "@/lib/serverSession";
 
 /**
  * Organisation layout — PM only (owner/admin org roles).
@@ -11,9 +10,7 @@ export default async function OrganisationLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getServerSession();
 
   if (!session) {
     redirect("/login");

@@ -216,6 +216,12 @@ export function BoqTable({
     item: BoqItemWithComputed;
     target: BoqItemPhase;
   } | null>(null);
+  // Stable identity so it doesn't defeat BoqItemRow's memo (only a setter).
+  const handleRequestChangeComment = useCallback(
+    (item: BoqItemWithComputed, target: BoqItemPhase) =>
+      setChangeRequestTarget({ item, target }),
+    []
+  );
   const marginFloor = toNum(minimumMarginPct) || undefined;
   const rowsEditable = canEdit && !!onUpdateItem;
   const sectionsEditable = canEdit;
@@ -380,9 +386,7 @@ export function BoqTable({
               onMoveItem={onMoveItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
-              onRequestChangeComment={(item, target) =>
-                setChangeRequestTarget({ item, target })
-              }
+              onRequestChangeComment={handleRequestChangeComment}
               selection={selection}
               onOpenItem={onOpenItem}
               onAddItemToSection={onAddItemToSection}
@@ -660,9 +664,7 @@ function SectionBody({
               onSetItemPhase={onSetItemPhase}
               onRequestChangeComment={onRequestChangeComment}
               isSelected={selection ? selection.selected.has(item.id) : false}
-              onToggleSelected={
-                selection ? () => selection.toggle(item.id) : undefined
-              }
+              onToggleSelected={selection?.toggle}
               onOpen={onOpenItem}
             />
           ))}
@@ -703,7 +705,7 @@ interface BoqItemRowProps {
   sections: BoqSection[];
   /** When defined, renders a leading checkbox column. */
   isSelected?: boolean;
-  onToggleSelected?: () => void;
+  onToggleSelected?: (id: string) => void;
   /** When defined, adds a "+ Create new section…" item at the bottom of the Move sub-menu. */
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
   /** Fire a single-item phase transition from the row's "..." menu. */
@@ -826,7 +828,7 @@ const BoqItemRow = memo(function BoqItemRow({
         <div className="flex items-center justify-center">
           <Checkbox
             checked={isSelected ?? false}
-            onCheckedChange={() => onToggleSelected?.()}
+            onCheckedChange={() => onToggleSelected?.(item.id)}
             aria-label={`Select ${item.item_code}`}
           />
         </div>

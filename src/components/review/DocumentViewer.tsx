@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { Download, FileText, MapPin } from "lucide-react";
-import * as pdfjsLib from "pdfjs-dist";
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { isImage, isPdf, isSpreadsheet } from "@/lib/fileUtils";
@@ -21,7 +20,19 @@ const SpreadsheetViewer = dynamic(
   { ssr: false }
 );
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+// pdfjs-dist is ~350 KB+; load it (and set its worker) only when a PDF is
+// actually opened, not eagerly on every review-route mount (many files are
+// images/spreadsheets). Cached so repeated PDF opens reuse the one import.
+let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
+function loadPdfjs() {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import("pdfjs-dist").then((lib) => {
+      lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+      return lib;
+    });
+  }
+  return pdfjsPromise;
+}
 
 // Pin cursor as a data URI — encoded at module load time
 const PIN_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="22" viewBox="0 0 24 32" fill="none"><path d="M12 0C5.372 0 0 5.372 0 12c0 7 12 20 12 20s12-13 12-20c0-6.628-5.372-12-12-12z" fill="#F5C518"/><circle cx="12" cy="12" r="4" fill="#0D0D0D"/></svg>`;
@@ -59,7 +70,7 @@ export function DocumentViewer({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
-  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const pdfDocRef = useRef<import("pdfjs-dist").PDFDocumentProxy | null>(null);
 
   // Load PDF document when file changes
   useEffect(() => {
@@ -72,6 +83,7 @@ export function DocumentViewer({
     async function loadPdf() {
       setPdfLoading(true);
       try {
+        const pdfjsLib = await loadPdfjs();
         const doc = await pdfjsLib.getDocument(proxyUrl).promise;
         if (cancelled) return;
 

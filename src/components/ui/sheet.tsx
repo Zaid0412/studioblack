@@ -41,36 +41,45 @@ interface SheetContentProps extends React.ComponentPropsWithoutRef<
   typeof DialogPrimitive.Content
 > {
   side?: "right" | "left";
+  /** Hide the built-in top-right close button — for panels with their own. */
+  hideClose?: boolean;
 }
 
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   SheetContentProps
->(({ className, children, side = "right", ...props }, ref) => {
-  return (
-    <SheetPortal>
-      <SheetOverlay />
-      <DialogPrimitive.Content
-        ref={ref}
-        data-sheet-slide
-        data-sheet-side={side}
-        className={cn(
-          "fixed top-0 bottom-0 z-50 flex flex-col w-full sm:max-w-md lg:max-w-lg bg-bg-secondary shadow-2xl border-border-default",
-          side === "right" ? "right-0 border-l" : "left-0 border-r",
-          "data-[state=closed]:pointer-events-none",
-          className
-        )}
-        {...props}
-      >
-        {children}
-        <DialogPrimitive.Close className="absolute right-2 top-2 rounded-sm opacity-70 ring-offset-bg-primary transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:pointer-events-none cursor-pointer">
-          <X className="h-4 w-4 text-text-muted" />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-      </DialogPrimitive.Content>
-    </SheetPortal>
-  );
-});
+>(
+  (
+    { className, children, side = "right", hideClose = false, ...props },
+    ref
+  ) => {
+    return (
+      <SheetPortal>
+        <SheetOverlay />
+        <DialogPrimitive.Content
+          ref={ref}
+          data-sheet-slide
+          data-sheet-side={side}
+          className={cn(
+            "fixed top-0 bottom-0 z-50 flex flex-col w-full sm:max-w-md lg:max-w-lg bg-bg-secondary shadow-2xl border-border-default",
+            side === "right" ? "right-0 border-l" : "left-0 border-r",
+            "data-[state=closed]:pointer-events-none",
+            className
+          )}
+          {...props}
+        >
+          {children}
+          {!hideClose && (
+            <DialogPrimitive.Close className="absolute right-2 top-2 rounded-sm opacity-70 ring-offset-bg-primary transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:pointer-events-none cursor-pointer">
+              <X className="h-4 w-4 text-text-muted" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </SheetPortal>
+    );
+  }
+);
 SheetContent.displayName = "SheetContent";
 
 /** Header area of a Sheet — sticky top padding matches content. */

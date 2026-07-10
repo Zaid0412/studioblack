@@ -19,15 +19,22 @@ export function getPool(): Pool {
   if (!globalForPg.pgPool) {
     globalForPg.pgPool = new Pool({
       connectionString: env().DATABASE_URL,
-      max: 5,
+      // Each warm serverless instance keeps its own pool, so cap it small: a
+      // single invocation serves one request at a time, and prod connects
+      // through the Supabase transaction pooler (:6543 ?pgbouncer=true), which
+      // multiplexes. A larger `max` just squats pooler slots across instances.
+      max: 2,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });
     globalForPg.pgPool.on("error", (err) => {
       logger.error("Unexpected PostgreSQL pool error", { error: err });
     });
-    // Drain connections on graceful shutdown (relevant for long-lived processes)
-    const shutdown = () => globalForPg.pgPool?.end();
+    // Drain connections on graceful shutdown. A second `end()` (both signals
+    // fire, or one is redelivered) returns a rejected promise rather than
+    // throwing, so the `.catch` swallows it — no unhandled rejection, and the
+    // pool still drains exactly once.
+    const shutdown = () => void globalForPg.pgPool?.end().catch(() => {});
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);
   }

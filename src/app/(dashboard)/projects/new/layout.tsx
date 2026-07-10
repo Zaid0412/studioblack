@@ -1,6 +1,5 @@
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getServerSession } from "@/lib/serverSession";
 
 /**
  * New project layout — PM only.
@@ -11,9 +10,7 @@ export default async function NewProjectLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getServerSession();
 
   if (!session) {
     redirect("/login");

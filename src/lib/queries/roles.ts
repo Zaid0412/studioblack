@@ -1,11 +1,19 @@
+import { cache } from "react";
 import { getPool } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Access control
 // ---------------------------------------------------------------------------
 
-/** Get a user's role within an organization (owner/admin/member or null). */
-export async function getMemberRole(
+/**
+ * Get a user's role within an organization (owner/admin/member or null).
+ *
+ * Wrapped in React `cache()` so repeated calls in one request (the dashboard
+ * layout queries it directly *and* via `deriveEffectiveRole`, and `withAuth`
+ * hits it too) collapse to a single DB round-trip. Outside a request context
+ * (tests/scripts) `cache()` is a transparent passthrough.
+ */
+export const getMemberRole = cache(async function getMemberRole(
   orgId: string,
   userId: string
 ): Promise<string | null> {
@@ -15,7 +23,7 @@ export async function getMemberRole(
     [orgId, userId]
   );
   return rows[0]?.role ?? null;
-}
+});
 
 /**
  * Check whether a user has been explicitly assigned as a PM on a specific
