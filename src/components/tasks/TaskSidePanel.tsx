@@ -11,6 +11,7 @@ import { authClient } from "@/lib/authClient";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { avatarColor } from "@/lib/avatarUtils";
 import {
   STATUS_BADGE_VARIANT,
@@ -28,6 +29,8 @@ import {
 import type { Task, TaskActivityEntry } from "@/types";
 
 interface TaskSidePanelProps {
+  /** Drives the slide-in/out animation. */
+  open: boolean;
   taskId: string;
   task: Task | null;
   /** True when the API returned an error (e.g. 404 — task missing or out of org). */
@@ -45,6 +48,7 @@ interface TaskSidePanelProps {
  * SWR cache key — posting a comment in either place updates both.
  */
 export function TaskSidePanel({
+  open,
   taskId,
   task,
   missing,
@@ -66,18 +70,16 @@ export function TaskSidePanel({
   const isLoadingActivity = !!task && activityData === undefined;
 
   return (
-    <>
-      <div
-        aria-hidden="true"
-        onClick={onClose}
-        className="fixed inset-0 z-40 bg-black/55 transition-opacity duration-150"
-      />
-
-      <aside
-        role="dialog"
-        aria-label="Task details"
-        className="fixed top-0 right-0 z-50 h-screen w-full max-w-[480px] bg-bg-secondary border-l border-border-default shadow-2xl flex flex-col"
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      {/* hideClose: the panel renders its own header + close in PanelHeader.
+          Hidden SheetTitle satisfies Radix's a11y requirement without a
+          visible duplicate; aria-describedby suppresses the description warn. */}
+      <SheetContent
+        hideClose
+        aria-describedby={undefined}
+        className="w-full sm:max-w-[480px] lg:max-w-[480px] p-0 gap-0"
       >
+        <SheetTitle className="sr-only">Task details</SheetTitle>
         {missing ? (
           <PanelMissing onClose={onClose} />
         ) : task ? (
@@ -92,8 +94,8 @@ export function TaskSidePanel({
         ) : (
           <PanelLoading onClose={onClose} />
         )}
-      </aside>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
 
