@@ -26,9 +26,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Lockfile is generated on Windows and lacks Linux native bindings
-        # (e.g. @rolldown/binding-linux-x64-gnu). Delete it so npm resolves fresh.
-        run: rm package-lock.json && npm install
+        run: npm ci
 
       - name: Run tests
         id: tests
