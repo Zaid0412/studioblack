@@ -14,6 +14,7 @@ import {
   approvals as approvalsApi,
   tasks as tasksApi,
 } from "@/lib/api";
+import type { PhaseAttachmentCount } from "@/lib/api/attachments";
 import { toast } from "@/components/ui/useToast";
 import { downloadFile } from "@/lib/download";
 import { trackEvent } from "@/lib/analytics";
@@ -21,6 +22,13 @@ import { trackEvent } from "@/lib/analytics";
 interface UseProjectDetailOptions {
   /** When true, also fetches approvals and pending tasks (client-specific). */
   includeApprovals?: boolean;
+  /**
+   * When true, fetch the full attachment list (needed to render files, e.g.
+   * DesignsTab via `phaseFiles`). Default false — only the lightweight
+   * per-phase counts are fetched, so routes that just show the stepper/MetaBar
+   * don't download every full attachment row.
+   */
+  includeAttachments?: boolean;
 }
 
 /** Unified hook for project detail — used by both PM and client pages. */
@@ -29,6 +37,7 @@ export function useProjectDetail(
   options?: UseProjectDetailOptions
 ) {
   const includeApprovals = options?.includeApprovals ?? false;
+  const includeAttachments = options?.includeAttachments ?? false;
 
   // -- SWR data fetching --
   const {
@@ -38,11 +47,24 @@ export function useProjectDetail(
     mutate: mutateProject,
   } = useSWR<DbProjectDetail>(`/api/projects/${id}`);
 
+  // The full attachment list is only fetched where files actually render
+  // (DesignsTab). Everywhere else the layout consumes `phaseCounts` from the
+  // lightweight endpoint below, so the full list stays unfetched.
   const {
     data: attachments = [],
     isLoading: attachmentsLoading,
     mutate: mutateAttachments,
-  } = useSWR<DbAttachment[]>(`/api/projects/${id}/attachments?all=true`);
+  } = useSWR<DbAttachment[]>(
+    includeAttachments ? `/api/projects/${id}/attachments?all=true` : null
+  );
+
+  const {
+    data: phaseCountRows = [],
+    isLoading: phaseCountsLoading,
+    mutate: mutatePhaseCounts,
+  } = useSWR<PhaseAttachmentCount[]>(
+    `/api/projects/${id}/attachments/phase-counts`
+  );
 
   const {
     data: comments = [],
@@ -65,7 +87,11 @@ export function useProjectDetail(
   const [changesComment, setChangesComment] = useState("");
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
-  const loading = projectLoading || attachmentsLoading || commentsLoading;
+  const loading =
+    projectLoading ||
+    attachmentsLoading ||
+    phaseCountsLoading ||
+    commentsLoading;
   const error = !!projectError;
 
   // Set initial phase when project data arrives
@@ -101,13 +127,17 @@ export function useProjectDetail(
   );
 
   // --- Refresh ---
+  // Mutate both the full list (if fetched) and the counts so the stepper/MetaBar
+  // update after an upload/delete regardless of which route is mounted.
   const refreshAttachments = useCallback(() => {
     mutateAttachments();
-  }, [mutateAttachments]);
+    mutatePhaseCounts();
+  }, [mutateAttachments, mutatePhaseCounts]);
 
   const refreshAll = useCallback(() => {
     mutateProject();
     mutateAttachments();
+    mutatePhaseCounts();
     mutateComments();
     if (includeApprovals) {
       mutateApprovals();
@@ -116,6 +146,7 @@ export function useProjectDetail(
   }, [
     mutateProject,
     mutateAttachments,
+    mutatePhaseCounts,
     mutateComments,
     includeApprovals,
     mutateApprovals,
@@ -188,13 +219,13 @@ export function useProjectDetail(
   );
 
   // --- Derived ---
+  // Counts come from the lightweight endpoint (one integer per phase), not from
+  // walking the full attachment list — which is unfetched on non-Designs routes.
   const phaseCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const a of attachments) {
-      if (a.phase_id) counts.set(a.phase_id, (counts.get(a.phase_id) || 0) + 1);
-    }
+    for (const r of phaseCountRows) counts.set(r.phase_id, r.count);
     return counts;
-  }, [attachments]);
+  }, [phaseCountRows]);
 
   const phaseFiles = useMemo(
     () => attachments.filter((a) => a.phase_id === activePhaseId),
