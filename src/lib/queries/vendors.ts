@@ -234,17 +234,20 @@ export async function getVendors(
       COALESCE(t.cnt, 0)::int AS trade_count,
       COUNT(*) OVER() AS total
     FROM vendor v
-    LEFT JOIN (
-      SELECT vendor_id, COUNT(*) AS cnt,
+    -- LATERAL per-row index lookups instead of aggregating the whole child
+    -- table: only the ≤page rows drive the counts (idx_vendor_contact_vendor
+    -- / idx_vendor_trade_vendor), not every tenant's contacts/trades.
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*) AS cnt,
              MAX(CASE WHEN is_primary THEN email END) AS primary_email
-      FROM vendor_contact
-      GROUP BY vendor_id
-    ) c ON c.vendor_id = v.id
-    LEFT JOIN (
-      SELECT vendor_id, COUNT(*) AS cnt
-      FROM vendor_trade
-      GROUP BY vendor_id
-    ) t ON t.vendor_id = v.id
+      FROM vendor_contact vc
+      WHERE vc.vendor_id = v.id
+    ) c ON true
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*) AS cnt
+      FROM vendor_trade vt
+      WHERE vt.vendor_id = v.id
+    ) t ON true
     WHERE ${conditions.join(" AND ")}
     ORDER BY ${orderBy}
     LIMIT $${limitIdx} OFFSET $${offsetIdx}
