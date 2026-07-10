@@ -1,0 +1,30 @@
+name: Sync staging with main
+
+# Keeps the `staging` branch a mirror of `main` so the staging domain
+# (stage.studio-black.co.in) always deploys production code — but against the
+# dev database (via Vercel's Preview environment). staging is deploy-only: it is
+# force-updated on every push to main, so never commit to it directly.
+
+on:
+  push:
+    branches: [main]
+
+# The default GITHUB_TOKEN needs write access to push the staging ref.
+permissions:
+  contents: write
+
+# Never run two syncs at once; a newer main push supersedes an in-flight one.
+concurrency:
+  group: sync-staging
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mirror main -> staging
+        # HEAD is the main commit that triggered this run and already exists on
+        # the remote, so force-updating staging to it transfers no objects — the
+        # default shallow checkout is enough (no full-history fetch needed).
+        run: git push origin "HEAD:refs/heads/staging" --force
