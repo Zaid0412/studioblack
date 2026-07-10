@@ -116,9 +116,12 @@ const intlConfig = withNextIntl(nextConfig);
 // PR previews don't need error-tracking maps, and skipping the upload (+ its
 // scan of ~900 map files) saves ~30s/build. Local builds skip it too (no
 // VERCEL_ENV / creds).
-export default process.env.VERCEL_ENV === "production" &&
-process.env.POSTHOG_API_KEY &&
-process.env.POSTHOG_PROJECT_ID
+const uploadSourcemaps =
+  process.env.VERCEL_ENV === "production" &&
+  !!process.env.POSTHOG_API_KEY &&
+  !!process.env.POSTHOG_PROJECT_ID;
+
+export default uploadSourcemaps
   ? withPostHogConfig(intlConfig, {
       personalApiKey: process.env.POSTHOG_API_KEY,
       projectId: process.env.POSTHOG_PROJECT_ID,
