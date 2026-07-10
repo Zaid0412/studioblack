@@ -23,9 +23,7 @@ export function list(
 
 /** Per-phase attachment counts — lightweight; powers the stepper/MetaBar. */
 export function phaseCounts(projectId: string) {
-  return apiGet<PhaseAttachmentCount[]>(
-    API.attachmentPhaseCounts(projectId)
-  );
+  return apiGet<PhaseAttachmentCount[]>(API.attachmentPhaseCounts(projectId));
 }
 
 /** Get a single attachment by ID. */
