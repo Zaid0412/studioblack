@@ -2,15 +2,105 @@ import * as ExcelJS from "exceljs";
 import type { FortuneSheetCell, FortuneSheetData } from "./spreadsheet-types";
 
 /**
- * Parse + normalize an Excel workbook buffer into Fortune Sheet data.
+ * Split CSV text into rows of fields (RFC-4180-ish: handles quoted fields with
+ * embedded commas / newlines and escaped `""` quotes).
+ */
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      row.push(field);
+      field = "";
+    } else if (ch === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else if (ch !== "\r") {
+      field += ch;
+    }
+  }
+  // Trailing field/row when the file doesn't end in a newline.
+  if (field !== "" || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows;
+}
+
+/** Build a single Fortune Sheet from CSV rows (no styles; numbers typed). */
+function csvToSheet(rows: string[][]): FortuneSheetData {
+  const celldata: FortuneSheetCell[] = [];
+  let maxRow = 0;
+  let maxCol = 0;
+  rows.forEach((cols, r) => {
+    cols.forEach((raw, c) => {
+      if (raw === "") return; // match xlsx's includeEmpty:false
+      if (r > maxRow) maxRow = r;
+      if (c > maxCol) maxCol = c;
+      const num = Number(raw);
+      const isNum = raw.trim() !== "" && !Number.isNaN(num);
+      celldata.push({
+        r,
+        c,
+        v: {
+          v: isNum ? num : raw,
+          m: raw, // preserve the literal text (e.g. leading-zero codes)
+          ct: { fa: "General", t: isNum ? "n" : "g" },
+        },
+      });
+    });
+  });
+  return {
+    name: "Sheet1",
+    celldata,
+    order: 0,
+    row: Math.max(maxRow + 1, 50),
+    column: Math.max(maxCol + 1, 26),
+    config: {},
+  };
+}
+
+/**
+ * Parse + normalize a spreadsheet buffer into Fortune Sheet data.
  *
- * Pure (no DOM) so it runs in the parse worker (`spreadsheet.worker.ts`) and is
+ * Dispatches on content: `.xlsx`/`.xlsm` are zip files (magic `PK\x03\x04`) and
+ * go through exceljs; anything else is decoded as CSV text (exceljs's
+ * `xlsx.load` only reads the zip format, so a CSV threw "not a zip file"). Pure
+ * (no DOM) so it runs in the parse worker (`spreadsheet.worker.ts`) and is
  * directly unit-testable. Output shape must stay identical to what `<Workbook>`
  * consumes — see `spreadsheet-parse.test.ts`.
  */
 export async function parseWorkbookToSheets(
   buffer: ArrayBuffer
 ): Promise<FortuneSheetData[]> {
+  const head = new Uint8Array(buffer.slice(0, 4));
+  const isZip =
+    head[0] === 0x50 &&
+    head[1] === 0x4b &&
+    head[2] === 0x03 &&
+    head[3] === 0x04;
+  if (!isZip) {
+    return [csvToSheet(parseCsvText(new TextDecoder().decode(buffer)))];
+  }
+
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
 

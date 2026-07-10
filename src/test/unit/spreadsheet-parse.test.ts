@@ -72,6 +72,28 @@ describe("parseWorkbookToSheets", () => {
     expect((s.config?.columnlen as Record<string, number>)["0"]).toBe(160);
   });
 
+  it("parses CSV content (not a zip) into a typed cell grid", async () => {
+    const csv =
+      'Name,Role,Score\nAlice,PM,88\n"Last, First","a ""quoted"" role",7\n';
+    const buf = new TextEncoder().encode(csv).buffer as ArrayBuffer;
+
+    const sheets = await parseWorkbookToSheets(buf);
+    expect(sheets).toHaveLength(1);
+    const s = sheets[0];
+    const at = (r: number, c: number) =>
+      s.celldata.find((cd) => cd.r === r && cd.c === c)?.v;
+
+    // Header text.
+    expect(at(0, 0)!.v).toBe("Name");
+    // Numeric cell typed as "n".
+    expect(at(1, 2)!.v).toBe(88);
+    expect(at(1, 2)!.ct?.t).toBe("n");
+    // Quoted field with an embedded comma stays one cell.
+    expect(at(2, 0)!.v).toBe("Last, First");
+    // Escaped "" quotes decode to a single quote.
+    expect(at(2, 1)!.v).toBe('a "quoted" role');
+  });
+
   it("returns a sheet entry with no cells for an empty worksheet", async () => {
     const wb = new ExcelJS.Workbook();
     wb.addWorksheet("Empty");
