@@ -234,9 +234,11 @@ export async function getVendors(
       COALESCE(t.cnt, 0)::int AS trade_count,
       COUNT(*) OVER() AS total
     FROM vendor v
-    -- LATERAL per-row index lookups instead of aggregating the whole child
-    -- table: only the ≤page rows drive the counts (idx_vendor_contact_vendor
-    -- / idx_vendor_trade_vendor), not every tenant's contacts/trades.
+    -- LATERAL per-row indexed counts (idx_vendor_contact_vendor /
+    -- idx_vendor_trade_vendor) instead of a GROUP BY over every tenant's
+    -- contacts/trades. The COUNT(*) OVER() total still forces evaluating all
+    -- rows matching WHERE (pre-LIMIT), so a count runs per filtered vendor —
+    -- bounded by this org's result set, not the whole child table.
     LEFT JOIN LATERAL (
       SELECT COUNT(*) AS cnt,
              MAX(CASE WHEN is_primary THEN email END) AS primary_email

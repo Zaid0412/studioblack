@@ -61,8 +61,7 @@ export const BOQ_SELL_PRICE_SQL = `
     * (1 + COALESCE(bi.service_charge_pct, 0)/100)
     * (1 + bi.margin_pct/100)`;
 
-// Everything except the `on_rfq` flag, which has two forms below.
-const ITEM_COMPUTED_COLS_BASE = `
+const ITEM_COMPUTED_COLS = `
   bi.quantity * bi.unit_cost AS total_cost,
   bi.quantity * bi.unit_cost
     * (1 + COALESCE(bi.overhead_pct, 0)/100)
@@ -82,19 +81,10 @@ const ITEM_COMPUTED_COLS_BASE = `
   CASE
     WHEN bi.budget_rate IS NULL OR bi.budget_rate = 0 THEN NULL
     ELSE ROUND((bi.unit_cost - bi.budget_rate) / bi.budget_rate * 100, 1)
-  END AS budget_variance_pct`;
-
-// RFQ-3d: is this item on a LIVE RFQ? Gates the "can't hard-delete" UI
-// (dead cancelled/superseded RFQs are released on delete, so they don't
-// count). Matches the delete guard's live-only semantics.
-//
-// Two forms of the same predicate:
-//  - `ITEM_COMPUTED_COLS` (correlated EXISTS) for single-row mutation returns,
-//    where one index probe is cheap.
-//  - `ITEM_COMPUTED_COLS_LIST` (LEFT JOIN null-check via `LIVE_RFQ_JOIN`) for
-//    the multi-row list reads (`ITEM_SELECT`): a real BOQ has 300–500 items, so
-//    one hash join beats 300–500 correlated EXISTS probes.
-const ITEM_COMPUTED_COLS = `${ITEM_COMPUTED_COLS_BASE},
+  END AS budget_variance_pct,
+  -- RFQ-3d: is this item on a LIVE RFQ? Gates the "can't hard-delete" UI
+  -- (dead cancelled/superseded RFQs are released on delete, so they don't
+  -- count). Matches the delete guard's live-only semantics.
   EXISTS (
     SELECT 1 FROM rfq_item ri
     JOIN rfq r ON r.id = ri.rfq_id
@@ -102,19 +92,6 @@ const ITEM_COMPUTED_COLS = `${ITEM_COMPUTED_COLS_BASE},
       AND r.status NOT IN ('cancelled', 'superseded')
   ) AS on_rfq
 `;
-
-const ITEM_COMPUTED_COLS_LIST = `${ITEM_COMPUTED_COLS_BASE},
-  (live_rfq.boq_item_id IS NOT NULL) AS on_rfq
-`;
-
-// The set of BOQ-item ids sitting on a live RFQ, built once and hash-joined.
-// `DISTINCT` keeps the LEFT JOIN one-to-(zero-or-one) so it can't fan out rows.
-const LIVE_RFQ_JOIN = `LEFT JOIN (
-  SELECT DISTINCT ri.boq_item_id
-  FROM rfq_item ri
-  JOIN rfq r ON r.id = ri.rfq_id
-  WHERE r.status NOT IN ('cancelled', 'superseded')
-) live_rfq ON live_rfq.boq_item_id = bi.id`;
 
 /**
  * Library-join columns + join clause. Pulled into a pair so callers can't
@@ -125,11 +102,7 @@ const LIVE_RFQ_JOIN = `LEFT JOIN (
 const ITEM_LIBRARY_COLS = `e.name AS element_name, NOT e.is_active AS element_archived, cat.name AS category_name`;
 const ITEM_LIBRARY_JOIN = `LEFT JOIN element e ON e.id = bi.element_id LEFT JOIN element_category cat ON cat.id = bi.category_id`;
 
-// List/multi-row read path — uses the JOIN form of `on_rfq`. All ITEM_SELECT
-// callers return many rows (full-BOQ reads, bulk-move returns), so the join
-// wins over per-row EXISTS. Single-row mutation returns build their SELECT
-// inline with `ITEM_COMPUTED_COLS` (EXISTS form) instead.
-const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS_LIST} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN} ${LIVE_RFQ_JOIN}`;
+const ITEM_SELECT = `SELECT bi.*, ${ITEM_LIBRARY_COLS}, ${ITEM_COMPUTED_COLS} FROM boq_item bi JOIN boq b ON b.id = bi.boq_id ${ITEM_LIBRARY_JOIN}`;
 
 /** Confirm a BOQ exists and belongs to the given project. Used for project-scope guards in API routes. */
 export async function verifyBoqOwnership(

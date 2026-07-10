@@ -382,10 +382,8 @@ export async function getQuoteComparison(
 
   // Index quote items by (rfq_item_id, vendor_id) via quote_id → vendor_id.
   const vendorByQuoteId = new Map<string, string>();
-  const quoteById = new Map<string, QuoteRow>();
   for (const q of quoteRes.rows) {
     vendorByQuoteId.set(q.id, q.vendor_id);
-    quoteById.set(q.id, q);
   }
 
   // rfq_item_id → vendor_id → quote line
