@@ -367,7 +367,12 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
          AND ae.action = ANY($3::text[])
          AND ae.metadata->>'rfq_id' = $1::text)
      )
-     ORDER BY ae.created_at ASC`,
+     -- Latest 100, newest-first (reversed to ascending below). Caps a
+     -- heavily-revised RFQ's timeline, matching the LIMIT 100 used by
+     -- getBoqItemHistory / getRateContractHistory. The ae.id tiebreaker keeps
+     -- ordering stable for events sharing a created_at.
+     ORDER BY ae.created_at DESC, ae.id DESC
+     LIMIT 100`,
     [rfqId, RFQ_TIMELINE_ACTIONS, QUOTE_TIMELINE_ACTIONS]
   );
 
@@ -397,7 +402,7 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
     nameById = new Map(vendorRows.map((v) => [v.id, v.company_name]));
   }
 
-  return rows.map((r) => {
+  const events = rows.map((r) => {
     let metadata = r.metadata ?? null;
     if (VENDOR_BEARING_ACTIONS.has(r.action) && metadata) {
       const ids = Array.isArray(metadata.vendor_ids)
@@ -420,6 +425,9 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
       metadata,
     };
   });
+
+  // Reverse to oldest→newest for the timeline (query fetched newest-first).
+  return events.reverse();
 }
 
 /**

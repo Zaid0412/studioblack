@@ -30,7 +30,7 @@ wins, not a rescue.
 | [t2-04](t2-04-defer-posthog.md)             | Defer/idle-init PostHog + sample replay          | Med-High / M    |
 | [t2-05](t2-05-attachment-phase-count.md)    | Stop over-fetching attachments for a phase count | Med / M         |
 
-## Tier 3 — solid targeted wins
+## Tier 3 — ✅ Shipped (PR #185)
 
 | Plan                                       | Fix                                                    | Impact / Effort |
 | ------------------------------------------ | ------------------------------------------------------ | --------------- |

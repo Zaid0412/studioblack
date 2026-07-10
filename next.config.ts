@@ -18,6 +18,12 @@ const POSTHOG_ASSETS_HOST =
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
+  experimental: {
+    // Rewrite dnd-kit barrel imports to direct submodule paths so only the
+    // used members land in the chunk. lucide-react / date-fns / @radix-ui/*
+    // are already in Next 16's default optimizePackageImports list.
+    optimizePackageImports: ["@dnd-kit/core", "@dnd-kit/sortable"],
+  },
   // Skip the in-build type-check on staging + PR previews (they rebuild
   // constantly via the sync Action, and CI runs `tsc --noEmit` on every push).
   // PRODUCTION still type-checks: with no branch protection on this plan the CI
