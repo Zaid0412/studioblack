@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { branding } from "@/config/branding";
 import { SplashScreen } from "@/components/SplashScreen";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
+import { satoshi, cabinetGrotesk } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,7 +26,11 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      lang={locale}
+      suppressHydrationWarning
+      className={`${satoshi.variable} ${cabinetGrotesk.variable}`}
+    >
       <head>
         {/* Block FOUC: apply data-theme before first paint. `next/script`
             beforeInteractive injects it into the initial HTML (and avoids the
@@ -33,17 +38,8 @@ export default async function RootLayout({
         <Script id="theme-no-flash" strategy="beforeInteractive">
           {`try{if(localStorage.getItem("studioblack-theme-v2")==="dark"){document.documentElement.setAttribute("data-theme","dark")}}catch(e){}`}
         </Script>
-        {/* Fontshare: Satoshi (body) + Cabinet Grotesk (headings) */}
-        <link rel="preconnect" href="https://api.fontshare.com" />
-        <link
-          rel="preconnect"
-          href="https://cdn.fontshare.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap"
-          rel="stylesheet"
-        />
+        {/* Fonts (Satoshi body + Cabinet Grotesk headings) are self-hosted via
+            `next/font/local` — see ./fonts.ts. No render-blocking request. */}
       </head>
       <body className="antialiased">
         <SplashScreen />

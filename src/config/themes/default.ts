@@ -50,9 +50,9 @@ const defaultTheme: Theme = {
     "danger-border": "rgba(239, 68, 68, 0.4)",
   },
   font: {
-    sans: '"Satoshi", ui-sans-serif, system-ui, sans-serif',
+    sans: "var(--font-satoshi), ui-sans-serif, system-ui, sans-serif",
     heading:
-      '"Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif',
+      "var(--font-cabinet-grotesk), var(--font-satoshi), ui-sans-serif, system-ui, sans-serif",
   },
 };
 
