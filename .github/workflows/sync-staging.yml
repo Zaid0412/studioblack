@@ -23,7 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Mirror main -> staging
-        run: git push origin "origin/main:refs/heads/staging" --force
+        # HEAD is the main commit that triggered this run and already exists on
+        # the remote, so force-updating staging to it transfers no objects — the
+        # default shallow checkout is enough (no full-history fetch needed).
+        run: git push origin "HEAD:refs/heads/staging" --force
