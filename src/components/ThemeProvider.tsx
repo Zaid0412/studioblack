@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { defaultTheme, lightTheme, type Theme } from "@/config/themes";
@@ -93,10 +94,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     });
   }, []);
 
+  const value = useMemo(
+    () => ({ theme, mode, toggleTheme }),
+    [theme, mode, toggleTheme]
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, mode, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
 }
 
