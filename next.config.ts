@@ -18,6 +18,12 @@ const POSTHOG_ASSETS_HOST =
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
+  // Skip the in-build type-check on staging + PR previews (they rebuild
+  // constantly via the sync Action, and CI runs `tsc --noEmit` on every push).
+  // PRODUCTION still type-checks: with no branch protection on this plan the CI
+  // check is advisory-only, so the prod build is the last enforced gate before
+  // a type error can deploy. (Next 16 no longer runs ESLint during build.)
+  typescript: { ignoreBuildErrors: process.env.VERCEL_ENV !== "production" },
   // PostHog reverse proxy: route SDK traffic through our own domain so
   // ad-blockers don't drop ingestion / replay requests.
   skipTrailingSlashRedirect: true,
@@ -107,8 +113,14 @@ const nextConfig: NextConfig = {
 
 const intlConfig = withNextIntl(nextConfig);
 
-// Source map upload only when both creds are set, so local builds skip it.
-export default process.env.POSTHOG_API_KEY && process.env.POSTHOG_PROJECT_ID
+// Upload source maps to PostHog only on PRODUCTION Vercel builds. Staging and
+// PR previews don't need error-tracking maps, and skipping the upload (+ its
+// scan of ~900 map files) saves ~30s/build. Local builds skip it too (no
+// VERCEL_ENV / creds). Keep the env-var checks inline in the condition so TS
+// narrows them to `string` for the withPostHogConfig call below.
+export default process.env.VERCEL_ENV === "production" &&
+process.env.POSTHOG_API_KEY &&
+process.env.POSTHOG_PROJECT_ID
   ? withPostHogConfig(intlConfig, {
       personalApiKey: process.env.POSTHOG_API_KEY,
       projectId: process.env.POSTHOG_PROJECT_ID,

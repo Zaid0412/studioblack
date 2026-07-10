@@ -56,3 +56,5 @@ next-env.d.ts
 
 # Pencil scratch files (local design exploration; not part of source)
 *.pen
+
+.vercel
