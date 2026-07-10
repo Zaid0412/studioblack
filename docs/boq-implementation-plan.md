@@ -1,9 +1,59 @@
 # ArchBuild Implementation Plan
 
-> **Shipped sub-plans:**
->
-> - F6.1 (BOQ table enhancements: section chips, source column, service charge). **Status: shipped in PR #81 (2026-04-29).**
->
+## Implementation status (audited 2026-07-11)
+
+**Verified against the actual codebase** (tables, queries, routes, UI) — not the
+prose below, which is written in the original spec/future tense and does NOT
+reflect what has shipped. This table is the source of truth for status.
+
+Legend: ✅ shipped · 🟡 partial / diverged · ❌ not built
+
+| Feature                          | Status | Notes                                                                                                                |
+| -------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| F1 Element Categories            | ✅     |                                                                                                                      |
+| F2 Element Library CRUD          | ✅     |                                                                                                                      |
+| F3 Element Excel Import/Export   | ✅     |                                                                                                                      |
+| F4 BOQ Core                      | ✅     | Diverged: a single `phase` lifecycle replaced the planned two-track `lifecycle_status` + `client_approval_status`    |
+| F5 BOQ UI                        | ✅     |                                                                                                                      |
+| F6 BOQ Excel Import/Export       | ✅     |                                                                                                                      |
+| F6.1 BOQ Table Enhancements      | ✅     | Shipped PR #81 (2026-04-29)                                                                                          |
+| F7 Vendor Management             | ✅     |                                                                                                                      |
+| F7.1 Vendor Tax ID + KYC         | ✅     |                                                                                                                      |
+| F7.5 Rate Contracts              | ✅     |                                                                                                                      |
+| F8 Vendor Role + Portal          | ✅     | Core shipped; PO / invoices / progress sub-pages are placeholders pending F14/F15/F16                                |
+| F8.5 Vendor Self-Service Profile | ✅     |                                                                                                                      |
+| F9 RFQ Workflow                  | ✅     | Incl. versioning, invite, revise, cancel, split scope                                                                |
+| F10 Vendor Quotes                | ✅     | Incl. comparison, award, split-award, offline entry                                                                  |
+| F11 Client Proposals             | ❌     |                                                                                                                      |
+| F12 Client BOQ Portal            | 🟡     | Client scope view + cost-scrub only; no proposals/orders/invoices sub-nav                                            |
+| F13 BOQ Locking + Change Orders  | 🟡     | Lighter per-item change-request flow (`change_requested`/`superseded` phases); no formal Change Orders or lock route |
+| F14 Purchase Orders              | ❌     |                                                                                                                      |
+| F14.5 Compare BOQ vs Order       | ❌     | Depends on F14                                                                                                       |
+| F15 Vendor Invoices              | ❌     |                                                                                                                      |
+| F16 Progress Tracking            | 🟡     | Only an `installed_qty` column; no progress API/UI                                                                   |
+| F16.5 Vendor-Wise Scope          | ❌     |                                                                                                                      |
+| F16.6 Vendor DPR                 | ❌     |                                                                                                                      |
+| F17 Snag Management              | ❌     | Only a `has_snag` column                                                                                             |
+| F18 BOQ Dashboard Widgets        | 🟡     | BOQ review stats only; no charts / margin / PO / snag widgets                                                        |
+| F19 PDF Export                   | 🟡     | BOQ email PDF only; no client-facing export, proposal, PO, or CO PDFs                                                |
+| F20 Custom Tabs                  | ❌     |                                                                                                                      |
+| F21 Audit Trail                  | 🟡     | `boq_item_version` + generic `audit_event` instead of the planned `boq_change_log`                                   |
+| F22 Client Invoices              | ❌     |                                                                                                                      |
+| F23 Client Payments              | ❌     |                                                                                                                      |
+| F24 Client Orders View           | ❌     |                                                                                                                      |
+
+**Tally: 14 shipped · 6 partial · 11 not built.** The pipeline is built through
+F10 (quote award); everything downstream of awarding — proposals, POs, invoices,
+change orders, progress, snags, client billing — is unbuilt or stub.
+
+**Built but not in this plan** (bonus scope): the internal-review workflow
+(`pending_internal_review → internally_approved → submitted_to_client`), BOQ item
+phases + dimensions, element media/versioning, vendor multi-address + rating, RFQ
+item attachments / proposed price, and a full Project Documents module.
+
+**Project-tab reality:** the app ships 3 tabs (`designs` / `boq` / `order`, with
+RFQs nested under Order), not the 8-tab bar this plan describes.
+
 > **Source PRD** (Google Docs — 6 tabs):
 >
 > - [Tab 1 — Overview & Architecture](https://docs.google.com/document/d/1ByLjtVdTkPzwjgeRwJElWmMCNvvnKjxfxL50ciKRyjs/edit?tab=t.0)
