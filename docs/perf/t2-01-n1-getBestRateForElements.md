@@ -92,6 +92,7 @@ rows to `AvailableRate` with `rate: Number(r.rate)`, and assign by `element_id`.
 `runWithConcurrency` import here if it becomes unused.
 
 Notes / gotchas:
+
 - The `anc` CTE must be tagged with `leaf_id` so an ancestor category only matches the
   element whose category actually descends from it — a plain `IN (SELECT id FROM anc)`
   would cross-match elements. Keep the `leaf_id = eff.category_id` join predicate.

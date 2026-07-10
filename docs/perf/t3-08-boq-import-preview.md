@@ -12,7 +12,7 @@ The `RowIssues` helper (`:595-628`) already established the right pattern: `item
 
 ## Fix
 
-Cap the rendered preview rows (the full dataset still submits — only the *render* is capped). Lowest-effort, matches the existing `RowIssues` idiom:
+Cap the rendered preview rows (the full dataset still submits — only the _render_ is capped). Lowest-effort, matches the existing `RowIssues` idiom:
 
 ```tsx
 const PREVIEW_RENDER_CAP = 100;
@@ -23,11 +23,14 @@ const PREVIEW_RENDER_CAP = 100;
 Then, after the `<table>` (or as a final full-width row), add an overflow note mirroring `RowIssues`:
 
 ```tsx
-{preview.rows.length > PREVIEW_RENDER_CAP && (
-  <p className="px-3 py-2 text-sm text-text-muted italic">
-    …and {preview.rows.length - PREVIEW_RENDER_CAP} more rows (all will be imported)
-  </p>
-)}
+{
+  preview.rows.length > PREVIEW_RENDER_CAP && (
+    <p className="px-3 py-2 text-sm text-text-muted italic">
+      …and {preview.rows.length - PREVIEW_RENDER_CAP} more rows (all will be
+      imported)
+    </p>
+  );
+}
 ```
 
 Caps ~35,000 nodes down to ~700 (100 × 7). The confirm handler already submits `preview.rows` (or the underlying parsed payload) in full — only the JSX map is sliced, so nothing about what gets imported changes. If a scrollable full preview is a hard requirement later, virtualize the table instead (render only rows in view); the slice-cap covers the janking case with far less complexity.
@@ -41,6 +44,6 @@ Caps ~35,000 nodes down to ~700 (100 × 7). The confirm handler already submits 
 
 ## Risks / notes
 
-- Error/warning rows beyond row 100 won't appear in the visual table, but `RowIssues` (`:417-419`) already aggregates *all* errors/warnings independent of the table render, so no diagnostic information is lost.
+- Error/warning rows beyond row 100 won't appear in the visual table, but `RowIssues` (`:417-419`) already aggregates _all_ errors/warnings independent of the table render, so no diagnostic information is lost.
 - Keep `PREVIEW_RENDER_CAP` (100) well below the 5,000 server cap so the "…and N more" branch is what users hit on big imports.
 - Pure client render change — no API, parsing, or import-logic change.

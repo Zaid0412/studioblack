@@ -19,7 +19,11 @@ CLAUDE.md mandates `next/image` for static/known-dimension images (WebP conversi
 import Image from "next/image";
 
 const sizePx: Record<AvatarSize, number> = {
-  xs: 20, sm: 28, md: 36, lg: 44, xl: 64, // matches w-5/w-7/w-9/w-11/w-16
+  xs: 20,
+  sm: 28,
+  md: 36,
+  lg: 44,
+  xl: 64, // matches w-5/w-7/w-9/w-11/w-16
 };
 ```
 

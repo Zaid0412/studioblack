@@ -57,10 +57,12 @@ export const config = {
     /*
      * Match all request paths EXCEPT:
      * - /login (auth page — must be public)
-     * - /api/auth/* (better-auth API routes)
+     * - /api/* — API auth is fully owned by `withAuth` (which returns proper
+     *   401 JSON); running the cookie-gate here just adds an edge hop and would
+     *   307-redirect API calls to /login (HTML), breaking fetch()/SWR handling.
      * - /_next/static and /_next/image (Next.js internals)
      * - Static file extensions (images, fonts, favicon, etc.)
      */
-    "/((?!login|register|forgot-password|reset-password|verify-email|verify-email-change|api/auth|api/health|api/settings/verify-email-change|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
+    "/((?!login|register|forgot-password|reset-password|verify-email|verify-email-change|api|_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)",
   ],
 };

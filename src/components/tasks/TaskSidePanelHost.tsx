@@ -1,11 +1,20 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import useSWR from "swr";
 import { API } from "@/lib/api/routes";
-import { TaskSidePanel } from "./TaskSidePanel";
 import type { Task } from "@/types";
+
+// Deferred: this host mounts on every dashboard route but only renders when
+// `?task=<id>` is present. Loading TaskSidePanel eagerly would pull its
+// react-markdown + remark-gfm chain (~60-100 KB gz) into the shared dashboard
+// chunk. `next/dynamic` (client-only) defers it to when a task actually opens.
+const TaskSidePanel = dynamic(
+  () => import("./TaskSidePanel").then((m) => m.TaskSidePanel),
+  { ssr: false }
+);
 
 /**
  * Global overlay host. Listens for `?task=<id>` on any dashboard route and

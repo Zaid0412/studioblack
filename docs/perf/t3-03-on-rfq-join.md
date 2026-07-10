@@ -39,7 +39,7 @@ LEFT JOIN (
 
 One hash join of the (small) live-RFQ id set against the BOQ's items, versus N correlated probes. The planner builds the `DISTINCT` set once and hash-probes it per row.
 
-⚠️ **Coupling check:** `ITEM_COMPUTED_COLS` and `ITEM_SELECT` are shared. Confirm every consumer of `ITEM_SELECT` (and the four mutation queries that return a fresh item row via these fragments — create / update / move / lifecycle, per the `boq.ts:96-105` comment) either includes the new join or doesn't reference `on_rfq`. If the computed-cols fragment is reused *without* `ITEM_SELECT`'s FROM/JOIN clause anywhere, the `live_rfq` reference will break that query — audit all usages of both constants before changing them. Safest: keep `on_rfq`'s EXISTS in a variant used by single-row mutation returns (1 probe is fine) and only swap the JOIN form into the list path (`getBoq`), if the constants are shared across both.
+⚠️ **Coupling check:** `ITEM_COMPUTED_COLS` and `ITEM_SELECT` are shared. Confirm every consumer of `ITEM_SELECT` (and the four mutation queries that return a fresh item row via these fragments — create / update / move / lifecycle, per the `boq.ts:96-105` comment) either includes the new join or doesn't reference `on_rfq`. If the computed-cols fragment is reused _without_ `ITEM_SELECT`'s FROM/JOIN clause anywhere, the `live_rfq` reference will break that query — audit all usages of both constants before changing them. Safest: keep `on_rfq`'s EXISTS in a variant used by single-row mutation returns (1 probe is fine) and only swap the JOIN form into the list path (`getBoq`), if the constants are shared across both.
 
 ## Verification
 

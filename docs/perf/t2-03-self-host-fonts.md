@@ -7,6 +7,7 @@
 ## Problem
 
 `src/app/layout.tsx:37-46` loads fonts from Fontshare:
+
 - `preconnect` to `api.fontshare.com` and `cdn.fontshare.com`, then
 - a **render-blocking** `<link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,600,700&f[]=cabinet-grotesk@400,500,700,800&display=swap">`.
 
@@ -31,7 +32,7 @@ Migrate to `next/font/local` (self-hosted, no render-blocking request, auto-inje
    repo, e.g. `src/app/fonts/`.
 3. Define them with `next/font/local` in a server module (e.g. in `layout.tsx` or a small
    `src/app/fonts.ts`), one `localFont({ src: [...weights...], variable: "--font-satoshi",
-   display: "swap" })` per family, and apply the generated CSS variable classes to `<html>`
+display: "swap" })` per family, and apply the generated CSS variable classes to `<html>`
    (or `<body>`). Point `globals.css:41-43` `--font-sans` / heading stack at those variables
    (`var(--font-satoshi)` etc.) instead of the bare `"Satoshi"` / `"Cabinet Grotesk"` names.
 4. Remove the three `<link>` tags and both `preconnect`s from `layout.tsx:37-46`.
@@ -59,7 +60,7 @@ Migrate to `next/font/local` (self-hosted, no render-blocking request, auto-inje
   not, keep `cdn.fontshare.com` but at minimum preload the specific `.woff2` files and drop
   the render-blocking CSS `<link>`. (Fontshare fonts are generally free for commercial use,
   but verify.)
-- Getting the weight audit right matters — shipping all 9 weights self-hosted could be *more*
+- Getting the weight audit right matters — shipping all 9 weights self-hosted could be _more_
   bytes than needed. Trim to actual usage.
 - Keep `display: "swap"` to preserve the current no-FOIT behavior; `next/font`'s metric
   overrides handle the CLS side.

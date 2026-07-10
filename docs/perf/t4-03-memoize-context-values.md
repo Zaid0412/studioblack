@@ -13,7 +13,7 @@ Two context providers allocate a fresh value object on every render:
 
 A new object identity forces every consumer of the context to re-render whenever the provider re-renders, even if the underlying values are unchanged.
 
-Impact here is genuinely **low**: each provider's only state *is* the value it exposes (`ThemeProvider` holds `mode`; `SidebarProvider` holds `isCollapsed`), and `toggleTheme` / `toggle` / `collapse` are already wrapped in `useCallback` with stable identities. So the provider only re-renders when the value actually changes — there's no re-render storm to eliminate today. `theme` in `ThemeProvider` is derived (`mode === "dark" ? defaultTheme : lightTheme`) and is already referentially stable per mode.
+Impact here is genuinely **low**: each provider's only state _is_ the value it exposes (`ThemeProvider` holds `mode`; `SidebarProvider` holds `isCollapsed`), and `toggleTheme` / `toggle` / `collapse` are already wrapped in `useCallback` with stable identities. So the provider only re-renders when the value actually changes — there's no re-render storm to eliminate today. `theme` in `ThemeProvider` is derived (`mode === "dark" ? defaultTheme : lightTheme`) and is already referentially stable per mode.
 
 This is a **consistency / hygiene** fix, not a hot-path optimization. `src/contexts/UserRoleContext.tsx:31` already does the correct thing (`useMemo(() => ({ role, userId, orgRole }), [role, userId, orgRole])`). The value of fixing the other two is that if future state is added to either provider (e.g. sidebar width, theme accent), the un-memoized object would then leak unnecessary re-renders — memoizing now makes them safe by construction and consistent with `UserRoleContext`.
 
@@ -36,7 +36,9 @@ const value = useMemo(
   () => ({ isCollapsed, toggle, collapse }),
   [isCollapsed, toggle, collapse]
 );
-return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+return (
+  <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>
+);
 ```
 
 The handlers (`toggle`, `collapse`, `toggleTheme`) are already `useCallback`-wrapped, so no additional changes are needed there.

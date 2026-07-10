@@ -37,15 +37,15 @@ following `bulkInsertBoqItems`:
    `boq.ts:2266-2268`) to serialize concurrent adds against the same BOQ — matches import.
 3. **One** element fetch for all ids:
    `SELECT id, code, name, description, unit, unit_cost, material_cost, labour_cost,
-   overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate, category_id
-   FROM element WHERE id = ANY($1::uuid[]) AND org_id = $2` (scope by org for safety).
+overhead_pct, service_charge_pct, margin_pct, client_rate, budget_rate, category_id
+FROM element WHERE id = ANY($1::uuid[]) AND org_id = $2` (scope by org for safety).
    Build a `Map<elementId, row>`. If any requested id is missing → `ROLLBACK`, return `null`
    (preserves the current "any unresolved id ⇒ null, no partial insert" contract, now
    actually atomic).
 4. **One** rate-contract validation for the items that carry a `rateContractItemId`. Batch
    the current per-row check (`boq.ts:1576-1590`) into a single query over the
    `(rateContractItemId, elementId)` pairs — e.g. `… WHERE (rci.id, target_element) IN
-   (SELECT * FROM unnest($ids::uuid[], $els::uuid[]))` with the same active-contract +
+(SELECT * FROM unnest($ids::uuid[], $els::uuid[]))` with the same active-contract +
    element/ancestor-category coverage predicate (reuse `elementAncestorCategoryIdsSql`).
    Any pair that fails coverage → `ROLLBACK` + throw the same error string as
    `boq.ts:1592-1594`.
@@ -53,7 +53,7 @@ following `bulkInsertBoqItems`:
    `nextSequenceNumbers(client, orgId, "BOQ", count)` (`boq.ts:2098`).
 6. **One** multi-row insert with the computed-column projection. Model it on `createBoqItem`'s
    `WITH inserted AS (INSERT … RETURNING *) SELECT bi.*, ${ITEM_LIBRARY_COLS},
-   ${ITEM_COMPUTED_COLS} …` (`boq.ts:871-897`), but feed rows via
+${ITEM_COMPUTED_COLS} …` (`boq.ts:871-897`), but feed rows via
    `INSERT INTO boq_item (…) SELECT * FROM UNNEST($col1[], $col2[], …) …` (or a
    `jsonb_to_recordset` payload) so all N rows insert in one statement. Preserve per-row
    semantics exactly: `source = 'rate_contract'` + rate-contract unit/rate when a

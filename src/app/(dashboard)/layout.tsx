@@ -10,6 +10,7 @@ import { MobileShell } from "@/components/layout/MobileShell";
 import { deriveInitials } from "@/lib/utils";
 import { deriveEffectiveRole } from "@/lib/effectiveRole";
 import { getMemberRole } from "@/lib/queries";
+import { getServerSession } from "@/lib/serverSession";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InvitationBanner } from "@/components/layout/InvitationBanner";
 import { SWRProvider } from "@/components/providers/SWRProvider";
@@ -32,7 +33,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const reqHeaders = await headers();
-  const session = await auth.api.getSession({ headers: reqHeaders });
+  const session = await getServerSession();
 
   if (!session) {
     redirect("/login");

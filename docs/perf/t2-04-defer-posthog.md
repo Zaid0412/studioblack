@@ -17,7 +17,7 @@ page during hydration. Two costs:
 
 All of this executes on the main thread during load, competing with hydration → worse TBT /
 INP. `person_profiles: "identified_only"` (`line 17`) is already correct and keeps this
-anonymous-light; the problem is purely the *timing* and the eager replay bundle.
+anonymous-light; the problem is purely the _timing_ and the eager replay bundle.
 
 ## Fix
 
@@ -26,12 +26,16 @@ Defer initialization until after first paint / idle, and stop pulling replay eag
 1. **Idle-defer `init`.** Wrap the `posthog.init(...)` block so it runs on
    `requestIdleCallback` (with a `setTimeout` fallback for Safari), not at module eval:
    ```ts
-   const start = () => posthog.init(key, { /* opts */ });
-   if ("requestIdleCallback" in window) requestIdleCallback(start, { timeout: 2000 });
+   const start = () =>
+     posthog.init(key, {
+       /* opts */
+     });
+   if ("requestIdleCallback" in window)
+     requestIdleCallback(start, { timeout: 2000 });
    else setTimeout(start, 1);
    ```
    Keep the `key && typeof window !== "undefined"` guard. `capture_pageview:
-   "history_change"` + `capture_pageleave` still work post-init; the first pageview fires on
+"history_change"` + `capture_pageleave` still work post-init; the first pageview fires on
    init. If exception capture during the pre-init window matters, that's the one trade-off to
    weigh (see risks).
 2. **Don't load replay eagerly.** Set `disable_session_recording: true` in the init opts so

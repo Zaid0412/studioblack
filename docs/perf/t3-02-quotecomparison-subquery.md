@@ -6,7 +6,7 @@
 
 ## Problem
 
-**(a) Correlated prior-awards subquery, re-run per vendor row.** In `getQuoteComparison` the quote-header select (`quotes.ts:299-315`) carries, for *each* current quote row, a correlated subquery:
+**(a) Correlated prior-awards subquery, re-run per vendor row.** In `getQuoteComparison` the quote-header select (`quotes.ts:299-315`) carries, for _each_ current quote row, a correlated subquery:
 
 ```sql
 (SELECT COUNT(DISTINCT r.rfq_number)

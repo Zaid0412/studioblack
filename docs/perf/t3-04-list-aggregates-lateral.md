@@ -6,7 +6,7 @@
 
 ## Problem
 
-Both list queries LEFT JOIN **uncorrelated** derived tables that aggregate an *entire* child table with no org/tenant filter, just to attach counts to a page of ≤25 rows.
+Both list queries LEFT JOIN **uncorrelated** derived tables that aggregate an _entire_ child table with no org/tenant filter, just to attach counts to a page of ≤25 rows.
 
 `getVendors` (`vendors.ts:237-247`):
 
@@ -22,7 +22,7 @@ LEFT JOIN (
 ) t ON t.vendor_id = v.id
 ```
 
-`listRateContracts` (`rateContracts.ts:190-194`): same shape, GROUP BY over *all* `rate_contract_item`.
+`listRateContracts` (`rateContracts.ts:190-194`): same shape, GROUP BY over _all_ `rate_contract_item`.
 
 The derived tables scan and group the whole child table across every tenant, then the join throws away all but the current page's vendor/contract ids. As `vendor_contact` / `vendor_trade` / `rate_contract_item` grow, every list render re-aggregates tables that are orders of magnitude larger than the 25 rows displayed.
 

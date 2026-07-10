@@ -23,8 +23,8 @@ Add a cap consistent with the existing precedent. Note the established pattern i
 
 Two viable shapes:
 
-1. **Latest-N, then reverse (matches precedent):** change to `ORDER BY ae.created_at DESC, ae.id DESC LIMIT 100`, then reverse the rows in JS before returning so the timeline still renders oldest-to-newest. This keeps the *most recent* events when truncation happens — usually what a timeline wants — and mirrors `getBoqItemHistory` / `getRateContractHistory` exactly (including the `ae.id` tiebreaker for stable ordering).
-2. **ASC with cap:** keep `ORDER BY ae.created_at ASC` and append `LIMIT 200`. Simpler, but truncates the *newest* events on overflow, which is the wrong end for a timeline — avoid unless there's a specific reason.
+1. **Latest-N, then reverse (matches precedent):** change to `ORDER BY ae.created_at DESC, ae.id DESC LIMIT 100`, then reverse the rows in JS before returning so the timeline still renders oldest-to-newest. This keeps the _most recent_ events when truncation happens — usually what a timeline wants — and mirrors `getBoqItemHistory` / `getRateContractHistory` exactly (including the `ae.id` tiebreaker for stable ordering).
+2. **ASC with cap:** keep `ORDER BY ae.created_at ASC` and append `LIMIT 200`. Simpler, but truncates the _newest_ events on overflow, which is the wrong end for a timeline — avoid unless there's a specific reason.
 
 Recommended: option 1 (DESC + LIMIT 100 + reverse), for consistency with the two existing history queries. Add an `ae.id` secondary sort key as the siblings do.
 
@@ -37,5 +37,5 @@ Recommended: option 1 (DESC + LIMIT 100 + reverse), for consistency with the two
 
 ## Risks / notes
 
-- If the timeline UI relies on showing the *entire* history, capping silently hides older events. Confirm the timeline component either paginates or is acceptable showing the latest N. If full history is a hard requirement, add pagination instead of a bare cap — but that's a larger change than this T4.
+- If the timeline UI relies on showing the _entire_ history, capping silently hides older events. Confirm the timeline component either paginates or is acceptable showing the latest N. If full history is a hard requirement, add pagination instead of a bare cap — but that's a larger change than this T4.
 - The `vendor_quote` branch joins via JSONB `metadata->>'rfq_id'`; the LIMIT applies to the combined set after the `OR`, so both branches are bounded together — correct.

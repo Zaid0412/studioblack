@@ -94,6 +94,15 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [rfqBlockedItem, setRfqBlockedItem] =
     useState<BoqItemWithComputed | null>(null);
   const [excludingBlocked, setExcludingBlocked] = useState(false);
+  // RFQ-3d: route a delete request — an item on a live RFQ can't be deleted, so
+  // prompt to remove it from scope instead of letting the delete fail. Stable
+  // (only touches state setters) + async to match the `onDeleteItem` prop type,
+  // so passing it down doesn't defeat BoqItemRow's memo. Declared with the other
+  // hooks (before any early return) to satisfy rules-of-hooks.
+  const requestDeleteItem = useCallback(async (item: BoqItemWithComputed) => {
+    if (item.on_rfq) setRfqBlockedItem(item);
+    else setDeleteItemTarget(item);
+  }, []);
   const [applyRateTarget, setApplyRateTarget] =
     useState<BoqItemWithComputed | null>(null);
   const [drawerItem, setDrawerItem] = useState<BoqItemWithComputed | null>(
@@ -453,13 +462,6 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     }
   };
 
-  // RFQ-3d: route a delete request — an item on a live RFQ can't be deleted, so
-  // prompt to remove it from scope instead of letting the delete fail.
-  const requestDeleteItem = (item: BoqItemWithComputed) => {
-    if (item.on_rfq) setRfqBlockedItem(item);
-    else setDeleteItemTarget(item);
-  };
-
   const confirmRemoveFromScope = async () => {
     if (!rfqBlockedItem) return;
     setExcludingBlocked(true);
@@ -568,7 +570,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         boqCreatorId={boq.created_by}
         sourceFilter={sourceFilter}
         onUpdateItem={updateItem}
-        onDeleteItem={async (item) => requestDeleteItem(item)}
+        onDeleteItem={requestDeleteItem}
         onApplyRate={setApplyRateTarget}
         onMoveItem={moveItem}
         onCreateAndMoveItem={setCreateAndMoveTarget}

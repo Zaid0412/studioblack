@@ -14,7 +14,7 @@ The correct theme is already known **before hydration**: `ThemeProvider`'s block
 
 Render only the active variant. Two options, lowest-risk first:
 
-**Option A (keep both in DOM, prioritize only the visible one).** Drop `priority` from the hidden variant so only one high-priority fetch happens. But `display:none` may still trigger a (low-priority) fetch of the hidden image, so this only *demotes*, doesn't eliminate, the waste.
+**Option A (keep both in DOM, prioritize only the visible one).** Drop `priority` from the hidden variant so only one high-priority fetch happens. But `display:none` may still trigger a (low-priority) fetch of the hidden image, so this only _demotes_, doesn't eliminate, the waste.
 
 **Option B (preferred — render one).** Since `data-theme` is set pre-hydration, read it and render a single `<Image priority>`. The blocking theme script runs before this client component mounts; on mount, read `document.documentElement.dataset.theme` in a `useState` initializer (guarded for SSR) and pick the matching `logoUrl` / `logoUrlDark`. Render one `<Image>` with `priority`. This removes the wasted fetch entirely and keeps the single real logo at high priority.
 
@@ -22,7 +22,9 @@ Render only the active variant. Two options, lowest-risk first:
 const isDark =
   typeof document !== "undefined" &&
   document.documentElement.dataset.theme === "dark";
-const src = isDark ? branding.logoUrl : (branding.logoUrlDark ?? branding.logoUrl);
+const src = isDark
+  ? branding.logoUrl
+  : (branding.logoUrlDark ?? branding.logoUrl);
 ```
 
 (Mirror the light/dark→`logoUrl` mapping already used in `BrandLogo.tsx:43-46` and `sidebar.tsx:76-79` so the variant selection stays consistent across the three call sites.) Drop the `splash-logo-dark` / `splash-logo-light` toggle classes for this element once a single image is rendered.

@@ -25,7 +25,7 @@ route the full fetch is pure waste.
 
 ## Fix
 
-Add a lightweight phase-count endpoint and have the layout use *that*; fetch the full
+Add a lightweight phase-count endpoint and have the layout use _that_; fetch the full
 attachment list only where files render.
 
 1. **Query fn** in `src/lib/queries/attachments.ts` (respecting the same `clientOnly` +
@@ -46,7 +46,7 @@ attachment list only where files render.
    Return `{ phase_id, count }[]`. Reuse the existing `clientOnly` gating logic from
    `getAttachments` (`attachments.ts:17-20`) so client vs. team counts stay consistent.
 2. **Route**: `GET /api/projects/[id]/attachments/phase-counts` under `withAuth({ projectAccess:
-   true })`, deriving `clientOnly` from `effectiveRole === "client"` exactly like the existing
+true })`, deriving `clientOnly` from `effectiveRole === "client"` exactly like the existing
    attachments GET (`route.ts:18,27`). Add the URL builder to `src/lib/api/routes.ts` and a
    typed fn to the attachments domain file in `src/lib/api/`.
 3. **Layout / hook**: have the shared layout consume the counts endpoint instead of the full
@@ -57,7 +57,7 @@ attachment list only where files render.
    fetching the full list (it needs `phaseFiles`). Ensure `phaseCounts` derivation now reads
    from the counts endpoint response, not the full list.
    ⚠️ Preserve SWR dedupe: on the Designs route both the counts and the full list may load;
-   that's fine (counts is cheap). The win is every *other* route dropping the full fetch.
+   that's fine (counts is cheap). The win is every _other_ route dropping the full fetch.
 
 ## Verification
 
@@ -74,12 +74,12 @@ attachment list only where files render.
 
 - Keep the latest-version-per-`version_group` semantics identical to `getAttachments`, or
   counts will drift from what the Designs tab shows. The `DISTINCT ON (version_group) …
-  ORDER BY version_group, version DESC` shape must match `attachments.ts:35-41`.
+ORDER BY version_group, version DESC` shape must match `attachments.ts:35-41`.
 - Don't break the `clientOnly` visibility rule — clients must only count files with
   `sent_to_client_at IS NOT NULL` (`attachments.ts:18-20`).
 - If `useProjectDetail` consumers elsewhere rely on `attachments` being populated, verify them
   before making the full list opt-in (grep usages of the hook's `attachments` / `phaseFiles`
   return values). DesignsTab is the known consumer of the full list.
 - Consider an index supporting the count query if not already covered — `attachment(project_id,
-  version_group, version)` likely already backs the existing `all=true` query, so no new index
+version_group, version)` likely already backs the existing `all=true` query, so no new index
   expected; confirm.
