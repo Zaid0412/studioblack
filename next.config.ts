@@ -116,13 +116,11 @@ const intlConfig = withNextIntl(nextConfig);
 // Upload source maps to PostHog only on PRODUCTION Vercel builds. Staging and
 // PR previews don't need error-tracking maps, and skipping the upload (+ its
 // scan of ~900 map files) saves ~30s/build. Local builds skip it too (no
-// VERCEL_ENV / creds).
-const uploadSourcemaps =
-  process.env.VERCEL_ENV === "production" &&
-  !!process.env.POSTHOG_API_KEY &&
-  !!process.env.POSTHOG_PROJECT_ID;
-
-export default uploadSourcemaps
+// VERCEL_ENV / creds). Keep the env-var checks inline in the condition so TS
+// narrows them to `string` for the withPostHogConfig call below.
+export default process.env.VERCEL_ENV === "production" &&
+process.env.POSTHOG_API_KEY &&
+process.env.POSTHOG_PROJECT_ID
   ? withPostHogConfig(intlConfig, {
       personalApiKey: process.env.POSTHOG_API_KEY,
       projectId: process.env.POSTHOG_PROJECT_ID,
