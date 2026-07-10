@@ -30,16 +30,11 @@ export function getPool(): Pool {
     globalForPg.pgPool.on("error", (err) => {
       logger.error("Unexpected PostgreSQL pool error", { error: err });
     });
-    // Drain connections on graceful shutdown. Idempotent + self-catching:
-    // `pool.end()` throws "Called end on pool more than once" if invoked twice
-    // (both signals fire, or a signal is redelivered), and the promise is
-    // otherwise floating — this swallows both since we're shutting down anyway.
-    let ended = false;
-    const shutdown = () => {
-      if (ended) return;
-      ended = true;
-      void globalForPg.pgPool?.end().catch(() => {});
-    };
+    // Drain connections on graceful shutdown. A second `end()` (both signals
+    // fire, or one is redelivered) returns a rejected promise rather than
+    // throwing, so the `.catch` swallows it — no unhandled rejection, and the
+    // pool still drains exactly once.
+    const shutdown = () => void globalForPg.pgPool?.end().catch(() => {});
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);
   }
