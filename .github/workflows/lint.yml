@@ -31,4 +31,6 @@ jobs:
         run: npm run format:check
 
       - name: TypeScript
-        run: npx tsc --noEmit
+        # --skipLibCheck matches the local `check` script and skips type-checking
+        # node_modules .d.ts files, cutting the step's time notably.
+        run: npx tsc --noEmit --skipLibCheck
