@@ -20,7 +20,7 @@ wins, not a rescue.
 | [t1-06](t1-06-pg-pool-max-pooler.md)       | Lower pool `max`, confirm prod uses the pooler      | Med-High / S    |
 | [t1-07](t1-07-middleware-api-matcher.md)   | Exclude `/api` from the middleware matcher          | Med / S         |
 
-## Tier 2 — high impact, real work
+## Tier 2 — ✅ Shipped (perf/tier-2)
 
 | Plan                                        | Fix                                              | Impact / Effort |
 | ------------------------------------------- | ------------------------------------------------ | --------------- |
