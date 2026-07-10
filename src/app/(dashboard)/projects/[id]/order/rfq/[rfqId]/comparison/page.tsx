@@ -20,6 +20,7 @@ import {
   QUOTE_AWARDABLE_RFQ_STATUSES,
 } from "@/lib/validations";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
+import { RespondedChip } from "@/components/rfq/RespondedChip";
 import { QuoteAwardDialog } from "../_components/QuoteAwardDialog";
 import { QuoteComparisonTable } from "./_components/QuoteComparisonTable";
 
@@ -113,6 +114,20 @@ export default function RfqComparisonPage({
           <p className="text-sm text-text-secondary mt-1">
             {rfq.rfq_number} — {rfq.title}
           </p>
+          {comparison &&
+            comparison.vendors.length + comparison.invited_no_response.length >
+              0 && (
+              <div className="mt-2">
+                <RespondedChip
+                  variant="pill"
+                  responded={comparison.vendors.length}
+                  total={
+                    comparison.vendors.length +
+                    comparison.invited_no_response.length
+                  }
+                />
+              </div>
+            )}
         </div>
         {isPM && canAward && (
           <div className="flex items-center gap-2 shrink-0">

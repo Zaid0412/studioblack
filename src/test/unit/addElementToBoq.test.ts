@@ -83,11 +83,12 @@ describe("addElementToBoq", () => {
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
     expect(insertCall[0]).toContain("INSERT INTO boq_item");
-    expect(params.length).toBe(27);
+    expect(params.length).toBe(28);
     expect(params[3]).toBe("library"); // $4 source
     expect(params[4]).toBe(null); // $5 rate_contract_item_id
     expect(params[6]).toBe(null); // $7 name (not auto-copied from element)
     expect(params[14]).toBe(2.5); // $15 service_charge_pct (from element)
+    expect(params[27]).toBe(null); // $28 category_id (element had none)
 
     // The trailing SELECT applies the computed-cost columns, which now
     // include the service-charge factor between overhead and margin. Pin

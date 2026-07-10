@@ -108,6 +108,8 @@ describe("POST /api/projects/[id]/rfqs/[rfqId]/quotes (manual entry)", () => {
     vendorId: "33333333-3333-4333-8333-333333333333",
     responseSource: "email",
     receivedDate: "2026-06-01",
+    // §16: Remarks are mandatory for PM manual entry.
+    notes: "Quoted over email.",
     items: [
       { rfqItemId: "55555555-5555-4555-8555-555555555555", unitPrice: 100 },
     ],

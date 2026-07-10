@@ -23,6 +23,7 @@ import { formatDate } from "@/lib/formatDate";
 import { useRfqLastViewedReadOnly } from "@/hooks/useRfqLastViewed";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
+import { RespondedChip } from "@/components/rfq/RespondedChip";
 
 const ALL = "__all__";
 
@@ -63,7 +64,14 @@ function RfqRow({
         {row.item_count}
       </td>
       <td className="px-4 py-3 text-right tabular-nums text-text-secondary">
-        {row.vendor_count}
+        {row.responded_count != null && row.vendor_count > 0 ? (
+          <RespondedChip
+            responded={row.responded_count}
+            total={row.vendor_count}
+          />
+        ) : (
+          row.vendor_count
+        )}
       </td>
       <td className="px-4 py-3 text-text-secondary">
         {row.response_deadline ? formatDate(row.response_deadline) : "—"}

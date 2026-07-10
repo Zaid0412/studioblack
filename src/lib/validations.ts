@@ -835,6 +835,9 @@ export const reorderSectionsSchema = z.object({
 export const createBoqItemSchema = z.object({
   sectionId: optionalUuid.nullable(),
   elementId: optionalUuid.nullable(),
+  // Direct service-area link. Classifies free-text lines (no element) so they
+  // still match rate contracts / drive vendor suggestion. Any tree level.
+  categoryId: optionalUuid.nullable(),
   itemCode: z.string().trim().max(50).optional(),
   name: z.string().trim().max(255).nullable().optional(),
   description: trimmedString,
@@ -866,14 +869,13 @@ export const createBoqItemSchema = z.object({
 /**
  * Why a BOQ item's qty/spec/cost changed. Auto-derived from the edited fields
  * when the caller doesn't supply one (quantity-only → `quantity`, spec/unit →
- * `specification`, else `other`); `scope_add`/`scope_remove` are reserved for
- * the RFQ-3c impact flow (item added to / removed from scope).
+ * `specification`, else `other`). These are the only three reachable reasons —
+ * the former `scope_add`/`scope_remove` belonged to the RFQ-3c scope-change
+ * flow (reverted, #178) and were removed from the CHECK.
  */
 export const BOQ_ITEM_CHANGE_REASONS = [
   "quantity",
   "specification",
-  "scope_add",
-  "scope_remove",
   "other",
 ] as const;
 export type BoqItemChangeReason = (typeof BOQ_ITEM_CHANGE_REASONS)[number];
@@ -881,6 +883,7 @@ export type BoqItemChangeReason = (typeof BOQ_ITEM_CHANGE_REASONS)[number];
 export const updateBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   sectionId: z.string().uuid().nullable().optional(),
+  categoryId: z.string().uuid().nullable().optional(),
   itemCode: z.string().trim().max(50).optional(),
   name: z.string().trim().max(255).nullable().optional(),
   description: z.string().trim().min(1).optional(),
@@ -1771,6 +1774,10 @@ export const enterQuoteSchema = submitQuoteSchema.extend({
   responseSource: z.enum(RFQ_MANUAL_RESPONSE_SOURCES),
   receivedDate: z.string().date(),
   // `attachments` (evidence) is inherited from submitQuoteSchema.
+  // §16: Remarks are mandatory when a PM records a quote on the vendor's behalf
+  // — the PM must capture what was quoted/agreed off-channel. (Vendor self-serve
+  // submit via `submitQuoteSchema` keeps notes optional.)
+  notes: z.string().trim().min(1).max(MAX_CONTENT_LENGTH),
 });
 
 export const awardRfqSingleSchema = z.object({

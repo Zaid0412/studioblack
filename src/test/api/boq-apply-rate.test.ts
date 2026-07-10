@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   applyRateContractToBoqItem,
+  getActiveRatesForBoqItemById,
   verifyBoqItemOwnership,
   getOrgRole,
   hasProjectAccess,
 } from "@/lib/queries";
 import { POST as APPLY_RATE } from "@/app/api/projects/[id]/boq/items/[itemId]/apply-rate/route";
+import { GET as ITEM_RATES } from "@/app/api/projects/[id]/boq/items/[itemId]/rates/route";
 import { buildRequest, buildParams, mockSession, setupAuth } from "../helpers";
 import { mocks } from "../setup";
 import type { BoqItemWithComputed } from "@/types";
@@ -56,10 +58,10 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/apply-rate", () => {
     );
   });
 
-  it("returns 400 when the item has no element", async () => {
+  it("returns 400 when the item has no service area", async () => {
     vi.mocked(applyRateContractToBoqItem).mockResolvedValue({
       ok: false,
-      reason: "no_element",
+      reason: "no_category",
     });
     expect((await call()).status).toBe(400);
   });
@@ -106,5 +108,41 @@ describe("POST /api/projects/[id]/boq/items/[itemId]/apply-rate", () => {
     setupAuth(mocks.auth, clientSession);
     vi.mocked(getOrgRole).mockResolvedValue(null as never);
     expect((await call()).status).toBe(403);
+  });
+});
+
+describe("GET /api/projects/[id]/boq/items/[itemId]/rates", () => {
+  const ratesUrl = `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/rates`;
+  const getRates = (search?: Record<string, string>) =>
+    ITEM_RATES(
+      buildRequest(ratesUrl, { searchParams: search }),
+      buildParams({ id: PROJECT_ID, itemId: ITEM_ID })
+    );
+
+  it("returns rates resolved by the item's service area", async () => {
+    vi.mocked(getActiveRatesForBoqItemById).mockResolvedValue([]);
+    const res = await getRates();
+    expect(res.status).toBe(200);
+    expect(getActiveRatesForBoqItemById).toHaveBeenCalledWith(
+      "org-test-001",
+      ITEM_ID,
+      undefined
+    );
+  });
+
+  it("forwards the vendorId scope", async () => {
+    vi.mocked(getActiveRatesForBoqItemById).mockResolvedValue([]);
+    await getRates({ vendorId: RCI_ID });
+    expect(getActiveRatesForBoqItemById).toHaveBeenCalledWith(
+      "org-test-001",
+      ITEM_ID,
+      RCI_ID
+    );
+  });
+
+  it("404s when the item is not owned by the project", async () => {
+    vi.mocked(verifyBoqItemOwnership).mockResolvedValue(false);
+    expect((await getRates()).status).toBe(404);
+    expect(getActiveRatesForBoqItemById).not.toHaveBeenCalled();
   });
 });

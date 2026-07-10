@@ -1571,11 +1571,22 @@ describe("enterQuoteSchema (RFQ-1 manual entry)", () => {
     vendorId: VALID_UUID,
     responseSource: "email",
     receivedDate: "2026-06-01",
+    // §16: Remarks are mandatory for PM manual entry.
+    notes: "Quoted over email, 4-week delivery.",
     items: [{ rfqItemId: VALID_UUID, unitPrice: 50 }],
   };
 
   it("accepts a valid manual quote", () => {
     expectPass(enterQuoteSchema, valid);
+  });
+
+  it("rejects missing remarks (§16)", () => {
+    const { notes: _omit, ...bad } = valid;
+    expectFail(enterQuoteSchema, bad);
+  });
+
+  it("rejects blank remarks (§16)", () => {
+    expectFail(enterQuoteSchema, { ...valid, notes: "   " });
   });
 
   it("rejects a missing responseSource", () => {

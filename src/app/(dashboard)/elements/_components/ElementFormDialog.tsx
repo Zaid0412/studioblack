@@ -31,6 +31,7 @@ import { type ElementUnit } from "@/lib/validations";
 import { API } from "@/lib/api/routes";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
+import { AvailableRatesPanel } from "./AvailableRatesPanel";
 import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
@@ -480,6 +481,12 @@ export function ElementFormDialog({
                 </div>
               ))}
             </div>
+
+            {editing && (
+              <div className="border-t border-border-default pt-3">
+                <AvailableRatesPanel elementId={editing.id} />
+              </div>
+            )}
 
             {editing && hasHistory && (
               <div className="flex flex-col gap-2 border-t border-border-default pt-3">

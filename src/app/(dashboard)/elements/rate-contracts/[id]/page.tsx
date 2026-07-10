@@ -48,6 +48,7 @@ import {
   type RateContractItemDraftSubmit,
 } from "../_components/RateContractItemPicker";
 import { RateContractFormDialog } from "../_components/RateContractFormDialog";
+import { RateContractActivity } from "../_components/RateContractActivity";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -303,6 +304,58 @@ export default function RateContractDetailPage({ params }: Props) {
             {formatDate(data.end_date)}
           </span>
         </Field>
+        {data.contract_type && (
+          <Field label={t("contractType")}>
+            <span className="text-sm text-text-primary">
+              {t(`contractType_${data.contract_type}`)}
+            </span>
+          </Field>
+        )}
+        {data.price_basis && (
+          <Field label={t("priceBasis")}>
+            <span className="text-sm text-text-primary">
+              {t(`priceBasis_${data.price_basis}`)}
+            </span>
+          </Field>
+        )}
+        {data.project_name && (
+          <Field label={t("project")}>
+            <span className="text-sm text-text-primary">
+              {data.project_name}
+            </span>
+          </Field>
+        )}
+        {data.credit_period_days != null && (
+          <Field label={t("creditPeriodDays")}>
+            <span className="text-sm text-text-primary">
+              {data.credit_period_days}
+            </span>
+          </Field>
+        )}
+        {data.delivery_terms && (
+          <Field label={t("deliveryTerms")}>
+            <span className="text-sm text-text-primary">
+              {data.delivery_terms}
+            </span>
+          </Field>
+        )}
+        {data.renewal_date && (
+          <Field label={t("renewalDate")}>
+            <span className="text-sm text-text-primary">
+              {formatDate(data.renewal_date)}
+            </span>
+          </Field>
+        )}
+        {data.tax_percentage != null && (
+          <Field label={t("taxPercentage")}>
+            <span className="text-sm text-text-primary">
+              {data.tax_percentage}%{" "}
+              <span className="text-text-muted">
+                {data.tax_included ? t("taxInclusiveYes") : t("taxInclusiveNo")}
+              </span>
+            </span>
+          </Field>
+        )}
         {data.payment_terms && (
           <Field label={t("paymentTerms")}>
             <span className="text-sm text-text-primary">
@@ -395,6 +448,8 @@ export default function RateContractDetailPage({ params }: Props) {
           onEditRate={handleEditRate}
         />
       </section>
+
+      <RateContractActivity contractId={data.id} />
 
       <RateContractFormDialog
         open={editOpen}

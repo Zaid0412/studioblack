@@ -14,8 +14,6 @@ import type { BoqItemChangeReason } from "@/lib/validations";
 const REASON_LABEL: Record<BoqItemChangeReason, string> = {
   quantity: "Quantity change",
   specification: "Spec change",
-  scope_add: "Item added",
-  scope_remove: "Item removed",
   other: "Edited",
 };
 

@@ -116,6 +116,7 @@ export const API = {
   boqItem:               (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}`,
   boqItemMove:           (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/move`,
   boqItemApplyRate:      (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/apply-rate`,
+  boqItemRates:          (pid: string, iid: string)          => `/api/projects/${pid}/boq/items/${iid}/rates`,
   boqRateAvailability:   (pid: string)                       => `/api/projects/${pid}/boq/rate-availability`,
   boqItemsBulkMove:      (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-move`,
   boqItemsBulkDelete:    (pid: string)                       => `/api/projects/${pid}/boq/items/bulk-delete`,
@@ -202,6 +203,7 @@ export const API = {
   rateContractItems:           (id: string)                          => `/api/rate-contracts/${id}/items`,
   rateContractItem:            (id: string, itemId: string)          => `/api/rate-contracts/${id}/items/${itemId}`,
   rateContractTransition:      (id: string)                          => `/api/rate-contracts/${id}/transition`,
+  rateContractHistory:         (id: string)                          => `/api/rate-contracts/${id}/history`,
   rateContractsByElement:      (elementId: string)                   => `/api/rate-contracts/by-element/${elementId}`,
   rateContractAvailableRates:  ()                                    => "/api/rate-contracts/available-rates",
 } as const;

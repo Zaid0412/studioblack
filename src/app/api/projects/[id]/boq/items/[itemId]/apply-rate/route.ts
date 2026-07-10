@@ -9,8 +9,8 @@ import { notFoundResponse, optimisticFailureResponse } from "../../../_helpers";
 
 /**
  * POST /api/projects/[id]/boq/items/[itemId]/apply-rate — apply an active
- * rate-contract rate to this BOQ item. The rate must cover the item's element
- * (exact element, its service area, or an ancestor category).
+ * rate-contract rate to this BOQ item. The rate must cover the item's service
+ * area (exact element, its service area, or an ancestor category).
  */
 export const POST = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
@@ -35,9 +35,9 @@ export const POST = withAuth(
       parsed.data.updatedAt
     );
     if (outcome.ok) return NextResponse.json(outcome.item);
-    if (outcome.reason === "no_element") {
+    if (outcome.reason === "no_category") {
       return NextResponse.json(
-        { error: "This item has no element to match a rate against" },
+        { error: "This item has no service area to match a rate against" },
         { status: 400 }
       );
     }

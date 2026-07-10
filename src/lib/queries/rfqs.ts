@@ -99,6 +99,9 @@ export async function getRfqsByProject(
          r.issued_date, r.response_deadline, r.created_at,
          (SELECT COUNT(*)::int FROM rfq_item ri WHERE ri.rfq_id = r.id) AS item_count,
          (SELECT COUNT(*)::int FROM rfq_vendor rv WHERE rv.rfq_id = r.id) AS vendor_count,
+         (SELECT COUNT(DISTINCT vq.vendor_id)::int
+          FROM vendor_quote vq
+          WHERE vq.rfq_id = r.id AND vq.is_current) AS responded_count,
          (SELECT MAX(vq.submitted_at)
           FROM vendor_quote vq
           WHERE vq.rfq_id = r.id AND vq.is_current
@@ -142,6 +145,7 @@ export async function getRfqsByProject(
       response_deadline: r.response_deadline,
       item_count: r.item_count,
       vendor_count: r.vendor_count,
+      responded_count: r.responded_count,
       created_at: r.created_at,
       latest_quote_submitted_at: r.latest_quote_submitted_at ?? null,
       revision_number: r.revision_number,
@@ -431,11 +435,15 @@ export async function getSuggestedVendorsForRfq(
   const pool = getPool();
   const { rows } = await pool.query(
     `WITH RECURSIVE item_cats AS (
-       SELECT DISTINCT e.category_id
+       -- Effective service area per line: the RFQ snapshot's own category, else
+       -- the BOQ item's category, else the element's. A free-text line (no
+       -- element) still contributes via its category — a LEFT JOIN, not INNER.
+       SELECT DISTINCT COALESCE(ri.category_id, bi.category_id, e.category_id) AS category_id
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
-       JOIN element e ON e.id = bi.element_id
-       WHERE ri.rfq_id = $1 AND e.category_id IS NOT NULL
+       LEFT JOIN element e ON e.id = bi.element_id
+       WHERE ri.rfq_id = $1
+         AND COALESCE(ri.category_id, bi.category_id, e.category_id) IS NOT NULL
      ),
      cat_ancestors AS (
        SELECT category_id AS id FROM item_cats
@@ -740,9 +748,13 @@ async function bulkInsertRfqItems(
   await client.query(
     // proposed_price is the per-UNIT proposed rate (sell line total ÷ qty) so it
     // lines up with the vendor unit prices in the comparison sheet (§11).
-    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price)
+    // category_id is snapshotted straight from the source BOQ item (bi) so the
+    // RFQ carries the service area at issue time even if the BOQ item is later
+    // reclassified — mirroring how description/unit/quantity are snapshotted.
+    `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, proposed_price, category_id)
      SELECT $1::uuid, t.boq_item_id, t.description, t.unit, t.quantity, t.spec_notes, t.sort_order,
-            (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0)
+            (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0),
+            bi.category_id
      FROM UNNEST(
        $2::uuid[], $3::text[], $4::text[], $5::numeric[], $6::text[], $7::int[]
      ) AS t(boq_item_id, description, unit, quantity, spec_notes, sort_order)
@@ -1487,10 +1499,11 @@ export async function cloneRfqAsRevision(
     // on the fresh rows). Items removed from scope (excluded) are dropped
     // (RFQ-3d). proposed_price re-snapshots the per-unit rate from the live BOQ.
     await client.query(
-      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, attachments, proposed_price)
+      `INSERT INTO rfq_item (rfq_id, boq_item_id, description, unit, quantity, spec_notes, sort_order, attachments, proposed_price, category_id)
        SELECT $1, ri.boq_item_id, bi.description, bi.unit, bi.quantity,
               ri.spec_notes, ri.sort_order, ri.attachments,
-              (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0)
+              (${BOQ_SELL_PRICE_SQL}) / NULLIF(bi.quantity, 0),
+              bi.category_id
        FROM rfq_item ri
        JOIN boq_item bi ON bi.id = ri.boq_item_id
        WHERE ri.rfq_id = $2 AND NOT bi.is_excluded`,

@@ -20,6 +20,17 @@ import type {
   RateContractStatus,
   RateContractType,
 } from "@/lib/validations";
+import type { RateMatchType } from "@/types";
+
+/**
+ * i18n key (in the `rateContracts` namespace) for how an available rate matched
+ * a BOQ line — shared by every surface that lists `AvailableRate` rows.
+ */
+export const MATCH_LABEL_KEY: Record<RateMatchType, string> = {
+  element: "matchElement",
+  service_area: "matchServiceArea",
+  ancestor: "matchAncestor",
+};
 
 /** Status icons for rate-contract select options (labels are i18n). */
 export const RATE_CONTRACT_STATUS_ICONS: Record<

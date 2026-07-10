@@ -8,6 +8,8 @@ import {
   addRateContractItems,
   removeRateContractItem,
   getActiveRatesForBoqItem,
+  rateContractExists,
+  getRateContractHistory,
   getMemberRole,
   logAuditSafe,
   AUDIT_ACTIONS,
@@ -18,6 +20,7 @@ import { POST as ADD_ITEMS } from "@/app/api/rate-contracts/[id]/items/route";
 import { DELETE as REMOVE_ITEM } from "@/app/api/rate-contracts/[id]/items/[itemId]/route";
 import { POST as TRANSITION } from "@/app/api/rate-contracts/[id]/transition/route";
 import { GET as BY_ELEMENT } from "@/app/api/rate-contracts/by-element/[elementId]/route";
+import { GET as HISTORY } from "@/app/api/rate-contracts/[id]/history/route";
 import {
   buildRequest,
   buildParams,
@@ -431,8 +434,53 @@ describe("GET /api/rate-contracts/by-element/[elementId]", () => {
     );
     expect(getActiveRatesForBoqItem).toHaveBeenCalledWith(
       "org-test-001",
-      ELEMENT_ID,
+      { elementId: ELEMENT_ID },
       VENDOR_ID
     );
+  });
+});
+
+// ── GET /api/rate-contracts/[id]/history ──────────────────────────────────
+
+describe("GET /api/rate-contracts/[id]/history", () => {
+  it("returns the activity timeline", async () => {
+    vi.mocked(rateContractExists).mockResolvedValue(true);
+    vi.mocked(getRateContractHistory).mockResolvedValue([
+      {
+        id: "ev-1",
+        action: "rate_contract.created",
+        actor_id: "user-1",
+        actor_name: "PM One",
+        actor_role: "pm",
+        metadata: null,
+        created_at: "2026-06-01T00:00:00.000Z",
+      },
+    ]);
+    const res = await HISTORY(
+      buildRequest(`/api/rate-contracts/${RC_ID}/history`),
+      buildParams({ id: RC_ID })
+    );
+    expect(res.status).toBe(200);
+    const { body } = await parseResponse<{ events: unknown[] }>(res);
+    expect(body.events).toHaveLength(1);
+    expect(getRateContractHistory).toHaveBeenCalledWith("org-test-001", RC_ID);
+  });
+
+  it("404s for an unknown contract", async () => {
+    vi.mocked(rateContractExists).mockResolvedValue(false);
+    const res = await HISTORY(
+      buildRequest(`/api/rate-contracts/${RC_ID}/history`),
+      buildParams({ id: RC_ID })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects client role", async () => {
+    setupAuth(mocks.auth, clientSession);
+    const res = await HISTORY(
+      buildRequest(`/api/rate-contracts/${RC_ID}/history`),
+      buildParams({ id: RC_ID })
+    );
+    expect(res.status).toBe(403);
   });
 });

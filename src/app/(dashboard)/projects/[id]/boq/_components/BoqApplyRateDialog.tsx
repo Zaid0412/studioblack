@@ -17,6 +17,7 @@ import { toast } from "@/components/ui/useToast";
 import { boq as boqApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { formatCurrency } from "@/lib/formatCurrency";
+import { MATCH_LABEL_KEY } from "@/lib/rateContractLabels";
 import type {
   AvailableRate,
   BoqItemWithComputed,
@@ -31,12 +32,6 @@ interface Props {
   /** Called after a successful apply so the caller can refresh the BOQ. */
   onApplied: () => void;
 }
-
-const MATCH_LABEL_KEY: Record<RateMatchType, string> = {
-  element: "matchElement",
-  service_area: "matchServiceArea",
-  ancestor: "matchAncestor",
-};
 
 const MATCH_VARIANT: Record<RateMatchType, "success" | "info" | "archived"> = {
   element: "success",

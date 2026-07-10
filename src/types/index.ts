@@ -673,6 +673,12 @@ export interface BoqItem {
   boq_id: string;
   section_id: string | null;
   element_id: string | null;
+  /**
+   * Direct service-area link into the element_category tree. Set from the linked
+   * element's category, or chosen directly for a free-text line (element_id
+   * null) so it can still match rate contracts / drive vendor suggestion.
+   */
+  category_id: string | null;
   item_code: string;
   /** Optional user-supplied label. Drawer / detail UIs prefer this over `element_name`. */
   name: string | null;
@@ -700,6 +706,8 @@ export interface BoqItem {
   element_archived: boolean;
   /** Library element's `name` (null when item isn't library-linked, or the link is broken). */
   element_name: string | null;
+  /** Service-area name for `category_id` (joined). Null when unclassified. */
+  category_name: string | null;
   installed_qty: string;
   has_snag: boolean;
   po_status: BoqItemPoStatus;
@@ -1151,6 +1159,24 @@ export interface RateContractWithDetails extends RateContractListRow {
   items: RateContractItemWithTarget[];
   /** Display name of the approver (null until approved). */
   approved_by_name: string | null;
+  /** Name of the scoped project (null when the contract is org-wide). */
+  project_name: string | null;
+}
+
+/**
+ * One audit entry for a rate contract's activity timeline. Generic over the
+ * `rate_contract.*` audit actions (created/updated/transitioned/…). Mirrors the
+ * BOQ-item history shape but keyed on the raw action + metadata rather than a
+ * phase transition.
+ */
+export interface RateContractHistoryEvent {
+  id: string;
+  action: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  actor_role: UserRole | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 }
 
 /** Why an available rate matched a BOQ item (most specific first). */
@@ -1220,6 +1246,8 @@ export interface RfqItem {
   id: string;
   rfq_id: string;
   boq_item_id: string;
+  /** Service-area snapshot copied from the BOQ item at RFQ creation. */
+  category_id: string | null;
   description: string;
   unit: string;
   quantity: number;
@@ -1284,6 +1312,12 @@ export interface RfqListRow {
   response_deadline: string | null;
   item_count: number;
   vendor_count: number;
+  /**
+   * Distinct invited vendors that have responded (submitted or declined) — the
+   * derived §9 "partially responded vs responded" signal. Studio list only;
+   * omitted on the vendor portal (a vendor mustn't see rivals' response counts).
+   */
+  responded_count?: number;
   created_at: string;
   latest_quote_submitted_at: string | null;
   revision_number: number;
