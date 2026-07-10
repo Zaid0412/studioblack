@@ -1002,7 +1002,7 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 
 **Goal**: Full BOQ page with sectioned table, inline editing, cost calculations, margin alerts.
 
-**New dependency**: `@tanstack/react-table` (virtualised table for 1000+ rows)
+**New dependency**: ~~`@tanstack/react-table` (virtualised table for 1000+ rows)~~ — never wired up; the shipped `BoqTable` renders a plain grouped table. The dep was removed in perf Tier 4 (t4-01). Re-add it only as part of a dedicated virtualization effort if real BOQs exceed ~1000 line items.
 
 **UI** — new page at `src/app/(dashboard)/projects/[id]/boq/page.tsx`:
 
@@ -1036,7 +1036,7 @@ Helper function `getNextSequenceNumber(orgId, prefix)` uses `UPDATE ... SET curr
 
 **Files to create/modify**:
 
-- `package.json` (add `@tanstack/react-table`)
+- ~~`package.json` (add `@tanstack/react-table`)~~ — removed in perf Tier 4 (t4-01); virtualization deferred
 - `src/app/(dashboard)/projects/[id]/boq/page.tsx` (new)
 - `src/app/(dashboard)/projects/[id]/boq/_components/BoqTable.tsx` (new)
 - `src/app/(dashboard)/projects/[id]/boq/_components/BoqSummaryCards.tsx` (new)

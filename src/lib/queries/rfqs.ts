@@ -426,8 +426,7 @@ async function getRfqEvents(rfqId: string): Promise<RfqEvent[]> {
     };
   });
 
-  // Query fetched newest-first (capped at 100); reverse to oldest→newest so the
-  // timeline still renders ascending.
+  // Reverse to oldest→newest for the timeline (query fetched newest-first).
   return events.reverse();
 }
 
