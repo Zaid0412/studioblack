@@ -18,11 +18,12 @@ const POSTHOG_ASSETS_HOST =
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["pg"],
-  // CI already runs `tsc --noEmit` on every push (lint.yml), and prod only
-  // deploys from `main` (which passed CI), so re-type-checking during the
-  // Vercel build is redundant — skipping it cuts ~30s off every build.
-  // (Next 16 no longer runs ESLint during build, so nothing to skip there.)
-  typescript: { ignoreBuildErrors: true },
+  // Skip the in-build type-check on staging + PR previews (they rebuild
+  // constantly via the sync Action, and CI runs `tsc --noEmit` on every push).
+  // PRODUCTION still type-checks: with no branch protection on this plan the CI
+  // check is advisory-only, so the prod build is the last enforced gate before
+  // a type error can deploy. (Next 16 no longer runs ESLint during build.)
+  typescript: { ignoreBuildErrors: process.env.VERCEL_ENV !== "production" },
   // PostHog reverse proxy: route SDK traffic through our own domain so
   // ad-blockers don't drop ingestion / replay requests.
   skipTrailingSlashRedirect: true,
