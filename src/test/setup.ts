@@ -211,6 +211,7 @@ vi.mock("@/lib/queries", () => ({
   deleteAllNotifications: vi.fn(),
   getAttachmentsByProject: vi.fn().mockResolvedValue([]),
   getAttachments: vi.fn().mockResolvedValue([]),
+  getAttachmentPhaseCounts: vi.fn().mockResolvedValue([]),
   createAttachment: vi.fn(),
   createProjectAttachment: vi.fn(),
   getAttachmentById: vi.fn().mockResolvedValue(null),

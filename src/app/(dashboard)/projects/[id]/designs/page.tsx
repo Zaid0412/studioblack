@@ -33,7 +33,12 @@ export default function ProjectDesignsPage({
     refreshAttachments,
     reviewingTaskId,
     handleTaskReview,
-  } = useProjectDetail(id, { includeApprovals: isClient });
+  } = useProjectDetail(id, {
+    includeApprovals: isClient,
+    // Designs is the one surface that renders the files themselves (phaseFiles),
+    // so it opts into the full attachment list; other routes use phaseCounts.
+    includeAttachments: true,
+  });
 
   const router = useRouter();
   const searchParams = useSearchParams();

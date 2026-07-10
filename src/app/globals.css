@@ -38,9 +38,13 @@
   --logo-bg: #1a1a1a;
 
   --sidebar-width: 200px;
-  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  /* Fonts are self-hosted via next/font/local (src/app/fonts.ts), which sets
+     --font-satoshi / --font-cabinet-grotesk on <html>. Keep the system-font
+     fallbacks so first paint (pre-hydration) still renders. */
+  --font-sans: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
   --font-heading:
-    "Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif;
+    var(--font-cabinet-grotesk), var(--font-satoshi), ui-sans-serif, system-ui,
+    sans-serif;
 
   /* ─── Radix / shadcn animation tokens ─── */
   --radius: 0.75rem;

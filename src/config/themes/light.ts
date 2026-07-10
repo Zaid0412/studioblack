@@ -46,11 +46,6 @@ const lightTheme: Theme = {
     "danger-muted": "rgba(220, 38, 38, 0.1)",
     "danger-border": "rgba(220, 38, 38, 0.3)",
   },
-  font: {
-    sans: '"Satoshi", ui-sans-serif, system-ui, sans-serif',
-    heading:
-      '"Cabinet Grotesk", "Satoshi", ui-sans-serif, system-ui, sans-serif',
-  },
 };
 
 export default lightTheme;

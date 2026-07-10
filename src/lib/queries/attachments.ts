@@ -45,6 +45,39 @@ export async function getAttachments(filters: {
   return rows;
 }
 
+/**
+ * Per-phase attachment counts for a project — the lightweight companion to
+ * `getAttachments({ all: true })`. The project layout's stepper/MetaBar only
+ * needs a count per phase, so this avoids downloading every full row on every
+ * non-Designs route. Counts the latest version per `version_group` (matching
+ * `getAttachments`' `DISTINCT ON` shape) and honors the same `clientOnly`
+ * visibility rule so client vs. team counts stay consistent.
+ */
+export async function getAttachmentPhaseCounts(filters: {
+  projectId: string;
+  clientOnly?: boolean;
+}): Promise<{ phase_id: string; count: number }[]> {
+  const pool = getPool();
+  let where = `WHERE a.project_id = $1`;
+  if (filters.clientOnly) {
+    where += ` AND a.sent_to_client_at IS NOT NULL`;
+  }
+  const { rows } = await pool.query<{ phase_id: string; count: number }>(
+    `WITH latest AS (
+       SELECT DISTINCT ON (a.version_group) a.id, a.phase_id
+       FROM attachment a
+       ${where}
+       ORDER BY a.version_group, a.version DESC
+     )
+     SELECT phase_id, COUNT(*)::int AS count
+     FROM latest
+     WHERE phase_id IS NOT NULL
+     GROUP BY phase_id`,
+    [filters.projectId]
+  );
+  return rows;
+}
+
 // ---------------------------------------------------------------------------
 // Attachment queries (versioning + review)
 // ---------------------------------------------------------------------------

@@ -10,8 +10,8 @@ import { parseBoqRequest } from "../../_helpers";
  * of inserted rows (with computed cost columns) so the client can
  * splice them into the SWR cache.
  *
- * Falls back to 404 if any element id can't be resolved — partial
- * insertion isn't reported here; the caller should refetch.
+ * Atomic (all-or-nothing): if any element id can't be resolved, nothing
+ * is inserted and this returns 404.
  */
 export const POST = withAuth(
   { blockedRoles: ["client"], projectAccess: true },

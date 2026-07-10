@@ -2,6 +2,12 @@ import { apiGet, apiPatch, apiPost, apiDelete } from "./client";
 import { API } from "./routes";
 import type { DbAttachment, DbAttachmentReview } from "@/types";
 
+/** A single per-phase attachment count (latest version per group). */
+export interface PhaseAttachmentCount {
+  phase_id: string;
+  count: number;
+}
+
 /** List all attachments for a project, optionally filtered by phase. */
 export function list(
   projectId: string,
@@ -13,6 +19,11 @@ export function list(
   const qs = params.toString();
   const base = API.attachments(projectId);
   return apiGet<DbAttachment[]>(`${base}${qs ? `?${qs}` : ""}`);
+}
+
+/** Per-phase attachment counts — lightweight; powers the stepper/MetaBar. */
+export function phaseCounts(projectId: string) {
+  return apiGet<PhaseAttachmentCount[]>(API.attachmentPhaseCounts(projectId));
 }
 
 /** Get a single attachment by ID. */

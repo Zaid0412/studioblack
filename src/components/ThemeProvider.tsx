@@ -37,23 +37,13 @@ function applyTheme(theme: Theme, mode: ThemeMode) {
     root.style.removeProperty(`--${key}`);
   }
 
-  // Apply color tokens
+  // Apply color tokens. Fonts are NOT applied here — they don't vary between
+  // light/dark, so they live once in globals.css (`--font-sans`/`--font-heading`
+  // → the self-hosted next/font variables) rather than being re-set at runtime.
   const keys: string[] = [];
   for (const [key, value] of Object.entries(theme.colors)) {
     root.style.setProperty(`--${key}`, value);
     keys.push(key);
-  }
-
-  // Apply font tokens
-  if (theme.font) {
-    if (theme.font.sans) {
-      root.style.setProperty("--font-sans", theme.font.sans);
-      keys.push("font-sans");
-    }
-    if (theme.font.heading) {
-      root.style.setProperty("--font-heading", theme.font.heading);
-      keys.push("font-heading");
-    }
   }
 
   appliedKeys = keys;

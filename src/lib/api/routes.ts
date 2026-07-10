@@ -27,6 +27,7 @@ export const API = {
 
   // ── Project → Attachments ──────────────────────
   attachments:           (pid: string)                 => `/api/projects/${pid}/attachments`,
+  attachmentPhaseCounts: (pid: string)                 => `/api/projects/${pid}/attachments/phase-counts`,
   attachment:            (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}`,
   attachmentReview:      (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/review`,
   attachmentFreeze:      (pid: string, fid: string)    => `/api/projects/${pid}/attachments/${fid}/freeze`,
