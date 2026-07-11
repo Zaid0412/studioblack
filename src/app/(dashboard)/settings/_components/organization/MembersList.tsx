@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
-import { roleIcon, roleLabel } from "../_lib/RoleHelpers";
+import { roleIcon, roleLabel } from "./RoleHelpers";
 import type { OrgMember } from "@/types";
 
 interface MembersListProps {

@@ -340,7 +340,7 @@ describe("useSettings", () => {
 
 // ── useOrganisation ─────────────────────────────────────────────────────────
 
-import { useOrganisation } from "@/app/(dashboard)/organisation/_hooks/useOrganisation";
+import { useOrganisation } from "@/app/(dashboard)/settings/_components/organization/useOrganisation";
 
 describe("useOrganisation", () => {
   it("renders without crashing and returns expected shape", () => {
