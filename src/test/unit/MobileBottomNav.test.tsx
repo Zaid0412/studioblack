@@ -83,7 +83,7 @@ describe("MobileBottomNav — role-based splitting", () => {
     expect(screen.queryByText("more")).toBeNull();
   });
 
-  it("Vendor: 4 vendor-portal tabs", () => {
+  it("Vendor: 4 primary tabs", () => {
     mockRole.role = "vendor";
     render(<MobileBottomNav />);
     expect(screen.getByText("vendorDashboard")).toBeDefined();

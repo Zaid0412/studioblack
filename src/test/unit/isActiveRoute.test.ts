@@ -17,11 +17,9 @@ describe("isActiveRoute", () => {
     expect(isActiveRoute("/dashboard/anything", "/dashboard")).toBe(false);
   });
 
-  it("returns false for sub-routes of /vendor-portal — same reason as /dashboard", () => {
-    expect(isActiveRoute("/vendor-portal/rfqs", "/vendor-portal")).toBe(false);
-    expect(isActiveRoute("/vendor-portal/invoices/12", "/vendor-portal")).toBe(
-      false
-    );
+  it("prefix-matches flattened vendor feature routes — a detail page keeps its tab active", () => {
+    expect(isActiveRoute("/rfqs", "/rfqs")).toBe(true);
+    expect(isActiveRoute("/rfqs/abc-123", "/rfqs")).toBe(true);
   });
 
   it("returns false for pathnames that prefix-collide without a slash boundary", () => {

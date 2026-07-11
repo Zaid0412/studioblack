@@ -135,19 +135,19 @@ export function Sidebar({
       label: t("vendorDashboard"),
       icon: LayoutDashboard,
     },
-    { href: "/vendor-portal/rfqs", label: t("rfqs"), icon: FileText },
+    { href: "/rfqs", label: t("rfqs"), icon: FileText },
     {
-      href: "/vendor-portal/purchase-orders",
+      href: "/purchase-orders",
       label: t("purchaseOrders"),
       icon: ScrollText,
     },
     {
-      href: "/vendor-portal/progress",
+      href: "/progress",
       label: t("progress"),
       icon: TrendingUp,
     },
-    { href: "/vendor-portal/invoices", label: t("invoices"), icon: Receipt },
-    { href: "/vendor-portal/profile", label: t("profile"), icon: UserCog },
+    { href: "/invoices", label: t("invoices"), icon: Receipt },
+    { href: "/profile", label: t("profile"), icon: UserCog },
     { href: "/tasks", label: t("tasks"), icon: CheckSquare },
   ];
 

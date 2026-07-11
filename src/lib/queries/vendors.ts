@@ -817,7 +817,7 @@ export type { BankDetails };
 
 // ─── Vendor Portal — Self-Service (F8.5) ────────────────────────────────────
 //
-// Vendor users edit their own vendor record from /vendor-portal/profile.
+// Vendor users edit their own vendor record from /profile.
 // These helpers skip the org-id check that PM-side queries use because
 // authorization is established up-front via vendor_contact.user_id; the
 // `withAuth({ fetchVendorId: true })` option resolves the caller's vendor_id

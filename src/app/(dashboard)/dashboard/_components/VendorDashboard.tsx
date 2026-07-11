@@ -13,7 +13,8 @@ import { useVendorRfqs } from "@/hooks/useRfqs";
  * Gated on the `vendorPortal` PostHog flag, replicating the server gate that
  * used to live in `vendor-portal/layout.tsx`: off in prod → coming-soon panel,
  * so moving the dashboard out from under that layout doesn't leak the
- * unfinished portal. The other vendor pages still live at /vendor-portal/*.
+ * unfinished portal. The other vendor pages are top-level routes (/rfqs,
+ * /purchase-orders, …) under the `(vendor)` route group.
  */
 export function VendorDashboard() {
   const t = useTranslations("vendorPortal");
@@ -38,25 +39,25 @@ export function VendorDashboard() {
       label: t("openRfqs"),
       value: isLoading ? "…" : String(openRfqs),
       icon: FileText,
-      href: "/vendor-portal/rfqs",
+      href: "/rfqs",
     },
     {
       label: t("activePOs"),
       value: "0",
       icon: ScrollText,
-      href: "/vendor-portal/purchase-orders",
+      href: "/purchase-orders",
     },
     {
       label: t("pendingInvoices"),
       value: "0",
       icon: Receipt,
-      href: "/vendor-portal/invoices",
+      href: "/invoices",
     },
     {
       label: t("overallCompletion"),
       value: "0%",
       icon: TrendingUp,
-      href: "/vendor-portal/progress",
+      href: "/progress",
     },
   ];
 

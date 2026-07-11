@@ -65,14 +65,14 @@ export function MobileBottomNav() {
           label: t("vendorDashboard"),
           icon: LayoutDashboard,
         },
-        { href: "/vendor-portal/rfqs", label: t("rfqs"), icon: FileText },
+        { href: "/rfqs", label: t("rfqs"), icon: FileText },
         {
-          href: "/vendor-portal/purchase-orders",
+          href: "/purchase-orders",
           label: t("purchaseOrders"),
           icon: ScrollText,
         },
         {
-          href: "/vendor-portal/invoices",
+          href: "/invoices",
           label: t("invoices"),
           icon: Receipt,
         },

@@ -112,7 +112,7 @@ export default function VendorPortalRfqDetailPage({
     return (
       <div className="flex flex-col gap-6 max-w-[1100px]">
         <Link
-          href="/vendor-portal/rfqs"
+          href="/rfqs"
           className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -122,7 +122,7 @@ export default function VendorPortalRfqDetailPage({
           icon={FileText}
           title={t("notFound")}
           description={t("notFoundHint")}
-          action={{ label: t("back"), href: "/vendor-portal/rfqs" }}
+          action={{ label: t("back"), href: "/rfqs" }}
         />
       </div>
     );
@@ -131,7 +131,7 @@ export default function VendorPortalRfqDetailPage({
   return (
     <div className="flex flex-col gap-6 max-w-[1100px]">
       <Link
-        href="/vendor-portal/rfqs"
+        href="/rfqs"
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"
       >
         <ArrowLeft className="w-4 h-4" />
