@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { deriveInitials } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { formatDate } from "@/lib/formatDate";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbComment } from "@/types";
 
 interface CommentsSectionProps {
@@ -27,6 +28,10 @@ export function CommentsSection({
   const t = useTranslations("projectDetail");
   const [newComment, setNewComment] = useState("");
   const [sending, setSending] = useState(false);
+
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    comments.map((c) => c.id).join(",")
+  );
 
   const handleSend = async () => {
     if (!newComment.trim() || sending) return;
@@ -77,10 +82,11 @@ export function CommentsSection({
             {t("noCommentsYet")}
           </p>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div ref={listRef} className="flex flex-col gap-3">
             {comments.map((comment) => (
               <div
                 key={comment.id}
+                data-anim-item
                 className="flex flex-col gap-2 rounded-xl bg-bg-secondary p-4"
               >
                 <div className="flex items-center gap-2.5">

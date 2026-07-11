@@ -80,7 +80,7 @@ export default function VerifyEmailChangePage() {
   // Success state has a different layout — can't use AuthCard
   if (success) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
+      <div className="relative flex min-h-dvh items-center justify-center bg-bg-primary px-6">
         <ThemeToggle />
         <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg p-12 flex flex-col items-center gap-5">
           <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">

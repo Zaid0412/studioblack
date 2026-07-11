@@ -19,7 +19,7 @@ export function Card({ children, className, hover, onClick }: CardProps) {
       className={cn(
         "rounded-xl border border-border-default bg-bg-secondary p-4 lg:p-5",
         hover &&
-          "cursor-pointer transition-colors hover:border-border-light hover:bg-bg-elevated",
+          "cursor-pointer transition-[color,background-color,border-color,transform] hover:border-border-light hover:bg-bg-elevated hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
         className
       )}
       onClick={onClick}

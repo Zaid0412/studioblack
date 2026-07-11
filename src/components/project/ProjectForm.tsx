@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { deriveInitials, cn } from "@/lib/utils";
 import { avatarColor } from "@/lib/avatarUtils";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import type { OrgMember } from "@/types";
 
 export interface ProjectFormData {
@@ -219,6 +220,7 @@ export function ProjectForm({
   }));
 
   const [submitted, setSubmitted] = useState(false);
+  const fieldsRef = useLoadStagger<HTMLFormElement>("project-form", 50);
 
   // Sync when initialData changes (edit mode loads async)
   useEffect(() => {
@@ -301,7 +303,11 @@ export function ProjectForm({
 
   return (
     <Card>
-      <form onSubmit={handleFormSubmit} className="flex flex-col gap-5">
+      <form
+        ref={fieldsRef}
+        onSubmit={handleFormSubmit}
+        className="stagger-children flex flex-col gap-5"
+      >
         {mode === "create" && (
           <h3 className="text-base font-semibold text-text-primary">
             {t("projectDetails")}

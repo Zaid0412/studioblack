@@ -29,6 +29,8 @@ import {
   splitFileName,
 } from "@/lib/fileUtils";
 import { runSettledWithConcurrency } from "@/lib/concurrency";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { cn } from "@/lib/utils";
 import type { DbProjectDocument, DbProjectDocumentSection } from "@/types";
 import { SectionSelect } from "./SectionSelect";
@@ -120,6 +122,10 @@ export function UploadDocumentDialog({
   const [dragOver, setDragOver] = useState(false);
   const [createSectionOpen, setCreateSectionOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Cascades the body sections (picker → file area) in each time the dialog
+  // fills. Stable signature is fine — the container only mounts once entries
+  // exist, so the pass fires on open, not on every incremental file add.
+  const bodyRef = useLoadStagger<HTMLDivElement>("upload", 60);
   // AbortController for the in-flight upload batch. Aborted on Cancel / close
   // so in-flight signed-URL fetches, PUTs, and createDocument writes don't
   // continue after the user navigated away.
@@ -434,7 +440,7 @@ export function UploadDocumentDialog({
             singleFile={isVersionMode}
           />
         ) : (
-          <div className="flex flex-col gap-4">
+          <div ref={bodyRef} className="stagger-children flex flex-col gap-4">
             {!isVersionMode && (
               <SectionSelect
                 label="Section"
@@ -616,8 +622,16 @@ function FileTabList({
   onAddMore: () => void;
   disabled: boolean;
 }) {
+  // Cascade rows as files are added — signature is the visible id set, so a
+  // new file replays only the rows, not the whole list.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    entries.map((e) => e.id).join(",")
+  );
   return (
-    <div className="w-full md:w-[220px] md:shrink-0 max-h-[180px] md:max-h-none flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated p-2 overflow-y-auto">
+    <div
+      ref={listRef}
+      className="w-full md:w-[220px] md:shrink-0 max-h-[180px] md:max-h-none flex flex-col gap-2 rounded-lg border border-border-default bg-bg-elevated p-2 overflow-y-auto"
+    >
       {entries.map((e) => (
         <FileTab
           key={e.id}
@@ -661,6 +675,7 @@ function FileTab({
     <div
       role="button"
       tabIndex={0}
+      data-anim-item
       onClick={onSelect}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

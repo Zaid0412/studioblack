@@ -59,7 +59,7 @@ export function MetaBar({
 
   if (variant === "client") {
     return (
-      <div className="px-4 lg:px-10 py-3 flex items-center gap-4 lg:gap-6 text-[13px] border-b border-border-default flex-wrap">
+      <div className="px-4 lg:px-10 py-3 flex items-center gap-4 lg:gap-6 text-[13px] border-b border-border-default flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none">
         {status && (
           <div className="flex items-center gap-2">
             <span className="text-text-secondary font-medium">
@@ -137,7 +137,7 @@ export function MetaBar({
       .join(", ") || "\u2014";
   const createdDate = formatDate(createdAt);
   return (
-    <div className="px-4 lg:px-10 py-3">
+    <div className="px-4 lg:px-10 py-3 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-0 rounded-[10px] bg-bg-secondary border border-border-default px-4 lg:px-5 py-4">
         {/* Client */}
         <div className="flex flex-col gap-1 py-2 min-w-0">

@@ -27,6 +27,7 @@ import { FilePreview } from "@/components/ui/FilePreview";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/useToast";
 import { useProjectDocumentPreview } from "@/hooks/useProjectDocumentPreview";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { projectDocuments } from "@/lib/api";
 import { ApiError } from "@/lib/api/client";
 import { withSignedUrl } from "@/lib/api/projectDocuments";
@@ -132,6 +133,11 @@ export function DocumentVersionList({
       displayVersions: [...versions].reverse(),
     };
   }, [versions, doc.version]);
+
+  // Cascade the timeline rows in when the version set arrives / changes.
+  const listRef = useStaggerReveal<HTMLOListElement>(
+    (versions ?? []).map((v) => v.id).join(",")
+  );
 
   function isRevert(v: DbProjectDocument): number | null {
     if (!firstSeen) return null;
@@ -245,7 +251,7 @@ export function DocumentVersionList({
       {isLoading && <VersionListSkeleton />}
 
       {displayVersions && (
-        <ol className="flex flex-col">
+        <ol ref={listRef} className="flex flex-col">
           {displayVersions.map((v, i) => {
             const isLatest = v.version === latestVersion;
             const revertOf = isRevert(v);
@@ -255,6 +261,7 @@ export function DocumentVersionList({
             return (
               <li
                 key={v.id}
+                data-anim-item
                 ref={(el) => {
                   if (el) rowRefs.current.set(v.version, el);
                   else rowRefs.current.delete(v.version);

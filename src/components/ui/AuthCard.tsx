@@ -25,7 +25,7 @@ export function AuthCard({
 }: AuthCardProps) {
   const revealClass = useSplashRevealClass();
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
+    <div className="relative flex min-h-dvh items-center justify-center bg-bg-primary px-6">
       <ThemeToggle />
 
       <div

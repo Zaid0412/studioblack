@@ -114,7 +114,11 @@ export default function ProjectDetailLayout({
   // collide with it (it renders below a full-height form), so both are excluded.
   const showComments = metaSurface && !onRfqSubpage;
 
-  if (loading || roleLoading) {
+  // Only show the full skeleton on a cold load (no project cached yet). Once we
+  // have project data, keep rendering the chrome even while a secondary resource
+  // (comments, phase-counts) revalidates — otherwise navigating back into the
+  // project (e.g. from a design review) re-flashes the whole skeleton.
+  if ((loading && !project) || (roleLoading && !role)) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 lg:px-6 py-4 border-b border-border-default">

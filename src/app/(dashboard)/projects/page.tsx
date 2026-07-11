@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -33,6 +33,7 @@ import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
+import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
 import { ProjectDropdown } from "./_components/ProjectDropdown";
 import { ProjectCard } from "./_components/ProjectCard";
 
@@ -144,6 +145,11 @@ export default function ProjectsPage() {
     { key: "draft", label: t("filterDraft") },
   ];
 
+  const viewToggleRef = useRef<HTMLDivElement>(null);
+  const viewIndicator = useSlidingIndicator(viewToggleRef, viewMode);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const filterIndicator = useSlidingIndicator(filterBarRef, activeFilter);
+
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
       {/* Header row */}
@@ -194,14 +200,18 @@ export default function ProjectsPage() {
             </SelectContent>
           </Select>
           <TooltipProvider delayDuration={300}>
-            <div className="hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden">
+            <div
+              ref={viewToggleRef}
+              className="relative hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden"
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => handleViewMode("list")}
-                    className={`p-2 transition-colors cursor-pointer ${
+                    data-active={viewMode === "list"}
+                    className={`relative z-10 p-2 transition-colors cursor-pointer ${
                       viewMode === "list"
-                        ? "bg-bg-elevated text-text-primary"
+                        ? "text-text-primary"
                         : "text-text-muted hover:text-text-secondary"
                     }`}
                   >
@@ -214,9 +224,10 @@ export default function ProjectsPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => handleViewMode("grid")}
-                    className={`p-2 transition-colors cursor-pointer ${
+                    data-active={viewMode === "grid"}
+                    className={`relative z-10 p-2 transition-colors cursor-pointer ${
                       viewMode === "grid"
-                        ? "bg-bg-elevated text-text-primary"
+                        ? "text-text-primary"
                         : "text-text-muted hover:text-text-secondary"
                     }`}
                   >
@@ -225,19 +236,28 @@ export default function ProjectsPage() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{t("gridView")}</TooltipContent>
               </Tooltip>
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-0 bg-bg-elevated transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+                style={{ left: viewIndicator.left, width: viewIndicator.width }}
+              />
             </div>
           </TooltipProvider>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex items-center gap-0 border-b border-border-default overflow-x-auto scrollbar-none">
+      <div
+        ref={filterBarRef}
+        className="relative flex items-center gap-0 border-b border-border-default overflow-x-auto scrollbar-none"
+      >
         {filters.map((f) => {
           const isActive = activeFilter === f.key;
           return (
             <button
               key={f.key}
               onClick={() => setActiveFilter(f.key)}
+              data-active={isActive}
               className={`relative px-4 pb-3 pt-1 text-sm transition-colors cursor-pointer shrink-0 ${
                 isActive
                   ? "text-text-primary font-semibold"
@@ -252,12 +272,14 @@ export default function ProjectsPage() {
                   </span>
                 )}
               </span>
-              {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent" />
-              )}
             </button>
           );
         })}
+        <span
+          aria-hidden="true"
+          className="absolute bottom-0 h-[2px] bg-accent transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+          style={{ left: filterIndicator.left, width: filterIndicator.width }}
+        />
       </div>
 
       {/* Content area */}

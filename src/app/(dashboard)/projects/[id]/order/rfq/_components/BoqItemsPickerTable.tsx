@@ -4,6 +4,7 @@ import { BadgeCheck } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/formatCurrency";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { AvailableRate, BoqItemWithComputed } from "@/types";
 
 interface Labels {
@@ -50,6 +51,11 @@ export function BoqItemsPickerTable({
   const someSelected = selected.size > 0 && selected.size < items.length;
   const showRates = !!rateAvailability && !!onUseContract;
 
+  // Cascade the rows in on mount / when the item set changes.
+  const bodyRef = useStaggerReveal<HTMLTableSectionElement>(
+    items.map((it) => it.id).join(",")
+  );
+
   return (
     <table className="w-full text-sm">
       <thead className="bg-bg-elevated text-text-muted sticky top-0">
@@ -73,7 +79,7 @@ export function BoqItemsPickerTable({
           )}
         </tr>
       </thead>
-      <tbody>
+      <tbody ref={bodyRef}>
         {items.map((it) => {
           const rate =
             showRates && it.element_id
@@ -82,6 +88,7 @@ export function BoqItemsPickerTable({
           return (
             <tr
               key={it.id}
+              data-anim-item
               className="border-t border-border-default hover:bg-bg-elevated/30 cursor-pointer"
               onClick={() => onToggleItem(it.id)}
             >

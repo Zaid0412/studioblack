@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useRef } from "react";
+import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
 
 export interface WorkflowSubTab {
   /** i18n key resolved against `i18nNamespace`. */
@@ -41,12 +43,20 @@ export function WorkflowSubTabStrip({
   const pathname = usePathname();
   const t = useTranslations(i18nNamespace);
 
+  const navRef = useRef<HTMLElement>(null);
+  const activeTab = tabs.find((tab) => {
+    const tabHref = `${basePath}/${tab.segment}`;
+    return pathname === tabHref || pathname.startsWith(`${tabHref}/`);
+  });
+  const indicator = useSlidingIndicator(navRef, activeTab?.segment);
+
   if (tabs.length <= 1) return null;
 
   return (
     <nav
+      ref={navRef}
       aria-label={t("ariaLabel")}
-      className="shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
+      className="relative shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
     >
       {tabs.map((tab) => {
         const tabHref = `${basePath}/${tab.segment}`;
@@ -56,23 +66,23 @@ export function WorkflowSubTabStrip({
           <Link
             key={tab.segment}
             href={tabHref}
+            data-active={isActive}
             aria-current={isActive ? "page" : undefined}
-            className={`relative py-3 text-sm whitespace-nowrap transition-colors ${
+            className={`py-3 text-sm whitespace-nowrap transition-colors ${
               isActive
                 ? "font-semibold text-text-primary"
                 : "font-medium text-text-muted hover:text-text-primary"
             }`}
           >
             {t(tab.labelKey)}
-            {isActive && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-x-0 bottom-0 h-1 bg-accent rounded-t-sm"
-              />
-            )}
           </Link>
         );
       })}
+      <span
+        aria-hidden="true"
+        className="absolute bottom-0 h-1 bg-accent rounded-t-sm transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+        style={{ left: indicator.left, width: indicator.width }}
+      />
     </nav>
   );
 }

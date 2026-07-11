@@ -227,6 +227,17 @@ export function PinOverlay({
   const indexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
   const pinnedCount = useMemo(() => pins.filter(isPinned).length, [pins]);
 
+  // Drop-in animation gate: capture the pin ids present when the page first
+  // has pins, and animate only those. Pins arrive async (SWR), so a plain
+  // first-mount check would be empty; this fires the drop-in on that first
+  // batch while excluding pins the user adds mid-session (whose temp→real id
+  // swap would otherwise re-trigger it) — and never on pan/scroll/select/drag,
+  // which re-render without remounting the stable-keyed markers.
+  const firstBatchIdsRef = useRef<Set<string> | null>(null);
+  if (firstBatchIdsRef.current === null && pagePins.length > 0) {
+    firstBatchIdsRef.current = new Set(pagePins.map((p) => p.id));
+  }
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, pin: DbPinComment) => {
       // Only the author can drag their own pin
@@ -350,6 +361,7 @@ export function PinOverlay({
           ? { left: dragState.leftPercent, top: dragState.topPercent }
           : { left: pin.x_percent!, top: pin.y_percent! };
         const canDrag = currentUserId ? pin.user_id === currentUserId : true;
+        const dropIn = firstBatchIdsRef.current?.has(pin.id) ?? false;
 
         return (
           <div
@@ -368,12 +380,22 @@ export function PinOverlay({
                   : "cursor-pointer"
             }`}
           >
-            <PinMarker
-              label={pin.resolved ? <Check className="w-3 h-3" /> : index}
-              selected={isSelected}
-              resolved={pin.resolved}
-              dragging={isDragging}
-            />
+            {/* Inner wrapper carries the drop-in so it doesn't clobber the
+                outer translate anchor. */}
+            <div
+              className={
+                dropIn
+                  ? "animate-in zoom-in-95 fade-in duration-300 motion-reduce:animate-none"
+                  : undefined
+              }
+            >
+              <PinMarker
+                label={pin.resolved ? <Check className="w-3 h-3" /> : index}
+                selected={isSelected}
+                resolved={pin.resolved}
+                dragging={isDragging}
+              />
+            </div>
           </div>
         );
       })}

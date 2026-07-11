@@ -25,6 +25,7 @@ import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import { elements as elementsApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { buildCategoryMap } from "@/lib/elementCategories";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { ListElementsResponse } from "@/lib/api/elements";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import type { Element, ElementCategoryNode } from "@/types";
@@ -130,6 +131,11 @@ export function RateContractItemPicker({
   const filteredOutByCurrency = allElements.length > 0 && elements.length === 0;
 
   const draftKeys = useMemo(() => new Set(drafts.map((d) => d.key)), [drafts]);
+
+  // Cascade the pickable element rows in on open / search change.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    elements.map((el) => el.id).join(",")
+  );
 
   /** Add a service-area draft (`element` null) or an element override. */
   const addDraft = (
@@ -259,7 +265,10 @@ export function RateContractItemPicker({
               debounceMs={300}
               onDebouncedChange={setSearch}
             />
-            <div className="border border-border-default rounded-lg max-h-[220px] overflow-y-auto shrink-0">
+            <div
+              ref={listRef}
+              className="border border-border-default rounded-lg max-h-[220px] overflow-y-auto shrink-0"
+            >
               {isLoading ? (
                 <div className="flex flex-col gap-1 p-2">
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -284,6 +293,7 @@ export function RateContractItemPicker({
                   return (
                     <button
                       key={el.id}
+                      data-anim-item
                       type="button"
                       onClick={() =>
                         !inContract && !inDraft && addDraft(el.category_id, el)

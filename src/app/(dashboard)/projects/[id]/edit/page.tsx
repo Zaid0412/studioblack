@@ -202,7 +202,7 @@ export default function EditProjectPage({
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[800px]">
+    <div className="animate-in fade-in duration-300 ease-out motion-reduce:animate-none flex flex-col gap-6 max-w-[800px]">
       <button
         onClick={() => router.push(`/projects/${id}`)}
         className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"

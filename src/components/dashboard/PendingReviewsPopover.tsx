@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { API } from "@/lib/api/routes";
 import { timeAgo } from "@/lib/formatTime";
 import { cn } from "@/lib/utils";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { DEFAULT_BOQ_SEGMENT } from "@/app/(dashboard)/projects/[id]/boq/_lib/tabs";
 import type {
   PendingReviewRow,
@@ -152,6 +153,16 @@ function PopoverBody({
   const truncated = normalized && shown < totalCount;
   const isEmpty = normalized && shown === 0;
 
+  // Cascade the rows in when the popover opens / the queue loads.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    normalized
+      ? [
+          ...normalized.files.map((f) => f.id),
+          ...normalized.boqs.map((b) => b.id),
+        ].join(",")
+      : ""
+  );
+
   return (
     <>
       <header className="flex items-center justify-between px-4 py-3 border-b border-border-default">
@@ -164,7 +175,7 @@ function PopoverBody({
           </span>
         )}
       </header>
-      <div className="max-h-[420px] overflow-y-auto">
+      <div ref={listRef} className="max-h-[420px] overflow-y-auto">
         {isLoading ? (
           <ListSkeleton />
         ) : error ? (
@@ -256,7 +267,7 @@ function FileReviewRow({ row }: { row: NormalizedFile }) {
     .filter(Boolean)
     .join(" · ");
   return (
-    <li>
+    <li data-anim-item>
       <Link
         href={`/projects/${row.project_id}/review/${row.id}`}
         className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"
@@ -276,7 +287,7 @@ function FileReviewRow({ row }: { row: NormalizedFile }) {
 
 function BoqReviewRow({ row }: { row: NormalizedBoq }) {
   return (
-    <li>
+    <li data-anim-item>
       <Link
         href={`/projects/${row.project_id}/boq/${DEFAULT_BOQ_SEGMENT}`}
         className="flex items-start gap-3 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors"

@@ -133,6 +133,7 @@ export function CategoryTableRow({
   return (
     <tr
       ref={setNodeRef}
+      data-anim-item
       style={style}
       className={cn(
         "border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors",

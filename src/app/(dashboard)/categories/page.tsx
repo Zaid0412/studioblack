@@ -26,6 +26,7 @@ import { toast } from "@/components/ui/useToast";
 import { API } from "@/lib/api/routes";
 import { elementCategories } from "@/lib/api";
 import { withViewTransition } from "@/lib/viewTransition";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
@@ -162,6 +163,17 @@ export default function CategoriesPage() {
   const flat = useMemo(
     () => flattenTree(tree, collapsedIds),
     [tree, collapsedIds]
+  );
+
+  // One-time entrance cascade, keyed on the top-level id set (sorted) so it
+  // fires on load/create/delete but NOT on expand/collapse or drag-reorder —
+  // those leave `tree`'s membership unchanged and drive their own animations
+  // (View Transitions / dnd-kit).
+  const treeBodyRef = useStaggerReveal<HTMLTableSectionElement>(
+    tree
+      .map((n) => n.id)
+      .sort()
+      .join(",")
   );
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -398,7 +410,7 @@ export default function CategoriesPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody ref={treeBodyRef}>
                     {flat.map(({ node, depth, hasChildren, isLastSibling }) => (
                       <CategoryTableRow
                         key={node.id}

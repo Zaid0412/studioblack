@@ -15,6 +15,7 @@ import { statusBadge, versionColor } from "@/lib/fileUtils";
 import { avatarColor } from "@/lib/avatarUtils";
 import { deriveInitials } from "@/lib/utils";
 import { formatDate } from "@/lib/formatDate";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbAttachment } from "@/types";
 
 interface VersionHistoryDialogProps {
@@ -67,6 +68,11 @@ export function VersionHistoryDialog({
 
   const latestName = versions[0]?.file_name || "File";
 
+  // Cascade the version rows in each time the dialog opens / the list loads.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    versions.map((v) => v.id).join(",")
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[600px] max-h-[80vh] flex flex-col gap-0 p-0">
@@ -97,7 +103,7 @@ export function VersionHistoryDialog({
               No versions found.
             </p>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div ref={listRef} className="flex flex-col gap-2">
               {versions.map((v, i) => {
                 const badge = statusBadge(v.review_status);
                 const color = avatarColor(v.uploaded_by || "");
@@ -107,6 +113,7 @@ export function VersionHistoryDialog({
                 return (
                   <div
                     key={v.id}
+                    data-anim-item
                     className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors cursor-pointer hover:bg-bg-elevated/50 ${
                       isCurrent
                         ? "border-[#F5C518]/30 bg-[#F5C518]/5"

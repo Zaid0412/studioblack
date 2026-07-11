@@ -105,6 +105,7 @@ export function PinCard({
   return (
     <div
       ref={selectedRef}
+      data-anim-item
       onClick={onSelect}
       className={`group w-full text-left rounded-[10px] border transition-colors cursor-pointer ${
         pin.request_changes

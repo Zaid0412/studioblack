@@ -38,7 +38,7 @@ export function ProjectHeader({
   const t = useTranslations("projectDetail");
 
   return (
-    <div className="flex flex-col lg:flex-row lg:items-start justify-between px-4 lg:px-10 py-5 border-b border-border-default gap-3">
+    <div className="flex flex-col lg:flex-row lg:items-start justify-between px-4 lg:px-10 py-5 border-b border-border-default gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none">
       <div className="min-w-0">
         {projectHref ? (
           <div className="flex items-center gap-2 mb-1">

@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { formatFileSize, UPLOAD_ACCEPTED_TYPES } from "@/lib/fileUtils";
 import { useBatchUpload } from "@/hooks/useBatchUpload";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { trackEvent } from "@/lib/analytics";
 
 /** Design file upload page with drag & drop. */
@@ -40,6 +41,7 @@ export default function DesignUploadPage({
   const [selectionError, setSelectionError] = useState("");
   const { uploading, error: uploadError, uploadBatch } = useBatchUpload();
   const error = selectionError || uploadError;
+  const revealRef = useLoadStagger<HTMLDivElement>("form", 60);
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Cleanup redirect timer on unmount
@@ -97,7 +99,10 @@ export default function DesignUploadPage({
   };
 
   return (
-    <div className="flex flex-col gap-6 max-w-[900px]">
+    <div
+      ref={revealRef}
+      className="stagger-children flex flex-col gap-6 max-w-[900px]"
+    >
       <button
         onClick={() => router.back()}
         className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"

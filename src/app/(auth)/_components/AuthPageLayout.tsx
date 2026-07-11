@@ -36,6 +36,7 @@ export function AuthPageLayout({
   const heroRef = useLoadStagger<HTMLDivElement>("auth-hero");
   const formRef = useLoadStagger<HTMLDivElement>("auth-form");
   const readyAttr = useSplashDone() || undefined;
+  const signedIn = !!session?.user;
 
   // Redirect authenticated users
   useEffect(() => {
@@ -51,7 +52,7 @@ export function AuthPageLayout({
   }, [session?.user, router, redirectDelay, returnTo]);
 
   return (
-    <div className="flex min-h-screen lg:h-screen">
+    <div className="flex min-h-dvh lg:h-dvh">
       {/* Hero Panel — Left */}
       <div className="hidden lg:flex lg:flex-[1.8] relative bg-bg-secondary overflow-hidden">
         {/* Subtle gradient overlay */}
@@ -98,13 +99,29 @@ export function AuthPageLayout({
             )}
           </div>
 
-          {session?.user ? (
-            <AlreadySignedIn />
-          ) : (
-            <div ref={formRef} data-ready={readyAttr} className="auth-reveal">
-              {children}
+          {/* Crossfade form ⇄ already-signed-in: both stack in one grid cell so
+              the swap fades smoothly instead of hard-cutting when the session
+              resolves. */}
+          <div className="grid">
+            <div
+              className={`col-start-1 row-start-1 transition-opacity duration-300 motion-reduce:transition-none ${
+                signedIn ? "pointer-events-none opacity-0" : "opacity-100"
+              }`}
+              aria-hidden={signedIn || undefined}
+            >
+              <div ref={formRef} data-ready={readyAttr} className="auth-reveal">
+                {children}
+              </div>
             </div>
-          )}
+            <div
+              className={`col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-300 motion-reduce:transition-none ${
+                signedIn ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+              aria-hidden={!signedIn || undefined}
+            >
+              <AlreadySignedIn />
+            </div>
+          </div>
         </div>
       </div>
     </div>

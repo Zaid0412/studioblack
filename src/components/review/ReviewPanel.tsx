@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { displayName } from "@/lib/fileUtils";
 import { formatShortDateTime } from "@/lib/formatDate";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbAttachmentReview } from "@/types";
 
 interface ReviewPanelProps {
@@ -21,6 +22,11 @@ interface ReviewPanelProps {
  * Side panel showing review history for the current attachment.
  */
 export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
+  // Cascade review entries in when the set changes.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    reviews.map((r) => r.id).join(",")
+  );
+
   return (
     <div className="w-72 shrink-0 bg-bg-primary border-l border-border-default flex flex-col overflow-hidden">
       {/* Header */}
@@ -55,13 +61,14 @@ export function ReviewPanel({ reviews, onClose }: ReviewPanelProps) {
             </p>
           </div>
         ) : (
-          <div className="py-1">
+          <div ref={listRef} className="py-1">
             {reviews.map((rev, i) => {
               const isRejected = rev.status === "rejected";
               const isLatest = i === 0;
               return (
                 <div
                   key={rev.id}
+                  data-anim-item
                   className={`px-3 py-3 border-b border-border-default ${
                     isLatest ? "bg-bg-secondary" : ""
                   }`}
