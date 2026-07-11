@@ -28,6 +28,7 @@ export function ProjectCard({
   if (variant === "mobile") {
     return (
       <div
+        data-anim-item
         className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer"
         onClick={onClick}
       >
@@ -65,6 +66,7 @@ export function ProjectCard({
   // Grid card
   return (
     <div
+      data-anim-item
       className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 transition-colors cursor-pointer"
       onClick={onClick}
     >

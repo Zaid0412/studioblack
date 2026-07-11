@@ -21,6 +21,7 @@ import { RFQ_STATUSES } from "@/lib/validations";
 import type { RfqListRow, RfqStatus } from "@/types";
 import { formatDate } from "@/lib/formatDate";
 import { useRfqLastViewedReadOnly } from "@/hooks/useRfqLastViewed";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
 import { RfqRevisionBadge } from "@/components/rfq/RfqRevisionBadge";
 import { RespondedChip } from "@/components/rfq/RespondedChip";
@@ -42,6 +43,7 @@ function RfqRow({
 
   return (
     <tr
+      data-anim-item
       className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
       onClick={() => onNavigate(row.id)}
     >
@@ -124,6 +126,9 @@ export function RfqList({
   const hasFilters = state.search.length > 0 || state.status !== null;
   const showingFrom = total === 0 ? 0 : (state.page - 1) * pageSize + 1;
   const showingTo = Math.min(state.page * pageSize, total);
+  const listRef = useStaggerReveal<HTMLTableSectionElement>(
+    rows.map((r) => r.id).join(",")
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -192,6 +197,7 @@ export function RfqList({
               </tr>
             </thead>
             <tbody
+              ref={listRef}
               className={isRefreshing ? "opacity-60 transition-opacity" : ""}
             >
               {isLoading ? (

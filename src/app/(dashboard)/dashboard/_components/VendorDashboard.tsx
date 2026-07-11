@@ -7,6 +7,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { VendorPortalComingSoon } from "@/components/vendor/VendorPortalComingSoon";
 import { useFlag } from "@/hooks/useFlag";
 import { useVendorRfqs } from "@/hooks/useRfqs";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 
 /**
  * Vendor dashboard — served at /dashboard (role-routed, like the client one).
@@ -29,6 +30,8 @@ export function VendorDashboard() {
     limit: 1,
     enabled,
   });
+
+  const staggerRef = useLoadStagger<HTMLDivElement>(isLoading ? "0" : "1");
 
   if (!enabled) {
     return (
@@ -68,10 +71,10 @@ export function VendorDashboard() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px]">
+    <div ref={staggerRef} className="flex flex-col gap-6 max-w-[1400px]">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="an-rise grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <StatCard
             key={stat.label}

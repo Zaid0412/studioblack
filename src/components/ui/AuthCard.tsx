@@ -3,6 +3,7 @@
 import { type ReactNode } from "react";
 import { type LucideIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { useSplashRevealClass } from "@/hooks/useSplashDone";
 
 interface AuthCardProps {
   icon: LucideIcon;
@@ -22,11 +23,14 @@ export function AuthCard({
   headerExtra,
   children,
 }: AuthCardProps) {
+  const revealClass = useSplashRevealClass();
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-bg-primary px-6">
       <ThemeToggle />
 
-      <div className="w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg overflow-hidden">
+      <div
+        className={`w-full max-w-[440px] rounded-2xl border border-border-default bg-white shadow-[0_2px_20px_rgba(0,0,0,0.08)] dark:bg-bg-secondary dark:shadow-lg overflow-hidden ${revealClass}`}
+      >
         {/* Top section — icon, title, description */}
         <div className="flex flex-col items-center gap-5 px-8 pt-10 pb-7 bg-gradient-to-b from-accent/40 dark:from-accent/5 to-transparent">
           <div className="w-12 h-12 rounded-[14px] bg-accent/10 flex items-center justify-center">

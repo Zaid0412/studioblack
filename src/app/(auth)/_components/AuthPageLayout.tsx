@@ -7,6 +7,8 @@ import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
 import { getSafeReturnTo } from "@/lib/utils";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
+import { useSplashDone } from "@/hooks/useSplashDone";
 import { AlreadySignedIn } from "./AlreadySignedIn";
 
 interface AuthPageLayoutProps {
@@ -30,6 +32,11 @@ export function AuthPageLayout({
   const returnTo = searchParams.get("returnTo");
   const { data: session } = authClient.useSession();
 
+  // Cascade the hero content and form sections in once the splash clears.
+  const heroRef = useLoadStagger<HTMLDivElement>("auth-hero");
+  const formRef = useLoadStagger<HTMLDivElement>("auth-form");
+  const readyAttr = useSplashDone() || undefined;
+
   // Redirect authenticated users
   useEffect(() => {
     if (!session?.user) return;
@@ -51,7 +58,11 @@ export function AuthPageLayout({
         <div className="absolute inset-0 bg-gradient-to-br from-bg-secondary via-bg-secondary to-accent/5" />
 
         {/* Branding content at bottom */}
-        <div className="relative z-10 flex flex-col justify-end p-16 pb-20">
+        <div
+          ref={heroRef}
+          data-ready={readyAttr}
+          className="auth-reveal relative z-10 flex flex-col justify-end p-16 pb-20"
+        >
           {/* Logo */}
           <div className="flex items-center gap-3 -ml-5">
             <BrandLogo size="lg" priority />
@@ -87,7 +98,13 @@ export function AuthPageLayout({
             )}
           </div>
 
-          {session?.user ? <AlreadySignedIn /> : children}
+          {session?.user ? (
+            <AlreadySignedIn />
+          ) : (
+            <div ref={formRef} data-ready={readyAttr} className="auth-reveal">
+              {children}
+            </div>
+          )}
         </div>
       </div>
     </div>

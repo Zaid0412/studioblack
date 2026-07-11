@@ -29,6 +29,7 @@ import {
 import { TaskFilterBar } from "./_components/TaskFilterBar";
 import { TaskRow } from "./_components/TaskRow";
 import { SkeletonRow } from "@/components/ui/Skeleton";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -109,6 +110,13 @@ export default function TasksPage() {
   const totalTasks = data?.total ?? 0;
   const taskRole = data?.role ?? countsData?.role;
   const isRefreshing = isValidating && !isLoading;
+
+  // Cascade the rows in whenever the visible set changes (filter/sort/page) —
+  // keyed on the id set so a background revalidation with the same rows doesn't
+  // re-stagger.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    tasks.map((task) => task.id).join(",")
+  );
 
   // Adapter: translate SWR mutate into setTasks for useTaskCrud
   const setTasks = useSwrFieldAdapter<TaskListResponse, Task[]>(
@@ -223,6 +231,7 @@ export default function TasksPage() {
           <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden flex flex-col min-h-0 lg:min-h-[600px]">
             {/* Table body */}
             <div
+              ref={listRef}
               className={`flex-1 transition-opacity ${isRefreshing ? "opacity-60 pointer-events-none" : ""}`}
             >
               {isLoading ? (

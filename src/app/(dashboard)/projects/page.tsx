@@ -32,6 +32,7 @@ import { relativeTime } from "@/lib/formatTime";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { ProjectDropdown } from "./_components/ProjectDropdown";
 import { ProjectCard } from "./_components/ProjectCard";
 
@@ -105,6 +106,21 @@ export default function ProjectsPage() {
 
   const isStaff = userRole === "pm" || userRole === "architect";
   const isPm = userRole === "pm";
+
+  // Cascade the visible rows/cards in when the set or view mode changes — not on
+  // a background revalidation with the same rows. All three view containers stay
+  // mounted (toggled via CSS); the desktop list/grid reveals are gated on the
+  // active view so the hidden one doesn't animate off-screen.
+  const revealSignature = `${viewMode}|${paginatedRows.map((p) => p.id).join(",")}`;
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    revealSignature,
+    viewMode === "list"
+  );
+  const gridRef = useStaggerReveal<HTMLDivElement>(
+    revealSignature,
+    viewMode === "grid"
+  );
+  const mobileRef = useStaggerReveal<HTMLDivElement>(revealSignature);
 
   const renderProjectCard = (
     project: DbProjectRow,
@@ -297,10 +313,11 @@ export default function ProjectsPage() {
               </div>
 
               {/* Table rows */}
-              <div className="flex-1">
+              <div ref={listRef} className="flex-1">
                 {paginatedRows.map((project) => (
                   <div
                     key={project.id}
+                    data-anim-item
                     className="flex items-center h-14 px-4 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                     onClick={() => router.push(`/projects/${project.id}`)}
                   >
@@ -359,7 +376,10 @@ export default function ProjectsPage() {
             <div
               className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}
             >
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+              <div
+                ref={gridRef}
+                className="grid grid-cols-2 xl:grid-cols-3 gap-4"
+              >
                 {paginatedRows.map((project) =>
                   renderProjectCard(project, "grid")
                 )}
@@ -367,7 +387,10 @@ export default function ProjectsPage() {
             </div>
 
             {/* ── Mobile card list (hidden on desktop) ── */}
-            <div className="flex flex-col gap-0 lg:hidden flex-1">
+            <div
+              ref={mobileRef}
+              className="flex flex-col gap-0 lg:hidden flex-1"
+            >
               {paginatedRows.map((project) =>
                 renderProjectCard(project, "mobile")
               )}

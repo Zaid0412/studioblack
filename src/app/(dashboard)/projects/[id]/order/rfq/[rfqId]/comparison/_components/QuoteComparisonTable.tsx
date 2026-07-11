@@ -7,6 +7,7 @@ import { QuoteStatusBadge } from "@/components/rfq/QuoteStatusBadge";
 import { ResponseSourceBadge } from "@/components/rfq/ResponseSourceBadge";
 import { formatDate } from "@/lib/formatDate";
 import { isInactiveQuote } from "@/lib/validations";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { QuoteComparison, QuoteComparisonVendorColumn } from "@/types";
 
 interface Props {
@@ -20,6 +21,9 @@ interface Props {
  */
 export function QuoteComparisonTable({ comparison }: Props) {
   const t = useTranslations("rfq");
+  const listRef = useStaggerReveal<HTMLTableSectionElement>(
+    comparison.items.map((r) => r.rfq_item_id).join(",")
+  );
 
   if (comparison.vendors.length === 0) {
     return (
@@ -85,10 +89,11 @@ export function QuoteComparisonTable({ comparison }: Props) {
               })}
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={listRef}>
             {comparison.items.map((row) => (
               <tr
                 key={row.rfq_item_id}
+                data-anim-item
                 className="border-t border-border-default"
               >
                 <td className="sticky left-0 bg-bg-secondary px-4 py-3 border-r border-border-default align-top">

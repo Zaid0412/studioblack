@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge, statusToBadgeVariant } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/ui/StatCard";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { formatShortDate } from "@/lib/formatDate";
 import { PendingReviewsPopover } from "@/components/dashboard/PendingReviewsPopover";
 import { DashboardSkeleton } from "./DashboardSkeleton";
@@ -44,6 +45,10 @@ export function ClientDashboard() {
     "/api/client/pending-reviews"
   );
 
+  const staggerRef = useLoadStagger<HTMLDivElement>(
+    isLoading ? "0" : String(clientProjects.length)
+  );
+
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <DashboardError onRetry={() => mutate()} />;
 
@@ -53,11 +58,11 @@ export function ClientDashboard() {
   ).length;
 
   return (
-    <div className="flex flex-col gap-7 max-w-[1200px]">
+    <div ref={staggerRef} className="flex flex-col gap-7 max-w-[1200px]">
       <PageHeader title={tClient("title")} subtitle={tClient("subtitle")} />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="an-rise grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
           label={tClient("totalProjects")}
           value={String(totalProjects)}
@@ -78,7 +83,7 @@ export function ClientDashboard() {
       </div>
 
       {/* Projects */}
-      <div className="flex flex-col gap-4">
+      <div className="an-rise flex flex-col gap-4">
         <h2 className="text-lg font-bold text-text-primary">
           {tClient("myProjects")}
         </h2>

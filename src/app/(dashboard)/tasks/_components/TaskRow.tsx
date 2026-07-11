@@ -117,6 +117,7 @@ export function TaskRow({
   return (
     <div
       data-task-id={task.id}
+      data-anim-item
       onClick={isClickable ? () => onClick(task) : undefined}
       className={`flex items-center gap-3 px-4 py-3 border-b border-border-default last:border-b-0 transition-colors hover:bg-bg-elevated/40${
         isClickable ? " cursor-pointer" : ""

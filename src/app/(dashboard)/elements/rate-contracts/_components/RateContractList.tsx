@@ -34,6 +34,7 @@ import type { RateContractListRow } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { RateContractStatusBadge } from "@/components/rate-contracts/RateContractStatusBadge";
 import { formatDate } from "@/lib/formatDate";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 
 const ALL = "__all__";
 type SortKey = RateContractSortField;
@@ -80,6 +81,9 @@ export function RateContractList({
   onClear,
 }: Props) {
   const t = useTranslations("rateContracts");
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    rows.map((c) => c.id).join(",")
+  );
 
   const { data: vendorData } = useSWR<{ rows: VendorListRow[] }>(
     `${API.vendors()}?limit=200`
@@ -206,7 +210,7 @@ export function RateContractList({
             <div className="text-right">{t("colActions")}</div>
           </div>
 
-          <div className="flex flex-col">
+          <div ref={listRef} className="flex flex-col">
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonRow key={i} columns={7} />
@@ -221,6 +225,7 @@ export function RateContractList({
               rows.map((c) => (
                 <Link
                   key={c.id}
+                  data-anim-item
                   href={`/elements/rate-contracts/${c.id}`}
                   className="grid grid-cols-1 lg:grid-cols-[140px_1fr_180px_120px_120px_120px_80px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors"
                 >

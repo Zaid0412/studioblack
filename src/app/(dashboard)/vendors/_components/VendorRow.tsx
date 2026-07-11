@@ -81,6 +81,7 @@ export function VendorRow({
 
   return (
     <div
+      data-anim-item
       onClick={onClick}
       className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >

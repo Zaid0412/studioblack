@@ -1,7 +1,10 @@
+"use client";
+
 import type { LucideIcon } from "lucide-react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useCountUp } from "@/hooks/useCountUp";
 
 interface Props {
   label: string;
@@ -28,6 +31,15 @@ export function StatCard({
   href,
 }: Props) {
   const interactive = !!href;
+  // Count up only clean integers ("42"); leave "0%", "…", "₹1,234" etc. as-is.
+  const numeric =
+    typeof value === "number"
+      ? value
+      : /^\d+$/.test(value)
+        ? Number(value)
+        : null;
+  const counted = useCountUp(numeric ?? 0);
+  const display = numeric === null ? value : counted;
   const baseClass = cn(
     "flex flex-col gap-2 rounded-xl bg-bg-elevated p-5",
     interactive &&
@@ -47,7 +59,7 @@ export function StatCard({
           valueColor ?? "text-text-primary"
         )}
       >
-        {value}
+        {display}
       </span>
       {interactive && (
         <ArrowRight className="self-end w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
