@@ -1,9 +1,7 @@
-import { Clock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { getServerSession } from "@/lib/serverSession";
 import { getServerFeatureFlag } from "@/lib/posthog-server";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { VendorPortalComingSoon } from "@/components/vendor/VendorPortalComingSoon";
 
 /**
  * Vendor portal layout — gates the entire `/vendor-portal/*` subtree on the
@@ -29,13 +27,10 @@ export default async function VendorPortalLayout({
 
   const t = await getTranslations("vendorPortal");
   return (
-    <div className="flex flex-col gap-6 max-w-[1100px]">
-      <PageHeader title={t("title")} />
-      <EmptyState
-        icon={Clock}
-        title={t("comingSoon")}
-        description={t("comingSoonHint")}
-      />
-    </div>
+    <VendorPortalComingSoon
+      title={t("title")}
+      comingSoon={t("comingSoon")}
+      comingSoonHint={t("comingSoonHint")}
+    />
   );
 }

@@ -61,7 +61,7 @@ export function MobileBottomNav() {
     if (role === "vendor") {
       return [
         {
-          href: "/vendor-portal",
+          href: "/dashboard",
           label: t("vendorDashboard"),
           icon: LayoutDashboard,
         },

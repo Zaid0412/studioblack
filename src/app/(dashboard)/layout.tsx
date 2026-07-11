@@ -66,16 +66,18 @@ export default async function DashboardLayout({
   ]);
   if (fullOrg) orgName = fullOrg.name ?? null;
 
-  // Vendors are scoped to /vendor-portal/*, /settings/*, and /tasks/* (their
-  // assigned tasks live in the same task system as everyone else's).
+  // Vendors land on /dashboard (role-routed to the vendor dashboard) and are
+  // scoped to /vendor-portal/* (rfqs / POs / etc.), /settings/*, and /tasks/*
+  // (their assigned tasks live in the same task system as everyone else's).
   if (effectiveRole === "vendor") {
     const pathname = reqHeaders.get("x-pathname") ?? "";
     if (
+      !pathname.startsWith("/dashboard") &&
       !pathname.startsWith("/vendor-portal") &&
       !pathname.startsWith("/settings") &&
       !pathname.startsWith("/tasks")
     ) {
-      redirect("/vendor-portal");
+      redirect("/dashboard");
     }
   }
 

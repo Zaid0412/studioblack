@@ -131,7 +131,7 @@ export function Sidebar({
 
   const vendorNav = [
     {
-      href: "/vendor-portal",
+      href: "/dashboard",
       label: t("vendorDashboard"),
       icon: LayoutDashboard,
     },
