@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +92,7 @@ export default function OrderRfqDetailPage({
 
   const lastViewedAt = useRfqLastViewed(rfqId);
   const { rfq, notFound, isLoading, mutate } = useRfqDetail(projectId, rfqId);
+  const revealRef = useLoadStagger<HTMLDivElement>(rfq ? rfq.id : "0", 60);
   // `addItems` is called inside RfqAddItemsDialog, not directly here.
   const { issue, invite, removeItem, cancel, revise, syncBoq } =
     useRfqMutations(projectId);
@@ -287,7 +289,10 @@ export default function OrderRfqDetailPage({
   const boqRemovedItems = rfq.items.filter((i) => i.boq_removed);
 
   return (
-    <div className="flex flex-col gap-6 p-4 lg:p-10">
+    <div
+      ref={revealRef}
+      className="stagger-children flex flex-col gap-6 p-4 lg:p-10"
+    >
       <Link
         href={`/projects/${projectId}/order/rfq`}
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"

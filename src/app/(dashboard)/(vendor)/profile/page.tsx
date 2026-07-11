@@ -23,6 +23,7 @@ import {
   useVendorMeContacts,
 } from "@/hooks/useVendorPortalProfile";
 import { cn } from "@/lib/utils";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import type { VendorContact } from "@/types";
 
 /** Vendor portal — self-service profile page. Tabs for overview, contacts, bank, and KYC. */
@@ -32,6 +33,7 @@ export default function VendorPortalProfilePage() {
 
   const { vendor, suspended, isLoading, error, mutate, save } = useVendorMe();
   const [activeTab, setActiveTab] = useState("overview");
+  const revealRef = useLoadStagger<HTMLDivElement>(vendor ? "1" : "0");
 
   if (isLoading) {
     return (
@@ -53,7 +55,10 @@ export default function VendorPortalProfilePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1100px]">
+    <div
+      ref={revealRef}
+      className="stagger-children flex flex-col gap-6 max-w-[1100px]"
+    >
       <PageHeader title={tProfile("title")} subtitle={tProfile("subtitle")} />
 
       {suspended && (

@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { authClient } from "@/lib/authClient";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { tasks as tasksApi } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { toast } from "@/components/ui/useToast";
@@ -42,6 +43,7 @@ export default function TaskDetailPage({
   const { role } = useUserRole();
 
   const { data: task, error, mutate: mutateTask } = useSWR<Task>(API.task(id));
+  const revealRef = useLoadStagger<HTMLDivElement>(task ? task.id : "0", 90);
   const { data: activityData, mutate: mutateActivity } = useSWR<{
     events: TaskActivityEntry[];
   }>(API.taskActivity(id));
@@ -115,7 +117,7 @@ export default function TaskDetailPage({
   const statusVariant = STATUS_BADGE_VARIANT[task.status] ?? "draft";
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div ref={revealRef} className="stagger-children max-w-5xl mx-auto">
       {/* Breadcrumb + heading */}
       <header className="border-b border-border-default pb-5 mb-5">
         <nav

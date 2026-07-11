@@ -11,6 +11,7 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqDetail } from "@/hooks/useRfqs";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import {
   useVendorQuote,
   useVendorSubmitQuote,
@@ -44,6 +45,7 @@ export default function VendorPortalRfqDetailPage({
     isLoading,
     mutate: mutateRfq,
   } = useVendorRfqDetail(rfqId);
+  const revealRef = useLoadStagger<HTMLDivElement>(rfq ? rfq.id : "0", 60);
   const { quote, mutate: mutateQuote } = useVendorQuote(rfqId);
   const submitQuote = useVendorSubmitQuote(rfqId);
   const declineQuote = useVendorDeclineQuote(rfqId);
@@ -129,7 +131,10 @@ export default function VendorPortalRfqDetailPage({
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1100px]">
+    <div
+      ref={revealRef}
+      className="stagger-children flex flex-col gap-6 max-w-[1100px]"
+    >
       <Link
         href="/rfqs"
         className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-text-primary w-fit"

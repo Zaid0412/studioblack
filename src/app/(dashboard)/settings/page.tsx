@@ -169,8 +169,11 @@ function SettingsPageInner() {
         {/* Vertical section nav */}
         <nav className="flex flex-col gap-1">{navItems.map(renderNavLink)}</nav>
 
-        {/* Active section */}
-        <div className="min-w-0 max-w-[700px]">
+        {/* Active section — keyed on the tab so it re-fades on switch. */}
+        <div
+          key={active}
+          className="min-w-0 max-w-[700px] animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none"
+        >
           {settings.loading ? (
             <div className="flex flex-col gap-4">
               <Skeleton className="h-5 w-32" />

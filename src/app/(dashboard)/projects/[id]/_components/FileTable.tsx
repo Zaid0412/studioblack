@@ -16,6 +16,7 @@ import { VersionHistoryDialog } from "./VersionHistoryDialog";
 import { BulkActions } from "./BulkActions";
 import { FileRow } from "./FileRow";
 import { FileCard } from "./FileCard";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { fileType, statusBadge } from "@/lib/fileUtils";
 import { attachments as attachmentsApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
@@ -129,6 +130,10 @@ export function FileTable({
     });
     return sorted;
   }, [phaseFiles, sortConfig]);
+
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    sortedFiles.map((f) => f.id).join(",")
+  );
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadVersionGroup, setUploadVersionGroup] = useState<string | null>(
@@ -585,7 +590,7 @@ export function FileTable({
         </div>
 
         {/* Table body */}
-        <div className="flex-1">
+        <div ref={listRef} className="flex-1">
           {dragOver && !readOnly ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
               <Upload className="w-8 h-8 text-accent" />
@@ -690,7 +695,7 @@ export function FileTable({
               };
 
               return (
-                <div key={att.id}>
+                <div key={att.id} data-anim-item>
                   <FileRow
                     {...sharedProps}
                     onRowClick={(e) =>

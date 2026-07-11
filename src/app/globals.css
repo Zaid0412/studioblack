@@ -526,8 +526,15 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
   animation: an-rise 0.7s ease both;
   animation-delay: var(--an-delay, 0ms);
 }
+/* Cascade every direct child in, without tagging each one — pair with
+   useLoadStagger on the container to set the per-child `--an-delay`. */
+.stagger-children > * {
+  animation: an-rise 0.55s ease both;
+  animation-delay: var(--an-delay, 0ms);
+}
 @media (prefers-reduced-motion: reduce) {
-  .an-rise {
+  .an-rise,
+  .stagger-children > * {
     animation: none !important;
   }
 }
