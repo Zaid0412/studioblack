@@ -22,7 +22,13 @@ export function VendorDashboard() {
 
   // Server filters out `draft` and `cancelled` already, so `total` here is
   // exactly the count of RFQs awaiting/in-progress/awarded for this vendor.
-  const { total: openRfqs, isLoading } = useVendorRfqs({ page: 1, limit: 1 });
+  // `enabled` gates the fetch: the endpoint 403s when the flag is off, and this
+  // dashboard renders the coming-soon panel in that case anyway.
+  const { total: openRfqs, isLoading } = useVendorRfqs({
+    page: 1,
+    limit: 1,
+    enabled,
+  });
 
   if (!enabled) {
     return (

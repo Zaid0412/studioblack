@@ -378,8 +378,14 @@ export function useRfqSuggestedVendors(
   };
 }
 
-/** Vendor-portal RFQ list. Caller owns the filter state. */
-export function useVendorRfqs(params: UseRfqListParams) {
+/**
+ * Vendor-portal RFQ list. Caller owns the filter state. Pass `enabled: false`
+ * to skip the fetch — the endpoint 403s when the `vendorPortal` flag is off, so
+ * the flag-gated vendor dashboard uses this to avoid a guaranteed-403 request.
+ */
+export function useVendorRfqs(
+  params: UseRfqListParams & { enabled?: boolean }
+) {
   const search = new URLSearchParams();
   if (params.search) search.set("search", params.search);
   if (params.status) search.set("status", params.status);
@@ -389,7 +395,9 @@ export function useVendorRfqs(params: UseRfqListParams) {
   const key = `${API.vendorPortalRfqs()}${qs ? `?${qs}` : ""}`;
 
   const { data, error, isLoading, isValidating, mutate } =
-    useSWR<ListRfqsResponse>(key, { keepPreviousData: true });
+    useSWR<ListRfqsResponse>(params.enabled === false ? null : key, {
+      keepPreviousData: true,
+    });
   return {
     rows: data?.rows ?? [],
     total: data?.total ?? 0,
