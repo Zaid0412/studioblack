@@ -57,7 +57,7 @@ export async function notifyRfqIssued(
   ctx: RfqIssueContext
 ): Promise<number> {
   const appUrl = env().NEXT_PUBLIC_APP_URL ?? "";
-  const deepLink = `${appUrl}/vendor-portal/rfqs/${ctx.rfqId}`;
+  const deepLink = `${appUrl}/rfqs/${ctx.rfqId}`;
 
   // Sequential — keeps SMTP load predictable. If we later need parallelism,
   // switch to Promise.allSettled with a concurrency limit.

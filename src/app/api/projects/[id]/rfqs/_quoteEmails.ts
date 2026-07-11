@@ -72,7 +72,7 @@ export async function notifyQuoteAwarded(
   ctx: QuoteAwardedContext
 ): Promise<number> {
   const appUrl = env().NEXT_PUBLIC_APP_URL ?? "";
-  const deepLink = `${appUrl}/vendor-portal/rfqs/${ctx.rfqId}`;
+  const deepLink = `${appUrl}/rfqs/${ctx.rfqId}`;
 
   for (const c of contacts) {
     try {

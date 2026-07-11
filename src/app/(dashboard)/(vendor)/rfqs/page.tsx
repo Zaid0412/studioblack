@@ -123,7 +123,7 @@ export default function VendorPortalRfqsPage() {
                   <tr
                     key={row.id}
                     className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
-                    onClick={() => router.push(`/vendor-portal/rfqs/${row.id}`)}
+                    onClick={() => router.push(`/rfqs/${row.id}`)}
                   >
                     <td className="px-4 py-3 font-mono text-xs text-text-secondary">
                       {row.rfq_number}

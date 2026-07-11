@@ -19,6 +19,27 @@ import { TaskSidePanelHost } from "@/components/tasks/TaskSidePanelHost";
 import type { User } from "@/types";
 
 /**
+ * Top-level routes a vendor may reach; anything else (studio surfaces)
+ * redirects them to /dashboard. Their feature pages (/rfqs, /purchase-orders,
+ * …) live under the `(vendor)` route group, which additionally gates on the
+ * vendor role + `vendorPortal` flag.
+ *
+ * When adding/removing a vendor route, keep three things in sync: this list,
+ * the `(vendor)` folder, and the vendor nav (`sidebar.tsx` vendorNav /
+ * MobileBottomNav).
+ */
+const VENDOR_ALLOWED_ROUTES = [
+  "/dashboard",
+  "/rfqs",
+  "/purchase-orders",
+  "/invoices",
+  "/progress",
+  "/profile",
+  "/settings",
+  "/tasks",
+];
+
+/**
  * Dashboard layout — protected, all authenticated roles.
  *
  * Performs full session validation via `auth.api.getSession()` (DB lookup).
@@ -66,17 +87,16 @@ export default async function DashboardLayout({
   ]);
   if (fullOrg) orgName = fullOrg.name ?? null;
 
-  // Vendors are scoped to /vendor-portal/*, /settings/*, and /tasks/* (their
-  // assigned tasks live in the same task system as everyone else's).
+  // Keep vendors in their lane: /dashboard (role-routed to the vendor
+  // dashboard), their feature pages, /settings, and /tasks (shared task
+  // system). Anything else redirects home. Exact-or-subpath match so a
+  // future /settings-admin etc. isn't silently vendor-accessible.
   if (effectiveRole === "vendor") {
     const pathname = reqHeaders.get("x-pathname") ?? "";
-    if (
-      !pathname.startsWith("/vendor-portal") &&
-      !pathname.startsWith("/settings") &&
-      !pathname.startsWith("/tasks")
-    ) {
-      redirect("/vendor-portal");
-    }
+    const allowed = VENDOR_ALLOWED_ROUTES.some(
+      (r) => pathname === r || pathname.startsWith(`${r}/`)
+    );
+    if (!allowed) redirect("/dashboard");
   }
 
   const user: User = {

@@ -1,9 +1,10 @@
 /**
- * `/dashboard` and `/vendor-portal` are role-specific roots that contain
- * many sub-routes. Prefix-matching them would highlight both the root
- * tab and the active leaf tab simultaneously, so they need exact match.
+ * `/dashboard` is a role-specific root shared by studio and vendor nav. Prefix-
+ * matching it would keep the Dashboard tab active on unrelated leaf routes, so
+ * it needs exact match. (The vendor feature tabs — /rfqs etc. — use the default
+ * prefix match so a detail page like /rfqs/123 still highlights the RFQs tab.)
  */
-const EXACT_MATCH_ROUTES = new Set(["/dashboard", "/vendor-portal"]);
+const EXACT_MATCH_ROUTES = new Set(["/dashboard"]);
 
 /**
  * Shared nav active-state check. A tab is active when the current pathname
