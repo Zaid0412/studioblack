@@ -23,6 +23,10 @@ import type { User } from "@/types";
  * redirects them to /dashboard. Their feature pages (/rfqs, /purchase-orders,
  * …) live under the `(vendor)` route group, which additionally gates on the
  * vendor role + `vendorPortal` flag.
+ *
+ * When adding/removing a vendor route, keep three things in sync: this list,
+ * the `(vendor)` folder, and the vendor nav (`sidebar.tsx` vendorNav /
+ * MobileBottomNav).
  */
 const VENDOR_ALLOWED_ROUTES = [
   "/dashboard",

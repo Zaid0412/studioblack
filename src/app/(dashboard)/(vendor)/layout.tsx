@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
+import { auth } from "@/lib/auth";
 import { getServerSession } from "@/lib/serverSession";
 import { getServerFeatureFlag } from "@/lib/posthog-server";
 import { deriveEffectiveRole } from "@/lib/effectiveRole";
@@ -30,9 +32,22 @@ export default async function VendorLayout({
   const session = await getServerSession();
   if (!session) redirect("/login");
 
+  // Match the (dashboard) layout's role derivation exactly. When there's no
+  // active org yet, fall back to the user's first org so a member-role vendor
+  // (e.g. a PM who accepted a vendor invite) resolves to "vendor" here too —
+  // otherwise deriving with a null org would drop them to their db role and
+  // wrongly bounce them off their own pages on first load. Skipped when the db
+  // role is already "vendor" (deriveEffectiveRole short-circuits before org),
+  // so normal vendors incur no extra lookup.
+  let orgId = session.session.activeOrganizationId ?? null;
+  if (!orgId && session.user.role !== "vendor") {
+    const orgs = await auth.api.listOrganizations({ headers: await headers() });
+    if (orgs && orgs.length > 0) orgId = orgs[0].id;
+  }
+
   const effectiveRole = await deriveEffectiveRole(
     session.user.id,
-    session.session.activeOrganizationId ?? null,
+    orgId,
     session.user.role
   );
   if (effectiveRole !== "vendor") redirect("/dashboard");
