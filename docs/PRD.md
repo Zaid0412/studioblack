@@ -69,7 +69,7 @@ Architectural studios currently rely on a patchwork of tools (email, WhatsApp, G
 /(dashboard)/projects/[id]/upload → Upload attachments
 /(dashboard)/projects/[id]/edit   → Edit project details
 /(dashboard)/tasks          → Architect's personal task board (cross-project)
-/(dashboard)/organisation   → Team management (invite, remove, roles)
+/(dashboard)/settings?section=organization → Team management (invite, remove, roles)
 /(dashboard)/notifications  → Notification center
 /(dashboard)/settings       → Profile & account settings
 /(dashboard)/audit          → Activity / audit history
