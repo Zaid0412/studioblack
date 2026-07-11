@@ -393,16 +393,16 @@ Vendors access the app through the same login but get a completely different she
 VENDOR PORTAL (Feature 8+)
 ├── Sidebar: vendorNav (Dashboard, RFQs, POs, Settings)
 │
-├── /vendor-portal/dashboard
+├── /dashboard
 │   ├── Open RFQs count
 │   ├── Active POs count
 │   ├── Pending quotes
 │   └── Recent activity
 │
-├── /vendor-portal/rfqs           ← RFQs assigned to this vendor
+├── /rfqs           ← RFQs assigned to this vendor
 │   └── /rfqs/[rfqId]            ← Quote submission form
 │
-├── /vendor-portal/purchase-orders ← POs issued to this vendor
+├── /purchase-orders ← POs issued to this vendor
 │   └── /purchase-orders/[poId]   ← PO detail + acknowledge button
 │
 └── /settings                      ← shared settings page
@@ -1480,7 +1480,7 @@ CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
 
 **UI**:
 
-- `src/app/(dashboard)/vendor-portal/` — vendor-facing pages
+- `src/app/(dashboard)/(vendor)/` — vendor-facing pages
 - Vendor dashboard: open RFQs, active POs, quote status
 
 **Files to create/modify**:
@@ -1489,7 +1489,7 @@ CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
 - `src/lib/permissions.ts` (add vendor role)
 - `src/lib/withAuth.ts` (update role derivation)
 - `src/components/layout/sidebar.tsx` (add vendorNav)
-- `src/app/(dashboard)/vendor-portal/page.tsx` (new — placeholder for now)
+- `src/app/(dashboard)/(vendor)/page.tsx` (new — placeholder for now)
 - `src/lib/auth.ts` (update databaseHooks for vendor role detection)
 
 ---
@@ -1517,7 +1517,7 @@ CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
 
 **KYC verification status**: vendors can upload / replace KYC docs but **cannot** mark them verified — `kyc_status` stays read-only on this side. PM verifies in F7.1's KYC tab. After a vendor re-uploads, status flips to `pending` automatically (re-verification needed).
 
-**UI** — `src/app/(dashboard)/vendor-portal/profile/`:
+**UI** — `src/app/(dashboard)/(vendor)/profile/`:
 
 - Reuse `VendorBankDetailsForm`, `VendorKycTab`, and a contact-management subset of `VendorContactsEditor` (already built for F7 / F7.1) — pre-loaded with the vendor's own record. Same look as PM-side vendor edit, just no vendor selector.
 - Read-only fields: company name, vendor code, status (set by PM), KYC verification status (set by PM).
@@ -1533,7 +1533,7 @@ CREATE INDEX idx_rate_contract_item_element ON rate_contract_item(element_id);
 - `src/app/api/vendor-portal/me/bank-details/route.ts`
 - `src/app/api/vendor-portal/me/kyc-documents/route.ts` (POST + per-doc DELETE)
 - `src/app/api/vendor-portal/me/contacts/route.ts` (POST + per-contact PATCH/DELETE)
-- `src/app/(dashboard)/vendor-portal/profile/page.tsx` (new)
+- `src/app/(dashboard)/(vendor)/profile/page.tsx` (new)
 - `src/components/layout/sidebar.tsx` (add Profile nav entry)
 - `src/lib/api/vendor-portal.ts` (typed wrappers — new domain module)
 - `src/lib/api/routes.ts` (add `/vendor-portal/*` routes)
@@ -1700,7 +1700,7 @@ CREATE INDEX idx_quote_item_quote ON vendor_quote_item(quote_id);
 - `src/app/api/rfqs/[rfqId]/comparison/route.ts` (new)
 - `src/app/api/rfqs/[rfqId]/award/route.ts` (new)
 - `src/app/(dashboard)/projects/[id]/rfqs/[rfqId]/` (expand with comparison view)
-- `src/app/(dashboard)/vendor-portal/rfqs/[rfqId]/` (new — vendor quote submission)
+- `src/app/(dashboard)/(vendor)/rfqs/[rfqId]/` (new — vendor quote submission)
 - `src/types/index.ts` (add types)
 - `src/test/api/quotes.test.ts` (new)
 
@@ -2002,7 +2002,7 @@ CREATE INDEX idx_po_item_po ON po_item(po_id);
 - `src/lib/queries.ts` (add ~200 lines)
 - `src/app/api/projects/[id]/purchase-orders/` (new)
 - `src/app/(dashboard)/projects/[id]/purchase-orders/` (new)
-- `src/app/(dashboard)/vendor-portal/purchase-orders/` (new)
+- `src/app/(dashboard)/(vendor)/purchase-orders/` (new)
 - `src/types/index.ts` (add types)
 - `src/test/api/purchase-orders.test.ts` (new)
 
@@ -2343,7 +2343,7 @@ CREATE INDEX idx_vendor_dpr_photo_dpr ON vendor_dpr_photo(dpr_id, sort_order);
 
 **UI**:
 
-- **Vendor portal** — `src/app/(dashboard)/vendor-portal/projects/[id]/dpr/`:
+- **Vendor portal** — `src/app/(dashboard)/(vendor)/projects/[id]/dpr/`:
   - "Today's DPR" form (one per day, edit until midnight)
   - Past DPRs list (read-only)
 - **Architect view** — new sub-tab in BOQ surface: "Vendor Wise Progress Report":
@@ -2363,8 +2363,8 @@ CREATE INDEX idx_vendor_dpr_photo_dpr ON vendor_dpr_photo(dpr_id, sort_order);
 - `src/app/api/projects/[id]/dpr/[dprId]/photos/route.ts` (new)
 - `src/app/api/projects/[id]/dpr/[dprId]/photos/[photoId]/route.ts` (new)
 - `src/app/api/projects/[id]/dpr/export/route.ts` (new)
-- `src/app/(dashboard)/vendor-portal/projects/[id]/dpr/page.tsx` (new)
-- `src/app/(dashboard)/vendor-portal/projects/[id]/dpr/_components/*.tsx` (new — DprForm, DprList, DprCard)
+- `src/app/(dashboard)/(vendor)/projects/[id]/dpr/page.tsx` (new)
+- `src/app/(dashboard)/(vendor)/projects/[id]/dpr/_components/*.tsx` (new — DprForm, DprList, DprCard)
 - `src/app/(dashboard)/projects/[id]/boq/dpr/page.tsx` (new — architect viewer)
 - `src/app/(dashboard)/projects/[id]/boq/_components/VendorDprCard.tsx` (new)
 - `src/lib/api/vendorDpr.ts` (new)

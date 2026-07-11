@@ -4,46 +4,66 @@ import { useTranslations } from "next-intl";
 import { FileText, Receipt, ScrollText, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatCard } from "@/components/ui/StatCard";
+import { VendorPortalComingSoon } from "@/components/vendor/VendorPortalComingSoon";
+import { useFlag } from "@/hooks/useFlag";
 import { useVendorRfqs } from "@/hooks/useRfqs";
 
 /**
- * Vendor portal landing page — Open RFQs count is live; PO / invoice /
- * progress cards are still placeholders pending F10–F16.6.
+ * Vendor dashboard — served at /dashboard (role-routed, like the client one).
+ * Gated on the `vendorPortal` PostHog flag, replicating the server gate that
+ * used to live in `vendor-portal/layout.tsx`: off in prod → coming-soon panel,
+ * so moving the dashboard out from under that layout doesn't leak the
+ * unfinished portal. The other vendor pages are top-level routes (/rfqs,
+ * /purchase-orders, …) under the `(vendor)` route group.
  */
-export default function VendorPortalPage() {
+export function VendorDashboard() {
   const t = useTranslations("vendorPortal");
+  const enabled = useFlag("vendorPortal");
 
   // Server filters out `draft` and `cancelled` already, so `total` here is
   // exactly the count of RFQs awaiting/in-progress/awarded for this vendor.
+  // `enabled` gates the fetch: the endpoint 403s when the flag is off, and this
+  // dashboard renders the coming-soon panel in that case anyway.
   const { total: openRfqs, isLoading } = useVendorRfqs({
     page: 1,
     limit: 1,
+    enabled,
   });
+
+  if (!enabled) {
+    return (
+      <VendorPortalComingSoon
+        title={t("title")}
+        comingSoon={t("comingSoon")}
+        comingSoonHint={t("comingSoonHint")}
+      />
+    );
+  }
 
   const stats = [
     {
       label: t("openRfqs"),
       value: isLoading ? "…" : String(openRfqs),
       icon: FileText,
-      href: "/vendor-portal/rfqs",
+      href: "/rfqs",
     },
     {
       label: t("activePOs"),
       value: "0",
       icon: ScrollText,
-      href: "/vendor-portal/purchase-orders",
+      href: "/purchase-orders",
     },
     {
       label: t("pendingInvoices"),
       value: "0",
       icon: Receipt,
-      href: "/vendor-portal/invoices",
+      href: "/invoices",
     },
     {
       label: t("overallCompletion"),
       value: "0%",
       icon: TrendingUp,
-      href: "/vendor-portal/progress",
+      href: "/progress",
     },
   ];
 
