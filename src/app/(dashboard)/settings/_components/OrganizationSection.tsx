@@ -6,15 +6,14 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card } from "@/components/ui/card";
-// Org management moved from the standalone /organisation route into settings.
-// The hook + presentational pieces still live under the organisation route
-// folder (now redirect-only) and are reused as-is.
-import { useOrganisation } from "../../organisation/_hooks/useOrganisation";
-import { CreateOrgForm } from "../../organisation/_components/CreateOrgForm";
-import { OrgDetailsCard } from "../../organisation/_components/OrgDetailsCard";
-import { MembersList } from "../../organisation/_components/MembersList";
-import { PendingInvitations } from "../../organisation/_components/PendingInvitations";
-import { InviteDialog } from "../../organisation/_components/InviteDialog";
+// Org management is a section of Settings. The hook + presentational pieces
+// live in ./organization/ (the standalone /organisation route was removed).
+import { useOrganisation } from "./organization/useOrganisation";
+import { CreateOrgForm } from "./organization/CreateOrgForm";
+import { OrgDetailsCard } from "./organization/OrgDetailsCard";
+import { MembersList } from "./organization/MembersList";
+import { PendingInvitations } from "./organization/PendingInvitations";
+import { InviteDialog } from "./organization/InviteDialog";
 
 /**
  * Organisation management as a settings section: org details, members,
