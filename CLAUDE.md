@@ -121,6 +121,7 @@ When a hook fetches a primary resource plus secondary ones, expose them separate
 - `src/test/helpers.ts` — test factories (mockSession, buildRequest, parseResponse)
 - `vitest.config.ts` — Vitest config; two projects: `node` (API/unit) + `dom` (jsdom, React hook/component tests)
 - `vitest.hooks-tests.ts` — the file list owned by the `dom` project (single source of truth; the `node` project excludes it)
+- `.github/scripts/` — CI scripts (CommonJS) loaded by `actions/github-script`. Keep workflow logic here, not inline in YAML, so it's linted and its pure parts are testable (e.g. `pr-test-comment.js`).
 - `src/hooks/usePageVisibility.ts` — Page Visibility API hook for polling gates
 - `src/lib/motion.ts` — easing token + `prefersReducedMotion()` + `animateIn()` (WAAPI wrapper)
 
