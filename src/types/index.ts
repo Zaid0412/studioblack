@@ -100,6 +100,8 @@ export interface Notification {
   createdAt: string;
   /** Optional link to the related project. */
   projectId?: string;
+  /** Optional link to the related task. Takes precedence over `projectId` when routing. */
+  taskId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +381,7 @@ export interface DbNotificationRow {
   created_at: string;
   project_id: string | null;
   project_name: string | null;
+  task_id: string | null;
 }
 
 // ---------------------------------------------------------------------------

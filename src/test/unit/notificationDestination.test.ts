@@ -1,47 +1,62 @@
 /**
- * Pin the notification deep-link rule. BOQ notifications must route into
- * the BOQ sub-tab so the user lands on the surface they're being notified
- * about, not on the project root where they'd have to click again.
+ * Pin the notification deep-link rules. Routing is entity-first: the most
+ * specific id on the row wins, so a task notification opens the task even when
+ * that task has no project. BOQ is the exception — the row carries no BOQ item
+ * id, so its sub-tab is still selected by the `boq_` type prefix.
  */
 import { describe, it, expect } from "vitest";
 import { notificationDestination } from "@/lib/notificationDestination";
 
 const PROJECT = "proj-1";
+const TASK = "task-1";
 
 describe("notificationDestination", () => {
-  it("routes boq_item_review_requested into the BOQ tab", () => {
-    expect(notificationDestination("boq_item_review_requested", PROJECT)).toBe(
-      `/projects/${PROJECT}/boq/my-scope`
-    );
+  it("routes boq_ types into the BOQ sub-tab", () => {
+    for (const type of [
+      "boq_item_review_requested",
+      "boq_item_internally_approved",
+      "boq_item_client_approved",
+      "boq_item_client_changes_requested",
+      "boq_item_internal_changes_requested",
+    ]) {
+      expect(notificationDestination({ type, projectId: PROJECT })).toBe(
+        `/projects/${PROJECT}/boq/my-scope`
+      );
+    }
   });
 
-  it("routes boq_item_internally_approved into the BOQ tab", () => {
+  it("routes other project-scoped types to the project root", () => {
+    for (const type of ["approval", "upload", "project_pm_assigned"]) {
+      expect(notificationDestination({ type, projectId: PROJECT })).toBe(
+        `/projects/${PROJECT}`
+      );
+    }
+  });
+
+  it("opens the task when a task id is present, ahead of the project", () => {
     expect(
-      notificationDestination("boq_item_internally_approved", PROJECT)
-    ).toBe(`/projects/${PROJECT}/boq/my-scope`);
+      notificationDestination({
+        type: "task_assigned",
+        projectId: PROJECT,
+        taskId: TASK,
+      })
+    ).toBe(`/tasks/${TASK}`);
   });
 
-  it("routes boq_item_client_approved into the BOQ tab", () => {
-    expect(notificationDestination("boq_item_client_approved", PROJECT)).toBe(
-      `/projects/${PROJECT}/boq/my-scope`
-    );
+  it("opens a standalone task that has no project", () => {
+    expect(
+      notificationDestination({
+        type: "task_assigned",
+        projectId: null,
+        taskId: TASK,
+      })
+    ).toBe(`/tasks/${TASK}`);
   });
 
-  it("routes boq_item_change_requested into the BOQ tab", () => {
-    expect(notificationDestination("boq_item_change_requested", PROJECT)).toBe(
-      `/projects/${PROJECT}/boq/my-scope`
-    );
-  });
-
-  it("routes non-boq types to the project root", () => {
-    expect(notificationDestination("task_assigned", PROJECT)).toBe(
-      `/projects/${PROJECT}`
-    );
-    expect(notificationDestination("attachment_uploaded", PROJECT)).toBe(
-      `/projects/${PROJECT}`
-    );
-    expect(notificationDestination("project_approved", PROJECT)).toBe(
-      `/projects/${PROJECT}`
-    );
+  it("returns null when there is nowhere to go", () => {
+    expect(notificationDestination({ type: "invitation" })).toBeNull();
+    expect(
+      notificationDestination({ type: "boq_item_review_requested" })
+    ).toBeNull();
   });
 });

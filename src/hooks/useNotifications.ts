@@ -136,6 +136,7 @@ export function useNotifications({
         read: r.read,
         createdAt: r.created_at,
         projectId: r.project_id ?? undefined,
+        taskId: r.task_id ?? undefined,
       })),
     [dbRows]
   );
@@ -170,11 +171,10 @@ export function useNotifications({
       );
       window.dispatchEvent(new Event("notifications-changed"));
     }
-    if (notification.projectId) {
+    const destination = notificationDestination(notification);
+    if (destination) {
       onClose();
-      onNavigate(
-        notificationDestination(notification.type, notification.projectId)
-      );
+      onNavigate(destination);
     }
   };
 
