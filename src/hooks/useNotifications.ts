@@ -171,21 +171,30 @@ export function useNotifications({
   // unread rows, and invitations are always actionable.
   const unreadCount = notifications.length;
 
-  const handleNotificationClick = async (notification: Notification) => {
-    if (!isSyntheticNotification(notification.id)) {
-      // Reading is how a notification leaves the bell, so drop it from the
-      // cache rather than flagging it -- the next fetch won't return it anyway.
-      mutateDbNotifs((prev) => prev?.filter((r) => r.id !== notification.id), {
-        revalidate: false,
-      });
-      await notificationsApi.markRead([notification.id]).catch(() => {});
-      window.dispatchEvent(new Event("notifications-changed"));
-    }
+  const handleNotificationClick = (notification: Notification) => {
+    // Leave first. Dropping the row from the cache re-renders the list (and
+    // replays its entrance stagger), so doing that before the panel closes
+    // reads as the bell "reloading" under your cursor. Awaiting markRead here
+    // would also hold the panel open for a network round-trip.
     const destination = notificationDestination(notification);
     if (destination) {
       onClose();
       onNavigate(destination);
     }
+
+    if (isSyntheticNotification(notification.id)) return;
+
+    // Reading is how a notification leaves the bell, so drop it rather than
+    // flagging it -- the next fetch won't return it anyway. This settles behind
+    // the closed panel. The refetch is fired only once the server has actually
+    // recorded the read, or it would race and hand the row straight back.
+    mutateDbNotifs((prev) => prev?.filter((r) => r.id !== notification.id), {
+      revalidate: false,
+    });
+    void notificationsApi
+      .markRead([notification.id])
+      .catch(() => {})
+      .finally(() => window.dispatchEvent(new Event("notifications-changed")));
   };
 
   /**
