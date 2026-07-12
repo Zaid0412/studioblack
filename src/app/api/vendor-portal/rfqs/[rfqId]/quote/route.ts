@@ -145,6 +145,7 @@ export const PUT = withAuth(
         title: notifTitle,
         description: notifDescription,
         projectId: result.projectId,
+        rfqId: params.rfqId,
       }).catch((err: unknown) => {
         logger.warn("Quote received in-app notification failed", {
           rfqId: params.rfqId,

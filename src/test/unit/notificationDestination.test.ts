@@ -33,6 +33,33 @@ describe("notificationDestination", () => {
     }
   });
 
+  // The bug that started this: quote notifications carried only the project, so
+  // they landed on /designs instead of the RFQ the vendor had just quoted on.
+  it("opens the RFQ for quote notifications", () => {
+    for (const type of ["quote_received", "quote_revised", "quote_declined"]) {
+      expect(
+        notificationDestination({ type, projectId: PROJECT, rfqId: "rfq-1" })
+      ).toBe(`/projects/${PROJECT}/order/rfq/rfq-1`);
+    }
+  });
+
+  it("opens the design for review notifications", () => {
+    for (const type of [
+      "upload",
+      "review_approved",
+      "review_changes_requested",
+      "design_sent_for_review",
+    ]) {
+      expect(
+        notificationDestination({
+          type,
+          projectId: PROJECT,
+          attachmentId: "att-1",
+        })
+      ).toBe(`/projects/${PROJECT}/review/att-1`);
+    }
+  });
+
   it("opens the task when a task id is present, ahead of the project", () => {
     expect(
       notificationDestination({

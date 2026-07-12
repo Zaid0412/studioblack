@@ -81,6 +81,7 @@ export const PUT = withAuth(
         title: "Vendor declined",
         description: `${result.vendorName} declined to quote on ${result.rfqNumber}`,
         projectId: result.projectId,
+        rfqId: params.rfqId,
       }).catch((err: unknown) => {
         logger.warn("Quote declined in-app notification failed", {
           rfqId: params.rfqId,

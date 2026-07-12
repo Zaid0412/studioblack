@@ -5,6 +5,9 @@ export interface NotificationTarget {
   type: string;
   projectId?: string | null;
   taskId?: string | null;
+  rfqId?: string | null;
+  /** A design. The review route calls it `designId`, but it is an attachment id. */
+  attachmentId?: string | null;
   /**
    * Explicit destination, for the client-only notifications that have no DB row
    * and so carry no entity ids (see the synthetic invitations in
@@ -31,7 +34,13 @@ export interface NotificationTarget {
 export function notificationDestination(n: NotificationTarget): string | null {
   if (n.href) return n.href;
   if (n.taskId) return `/tasks/${n.taskId}`;
+  // Everything below is project-scoped, so without a project there is nowhere
+  // to go -- even if the notification names an RFQ or a design.
   if (!n.projectId) return null;
+  if (n.rfqId) return `/projects/${n.projectId}/order/rfq/${n.rfqId}`;
+  if (n.attachmentId) {
+    return `/projects/${n.projectId}/review/${n.attachmentId}`;
+  }
   if (n.type.startsWith("boq_")) {
     return `/projects/${n.projectId}/boq/${DEFAULT_BOQ_SEGMENT}`;
   }

@@ -49,7 +49,8 @@ export const POST = withAuth(
       id,
       "design_sent_for_review",
       "New design ready for review",
-      `"${attachment.file_name}" has been sent for your review`
+      `"${attachment.file_name}" has been sent for your review`,
+      { attachmentId }
     ).catch((err) =>
       logger.error("Client notification for design review failed", {
         projectId: id,

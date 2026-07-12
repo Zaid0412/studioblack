@@ -102,6 +102,10 @@ export interface Notification {
   projectId?: string;
   /** Optional link to the related task. Takes precedence over `projectId` when routing. */
   taskId?: string;
+  /** Optional link to the related RFQ. */
+  rfqId?: string;
+  /** Optional link to the related design (an attachment id). */
+  attachmentId?: string;
   /** Explicit destination, for client-only notifications that carry no entity ids. */
   href?: string;
 }
@@ -384,6 +388,8 @@ export interface DbNotificationRow {
   project_id: string | null;
   project_name: string | null;
   task_id: string | null;
+  rfq_id: string | null;
+  attachment_id: string | null;
 }
 
 // ---------------------------------------------------------------------------

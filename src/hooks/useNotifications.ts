@@ -152,6 +152,8 @@ export function useNotifications({
         createdAt: r.created_at,
         projectId: r.project_id ?? undefined,
         taskId: r.task_id ?? undefined,
+        rfqId: r.rfq_id ?? undefined,
+        attachmentId: r.attachment_id ?? undefined,
       })),
     [dbRows]
   );

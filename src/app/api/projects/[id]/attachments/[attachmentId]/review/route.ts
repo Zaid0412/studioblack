@@ -89,7 +89,8 @@ export const PATCH = withAuth(
       user.id,
       status === "approved" ? "review_approved" : "review_changes_requested",
       notifTitle,
-      notifDescription
+      notifDescription,
+      { attachmentId }
     );
 
     // Send email notifications to org team members (fire-and-forget)
