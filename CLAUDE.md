@@ -84,6 +84,27 @@ No global store. React Context for sidebar/theme/user role. Custom hooks (`usePr
 - Filter data on the server (SQL) instead of fetching everything and filtering client-side. Example: `getTasks` accepts `phaseId` in `TaskFilters` to filter at the DB level.
 - Use `next/image` instead of raw `<img>` tags for static/known-dimension images (WebP conversion, lazy loading, responsive sizing). Exception: images that need `onLoadStart`/`onError` handlers or must not be re-compressed (design review files).
 
+### Animations
+
+Library-free (CSS + Web Animations API). **No animation library — do not add one.** `tailwindcss-animate` is already installed for one-off `animate-in` entrances. Every animation must respect `prefers-reduced-motion`.
+
+Pick the mechanism that matches the surface:
+
+- **Page transitions** — `template.tsx` renders `<NavTransition>` (`src/components/NavTransition.tsx`). Already wired for the dashboard and project tabs; nothing to do per-page.
+- **List/table rows** — `useStaggerReveal(signature)` (`src/hooks/useStaggerReveal.ts`): put the returned ref on the list container and a bare `data-anim-item` on each row's root. Compose `signature` from the visible id set (e.g. `rows.map(r => r.id).join(",")`) so it replays on filter/sort/page but **not** on a background revalidation. Capped at 32 items.
+- **Stacked sections/cards** — `useLoadStagger(signature, stepMs?)` (`src/hooks/useLoadStagger.ts`) on the container + the `.stagger-children` class. The CSS `.stagger-children > *` applies `an-rise` to every direct child, so you don't tag them individually. Server components can hand-write `[--an-delay:90ms]` per child instead of using the hook.
+- **Numeric stat values** — `useCountUp()` (`src/hooks/useCountUp.ts`); `StatCard` already uses it for plain integers.
+- **Sliding active tab indicator** — `useSlidingIndicator(containerRef, activeKey)` + `<SlidingIndicator>` (`src/components/ui/SlidingIndicator.tsx`). For route-driven `<Link>` tab strips use `<SlidingTabsNav>` (`src/components/layout/SlidingTabsNav.tsx` — it's in `layout/`, not `ui/`, because it reads the router). Items must carry `data-active`.
+- **Auth pages** — entrances are gated on `useSplashDone()` so they aren't wasted behind the splash overlay.
+
+Keyframes/utilities (`an-rise`, `.stagger-children`, `.auth-reveal`) live in `globals.css`.
+
+### Loading States
+
+There are **no route `loading.tsx` files** — they were removed deliberately. Each page SSRs its own skeleton from its SWR `isLoading` state, so navigation shows one page-specific skeleton instead of a generic one followed by a specific one. Don't add a route `loading.tsx`; give the page its own skeleton.
+
+When a hook fetches a primary resource plus secondary ones, expose them separately so chrome doesn't re-flash a skeleton while a secondary resource revalidates — see `useProjectDetail`'s `initialLoading` (primary only) vs `loading` (any resource).
+
 ## Key Files
 
 - `src/lib/queries.ts` — all SQL queries
@@ -98,9 +119,10 @@ No global store. React Context for sidebar/theme/user role. Custom hooks (`usePr
 - `src/contexts/UserRoleContext.tsx` — UserRole provider + context hook
 - `src/test/setup.ts` — global test mocks for all external boundaries
 - `src/test/helpers.ts` — test factories (mockSession, buildRequest, parseResponse)
-- `vitest.config.ts` — Vitest configuration (node env, API/unit tests)
-- `vitest.config.hooks.ts` — Vitest configuration (jsdom env, React hook tests)
+- `vitest.config.ts` — Vitest config; two projects: `node` (API/unit) + `dom` (jsdom, React hook/component tests)
+- `vitest.hooks-tests.ts` — the file list owned by the `dom` project (single source of truth; the `node` project excludes it)
 - `src/hooks/usePageVisibility.ts` — Page Visibility API hook for polling gates
+- `src/lib/motion.ts` — easing token + `prefersReducedMotion()` + `animateIn()` (WAAPI wrapper)
 
 ## Project Domain
 
@@ -126,9 +148,9 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - `npm run dev` — dev server (webpack)
 - `npm run check` — lint + format check + tsc
 - `npm run seed` — seed test users
-- `npm test` — run API/unit tests (Vitest, node environment)
-- `npm run test:hooks` — run React hook tests (Vitest, jsdom environment)
-- `npm run test:all` — run both test suites
+- `npm test` — run API/unit tests (Vitest `node` project)
+- `npm run test:hooks` — run React hook/component tests (Vitest `dom` project, jsdom)
+- `npm run test:all` — run both projects in one pass
 - `npm run test:watch` — run tests in watch mode
 - `npm run test:coverage` — run tests with coverage report
 
@@ -139,6 +161,9 @@ Upload → Pending Review → Approved/Rejected (with annotations) → Design Fr
 - All database queries use raw SQL with parameterized values — never use string interpolation.
 - better-auth tables use camelCase columns (`userId`, `organizationId`). App tables use snake_case.
 - Tests use Vitest. API route tests are in `src/test/api/`, unit tests in `src/test/unit/`. Global mocks (db, auth, email, storage) are in `src/test/setup.ts`, helpers in `src/test/helpers.ts`. When adding a new API route, add a corresponding test file. When adding a new Zod schema, add validation tests.
+- A test that needs a DOM must be added to `HOOK_TEST_FILES` in `vitest.hooks-tests.ts` — that list is the single source of truth for the `dom` (jsdom) project, and the `node` project excludes it. Adding a DOM test without listing it there runs it in the node env.
+- Reuse the animation primitives (see Architecture → Animations) — do NOT add an animation library, and do NOT hand-roll a new stagger/indicator. Every animation must respect `prefers-reduced-motion`.
+- Do not add route `loading.tsx` files. Pages own their skeleton via their SWR `isLoading` state.
 - Always use custom UI components from `src/components/ui/` instead of native HTML elements. Check what exists before writing raw `<select>`, `<input type="date">`, `<input type="checkbox">`, tooltips (`title=`), etc. Key components: `Select`, `DatePicker`, `Calendar`, `Checkbox`, `Tooltip`, `Input`, `Button`, `Popover`, `ToggleSwitch`.
 - Use `useSWR` for new GET-based data fetching — not manual `useState` + `useEffect` + `fetch`.
 - Use `useUserRole()` for role checks — never derive role client-side via `getFullOrganization()`.

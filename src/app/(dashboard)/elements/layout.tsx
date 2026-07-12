@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useFlag } from "@/hooks/useFlag";
-import { SlidingTabsNav } from "@/components/ui/SlidingTabsNav";
+import { SlidingTabsNav } from "@/components/layout/SlidingTabsNav";
 
 interface Props {
   children: React.ReactNode;
@@ -34,9 +34,7 @@ export default function ElementsLayout({ children }: Props) {
           <SlidingTabsNav
             tabs={tabs}
             className="flex gap-1 -mb-px"
-            linkClassName="px-4 py-2.5 text-sm font-medium transition-colors"
-            activeLinkClassName="text-text-primary"
-            inactiveLinkClassName="text-text-muted hover:text-text-primary"
+            linkClassName="px-4 py-2.5 text-sm font-medium text-text-muted transition-colors hover:text-text-primary data-[active=true]:text-text-primary"
             indicatorClassName="bottom-0 h-0.5 bg-accent"
           />
         </div>

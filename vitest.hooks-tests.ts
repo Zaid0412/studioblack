@@ -1,10 +1,12 @@
 /**
  * Single source of truth for the React hook/component test files.
  *
- * These need a DOM, so they run under `vitest.config.hooks.ts` (jsdom). The
- * main `vitest.config.ts` (node env) globs all of `src/test/**` and must
- * exclude exactly this list — otherwise these files run under BOTH configs,
- * which double-executes them and double-counts the totals.
+ * These need a DOM, so they belong to the `dom` (jsdom) project in
+ * `vitest.config.ts`. The `node` project globs all of `src/test/**` and
+ * excludes exactly this list — sharing one array is what stops the two from
+ * drifting and running these files twice.
+ *
+ * Add a new DOM test here, or it will run in the node environment.
  */
 export const HOOK_TEST_FILES = [
   "src/test/unit/hooks.test.tsx",

@@ -26,31 +26,24 @@ export default async function NotFound() {
         className="mb-1 h-40 w-40 object-contain not-found-logo-dark"
       />
 
-      <h1
-        className="text-[120px] font-extrabold leading-none tracking-tight text-text-primary"
-        style={{ "--an-delay": "90ms" } as React.CSSProperties}
-      >
+      {/* Delays are hand-picked, not index-derived: the two theme-swapped logos
+          above occupy two slots but only ever render one, so an nth-child /
+          hook-driven cascade would burn a step on an invisible element. */}
+      <h1 className="text-[120px] font-extrabold leading-none tracking-tight text-text-primary [--an-delay:90ms]">
         404
       </h1>
 
-      <p
-        className="mt-2 text-lg font-medium text-text-primary"
-        style={{ "--an-delay": "160ms" } as React.CSSProperties}
-      >
+      <p className="mt-2 text-lg font-medium text-text-primary [--an-delay:160ms]">
         {t("pageNotFound")}
       </p>
 
-      <p
-        className="mt-2 max-w-md text-sm text-text-muted"
-        style={{ "--an-delay": "220ms" } as React.CSSProperties}
-      >
+      <p className="mt-2 max-w-md text-sm text-text-muted [--an-delay:220ms]">
         {t("pageNotFoundDescription")}
       </p>
 
       <Link
         href="/dashboard"
-        className="mt-8 inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-text-on-accent transition-colors hover:bg-accent-hover"
-        style={{ "--an-delay": "320ms" } as React.CSSProperties}
+        className="mt-8 inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-text-on-accent transition-colors hover:bg-accent-hover [--an-delay:320ms]"
       >
         {t("backToDashboard")}
       </Link>

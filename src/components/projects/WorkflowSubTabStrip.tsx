@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { SlidingTabsNav } from "@/components/ui/SlidingTabsNav";
+import { SlidingTabsNav } from "@/components/layout/SlidingTabsNav";
 
 export interface WorkflowSubTab {
   /** i18n key resolved against `i18nNamespace`. */
@@ -37,18 +37,18 @@ export function WorkflowSubTabStrip({
 }: WorkflowSubTabStripProps) {
   const t = useTranslations(i18nNamespace);
 
+  // A single tab is chrome with no choice.
+  if (tabs.length <= 1) return null;
+
   return (
     <SlidingTabsNav
-      hideWhenSingle
       ariaLabel={t("ariaLabel")}
       tabs={tabs.map((tab) => ({
         href: `${basePath}/${tab.segment}`,
         label: t(tab.labelKey),
       }))}
       className="shrink-0 flex items-center gap-6 px-4 lg:px-10 border-b-2 border-border-default overflow-x-auto scrollbar-none"
-      linkClassName="py-3 text-sm whitespace-nowrap transition-colors"
-      activeLinkClassName="font-semibold text-text-primary"
-      inactiveLinkClassName="font-medium text-text-muted hover:text-text-primary"
+      linkClassName="py-3 text-sm whitespace-nowrap font-medium text-text-muted transition-colors hover:text-text-primary data-[active=true]:font-semibold data-[active=true]:text-text-primary"
       indicatorClassName="bottom-0 h-1 rounded-t-sm bg-accent"
     />
   );

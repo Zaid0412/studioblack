@@ -18,31 +18,30 @@ interface Props {
   ariaLabel?: string;
   /** Classes for the `<nav>` (it is already `relative`). */
   className?: string;
-  /** Base classes applied to every tab link. */
+  /**
+   * Classes for every tab link. Each link carries `data-active`, so style the
+   * active state with `data-[active=true]:` variants rather than a second prop.
+   */
   linkClassName?: string;
-  activeLinkClassName?: string;
-  inactiveLinkClassName?: string;
   /** Look of the sliding indicator, e.g. `"bottom-0 h-0.5 bg-accent"`. */
   indicatorClassName?: string;
-  /** Render nothing when there's only one tab (a lone tab is just chrome). */
-  hideWhenSingle?: boolean;
 }
 
 /**
  * Route-driven tab strip with a sliding active indicator. Active tab is
  * prefix-matched against the pathname so nested sub-routes still highlight
- * their parent tab. Callers own the look; this owns the active detection,
- * measurement and indicator.
+ * their parent tab. Callers own the look; this owns active detection,
+ * measurement and the indicator.
+ *
+ * Lives in `layout/` rather than `ui/` because it reads the router — `ui/` is
+ * route-agnostic.
  */
 export function SlidingTabsNav({
   tabs,
   ariaLabel,
   className,
   linkClassName,
-  activeLinkClassName,
-  inactiveLinkClassName,
   indicatorClassName,
-  hideWhenSingle,
 }: Props) {
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
@@ -51,8 +50,6 @@ export function SlidingTabsNav({
     pathname === href || pathname.startsWith(`${href}/`);
   const activeTab = tabs.find((tab) => isActive(tab.href));
   const indicator = useSlidingIndicator(navRef, activeTab?.href);
-
-  if (hideWhenSingle && tabs.length <= 1) return null;
 
   return (
     <nav
@@ -68,10 +65,7 @@ export function SlidingTabsNav({
             href={tab.href}
             data-active={active}
             aria-current={active ? "page" : undefined}
-            className={cn(
-              linkClassName,
-              active ? activeLinkClassName : inactiveLinkClassName
-            )}
+            className={linkClassName}
           >
             {tab.label}
           </Link>

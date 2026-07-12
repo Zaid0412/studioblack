@@ -18,9 +18,9 @@
     "check": "npm run lint && npm run format:check && tsc --noEmit --skipLibCheck",
     "seed": "npx tsx scripts/seed.ts",
     "seed:staging": "npx tsx scripts/seed-staging.ts",
-    "test": "vitest run",
-    "test:hooks": "vitest run --config vitest.config.hooks.ts",
-    "test:all": "vitest run && vitest run --config vitest.config.hooks.ts",
+    "test": "vitest run --project node",
+    "test:hooks": "vitest run --project dom",
+    "test:all": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

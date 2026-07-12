@@ -89,7 +89,7 @@ export function AuthPageLayout({
         <div className="w-full max-w-sm">
           {/* Mobile logo (hidden on desktop) */}
           <div
-            className={`flex items-center gap-2.5 lg:hidden ${session?.user ? "justify-center" : "-ml-3"}`}
+            className={`flex items-center gap-2.5 lg:hidden ${signedIn ? "justify-center" : "-ml-3"}`}
           >
             <BrandLogo size="lg" />
             {branding.showLogoText && (
