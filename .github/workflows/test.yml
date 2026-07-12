@@ -76,31 +76,54 @@ jobs:
             const icon = passed ? '✅' : '❌';
             const status = passed ? 'passed' : 'failed';
 
-            // ── Build per-file table ──
-            let table = '';
+            // ── Build summary + tables ──
+            // The per-file table is ~180 rows, which made every PR comment a
+            // wall of text. Keep a one-line summary visible, collapse the full
+            // table behind a <details>, and surface only failing files inline.
+            const HEADER = '| | File | Passed | Failed | Duration |';
+            const DIVIDER = '|---|------|--------|--------|----------|';
+
+            let summaryLine = '';
+            let failedTable = '';
+            let detailsBlock = '';
+
             if (results?.testResults) {
-              const rows = results.testResults.map(f => {
+              const toRow = f => {
                 const name = f.name.replace(/^.*src\/test\//, '');
                 const total = f.assertionResults?.length ?? 0;
                 const pass = f.assertionResults?.filter(t => t.status === 'passed').length ?? 0;
                 const fail = total - pass;
                 const duration = ((f.endTime - f.startTime) / 1000).toFixed(2);
-                const fileStatus = fail > 0 ? '❌' : '✅';
-                return `| ${fileStatus} | \`${name}\` | ${pass} | ${fail} | ${duration}s |`;
-              });
+                return `| ${fail > 0 ? '❌' : '✅'} | \`${name}\` | ${pass} | ${fail} | ${duration}s |`;
+              };
+              const hasFailures = f =>
+                (f.assertionResults?.filter(t => t.status !== 'passed').length ?? 0) > 0;
 
-              const totalTests = results.numTotalTests ?? 0;
+              const rows = results.testResults.map(toRow);
+              const failedRows = results.testResults.filter(hasFailures).map(toRow);
+
               const passedTests = results.numPassedTests ?? 0;
               const failedTests = results.numFailedTests ?? 0;
+              const fileCount = results.testResults.length;
               const totalDuration = results.testResults
                 .reduce((sum, f) => sum + (f.endTime - f.startTime), 0) / 1000;
 
-              table = [
+              summaryLine = `**${passedTests}** passed · **${failedTests}** failed · ${fileCount} files · ${totalDuration.toFixed(2)}s`;
+
+              if (failedRows.length) {
+                failedTable = ['', '### Failed files', '', HEADER, DIVIDER, ...failedRows].join('\n');
+              }
+
+              detailsBlock = [
                 '',
-                '| | File | Passed | Failed | Duration |',
-                '|---|------|--------|--------|----------|',
+                `<details><summary>Per-file results (${fileCount} files)</summary>`,
+                '',
+                HEADER,
+                DIVIDER,
                 ...rows,
                 `| | **Total** | **${passedTests}** | **${failedTests}** | **${totalDuration.toFixed(2)}s** |`,
+                '',
+                '</details>',
               ].join('\n');
             }
 
@@ -145,8 +168,11 @@ jobs:
             const body = [
               MARKER,
               `## ${icon} Tests ${status}`,
+              '',
+              summaryLine,
               vercelSection,
-              table,
+              failedTable,
+              detailsBlock,
               '',
             ].join('\n');
 
