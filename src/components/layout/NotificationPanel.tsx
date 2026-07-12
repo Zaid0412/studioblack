@@ -25,8 +25,12 @@ import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/formatTime";
-import { useNotifications } from "@/hooks/useNotifications";
+import {
+  useNotifications,
+  isSyntheticNotification,
+} from "@/hooks/useNotifications";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
+import { notificationDestination } from "@/lib/notificationDestination";
 import type { Notification } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -260,10 +264,9 @@ export function NotificationPanel() {
                   isLoading={loadingIds.has(notification.id)}
                   onClick={() => handleNotificationClick(notification)}
                   onDelete={
-                    !notification.id.startsWith("recv-") &&
-                    !notification.id.startsWith("sent-")
-                      ? () => handleDeleteOne(notification.id)
-                      : undefined
+                    isSyntheticNotification(notification.id)
+                      ? undefined
+                      : () => handleDeleteOne(notification.id)
                   }
                   onAccept={() => handleAcceptInvite(notification.id)}
                   onReject={() => handleRejectInvite(notification.id)}
@@ -363,24 +366,36 @@ function NotificationCard({
   const Icon = typeIcons[notification.type] ?? Bell;
   const isInvitation = isInvite && notification.type === "invitation";
 
+  // Only dress the card up as a button when the click actually does something:
+  // navigate somewhere, or mark a real row read. A received invitation does
+  // neither -- its accept/decline buttons are the interaction.
+  const interactive =
+    notificationDestination(notification) !== null ||
+    !isSyntheticNotification(notification.id);
+
   return (
     <div
       data-anim-item
       className={cn(
-        "group rounded-xl border border-border-default border-l-[3px] transition-colors cursor-pointer",
+        "group rounded-xl border border-border-default border-l-[3px] transition-colors",
         accent.border,
+        interactive && "cursor-pointer",
         isInvitation && "border-accent/30",
         !isUnread && "opacity-60"
       )}
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick();
-        }
-      }}
+      onClick={interactive ? onClick : undefined}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
       <div className="p-3">
         <div className="flex items-start gap-3">

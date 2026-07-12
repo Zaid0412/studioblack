@@ -102,6 +102,8 @@ export interface Notification {
   projectId?: string;
   /** Optional link to the related task. Takes precedence over `projectId` when routing. */
   taskId?: string;
+  /** Explicit destination, for client-only notifications that carry no entity ids. */
+  href?: string;
 }
 
 // ---------------------------------------------------------------------------

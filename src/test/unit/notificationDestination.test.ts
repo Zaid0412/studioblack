@@ -59,4 +59,24 @@ describe("notificationDestination", () => {
       notificationDestination({ type: "boq_item_review_requested" })
     ).toBeNull();
   });
+
+  // Synthetic invitations have no DB row and so no entity ids -- an explicit
+  // href is the only way they can lead anywhere.
+  it("prefers an explicit href", () => {
+    expect(
+      notificationDestination({
+        type: "invitation",
+        href: "/settings?section=organization",
+      })
+    ).toBe("/settings?section=organization");
+
+    expect(
+      notificationDestination({
+        type: "task_assigned",
+        projectId: PROJECT,
+        taskId: TASK,
+        href: "/somewhere",
+      })
+    ).toBe("/somewhere");
+  });
 });

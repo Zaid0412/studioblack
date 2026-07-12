@@ -19,6 +19,18 @@ interface InvitationData {
   pendingIds: Map<string, string>;
 }
 
+/** Where org invitations are managed — the only place a `sent-` invite can lead. */
+const ORG_SETTINGS_HREF = "/settings?section=organization";
+
+/**
+ * Invitation notifications are built here from the auth API rather than read
+ * from the notification table, so their ids are synthetic and they have no row
+ * to mark read or delete.
+ */
+export function isSyntheticNotification(id: string): boolean {
+  return id.startsWith("recv-") || id.startsWith("sent-");
+}
+
 export interface UseNotificationsOptions {
   t: TranslationFn;
   onNavigate: (path: string) => void;
@@ -82,6 +94,8 @@ export function useNotifications({
     if (orgData?.invitations) {
       for (const inv of orgData.invitations) {
         if (inv.status !== "pending") continue;
+        // A sent invite has no inline action, so the click has to lead somewhere.
+        // A received one doesn't: accept/decline are on the card itself.
         allNotifs.push({
           id: `sent-${inv.id}`,
           title: t("invitationSent"),
@@ -89,6 +103,7 @@ export function useNotifications({
           type: "invitation",
           read: false,
           createdAt: new Date(inv.createdAt).toISOString(),
+          href: ORG_SETTINGS_HREF,
         });
       }
     }
@@ -156,11 +171,7 @@ export function useNotifications({
   );
 
   const handleNotificationClick = async (notification: Notification) => {
-    if (
-      !notification.read &&
-      !notification.id.startsWith("recv-") &&
-      !notification.id.startsWith("sent-")
-    ) {
+    if (!notification.read && !isSyntheticNotification(notification.id)) {
       await notificationsApi.markRead([notification.id]).catch(() => {});
       mutateDbNotifs(
         (prev) =>
@@ -262,7 +273,7 @@ export function useNotifications({
     });
     removeInvitation(notifId);
     onClose();
-    onNavigate("/settings?section=organization");
+    onNavigate(ORG_SETTINGS_HREF);
   };
 
   const handleRejectInvite = async (notifId: string) => {

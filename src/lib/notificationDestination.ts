@@ -5,6 +5,12 @@ export interface NotificationTarget {
   type: string;
   projectId?: string | null;
   taskId?: string | null;
+  /**
+   * Explicit destination, for the client-only notifications that have no DB row
+   * and so carry no entity ids (see the synthetic invitations in
+   * `useNotifications`). Wins over the id-based rules below.
+   */
+  href?: string | null;
 }
 
 /**
@@ -23,6 +29,7 @@ export interface NotificationTarget {
  * contract on offer; if it changes there, change it here.
  */
 export function notificationDestination(n: NotificationTarget): string | null {
+  if (n.href) return n.href;
   if (n.taskId) return `/tasks/${n.taskId}`;
   if (!n.projectId) return null;
   if (n.type.startsWith("boq_")) {
