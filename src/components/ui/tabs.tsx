@@ -4,6 +4,7 @@ import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cn } from "@/lib/utils";
 import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
+import { SlidingIndicator } from "@/components/ui/SlidingIndicator";
 
 const Tabs = TabsPrimitive.Root;
 
@@ -32,9 +33,8 @@ const TabsList = React.forwardRef<
       )}
       {...props}
     >
-      <span
-        aria-hidden="true"
-        className="absolute rounded-md bg-bg-secondary shadow-sm transition-[left,width,top,height] duration-300 ease-out motion-reduce:transition-none"
+      <SlidingIndicator
+        className="rounded-md bg-bg-secondary shadow-sm"
         style={{
           left: indicator.left,
           width: indicator.width,

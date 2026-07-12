@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
+import { SlidingIndicator } from "@/components/ui/SlidingIndicator";
 import type { DbPhase } from "@/types";
 
 interface PhaseTabsProps {
@@ -96,9 +97,8 @@ export function PhaseTabs({
           );
         })}
         {/* Accent underline — slides between phases */}
-        <span
-          aria-hidden="true"
-          className="absolute bottom-0 h-[3px] bg-accent transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+        <SlidingIndicator
+          className="bottom-0 h-[3px] bg-accent"
           style={{ left: indicator.left, width: indicator.width }}
         />
       </div>

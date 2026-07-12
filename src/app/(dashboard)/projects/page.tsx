@@ -33,6 +33,7 @@ import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
+import { SlidingIndicator } from "@/components/ui/SlidingIndicator";
 import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
 import { ProjectDropdown } from "./_components/ProjectDropdown";
 import { ProjectCard } from "./_components/ProjectCard";
@@ -236,9 +237,8 @@ export default function ProjectsPage() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{t("gridView")}</TooltipContent>
               </Tooltip>
-              <span
-                aria-hidden="true"
-                className="absolute inset-y-0 bg-bg-elevated transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+              <SlidingIndicator
+                className="inset-y-0 bg-bg-elevated"
                 style={{ left: viewIndicator.left, width: viewIndicator.width }}
               />
             </div>
@@ -275,9 +275,8 @@ export default function ProjectsPage() {
             </button>
           );
         })}
-        <span
-          aria-hidden="true"
-          className="absolute bottom-0 h-[2px] bg-accent transition-[left,width] duration-300 ease-out motion-reduce:transition-none"
+        <SlidingIndicator
+          className="bottom-0 h-[2px] bg-accent"
           style={{ left: filterIndicator.left, width: filterIndicator.width }}
         />
       </div>
