@@ -233,9 +233,12 @@ export function PinOverlay({
   // batch while excluding pins the user adds mid-session (whose temp→real id
   // swap would otherwise re-trigger it) — and never on pan/scroll/select/drag,
   // which re-render without remounting the stable-keyed markers.
-  const firstBatchIdsRef = useRef<Set<string> | null>(null);
-  if (firstBatchIdsRef.current === null && pagePins.length > 0) {
-    firstBatchIdsRef.current = new Set(pagePins.map((p) => p.id));
+  // Derive-during-render (not a ref): captures the first batch once, converges
+  // immediately (the guard is false on the next render), and is a plain state
+  // read below — so it doesn't trip the "no refs during render" rule.
+  const [firstBatchIds, setFirstBatchIds] = useState<Set<string> | null>(null);
+  if (firstBatchIds === null && pagePins.length > 0) {
+    setFirstBatchIds(new Set(pagePins.map((p) => p.id)));
   }
 
   const handlePointerDown = useCallback(
@@ -361,7 +364,7 @@ export function PinOverlay({
           ? { left: dragState.leftPercent, top: dragState.topPercent }
           : { left: pin.x_percent!, top: pin.y_percent! };
         const canDrag = currentUserId ? pin.user_id === currentUserId : true;
-        const dropIn = firstBatchIdsRef.current?.has(pin.id) ?? false;
+        const dropIn = firstBatchIds?.has(pin.id) ?? false;
 
         return (
           <div
