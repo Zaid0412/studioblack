@@ -99,7 +99,10 @@ export function NotificationPanel() {
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        className="w-[calc(100vw-2rem)] lg:w-[420px] p-0 border-border-default bg-bg-primary rounded-xl overflow-hidden"
+        // Clicking a notification closes the panel and navigates at once, and at
+        // the shared 150ms default the panel just blinks out. Slower on the way
+        // out only -- the open stays snappy.
+        className="w-[calc(100vw-2rem)] lg:w-[420px] p-0 border-border-default bg-bg-primary rounded-xl overflow-hidden data-[state=closed]:duration-300 motion-reduce:animate-none"
       >
         {/* Header */}
         <div className="flex items-center justify-between h-[52px] px-4 lg:px-5">
