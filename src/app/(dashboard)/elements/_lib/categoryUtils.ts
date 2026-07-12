@@ -1,3 +1,4 @@
+import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import type { ElementCategoryNode } from "@/types";
 
 export interface CategoryOption {
@@ -9,8 +10,14 @@ export interface CategoryOption {
   depth: number;
 }
 
-/** Tree depth of a Service Area (level-3) node — where elements must sit. */
-export const SERVICE_AREA_DEPTH = 2;
+/**
+ * Tree depth of a Service Area — where elements must sit.
+ *
+ * `level` (from the DB) is the real invariant; `depth` is a rendering concern
+ * that happens to be one less. Derive it rather than hard-coding a second
+ * number that could drift from the first.
+ */
+export const SERVICE_AREA_DEPTH = SERVICE_AREA_LEVEL - 1;
 
 /**
  * Flatten the nested category tree into a depth-first list of selectable

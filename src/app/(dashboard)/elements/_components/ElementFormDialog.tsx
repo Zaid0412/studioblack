@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -202,23 +202,28 @@ export function ElementFormDialog({
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     API.elementCategories()
   );
-  const categoryTree = catData?.tree ?? [];
+  // Memoized so the `?? []` doesn't mint a fresh array — and a fresh identity —
+  // on every render, which would defeat the memo below.
+  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
 
-  const options = flattenCategories(categoryTree);
+  // Walking the tree allocates a label per node, and this re-renders on every
+  // keystroke in the form — so key it off the tree, not the render.
+  const options = useMemo(
+    () => flattenCategories(categoryTree),
+    [categoryTree]
+  );
   const serviceAreaChosen = isServiceArea(options, values.categoryId);
 
-  // The code is assigned server-side on save, so a new element can only show
-  // the prefix it will get. An existing element shows the code it holds — but a
-  // grandfathered one is about to be recoded, so preview the new prefix instead
-  // of a code that's already a lie.
+  // The code is assigned server-side on save, so a new element can only preview
+  // the prefix it will get. An existing element keeps showing its own code —
+  // unless it's grandfathered and about to be recoded, in which case showing it
+  // would be showing a code that's one save away from being wrong.
   const previewPrefix =
     categoryPrefixOf(options, values.categoryId) ?? UNCATEGORIZED_PREFIX;
-  const codeIsStale =
+  const keepsCode =
     !!editing &&
-    serviceAreaChosen &&
-    !editing.code.startsWith(`${previewPrefix}-`);
-  const codePreview =
-    editing && !codeIsStale ? editing.code : `${previewPrefix}-••••`;
+    (!serviceAreaChosen || editing.code.startsWith(`${previewPrefix}-`));
+  const codePreview = keepsCode ? editing.code : `${previewPrefix}-••••`;
 
   const [showHistory, setShowHistory] = useState(false);
   // v1 elements have no history — skip the fetch and the toggle entirely.

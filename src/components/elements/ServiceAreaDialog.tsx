@@ -86,9 +86,6 @@ export function ServiceAreaDialog({
       ? null
       : subOptions.find((c) => c.id === subcategory.pick);
 
-  // A new Category has no children, so its Sub-category must be new too.
-  const forceNewSub = category.pick === NEW;
-
   const categoryPrefix = categoryNode
     ? (categoryNode.code_prefix ?? "")
     : composeCategoryCode(null, category.segment);
@@ -97,13 +94,11 @@ export function ServiceAreaDialog({
     : composeCategoryCode(categoryPrefix, subcategory.segment);
   const serviceAreaPrefix = composeCategoryCode(subPrefix, serviceArea.segment);
 
+  // A picked rung needs nothing more; a new one needs both a name and a code
+  // segment. The Service Area is always new, so this covers it too.
   const rungReady = (rung: Rung) =>
     rung.pick !== NEW || (!!rung.name.trim() && !!rung.segment.trim());
-  const ready =
-    rungReady(category) &&
-    rungReady(subcategory) &&
-    !!serviceArea.name.trim() &&
-    !!serviceArea.segment.trim();
+  const ready = [category, subcategory, serviceArea].every(rungReady);
 
   const selectCategory = (pick: string) => {
     setCategory({ ...EMPTY_RUNG, pick });
@@ -173,6 +168,7 @@ export function ServiceAreaDialog({
             parentPrefix={null}
             newLabel={t("newCategory")}
             namePlaceholder={t("categoryNamePlaceholder")}
+            parentReady
           />
 
           <RungFields
@@ -184,36 +180,20 @@ export function ServiceAreaDialog({
             parentPrefix={categoryPrefix}
             newLabel={t("newSubcategory")}
             namePlaceholder={t("categoryNamePlaceholder")}
-            forceNew={forceNewSub}
-            disabled={!rungReady(category)}
+            parentReady={rungReady(category)}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("categoryLevel3")}
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input
-                placeholder={t("serviceAreaNamePlaceholder")}
-                value={serviceArea.name}
-                onChange={(e) =>
-                  setServiceArea((v) => ({ ...v, name: e.target.value }))
-                }
-                maxLength={150}
-              />
-              <Input
-                placeholder={t("categoryCodeSegmentPlaceholder")}
-                value={serviceArea.segment}
-                onChange={(e) =>
-                  setServiceArea((v) => ({
-                    ...v,
-                    segment: normalizeCodeSegment(e.target.value),
-                  }))
-                }
-                maxLength={maxSegmentLength(subPrefix)}
-              />
-            </div>
-          </div>
+          {/* The Service Area is a rung with nothing to pick from — it is always
+              new, which is the entire point of the dialog. */}
+          <RungFields
+            label={t("categoryLevel3")}
+            rung={serviceArea}
+            onChange={setServiceArea}
+            options={[]}
+            parentPrefix={subPrefix}
+            namePlaceholder={t("serviceAreaNamePlaceholder")}
+            parentReady={rungReady(subcategory)}
+          />
 
           <p className="text-xs text-text-muted">
             {serviceAreaPrefix
@@ -245,32 +225,38 @@ export function ServiceAreaDialog({
 interface RungProps {
   label: string;
   rung: Rung;
+  /** Existing nodes to pick from. Empty means this rung can only be created. */
   options: ElementCategoryNode[];
   parentPrefix: string | null;
-  newLabel: string;
   namePlaceholder: string;
   onChange: (next: Rung) => void;
-  onPick: (pick: string) => void;
-  /** No existing options can apply — the parent is itself brand new. */
-  forceNew?: boolean;
-  disabled?: boolean;
+  /** The rung above is settled, so this one can be filled in. */
+  parentReady: boolean;
+  newLabel?: string;
+  onPick?: (pick: string) => void;
 }
 
-/** One rung of the chain: pick an existing node, or name a new one. */
+/**
+ * One rung of the chain: pick an existing node, or name a new one.
+ *
+ * With no options there is nothing to pick, so the rung goes straight to the
+ * create fields. That covers both the Service Area (always new) and a
+ * Sub-category under a brand-new Category, which has no children to offer.
+ */
 function RungFields({
   label,
   rung,
   options,
   parentPrefix,
-  newLabel,
   namePlaceholder,
   onChange,
+  parentReady,
+  newLabel,
   onPick,
-  forceNew = false,
-  disabled = false,
 }: RungProps) {
   const t = useTranslations("elements");
-  const creating = forceNew || rung.pick === NEW;
+  const pickable = options.length > 0;
+  const creating = !pickable || rung.pick === NEW;
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -278,12 +264,8 @@ function RungFields({
         {label}
       </label>
 
-      {!forceNew && (
-        <Select
-          value={rung.pick}
-          onValueChange={onPick}
-          disabled={disabled || options.length === 0}
-        >
+      {parentReady && pickable && (
+        <Select value={rung.pick} onValueChange={onPick}>
           <SelectTrigger>
             <SelectValue placeholder={t("categoryParentNone")} />
           </SelectTrigger>
@@ -299,7 +281,7 @@ function RungFields({
         </Select>
       )}
 
-      {creating && !disabled && (
+      {parentReady && creating && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Input
             placeholder={namePlaceholder}

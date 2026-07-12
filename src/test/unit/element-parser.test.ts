@@ -7,36 +7,15 @@ import {
   TEMPLATE_COLUMN_LABELS,
 } from "@/lib/excel/elementParser";
 import type { ElementCategory } from "@/types";
+import { SERVICE_AREA_CHAIN, mockCategory } from "../helpers";
 
 // ── Test fixtures ───────────────────────────────────────────────────────────
 
-function makeCategory(
-  id: string,
-  name: string,
-  parent_id: string | null,
-  level: 1 | 2 | 3
-): ElementCategory {
-  return {
-    id,
-    org_id: "org-1",
-    name,
-    parent_id,
-    level,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
-  };
-}
-
+// The shared Category → Sub-category → Service Area chain, plus a bare Category
+// so the "path names a Category, not a Service Area" case has a target.
 const CATEGORIES: ElementCategory[] = [
-  makeCategory("cat-f", "Finishes", null, 1),
-  makeCategory("cat-wf", "Wall Finishes", "cat-f", 2),
-  makeCategory("cat-pt", "Paint", "cat-wf", 3),
-  makeCategory("cat-fl", "Flooring", null, 1),
+  ...SERVICE_AREA_CHAIN,
+  mockCategory({ id: "cat-fl", name: "Flooring", level: 1 }),
 ];
 
 async function buildSheet(

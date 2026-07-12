@@ -11,6 +11,7 @@ import type {
   BulkElementImportResult,
 } from "@/lib/queries";
 import { mocks } from "../setup";
+import { SERVICE_AREA_CHAIN, SERVICE_AREA_PATH } from "../helpers";
 
 // The first test resolves `vi.importActual` for the elements submodule; under
 // parallel worker load this can push past the default 5s timeout even though
@@ -41,32 +42,12 @@ function queueQueryResults(
 }
 
 // Elements must sit under a Service Area, so every row needs a path that
-// resolves to a level-3 node. One chain serves the whole file.
-const CATEGORY_ROWS = [
-  {
-    id: "cat-1",
-    name: "Kitchen",
-    parent_id: null,
-    code_prefix: "KIT",
-    level: 1,
-  },
-  {
-    id: "cat-2",
-    name: "Cabinets",
-    parent_id: "cat-1",
-    code_prefix: "KIT-CAB",
-    level: 2,
-  },
-  {
-    id: "cat-3",
-    name: "Base Cabinets",
-    parent_id: "cat-2",
-    code_prefix: "KIT-CAB-BASE",
-    level: 3,
-  },
-];
-
-const SERVICE_AREA_PATH = ["Kitchen", "Cabinets", "Base Cabinets"];
+// resolves to a level-3 node. The shared chain stands in for the category tree
+// the import fetches up front.
+const CATEGORY_ROWS = SERVICE_AREA_CHAIN;
+/** The leaf of SERVICE_AREA_CHAIN — what every row here files under. */
+const SERVICE_AREA_ID = "cat-pt";
+const SERVICE_AREA_PREFIX = "FIN-WAL-PNT";
 
 const ORG = "org-test-001";
 const CREATED_BY = "user-test-001";
@@ -252,7 +233,7 @@ describe("bulkUpsertElements — version strategy", () => {
     // Category is NOT inherited: a path is required on every row now, so the
     // new version is filed under the Service Area the sheet names, not the one
     // the previous version happened to carry.
-    expect(params[4]).toBe("cat-3");
+    expect(params[4]).toBe(SERVICE_AREA_ID);
     expect(params[7]).toBe("EUR"); // currency inherited
     expect(params[8]).toBe("5.50"); // material_cost inherited
     expect(params[15]).toBe("SPEC-1"); // spec_reference inherited
@@ -371,7 +352,7 @@ describe("bulkUpsertElements — Service Area gate", () => {
       rows: [
         {
           rowNumber: 1,
-          categoryPath: ["Kitchen", "Cabinets"], // level 2 — a real path, wrong level
+          categoryPath: ["Finishes", "Wall Finishes"], // level 2 — real path, wrong level
           name: "Paint",
           unit: "m2",
           unitCost: 10,
@@ -433,7 +414,7 @@ describe("bulkUpsertElements — generated codes", () => {
       (c) => typeof c[0] === "string" && c[0].includes("INSERT INTO element\n")
     );
     // 4-digit sequence appended to the category's path code.
-    expect((insert?.[1] as unknown[])[1]).toBe("KIT-CAB-BASE-0007");
+    expect((insert?.[1] as unknown[])[1]).toBe(`${SERVICE_AREA_PREFIX}-0007`);
 
     // The prefix came from the up-front category fetch. A per-row SELECT here
     // would be one extra round-trip for every row of a 10k-row import.

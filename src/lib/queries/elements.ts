@@ -3,8 +3,10 @@ import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
 import {
+  buildCategoryLevelMap,
   buildCategoryPathMap,
   normalizeCategorySegment,
+  notAServiceAreaError,
 } from "@/lib/excel/elementParser";
 import type {
   Element,
@@ -458,15 +460,14 @@ export async function updateElement(
 
     const updates: string[] = [];
     const values: unknown[] = [];
-    let idx = 1;
+    // `push` returns the new length, which is the 1-based placeholder index —
+    // so the counter can't drift out of step with the params array. Matches
+    // `overwriteElementRow` below.
+    const bind = (value: unknown) => `$${values.push(value)}`;
 
     for (const [key, col] of Object.entries(ELEMENT_COLS)) {
       const value = (input as Record<string, unknown>)[key];
-      if (value !== undefined) {
-        updates.push(`"${col}" = $${idx}`);
-        values.push(value);
-        idx++;
-      }
+      if (value !== undefined) updates.push(`"${col}" = ${bind(value)}`);
     }
 
     // A category change can reissue the code, so it is resolved before the
@@ -479,21 +480,16 @@ export async function updateElement(
         id,
         input.categoryId
       );
-      if (newCode) {
-        updates.push(`"code" = $${idx}`);
-        values.push(newCode);
-        idx++;
-      }
+      if (newCode) updates.push(`"code" = ${bind(newCode)}`);
     }
 
     let elementRow: Element | null = null;
     if (updates.length > 0) {
       updates.push(`updated_at = now()`);
-      values.push(id, orgId);
       try {
         const { rows } = await client.query(
           `UPDATE element SET ${updates.join(", ")}
-            WHERE id = $${idx} AND org_id = $${idx + 1}
+            WHERE id = ${bind(id)} AND org_id = ${bind(orgId)}
             RETURNING *`,
           values
         );
@@ -1022,7 +1018,7 @@ async function insertElementVersion(
   createdBy: string,
   code: string,
   row: BulkElementRow,
-  categoryId: string | null | undefined,
+  categoryId: string,
   versionGroup: string,
   nextVersion: number,
   prevLatestId: string
@@ -1078,7 +1074,7 @@ async function insertElementVersion(
       code,
       row.name,
       row.description ?? prev.description,
-      categoryId ?? prev.category_id,
+      categoryId,
       row.unit,
       row.unitCost,
       row.currency ?? prev.currency,
@@ -1114,18 +1110,13 @@ async function insertElementVersion(
   return newId;
 }
 
-/**
- * Dynamic UPDATE — only overwrite columns that are present in the row.
- * `categoryId === undefined` means "leave the existing value alone" — the
- * import sheet has no syntax for explicitly clearing a category, so a blank
- * cell must not wipe the column.
- */
+/** Dynamic UPDATE — only overwrite columns that are present in the row. */
 async function overwriteElementRow(
   client: PgClientLike,
   orgId: string,
   code: string,
   row: BulkElementRow,
-  categoryId: string | undefined
+  categoryId: string
 ): Promise<boolean> {
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -1139,9 +1130,12 @@ async function overwriteElementRow(
   push("unit", row.unit);
   push("unit_cost", row.unitCost);
 
+  // Every row names a Service Area now, so there is no "leave the category
+  // alone" case left — a blank path is a hard row failure upstream.
+  push("category_id", categoryId);
+
   // Optional columns — only overwrite when present.
   if (row.description !== undefined) push("description", row.description);
-  if (categoryId !== undefined) push("category_id", categoryId);
   if (row.currency !== undefined) push("currency", row.currency);
   if (row.materialCost !== undefined) push("material_cost", row.materialCost);
   if (row.labourCost !== undefined) push("labour_cost", row.labourCost);
@@ -1214,7 +1208,7 @@ export async function bulkUpsertElements(
   const categories: CategoryLookup = {
     idByPath: buildCategoryPathMap(rows),
     prefixById: new Map(rows.map((c) => [c.id, c.code_prefix?.trim() || null])),
-    levelById: new Map(rows.map((c) => [c.id, c.level])),
+    levelById: buildCategoryLevelMap(rows),
   };
 
   for (let i = 0; i < input.rows.length; i += BULK_IMPORT_BATCH_SIZE) {
@@ -1334,7 +1328,7 @@ async function runBulkImportBatch(
         result.failed.push({
           rowNumber: row.rowNumber,
           code: row.code ?? "",
-          error: `Category path "${path.join(" > ")}" is not a Service Area — elements must sit under one`,
+          error: notAServiceAreaError(path),
         });
         continue;
       }

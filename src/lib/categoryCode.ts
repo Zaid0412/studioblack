@@ -10,10 +10,12 @@
  */
 
 /**
- * Prefix for an element with no category, or whose category has no code.
+ * Prefix for an element whose category yields no code.
  *
- * New elements must sit under a Service Area, so this only ever codes rows that
- * predate that rule (and the `migrate-element-code-auto.sql` backfill of them).
+ * Mostly that means a row predating the Service Area rule (and the
+ * `migrate-element-code-auto.sql` backfill of them) — but it also catches a
+ * Service Area with a blank `code_prefix`, which the category schema still
+ * permits. So this is a live fallback, not purely a legacy one.
  */
 export const UNCATEGORIZED_PREFIX = "GEN";
 

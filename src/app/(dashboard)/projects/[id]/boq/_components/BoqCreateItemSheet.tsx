@@ -164,11 +164,16 @@ export function BoqCreateItemSheet({
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     open ? API.elementCategories() : null
   );
-  const categoryTree = catData?.tree ?? [];
-  const serviceAreaChosen = isServiceArea(
-    flattenCategories(categoryTree),
-    v.categoryId
+  // Memoized so the `?? []` doesn't mint a fresh array identity each render,
+  // which would defeat the memo below.
+  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
+  // This sheet re-renders on every keystroke and every dimension change, and
+  // the walk allocates a label per node — so key it off the tree.
+  const categoryOptions = useMemo(
+    () => flattenCategories(categoryTree),
+    [categoryTree]
   );
+  const serviceAreaChosen = isServiceArea(categoryOptions, v.categoryId);
 
   useEffect(() => {
     if (!open) return;

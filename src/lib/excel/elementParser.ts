@@ -168,6 +168,25 @@ export function buildCategoryPathMap(
   return map;
 }
 
+/**
+ * categoryId → tree level. Both the preview parser and the bulk-upsert writer
+ * need it to reject a path that doesn't name a Service Area.
+ */
+export function buildCategoryLevelMap(
+  categories: Array<Pick<ElementCategory, "id" | "level">>
+): Map<string, number> {
+  return new Map(categories.map((c) => [c.id, c.level]));
+}
+
+/**
+ * Shared message for the level check. The parser rejects at preview time and
+ * `bulkUpsertElements` rejects again at write time (the write path is reachable
+ * without the preview) — so the two must not drift apart.
+ */
+export function notAServiceAreaError(path: string[]): string {
+  return `Category path "${path.join(" > ")}" is not a Service Area — elements must sit under one`;
+}
+
 /** Inverse map: categoryId → `["root", "child", "leaf"]` for the export writer. */
 export function buildCategoryPathById(
   categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
@@ -206,7 +225,7 @@ export async function parseElementSheet(
 
   const { worksheet, resolution } = loaded;
   const pathMap = buildCategoryPathMap(categories);
-  const levelById = new Map(categories.map((c) => [c.id, c.level]));
+  const levelById = buildCategoryLevelMap(categories);
   const rows: ParsedElementRow[] = [];
   // Case-sensitive: the DB `element.code` column is VARCHAR (not CITEXT)
   // and uniqueness is enforced at the app layer against the exact literal,
@@ -307,9 +326,7 @@ export async function parseElementSheet(
               `Category path "${rawSegments.join(" > ")}" not found in this org`
             );
           } else if (levelById.get(resolved) !== SERVICE_AREA_LEVEL) {
-            errors.push(
-              `Category path "${rawSegments.join(" > ")}" is not a Service Area — elements must sit under one`
-            );
+            errors.push(notAServiceAreaError(rawSegments));
           } else {
             values.categoryPath = rawSegments;
           }

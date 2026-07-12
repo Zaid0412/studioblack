@@ -3,41 +3,19 @@ import ExcelJS from "exceljs";
 import { bulkUpsertElements, getCategoryTree } from "@/lib/queries";
 import { POST as POST_IMPORT } from "@/app/api/elements/import/route";
 import { POST as POST_CONFIRM } from "@/app/api/elements/import/confirm/route";
-import { mockSession, setupAuth, parseResponse, BASE_URL } from "../helpers";
+import {
+  mockSession,
+  setupAuth,
+  parseResponse,
+  BASE_URL,
+  SERVICE_AREA_CHAIN,
+} from "../helpers";
 import { mocks } from "../setup";
 import { NextRequest } from "next/server";
-import type { ElementCategory } from "@/types";
-
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-function makeCategory(
-  id: string,
-  name: string,
-  parent_id: string | null,
-  level: 1 | 2 | 3
-): ElementCategory {
-  return {
-    id,
-    org_id: "org-test-001",
-    name,
-    parent_id,
-    level,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  };
-}
-
-const CATEGORIES: ElementCategory[] = [
-  makeCategory("cat-f", "Finishes", null, 1),
-  makeCategory("cat-wf", "Wall Finishes", "cat-f", 2),
-  // The leaf: an element must sit under a Service Area.
-  makeCategory("cat-pt", "Paint", "cat-wf", 3),
-];
+// Category → Sub-category → Service Area. An element must sit under the leaf.
+const CATEGORIES = SERVICE_AREA_CHAIN;
 
 const HEADERS = [
   "Code",
