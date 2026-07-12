@@ -55,14 +55,15 @@ export function codeSegmentOf(
 
 /**
  * How long a segment may be under a given parent, so the composed code still
- * fits `CATEGORY_CODE_MAX`. Always at least 1 — a parent long enough to leave
- * no room is a data problem, not something to silently render as a disabled
- * field.
+ * fits `CATEGORY_CODE_MAX`. Floors at 0 (which blocks typing) rather than 1: a
+ * parent with no room left has no valid segment, so offering one character
+ * would only trade an un-typable field for a save that the server rejects.
+ * A negative `maxLength` is invalid HTML and would be ignored entirely.
  */
 export function maxSegmentLength(
   parentPrefix: string | null | undefined
 ): number {
   const parent = parentPrefix?.trim();
   if (!parent) return CATEGORY_CODE_MAX;
-  return Math.max(1, CATEGORY_CODE_MAX - parent.length - 1);
+  return Math.max(0, CATEGORY_CODE_MAX - parent.length - 1);
 }

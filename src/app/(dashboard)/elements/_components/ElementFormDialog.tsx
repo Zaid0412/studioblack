@@ -33,7 +33,7 @@ import { API } from "@/lib/api/routes";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
 import { AvailableRatesPanel } from "./AvailableRatesPanel";
-import { findCategoryNode } from "../_lib/categoryUtils";
+import { categoryPrefixOf, flattenCategories } from "../_lib/categoryUtils";
 import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
@@ -198,14 +198,10 @@ export function ElementFormDialog({
   // The code is assigned server-side on save, so a new element can only show
   // the prefix it will get — the category's path code, or GEN when
   // uncategorized. An existing element shows the code it already holds.
-  const codePreview = editing
-    ? editing.code
-    : `${
-        findCategoryNode(
-          categoryTree,
-          values.categoryId
-        )?.code_prefix?.trim() || UNCATEGORIZED_PREFIX
-      }-••••`;
+  const previewPrefix =
+    categoryPrefixOf(flattenCategories(categoryTree), values.categoryId) ??
+    UNCATEGORIZED_PREFIX;
+  const codePreview = editing ? editing.code : `${previewPrefix}-••••`;
 
   const [showHistory, setShowHistory] = useState(false);
   // v1 elements have no history — skip the fetch and the toggle entirely.

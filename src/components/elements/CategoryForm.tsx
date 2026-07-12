@@ -18,9 +18,11 @@ import {
   codeSegmentOf,
   composeCategoryCode,
   maxSegmentLength,
-  normalizeCodeSegment,
 } from "@/lib/categoryCode";
-import type { CategoryOption } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import {
+  categoryPrefixOf,
+  type CategoryOption,
+} from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
 const NONE = "__none__";
 
@@ -51,18 +53,10 @@ interface Props {
   onCancel: () => void;
 }
 
-/**
- * Internal state. `codeSegment` is the only part of the path code the user
- * types; the full `codePrefix` is composed from the parent's on submit.
- */
-type FormState = Omit<CategoryFormValues, "codePrefix"> & {
-  codeSegment: string;
-};
-
-const EMPTY: FormState = {
+const EMPTY: CategoryFormValues = {
   name: "",
   parentId: null,
-  codeSegment: "",
+  codePrefix: "",
   icon: null,
   color: null,
 };
@@ -83,40 +77,38 @@ export function CategoryForm({
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
 
-  const prefixOf = (id: string | null | undefined) =>
-    parentOptions.find((o) => o.id === id)?.codePrefix ?? null;
-
-  const [values, setValues] = useState<FormState>(() => ({
+  const [values, setValues] = useState<CategoryFormValues>({
     ...EMPTY,
     ...initial,
-    codeSegment: codeSegmentOf(
-      initial?.codePrefix,
-      prefixOf(initial?.parentId)
-    ),
-  }));
+  });
 
   useEffect(() => {
-    setValues({
-      ...EMPTY,
-      ...initial,
-      codeSegment: codeSegmentOf(
-        initial?.codePrefix,
-        prefixOf(initial?.parentId)
-      ),
-    });
+    setValues({ ...EMPTY, ...initial });
     // Only reset when switching between editing targets.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.name, initial?.parentId, initial?.codePrefix]);
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
-    setValues((v) => ({ ...v, [key]: value }));
+  const setField = <K extends keyof CategoryFormValues>(
+    key: K,
+    value: CategoryFormValues[K]
+  ) => setValues((v) => ({ ...v, [key]: value }));
 
   // A category's code is its parent's code plus its own segment, so the form
   // only ever edits the segment — `KIT-CAB` + `BASE` → `KIT-CAB-BASE`. Element
   // codes are built from this, so a hand-typed path that didn't sit under its
-  // parent would silently break them.
+  // parent would silently break them. State holds the composed code; the
+  // segment is derived for display, so a parent switch re-bases it for free.
+  const prefixOf = (id: string | null) => categoryPrefixOf(parentOptions, id);
   const parentPrefix = prefixOf(values.parentId);
-  const composedCode = composeCategoryCode(parentPrefix, values.codeSegment);
+  const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
+
+  /** Re-base the code onto the new parent, keeping the segment the user typed. */
+  const selectParent = (parentId: string | null) =>
+    setValues((v) => ({
+      ...v,
+      parentId,
+      codePrefix: composeCategoryCode(prefixOf(parentId), codeSegment),
+    }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +122,7 @@ export function CategoryForm({
     await onSubmit({
       name: values.name.trim(),
       parentId: values.parentId ?? undefined,
-      codePrefix: composedCode || undefined,
+      codePrefix: values.codePrefix.trim() || undefined,
       icon: values.icon ?? undefined,
       color: values.color ?? undefined,
     });
@@ -160,7 +152,7 @@ export function CategoryForm({
           </label>
           <Select
             value={values.parentId ?? NONE}
-            onValueChange={(v) => setField("parentId", v === NONE ? null : v)}
+            onValueChange={(v) => selectParent(v === NONE ? null : v)}
           >
             <SelectTrigger>
               <SelectValue placeholder={t("categoryParentNone")} />
@@ -184,15 +176,18 @@ export function CategoryForm({
           <Input
             label={t("categoryCodeSegment")}
             placeholder={t("categoryCodeSegmentPlaceholder")}
-            value={values.codeSegment}
+            value={codeSegment}
             onChange={(e) =>
-              setField("codeSegment", normalizeCodeSegment(e.target.value))
+              setField(
+                "codePrefix",
+                composeCategoryCode(parentPrefix, e.target.value)
+              )
             }
             maxLength={maxSegmentLength(parentPrefix)}
           />
           <p className="text-xs text-text-muted">
-            {composedCode
-              ? t("categoryCodeComposed", { code: composedCode })
+            {values.codePrefix
+              ? t("categoryCodeComposed", { code: values.codePrefix })
               : t("categoryCodeHint")}
           </p>
         </div>

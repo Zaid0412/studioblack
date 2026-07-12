@@ -80,8 +80,10 @@ describe("maxSegmentLength", () => {
     expect(maxSegmentLength("KIT-CAB")).toBe(CATEGORY_CODE_MAX - 8);
   });
 
-  it("never drops to zero, even under an over-long parent", () => {
-    expect(maxSegmentLength("A".repeat(CATEGORY_CODE_MAX))).toBe(1);
+  // A parent with no room left has no valid segment, so the field blocks input
+  // rather than letting one character through to a save the server rejects.
+  it("floors at zero under an over-long parent", () => {
+    expect(maxSegmentLength("A".repeat(CATEGORY_CODE_MAX))).toBe(0);
   });
 });
 

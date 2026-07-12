@@ -325,14 +325,23 @@ describe("bulkUpsertElements — generated codes", () => {
   // It is always a fresh insert, coded from its category's path code.
   it("generates a code for a row that supplies none", async () => {
     queueQueryResults([
-      { rows: [{ id: "cat-1", name: "Base Cabinets", parent_id: null }] }, // category tree
+      // The category tree is fetched once, and carries code_prefix — so
+      // generating a code costs no per-row category lookup.
+      {
+        rows: [
+          {
+            id: "cat-1",
+            name: "Base Cabinets",
+            parent_id: null,
+            code_prefix: "KIT-CAB-BASE",
+          },
+        ],
+      },
       { rows: [] }, // BEGIN
       { rows: [] }, // SAVEPOINT
-      { rows: [{ code_prefix: "KIT-CAB-BASE" }] }, // elementCodePrefix
       { rows: [{ current_value: 7 }] }, // sequence_counter bump
       { rows: [] }, // advisory lock (candidate)
       { rows: [] }, // dup check → free
-      { rows: [] }, // advisory lock (bulk row)
       { rows: [] }, // findLatestByCode → none
       { rows: [{ id: "new-row-id" }] }, // INSERT new element
       { rows: [] }, // RELEASE SAVEPOINT
@@ -362,6 +371,15 @@ describe("bulkUpsertElements — generated codes", () => {
     );
     // 4-digit sequence appended to the category's path code.
     expect((insert?.[1] as unknown[])[1]).toBe("KIT-CAB-BASE-0007");
+
+    // The prefix came from the up-front category fetch. A per-row SELECT here
+    // would be one extra round-trip for every row of a 10k-row import.
+    const prefixLookups = mocks.db.query.mock.calls.filter(
+      (c) =>
+        typeof c[0] === "string" &&
+        c[0].includes("SELECT code_prefix FROM element_category")
+    );
+    expect(prefixLookups).toHaveLength(0);
   });
 
   it("leaves a supplied code alone — it is the strategies' join key", async () => {

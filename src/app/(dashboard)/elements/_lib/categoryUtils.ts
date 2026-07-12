@@ -32,16 +32,14 @@ export function flattenCategories(
   return out;
 }
 
-/** Depth-first lookup of a node anywhere in the tree. */
-export function findCategoryNode(
-  tree: ElementCategoryNode[],
+/**
+ * The full path code (`KIT-CAB`) of a category, or null. This is the prefix an
+ * element's code is built from — see `@/lib/categoryCode`.
+ */
+export function categoryPrefixOf(
+  options: CategoryOption[],
   id: string | null
-): ElementCategoryNode | null {
+): string | null {
   if (!id) return null;
-  for (const node of tree) {
-    if (node.id === id) return node;
-    const hit = findCategoryNode(node.children, id);
-    if (hit) return hit;
-  }
-  return null;
+  return options.find((o) => o.id === id)?.codePrefix?.trim() || null;
 }

@@ -250,6 +250,21 @@ export async function bulkCreateCategoriesFromTemplates(
     };
     for (const top of templates) collect(top, null, 1, top.name);
 
+    // Mirror of `assertCodeUnderParent` for this path (the NOTE above asks for
+    // it). No queries needed: every parent is in the same payload, so the whole
+    // tree can be checked in memory before anything is written.
+    for (const level of levels) {
+      for (const item of level) {
+        const parentPrefix = item.parent?.node.codePrefix?.trim();
+        const code = item.node.codePrefix?.trim();
+        if (parentPrefix && code && !code.startsWith(`${parentPrefix}-`)) {
+          throw new Error(
+            `Code "${code}" must start with its parent's code (${parentPrefix}-)`
+          );
+        }
+      }
+    }
+
     for (let level = 1; level <= 3; level++) {
       const items = levels[level - 1];
       if (items.length === 0) continue;
@@ -361,50 +376,70 @@ export async function updateCategory(
   orgId: string,
   fields: Record<string, unknown>
 ) {
-  const updates: string[] = [];
-  const values: unknown[] = [];
-  let idx = 1;
+  const pool = getPool();
 
-  for (const [col, value] of Object.entries(fields)) {
-    if (value !== undefined && CATEGORY_COLS.has(col)) {
-      updates.push(`"${col}" = $${idx}`);
-      values.push(value === "" ? null : value);
-      idx++;
+  const { rows: before } = await pool.query<{
+    code_prefix: string | null;
+    parent_id: string | null;
+  }>(
+    `SELECT code_prefix, parent_id FROM element_category
+      WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+  if (before.length === 0) return null;
+  const oldPrefix = before[0].code_prefix;
+
+  // The edit dialog always sends codePrefix, but most edits (rename, recolor,
+  // reorder) leave it untouched. Drop it from the SET list when it hasn't
+  // moved: nothing to cascade, so nothing needs a transaction. Dropping the
+  // column rather than writing the same value back is what keeps this
+  // race-free — the rename can't stomp a concurrent prefix change.
+  const nextPrefix = normalizeUpdatedPrefix(fields.code_prefix);
+  const prefixChanged =
+    nextPrefix !== undefined && nextPrefix !== (oldPrefix ?? null);
+  if (!prefixChanged) delete fields.code_prefix;
+
+  const build = () => {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    for (const [col, value] of Object.entries(fields)) {
+      if (value !== undefined && CATEGORY_COLS.has(col)) {
+        values.push(value === "" ? null : value);
+        updates.push(`"${col}" = $${values.length}`);
+      }
     }
+    if (updates.length === 0) return null;
+    updates.push(`updated_at = now()`);
+    values.push(id, orgId);
+    return {
+      sql: `UPDATE element_category SET ${updates.join(", ")}
+             WHERE id = $${values.length - 1} AND org_id = $${values.length}
+             RETURNING *`,
+      values,
+    };
+  };
+
+  const query = build();
+  if (!query) return null;
+
+  if (!prefixChanged) {
+    const { rows } = await pool.query(query.sql, query.values);
+    return (rows[0] as ElementCategory) ?? null;
   }
 
-  if (updates.length === 0) return null;
-
-  updates.push(`updated_at = now()`);
-  values.push(id, orgId);
-
-  const pool = getPool();
+  // The code moved: validate it against the parent and re-base the subtree,
+  // all under one transaction so a failed cascade doesn't leave a half-renamed
+  // tree behind.
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
-    const { rows: before } = await client.query<{
-      code_prefix: string | null;
-      parent_id: string | null;
-    }>(
-      `SELECT code_prefix, parent_id FROM element_category
-        WHERE id = $1 AND org_id = $2
-        FOR UPDATE`,
+    await client.query(
+      `SELECT 1 FROM element_category WHERE id = $1 AND org_id = $2 FOR UPDATE`,
       [id, orgId]
     );
-    const oldPrefix = before[0]?.code_prefix ?? null;
+    await assertCodeUnderParent(client, orgId, before[0].parent_id, nextPrefix);
 
-    await assertCodeUnderParent(
-      client,
-      orgId,
-      before[0]?.parent_id ?? null,
-      fields.code_prefix as string | undefined
-    );
-
-    const { rows } = await client.query(
-      `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} AND org_id = $${idx + 1} RETURNING *`,
-      values
-    );
+    const { rows } = await client.query(query.sql, query.values);
     const updated = (rows[0] as ElementCategory) ?? null;
 
     if (updated && oldPrefix && updated.code_prefix) {
@@ -425,6 +460,13 @@ export async function updateCategory(
   } finally {
     client.release();
   }
+}
+
+/** The route sends `""` to clear a code; the column stores that as NULL. */
+function normalizeUpdatedPrefix(raw: unknown): string | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === "" || raw === null) return null;
+  return raw as string;
 }
 
 /**
@@ -453,16 +495,20 @@ async function cascadeCodePrefix(
   const under = `${escapeSqlLike(oldPrefix)}-%`;
   const grew = newPrefix.length - oldPrefix.length;
 
+  // Strict descendants of $1 within $2 — the node itself is excluded, so a
+  // rename that nests a code under itself (KIT → KIT-A) can't rewrite the root.
+  const descendants = `WITH RECURSIVE descendant AS (
+       SELECT id FROM element_category
+        WHERE parent_id = $1 AND org_id = $2
+       UNION ALL
+       SELECT c.id FROM element_category c
+         JOIN descendant d ON c.parent_id = d.id
+        WHERE c.org_id = $2
+     )`;
+
   if (grew > 0) {
     const { rows } = await client.query<{ code_prefix: string }>(
-      `WITH RECURSIVE descendant AS (
-         SELECT id FROM element_category
-          WHERE parent_id = $1 AND org_id = $2
-         UNION ALL
-         SELECT c.id FROM element_category c
-           JOIN descendant d ON c.parent_id = d.id
-          WHERE c.org_id = $2
-       )
+      `${descendants}
        SELECT c.code_prefix FROM element_category c
          JOIN descendant d ON c.id = d.id
         WHERE c.code_prefix LIKE $3
@@ -479,14 +525,7 @@ async function cascadeCodePrefix(
   }
 
   await client.query(
-    `WITH RECURSIVE descendant AS (
-       SELECT id FROM element_category
-        WHERE parent_id = $1 AND org_id = $2
-       UNION ALL
-       SELECT c.id FROM element_category c
-         JOIN descendant d ON c.parent_id = d.id
-        WHERE c.org_id = $2
-     )
+    `${descendants}
      UPDATE element_category c
         SET code_prefix = $3 || substring(c.code_prefix from char_length($4) + 1),
             updated_at = now()

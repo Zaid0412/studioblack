@@ -13,6 +13,7 @@ import type {
   ElementWithDetails,
 } from "@/types";
 import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
+import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
 import {
   elementCodePrefix,
   nextElementCodes,
@@ -354,7 +355,7 @@ export async function createElement(
   try {
     await client.query("BEGIN");
 
-    const code = await generateElementCode(client, orgId, input.categoryId);
+    const code = await generateElementCodeFor(client, orgId, input.categoryId);
 
     let elementRow: Element;
     try {
@@ -403,7 +404,6 @@ export async function createElement(
       elementRow = rows[0] as Element;
     } catch (err: unknown) {
       const pgErr = err as { code?: string };
-      if (pgErr.code === "23505") throw new Error("Code already exists");
       if (pgErr.code === "23503") throw new Error("Category not found");
       throw err;
     }
@@ -588,7 +588,11 @@ export async function duplicateElement(
   try {
     await client.query("BEGIN");
     try {
-      const newCode = await generateElementCode(client, orgId, src.category_id);
+      const newCode = await generateElementCodeFor(
+        client,
+        orgId,
+        src.category_id
+      );
 
       const {
         rows: [newRow],
@@ -819,31 +823,35 @@ async function lockElementCode(
 async function generateElementCode(
   client: PoolClient,
   orgId: string,
-  categoryId: string | null | undefined
+  prefix: string
 ): Promise<string> {
-  const prefix = await elementCodePrefix(client, orgId, categoryId);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // Second pass: the counter has fallen behind the rows, so re-derive it.
+    if (attempt === 1) await syncElementCounter(client, orgId, prefix);
 
-  const claim = async (): Promise<string | null> => {
     const [candidate] = await nextElementCodes(client, orgId, prefix, 1);
     await lockElementCode(client, orgId, candidate);
     const { rows } = await client.query(
       `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
       [orgId, candidate]
     );
-    return rows.length === 0 ? candidate : null;
-  };
-
-  const first = await claim();
-  if (first) return first;
-
-  await syncElementCounter(client, orgId, prefix);
-  const second = await claim();
-  if (second) return second;
+    if (rows.length === 0) return candidate;
+  }
 
   // The counter is now past every `<prefix>-<digits>` row, so a second
   // collision can't come from stale data — only from a concurrent writer that
   // committed a literal code in the microseconds between. Not worth spinning on.
   throw new Error(`Could not generate a free element code for ${prefix}`);
+}
+
+/** Resolve the category's prefix, then generate. For the single-element paths. */
+async function generateElementCodeFor(
+  client: PoolClient,
+  orgId: string,
+  categoryId: string | null | undefined
+): Promise<string> {
+  const prefix = await elementCodePrefix(client, orgId, categoryId);
+  return generateElementCode(client, orgId, prefix);
 }
 
 /**
@@ -1127,23 +1135,24 @@ export async function bulkUpsertElements(
   input: BulkElementImportInput
 ): Promise<BulkElementImportResult> {
   const pool = getPool();
-  const result: BulkElementImportResult = {
-    inserted: 0,
-    updated: 0,
-    skipped: 0,
-    versioned: 0,
-    failed: [],
-  };
+  const result = emptyImportResult();
 
+  // One fetch serves both lookups: the path → id map, and the id → code_prefix
+  // map that codes a blank-code row. Without the latter, generating a code
+  // would re-SELECT the same category once per row.
   const { rows: catRows } = await pool.query(
-    `SELECT id, name, parent_id
+    `SELECT id, name, parent_id, code_prefix
        FROM element_category
       WHERE org_id = $1 AND is_active = true`,
     [orgId]
   );
-  const pathMap = buildCategoryPathMap(
-    catRows as Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
-  );
+  const rows = catRows as Array<
+    Pick<ElementCategory, "id" | "name" | "parent_id" | "code_prefix">
+  >;
+  const categories: CategoryLookup = {
+    idByPath: buildCategoryPathMap(rows),
+    prefixById: new Map(rows.map((c) => [c.id, c.code_prefix?.trim() || null])),
+  };
 
   for (let i = 0; i < input.rows.length; i += BULK_IMPORT_BATCH_SIZE) {
     const batch = input.rows.slice(i, i + BULK_IMPORT_BATCH_SIZE);
@@ -1152,7 +1161,7 @@ export async function bulkUpsertElements(
       orgId,
       input,
       batch,
-      pathMap
+      categories
     );
     result.inserted += batchResult.inserted;
     result.updated += batchResult.updated;
@@ -1166,6 +1175,16 @@ export async function bulkUpsertElements(
 
 function emptyImportResult(): BulkElementImportResult {
   return { inserted: 0, updated: 0, skipped: 0, versioned: 0, failed: [] };
+}
+
+/**
+ * The org's category tree, resolved once per import instead of per row:
+ * `idByPath` maps a row's "A > B > C" to a category id, `prefixById` maps that
+ * id to the path code a generated element code is built from.
+ */
+interface CategoryLookup {
+  idByPath: Map<string, string>;
+  prefixById: Map<string, string | null>;
 }
 
 /**
@@ -1203,10 +1222,10 @@ async function runBulkImportBatchWithRetry(
   orgId: string,
   input: BulkElementImportInput,
   rows: BulkElementRow[],
-  pathMap: Map<string, string>
+  categories: CategoryLookup
 ): Promise<BulkElementImportResult> {
   try {
-    return await runBulkImportBatch(pool, orgId, input, rows, pathMap);
+    return await runBulkImportBatch(pool, orgId, input, rows, categories);
   } catch (err) {
     if (!isRetryableAbort(err)) throw err;
     logger.warn("bulk import batch aborted by a concurrent writer; retrying", {
@@ -1214,7 +1233,7 @@ async function runBulkImportBatchWithRetry(
       rows: rows.length,
       pgCode: (err as { code?: string }).code,
     });
-    return await runBulkImportBatch(pool, orgId, input, rows, pathMap);
+    return await runBulkImportBatch(pool, orgId, input, rows, categories);
   }
 }
 
@@ -1223,7 +1242,7 @@ async function runBulkImportBatch(
   orgId: string,
   input: BulkElementImportInput,
   rows: BulkElementRow[],
-  pathMap: Map<string, string>
+  categories: CategoryLookup
 ): Promise<BulkElementImportResult> {
   const result = emptyImportResult();
   const client = await pool.connect();
@@ -1234,7 +1253,7 @@ async function runBulkImportBatch(
       let categoryId: string | null = null;
       if (row.categoryPath && row.categoryPath.length > 0) {
         const key = row.categoryPath.map(normalizeCategorySegment).join(" > ");
-        const resolved = pathMap.get(key);
+        const resolved = categories.idByPath.get(key);
         if (!resolved) {
           result.failed.push({
             rowNumber: row.rowNumber,
@@ -1251,17 +1270,24 @@ async function runBulkImportBatch(
       // outer transaction and doom every subsequent row.
       await client.query("SAVEPOINT bulk_row");
       try {
-        // A row with no code has no join key, so it can't match an existing
-        // element — it is unambiguously new and gets a generated code. Rows
-        // that carry a code keep it verbatim: it is what the skip / overwrite
-        // / version strategies match on.
-        const code =
-          row.code ?? (await generateElementCode(client, orgId, categoryId));
+        let code = row.code;
+        if (code === undefined) {
+          // No code means no join key, so the row can't match an existing
+          // element — it is unambiguously new and gets a generated one. The
+          // prefix comes from the map built up front, not a per-row SELECT.
+          // generateElementCode already took the advisory lock on the code it
+          // handed back, and holds it to COMMIT.
+          const prefix =
+            (categoryId ? categories.prefixById.get(categoryId) : null) ??
+            UNCATEGORIZED_PREFIX;
+          code = await generateElementCode(client, orgId, prefix);
+        } else {
+          // Advisory lock per (orgId, code) — covers every strategy's SELECT →
+          // INSERT/UPDATE window. Concurrent imports of the same code
+          // serialise here instead of racing to the DB.
+          await lockElementCode(client, orgId, code);
+        }
 
-        // Advisory lock per (orgId, code) — covers every strategy's SELECT →
-        // INSERT/UPDATE window. Concurrent imports of the same code
-        // serialise here instead of racing to the DB.
-        await lockElementCode(client, orgId, code);
         const insertedId = await tryInsertElementRow(
           client,
           orgId,
