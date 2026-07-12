@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -12,8 +12,6 @@ import {
   ClipboardCheck,
   AlertTriangle,
   ListChecks,
-  CheckCheck,
-  X,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
@@ -94,18 +92,23 @@ const defaultAccent = {
   fill: "text-zinc-500",
 };
 
-type Tab = "all" | "unread" | "invitations";
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-/** Notification bell + dropdown panel for the header bar. */
+/**
+ * Notification bell + dropdown panel for the header bar.
+ *
+ * The bell is a queue of what still needs attention, not a history: the API
+ * returns only unread notifications, and clicking one is how it leaves the
+ * list. Read notifications remain visible on the dashboard activity feed.
+ * That's why there are no read/unread tabs and no per-item delete — every item
+ * here is unread and actionable by construction.
+ */
 export function NotificationPanel() {
   const t = useTranslations("notifications");
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("all");
   const navigate = useCallback((path: string) => router.push(path), [router]);
 
   const {
@@ -116,9 +119,7 @@ export function NotificationPanel() {
     pendingInviteIds,
     refresh,
     handleNotificationClick,
-    handleMarkAllRead,
     handleClearAll,
-    handleDeleteOne,
     handleAcceptInvite,
     handleRejectInvite,
   } = useNotifications({
@@ -127,24 +128,8 @@ export function NotificationPanel() {
     onClose: () => setOpen(false),
   });
 
-  const filtered = useMemo(() => {
-    switch (activeTab) {
-      case "unread":
-        return notifications.filter((n) => !n.read);
-      case "invitations":
-        return notifications.filter((n) => n.type === "invitation");
-      default:
-        return notifications;
-    }
-  }, [notifications, activeTab]);
-
-  const invitationCount = useMemo(
-    () => notifications.filter((n) => n.type === "invitation").length,
-    [notifications]
-  );
-
   const listRef = useStaggerReveal<HTMLDivElement>(
-    filtered.map((n) => n.id).join(",")
+    notifications.map((n) => n.id).join(",")
   );
 
   return (
@@ -178,53 +163,13 @@ export function NotificationPanel() {
           <span className="text-[15px] font-semibold text-text-primary">
             {t("title")}
           </span>
-          <div className="flex items-center gap-1.5">
-            <RefreshButton
-              onRefresh={refresh}
-              tooltip="Refresh notifications"
-            />
-            <button
-              onClick={handleMarkAllRead}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-secondary text-text-muted hover:text-text-secondary transition-colors text-xs cursor-pointer"
-            >
-              <CheckCheck className="w-3.5 h-3.5" />
-              {t("markAllRead")}
-            </button>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex px-4 lg:px-5 gap-0" role="tablist">
-          <TabButton
-            id="notif-tab-all"
-            active={activeTab === "all"}
-            onClick={() => setActiveTab("all")}
-            label={t("all") || "All"}
-          />
-          <TabButton
-            id="notif-tab-unread"
-            active={activeTab === "unread"}
-            onClick={() => setActiveTab("unread")}
-            label={t("unread") || "Unread"}
-            count={unreadCount}
-          />
-          <TabButton
-            id="notif-tab-invitations"
-            active={activeTab === "invitations"}
-            onClick={() => setActiveTab("invitations")}
-            label={t("invitations") || "Invitations"}
-            count={invitationCount || undefined}
-          />
+          <RefreshButton onRefresh={refresh} tooltip="Refresh notifications" />
         </div>
 
         <div className="h-px bg-border-default" />
 
         {/* Body */}
-        <div
-          className="max-h-[440px] overflow-y-auto"
-          role="tabpanel"
-          aria-labelledby={`notif-tab-${activeTab}`}
-        >
+        <div className="max-h-[440px] overflow-y-auto">
           {loading ? (
             <div className="flex flex-col gap-2 p-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -243,39 +188,29 @@ export function NotificationPanel() {
                 </div>
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 gap-2">
               <Bell className="w-8 h-8 text-border-default" />
               <span className="text-sm text-text-muted">
-                {activeTab === "unread"
-                  ? t("noUnread") || t("noNotifications")
-                  : activeTab === "invitations"
-                    ? t("noInvitations") || t("noNotifications")
-                    : t("noNotifications")}
+                {t("noNotifications")}
               </span>
             </div>
           ) : (
             <div ref={listRef} className="flex flex-col gap-2 p-3 lg:p-4">
-              {filtered.map((notification) => (
+              {notifications.map((notification) => (
                 <NotificationCard
                   key={notification.id}
                   notification={notification}
                   isInvite={pendingInviteIds.has(notification.id)}
                   isLoading={loadingIds.has(notification.id)}
                   onClick={() => handleNotificationClick(notification)}
-                  onDelete={
-                    isSyntheticNotification(notification.id)
-                      ? undefined
-                      : () => handleDeleteOne(notification.id)
-                  }
                   onAccept={() => handleAcceptInvite(notification.id)}
                   onReject={() => handleRejectInvite(notification.id)}
                   t={t}
                 />
               ))}
 
-              {/* Clear all — only show on "all" tab with items */}
-              {activeTab === "all" && filtered.length > 0 && (
+              {notifications.length > 0 && (
                 <button
                   onClick={handleClearAll}
                   className="text-xs text-text-muted hover:text-red-400 transition-colors pt-1 pb-1 cursor-pointer text-center"
@@ -292,53 +227,6 @@ export function NotificationPanel() {
 }
 
 // ---------------------------------------------------------------------------
-// Tab button (underline-style)
-// ---------------------------------------------------------------------------
-
-function TabButton({
-  id,
-  active,
-  onClick,
-  label,
-  count,
-}: {
-  id: string;
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  count?: number;
-}) {
-  return (
-    <button
-      id={id}
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={cn(
-        "flex-1 flex items-center justify-center gap-1.5 pb-2.5 pt-1 text-[13px] font-medium transition-colors cursor-pointer border-b-2",
-        active
-          ? "text-text-primary border-accent"
-          : "text-text-muted border-transparent hover:text-text-secondary"
-      )}
-    >
-      {label}
-      {count !== undefined && count > 0 && (
-        <span
-          className={cn(
-            "flex items-center justify-center min-w-[20px] h-[18px] px-1 rounded-full text-[10px] font-bold",
-            active
-              ? "bg-accent text-text-on-accent"
-              : "bg-bg-elevated text-text-muted"
-          )}
-        >
-          {count > 99 ? "99+" : count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Notification card
 // ---------------------------------------------------------------------------
 
@@ -347,7 +235,6 @@ function NotificationCard({
   isInvite,
   isLoading,
   onClick,
-  onDelete,
   onAccept,
   onReject,
   t,
@@ -356,18 +243,16 @@ function NotificationCard({
   isInvite: boolean;
   isLoading: boolean;
   onClick: () => void;
-  onDelete?: () => void;
   onAccept?: () => void;
   onReject?: () => void;
   t: (key: string) => string;
 }) {
-  const isUnread = !notification.read;
   const accent = typeAccent[notification.type] ?? defaultAccent;
   const Icon = typeIcons[notification.type] ?? Bell;
   const isInvitation = isInvite && notification.type === "invitation";
 
   // Only dress the card up as a button when the click actually does something:
-  // navigate somewhere, or mark a real row read. A received invitation does
+  // navigate somewhere, or dismiss a real row. A received invitation does
   // neither -- its accept/decline buttons are the interaction.
   const interactive =
     notificationDestination(notification) !== null ||
@@ -394,8 +279,7 @@ function NotificationCard({
         "group rounded-xl border border-border-default border-l-[3px] transition-colors",
         accent.border,
         interactive && "cursor-pointer",
-        isInvitation && "border-accent/30",
-        !isUnread && "opacity-60"
+        isInvitation && "border-accent/30"
       )}
       {...buttonProps}
     >
@@ -411,46 +295,20 @@ function NotificationCard({
             <Icon className={cn("w-4 h-4", accent.fill)} />
           </div>
 
-          {/* Content */}
+          {/* Content — every card here is unread, so no read/unread variants */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <span
-                className={cn(
-                  "text-[13px] leading-tight truncate",
-                  isUnread
-                    ? "font-semibold text-text-primary"
-                    : "font-normal text-text-secondary"
-                )}
-              >
+              <span className="text-[13px] leading-tight truncate font-semibold text-text-primary">
                 {notification.title}
               </span>
               <span className="text-[11px] text-text-muted whitespace-nowrap shrink-0">
                 {relativeTime(notification.createdAt)}
               </span>
             </div>
-            <span
-              className={cn(
-                "text-xs leading-snug line-clamp-2 mt-0.5",
-                isUnread ? "text-text-secondary" : "text-text-muted"
-              )}
-            >
+            <span className="text-xs leading-snug line-clamp-2 mt-0.5 text-text-secondary">
               {notification.description}
             </span>
           </div>
-
-          {/* Delete (visible on hover, always visible on touch) */}
-          {onDelete && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="max-lg:opacity-100 opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded text-text-muted hover:text-red-400 transition-all cursor-pointer shrink-0"
-              aria-label="Delete notification"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
 
         {/* Invitation actions */}

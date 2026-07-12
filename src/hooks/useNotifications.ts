@@ -167,21 +167,18 @@ export function useNotifications({
     [invitationNotifs, dbNotifs]
   );
 
-  const unreadCount = useMemo(
-    () => notifications.filter((n) => !n.read).length,
-    [notifications]
-  );
+  // Everything in the list is unread by construction -- the API only returns
+  // unread rows, and invitations are always actionable.
+  const unreadCount = notifications.length;
 
   const handleNotificationClick = async (notification: Notification) => {
-    if (!notification.read && !isSyntheticNotification(notification.id)) {
+    if (!isSyntheticNotification(notification.id)) {
+      // Reading is how a notification leaves the bell, so drop it from the
+      // cache rather than flagging it -- the next fetch won't return it anyway.
+      mutateDbNotifs((prev) => prev?.filter((r) => r.id !== notification.id), {
+        revalidate: false,
+      });
       await notificationsApi.markRead([notification.id]).catch(() => {});
-      mutateDbNotifs(
-        (prev) =>
-          prev?.map((r) =>
-            r.id === notification.id ? { ...r, read: true } : r
-          ),
-        { revalidate: false }
-      );
       window.dispatchEvent(new Event("notifications-changed"));
     }
     const destination = notificationDestination(notification);
@@ -191,37 +188,20 @@ export function useNotifications({
     }
   };
 
-  const handleMarkAllRead = async () => {
-    mutateDbNotifs((prev) => prev?.map((r) => ({ ...r, read: true })), {
-      revalidate: false,
-    });
-    // Skip invitations — they're always read:false from the auth API and
-    // would revert on the next SWR poll, causing a visual flicker.
-    window.dispatchEvent(new Event("notifications-changed"));
+  /**
+   * Empty the bell. Marks every notification read rather than deleting it: read
+   * rows are retained for the dashboard activity feed. Invitations are left
+   * alone -- they're synthetic and stay until accepted or declined.
+   */
+  const handleClearAll = async () => {
+    if (!window.confirm(t("clearAllConfirm"))) return;
+    mutateDbNotifs([], { revalidate: false });
     await notificationsApi.markAllRead().catch(() => {});
+    window.dispatchEvent(new Event("notifications-changed"));
     toast({
       title: t("allCaughtUpToast"),
       description: t("allCaughtUpDescription"),
     });
-  };
-
-  const handleClearAll = async () => {
-    if (!window.confirm(t("clearAllConfirm"))) return;
-    await notificationsApi.clearAll().catch(() => {});
-    mutateDbNotifs([], { revalidate: false });
-    mutateInvitations(
-      { notifications: [], pendingIds: new Map() },
-      { revalidate: false }
-    );
-    window.dispatchEvent(new Event("notifications-changed"));
-  };
-
-  const handleDeleteOne = async (notifId: string) => {
-    await notificationsApi.remove(notifId).catch(() => {});
-    mutateDbNotifs((prev) => prev?.filter((r) => r.id !== notifId), {
-      revalidate: false,
-    });
-    window.dispatchEvent(new Event("notifications-changed"));
   };
 
   /** Remove an invitation from the SWR cache and notify other components. */
@@ -318,9 +298,7 @@ export function useNotifications({
     pendingInviteIds,
     refresh,
     handleNotificationClick,
-    handleMarkAllRead,
     handleClearAll,
-    handleDeleteOne,
     handleAcceptInvite,
     handleRejectInvite,
   };

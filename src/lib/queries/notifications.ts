@@ -10,14 +10,21 @@ export async function getUnreadNotificationCount(userId: string) {
   return rows[0].count as number;
 }
 
-/** Get notifications for a user (most recent 50), with project name. */
+/**
+ * Get a user's *unread* notifications (most recent 50), with project name.
+ *
+ * The bell is a queue of what still needs attention, not a history: reading a
+ * notification is how it leaves the list. Read rows are kept — they still feed
+ * the dashboard activity feed via `getRecentActivity`, which deliberately does
+ * not filter on `read`.
+ */
 export async function getNotifications(userId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT n.*, p.name AS project_name
      FROM notification n
      LEFT JOIN project p ON p.id = n.project_id
-     WHERE n.user_id = $1
+     WHERE n.user_id = $1 AND n.read = false
      ORDER BY n.created_at DESC
      LIMIT 50`,
     [userId]

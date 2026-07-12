@@ -431,29 +431,10 @@ describe("useNotifications", () => {
 
     expect(result.current).toHaveProperty("notifications");
     expect(result.current).toHaveProperty("unreadCount");
-    expect(result.current).toHaveProperty("handleMarkAllRead");
     expect(result.current).toHaveProperty("handleClearAll");
     expect(result.current).toHaveProperty("handleAcceptInvite");
     expect(result.current).toHaveProperty("handleRejectInvite");
     expect(Array.isArray(result.current.notifications)).toBe(true);
-  });
-
-  it("handleMarkAllRead calls notificationsApi.markAllRead and shows toast", async () => {
-    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
-
-    const { result } = setup();
-
-    await act(async () => {
-      await result.current.handleMarkAllRead();
-    });
-
-    expect(mockNotifMarkAllRead).toHaveBeenCalled();
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "allCaughtUpToast" })
-    );
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
-
-    dispatchSpy.mockRestore();
   });
 
   it("handleClearAll does nothing if user cancels confirm", async () => {
@@ -470,7 +451,9 @@ describe("useNotifications", () => {
     vi.restoreAllMocks();
   });
 
-  it("handleClearAll calls clearAll when user confirms", async () => {
+  // Clearing marks everything read rather than deleting it: read rows are kept
+  // for the dashboard activity feed, and the bell only ever shows unread.
+  it("handleClearAll marks all read when user confirms", async () => {
     vi.spyOn(window, "confirm").mockReturnValueOnce(true);
     const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 
@@ -480,7 +463,11 @@ describe("useNotifications", () => {
       await result.current.handleClearAll();
     });
 
-    expect(mockNotifClearAll).toHaveBeenCalled();
+    expect(mockNotifMarkAllRead).toHaveBeenCalled();
+    expect(mockNotifClearAll).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "allCaughtUpToast" })
+    );
     expect(dispatchSpy).toHaveBeenCalled();
 
     vi.restoreAllMocks();
