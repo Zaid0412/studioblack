@@ -73,7 +73,7 @@ export const POST = withAuth(
         title: `Client ${statusLabel} your task`,
         description: `"${task.title}" was ${statusLabel} by ${user.name}`,
         projectId: id,
-        taskId: taskId,
+        phaseTaskId: taskId,
       }).catch(() => {});
 
       notifyUserByEmailWithContext(existing.assigned_to, id, (ctx) => {

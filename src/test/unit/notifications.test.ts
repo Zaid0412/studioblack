@@ -34,11 +34,40 @@ describe("createNotification", () => {
       description: "Task X needs review",
       projectId: "p1",
       taskId: "t1",
+      rfqId: "r1",
+      attachmentId: "a1",
     });
 
     expect(mocks.db.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO notification"),
-      ["u1", "review", "Review requested", "Task X needs review", "p1", "t1"]
+      [
+        "u1",
+        "review",
+        "Review requested",
+        "Task X needs review",
+        "p1",
+        "t1",
+        null,
+        "r1",
+        "a1",
+      ]
+    );
+  });
+
+  // task_id references `task` and phase_task_id references `phase_task` -- writing
+  // one into the other's column violates the FK, so they must stay distinct.
+  it("keeps phaseTaskId out of the task_id column", async () => {
+    await createNotification({
+      userId: "u1",
+      type: "task_assigned",
+      title: "Assigned",
+      projectId: "p1",
+      phaseTaskId: "pt1",
+    });
+
+    expect(mocks.db.query).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO notification"),
+      ["u1", "task_assigned", "Assigned", "", "p1", null, "pt1", null, null]
     );
   });
 
@@ -51,7 +80,7 @@ describe("createNotification", () => {
 
     expect(mocks.db.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO notification"),
-      ["u1", "upload", "File uploaded", "", null, null]
+      ["u1", "upload", "File uploaded", "", null, null, null, null, null]
     );
   });
 });
@@ -70,7 +99,35 @@ describe("createNotificationsForTeam", () => {
 
     expect(mocks.db.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO notification"),
-      ["p1", "u-actor", "upload", "New file", "photo.png uploaded"]
+      [
+        "p1",
+        "u-actor",
+        "upload",
+        "New file",
+        "photo.png uploaded",
+        null,
+        null,
+        null,
+        null,
+      ]
+    );
+  });
+
+  // The team INSERT used to omit the entity columns entirely, so a team
+  // notification could never carry the thing it was about.
+  it("carries entity context through the team fan-out", async () => {
+    await createNotificationsForTeam(
+      "p1",
+      "u-actor",
+      "comment",
+      "New comment",
+      "hi",
+      { phaseTaskId: "pt1" }
+    );
+
+    expect(mocks.db.query).toHaveBeenCalledWith(
+      expect.stringContaining("phase_task_id"),
+      ["p1", "u-actor", "comment", "New comment", "hi", null, "pt1", null, null]
     );
   });
 
@@ -79,7 +136,7 @@ describe("createNotificationsForTeam", () => {
 
     expect(mocks.db.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO notification"),
-      ["p1", "u-actor", "upload", "New file", ""]
+      ["p1", "u-actor", "upload", "New file", "", null, null, null, null]
     );
   });
 });
@@ -242,7 +299,8 @@ describe("createNotificationForClient", () => {
       "p1",
       "review_requested",
       "Review requested",
-      "Task needs review"
+      "Task needs review",
+      { phaseTaskId: "pt1" }
     );
 
     // Second call should be the INSERT
@@ -255,6 +313,9 @@ describe("createNotificationForClient", () => {
         "Review requested",
         "Task needs review",
         "p1",
+        null,
+        "pt1",
+        null,
         null,
       ]
     );

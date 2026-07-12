@@ -82,7 +82,7 @@ export const POST = withAuth(
         title: "New task assigned to you",
         description: `"${title.trim()}" has been assigned to you by ${user.name}`,
         projectId: id,
-        taskId: task.id,
+        phaseTaskId: task.id,
       }).catch(() => {});
 
       notifyUserByEmailWithContext(assignedTo, id, (ctx) => {

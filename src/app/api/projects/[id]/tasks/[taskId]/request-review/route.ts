@@ -44,7 +44,8 @@ export const POST = withAuth(
       id,
       "review_requested",
       "Review requested",
-      `Task "${task.title}" in project "${project?.name || ""}" needs your review`
+      `Task "${task.title}" in project "${project?.name || ""}" needs your review`,
+      { phaseTaskId: taskId }
     ).catch(() => {});
 
     return NextResponse.json(task);

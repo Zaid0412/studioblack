@@ -61,9 +61,17 @@ export const POST = withAuth(
       const projName = await getProjectName(id);
       const title = `New comment on ${projName || "project"}`;
       const desc = `${userName}: ${content.trim().slice(0, 100)}`;
-      await createNotificationsForTeam(id, user.id, "comment", title, desc);
+      const entities = { phaseTaskId: taskId || undefined };
+      await createNotificationsForTeam(
+        id,
+        user.id,
+        "comment",
+        title,
+        desc,
+        entities
+      );
       if (effectiveRole !== "client") {
-        await createNotificationForClient(id, "comment", title, desc);
+        await createNotificationForClient(id, "comment", title, desc, entities);
       }
     } catch (err) {
       logger.error("Comment notification error", { projectId: id, error: err });

@@ -160,6 +160,7 @@ export const POST = withAuth(
         title: "New task assigned to you",
         description: `"${title.trim()}" was assigned to you by ${user.name}`,
         projectId: projectId || undefined,
+        taskId: task.id,
       }).catch((err) =>
         logger.error("Task assignment notification failed", { error: err })
       );
