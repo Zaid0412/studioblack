@@ -47,27 +47,9 @@ describe("createNotification", () => {
         "Task X needs review",
         "p1",
         "t1",
-        null,
         "r1",
         "a1",
       ]
-    );
-  });
-
-  // task_id references `task` and phase_task_id references `phase_task` -- writing
-  // one into the other's column violates the FK, so they must stay distinct.
-  it("keeps phaseTaskId out of the task_id column", async () => {
-    await createNotification({
-      userId: "u1",
-      type: "task_assigned",
-      title: "Assigned",
-      projectId: "p1",
-      phaseTaskId: "pt1",
-    });
-
-    expect(mocks.db.query).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO notification"),
-      ["u1", "task_assigned", "Assigned", "", "p1", null, "pt1", null, null]
     );
   });
 
@@ -80,7 +62,7 @@ describe("createNotification", () => {
 
     expect(mocks.db.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO notification"),
-      ["u1", "upload", "File uploaded", "", null, null, null, null, null]
+      ["u1", "upload", "File uploaded", "", null, null, null, null]
     );
   });
 });
@@ -108,7 +90,6 @@ describe("createNotificationsForTeam", () => {
         null,
         null,
         null,
-        null,
       ]
     );
   });
@@ -119,15 +100,15 @@ describe("createNotificationsForTeam", () => {
     await createNotificationsForTeam(
       "p1",
       "u-actor",
-      "comment",
-      "New comment",
+      "review_approved",
+      "Approved",
       "hi",
-      { phaseTaskId: "pt1" }
+      { attachmentId: "a1" }
     );
 
     expect(mocks.db.query).toHaveBeenCalledWith(
-      expect.stringContaining("phase_task_id"),
-      ["p1", "u-actor", "comment", "New comment", "hi", null, "pt1", null, null]
+      expect.stringContaining("attachment_id"),
+      ["p1", "u-actor", "review_approved", "Approved", "hi", null, null, "a1"]
     );
   });
 
@@ -136,7 +117,7 @@ describe("createNotificationsForTeam", () => {
 
     expect(mocks.db.query).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO notification"),
-      ["p1", "u-actor", "upload", "New file", "", null, null, null, null]
+      ["p1", "u-actor", "upload", "New file", "", null, null, null]
     );
   });
 });
@@ -289,44 +270,30 @@ describe("notifyTeamByEmail", () => {
 // ── createNotificationForClient ─────────────────────────────────────────────
 
 describe("createNotificationForClient", () => {
-  it("creates notification for the client user", async () => {
-    // First query: find client user ID
-    mocks.db.query.mockResolvedValueOnce({ rows: [{ id: "client-1" }] });
-    // Second query: insert notification
-    mocks.db.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
-
+  // Resolves the client user and inserts in one INSERT ... SELECT. A project
+  // with no matching client user simply selects no rows, so there is nothing
+  // to guard against in JS.
+  it("creates notification for the client user in a single round-trip", async () => {
     await createNotificationForClient(
       "p1",
-      "review_requested",
-      "Review requested",
-      "Task needs review",
-      { phaseTaskId: "pt1" }
+      "design_sent_for_review",
+      "New design ready for review",
+      "Design needs review",
+      { attachmentId: "a1" }
     );
 
-    // Second call should be the INSERT
-    expect(mocks.db.query).toHaveBeenCalledTimes(2);
-    expect(mocks.db.query).toHaveBeenLastCalledWith(
-      expect.stringContaining("INSERT INTO notification"),
+    expect(mocks.db.query).toHaveBeenCalledTimes(1);
+    expect(mocks.db.query).toHaveBeenCalledWith(
+      expect.stringContaining("JOIN project p ON p.client_email = u.email"),
       [
-        "client-1",
-        "review_requested",
-        "Review requested",
-        "Task needs review",
         "p1",
+        "design_sent_for_review",
+        "New design ready for review",
+        "Design needs review",
         null,
-        "pt1",
         null,
-        null,
+        "a1",
       ]
     );
-  });
-
-  it("does nothing when no client user found", async () => {
-    mocks.db.query.mockResolvedValueOnce({ rows: [] });
-
-    await createNotificationForClient("p1", "upload", "New file");
-
-    // Only the lookup query, no INSERT
-    expect(mocks.db.query).toHaveBeenCalledTimes(1);
   });
 });

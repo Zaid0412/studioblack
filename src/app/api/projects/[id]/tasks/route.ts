@@ -12,6 +12,7 @@ import {
 } from "@/lib/notifications";
 import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/withAuth";
 import {
   parseRequest,
@@ -81,9 +82,16 @@ export const POST = withAuth(
         type: "task_assigned",
         title: "New task assigned to you",
         description: `"${title.trim()}" has been assigned to you by ${user.name}`,
+        // No task id: this is a `phase_task`, which has no page of its own --
+        // it surfaces on the project's designs tab, which is where the project
+        // destination already lands.
         projectId: id,
-        phaseTaskId: task.id,
-      }).catch(() => {});
+      }).catch((err) =>
+        logger.error("Phase task assignment notification failed", {
+          projectId: id,
+          error: err,
+        })
+      );
 
       notifyUserByEmailWithContext(assignedTo, id, (ctx) => {
         const projectUrl = escapeHtml(

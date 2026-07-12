@@ -144,7 +144,7 @@ export function useNotifications({
     () =>
       dbRows.map((r) => ({
         id: r.id,
-        type: r.type as Notification["type"],
+        type: r.type,
         title: r.title,
         description:
           r.description + (r.project_name ? ` · ${r.project_name}` : ""),

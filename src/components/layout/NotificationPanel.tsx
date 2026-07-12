@@ -373,6 +373,20 @@ function NotificationCard({
     notificationDestination(notification) !== null ||
     !isSyntheticNotification(notification.id);
 
+  const buttonProps = interactive
+    ? {
+        onClick,
+        role: "button",
+        tabIndex: 0,
+        onKeyDown: (e: React.KeyboardEvent) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        },
+      }
+    : undefined;
+
   return (
     <div
       data-anim-item
@@ -383,19 +397,7 @@ function NotificationCard({
         isInvitation && "border-accent/30",
         !isUnread && "opacity-60"
       )}
-      onClick={interactive ? onClick : undefined}
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive ? 0 : undefined}
-      onKeyDown={
-        interactive
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onClick();
-              }
-            }
-          : undefined
-      }
+      {...buttonProps}
     >
       <div className="p-3">
         <div className="flex items-start gap-3">

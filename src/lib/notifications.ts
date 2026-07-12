@@ -6,16 +6,11 @@ import { logger } from "@/lib/logger";
  * The entity a notification is about, used to deep-link it. Pass the most
  * specific one available — `notificationDestination` routes on it.
  *
- * `taskId` and `phaseTaskId` are NOT interchangeable: they reference different
- * tables. A `task` row is what /tasks/{id} serves; a `phase_task` row is only
- * surfaced on the project's designs tab. Passing one where the other is meant
- * violates the foreign key.
+ * `taskId` is a `task` row (what /tasks/{id} serves), NOT a `phase_task`. The
+ * two are different tables and the foreign key rejects the wrong one.
  */
 export interface NotificationEntities {
-  /** A `task` row. */
   taskId?: string;
-  /** A `phase_task` row. */
-  phaseTaskId?: string;
   rfqId?: string;
   attachmentId?: string;
 }
@@ -28,23 +23,17 @@ interface CreateNotificationInput extends NotificationEntities {
   projectId?: string;
 }
 
-const ENTITY_COLUMNS = "task_id, phase_task_id, rfq_id, attachment_id";
-
+/** Fixed order, shared by every INSERT's entity columns. */
 function entityValues(e: NotificationEntities) {
-  return [
-    e.taskId || null,
-    e.phaseTaskId || null,
-    e.rfqId || null,
-    e.attachmentId || null,
-  ];
+  return [e.taskId || null, e.rfqId || null, e.attachmentId || null];
 }
 
 /** Create a single notification record. */
 export async function createNotification(input: CreateNotificationInput) {
   const pool = getPool();
   await pool.query(
-    `INSERT INTO notification (user_id, type, title, description, project_id, ${ENTITY_COLUMNS})
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    `INSERT INTO notification (user_id, type, title, description, project_id, task_id, rfq_id, attachment_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       input.userId,
       input.type,
@@ -67,8 +56,8 @@ export async function createNotificationsForTeam(
 ) {
   const pool = getPool();
   await pool.query(
-    `INSERT INTO notification (user_id, type, title, description, project_id, ${ENTITY_COLUMNS})
-     SELECT DISTINCT m."userId", $3, $4, $5, $1::uuid, $6::uuid, $7::uuid, $8::uuid, $9::uuid
+    `INSERT INTO notification (user_id, type, title, description, project_id, task_id, rfq_id, attachment_id)
+     SELECT DISTINCT m."userId", $3, $4, $5, $1::uuid, $6::uuid, $7::uuid, $8::uuid
      FROM project p
      JOIN member m ON m."organizationId" = p.org_id
      WHERE p.id = $1::uuid AND m."userId" != $2 AND m.role != 'client'`,
@@ -274,7 +263,11 @@ export function notifyPmAssignment(
     );
 }
 
-/** Create a notification for the project client. */
+/**
+ * Create a notification for the project client. Resolves the client user and
+ * inserts in one round-trip; a project with no matching client user inserts
+ * nothing.
+ */
 export async function createNotificationForClient(
   projectId: string,
   type: string,
@@ -283,20 +276,12 @@ export async function createNotificationForClient(
   entities: NotificationEntities = {}
 ) {
   const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT u.id FROM "user" u
+  await pool.query(
+    `INSERT INTO notification (user_id, type, title, description, project_id, task_id, rfq_id, attachment_id)
+     SELECT u.id, $2, $3, $4, $1::uuid, $5::uuid, $6::uuid, $7::uuid
+     FROM "user" u
      JOIN project p ON p.client_email = u.email
-     WHERE p.id = $1`,
-    [projectId]
+     WHERE p.id = $1::uuid`,
+    [projectId, type, title, description || "", ...entityValues(entities)]
   );
-  if (rows[0]) {
-    await createNotification({
-      userId: rows[0].id,
-      type,
-      title,
-      description,
-      projectId,
-      ...entities,
-    });
-  }
 }

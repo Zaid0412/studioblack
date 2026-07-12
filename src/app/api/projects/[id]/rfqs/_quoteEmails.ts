@@ -1,6 +1,7 @@
 import { sendQuoteAwardedEmail, sendQuoteReceivedEmail } from "@/lib/email";
 import { logger } from "@/lib/logger";
 import { env } from "@/env";
+import { rfqDetailHref } from "@/lib/appRoutes";
 import type { QuoteStudioRecipient } from "@/lib/queries/quotes";
 
 interface QuoteReceivedContext {
@@ -25,7 +26,7 @@ export async function notifyQuoteReceived(
   ctx: QuoteReceivedContext
 ): Promise<number> {
   const appUrl = env().NEXT_PUBLIC_APP_URL ?? "";
-  const deepLink = `${appUrl}/projects/${ctx.projectId}/order/rfq/${ctx.rfqId}`;
+  const deepLink = `${appUrl}${rfqDetailHref(ctx.projectId, ctx.rfqId)}`;
 
   for (const r of recipients) {
     try {

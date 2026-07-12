@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications";
 import { escapeHtml } from "@/lib/email";
 import { env } from "@/env";
+import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/withAuth";
 import { parseRequest, submitTaskReviewSchema } from "@/lib/validations";
 import { guardTaskOwnership } from "@/app/api/tasks/helpers";
@@ -73,8 +74,13 @@ export const POST = withAuth(
         title: `Client ${statusLabel} your task`,
         description: `"${task.title}" was ${statusLabel} by ${user.name}`,
         projectId: id,
-        phaseTaskId: taskId,
-      }).catch(() => {});
+      }).catch((err) =>
+        logger.error("Task review notification failed", {
+          projectId: id,
+          taskId,
+          error: err,
+        })
+      );
 
       notifyUserByEmailWithContext(existing.assigned_to, id, (ctx) => {
         const projectUrl = escapeHtml(

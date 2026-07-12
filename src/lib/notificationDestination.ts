@@ -1,20 +1,12 @@
 import { DEFAULT_BOQ_SEGMENT } from "@/app/(dashboard)/projects/[id]/boq/_lib/tabs";
+import { designReviewHref, rfqDetailHref } from "@/lib/appRoutes";
+import type { Notification } from "@/types";
 
-/** The routing-relevant subset of a notification — satisfied by both the DB row and the client `Notification`. */
-export interface NotificationTarget {
-  type: string;
-  projectId?: string | null;
-  taskId?: string | null;
-  rfqId?: string | null;
-  /** A design. The review route calls it `designId`, but it is an attachment id. */
-  attachmentId?: string | null;
-  /**
-   * Explicit destination, for the client-only notifications that have no DB row
-   * and so carry no entity ids (see the synthetic invitations in
-   * `useNotifications`). Wins over the id-based rules below.
-   */
-  href?: string | null;
-}
+/** The routing-relevant subset of a notification. */
+export type NotificationTarget = Pick<
+  Notification,
+  "type" | "projectId" | "taskId" | "rfqId" | "attachmentId" | "href"
+>;
 
 /**
  * Pick the deep-link target for a notification, or `null` when there is nowhere
@@ -26,10 +18,11 @@ export interface NotificationTarget {
  * it has no project, which a project-first rule can't express (standalone tasks
  * have `project_id` NULL).
  *
- * BOQ is the one type-driven case left — the row carries no BOQ item id, so the
- * sub-tab can only be picked from the type. The producer (`_phaseNotifications.ts`)
- * interpolates it as `boq_item_${target}`, so the `boq_` prefix is the only
- * contract on offer; if it changes there, change it here.
+ * BOQ is the one type-driven case left — the row carries no BOQ item id (and a
+ * phase transition can cover many items, so a single id couldn't represent it),
+ * so the sub-tab can only be picked from the type. The producer
+ * (`_phaseNotifications.ts`) interpolates it as `boq_item_${target}`, so the
+ * `boq_` prefix is the only contract on offer; if it changes there, change it here.
  */
 export function notificationDestination(n: NotificationTarget): string | null {
   if (n.href) return n.href;
@@ -37,10 +30,8 @@ export function notificationDestination(n: NotificationTarget): string | null {
   // Everything below is project-scoped, so without a project there is nowhere
   // to go -- even if the notification names an RFQ or a design.
   if (!n.projectId) return null;
-  if (n.rfqId) return `/projects/${n.projectId}/order/rfq/${n.rfqId}`;
-  if (n.attachmentId) {
-    return `/projects/${n.projectId}/review/${n.attachmentId}`;
-  }
+  if (n.rfqId) return rfqDetailHref(n.projectId, n.rfqId);
+  if (n.attachmentId) return designReviewHref(n.projectId, n.attachmentId);
   if (n.type.startsWith("boq_")) {
     return `/projects/${n.projectId}/boq/${DEFAULT_BOQ_SEGMENT}`;
   }
