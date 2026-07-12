@@ -649,6 +649,37 @@ describe("phase notification fan-out", () => {
     );
   });
 
+  // notifyPhaseRecipients had no arm for this phase, so it notified nobody --
+  // and because the function returns void, TS never flagged the missing case.
+  it("ready_for_procurement → fans out to the studio team", async () => {
+    setupAuth(mocks.auth, mockSession({ id: PM_ID }));
+    vi.mocked(getBoqItemContext).mockResolvedValue(
+      ctx({ phase: "client_approved" })
+    );
+    vi.mocked(setBoqItemPhase).mockResolvedValue({
+      ok: true,
+      item: { ...baseItem, phase: "ready_for_procurement" },
+    });
+    vi.mocked(getProjectStaffIds).mockResolvedValue([PM_ID, ARCHITECT_ID]);
+    vi.mocked(getUsersByIds).mockResolvedValue([
+      { id: ARCHITECT_ID, email: "arch@test.com", name: "Arch" },
+      { id: CREATOR_ID, email: "creator@test.com", name: "Creator" },
+    ]);
+
+    const req = buildRequest(
+      `/api/projects/${PROJECT_ID}/boq/items/${ITEM_ID}/lifecycle`,
+      { method: "POST", body: { phase: "ready_for_procurement" } }
+    );
+    await PATCH_PHASE(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
+    await flushFanOut();
+
+    expect(getProjectStaffIds).toHaveBeenCalledWith(PROJECT_ID);
+    const readyRecipients = vi.mocked(getUsersByIds).mock
+      .calls[0][0] as string[];
+    // Actor (PM_ID) excluded; BOQ creator included even though not in staff.
+    expect(readyRecipients.sort()).toEqual([ARCHITECT_ID, CREATOR_ID].sort());
+  });
+
   it("internal_changes_requested → excludes the actor from recipients", async () => {
     // Actor IS the BOQ creator AND a project PM. Should still not notify
     // themselves.
