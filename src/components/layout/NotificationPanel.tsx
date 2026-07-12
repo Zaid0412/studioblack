@@ -3,16 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  Bell,
-  UserPlus,
-  MessageSquare,
-  Upload,
-  CheckCircle2,
-  ClipboardCheck,
-  AlertTriangle,
-  ListChecks,
-} from "lucide-react";
+import { Bell, UserPlus, MessageSquare } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   Popover,
@@ -31,65 +22,17 @@ import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { notificationDestination } from "@/lib/notificationDestination";
 import type { Notification } from "@/types";
 
-// ---------------------------------------------------------------------------
-// Type → icon mapping
-// ---------------------------------------------------------------------------
+/**
+ * Notifications get one of three icons, all in the accent colour.
+ *
+ * Type used to drive five hues and eight icons, so colour, icon and title all
+ * encoded the same fact three times over. The icon is the only one of those
+ * worth keeping, and it only needs to say whether a person is asking you
+ * something or the system is telling you something. Everything else is `Bell`.
+ */
 const typeIcons: Record<string, typeof Bell> = {
   invitation: UserPlus,
   comment: MessageSquare,
-  upload: Upload,
-  approval: CheckCircle2,
-  review_requested: ClipboardCheck,
-  review_submitted: AlertTriangle,
-  task_assigned: ListChecks,
-};
-
-// ---------------------------------------------------------------------------
-// Type → accent color mapping (border + icon bg + icon fill)
-// ---------------------------------------------------------------------------
-const typeAccent: Record<string, { border: string; bg: string; fill: string }> =
-  {
-    invitation: {
-      border: "border-l-amber-400",
-      bg: "bg-amber-400/10",
-      fill: "text-amber-400",
-    },
-    review_requested: {
-      border: "border-l-amber-400",
-      bg: "bg-amber-400/10",
-      fill: "text-amber-400",
-    },
-    comment: {
-      border: "border-l-blue-400",
-      bg: "bg-blue-400/10",
-      fill: "text-blue-400",
-    },
-    upload: {
-      border: "border-l-green-400",
-      bg: "bg-green-400/10",
-      fill: "text-green-400",
-    },
-    approval: {
-      border: "border-l-green-400",
-      bg: "bg-green-400/10",
-      fill: "text-green-400",
-    },
-    review_submitted: {
-      border: "border-l-purple-400",
-      bg: "bg-purple-400/10",
-      fill: "text-purple-400",
-    },
-    task_assigned: {
-      border: "border-l-indigo-400",
-      bg: "bg-indigo-400/10",
-      fill: "text-indigo-400",
-    },
-  };
-
-const defaultAccent = {
-  border: "border-l-zinc-500",
-  bg: "bg-zinc-500/10",
-  fill: "text-zinc-500",
 };
 
 // ---------------------------------------------------------------------------
@@ -247,7 +190,6 @@ function NotificationCard({
   onReject?: () => void;
   t: (key: string) => string;
 }) {
-  const accent = typeAccent[notification.type] ?? defaultAccent;
   const Icon = typeIcons[notification.type] ?? Bell;
   const isInvitation = isInvite && notification.type === "invitation";
 
@@ -276,23 +218,16 @@ function NotificationCard({
     <div
       data-anim-item
       className={cn(
-        "group rounded-xl border border-border-default border-l-[3px] transition-colors",
-        accent.border,
-        interactive && "cursor-pointer",
-        isInvitation && "border-accent/30"
+        "group rounded-xl border border-border-default transition-colors",
+        interactive && "cursor-pointer hover:border-accent/60"
       )}
       {...buttonProps}
     >
       <div className="p-3">
         <div className="flex items-start gap-3">
           {/* Icon */}
-          <div
-            className={cn(
-              "w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0",
-              accent.bg
-            )}
-          >
-            <Icon className={cn("w-4 h-4", accent.fill)} />
+          <div className="w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0 bg-accent/10">
+            <Icon className="w-4 h-4 text-accent" />
           </div>
 
           {/* Content — every card here is unread, so no read/unread variants */}
