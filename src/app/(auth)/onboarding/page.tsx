@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
+import { useSplashRevealClass } from "@/hooks/useSplashDone";
 
 /** Onboarding page — PM creates their organisation after first sign-up. */
 export default function OnboardingPage() {
@@ -19,6 +20,7 @@ export default function OnboardingPage() {
   const [slug, setSlug] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const revealClass = useSplashRevealClass();
 
   const generateSlug = (name: string) =>
     name
@@ -51,8 +53,8 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-primary px-4">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-dvh items-center justify-center bg-bg-primary px-4">
+      <div className={`w-full max-w-md ${revealClass}`}>
         <div className="flex items-center gap-2.5 mb-8 justify-center">
           <BrandLogo size="sm" />
           {branding.showLogoText && (

@@ -510,6 +510,53 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
   }
 }
 
+/* Content cascade — staggered entrance for dashboard blocks and list items.
+   `--an-delay` is set per child by useLoadStagger / useStaggerReveal. */
+@keyframes an-rise {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.an-rise {
+  animation: an-rise 0.7s ease both;
+  animation-delay: var(--an-delay, 0ms);
+}
+/* Cascade every direct child in, without tagging each one — pair with
+   useLoadStagger on the container to set the per-child `--an-delay`. */
+.stagger-children > * {
+  animation: an-rise 0.55s ease both;
+  animation-delay: var(--an-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .an-rise,
+  .stagger-children > * {
+    animation: none !important;
+  }
+}
+
+/* Auth pages — cascade hero + form sections in. Children stay hidden until the
+   container gets `data-ready` (set once the splash overlay clears, so the
+   animation isn't wasted behind it). `--an-delay` is set per child by
+   useLoadStagger on the `.auth-reveal` container. */
+.auth-reveal > * {
+  opacity: 0;
+}
+.auth-reveal[data-ready] > * {
+  animation: an-rise 0.55s ease both;
+  animation-delay: var(--an-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-reveal > * {
+    opacity: 1;
+    animation: none !important;
+  }
+}
+
 /* Auth shell slide panels — only animate after first paint (data-ready) */
 [data-ready] > .auth-slide-panel {
   transition: left 500ms ease-in-out;

@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, FileSpreadsheet, MoreVertical } from "lucide-react";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import {
   DndContext,
   PointerSensor,
@@ -245,6 +246,10 @@ export function BoqTable({
     return items.filter((it) => sourceFilter.has(it.source));
   }, [items, sourceFilter]);
 
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    visibleItems.map((i) => i.id).join(",")
+  );
+
   const groups = useMemo<SectionGroup[]>(() => {
     const bySection = new Map<string, BoqItemWithComputed[]>();
     const unassigned: BoqItemWithComputed[] = [];
@@ -338,7 +343,7 @@ export function BoqTable({
           onActivate={expandSection}
         />
         <div className="overflow-x-auto">
-          <div className={wrapperMinWidth}>
+          <div ref={listRef} className={wrapperMinWidth}>
             <div
               className={`grid ${gridCols} gap-2 px-3 py-3 border-b border-border-default text-[11px] font-bold text-text-primary uppercase tracking-wide`}
             >
@@ -822,6 +827,7 @@ const BoqItemRow = memo(function BoqItemRow({
 
   return (
     <div
+      data-anim-item
       className={`grid ${rowGridCols} gap-2 px-3 py-3 items-center border-b border-border-default last:border-b-0 text-sm hover:bg-bg-elevated/50 transition-colors ${isSelected ? "bg-accent/5" : ""}`}
     >
       {selectionMode && (

@@ -28,6 +28,7 @@ export function ProjectCard({
   if (variant === "mobile") {
     return (
       <div
+        data-anim-item
         className="flex flex-col gap-2 p-4 border-b border-border-default last:border-b-0 active:bg-bg-elevated/50 transition-colors cursor-pointer"
         onClick={onClick}
       >
@@ -65,7 +66,8 @@ export function ProjectCard({
   // Grid card
   return (
     <div
-      className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 transition-colors cursor-pointer"
+      data-anim-item
+      className="flex flex-col gap-3 p-4 rounded-lg border border-border-default bg-bg-primary hover:border-accent/30 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 transition-[color,background-color,border-color,transform] cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2">

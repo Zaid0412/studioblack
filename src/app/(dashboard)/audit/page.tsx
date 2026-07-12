@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { activityIcons } from "@/lib/activityConstants";
 import { formatShortDateTime } from "@/lib/formatDate";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbNotificationRow } from "@/types";
 
 /** Audit history page showing recent notifications as activity log. */
@@ -37,6 +38,10 @@ export default function AuditPage() {
       ),
     [entries, search]
   );
+
+  const revealSignature = filtered.map((e) => e.id).join(",");
+  const tableRef = useStaggerReveal<HTMLTableSectionElement>(revealSignature);
+  const mobileRef = useStaggerReveal<HTMLDivElement>(revealSignature);
 
   return (
     <div className="flex flex-col gap-6 max-w-[1000px]">
@@ -157,12 +162,13 @@ export default function AuditPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody ref={tableRef}>
                 {filtered.map((entry) => {
                   const Icon = activityIcons[entry.type] || FolderOpen;
                   return (
                     <tr
                       key={entry.id}
+                      data-anim-item
                       className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated/30 transition-colors"
                     >
                       <td className="px-5 py-3.5">
@@ -195,12 +201,13 @@ export default function AuditPage() {
             </table>
 
             {/* Mobile card list */}
-            <div className="flex flex-col lg:hidden">
+            <div ref={mobileRef} className="flex flex-col lg:hidden">
               {filtered.map((entry) => {
                 const Icon = activityIcons[entry.type] || FolderOpen;
                 return (
                   <div
                     key={entry.id}
+                    data-anim-item
                     className="flex flex-col gap-1.5 px-4 py-3 border-b border-border-default last:border-b-0"
                   >
                     <div className="flex items-center gap-2">

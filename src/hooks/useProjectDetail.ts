@@ -87,11 +87,17 @@ export function useProjectDetail(
   const [changesComment, setChangesComment] = useState("");
   const [activePhaseId, setActivePhaseId] = useState<string | null>(null);
 
+  // `loading` is true while ANY resource is in flight — useful for a full-page
+  // spinner, but too broad for chrome that only needs the project. Consumers
+  // that can render as soon as the primary resource lands (e.g. the project
+  // layout) should gate on `initialLoading`, so a secondary revalidation
+  // (comments, phase-counts) doesn't re-flash a skeleton over cached content.
   const loading =
     projectLoading ||
     attachmentsLoading ||
     phaseCountsLoading ||
     commentsLoading;
+  const initialLoading = projectLoading;
   const error = !!projectError;
 
   // Set initial phase when project data arrives
@@ -239,6 +245,7 @@ export function useProjectDetail(
     approvals,
     pendingTasks,
     loading,
+    initialLoading,
     error,
     activePhaseId,
     setActivePhaseId,

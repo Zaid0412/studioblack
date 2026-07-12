@@ -8,6 +8,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { sortPinsByDate, buildPinIndexMap } from "@/lib/pinUtils";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { DbPinComment, PinShape, UserRole } from "@/types";
 import { useSlide } from "./useSlide";
 import { PinCard } from "./PinCard";
@@ -107,6 +108,11 @@ export function PinSidebar({
   const sorted = useMemo(() => sortPinsByDate(pins), [pins]);
   const pinIndexMap = useMemo(() => buildPinIndexMap(pins), [pins]);
 
+  // Cascade pin cards in when the pin set changes (e.g. a new annotation).
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    sorted.map((p) => p.id).join(",")
+  );
+
   if (!shouldRender) return null;
 
   return (
@@ -189,7 +195,7 @@ export function PinSidebar({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5 p-2">
+          <div ref={listRef} className="flex flex-col gap-1.5 p-2">
             {sorted.map((pin) => (
               <PinCard
                 key={pin.id}

@@ -35,6 +35,7 @@ import type { VendorSortField, SortOrder } from "@/lib/validations";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { CategoryFilterSelect } from "@/app/(dashboard)/elements/_components/CategoryFilterSelect";
 import { VendorRow } from "./VendorRow";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { VendorFilterState } from "../_hooks/useVendorFilters";
 
 type SortKey = VendorSortField;
@@ -111,6 +112,11 @@ export function VendorList({
 
   const startIdx = (state.page - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, total);
+
+  // Cascade rows in on set change (filter/sort/page), not on background refresh.
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    rows.map((v) => v.id).join(",")
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -232,7 +238,7 @@ export function VendorList({
             <div className="text-right">{t("colActions")}</div>
           </div>
 
-          <div className="flex flex-col">
+          <div ref={listRef} className="flex flex-col">
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <SkeletonRow key={i} columns={7} />

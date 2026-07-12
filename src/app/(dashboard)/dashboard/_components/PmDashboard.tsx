@@ -21,6 +21,7 @@ import { activityIcons, activityColors } from "@/lib/activityConstants";
 import { formatTimeAgo } from "@/lib/formatTime";
 import { formatDate } from "@/lib/formatDate";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { PendingReviewsPopover } from "@/components/dashboard/PendingReviewsPopover";
 import { DashboardSkeleton } from "./DashboardSkeleton";
 import { DashboardError } from "./DashboardError";
@@ -59,6 +60,8 @@ export function PmDashboard() {
   const { data, isLoading, error, mutate } =
     useSWR<DashboardData>("/api/dashboard");
 
+  const staggerRef = useLoadStagger<HTMLDivElement>(data ? "1" : "0");
+
   if (isLoading) return <DashboardSkeleton />;
   if (error) return <DashboardError onRetry={() => mutate()} />;
 
@@ -69,7 +72,7 @@ export function PmDashboard() {
     data.stats.approved === 0;
 
   return (
-    <div className="flex flex-col gap-7 max-w-[1200px]">
+    <div ref={staggerRef} className="flex flex-col gap-7 max-w-[1200px]">
       <PageHeader
         title={t("greeting", {
           name: session?.user?.name?.split(" ")[0] ?? "",
@@ -107,7 +110,7 @@ export function PmDashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="an-rise grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label={t("activeProjects")}
           value={String(data?.stats.active ?? 0)}
@@ -134,7 +137,7 @@ export function PmDashboard() {
       </div>
 
       {/* Content row — stacks on mobile */}
-      <div className="flex flex-col lg:flex-row gap-6 min-h-0">
+      <div className="an-rise flex flex-col lg:flex-row gap-6 min-h-0">
         {/* Recent Activity */}
         <div className="flex-1 flex flex-col gap-4">
           <h2 className="text-lg font-bold text-text-primary">

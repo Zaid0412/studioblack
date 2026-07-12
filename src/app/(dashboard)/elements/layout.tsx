@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFlag } from "@/hooks/useFlag";
-import { cn } from "@/lib/utils";
+import { SlidingTabsNav } from "@/components/layout/SlidingTabsNav";
 
 interface Props {
   children: React.ReactNode;
@@ -18,48 +16,27 @@ interface Props {
 export default function ElementsLayout({ children }: Props) {
   const t = useTranslations("elements");
   const tRc = useTranslations("rateContracts");
-  const pathname = usePathname();
   const rateContractsEnabled = useFlag("rateContracts");
 
-  const tabs: { href: string; label: string; show: boolean }[] = [
-    {
-      href: "/elements/library",
-      label: t("tabLibrary"),
-      show: true,
-    },
+  const tabs = [
+    { href: "/elements/library", label: t("tabLibrary"), show: true },
     {
       href: "/elements/rate-contracts",
       label: tRc("tabRateContracts"),
       show: rateContractsEnabled,
     },
-  ];
-
-  const visibleTabs = tabs.filter((tab) => tab.show);
+  ].filter((tab) => tab.show);
 
   return (
     <div className="flex flex-col gap-4">
-      {visibleTabs.length > 1 && (
+      {tabs.length > 1 && (
         <div className="border-b border-border-default">
-          <nav className="flex gap-1 -mb-px">
-            {visibleTabs.map((tab) => {
-              const isActive =
-                pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  className={cn(
-                    "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors",
-                    isActive
-                      ? "border-accent text-text-primary"
-                      : "border-transparent text-text-muted hover:text-text-primary hover:border-border-default"
-                  )}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <SlidingTabsNav
+            tabs={tabs}
+            className="flex gap-1 -mb-px"
+            linkClassName="px-4 py-2.5 text-sm font-medium text-text-muted transition-colors hover:text-text-primary data-[active=true]:text-text-primary"
+            indicatorClassName="bottom-0 h-0.5 bg-accent"
+          />
         </div>
       )}
       {children}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import useSWR from "swr";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,9 @@ import { relativeTime } from "@/lib/formatTime";
 import { useProjectList, type FilterTab } from "@/hooks/useProjectList";
 import { useUserRole } from "@/hooks/useUserRole";
 import { SkeletonRow } from "@/components/ui/Skeleton";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
+import { SlidingIndicator } from "@/components/ui/SlidingIndicator";
+import { useSlidingIndicator } from "@/hooks/useSlidingIndicator";
 import { ProjectDropdown } from "./_components/ProjectDropdown";
 import { ProjectCard } from "./_components/ProjectCard";
 
@@ -106,6 +109,21 @@ export default function ProjectsPage() {
   const isStaff = userRole === "pm" || userRole === "architect";
   const isPm = userRole === "pm";
 
+  // Cascade the visible rows/cards in when the set or view mode changes — not on
+  // a background revalidation with the same rows. All three view containers stay
+  // mounted (toggled via CSS); the desktop list/grid reveals are gated on the
+  // active view so the hidden one doesn't animate off-screen.
+  const revealSignature = `${viewMode}|${paginatedRows.map((p) => p.id).join(",")}`;
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    revealSignature,
+    viewMode === "list"
+  );
+  const gridRef = useStaggerReveal<HTMLDivElement>(
+    revealSignature,
+    viewMode === "grid"
+  );
+  const mobileRef = useStaggerReveal<HTMLDivElement>(revealSignature);
+
   const renderProjectCard = (
     project: DbProjectRow,
     variant: "grid" | "mobile"
@@ -127,6 +145,11 @@ export default function ProjectsPage() {
     { key: "completed", label: t("filterCompleted") },
     { key: "draft", label: t("filterDraft") },
   ];
+
+  const viewToggleRef = useRef<HTMLDivElement>(null);
+  const viewIndicator = useSlidingIndicator(viewToggleRef, viewMode);
+  const filterBarRef = useRef<HTMLDivElement>(null);
+  const filterIndicator = useSlidingIndicator(filterBarRef, activeFilter);
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px]">
@@ -178,14 +201,18 @@ export default function ProjectsPage() {
             </SelectContent>
           </Select>
           <TooltipProvider delayDuration={300}>
-            <div className="hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden">
+            <div
+              ref={viewToggleRef}
+              className="relative hidden lg:flex items-center rounded-lg border border-border-default overflow-hidden"
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => handleViewMode("list")}
-                    className={`p-2 transition-colors cursor-pointer ${
+                    data-active={viewMode === "list"}
+                    className={`relative z-10 p-2 transition-colors cursor-pointer ${
                       viewMode === "list"
-                        ? "bg-bg-elevated text-text-primary"
+                        ? "text-text-primary"
                         : "text-text-muted hover:text-text-secondary"
                     }`}
                   >
@@ -198,9 +225,10 @@ export default function ProjectsPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => handleViewMode("grid")}
-                    className={`p-2 transition-colors cursor-pointer ${
+                    data-active={viewMode === "grid"}
+                    className={`relative z-10 p-2 transition-colors cursor-pointer ${
                       viewMode === "grid"
-                        ? "bg-bg-elevated text-text-primary"
+                        ? "text-text-primary"
                         : "text-text-muted hover:text-text-secondary"
                     }`}
                   >
@@ -209,19 +237,27 @@ export default function ProjectsPage() {
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{t("gridView")}</TooltipContent>
               </Tooltip>
+              <SlidingIndicator
+                className="inset-y-0 bg-bg-elevated"
+                style={{ left: viewIndicator.left, width: viewIndicator.width }}
+              />
             </div>
           </TooltipProvider>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="flex items-center gap-0 border-b border-border-default overflow-x-auto scrollbar-none">
+      <div
+        ref={filterBarRef}
+        className="relative flex items-center gap-0 border-b border-border-default overflow-x-auto scrollbar-none"
+      >
         {filters.map((f) => {
           const isActive = activeFilter === f.key;
           return (
             <button
               key={f.key}
               onClick={() => setActiveFilter(f.key)}
+              data-active={isActive}
               className={`relative px-4 pb-3 pt-1 text-sm transition-colors cursor-pointer shrink-0 ${
                 isActive
                   ? "text-text-primary font-semibold"
@@ -236,12 +272,13 @@ export default function ProjectsPage() {
                   </span>
                 )}
               </span>
-              {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-accent" />
-              )}
             </button>
           );
         })}
+        <SlidingIndicator
+          className="bottom-0 h-[2px] bg-accent"
+          style={{ left: filterIndicator.left, width: filterIndicator.width }}
+        />
       </div>
 
       {/* Content area */}
@@ -297,10 +334,11 @@ export default function ProjectsPage() {
               </div>
 
               {/* Table rows */}
-              <div className="flex-1">
+              <div ref={listRef} className="flex-1">
                 {paginatedRows.map((project) => (
                   <div
                     key={project.id}
+                    data-anim-item
                     className="flex items-center h-14 px-4 border-b border-border-default last:border-b-0 hover:bg-bg-elevated/50 transition-colors cursor-pointer"
                     onClick={() => router.push(`/projects/${project.id}`)}
                   >
@@ -359,7 +397,10 @@ export default function ProjectsPage() {
             <div
               className={`${viewMode === "grid" ? "hidden lg:flex" : "hidden"} flex-col flex-1 p-4`}
             >
-              <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+              <div
+                ref={gridRef}
+                className="grid grid-cols-2 xl:grid-cols-3 gap-4"
+              >
                 {paginatedRows.map((project) =>
                   renderProjectCard(project, "grid")
                 )}
@@ -367,7 +408,10 @@ export default function ProjectsPage() {
             </div>
 
             {/* ── Mobile card list (hidden on desktop) ── */}
-            <div className="flex flex-col gap-0 lg:hidden flex-1">
+            <div
+              ref={mobileRef}
+              className="flex flex-col gap-0 lg:hidden flex-1"
+            >
               {paginatedRows.map((project) =>
                 renderProjectCard(project, "mobile")
               )}

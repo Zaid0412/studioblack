@@ -8,6 +8,7 @@ import { DEFAULT_BOQ_SEGMENT } from "../boq/_lib/tabs";
 import { DEFAULT_ORDER_SEGMENT } from "../order/_lib/tabs";
 import { useUserRole } from "@/hooks/useUserRole";
 import { isStudioUser } from "@/lib/roles";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { useActiveProjectTab, type ProjectTab } from "./ProjectTabs";
 
 type StepStatus = "pending" | "in_progress" | "completed";
@@ -122,15 +123,21 @@ export function ProjectWorkflowSteps({
     }
   }
 
+  // Cascade the steps in on mount, matching the auth/dashboard `an-rise` seam.
+  const stepsRef = useLoadStagger<HTMLDivElement>(
+    steps.map((s) => s.id).join(","),
+    70
+  );
+
   return (
     <div className="px-4 lg:px-10 py-6 border-b border-border-default">
       <div className="relative overflow-x-auto scrollbar-none">
         <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[var(--bg-primary)] to-transparent z-10 lg:hidden" />
-        <div className="flex items-center gap-5">
+        <div ref={stepsRef} className="flex items-center gap-5">
           {steps.map((step, i) => {
             const isActive = step.id === activeTab;
             return (
-              <div key={step.id} className="flex items-center gap-5">
+              <div key={step.id} className="an-rise flex items-center gap-5">
                 <Link
                   href={step.href}
                   aria-current={isActive ? "page" : undefined}

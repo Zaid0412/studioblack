@@ -26,6 +26,7 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/formatTime";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import type { Notification } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -138,6 +139,10 @@ export function NotificationPanel() {
     [notifications]
   );
 
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    filtered.map((n) => n.id).join(",")
+  );
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -246,7 +251,7 @@ export function NotificationPanel() {
               </span>
             </div>
           ) : (
-            <div className="flex flex-col gap-2 p-3 lg:p-4">
+            <div ref={listRef} className="flex flex-col gap-2 p-3 lg:p-4">
               {filtered.map((notification) => (
                 <NotificationCard
                   key={notification.id}
@@ -360,6 +365,7 @@ function NotificationCard({
 
   return (
     <div
+      data-anim-item
       className={cn(
         "group rounded-xl border border-border-default border-l-[3px] transition-colors cursor-pointer",
         accent.border,

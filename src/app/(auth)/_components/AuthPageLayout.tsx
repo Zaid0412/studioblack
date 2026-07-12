@@ -7,6 +7,8 @@ import { BrandLogo } from "@/components/ui/BrandLogo";
 import { branding } from "@/config/branding";
 import { authClient } from "@/lib/authClient";
 import { getSafeReturnTo } from "@/lib/utils";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
+import { useSplashDone } from "@/hooks/useSplashDone";
 import { AlreadySignedIn } from "./AlreadySignedIn";
 
 interface AuthPageLayoutProps {
@@ -30,6 +32,12 @@ export function AuthPageLayout({
   const returnTo = searchParams.get("returnTo");
   const { data: session } = authClient.useSession();
 
+  // Cascade the hero content and form sections in once the splash clears.
+  const heroRef = useLoadStagger<HTMLDivElement>("auth-hero");
+  const formRef = useLoadStagger<HTMLDivElement>("auth-form");
+  const readyAttr = useSplashDone() || undefined;
+  const signedIn = !!session?.user;
+
   // Redirect authenticated users
   useEffect(() => {
     if (!session?.user) return;
@@ -44,14 +52,18 @@ export function AuthPageLayout({
   }, [session?.user, router, redirectDelay, returnTo]);
 
   return (
-    <div className="flex min-h-screen lg:h-screen">
+    <div className="flex min-h-dvh lg:h-dvh">
       {/* Hero Panel — Left */}
       <div className="hidden lg:flex lg:flex-[1.8] relative bg-bg-secondary overflow-hidden">
         {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-bg-secondary via-bg-secondary to-accent/5" />
 
         {/* Branding content at bottom */}
-        <div className="relative z-10 flex flex-col justify-end p-16 pb-20">
+        <div
+          ref={heroRef}
+          data-ready={readyAttr}
+          className="auth-reveal relative z-10 flex flex-col justify-end p-16 pb-20"
+        >
           {/* Logo */}
           <div className="flex items-center gap-3 -ml-5">
             <BrandLogo size="lg" priority />
@@ -77,7 +89,7 @@ export function AuthPageLayout({
         <div className="w-full max-w-sm">
           {/* Mobile logo (hidden on desktop) */}
           <div
-            className={`flex items-center gap-2.5 lg:hidden ${session?.user ? "justify-center" : "-ml-3"}`}
+            className={`flex items-center gap-2.5 lg:hidden ${signedIn ? "justify-center" : "-ml-3"}`}
           >
             <BrandLogo size="lg" />
             {branding.showLogoText && (
@@ -87,7 +99,29 @@ export function AuthPageLayout({
             )}
           </div>
 
-          {session?.user ? <AlreadySignedIn /> : children}
+          {/* Crossfade form ⇄ already-signed-in: both stack in one grid cell so
+              the swap fades smoothly instead of hard-cutting when the session
+              resolves. */}
+          <div className="grid">
+            <div
+              className={`col-start-1 row-start-1 transition-opacity duration-300 motion-reduce:transition-none ${
+                signedIn ? "pointer-events-none opacity-0" : "opacity-100"
+              }`}
+              aria-hidden={signedIn || undefined}
+            >
+              <div ref={formRef} data-ready={readyAttr} className="auth-reveal">
+                {children}
+              </div>
+            </div>
+            <div
+              className={`col-start-1 row-start-1 flex items-center justify-center transition-opacity duration-300 motion-reduce:transition-none ${
+                signedIn ? "opacity-100" : "pointer-events-none opacity-0"
+              }`}
+              aria-hidden={!signedIn || undefined}
+            >
+              <AlreadySignedIn />
+            </div>
+          </div>
         </div>
       </div>
     </div>

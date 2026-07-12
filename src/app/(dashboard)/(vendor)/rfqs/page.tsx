@@ -19,6 +19,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { SkeletonRow } from "@/components/ui/Skeleton";
 import { formatDate } from "@/lib/formatDate";
 import { useVendorRfqs } from "@/hooks/useRfqs";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { RFQ_STATUSES } from "@/lib/validations";
 import type { RfqStatus } from "@/types";
 import { RfqStatusBadge } from "@/components/rfq/RfqStatusBadge";
@@ -49,6 +50,9 @@ export default function VendorPortalRfqsPage() {
   const isRefreshing = isValidating && !isLoading;
   const showingFrom = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const showingTo = Math.min(page * PAGE_SIZE, total);
+  const listRef = useStaggerReveal<HTMLTableSectionElement>(
+    rows.map((r) => r.id).join(",")
+  );
 
   return (
     <div className="flex flex-col gap-6 max-w-[1400px]">
@@ -96,6 +100,7 @@ export default function VendorPortalRfqsPage() {
               </tr>
             </thead>
             <tbody
+              ref={listRef}
               className={isRefreshing ? "opacity-60 transition-opacity" : ""}
             >
               {isLoading ? (
@@ -122,6 +127,7 @@ export default function VendorPortalRfqsPage() {
                 rows.map((row) => (
                   <tr
                     key={row.id}
+                    data-anim-item
                     className="border-t border-border-default hover:bg-bg-elevated/40 cursor-pointer"
                     onClick={() => router.push(`/rfqs/${row.id}`)}
                   >

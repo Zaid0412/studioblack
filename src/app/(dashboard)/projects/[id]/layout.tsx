@@ -50,7 +50,7 @@ export default function ProjectDetailLayout({
   const {
     project,
     comments,
-    loading,
+    initialLoading,
     error,
     phaseCounts,
     submitComment,
@@ -114,7 +114,11 @@ export default function ProjectDetailLayout({
   // collide with it (it renders below a full-height form), so both are excluded.
   const showComments = metaSurface && !onRfqSubpage;
 
-  if (loading || roleLoading) {
+  // Gate on the primary resource only: once the project lands, keep rendering
+  // the chrome even while a secondary one (comments, phase-counts) revalidates
+  // — otherwise navigating back in (e.g. from a design review) re-flashes the
+  // whole skeleton.
+  if (initialLoading || roleLoading) {
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 lg:px-6 py-4 border-b border-border-default">

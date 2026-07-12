@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { API } from "@/lib/api/routes";
 import { elements as elementsApi } from "@/lib/api";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { formatCurrency } from "@/lib/formatCurrency";
 import type { ElementWithDetails } from "@/types";
 import { AvailableRatesPanel } from "../_components/AvailableRatesPanel";
@@ -41,6 +42,7 @@ export default function ElementDetailPage({
   const { data, error, isLoading, mutate } = useSWR<ElementWithDetails>(
     API.element(id)
   );
+  const revealRef = useLoadStagger<HTMLDivElement>(data ? data.id : "0", 60);
 
   const handleSubmit = async (values: ElementSubmitValues) => {
     setSubmitting(true);
@@ -86,7 +88,10 @@ export default function ElementDetailPage({
   const category = data.category_path?.join(" › ") ?? t("detailUncategorized");
 
   return (
-    <div className="flex flex-col gap-6 p-4 lg:p-10">
+    <div
+      ref={revealRef}
+      className="stagger-children flex flex-col gap-6 p-4 lg:p-10"
+    >
       <Link
         href="/elements/library"
         className="inline-flex w-fit items-center gap-2 text-sm text-text-muted hover:text-text-primary"

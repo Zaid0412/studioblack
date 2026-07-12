@@ -24,6 +24,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import {
   Tooltip,
   TooltipContent,
@@ -82,6 +83,7 @@ export default function RateContractDetailPage({ params }: Props) {
   const { data, isLoading, mutate } = useSWR<RateContractWithDetails>(
     rateContractsEnabled ? API.rateContract(id) : null
   );
+  const revealRef = useLoadStagger<HTMLDivElement>(data ? data.id : "0", 60);
 
   const [editOpen, setEditOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -209,7 +211,10 @@ export default function RateContractDetailPage({ params }: Props) {
   });
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1400px]">
+    <div
+      ref={revealRef}
+      className="stagger-children flex flex-col gap-6 max-w-[1400px]"
+    >
       <Link
         href="/elements/rate-contracts"
         className="inline-flex items-center gap-1.5 text-[13px] text-text-muted hover:text-text-primary transition-colors w-fit"

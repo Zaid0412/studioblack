@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { cn } from "@/lib/utils";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { SectionIcon } from "./SectionIcon";
 import { buildSectionTree, isTopLevel } from "./sectionTree";
 
@@ -131,6 +132,15 @@ export function SectionSidebar({
   );
 
   const allActive = activeSectionId === null;
+  // Cascade the section rows in on mount / when the set changes. Sorted ids so
+  // a drag-reorder (same set) doesn't replay the reveal and fight dnd-kit's
+  // own drop transition.
+  const navRef = useStaggerReveal<HTMLElement>(
+    sections
+      .map((s) => s.id)
+      .sort()
+      .join(",")
+  );
   return (
     <aside className="hidden md:flex w-[280px] shrink-0 border-r border-border-default bg-bg-primary flex-col">
       <div className="px-4 pt-5 pb-2">
@@ -138,8 +148,9 @@ export function SectionSidebar({
           SECTIONS
         </p>
       </div>
-      <nav className="flex flex-col gap-0.5 px-3 pb-2">
+      <nav ref={navRef} className="flex flex-col gap-0.5 px-3 pb-2">
         <div
+          data-anim-item
           className={cn(
             "relative flex items-center rounded-md transition-colors",
             allActive ? "bg-bg-elevated" : "hover:bg-bg-elevated"
@@ -367,6 +378,7 @@ function SortableSectionRowInner({
   return (
     <div
       ref={setNodeRef}
+      data-anim-item
       style={style}
       className={cn(
         "group relative flex items-center rounded-md transition-colors",

@@ -50,7 +50,7 @@ function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-16 px-4",
+        "flex flex-col items-center justify-center py-16 px-4 animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none",
         className
       )}
     >

@@ -37,6 +37,29 @@ const eslintConfig = defineConfig([
     },
   },
 
+  // ─── CI scripts (CommonJS, Node) ───
+  // Extracted from the workflow YAML so they get linted/formatted like real
+  // code. They run under actions/github-script, which `require()`s them.
+  {
+    files: [".github/scripts/**/*.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        require: "readonly",
+        module: "writable",
+        process: "readonly",
+        Buffer: "readonly",
+        console: "readonly",
+        __dirname: "readonly",
+      },
+    },
+    rules: {
+      // actions/github-script loads these with require(), so CommonJS is the
+      // only option here.
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+
   // ─── Prettier (must be last to turn off conflicting rules) ───
   prettierConfig,
 

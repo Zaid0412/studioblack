@@ -10,6 +10,7 @@ import { authClient } from "@/lib/authClient";
 import { tasks as tasksApi } from "@/lib/api";
 import { toast } from "@/components/ui/useToast";
 import { TaskMarkdownEditor } from "@/components/tasks/TaskMarkdownEditor";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import {
   TaskMetadataSidebar,
   type TaskMetadataValues,
@@ -36,6 +37,7 @@ export default function NewTaskPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const revealRef = useLoadStagger<HTMLDivElement>("form", 60);
 
   // Assignee defaults to the current session user. `null` = not yet
   // customised (still tracking the session); once the user picks anything
@@ -121,7 +123,7 @@ export default function NewTaskPage() {
     : "/tasks";
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="animate-in fade-in duration-300 ease-out motion-reduce:animate-none max-w-5xl mx-auto">
       {/* Breadcrumb + heading */}
       <header className="border-b border-border-default pb-5 mb-6">
         <nav
@@ -150,7 +152,7 @@ export default function NewTaskPage() {
         className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] items-start"
       >
         {/* Main column */}
-        <div className="space-y-4 min-w-0">
+        <div ref={revealRef} className="stagger-children space-y-4 min-w-0">
           <div className="rounded-lg bg-bg-secondary border border-border-default focus-within:border-accent transition-colors px-4 py-2.5 flex items-center gap-3">
             <input
               type="text"

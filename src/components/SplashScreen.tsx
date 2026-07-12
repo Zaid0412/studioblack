@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { branding } from "@/config/branding";
+import { markSplashGone } from "@/hooks/useSplashDone";
 
 /**
  * Full-screen splash overlay shown during initial page load.
@@ -21,10 +22,15 @@ export function SplashScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Remove from DOM after fade-out transition completes
+  // Remove from DOM after fade-out transition completes, then signal so
+  // splash-gated entrance animations (auth pages) can start now that they're
+  // actually visible.
   useEffect(() => {
     if (!hidden) return;
-    const timer = setTimeout(() => setRemoved(true), 500);
+    const timer = setTimeout(() => {
+      setRemoved(true);
+      markSplashGone();
+    }, 500);
     return () => clearTimeout(timer);
   }, [hidden]);
 

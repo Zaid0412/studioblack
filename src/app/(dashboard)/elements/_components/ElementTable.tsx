@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/SortableHeader";
 import type { Element } from "@/types";
 import type { ElementSortField, SortOrder } from "@/lib/validations";
+import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { formatMoney } from "../_lib/formatters";
 
 type SortKey = ElementSortField;
@@ -87,6 +88,9 @@ export function ElementTable({
   onRestore,
 }: Props) {
   const t = useTranslations("elements");
+  const listRef = useStaggerReveal<HTMLDivElement>(
+    rows.map((el) => el.id).join(",")
+  );
 
   const sortConfig: SortConfig<SortKey> =
     sortBy && sortOrder ? { key: sortBy, direction: sortOrder } : null;
@@ -99,7 +103,7 @@ export function ElementTable({
     <TooltipProvider>
       <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
         <div className="lg:overflow-x-auto">
-          <div className={TABLE_MIN_WIDTH}>
+          <div ref={listRef} className={TABLE_MIN_WIDTH}>
             <div
               className={`hidden lg:grid ${GRID_COLS} gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide`}
             >
@@ -285,6 +289,7 @@ function ElementRow({
 
   return (
     <div
+      data-anim-item
       onClick={onClick}
       className="border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors cursor-pointer"
     >

@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useBoq } from "@/hooks/useBoq";
 import { useRfqMutations } from "@/hooks/useRfqs";
+import { useLoadStagger } from "@/hooks/useLoadStagger";
 import { toast } from "@/components/ui/useToast";
 import { toIsoDate } from "@/lib/formatDate";
 import {
@@ -47,6 +48,7 @@ export function RfqCreateForm({ projectId }: Props) {
   const router = useRouter();
   const { boq, isLoading: boqLoading, mutate: mutateBoq } = useBoq(projectId);
   const { create } = useRfqMutations(projectId);
+  const revealRef = useLoadStagger<HTMLFormElement>("form", 60);
 
   const [title, setTitle] = useState("");
   const [packageType, setPackageType] = useState<RfqPackageType | "">("");
@@ -178,8 +180,9 @@ export function RfqCreateForm({ projectId }: Props) {
 
   return (
     <form
+      ref={revealRef}
       onSubmit={handleSubmit}
-      className="flex flex-col gap-6 p-4 lg:p-10 min-h-[calc(100vh-7rem)]"
+      className="stagger-children flex flex-col gap-6 p-4 lg:p-10 min-h-[calc(100vh-7rem)]"
     >
       <div className="flex items-center gap-3">
         <Link
