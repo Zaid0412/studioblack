@@ -28,10 +28,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { type ElementUnit } from "@/lib/validations";
+import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
 import { API } from "@/lib/api/routes";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
 import { AvailableRatesPanel } from "./AvailableRatesPanel";
+import { categoryPrefixOf, flattenCategories } from "../_lib/categoryUtils";
 import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
@@ -41,7 +43,6 @@ interface Attribute {
 }
 
 export interface ElementFormValues {
-  code: string;
   name: string;
   description: string;
   categoryId: string | null;
@@ -93,7 +94,6 @@ const COST_FIELDS: ReadonlyArray<{
 ];
 
 const EMPTY_FORM: ElementFormValues = {
-  code: "",
   name: "",
   description: "",
   categoryId: null,
@@ -120,7 +120,6 @@ const EMPTY_FORM: ElementFormValues = {
 
 function elementToFormValues(el: ElementWithDetails): ElementFormValues {
   return {
-    code: el.code,
     name: el.name,
     description: el.description ?? "",
     categoryId: el.category_id,
@@ -196,6 +195,14 @@ export function ElementFormDialog({
   );
   const categoryTree = catData?.tree ?? [];
 
+  // The code is assigned server-side on save, so a new element can only show
+  // the prefix it will get — the category's path code, or GEN when
+  // uncategorized. An existing element shows the code it already holds.
+  const previewPrefix =
+    categoryPrefixOf(flattenCategories(categoryTree), values.categoryId) ??
+    UNCATEGORIZED_PREFIX;
+  const codePreview = editing ? editing.code : `${previewPrefix}-••••`;
+
   const [showHistory, setShowHistory] = useState(false);
   // v1 elements have no history — skip the fetch and the toggle entirely.
   const hasHistory = (editing?.version_number ?? 0) > 1;
@@ -251,7 +258,6 @@ export function ElementFormDialog({
     const toNumber = (s: string) =>
       s === "" ? undefined : Number.parseFloat(s);
     await onSubmit({
-      code: values.code,
       name: values.name,
       description: values.description,
       categoryId: values.categoryId,
@@ -303,13 +309,19 @@ export function ElementFormDialog({
                 onCleared={() => setField("imageUrl", null)}
               />
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 self-start">
-                <Input
-                  label={t("fieldCode")}
-                  value={values.code}
-                  onChange={(e) => setField("code", e.target.value)}
-                  required
-                  maxLength={50}
-                />
+                <div className="flex flex-col gap-1.5">
+                  <Input
+                    label={t("fieldCode")}
+                    value={codePreview}
+                    readOnly
+                    disabled
+                  />
+                  {!editing && (
+                    <p className="text-xs text-text-muted">
+                      {t("fieldCodeAuto")}
+                    </p>
+                  )}
+                </div>
                 <Input
                   label={t("fieldName")}
                   value={values.name}

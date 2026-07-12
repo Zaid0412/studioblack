@@ -26,14 +26,20 @@ export const PATCH = withAuth(
       is_active: body.isActive,
     };
 
-    const updated = await updateCategory(params.id, orgId, fields);
-    if (!updated) {
-      return NextResponse.json(
-        { error: "Category not found" },
-        { status: 404 }
-      );
+    try {
+      const updated = await updateCategory(params.id, orgId, fields);
+      if (!updated) {
+        return NextResponse.json(
+          { error: "Category not found" },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json(updated);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to update category";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
-    return NextResponse.json(updated);
   }
 );
 

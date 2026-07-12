@@ -1103,18 +1103,28 @@ describe("parseRequest", () => {
 describe("createElementSchema", () => {
   it("accepts minimal valid input", () => {
     const data = expectPass(createElementSchema, {
-      code: "WAL-PNT-001",
       name: "Paint",
       unit: "m2",
       unitCost: 120,
     });
     expect(data).toMatchObject({
-      code: "WAL-PNT-001",
       name: "Paint",
       unit: "m2",
       unitCost: 120,
       currency: "USD",
     });
+  });
+
+  // The code is assigned server-side from the category's path code, so the
+  // client has no say in it — a submitted one is dropped, not honoured.
+  it("strips a client-supplied code", () => {
+    const data = expectPass(createElementSchema, {
+      code: "HACK-9999",
+      name: "Paint",
+      unit: "m2",
+      unitCost: 120,
+    });
+    expect(data).not.toHaveProperty("code");
   });
 
   it("accepts all optional fields", () => {
@@ -1139,15 +1149,6 @@ describe("createElementSchema", () => {
     });
     expect(data.attributes).toHaveLength(1);
     expect(data.tags).toEqual(["a", "b"]);
-  });
-
-  it("rejects empty code", () => {
-    expectFail(createElementSchema, {
-      code: "",
-      name: "X",
-      unit: "m2",
-      unitCost: 10,
-    });
   });
 
   it("rejects unit not in ALLOWED_UNITS", () => {
@@ -1178,14 +1179,12 @@ describe("createElementSchema", () => {
     });
   });
 
-  it("trims name and code whitespace", () => {
+  it("trims name whitespace", () => {
     const data = expectPass(createElementSchema, {
-      code: "  CODE  ",
       name: "  Name  ",
       unit: "m2",
       unitCost: 10,
     });
-    expect(data.code).toBe("CODE");
     expect(data.name).toBe("Name");
   });
 

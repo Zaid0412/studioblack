@@ -18,7 +18,8 @@ import {
  */
 export interface ParsedElementValues {
   rowNumber: number;
-  code: string;
+  /** Blank means "assign one" — the server generates it from the category. */
+  code?: string;
   name: string;
   description?: string;
   categoryPath?: string[];
@@ -96,7 +97,7 @@ const TEMPLATE_COLUMNS = {
 
 type TemplateKey = keyof typeof TEMPLATE_COLUMNS;
 
-const REQUIRED_COLUMNS: TemplateKey[] = ["code", "name", "unit", "unitCost"];
+const REQUIRED_COLUMNS: TemplateKey[] = ["name", "unit", "unitCost"];
 
 /** Case-insensitive lookup from normalized header label → template key. */
 const HEADER_TO_KEY: Map<string, TemplateKey> = new Map(
@@ -213,13 +214,15 @@ export async function parseElementSheet(
       const warnings: string[] = [];
       const values: Partial<ParsedElementValues> = { rowNumber: dataRowIndex };
 
-      // ── Required strings
-      if (byKey.code === undefined || byKey.code === "") {
-        errors.push("Code is required");
-      } else if (byKey.code.length > 50) {
-        errors.push("Code must be 50 characters or fewer");
-      } else {
-        values.code = byKey.code;
+      // ── Code (optional — a blank cell means the server assigns one; a
+      //    supplied code is the join key for the skip/overwrite/version
+      //    strategies, so it is taken literally)
+      if (byKey.code) {
+        if (byKey.code.length > 50) {
+          errors.push("Code must be 50 characters or fewer");
+        } else {
+          values.code = byKey.code;
+        }
       }
 
       if (byKey.name === undefined || byKey.name === "") {

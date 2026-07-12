@@ -1,6 +1,9 @@
+import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
+import { CATEGORY_CODE_MAX } from "@/lib/categoryCode";
 import type { BulkCategoryNode } from "@/lib/validations";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
+import { escapeSqlLike } from "./helpers";
 
 /** Build a nested tree from flat category rows. */
 export function buildCategoryTree(
@@ -58,6 +61,31 @@ export async function getCategoryById(id: string) {
 }
 
 /**
+ * A category's code must sit under its parent's — `KIT-CAB` under `KIT`. Element
+ * codes are built by appending a sequence to this, so a code that broke the
+ * chain would make `KIT-CAB-BASE-0001` a lie about where the element lives.
+ * Throws when the invariant is violated.
+ */
+async function assertCodeUnderParent(
+  executor: Pick<PoolClient, "query">,
+  orgId: string,
+  parentId: string | null,
+  codePrefix: string | null | undefined
+): Promise<void> {
+  if (!parentId || !codePrefix) return;
+  const { rows } = await executor.query<{ code_prefix: string | null }>(
+    `SELECT code_prefix FROM element_category WHERE id = $1 AND org_id = $2`,
+    [parentId, orgId]
+  );
+  const parentPrefix = rows[0]?.code_prefix?.trim();
+  if (parentPrefix && !codePrefix.startsWith(`${parentPrefix}-`)) {
+    throw new Error(
+      `Code must start with the parent's code (${parentPrefix}-)`
+    );
+  }
+}
+
+/**
  * Create a new category. Level is derived from parent via a single INSERT
  * with subqueries (no extra round-trips for parent lookup or sort_order).
  */
@@ -74,6 +102,8 @@ export async function createCategory(
 ) {
   const pool = getPool();
   const parentId = input.parentId ?? null;
+
+  await assertCodeUnderParent(pool, orgId, parentId, input.codePrefix);
 
   // Single query: derive level from parent, auto-increment sort_order if not given
   let rows: ElementCategory[];
@@ -220,6 +250,21 @@ export async function bulkCreateCategoriesFromTemplates(
     };
     for (const top of templates) collect(top, null, 1, top.name);
 
+    // Mirror of `assertCodeUnderParent` for this path (the NOTE above asks for
+    // it). No queries needed: every parent is in the same payload, so the whole
+    // tree can be checked in memory before anything is written.
+    for (const level of levels) {
+      for (const item of level) {
+        const parentPrefix = item.parent?.node.codePrefix?.trim();
+        const code = item.node.codePrefix?.trim();
+        if (parentPrefix && code && !code.startsWith(`${parentPrefix}-`)) {
+          throw new Error(
+            `Code "${code}" must start with its parent's code (${parentPrefix}-)`
+          );
+        }
+      }
+    }
+
     for (let level = 1; level <= 3; level++) {
       const items = levels[level - 1];
       if (items.length === 0) continue;
@@ -319,35 +364,176 @@ const CATEGORY_COLS = new Set([
 /**
  * Update a category's fields. Expects snake_case keys (route handler converts).
  * Returns null if the category doesn't exist or no fields to update.
+ *
+ * Renaming a code cascades to descendants — their codes embed this one
+ * (`KIT-CAB` → `KIT-CAB-BASE`), so leaving them behind would strand the whole
+ * subtree under a code that no longer exists. Element codes already issued are
+ * deliberately NOT rewritten: they are stable identifiers, referenced from BOQ
+ * items and used as the Excel import's join key.
  */
 export async function updateCategory(
   id: string,
   orgId: string,
   fields: Record<string, unknown>
 ) {
-  const updates: string[] = [];
-  const values: unknown[] = [];
-  let idx = 1;
+  const pool = getPool();
 
-  for (const [col, value] of Object.entries(fields)) {
-    if (value !== undefined && CATEGORY_COLS.has(col)) {
-      updates.push(`"${col}" = $${idx}`);
-      values.push(value === "" ? null : value);
-      idx++;
+  const { rows: before } = await pool.query<{
+    code_prefix: string | null;
+    parent_id: string | null;
+  }>(
+    `SELECT code_prefix, parent_id FROM element_category
+      WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+  if (before.length === 0) return null;
+  const oldPrefix = before[0].code_prefix;
+
+  // The edit dialog always sends codePrefix, but most edits (rename, recolor,
+  // reorder) leave it untouched. Drop it from the SET list when it hasn't
+  // moved: nothing to cascade, so nothing needs a transaction. Dropping the
+  // column rather than writing the same value back is what keeps this
+  // race-free — the rename can't stomp a concurrent prefix change.
+  const nextPrefix = normalizeUpdatedPrefix(fields.code_prefix);
+  const prefixChanged =
+    nextPrefix !== undefined && nextPrefix !== (oldPrefix ?? null);
+  if (!prefixChanged) delete fields.code_prefix;
+
+  const build = () => {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    for (const [col, value] of Object.entries(fields)) {
+      if (value !== undefined && CATEGORY_COLS.has(col)) {
+        values.push(value === "" ? null : value);
+        updates.push(`"${col}" = $${values.length}`);
+      }
+    }
+    if (updates.length === 0) return null;
+    updates.push(`updated_at = now()`);
+    values.push(id, orgId);
+    return {
+      sql: `UPDATE element_category SET ${updates.join(", ")}
+             WHERE id = $${values.length - 1} AND org_id = $${values.length}
+             RETURNING *`,
+      values,
+    };
+  };
+
+  const query = build();
+  if (!query) return null;
+
+  if (!prefixChanged) {
+    const { rows } = await pool.query(query.sql, query.values);
+    return (rows[0] as ElementCategory) ?? null;
+  }
+
+  // The code moved: validate it against the parent and re-base the subtree,
+  // all under one transaction so a failed cascade doesn't leave a half-renamed
+  // tree behind.
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `SELECT 1 FROM element_category WHERE id = $1 AND org_id = $2 FOR UPDATE`,
+      [id, orgId]
+    );
+    await assertCodeUnderParent(client, orgId, before[0].parent_id, nextPrefix);
+
+    const { rows } = await client.query(query.sql, query.values);
+    const updated = (rows[0] as ElementCategory) ?? null;
+
+    if (updated && oldPrefix && updated.code_prefix) {
+      await cascadeCodePrefix(
+        client,
+        orgId,
+        id,
+        oldPrefix,
+        updated.code_prefix
+      );
+    }
+
+    await client.query("COMMIT");
+    return updated;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** The route sends `""` to clear a code; the column stores that as NULL. */
+function normalizeUpdatedPrefix(raw: unknown): string | null | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === "" || raw === null) return null;
+  return raw as string;
+}
+
+/**
+ * Re-base every descendant's code onto the node's new code. Only rows whose
+ * code actually sits under the old one are touched, so a subtree that was
+ * hand-coded off-pattern (before composition was enforced) is left alone
+ * rather than silently mangled.
+ *
+ * A longer code lengthens the whole subtree, so the deepest descendant can
+ * overflow `code_prefix`. Catch that here — a bare 22001 from the UPDATE would
+ * reach the user as "value too long for type character varying(20)", which says
+ * nothing about which category is the problem.
+ */
+async function cascadeCodePrefix(
+  client: PoolClient,
+  orgId: string,
+  id: string,
+  oldPrefix: string,
+  newPrefix: string
+): Promise<void> {
+  if (oldPrefix === newPrefix) return;
+
+  // `LIKE` is only safe with the prefix escaped: `code_prefix` is validated as
+  // a plain max(20) string, so a code holding `_` or `%` would otherwise match
+  // — and rewrite — categories in unrelated subtrees.
+  const under = `${escapeSqlLike(oldPrefix)}-%`;
+  const grew = newPrefix.length - oldPrefix.length;
+
+  // Strict descendants of $1 within $2 — the node itself is excluded, so a
+  // rename that nests a code under itself (KIT → KIT-A) can't rewrite the root.
+  const descendants = `WITH RECURSIVE descendant AS (
+       SELECT id FROM element_category
+        WHERE parent_id = $1 AND org_id = $2
+       UNION ALL
+       SELECT c.id FROM element_category c
+         JOIN descendant d ON c.parent_id = d.id
+        WHERE c.org_id = $2
+     )`;
+
+  if (grew > 0) {
+    const { rows } = await client.query<{ code_prefix: string }>(
+      `${descendants}
+       SELECT c.code_prefix FROM element_category c
+         JOIN descendant d ON c.id = d.id
+        WHERE c.code_prefix LIKE $3
+        ORDER BY char_length(c.code_prefix) DESC
+        LIMIT 1`,
+      [id, orgId, under]
+    );
+    const longest = rows[0]?.code_prefix;
+    if (longest && longest.length + grew > CATEGORY_CODE_MAX) {
+      throw new Error(
+        `Code is too long: it would push "${longest}" past ${CATEGORY_CODE_MAX} characters`
+      );
     }
   }
 
-  if (updates.length === 0) return null;
-
-  updates.push(`updated_at = now()`);
-  values.push(id, orgId);
-
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} AND org_id = $${idx + 1} RETURNING *`,
-    values
+  await client.query(
+    `${descendants}
+     UPDATE element_category c
+        SET code_prefix = $3 || substring(c.code_prefix from char_length($4) + 1),
+            updated_at = now()
+       FROM descendant d
+      WHERE c.id = d.id
+        AND c.code_prefix LIKE $5`,
+    [id, orgId, newPrefix, oldPrefix, under]
   );
-  return (rows[0] as ElementCategory) ?? null;
 }
 
 /**

@@ -290,8 +290,11 @@ describe("parseElementSheet edge cases", () => {
     const result = await parseElementSheet(emptyBuf, CATEGORIES);
     expect(result.rows).toHaveLength(0);
     expect(result.missingColumns).toEqual(
-      expect.arrayContaining(["Code", "Name", "Unit", "Unit Cost"])
+      expect.arrayContaining(["Name", "Unit", "Unit Cost"])
     );
+    // Code is optional now — a sheet without it is valid, every row just gets
+    // a generated code.
+    expect(result.missingColumns).not.toContain("Code");
   });
 });
 

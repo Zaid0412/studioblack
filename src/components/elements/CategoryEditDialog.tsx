@@ -20,8 +20,9 @@ interface Props {
   mode: "create" | "edit";
   editing?: ElementCategoryNode | null;
   /**
-   * Forced parent when creating a child row. New subcategories inherit
-   * the parent's code_prefix / icon / color as defaults.
+   * Forced parent when creating a child row. New subcategories inherit the
+   * parent's icon / color as defaults, and their code is composed onto the
+   * parent's code_prefix.
    */
   presetParent?: ElementCategoryNode | null;
   parentOptions: CategoryOption[];
@@ -62,7 +63,6 @@ export function CategoryEditDialog({
     : presetParent
       ? {
           parentId: presetParent.id,
-          codePrefix: presetParent.code_prefix ?? "",
           icon: presetParent.icon,
           color: presetParent.color,
         }

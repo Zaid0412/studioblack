@@ -14,13 +14,22 @@ import {
 } from "@/components/ui/select";
 import { CategoryIconPicker } from "./CategoryIconPicker";
 import { CategoryColorPicker } from "./CategoryColorPicker";
-import type { CategoryOption } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import {
+  codeSegmentOf,
+  composeCategoryCode,
+  maxSegmentLength,
+} from "@/lib/categoryCode";
+import {
+  categoryPrefixOf,
+  type CategoryOption,
+} from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
 const NONE = "__none__";
 
 export interface CategoryFormValues {
   name: string;
   parentId: string | null;
+  /** Full path code (`KIT-CAB-BASE`). The form edits only its last segment. */
   codePrefix: string;
   icon: string | null;
   color: string | null;
@@ -84,6 +93,23 @@ export function CategoryForm({
     value: CategoryFormValues[K]
   ) => setValues((v) => ({ ...v, [key]: value }));
 
+  // A category's code is its parent's code plus its own segment, so the form
+  // only ever edits the segment — `KIT-CAB` + `BASE` → `KIT-CAB-BASE`. Element
+  // codes are built from this, so a hand-typed path that didn't sit under its
+  // parent would silently break them. State holds the composed code; the
+  // segment is derived for display, so a parent switch re-bases it for free.
+  const prefixOf = (id: string | null) => categoryPrefixOf(parentOptions, id);
+  const parentPrefix = prefixOf(values.parentId);
+  const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
+
+  /** Re-base the code onto the new parent, keeping the segment the user typed. */
+  const selectParent = (parentId: string | null) =>
+    setValues((v) => ({
+      ...v,
+      parentId,
+      codePrefix: composeCategoryCode(prefixOf(parentId), codeSegment),
+    }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Stop the synthetic submit from bubbling up the React tree.
@@ -126,7 +152,7 @@ export function CategoryForm({
           </label>
           <Select
             value={values.parentId ?? NONE}
-            onValueChange={(v) => setField("parentId", v === NONE ? null : v)}
+            onValueChange={(v) => selectParent(v === NONE ? null : v)}
           >
             <SelectTrigger>
               <SelectValue placeholder={t("categoryParentNone")} />
@@ -146,13 +172,25 @@ export function CategoryForm({
           </Select>
         </div>
 
-        <Input
-          label={t("categoryCodePrefix")}
-          placeholder={t("categoryCodePrefixPlaceholder")}
-          value={values.codePrefix}
-          onChange={(e) => setField("codePrefix", e.target.value)}
-          maxLength={10}
-        />
+        <div className="flex flex-col gap-1.5">
+          <Input
+            label={t("categoryCodeSegment")}
+            placeholder={t("categoryCodeSegmentPlaceholder")}
+            value={codeSegment}
+            onChange={(e) =>
+              setField(
+                "codePrefix",
+                composeCategoryCode(parentPrefix, e.target.value)
+              )
+            }
+            maxLength={maxSegmentLength(parentPrefix)}
+          />
+          <p className="text-xs text-text-muted">
+            {values.codePrefix
+              ? t("categoryCodeComposed", { code: values.codePrefix })
+              : t("categoryCodeHint")}
+          </p>
+        </div>
       </div>
 
       <CategoryIconPicker

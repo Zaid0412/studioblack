@@ -77,7 +77,7 @@ export function remove(id: string) {
   return apiDelete(API.element(id));
 }
 
-/** Duplicate an element — server picks a new `{code}-copy` suffix. */
+/** Duplicate an element — server assigns the next code in its category. */
 export function duplicate(id: string) {
   return apiPost<ElementWithDetails>(API.elementDuplicate(id), {});
 }

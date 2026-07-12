@@ -13,7 +13,6 @@ export type ElementSubmitValues = Parameters<
  */
 export function buildElementMutationPayload(values: ElementSubmitValues) {
   return {
-    code: values.code,
     name: values.name,
     description: values.description || undefined,
     categoryId: values.categoryId ?? undefined,

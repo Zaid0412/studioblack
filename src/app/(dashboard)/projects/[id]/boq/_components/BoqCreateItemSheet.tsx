@@ -346,14 +346,6 @@ export function BoqCreateItemSheet({
         });
         return;
       }
-      if (!trimmedCode) {
-        toast({
-          title: "Code required",
-          description: "An element code is required to save to the library.",
-          variant: "error",
-        });
-        return;
-      }
     }
 
     setSubmitting(true);
@@ -362,7 +354,6 @@ export function BoqCreateItemSheet({
 
       if (v.saveAsElement) {
         const element = await elementsApi.create({
-          code: trimmedCode,
           name: trimmedName,
           description: trimmedDesc,
           categoryId: v.categoryId ?? undefined,
@@ -466,16 +457,12 @@ export function BoqCreateItemSheet({
               />
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 self-start">
                 <label className="flex flex-col gap-1.5">
-                  <span className={labelCls}>
-                    Item code{v.saveAsElement && requiredAsterisk}
-                  </span>
+                  <span className={labelCls}>Item code</span>
                   <Input
                     value={v.itemCode}
                     onChange={(e) => set("itemCode", e.target.value)}
                     maxLength={50}
-                    placeholder={
-                      v.saveAsElement ? "e.g. FIN-001" : "auto-generated"
-                    }
+                    placeholder="auto-generated"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">

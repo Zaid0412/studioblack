@@ -11,7 +11,8 @@ import type {
   VendorLite,
 } from "@/types";
 import { escapeSqlLike } from "./helpers";
-import { BOQ_SELL_PRICE_SQL, nextSequenceNumbers } from "./boq";
+import { BOQ_SELL_PRICE_SQL } from "./boq";
+import { nextSequenceNumbers } from "./sequences";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {

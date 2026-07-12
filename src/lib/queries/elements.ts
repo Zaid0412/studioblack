@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
@@ -12,6 +13,12 @@ import type {
   ElementWithDetails,
 } from "@/types";
 import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
+import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
+import {
+  elementCodePrefix,
+  nextElementCodes,
+  syncElementCounter,
+} from "./sequences";
 import { mapPgError } from "./_pgErrors";
 
 export interface ElementFilters {
@@ -41,7 +48,6 @@ const ELEMENT_SORT_SQL: Record<
 };
 
 export interface CreateElementInput {
-  code: string;
   name: string;
   description?: string;
   categoryId?: string;
@@ -75,8 +81,13 @@ export type UpdateElementInput = Partial<CreateElementInput> & {
   isActive?: boolean;
 };
 
+/**
+ * Writable columns for `updateElement`. `code` is deliberately absent — it is
+ * assigned once at creation from the category's path code + a sequence, and is
+ * referenced from BOQ items and as the Excel import's join key, so it must not
+ * drift. (Sorting on code goes through ELEMENT_SORT_SQL, not this map.)
+ */
 const ELEMENT_COLS: Record<string, string> = {
-  code: "code",
   name: "name",
   description: "description",
   categoryId: "category_id",
@@ -329,8 +340,9 @@ async function replaceElementAttributes(
 }
 
 /**
- * Create an element + its attributes inside a transaction.
- * Throws "Code already exists" (23505) or "Category not found" (23503).
+ * Create an element + its attributes inside a transaction. The code is
+ * generated from the category's path code and a per-prefix sequence — see
+ * `generateElementCode`. Throws "Category not found" (23503).
  */
 export async function createElement(
   orgId: string,
@@ -343,18 +355,7 @@ export async function createElement(
   try {
     await client.query("BEGIN");
 
-    // Code uniqueness is enforced at the application layer now that the DB
-    // allows multiple versions per code within a single group. The advisory
-    // lock serialises concurrent inserts of the same code so the SELECT →
-    // INSERT window can't race.
-    await lockElementCode(client, orgId, input.code);
-    const dup = await client.query(
-      `SELECT id FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
-      [orgId, input.code]
-    );
-    if (dup.rows.length > 0) {
-      throw new Error("Code already exists");
-    }
+    const code = await generateElementCodeFor(client, orgId, input.categoryId);
 
     let elementRow: Element;
     try {
@@ -375,7 +376,7 @@ export async function createElement(
          RETURNING *`,
         [
           orgId,
-          input.code,
+          code,
           input.name,
           input.description ?? null,
           input.categoryId ?? null,
@@ -403,7 +404,6 @@ export async function createElement(
       elementRow = rows[0] as Element;
     } catch (err: unknown) {
       const pgErr = err as { code?: string };
-      if (pgErr.code === "23505") throw new Error("Code already exists");
       if (pgErr.code === "23503") throw new Error("Category not found");
       throw err;
     }
@@ -434,7 +434,7 @@ export async function createElement(
 /**
  * Update element fields + optionally replace attributes in one transaction.
  * Returns the updated element+attributes or null if not found in this org.
- * Throws "Code already exists" on unique violation.
+ * `code` is not updatable — see ELEMENT_COLS.
  */
 export async function updateElement(
   orgId: string,
@@ -462,31 +462,6 @@ export async function updateElement(
 
     let elementRow: Element | null = null;
     if (updates.length > 0) {
-      // App-layer uniqueness check on code rename: DB no longer has a unique
-      // index on (org_id, code), so a rename to a code held by a different
-      // version_group would silently create duplicates without this guard.
-      if (input.code !== undefined) {
-        await lockElementCode(client, orgId, input.code);
-        const { rows: currentRows } = await client.query<{
-          code: string;
-          version_group: string;
-        }>(
-          `SELECT code, version_group FROM element
-            WHERE id = $1 AND org_id = $2`,
-          [id, orgId]
-        );
-        const current = currentRows[0];
-        if (current && current.code !== input.code) {
-          const { rows: dup } = await client.query(
-            `SELECT 1 FROM element
-              WHERE org_id = $1 AND code = $2 AND version_group <> $3
-              LIMIT 1`,
-            [orgId, input.code, current.version_group]
-          );
-          if (dup.length > 0) throw new Error("Code already exists");
-        }
-      }
-
       updates.push(`updated_at = now()`);
       values.push(id, orgId);
       try {
@@ -499,7 +474,6 @@ export async function updateElement(
         elementRow = (rows[0] as Element) ?? null;
       } catch (err: unknown) {
         const pgErr = err as { code?: string };
-        if (pgErr.code === "23505") throw new Error("Code already exists");
         if (pgErr.code === "23503") throw new Error("Category not found");
         throw err;
       }
@@ -593,8 +567,8 @@ export async function restoreElement(
 }
 
 /**
- * Duplicate an element (with its attributes). Derives a new code as
- * `{code}-copy`, `{code}-copy-2`, … retrying up to 5 times on unique-collision.
+ * Duplicate an element (with its attributes). The copy gets the next code in
+ * its category's sequence, same as a fresh element.
  */
 export async function duplicateElement(
   orgId: string,
@@ -614,26 +588,11 @@ export async function duplicateElement(
   try {
     await client.query("BEGIN");
     try {
-      // Find a free copy-suffix code inside the transaction, each candidate
-      // guarded by an advisory lock so two concurrent duplicates of the same
-      // element can't both claim `-copy`.
-      let newCode: string | null = null;
-      for (let n = 1; n <= 5; n++) {
-        const suffix = n === 1 ? "-copy" : `-copy-${n}`;
-        const candidate = `${src.code}${suffix}`;
-        await lockElementCode(client, orgId, candidate);
-        const { rows: existing } = await client.query(
-          `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
-          [orgId, candidate]
-        );
-        if (existing.length === 0) {
-          newCode = candidate;
-          break;
-        }
-      }
-      if (!newCode) {
-        throw new Error("Could not generate unique code for duplicate");
-      }
+      const newCode = await generateElementCodeFor(
+        client,
+        orgId,
+        src.category_id
+      );
 
       const {
         rows: [newRow],
@@ -790,7 +749,8 @@ export type ElementDuplicateStrategy = "skip" | "overwrite" | "version";
  */
 export interface BulkElementRow {
   rowNumber: number;
-  code: string;
+  /** Blank means "assign one" — such a row is always a fresh insert. */
+  code?: string;
   name: string;
   description?: string;
   categoryPath?: string[];
@@ -843,6 +803,55 @@ async function lockElementCode(
   await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
     `element:${orgId}:${code}`,
   ]);
+}
+
+/**
+ * Assign an element its code: the category's path code (`KIT-CAB-BASE`, or
+ * `GEN` when uncategorized) plus a 4-digit per-prefix sequence.
+ *
+ * Runs inside the caller's transaction, so a ROLLBACK gives the number back
+ * instead of leaving a hole. The candidate is checked under the same advisory
+ * lock the import uses, so a generated code can't collide with a concurrently
+ * imported one.
+ *
+ * A collision means the counter has fallen behind the rows — the import inserts
+ * the codes it is given verbatim and never advances it. Re-derive the true
+ * high-water mark and take the next number after it. That has to happen inside
+ * this transaction: a rollback would otherwise undo the counter bump too, and
+ * every later create in the category would fail identically.
+ */
+async function generateElementCode(
+  client: PoolClient,
+  orgId: string,
+  prefix: string
+): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    // Second pass: the counter has fallen behind the rows, so re-derive it.
+    if (attempt === 1) await syncElementCounter(client, orgId, prefix);
+
+    const [candidate] = await nextElementCodes(client, orgId, prefix, 1);
+    await lockElementCode(client, orgId, candidate);
+    const { rows } = await client.query(
+      `SELECT 1 FROM element WHERE org_id = $1 AND code = $2 LIMIT 1`,
+      [orgId, candidate]
+    );
+    if (rows.length === 0) return candidate;
+  }
+
+  // The counter is now past every `<prefix>-<digits>` row, so a second
+  // collision can't come from stale data — only from a concurrent writer that
+  // committed a literal code in the microseconds between. Not worth spinning on.
+  throw new Error(`Could not generate a free element code for ${prefix}`);
+}
+
+/** Resolve the category's prefix, then generate. For the single-element paths. */
+async function generateElementCodeFor(
+  client: PoolClient,
+  orgId: string,
+  categoryId: string | null | undefined
+): Promise<string> {
+  const prefix = await elementCodePrefix(client, orgId, categoryId);
+  return generateElementCode(client, orgId, prefix);
 }
 
 /**
@@ -950,6 +959,7 @@ async function insertElementVersion(
   client: PgClientLike,
   orgId: string,
   createdBy: string,
+  code: string,
   row: BulkElementRow,
   categoryId: string | null | undefined,
   versionGroup: string,
@@ -1004,7 +1014,7 @@ async function insertElementVersion(
      RETURNING id`,
     [
       orgId,
-      row.code,
+      code,
       row.name,
       row.description ?? prev.description,
       categoryId ?? prev.category_id,
@@ -1052,6 +1062,7 @@ async function insertElementVersion(
 async function overwriteElementRow(
   client: PgClientLike,
   orgId: string,
+  code: string,
   row: BulkElementRow,
   categoryId: string | undefined
 ): Promise<boolean> {
@@ -1088,7 +1099,7 @@ async function overwriteElementRow(
 
   // Overwrite only the *latest* version of a code group — older versions are
   // historical and must stay immutable.
-  params.push(orgId, row.code);
+  params.push(orgId, code);
   const orgIdx = params.length - 1;
   const codeIdx = params.length;
 
@@ -1124,63 +1135,105 @@ export async function bulkUpsertElements(
   input: BulkElementImportInput
 ): Promise<BulkElementImportResult> {
   const pool = getPool();
-  const result: BulkElementImportResult = {
-    inserted: 0,
-    updated: 0,
-    skipped: 0,
-    versioned: 0,
-    failed: [],
-  };
+  const result = emptyImportResult();
 
+  // One fetch serves both lookups: the path → id map, and the id → code_prefix
+  // map that codes a blank-code row. Without the latter, generating a code
+  // would re-SELECT the same category once per row.
   const { rows: catRows } = await pool.query(
-    `SELECT id, name, parent_id
+    `SELECT id, name, parent_id, code_prefix
        FROM element_category
       WHERE org_id = $1 AND is_active = true`,
     [orgId]
   );
-  const pathMap = buildCategoryPathMap(
-    catRows as Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
-  );
+  const rows = catRows as Array<
+    Pick<ElementCategory, "id" | "name" | "parent_id" | "code_prefix">
+  >;
+  const categories: CategoryLookup = {
+    idByPath: buildCategoryPathMap(rows),
+    prefixById: new Map(rows.map((c) => [c.id, c.code_prefix?.trim() || null])),
+  };
 
   for (let i = 0; i < input.rows.length; i += BULK_IMPORT_BATCH_SIZE) {
     const batch = input.rows.slice(i, i + BULK_IMPORT_BATCH_SIZE);
-    await runBulkImportBatchWithRetry(
+    const batchResult = await runBulkImportBatchWithRetry(
       pool,
       orgId,
       input,
       batch,
-      pathMap,
-      result
+      categories
     );
+    result.inserted += batchResult.inserted;
+    result.updated += batchResult.updated;
+    result.skipped += batchResult.skipped;
+    result.versioned += batchResult.versioned;
+    result.failed.push(...batchResult.failed);
   }
 
   return result;
 }
 
+function emptyImportResult(): BulkElementImportResult {
+  return { inserted: 0, updated: 0, skipped: 0, versioned: 0, failed: [] };
+}
+
 /**
- * Run a single batch, retrying once on a PostgreSQL serialization failure
- * (SQLSTATE 40001). A single retry salvages the common case where a
- * concurrent writer caused the abort; a second retry on top of that is
- * already fighting pool contention, so we surface the error instead.
+ * The org's category tree, resolved once per import instead of per row:
+ * `idByPath` maps a row's "A > B > C" to a category id, `prefixById` maps that
+ * id to the path code a generated element code is built from.
+ */
+interface CategoryLookup {
+  idByPath: Map<string, string>;
+  prefixById: Map<string, string | null>;
+}
+
+/**
+ * Aborts worth one retry: a serialization failure (40001) or a deadlock
+ * (40P01). Both mean "a concurrent writer got in the way", not "this batch is
+ * wrong", and both leave the batch's transaction fully rolled back.
+ *
+ * The deadlock is reachable because the two code paths take their locks in
+ * opposite orders: generating a code advances `sequence_counter` (holding that
+ * row until COMMIT) and *then* takes the advisory lock on the candidate, while
+ * a row that carries its own code takes the advisory lock without ever touching
+ * the counter. Two concurrent imports — one generating, one supplying a literal
+ * code that happens to match the number about to be generated — can therefore
+ * wait on each other. Vanishingly rare, and Postgres breaks it for us; retrying
+ * the aborted batch is the whole fix.
+ */
+const RETRYABLE_BATCH_ERRORS = new Set(["40001", "40P01"]);
+
+function isRetryableAbort(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return !!code && RETRYABLE_BATCH_ERRORS.has(code);
+}
+
+/**
+ * Run a single batch, retrying once on a retryable abort. A second retry on top
+ * of that is already fighting pool contention, so we surface the error instead.
+ *
+ * Each attempt tallies into its own result, which is only merged by the caller
+ * once the batch commits. An aborted attempt rolls its rows back in the DB, so
+ * counting the work it did before the abort would inflate the totals the user
+ * is shown — and those totals get cached by the idempotency layer.
  */
 async function runBulkImportBatchWithRetry(
   pool: ReturnType<typeof getPool>,
   orgId: string,
   input: BulkElementImportInput,
   rows: BulkElementRow[],
-  pathMap: Map<string, string>,
-  result: BulkElementImportResult
-): Promise<void> {
+  categories: CategoryLookup
+): Promise<BulkElementImportResult> {
   try {
-    await runBulkImportBatch(pool, orgId, input, rows, pathMap, result);
+    return await runBulkImportBatch(pool, orgId, input, rows, categories);
   } catch (err) {
-    const code = (err as { code?: string } | null)?.code;
-    if (code !== "40001") throw err;
-    logger.warn("bulk import batch hit serialization failure; retrying once", {
+    if (!isRetryableAbort(err)) throw err;
+    logger.warn("bulk import batch aborted by a concurrent writer; retrying", {
       orgId,
       rows: rows.length,
+      pgCode: (err as { code?: string }).code,
     });
-    await runBulkImportBatch(pool, orgId, input, rows, pathMap, result);
+    return await runBulkImportBatch(pool, orgId, input, rows, categories);
   }
 }
 
@@ -1189,9 +1242,9 @@ async function runBulkImportBatch(
   orgId: string,
   input: BulkElementImportInput,
   rows: BulkElementRow[],
-  pathMap: Map<string, string>,
-  result: BulkElementImportResult
-): Promise<void> {
+  categories: CategoryLookup
+): Promise<BulkElementImportResult> {
+  const result = emptyImportResult();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -1200,11 +1253,11 @@ async function runBulkImportBatch(
       let categoryId: string | null = null;
       if (row.categoryPath && row.categoryPath.length > 0) {
         const key = row.categoryPath.map(normalizeCategorySegment).join(" > ");
-        const resolved = pathMap.get(key);
+        const resolved = categories.idByPath.get(key);
         if (!resolved) {
           result.failed.push({
             rowNumber: row.rowNumber,
-            code: row.code,
+            code: row.code ?? "",
             error: `Category path not found: ${row.categoryPath.join(" > ")}`,
           });
           continue;
@@ -1217,15 +1270,29 @@ async function runBulkImportBatch(
       // outer transaction and doom every subsequent row.
       await client.query("SAVEPOINT bulk_row");
       try {
-        // Advisory lock per (orgId, code) — covers every strategy's SELECT →
-        // INSERT/UPDATE window. Concurrent imports of the same code
-        // serialise here instead of racing to the DB.
-        await lockElementCode(client, orgId, row.code);
+        let code = row.code;
+        if (code === undefined) {
+          // No code means no join key, so the row can't match an existing
+          // element — it is unambiguously new and gets a generated one. The
+          // prefix comes from the map built up front, not a per-row SELECT.
+          // generateElementCode already took the advisory lock on the code it
+          // handed back, and holds it to COMMIT.
+          const prefix =
+            (categoryId ? categories.prefixById.get(categoryId) : null) ??
+            UNCATEGORIZED_PREFIX;
+          code = await generateElementCode(client, orgId, prefix);
+        } else {
+          // Advisory lock per (orgId, code) — covers every strategy's SELECT →
+          // INSERT/UPDATE window. Concurrent imports of the same code
+          // serialise here instead of racing to the DB.
+          await lockElementCode(client, orgId, code);
+        }
+
         const insertedId = await tryInsertElementRow(
           client,
           orgId,
           input.createdBy,
-          row.code,
+          code,
           row,
           categoryId
         );
@@ -1240,6 +1307,7 @@ async function runBulkImportBatch(
           const updated = await overwriteElementRow(
             client,
             orgId,
+            code,
             row,
             categoryId ?? undefined
           );
@@ -1247,17 +1315,17 @@ async function runBulkImportBatch(
           else
             result.failed.push({
               rowNumber: row.rowNumber,
-              code: row.code,
+              code,
               error: "Update failed — no matching row",
             });
         } else {
           // strategy === "version": append a new version_number onto the
           // existing group. Code stays identical across versions.
-          const latest = await findLatestByCode(client, orgId, row.code);
+          const latest = await findLatestByCode(client, orgId, code);
           if (!latest) {
             result.failed.push({
               rowNumber: row.rowNumber,
-              code: row.code,
+              code,
               error: "Version failed — no existing element with this code",
             });
           } else {
@@ -1267,6 +1335,7 @@ async function runBulkImportBatch(
               client,
               orgId,
               input.createdBy,
+              code,
               row,
               categoryId ?? undefined,
               latest.versionGroup,
@@ -1278,12 +1347,14 @@ async function runBulkImportBatch(
         }
         await client.query("RELEASE SAVEPOINT bulk_row");
       } catch (err: unknown) {
-        // Serialization failures propagate to the batch retry wrapper — do
-        // not swallow them into failed[]. Everything else is a per-row bug
-        // (FK violation, check constraint, unique race, …).
-        const pgErr = err as { code?: string; message?: string };
-        if (pgErr.code === "40001") throw err;
+        // Aborts caused by a concurrent writer propagate to the batch retry
+        // wrapper — do not swallow them into failed[]. Every lock this row can
+        // wait on is taken inside this try, so a deadlock surfaces here rather
+        // than at the batch level. Everything else is a per-row bug (FK
+        // violation, check constraint, …).
+        if (isRetryableAbort(err)) throw err;
 
+        const pgErr = err as { code?: string; message?: string };
         await client.query("ROLLBACK TO SAVEPOINT bulk_row");
         const userMessage = mapPgError(pgErr);
         logger.error("element import row failed", {
@@ -1296,13 +1367,14 @@ async function runBulkImportBatch(
         });
         result.failed.push({
           rowNumber: row.rowNumber,
-          code: row.code,
+          code: row.code ?? "",
           error: userMessage,
         });
       }
     }
 
     await client.query("COMMIT");
+    return result;
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

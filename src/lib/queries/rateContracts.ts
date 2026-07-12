@@ -18,7 +18,7 @@ import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
 import { toIso } from "@/lib/formatTime";
 import { mapPgError } from "./_pgErrors";
-import { getNextSequenceNumber } from "./boq";
+import { getNextSequenceNumber } from "./sequences";
 
 export interface RateContractFilters {
   search?: string;

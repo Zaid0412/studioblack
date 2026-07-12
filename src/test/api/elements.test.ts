@@ -188,7 +188,6 @@ describe("POST /api/elements", () => {
     const req = buildRequest("/api/elements", {
       method: "POST",
       body: {
-        code: "WAL-PNT-001",
         name: "Emulsion Paint",
         unit: "m2",
         unitCost: 120,
@@ -204,19 +203,43 @@ describe("POST /api/elements", () => {
     expect(createElement).toHaveBeenCalledWith(
       "org-test-001",
       "user-test-001",
-      expect.objectContaining({ code: "WAL-PNT-001", unit: "m2" })
+      expect.objectContaining({ unit: "m2", categoryId: CAT_ID })
     );
   });
 
-  it("returns 409 on duplicate code", async () => {
+  // The code is server-assigned from the category — a client that sends one
+  // must not be able to choose it.
+  it("ignores a client-supplied code on create", async () => {
+    vi.mocked(createElement).mockResolvedValue(fakeDetailed);
+
+    const req = buildRequest("/api/elements", {
+      method: "POST",
+      body: {
+        code: "HACK-9999",
+        name: "Emulsion Paint",
+        unit: "m2",
+        unitCost: 120,
+      },
+    });
+    await POST(req);
+
+    expect(createElement).toHaveBeenCalledWith(
+      "org-test-001",
+      "user-test-001",
+      expect.not.objectContaining({ code: expect.anything() })
+    );
+  });
+
+  // Codes are generated from a counter seeded past every existing code, so a
+  // collision means the counter is wrong — surface it rather than swallow it.
+  it("returns 400 when no free code can be generated", async () => {
     vi.mocked(createElement).mockRejectedValue(
-      new Error("Code already exists")
+      new Error("Could not generate a free element code for KIT")
     );
 
     const req = buildRequest("/api/elements", {
       method: "POST",
       body: {
-        code: "WAL-PNT-001",
         name: "Paint",
         unit: "m2",
         unitCost: 120,
@@ -225,8 +248,8 @@ describe("POST /api/elements", () => {
     const res = await POST(req);
     const { status, body } = await parseResponse<{ error: string }>(res);
 
-    expect(status).toBe(409);
-    expect(body.error).toBe("Code already exists");
+    expect(status).toBe(400);
+    expect(body.error).toBe("Could not generate a free element code for KIT");
   });
 
   it("returns 400 on invalid category", async () => {
@@ -374,19 +397,24 @@ describe("PATCH /api/elements/[id]", () => {
     expect(status).toBe(404);
   });
 
-  it("returns 409 on duplicate code", async () => {
-    vi.mocked(updateElement).mockRejectedValue(
-      new Error("Code already exists")
-    );
+  // The code is assigned once at creation and is the join key for the Excel
+  // import — a PATCH must not be able to move it.
+  it("ignores a code in the body", async () => {
+    vi.mocked(updateElement).mockResolvedValue(fakeDetailed);
 
     const req = buildRequest(`/api/elements/${ELEM_ID}`, {
       method: "PATCH",
-      body: { code: "DUPE" },
+      body: { name: "Renamed", code: "HACK-9999" },
     });
     const res = await PATCH_ITEM(req, buildParams({ id: ELEM_ID }));
     const { status } = await parseResponse(res);
 
-    expect(status).toBe(409);
+    expect(status).toBe(200);
+    expect(updateElement).toHaveBeenCalledWith(
+      "org-test-001",
+      ELEM_ID,
+      expect.not.objectContaining({ code: expect.anything() })
+    );
   });
 
   it("returns 403 for client role", async () => {
@@ -546,10 +574,11 @@ describe("GET /api/elements/[id]/versions", () => {
 
 describe("POST /api/elements/[id]/duplicate", () => {
   it("duplicates an element", async () => {
+    // The copy gets the next code in its category's sequence, not a -copy suffix.
     vi.mocked(duplicateElement).mockResolvedValue({
       ...fakeDetailed,
       id: "new-id",
-      code: "WAL-PNT-001-copy",
+      code: "WAL-PNT-0002",
     });
 
     const req = buildRequest(`/api/elements/${ELEM_ID}/duplicate`, {
@@ -559,7 +588,7 @@ describe("POST /api/elements/[id]/duplicate", () => {
     const { status, body } = await parseResponse<ElementWithDetails>(res);
 
     expect(status).toBe(201);
-    expect(body.code).toBe("WAL-PNT-001-copy");
+    expect(body.code).toBe("WAL-PNT-0002");
   });
 
   it("returns 404 when source element not found", async () => {
@@ -576,7 +605,7 @@ describe("POST /api/elements/[id]/duplicate", () => {
 
   it("returns 400 when duplication fails to find a unique code", async () => {
     vi.mocked(duplicateElement).mockRejectedValue(
-      new Error("Could not generate unique code for duplicate")
+      new Error("Could not generate a free element code for WAL-PNT")
     );
 
     const req = buildRequest(`/api/elements/${ELEM_ID}/duplicate`, {
