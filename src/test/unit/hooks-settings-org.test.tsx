@@ -29,8 +29,6 @@ const mockGetSession = vi.fn();
 
 const mockNotifMarkRead = vi.fn();
 const mockNotifMarkAllRead = vi.fn();
-const mockNotifClearAll = vi.fn();
-const mockNotifRemove = vi.fn();
 
 // ── Module mocks ────────────────────────────────────────────────────────────
 
@@ -112,6 +110,7 @@ vi.mock("@/lib/api/routes", () => ({
   API: {
     changeEmail: () => "/api/settings/change-email",
     notifications: () => "/api/notifications",
+    notificationsUnread: () => "/api/notifications?unread=true",
   },
 }));
 
@@ -119,8 +118,6 @@ vi.mock("@/lib/api", () => ({
   notifications: {
     markRead: (...args: unknown[]) => mockNotifMarkRead(...args),
     markAllRead: (...args: unknown[]) => mockNotifMarkAllRead(...args),
-    clearAll: (...args: unknown[]) => mockNotifClearAll(...args),
-    remove: (...args: unknown[]) => mockNotifRemove(...args),
   },
 }));
 
@@ -160,8 +157,6 @@ beforeEach(() => {
   mockOrgListUserInvitations.mockResolvedValue({ data: [] });
   mockNotifMarkRead.mockResolvedValue(undefined);
   mockNotifMarkAllRead.mockResolvedValue(undefined);
-  mockNotifClearAll.mockResolvedValue(undefined);
-  mockNotifRemove.mockResolvedValue(undefined);
   mockApiPost.mockResolvedValue({});
 
   // sessionStorage stub
@@ -430,30 +425,10 @@ describe("useNotifications", () => {
     const { result } = setup();
 
     expect(result.current).toHaveProperty("notifications");
-    expect(result.current).toHaveProperty("unreadCount");
-    expect(result.current).toHaveProperty("handleMarkAllRead");
     expect(result.current).toHaveProperty("handleClearAll");
     expect(result.current).toHaveProperty("handleAcceptInvite");
     expect(result.current).toHaveProperty("handleRejectInvite");
     expect(Array.isArray(result.current.notifications)).toBe(true);
-  });
-
-  it("handleMarkAllRead calls notificationsApi.markAllRead and shows toast", async () => {
-    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
-
-    const { result } = setup();
-
-    await act(async () => {
-      await result.current.handleMarkAllRead();
-    });
-
-    expect(mockNotifMarkAllRead).toHaveBeenCalled();
-    expect(mockToast).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "allCaughtUpToast" })
-    );
-    expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
-
-    dispatchSpy.mockRestore();
   });
 
   it("handleClearAll does nothing if user cancels confirm", async () => {
@@ -465,12 +440,14 @@ describe("useNotifications", () => {
       await result.current.handleClearAll();
     });
 
-    expect(mockNotifClearAll).not.toHaveBeenCalled();
+    expect(mockNotifMarkAllRead).not.toHaveBeenCalled();
 
     vi.restoreAllMocks();
   });
 
-  it("handleClearAll calls clearAll when user confirms", async () => {
+  // Clearing marks everything read rather than deleting it: read rows are kept
+  // for the dashboard activity feed, and the bell only ever shows unread.
+  it("handleClearAll marks all read when user confirms", async () => {
     vi.spyOn(window, "confirm").mockReturnValueOnce(true);
     const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 
@@ -480,7 +457,10 @@ describe("useNotifications", () => {
       await result.current.handleClearAll();
     });
 
-    expect(mockNotifClearAll).toHaveBeenCalled();
+    expect(mockNotifMarkAllRead).toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "allCaughtUpToast" })
+    );
     expect(dispatchSpy).toHaveBeenCalled();
 
     vi.restoreAllMocks();

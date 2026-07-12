@@ -311,10 +311,6 @@ export const patchNotificationsSchema = z.object({
   ids: z.array(uuid).optional(),
 });
 
-export const deleteNotificationsSchema = z.object({
-  id: uuid.optional(),
-});
-
 // ─── Attachments (/api/projects/[id]/attachments) ───────────────────────────
 
 export const createProjectAttachmentSchema = z.object({

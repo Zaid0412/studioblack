@@ -438,11 +438,7 @@
   "notifications": {
     "title": "Notifications",
     "subtitle": "Stay updated with your project activity",
-    "markAllRead": "Mark All Read",
-    "noNotifications": "No new notifications",
-    "today": "Today",
-    "yesterday": "Yesterday",
-    "earlier": "Earlier",
+    "noNotifications": "You're all caught up",
     "allCaughtUpToast": "All caught up!",
     "allCaughtUpDescription": "All notifications have been marked as read.",
     "invitationSent": "Invitation sent",
@@ -462,12 +458,7 @@
     "rolePM": "Project Manager",
     "roleArchitect": "Architect",
     "clearAll": "Clear all",
-    "clearAllConfirm": "Are you sure you want to delete all notifications?",
-    "all": "All",
-    "unread": "Unread",
-    "invitations": "Invitations",
-    "noUnread": "You're all caught up",
-    "noInvitations": "No pending invitations"
+    "clearAllConfirm": "Mark all notifications as read? They'll stay in your audit history."
   },
   "settings": {
     "title": "User Settings",

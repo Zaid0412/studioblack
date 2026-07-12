@@ -72,6 +72,7 @@ export const API = {
 
   // ── Notifications ──────────────────────────────
   notifications:         ()                            => "/api/notifications",
+  notificationsUnread:   ()                            => "/api/notifications?unread=true",
 
   // ── Upload & Files ─────────────────────────────
   uploadSignedUrl:       ()                            => "/api/upload/signed-url",

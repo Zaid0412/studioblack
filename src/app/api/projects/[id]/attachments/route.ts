@@ -68,7 +68,10 @@ export const POST = withAuth(
     }
 
     // Helper to send upload notifications (team only — client is notified via send-to-client)
-    const sendUploadNotifications = async (attachmentFileName: string) => {
+    const sendUploadNotifications = async (
+      attachmentFileName: string,
+      attachmentId: string
+    ) => {
       try {
         const projName = await getProjectName(id);
         const uploaderName = user.name || user.email;
@@ -79,7 +82,8 @@ export const POST = withAuth(
           user.id,
           "upload",
           notifTitle,
-          notifDesc
+          notifDesc,
+          { attachmentId }
         );
       } catch (err) {
         logger.error("Attachment upload notification failed", {
@@ -99,7 +103,7 @@ export const POST = withAuth(
         id,
         phaseId || null
       );
-      await sendUploadNotifications(fileName);
+      await sendUploadNotifications(fileName, attachment.id);
       return NextResponse.json(attachment, { status: 201 });
     }
 
@@ -113,7 +117,7 @@ export const POST = withAuth(
       description: description || "",
     });
 
-    await sendUploadNotifications(fileName);
+    await sendUploadNotifications(fileName, attachment.id);
 
     return NextResponse.json(attachment, { status: 201 });
   }

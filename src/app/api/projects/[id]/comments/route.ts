@@ -61,10 +61,13 @@ export const POST = withAuth(
       const projName = await getProjectName(id);
       const title = `New comment on ${projName || "project"}`;
       const desc = `${userName}: ${content.trim().slice(0, 100)}`;
-      await createNotificationsForTeam(id, user.id, "comment", title, desc);
-      if (effectiveRole !== "client") {
-        await createNotificationForClient(id, "comment", title, desc);
-      }
+      // Independent fan-outs -- no reason to serialize them.
+      await Promise.all([
+        createNotificationsForTeam(id, user.id, "comment", title, desc),
+        effectiveRole !== "client"
+          ? createNotificationForClient(id, "comment", title, desc)
+          : null,
+      ]);
     } catch (err) {
       logger.error("Comment notification error", { projectId: id, error: err });
     }

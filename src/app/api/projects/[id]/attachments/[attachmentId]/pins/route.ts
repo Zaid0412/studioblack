@@ -204,7 +204,8 @@ export const POST = withAuth(
           user.id,
           "review_changes_requested",
           `${user.name || "Client"} requested changes on "${attachment.file_name}"`,
-          taskTitle
+          taskTitle,
+          { attachmentId }
         ).catch((err) =>
           logger.error("Pin team notification failed", {
             projectId: id,

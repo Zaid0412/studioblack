@@ -1,12 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { GET, PATCH, DELETE } from "@/app/api/notifications/route";
+import { GET, PATCH } from "@/app/api/notifications/route";
 import {
   getNotifications,
-  getUnreadNotificationCount,
   markAllNotificationsRead,
   markNotificationsReadByIds,
-  deleteNotification,
-  deleteAllNotifications,
 } from "@/lib/queries";
 import { auth } from "@/lib/auth";
 import {
@@ -63,24 +60,30 @@ describe("GET /api/notifications", () => {
 
     expect(status).toBe(200);
     expect(body).toEqual(fakeNotifications);
-    expect(getNotifications).toHaveBeenCalledWith(session.user.id);
+    // The default is the full history -- that's what /audit reads.
+    expect(getNotifications).toHaveBeenCalledWith(session.user.id, {
+      unreadOnly: false,
+    });
   });
 
-  it("returns unread count when ?unread=true", async () => {
+  // The notification bell asks for this; /audit deliberately does not, so the
+  // two must not collapse back into one query.
+  it("returns only unread notifications when ?unread=true", async () => {
     const session = mockSession();
     setupAuth(authMocks, session);
 
-    vi.mocked(getUnreadNotificationCount).mockResolvedValue(5);
+    vi.mocked(getNotifications).mockResolvedValue([]);
 
     const req = buildRequest("/api/notifications", {
       searchParams: { unread: "true" },
     });
     const res = await GET(req);
-    const { status, body } = await parseResponse(res);
+    const { status } = await parseResponse(res);
 
     expect(status).toBe(200);
-    expect(body).toEqual({ count: 5 });
-    expect(getUnreadNotificationCount).toHaveBeenCalledWith(session.user.id);
+    expect(getNotifications).toHaveBeenCalledWith(session.user.id, {
+      unreadOnly: true,
+    });
   });
 });
 
@@ -138,52 +141,6 @@ describe("PATCH /api/notifications", () => {
   });
 });
 
-// ── DELETE /api/notifications ───────────────────────────────────────────────
-
-describe("DELETE /api/notifications", () => {
-  it("deletes a single notification", async () => {
-    const session = mockSession();
-    setupAuth(authMocks, session);
-
-    const req = buildRequest("/api/notifications", {
-      method: "DELETE",
-      body: { id: UUID_1 },
-    });
-    const res = await DELETE(req);
-    const { status, body } = await parseResponse(res);
-
-    expect(status).toBe(200);
-    expect(body).toEqual({ success: true });
-    expect(deleteNotification).toHaveBeenCalledWith(session.user.id, UUID_1);
-  });
-
-  it("deletes all notifications", async () => {
-    const session = mockSession();
-    setupAuth(authMocks, session);
-
-    const req = buildRequest("/api/notifications", {
-      method: "DELETE",
-      body: {},
-    });
-    const res = await DELETE(req);
-    const { status, body } = await parseResponse(res);
-
-    expect(status).toBe(200);
-    expect(body).toEqual({ success: true });
-    expect(deleteAllNotifications).toHaveBeenCalledWith(session.user.id);
-  });
-
-  it("returns 400 on invalid body", async () => {
-    const session = mockSession();
-    setupAuth(authMocks, session);
-
-    const req = buildRequest("/api/notifications", {
-      method: "DELETE",
-      body: { id: 12345 },
-    });
-    const res = await DELETE(req);
-    const { status } = await parseResponse(res);
-
-    expect(status).toBe(400);
-  });
-});
+// Notifications are never hard-deleted: /audit and the dashboard activity feed
+// read the same rows and want them after they've been read. Emptying the bell
+// marks them read (PATCH above); there is deliberately no DELETE route.

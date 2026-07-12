@@ -1,3 +1,4 @@
+import { designReviewHref } from "@/lib/appRoutes";
 import type { DbPinComment, Task } from "@/types";
 
 /**
@@ -11,7 +12,7 @@ export function pinCommentReviewHref(
   if (!task.project_id || !task.pin_attachment_id || !task.pin_comment_id) {
     return null;
   }
-  return `/projects/${task.project_id}/review/${task.pin_attachment_id}?comments=open&pinId=${task.pin_comment_id}`;
+  return `${designReviewHref(task.project_id, task.pin_attachment_id)}?comments=open&pinId=${task.pin_comment_id}`;
 }
 
 /** Sort pins by created_at ascending. */

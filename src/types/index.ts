@@ -82,24 +82,26 @@ export interface Notification {
   title: string;
   /** Longer explanatory text. */
   description: string;
-  /** Category used to pick the icon and colour in the UI. */
-  type:
-    | "review"
-    | "comment"
-    | "approval"
-    | "upload"
-    | "deadline"
-    | "team"
-    | "invitation"
-    | "task_assigned"
-    | "review_requested"
-    | "review_submitted";
-  /** Whether the user has already seen this notification. */
-  read: boolean;
+  /**
+   * Category used to pick the icon and colour in the UI. Producers write this
+   * as a free-form string (`_phaseNotifications.ts` even interpolates it), so
+   * this is not a closed set — consumers look it up and fall back. It was once
+   * a union, but the union listed ten types while producers emitted nineteen,
+   * and an `as` cast in the mapper hid the drift.
+   */
+  type: string;
   /** ISO-8601 creation timestamp. */
   createdAt: string;
   /** Optional link to the related project. */
   projectId?: string;
+  /** Optional link to the related task. Takes precedence over `projectId` when routing. */
+  taskId?: string;
+  /** Optional link to the related RFQ. */
+  rfqId?: string;
+  /** Optional link to the related design (an attachment id). */
+  attachmentId?: string;
+  /** Explicit destination, for client-only notifications that carry no entity ids. */
+  href?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -379,6 +381,9 @@ export interface DbNotificationRow {
   created_at: string;
   project_id: string | null;
   project_name: string | null;
+  task_id: string | null;
+  rfq_id: string | null;
+  attachment_id: string | null;
 }
 
 // ---------------------------------------------------------------------------

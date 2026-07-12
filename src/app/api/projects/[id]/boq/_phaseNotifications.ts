@@ -91,7 +91,11 @@ export async function notifyPhaseRecipients(opts: {
     }
     case "client_approved":
     case "client_changes_requested":
-    case "internal_changes_requested": {
+    case "internal_changes_requested":
+    // `ready_for_procurement` is internal and PM-only -- the team needs to know
+    // the item is now RFQ-eligible. The client must not be told: they already
+    // see the item as approved.
+    case "ready_for_procurement": {
       // Whole studio team on the project (every PM + architect in
       // `project_member`) plus the BOQ creator if they're somehow not a
       // member. Actor excluded.
@@ -155,6 +159,17 @@ export async function notifyPhaseRecipients(opts: {
     case "client_reviewing":
     case "draft":
       return;
+    default: {
+      // Every arm above returns, so `target` is `never` here. A new BoqItemPhase
+      // that nobody routed fails to compile rather than silently notifying no
+      // one — which is exactly how `ready_for_procurement` went unnoticed: this
+      // function returns void, so a missing case was invisible to TS.
+      const unhandled: never = target;
+      logger.error("Unhandled BOQ phase in notifyPhaseRecipients", {
+        target: unhandled,
+      });
+      return;
+    }
   }
 }
 

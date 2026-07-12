@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { markPhaseTaskForReview, getProjectReviewInfo } from "@/lib/queries";
 import { sendNotificationEmail, escapeHtml } from "@/lib/email";
 import { createNotificationForClient } from "@/lib/notifications";
+import { logger } from "@/lib/logger";
 import { withAuth } from "@/lib/withAuth";
 import { guardTaskOwnership } from "@/app/api/tasks/helpers";
 
@@ -45,7 +46,13 @@ export const POST = withAuth(
       "review_requested",
       "Review requested",
       `Task "${task.title}" in project "${project?.name || ""}" needs your review`
-    ).catch(() => {});
+    ).catch((err) =>
+      logger.error("Review request client notification failed", {
+        projectId: id,
+        taskId,
+        error: err,
+      })
+    );
 
     return NextResponse.json(task);
   }
