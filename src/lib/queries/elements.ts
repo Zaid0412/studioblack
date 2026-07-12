@@ -13,10 +13,11 @@ import type {
   ElementWithDetails,
 } from "@/types";
 import { escapeSqlLike, descendantCategoryIdsSql } from "./helpers";
-import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
+import { SERVICE_AREA_LEVEL, UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
 import {
   elementCodePrefix,
   nextElementCodes,
+  requireServiceArea,
   syncElementCounter,
 } from "./sequences";
 import { mapPgError } from "./_pgErrors";
@@ -50,7 +51,8 @@ const ELEMENT_SORT_SQL: Record<
 export interface CreateElementInput {
   name: string;
   description?: string;
-  categoryId?: string;
+  /** Required, and must be a Service Area (level 3). */
+  categoryId: string;
   unit: string;
   unitCost: number;
   currency?: string;
@@ -340,9 +342,10 @@ async function replaceElementAttributes(
 }
 
 /**
- * Create an element + its attributes inside a transaction. The code is
- * generated from the category's path code and a per-prefix sequence — see
- * `generateElementCode`. Throws "Category not found" (23503).
+ * Create an element + its attributes inside a transaction. The element must sit
+ * under a Service Area; its code is that Service Area's path code plus a
+ * per-prefix sequence. Throws "Category not found" or "Category must be a
+ * Service Area".
  */
 export async function createElement(
   orgId: string,
@@ -355,7 +358,10 @@ export async function createElement(
   try {
     await client.query("BEGIN");
 
-    const code = await generateElementCodeFor(client, orgId, input.categoryId);
+    // Validates the category and hands back its prefix in one query, so
+    // generating the code costs no extra round-trip.
+    const prefix = await requireServiceArea(client, orgId, input.categoryId);
+    const code = await generateElementCode(client, orgId, prefix);
 
     let elementRow: Element;
     try {
@@ -434,7 +440,10 @@ export async function createElement(
 /**
  * Update element fields + optionally replace attributes in one transaction.
  * Returns the updated element+attributes or null if not found in this org.
- * `code` is not updatable — see ELEMENT_COLS.
+ *
+ * `code` is not writable from the request body (it is absent from ELEMENT_COLS),
+ * but moving an element to a different Service Area reissues it — see
+ * `recodeForCategory`.
  */
 export async function updateElement(
   orgId: string,
@@ -456,6 +465,23 @@ export async function updateElement(
       if (value !== undefined) {
         updates.push(`"${col}" = $${idx}`);
         values.push(value);
+        idx++;
+      }
+    }
+
+    // A category change can reissue the code, so it is resolved before the
+    // UPDATE and folded into the same statement — one write, no torn state
+    // where the row points at a Service Area its code disagrees with.
+    if (input.categoryId !== undefined) {
+      const newCode = await recodeForCategory(
+        client,
+        orgId,
+        id,
+        input.categoryId
+      );
+      if (newCode) {
+        updates.push(`"code" = $${idx}`);
+        values.push(newCode);
         idx++;
       }
     }
@@ -753,7 +779,8 @@ export interface BulkElementRow {
   code?: string;
   name: string;
   description?: string;
-  categoryPath?: string[];
+  /** Required, and must name a Service Area. */
+  categoryPath: string[];
   unit: string;
   unitCost: number;
   currency?: string;
@@ -844,13 +871,47 @@ async function generateElementCode(
   throw new Error(`Could not generate a free element code for ${prefix}`);
 }
 
-/** Resolve the category's prefix, then generate. For the single-element paths. */
+/**
+ * Resolve the category's prefix, then generate. Used by `duplicateElement`,
+ * which copies the source's category — and that may be a grandfathered NULL, so
+ * this tolerates what `requireServiceArea` rejects.
+ */
 async function generateElementCodeFor(
   client: PoolClient,
   orgId: string,
   categoryId: string | null | undefined
 ): Promise<string> {
   const prefix = await elementCodePrefix(client, orgId, categoryId);
+  return generateElementCode(client, orgId, prefix);
+}
+
+/**
+ * Reissue an element's code when a category change has made it stale.
+ *
+ * A code is only true if it names the Service Area the element sits under, so
+ * moving `GEN-0001` (or the legacy `LGT-0001`) under Base Cabinets must yield
+ * `KIT-CAB-BASE-####`. Returns null when the code already sits under the new
+ * category's prefix — re-saving an element that hasn't moved must not burn a
+ * sequence number or churn the code.
+ *
+ * This is the one path that writes `code` after creation; it stays out of
+ * ELEMENT_COLS so it can never be driven from the request body.
+ */
+async function recodeForCategory(
+  client: PoolClient,
+  orgId: string,
+  id: string,
+  categoryId: string
+): Promise<string | null> {
+  const prefix = await requireServiceArea(client, orgId, categoryId);
+
+  const { rows } = await client.query<{ code: string }>(
+    `SELECT code FROM element WHERE id = $1 AND org_id = $2`,
+    [id, orgId]
+  );
+  const current = rows[0]?.code;
+  if (current?.startsWith(`${prefix}-`)) return null;
+
   return generateElementCode(client, orgId, prefix);
 }
 
@@ -1137,21 +1198,23 @@ export async function bulkUpsertElements(
   const pool = getPool();
   const result = emptyImportResult();
 
-  // One fetch serves both lookups: the path → id map, and the id → code_prefix
-  // map that codes a blank-code row. Without the latter, generating a code
-  // would re-SELECT the same category once per row.
+  // One fetch serves all three lookups: the path → id map, the id → code_prefix
+  // map that codes a row, and the id → level map that rejects a row filed under
+  // anything but a Service Area. Doing it per-row would re-SELECT the same
+  // category thousands of times.
   const { rows: catRows } = await pool.query(
-    `SELECT id, name, parent_id, code_prefix
+    `SELECT id, name, parent_id, code_prefix, level
        FROM element_category
       WHERE org_id = $1 AND is_active = true`,
     [orgId]
   );
   const rows = catRows as Array<
-    Pick<ElementCategory, "id" | "name" | "parent_id" | "code_prefix">
+    Pick<ElementCategory, "id" | "name" | "parent_id" | "code_prefix" | "level">
   >;
   const categories: CategoryLookup = {
     idByPath: buildCategoryPathMap(rows),
     prefixById: new Map(rows.map((c) => [c.id, c.code_prefix?.trim() || null])),
+    levelById: new Map(rows.map((c) => [c.id, c.level])),
   };
 
   for (let i = 0; i < input.rows.length; i += BULK_IMPORT_BATCH_SIZE) {
@@ -1185,6 +1248,7 @@ function emptyImportResult(): BulkElementImportResult {
 interface CategoryLookup {
   idByPath: Map<string, string>;
   prefixById: Map<string, string | null>;
+  levelById: Map<string, number>;
 }
 
 /**
@@ -1250,19 +1314,29 @@ async function runBulkImportBatch(
     await client.query("BEGIN");
 
     for (const row of rows) {
-      let categoryId: string | null = null;
-      if (row.categoryPath && row.categoryPath.length > 0) {
-        const key = row.categoryPath.map(normalizeCategorySegment).join(" > ");
-        const resolved = categories.idByPath.get(key);
-        if (!resolved) {
-          result.failed.push({
-            rowNumber: row.rowNumber,
-            code: row.code ?? "",
-            error: `Category path not found: ${row.categoryPath.join(" > ")}`,
-          });
-          continue;
-        }
-        categoryId = resolved;
+      const path = row.categoryPath ?? [];
+      const key = path.map(normalizeCategorySegment).join(" > ");
+      const categoryId = categories.idByPath.get(key);
+
+      if (!categoryId) {
+        result.failed.push({
+          rowNumber: row.rowNumber,
+          code: row.code ?? "",
+          error: `Category path not found: ${path.join(" > ")}`,
+        });
+        continue;
+      }
+
+      // The schema can require a path but not that it names a Service Area —
+      // only the org's tree knows that, and this is the import's one chance to
+      // say so before the row is written.
+      if (categories.levelById.get(categoryId) !== SERVICE_AREA_LEVEL) {
+        result.failed.push({
+          rowNumber: row.rowNumber,
+          code: row.code ?? "",
+          error: `Category path "${path.join(" > ")}" is not a Service Area — elements must sit under one`,
+        });
+        continue;
       }
 
       // Per-row savepoint — isolates any unexpected DB error (FK violation,
@@ -1278,8 +1352,7 @@ async function runBulkImportBatch(
           // generateElementCode already took the advisory lock on the code it
           // handed back, and holds it to COMMIT.
           const prefix =
-            (categoryId ? categories.prefixById.get(categoryId) : null) ??
-            UNCATEGORIZED_PREFIX;
+            categories.prefixById.get(categoryId) ?? UNCATEGORIZED_PREFIX;
           code = await generateElementCode(client, orgId, prefix);
         } else {
           // Advisory lock per (orgId, code) — covers every strategy's SELECT →
@@ -1301,15 +1374,12 @@ async function runBulkImportBatch(
         } else if (input.strategy === "skip") {
           result.skipped++;
         } else if (input.strategy === "overwrite") {
-          // Pass undefined (not null) when no category path in the row — the
-          // overwriteElementRow helper treats undefined as "leave alone",
-          // whereas a null would be misread as an explicit clear.
           const updated = await overwriteElementRow(
             client,
             orgId,
             code,
             row,
-            categoryId ?? undefined
+            categoryId
           );
           if (updated) result.updated++;
           else
@@ -1329,15 +1399,13 @@ async function runBulkImportBatch(
               error: "Version failed — no existing element with this code",
             });
           } else {
-            // Pass undefined (not null) when no category path in the row so
-            // insertElementVersion can inherit from the previous version.
             await insertElementVersion(
               client,
               orgId,
               input.createdBy,
               code,
               row,
-              categoryId ?? undefined,
+              categoryId,
               latest.versionGroup,
               latest.versionNumber + 1,
               latest.id

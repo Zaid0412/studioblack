@@ -9,8 +9,20 @@
  * sequence itself is server-side (`queries/sequences.ts`).
  */
 
-/** Prefix used when an element has no category, or its category has no code. */
+/**
+ * Prefix for an element with no category, or whose category has no code.
+ *
+ * New elements must sit under a Service Area, so this only ever codes rows that
+ * predate that rule (and the `migrate-element-code-auto.sql` backfill of them).
+ */
 export const UNCATEGORIZED_PREFIX = "GEN";
+
+/**
+ * `element_category.level` of a Service Area — the leaf of
+ * Category → Sub-category → Service Area, and the only level an element may be
+ * filed under.
+ */
+export const SERVICE_AREA_LEVEL = 3;
 
 /** `element_category.code_prefix` is VARCHAR(20). */
 export const CATEGORY_CODE_MAX = 20;

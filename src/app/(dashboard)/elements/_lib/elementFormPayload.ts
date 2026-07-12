@@ -15,7 +15,7 @@ export function buildElementMutationPayload(values: ElementSubmitValues) {
   return {
     name: values.name,
     description: values.description || undefined,
-    categoryId: values.categoryId ?? undefined,
+    categoryId: values.categoryId,
     unit: values.unit,
     unitCost: values.unitCost,
     currency: values.currency,

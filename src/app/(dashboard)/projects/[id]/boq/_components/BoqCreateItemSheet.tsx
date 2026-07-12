@@ -26,6 +26,12 @@ import type { BoqSection, ElementCategoryNode } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import {
+  SERVICE_AREA_DEPTH,
+  flattenCategories,
+  isServiceArea,
+} from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
+import {
   BOQ_NO_SECTION_ID,
   convertDimensions,
   formatFeetInches,
@@ -159,6 +165,10 @@ export function BoqCreateItemSheet({
     open ? API.elementCategories() : null
   );
   const categoryTree = catData?.tree ?? [];
+  const serviceAreaChosen = isServiceArea(
+    flattenCategories(categoryTree),
+    v.categoryId
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -346,17 +356,28 @@ export function BoqCreateItemSheet({
         });
         return;
       }
+      // A BOQ item may sit at any level of the tree; a library element may not.
+      // Same picker, so the constraint only applies when the box is ticked.
+      if (!serviceAreaChosen) {
+        toast({
+          title: "Service Area required",
+          description:
+            "Library elements must sit under a Service Area. Pick one, or untick 'save as element'.",
+          variant: "error",
+        });
+        return;
+      }
     }
 
     setSubmitting(true);
     try {
       let elementId: string | null = null;
 
-      if (v.saveAsElement) {
+      if (v.saveAsElement && v.categoryId) {
         const element = await elementsApi.create({
           name: trimmedName,
           description: trimmedDesc,
-          categoryId: v.categoryId ?? undefined,
+          categoryId: v.categoryId,
           unit: v.unit,
           unitCost: num(v.unitCost, 0),
           currency: v.currency,
@@ -489,13 +510,28 @@ export function BoqCreateItemSheet({
               nextSortOrder={sections.length}
             />
 
-            {/* Service area — classifies the line so it can match rate
-                contracts / vendor suggestion, even when it's free-text. */}
+            {/* Classifies the line so it can match rate contracts / vendor
+                suggestion, even when it's free-text. A BOQ item may sit at any
+                level of the tree — but if it's also being saved to the library,
+                the element it becomes must sit under a Service Area. */}
             <CategorySelect
               label="Service area"
               value={v.categoryId}
               onChange={(id) => set("categoryId", id)}
               tree={categoryTree}
+              selectableDepth={v.saveAsElement ? SERVICE_AREA_DEPTH : 0}
+              renderCreate={
+                v.saveAsElement
+                  ? ({ open, onOpenChange, onCreated }) => (
+                      <ServiceAreaDialog
+                        open={open}
+                        tree={categoryTree}
+                        onOpenChange={onOpenChange}
+                        onCreated={onCreated}
+                      />
+                    )
+                  : undefined
+              }
             />
 
             {/* Description */}

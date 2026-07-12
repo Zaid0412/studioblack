@@ -217,6 +217,7 @@ describe("POST /api/elements", () => {
       body: {
         code: "HACK-9999",
         name: "Emulsion Paint",
+        categoryId: CAT_ID,
         unit: "m2",
         unitCost: 120,
       },
@@ -241,6 +242,7 @@ describe("POST /api/elements", () => {
       method: "POST",
       body: {
         name: "Paint",
+        categoryId: CAT_ID,
         unit: "m2",
         unitCost: 120,
       },
@@ -269,6 +271,63 @@ describe("POST /api/elements", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
+  });
+
+  // An element must sit under a Service Area. The schema can only see that a
+  // UUID was sent, so the level check lives in requireServiceArea — and it is
+  // the same query that rejects another org's category id.
+  it("returns 400 without a category — the schema requires one", async () => {
+    const req = buildRequest("/api/elements", {
+      method: "POST",
+      body: { name: "Paint", unit: "m2", unitCost: 120 },
+    });
+    const res = await POST(req);
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+    expect(createElement).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the category is not a Service Area", async () => {
+    vi.mocked(createElement).mockRejectedValue(
+      new Error("Category must be a Service Area")
+    );
+
+    const req = buildRequest("/api/elements", {
+      method: "POST",
+      body: {
+        name: "Paint",
+        categoryId: CAT_ID,
+        unit: "m2",
+        unitCost: 120,
+      },
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category must be a Service Area");
+  });
+
+  it("returns 400 when the category belongs to another org", async () => {
+    // requireServiceArea scopes its lookup to the org, so a foreign id reads as
+    // "not found" rather than leaking the other org's category.
+    vi.mocked(createElement).mockRejectedValue(new Error("Category not found"));
+
+    const req = buildRequest("/api/elements", {
+      method: "POST",
+      body: {
+        name: "Paint",
+        categoryId: "b1ffcd00-ad1c-4f09-bb7e-7ccace491b22",
+        unit: "m2",
+        unitCost: 120,
+      },
+    });
+    const res = await POST(req);
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category not found");
   });
 
   it("returns 400 when required fields are missing", async () => {

@@ -35,6 +35,8 @@ function makeCategory(
 const CATEGORIES: ElementCategory[] = [
   makeCategory("cat-f", "Finishes", null, 1),
   makeCategory("cat-wf", "Wall Finishes", "cat-f", 2),
+  // The leaf: an element must sit under a Service Area.
+  makeCategory("cat-pt", "Paint", "cat-wf", 3),
 ];
 
 const HEADERS = [
@@ -97,7 +99,7 @@ describe("POST /api/elements/import", () => {
       [
         "WAL-PNT-001",
         "White Paint",
-        "Finishes > Wall Finishes",
+        "Finishes > Wall Finishes > Paint",
         "m2",
         10,
         "USD",
@@ -218,6 +220,8 @@ describe("POST /api/elements/import/confirm", () => {
     rowNumber: 1,
     code: "WAL-PNT-002",
     name: "Grey Paint",
+    // Required — an element must sit under a Service Area.
+    categoryPath: ["Finishes", "Wall Finishes", "Paint"],
     unit: "m2",
     unitCost: 10,
   };

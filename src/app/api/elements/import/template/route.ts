@@ -15,8 +15,7 @@ import {
  * produces, guaranteeing round-trip parity.
  */
 export const GET = withAuth({ allowedRoles: ["pm", "architect"] }, async () => {
-  const sample = buildSampleRows();
-  const buffer = await writeElementSheet(sample, []);
+  const buffer = await writeElementSheet(buildSampleRows(), SAMPLE_CATEGORIES);
 
   const headers = new Headers({
     "Content-Type":
@@ -30,6 +29,18 @@ export const GET = withAuth({ allowedRoles: ["pm", "architect"] }, async () => {
 });
 
 /**
+ * A throwaway Category → Sub-category → Service Area chain, purely so the
+ * sample rows render a full `Category Path`. Elements must sit under a Service
+ * Area, so a template whose path column was blank would be an example of an
+ * invalid row.
+ */
+const SAMPLE_CATEGORIES = [
+  { id: "sample-l1", name: "Kitchen", parent_id: null },
+  { id: "sample-l2", name: "Cabinets", parent_id: "sample-l1" },
+  { id: "sample-l3", name: "Base Cabinets", parent_id: "sample-l2" },
+];
+
+/**
  * Two illustrative rows — one with most fields populated, one minimal — so
  * the user immediately sees both "this is what a complete row looks like"
  * and "these are the bare minimum required fields."
@@ -37,7 +48,7 @@ export const GET = withAuth({ allowedRoles: ["pm", "architect"] }, async () => {
 function buildSampleRows(): WritableElement[] {
   return [
     {
-      category_id: null,
+      category_id: "sample-l3",
       code: "SAMPLE-001",
       name: "Porcelain Floor Tile 600x600",
       description: "Glazed porcelain, rectified edges",
@@ -56,10 +67,10 @@ function buildSampleRows(): WritableElement[] {
       tags: ["floor", "tile"],
     },
     {
-      category_id: null,
+      category_id: "sample-l3",
       // Blank on purpose: leave Code empty and the element is coded from its
-      // category on import (KIT-CAB-BASE-0001). Fill it in only to update an
-      // element that already exists — the code is what the row matches on.
+      // Service Area on import (KIT-CAB-BASE-0001). Fill it in only to update
+      // an element that already exists — the code is what the row matches on.
       code: "",
       name: "Standard Latex Paint",
       description: null,

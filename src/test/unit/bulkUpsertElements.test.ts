@@ -40,6 +40,34 @@ function queueQueryResults(
   }
 }
 
+// Elements must sit under a Service Area, so every row needs a path that
+// resolves to a level-3 node. One chain serves the whole file.
+const CATEGORY_ROWS = [
+  {
+    id: "cat-1",
+    name: "Kitchen",
+    parent_id: null,
+    code_prefix: "KIT",
+    level: 1,
+  },
+  {
+    id: "cat-2",
+    name: "Cabinets",
+    parent_id: "cat-1",
+    code_prefix: "KIT-CAB",
+    level: 2,
+  },
+  {
+    id: "cat-3",
+    name: "Base Cabinets",
+    parent_id: "cat-2",
+    code_prefix: "KIT-CAB-BASE",
+    level: 3,
+  },
+];
+
+const SERVICE_AREA_PATH = ["Kitchen", "Cabinets", "Base Cabinets"];
+
 const ORG = "org-test-001";
 const CREATED_BY = "user-test-001";
 
@@ -62,7 +90,7 @@ describe("bulkUpsertElements — version strategy", () => {
     // 10. RELEASE SAVEPOINT
     // 11. COMMIT
     queueQueryResults([
-      { rows: [] }, // (1) element_category lookup — empty tree is fine
+      { rows: CATEGORY_ROWS }, // (1) element_category lookup
       { rows: [] }, // (2) BEGIN
       { rows: [] }, // (3) SAVEPOINT bulk_row
       { rows: [] }, // (4) advisory lock
@@ -112,6 +140,7 @@ describe("bulkUpsertElements — version strategy", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           code: "WAL-PNT-001",
           name: "Paint v4",
           unit: "m2",
@@ -156,7 +185,7 @@ describe("bulkUpsertElements — version strategy", () => {
     // version must inherit the prior description — not silently null it.
     // Same semantic as the overwrite strategy (blank = leave alone).
     queueQueryResults([
-      { rows: [] }, // (1) category tree
+      { rows: CATEGORY_ROWS }, // (1) category tree
       { rows: [] }, // (2) BEGIN
       { rows: [] }, // (3) SAVEPOINT
       { rows: [] }, // (4) advisory lock
@@ -196,6 +225,7 @@ describe("bulkUpsertElements — version strategy", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           code: "INHERIT-TEST",
           name: "Updated name",
           unit: "m2",
@@ -219,7 +249,10 @@ describe("bulkUpsertElements — version strategy", () => {
     // spec_reference, drawing_ref, tags, created_by, version_group, version_number
     expect(params[2]).toBe("Updated name"); // required, taken
     expect(params[3]).toBe("Inherit me"); // description inherited
-    expect(params[4]).toBe("cat-42"); // category inherited
+    // Category is NOT inherited: a path is required on every row now, so the
+    // new version is filed under the Service Area the sheet names, not the one
+    // the previous version happened to carry.
+    expect(params[4]).toBe("cat-3");
     expect(params[7]).toBe("EUR"); // currency inherited
     expect(params[8]).toBe("5.50"); // material_cost inherited
     expect(params[15]).toBe("SPEC-1"); // spec_reference inherited
@@ -230,7 +263,7 @@ describe("bulkUpsertElements — version strategy", () => {
 describe("bulkUpsertElements — overwrite strategy", () => {
   it("only updates the latest version in the group via ORDER BY LIMIT 1 subquery", async () => {
     queueQueryResults([
-      { rows: [] }, // category tree
+      { rows: CATEGORY_ROWS }, // category tree
       { rows: [] }, // BEGIN
       { rows: [] }, // SAVEPOINT
       { rows: [] }, // advisory lock
@@ -254,6 +287,7 @@ describe("bulkUpsertElements — overwrite strategy", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           code: "WAL-PNT-001",
           name: "Updated Paint",
           unit: "m2",
@@ -281,7 +315,7 @@ describe("bulkUpsertElements — overwrite strategy", () => {
 describe("bulkUpsertElements — skip strategy", () => {
   it("skips rows whose code already exists and counts them in `skipped`", async () => {
     queueQueryResults([
-      { rows: [] }, // category tree
+      { rows: CATEGORY_ROWS }, // category tree
       { rows: [] }, // BEGIN
       { rows: [] }, // SAVEPOINT
       { rows: [] }, // advisory lock
@@ -304,6 +338,7 @@ describe("bulkUpsertElements — skip strategy", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           code: "WAL-PNT-001",
           name: "Paint",
           unit: "m2",
@@ -320,23 +355,51 @@ describe("bulkUpsertElements — skip strategy", () => {
   });
 });
 
+describe("bulkUpsertElements — Service Area gate", () => {
+  // The Zod schema can require a path, but only the org's tree knows whether it
+  // names a Service Area. This is the last gate before the row is written.
+  it("fails a row whose path resolves to a Sub-category, and writes nothing", async () => {
+    queueQueryResults([
+      { rows: CATEGORY_ROWS }, // category tree
+      { rows: [] }, // BEGIN
+      { rows: [] }, // COMMIT
+    ]);
+
+    const result = await realBulkUpsertElements(ORG, {
+      strategy: "skip",
+      createdBy: CREATED_BY,
+      rows: [
+        {
+          rowNumber: 1,
+          categoryPath: ["Kitchen", "Cabinets"], // level 2 — a real path, wrong level
+          name: "Paint",
+          unit: "m2",
+          unitCost: 10,
+        },
+      ],
+    });
+
+    expect(result.inserted).toBe(0);
+    expect(result.failed).toHaveLength(1);
+    expect(result.failed[0].error).toContain("not a Service Area");
+
+    // The row is rejected before any savepoint or insert is attempted.
+    const wrote = mocks.db.query.mock.calls.some(
+      (c) => typeof c[0] === "string" && c[0].includes("INSERT INTO element")
+    );
+    expect(wrote).toBe(false);
+  });
+});
+
 describe("bulkUpsertElements — generated codes", () => {
   // A row with no code has no join key, so it can't match an existing element.
   // It is always a fresh insert, coded from its category's path code.
   it("generates a code for a row that supplies none", async () => {
     queueQueryResults([
-      // The category tree is fetched once, and carries code_prefix — so
-      // generating a code costs no per-row category lookup.
-      {
-        rows: [
-          {
-            id: "cat-1",
-            name: "Base Cabinets",
-            parent_id: null,
-            code_prefix: "KIT-CAB-BASE",
-          },
-        ],
-      },
+      // The category tree is fetched once, and carries code_prefix + level —
+      // so neither coding a row nor gating it on Service Area costs a per-row
+      // category lookup.
+      { rows: CATEGORY_ROWS },
       { rows: [] }, // BEGIN
       { rows: [] }, // SAVEPOINT
       { rows: [{ current_value: 7 }] }, // sequence_counter bump
@@ -354,8 +417,8 @@ describe("bulkUpsertElements — generated codes", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           name: "Paint",
-          categoryPath: ["Base Cabinets"],
           unit: "m2",
           unitCost: 10,
         },
@@ -384,7 +447,7 @@ describe("bulkUpsertElements — generated codes", () => {
 
   it("leaves a supplied code alone — it is the strategies' join key", async () => {
     queueQueryResults([
-      { rows: [] }, // category tree
+      { rows: CATEGORY_ROWS }, // category tree
       { rows: [] }, // BEGIN
       { rows: [] }, // SAVEPOINT
       { rows: [] }, // advisory lock
@@ -400,6 +463,7 @@ describe("bulkUpsertElements — generated codes", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           code: "LEGACY-A-01",
           name: "Paint",
           unit: "m2",
@@ -424,7 +488,7 @@ describe("bulkUpsertElements — generated codes", () => {
 describe("bulkUpsertElements — advisory-lock serialisation", () => {
   it("takes a pg_advisory_xact_lock keyed on (orgId, code) before the SELECT/INSERT", async () => {
     queueQueryResults([
-      { rows: [] }, // category tree
+      { rows: CATEGORY_ROWS }, // category tree
       { rows: [] }, // BEGIN
       { rows: [] }, // SAVEPOINT
       { rows: [] }, // advisory lock
@@ -440,6 +504,7 @@ describe("bulkUpsertElements — advisory-lock serialisation", () => {
       rows: [
         {
           rowNumber: 1,
+          categoryPath: SERVICE_AREA_PATH,
           code: "CONCURRENT-CODE",
           name: "A",
           unit: "m2",

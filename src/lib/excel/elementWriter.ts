@@ -38,7 +38,7 @@ export type WritableElement = Pick<
  */
 export async function writeElementSheet(
   elements: WritableElement[],
-  categories: ElementCategory[]
+  categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
 ): Promise<Buffer> {
   const pathById = buildCategoryPathById(categories);
 
