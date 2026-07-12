@@ -57,7 +57,10 @@ function buildSampleRows(): WritableElement[] {
     },
     {
       category_id: null,
-      code: "SAMPLE-002",
+      // Blank on purpose: leave Code empty and the element is coded from its
+      // category on import (KIT-CAB-BASE-0001). Fill it in only to update an
+      // element that already exists — the code is what the row matches on.
+      code: "",
       name: "Standard Latex Paint",
       description: null,
       unit: "lm",

@@ -14,6 +14,12 @@ import {
 } from "@/components/ui/select";
 import { CategoryIconPicker } from "./CategoryIconPicker";
 import { CategoryColorPicker } from "./CategoryColorPicker";
+import {
+  codeSegmentOf,
+  composeCategoryCode,
+  maxSegmentLength,
+  normalizeCodeSegment,
+} from "@/lib/categoryCode";
 import type { CategoryOption } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
 const NONE = "__none__";
@@ -21,6 +27,7 @@ const NONE = "__none__";
 export interface CategoryFormValues {
   name: string;
   parentId: string | null;
+  /** Full path code (`KIT-CAB-BASE`). The form edits only its last segment. */
   codePrefix: string;
   icon: string | null;
   color: string | null;
@@ -44,10 +51,18 @@ interface Props {
   onCancel: () => void;
 }
 
-const EMPTY: CategoryFormValues = {
+/**
+ * Internal state. `codeSegment` is the only part of the path code the user
+ * types; the full `codePrefix` is composed from the parent's on submit.
+ */
+type FormState = Omit<CategoryFormValues, "codePrefix"> & {
+  codeSegment: string;
+};
+
+const EMPTY: FormState = {
   name: "",
   parentId: null,
-  codePrefix: "",
+  codeSegment: "",
   icon: null,
   color: null,
 };
@@ -68,21 +83,40 @@ export function CategoryForm({
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
 
-  const [values, setValues] = useState<CategoryFormValues>({
+  const prefixOf = (id: string | null | undefined) =>
+    parentOptions.find((o) => o.id === id)?.codePrefix ?? null;
+
+  const [values, setValues] = useState<FormState>(() => ({
     ...EMPTY,
     ...initial,
-  });
+    codeSegment: codeSegmentOf(
+      initial?.codePrefix,
+      prefixOf(initial?.parentId)
+    ),
+  }));
 
   useEffect(() => {
-    setValues({ ...EMPTY, ...initial });
+    setValues({
+      ...EMPTY,
+      ...initial,
+      codeSegment: codeSegmentOf(
+        initial?.codePrefix,
+        prefixOf(initial?.parentId)
+      ),
+    });
     // Only reset when switching between editing targets.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.name, initial?.parentId, initial?.codePrefix]);
 
-  const setField = <K extends keyof CategoryFormValues>(
-    key: K,
-    value: CategoryFormValues[K]
-  ) => setValues((v) => ({ ...v, [key]: value }));
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setValues((v) => ({ ...v, [key]: value }));
+
+  // A category's code is its parent's code plus its own segment, so the form
+  // only ever edits the segment — `KIT-CAB` + `BASE` → `KIT-CAB-BASE`. Element
+  // codes are built from this, so a hand-typed path that didn't sit under its
+  // parent would silently break them.
+  const parentPrefix = prefixOf(values.parentId);
+  const composedCode = composeCategoryCode(parentPrefix, values.codeSegment);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +130,7 @@ export function CategoryForm({
     await onSubmit({
       name: values.name.trim(),
       parentId: values.parentId ?? undefined,
-      codePrefix: values.codePrefix.trim() || undefined,
+      codePrefix: composedCode || undefined,
       icon: values.icon ?? undefined,
       color: values.color ?? undefined,
     });
@@ -146,13 +180,22 @@ export function CategoryForm({
           </Select>
         </div>
 
-        <Input
-          label={t("categoryCodePrefix")}
-          placeholder={t("categoryCodePrefixPlaceholder")}
-          value={values.codePrefix}
-          onChange={(e) => setField("codePrefix", e.target.value)}
-          maxLength={10}
-        />
+        <div className="flex flex-col gap-1.5">
+          <Input
+            label={t("categoryCodeSegment")}
+            placeholder={t("categoryCodeSegmentPlaceholder")}
+            value={values.codeSegment}
+            onChange={(e) =>
+              setField("codeSegment", normalizeCodeSegment(e.target.value))
+            }
+            maxLength={maxSegmentLength(parentPrefix)}
+          />
+          <p className="text-xs text-text-muted">
+            {composedCode
+              ? t("categoryCodeComposed", { code: composedCode })
+              : t("categoryCodeHint")}
+          </p>
+        </div>
       </div>
 
       <CategoryIconPicker

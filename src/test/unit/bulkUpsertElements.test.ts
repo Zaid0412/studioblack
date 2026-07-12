@@ -320,6 +320,89 @@ describe("bulkUpsertElements — skip strategy", () => {
   });
 });
 
+describe("bulkUpsertElements — generated codes", () => {
+  // A row with no code has no join key, so it can't match an existing element.
+  // It is always a fresh insert, coded from its category's path code.
+  it("generates a code for a row that supplies none", async () => {
+    queueQueryResults([
+      { rows: [{ id: "cat-1", name: "Base Cabinets", parent_id: null }] }, // category tree
+      { rows: [] }, // BEGIN
+      { rows: [] }, // SAVEPOINT
+      { rows: [{ code_prefix: "KIT-CAB-BASE" }] }, // elementCodePrefix
+      { rows: [{ current_value: 7 }] }, // sequence_counter bump
+      { rows: [] }, // advisory lock (candidate)
+      { rows: [] }, // dup check → free
+      { rows: [] }, // advisory lock (bulk row)
+      { rows: [] }, // findLatestByCode → none
+      { rows: [{ id: "new-row-id" }] }, // INSERT new element
+      { rows: [] }, // RELEASE SAVEPOINT
+      { rows: [] }, // COMMIT
+    ]);
+
+    const result = await realBulkUpsertElements(ORG, {
+      strategy: "skip",
+      createdBy: CREATED_BY,
+      rows: [
+        {
+          rowNumber: 1,
+          name: "Paint",
+          categoryPath: ["Base Cabinets"],
+          unit: "m2",
+          unitCost: 10,
+        },
+      ],
+    });
+
+    expect(result.inserted).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.failed).toEqual([]);
+
+    const insert = mocks.db.query.mock.calls.find(
+      (c) => typeof c[0] === "string" && c[0].includes("INSERT INTO element\n")
+    );
+    // 4-digit sequence appended to the category's path code.
+    expect((insert?.[1] as unknown[])[1]).toBe("KIT-CAB-BASE-0007");
+  });
+
+  it("leaves a supplied code alone — it is the strategies' join key", async () => {
+    queueQueryResults([
+      { rows: [] }, // category tree
+      { rows: [] }, // BEGIN
+      { rows: [] }, // SAVEPOINT
+      { rows: [] }, // advisory lock
+      { rows: [] }, // findLatestByCode → none
+      { rows: [{ id: "new-row-id" }] }, // INSERT new element
+      { rows: [] }, // RELEASE SAVEPOINT
+      { rows: [] }, // COMMIT
+    ]);
+
+    await realBulkUpsertElements(ORG, {
+      strategy: "skip",
+      createdBy: CREATED_BY,
+      rows: [
+        {
+          rowNumber: 1,
+          code: "LEGACY-A-01",
+          name: "Paint",
+          unit: "m2",
+          unitCost: 10,
+        },
+      ],
+    });
+
+    // No counter was touched — a coded row must round-trip byte for byte.
+    const bumped = mocks.db.query.mock.calls.some(
+      (c) => typeof c[0] === "string" && c[0].includes("sequence_counter")
+    );
+    expect(bumped).toBe(false);
+
+    const insert = mocks.db.query.mock.calls.find(
+      (c) => typeof c[0] === "string" && c[0].includes("INSERT INTO element\n")
+    );
+    expect((insert?.[1] as unknown[])[1]).toBe("LEGACY-A-01");
+  });
+});
+
 describe("bulkUpsertElements — advisory-lock serialisation", () => {
   it("takes a pg_advisory_xact_lock keyed on (orgId, code) before the SELECT/INSERT", async () => {
     queueQueryResults([

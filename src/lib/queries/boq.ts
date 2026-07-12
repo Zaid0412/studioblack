@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
+import { getNextSequenceNumber, nextSequenceNumbers } from "./sequences";
 import {
   elementAncestorCategoryIdsSql,
   categoryAncestorCategoryIdsSql,
@@ -2219,65 +2220,7 @@ export async function getBoqSummary(boqId: string): Promise<BoqSummary> {
   };
 }
 
-/**
- * Atomically increment (or create) the counter for `(orgId, prefix, year)` and
- * return a formatted sequence string like `BOQ-2026-001`.
- *
- * Pass `executor` (a transaction client) to advance the counter inside a
- * caller-owned transaction, so a ROLLBACK reverses the advance instead of
- * burning a code and leaving a gap. Defaults to the pool for standalone use.
- */
-export async function getNextSequenceNumber(
-  orgId: string,
-  prefix: string,
-  executor: Pool | PoolClient = getPool()
-): Promise<string> {
-  const year = new Date().getUTCFullYear();
-  const { rows } = await executor.query<{ current_value: number }>(
-    `INSERT INTO sequence_counter (org_id, prefix, year, current_value)
-     VALUES ($1, $2, $3, 1)
-     ON CONFLICT (org_id, prefix, year)
-     DO UPDATE SET current_value = sequence_counter.current_value + 1
-     RETURNING current_value`,
-    [orgId, prefix, year]
-  );
-  const n = rows[0].current_value;
-  return `${prefix}-${year}-${String(n).padStart(3, "0")}`;
-}
-
 // ── BOQ Excel Import (Feature 6) ────────────────────────────────────────────
-
-/**
- * Bulk-advance the sequence counter and return N formatted codes in order.
- *
- * Runs against a transaction `client` (not the pool) so a ROLLBACK in the
- * surrounding import reverses the sequence advance. Otherwise a partially-
- * applied import would burn codes permanently and leave gaps that show up on
- * client-facing invoices.
- */
-export async function nextSequenceNumbers(
-  client: PoolClient,
-  orgId: string,
-  prefix: string,
-  count: number
-): Promise<string[]> {
-  if (count <= 0) return [];
-  const year = new Date().getUTCFullYear();
-  const { rows } = await client.query<{ current_value: number }>(
-    `INSERT INTO sequence_counter (org_id, prefix, year, current_value)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (org_id, prefix, year)
-     DO UPDATE SET current_value = sequence_counter.current_value + $4::int
-     RETURNING current_value`,
-    [orgId, prefix, year, count]
-  );
-  const end = rows[0].current_value;
-  const start = end - count + 1;
-  return Array.from(
-    { length: count },
-    (_, i) => `${prefix}-${year}-${String(start + i).padStart(3, "0")}`
-  );
-}
 
 /**
  * Build a lookup from `element.code` → { id, code, name } for the org,

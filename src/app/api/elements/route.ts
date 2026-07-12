@@ -61,8 +61,7 @@ export const POST = withAuth(
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to create element";
-      const status = message === "Code already exists" ? 409 : 400;
-      return NextResponse.json({ error: message }, { status });
+      return NextResponse.json({ error: message }, { status: 400 });
     }
   }
 );

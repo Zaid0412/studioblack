@@ -5,6 +5,7 @@
  * `./helpers` is intentionally NOT re-exported — `escapeSqlLike` and
  * `generateBetterAuthId` are internal utilities for the query layer itself.
  */
+export * from "./sequences";
 export * from "./roles";
 export * from "./users";
 export * from "./projects";

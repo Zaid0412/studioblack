@@ -1,6 +1,9 @@
+import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
+import { CATEGORY_CODE_MAX } from "@/lib/categoryCode";
 import type { BulkCategoryNode } from "@/lib/validations";
 import type { ElementCategory, ElementCategoryNode } from "@/types";
+import { escapeSqlLike } from "./helpers";
 
 /** Build a nested tree from flat category rows. */
 export function buildCategoryTree(
@@ -58,6 +61,31 @@ export async function getCategoryById(id: string) {
 }
 
 /**
+ * A category's code must sit under its parent's — `KIT-CAB` under `KIT`. Element
+ * codes are built by appending a sequence to this, so a code that broke the
+ * chain would make `KIT-CAB-BASE-0001` a lie about where the element lives.
+ * Throws when the invariant is violated.
+ */
+async function assertCodeUnderParent(
+  executor: Pick<PoolClient, "query">,
+  orgId: string,
+  parentId: string | null,
+  codePrefix: string | null | undefined
+): Promise<void> {
+  if (!parentId || !codePrefix) return;
+  const { rows } = await executor.query<{ code_prefix: string | null }>(
+    `SELECT code_prefix FROM element_category WHERE id = $1 AND org_id = $2`,
+    [parentId, orgId]
+  );
+  const parentPrefix = rows[0]?.code_prefix?.trim();
+  if (parentPrefix && !codePrefix.startsWith(`${parentPrefix}-`)) {
+    throw new Error(
+      `Code must start with the parent's code (${parentPrefix}-)`
+    );
+  }
+}
+
+/**
  * Create a new category. Level is derived from parent via a single INSERT
  * with subqueries (no extra round-trips for parent lookup or sort_order).
  */
@@ -74,6 +102,8 @@ export async function createCategory(
 ) {
   const pool = getPool();
   const parentId = input.parentId ?? null;
+
+  await assertCodeUnderParent(pool, orgId, parentId, input.codePrefix);
 
   // Single query: derive level from parent, auto-increment sort_order if not given
   let rows: ElementCategory[];
@@ -319,6 +349,12 @@ const CATEGORY_COLS = new Set([
 /**
  * Update a category's fields. Expects snake_case keys (route handler converts).
  * Returns null if the category doesn't exist or no fields to update.
+ *
+ * Renaming a code cascades to descendants — their codes embed this one
+ * (`KIT-CAB` → `KIT-CAB-BASE`), so leaving them behind would strand the whole
+ * subtree under a code that no longer exists. Element codes already issued are
+ * deliberately NOT rewritten: they are stable identifiers, referenced from BOQ
+ * items and used as the Excel import's join key.
  */
 export async function updateCategory(
   id: string,
@@ -343,11 +379,122 @@ export async function updateCategory(
   values.push(id, orgId);
 
   const pool = getPool();
-  const { rows } = await pool.query(
-    `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} AND org_id = $${idx + 1} RETURNING *`,
-    values
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows: before } = await client.query<{
+      code_prefix: string | null;
+      parent_id: string | null;
+    }>(
+      `SELECT code_prefix, parent_id FROM element_category
+        WHERE id = $1 AND org_id = $2
+        FOR UPDATE`,
+      [id, orgId]
+    );
+    const oldPrefix = before[0]?.code_prefix ?? null;
+
+    await assertCodeUnderParent(
+      client,
+      orgId,
+      before[0]?.parent_id ?? null,
+      fields.code_prefix as string | undefined
+    );
+
+    const { rows } = await client.query(
+      `UPDATE element_category SET ${updates.join(", ")} WHERE id = $${idx} AND org_id = $${idx + 1} RETURNING *`,
+      values
+    );
+    const updated = (rows[0] as ElementCategory) ?? null;
+
+    if (updated && oldPrefix && updated.code_prefix) {
+      await cascadeCodePrefix(
+        client,
+        orgId,
+        id,
+        oldPrefix,
+        updated.code_prefix
+      );
+    }
+
+    await client.query("COMMIT");
+    return updated;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Re-base every descendant's code onto the node's new code. Only rows whose
+ * code actually sits under the old one are touched, so a subtree that was
+ * hand-coded off-pattern (before composition was enforced) is left alone
+ * rather than silently mangled.
+ *
+ * A longer code lengthens the whole subtree, so the deepest descendant can
+ * overflow `code_prefix`. Catch that here — a bare 22001 from the UPDATE would
+ * reach the user as "value too long for type character varying(20)", which says
+ * nothing about which category is the problem.
+ */
+async function cascadeCodePrefix(
+  client: PoolClient,
+  orgId: string,
+  id: string,
+  oldPrefix: string,
+  newPrefix: string
+): Promise<void> {
+  if (oldPrefix === newPrefix) return;
+
+  // `LIKE` is only safe with the prefix escaped: `code_prefix` is validated as
+  // a plain max(20) string, so a code holding `_` or `%` would otherwise match
+  // — and rewrite — categories in unrelated subtrees.
+  const under = `${escapeSqlLike(oldPrefix)}-%`;
+  const grew = newPrefix.length - oldPrefix.length;
+
+  if (grew > 0) {
+    const { rows } = await client.query<{ code_prefix: string }>(
+      `WITH RECURSIVE descendant AS (
+         SELECT id FROM element_category
+          WHERE parent_id = $1 AND org_id = $2
+         UNION ALL
+         SELECT c.id FROM element_category c
+           JOIN descendant d ON c.parent_id = d.id
+          WHERE c.org_id = $2
+       )
+       SELECT c.code_prefix FROM element_category c
+         JOIN descendant d ON c.id = d.id
+        WHERE c.code_prefix LIKE $3
+        ORDER BY char_length(c.code_prefix) DESC
+        LIMIT 1`,
+      [id, orgId, under]
+    );
+    const longest = rows[0]?.code_prefix;
+    if (longest && longest.length + grew > CATEGORY_CODE_MAX) {
+      throw new Error(
+        `Code is too long: it would push "${longest}" past ${CATEGORY_CODE_MAX} characters`
+      );
+    }
+  }
+
+  await client.query(
+    `WITH RECURSIVE descendant AS (
+       SELECT id FROM element_category
+        WHERE parent_id = $1 AND org_id = $2
+       UNION ALL
+       SELECT c.id FROM element_category c
+         JOIN descendant d ON c.parent_id = d.id
+        WHERE c.org_id = $2
+     )
+     UPDATE element_category c
+        SET code_prefix = $3 || substring(c.code_prefix from char_length($4) + 1),
+            updated_at = now()
+       FROM descendant d
+      WHERE c.id = d.id
+        AND c.code_prefix LIKE $5`,
+    [id, orgId, newPrefix, oldPrefix, under]
   );
-  return (rows[0] as ElementCategory) ?? null;
 }
 
 /**

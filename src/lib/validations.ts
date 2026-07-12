@@ -599,8 +599,9 @@ const elementAttributeInput = z.object({
 const nonNegativeMoney = z.number().nonnegative().finite();
 const percent = z.number().min(0).max(100).finite();
 
+// `code` is absent by design: the server assigns it from the category's path
+// code + a sequence (`KIT-CAB-BASE-0001`) and never lets it be edited.
 export const createElementSchema = z.object({
-  code: trimmedString.max(50),
   name: trimmedString.max(255),
   description: z.string().trim().optional(),
   categoryId: optionalUuid,
@@ -674,7 +675,9 @@ export const ELEMENT_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
  */
 export const importElementRowSchema = z.object({
   rowNumber: z.number().int().min(1),
-  code: trimmedString.max(50),
+  // Optional: a blank Code cell means "assign one". A supplied code is the
+  // join key the skip / overwrite / version strategies match on.
+  code: trimmedString.max(50).optional(),
   name: trimmedString.max(255),
   // Cap description to protect the confirm endpoint from OOM: without a
   // max, a crafted row with a 10 MB description × 10k rows = 100 GB of
