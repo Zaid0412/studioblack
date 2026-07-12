@@ -90,8 +90,6 @@ export interface Notification {
    * and an `as` cast in the mapper hid the drift.
    */
   type: string;
-  /** Whether the user has already seen this notification. */
-  read: boolean;
   /** ISO-8601 creation timestamp. */
   createdAt: string;
   /** Optional link to the related project. */

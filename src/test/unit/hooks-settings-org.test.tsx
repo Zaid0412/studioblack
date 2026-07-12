@@ -29,8 +29,6 @@ const mockGetSession = vi.fn();
 
 const mockNotifMarkRead = vi.fn();
 const mockNotifMarkAllRead = vi.fn();
-const mockNotifClearAll = vi.fn();
-const mockNotifRemove = vi.fn();
 
 // ── Module mocks ────────────────────────────────────────────────────────────
 
@@ -112,6 +110,7 @@ vi.mock("@/lib/api/routes", () => ({
   API: {
     changeEmail: () => "/api/settings/change-email",
     notifications: () => "/api/notifications",
+    notificationsUnread: () => "/api/notifications?unread=true",
   },
 }));
 
@@ -119,8 +118,6 @@ vi.mock("@/lib/api", () => ({
   notifications: {
     markRead: (...args: unknown[]) => mockNotifMarkRead(...args),
     markAllRead: (...args: unknown[]) => mockNotifMarkAllRead(...args),
-    clearAll: (...args: unknown[]) => mockNotifClearAll(...args),
-    remove: (...args: unknown[]) => mockNotifRemove(...args),
   },
 }));
 
@@ -160,8 +157,6 @@ beforeEach(() => {
   mockOrgListUserInvitations.mockResolvedValue({ data: [] });
   mockNotifMarkRead.mockResolvedValue(undefined);
   mockNotifMarkAllRead.mockResolvedValue(undefined);
-  mockNotifClearAll.mockResolvedValue(undefined);
-  mockNotifRemove.mockResolvedValue(undefined);
   mockApiPost.mockResolvedValue({});
 
   // sessionStorage stub
@@ -430,7 +425,6 @@ describe("useNotifications", () => {
     const { result } = setup();
 
     expect(result.current).toHaveProperty("notifications");
-    expect(result.current).toHaveProperty("unreadCount");
     expect(result.current).toHaveProperty("handleClearAll");
     expect(result.current).toHaveProperty("handleAcceptInvite");
     expect(result.current).toHaveProperty("handleRejectInvite");
@@ -446,7 +440,7 @@ describe("useNotifications", () => {
       await result.current.handleClearAll();
     });
 
-    expect(mockNotifClearAll).not.toHaveBeenCalled();
+    expect(mockNotifMarkAllRead).not.toHaveBeenCalled();
 
     vi.restoreAllMocks();
   });
@@ -464,7 +458,6 @@ describe("useNotifications", () => {
     });
 
     expect(mockNotifMarkAllRead).toHaveBeenCalled();
-    expect(mockNotifClearAll).not.toHaveBeenCalled();
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: "allCaughtUpToast" })
     );

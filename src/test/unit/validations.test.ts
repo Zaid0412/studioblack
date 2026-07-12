@@ -6,7 +6,6 @@ import {
   createProjectSchema,
   updateProjectSchema,
   patchNotificationsSchema,
-  deleteNotificationsSchema,
   createProjectAttachmentSchema,
   updateAttachmentStatusSchema,
   createTaskAttachmentSchema,
@@ -295,22 +294,6 @@ describe("patchNotificationsSchema", () => {
 
   it("rejects invalid UUID in ids", () => {
     expectFail(patchNotificationsSchema, { ids: ["bad-id"] });
-  });
-});
-
-// ── deleteNotificationsSchema ────────────────────────────────────────────────
-
-describe("deleteNotificationsSchema", () => {
-  it("accepts valid id", () => {
-    expectPass(deleteNotificationsSchema, { id: VALID_UUID });
-  });
-
-  it("accepts empty object", () => {
-    expectPass(deleteNotificationsSchema, {});
-  });
-
-  it("rejects invalid id", () => {
-    expectFail(deleteNotificationsSchema, { id: "not-uuid" });
   });
 });
 

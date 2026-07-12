@@ -1,8 +1,8 @@
-import { apiGet, apiPatch, apiDelete } from "./client";
+import { apiGet, apiPatch } from "./client";
 import { API } from "./routes";
 import type { DbNotificationRow } from "@/types";
 
-/** List all notifications for the current user. */
+/** List all notifications for the current user (the /audit history). */
 export function list() {
   return apiGet<DbNotificationRow[]>(API.notifications());
 }
@@ -12,17 +12,11 @@ export function markRead(ids: string[]) {
   return apiPatch(API.notifications(), { ids });
 }
 
-/** Mark all notifications as read. */
+/**
+ * Mark every notification read. This is what empties the bell — notifications
+ * are never hard-deleted, because /audit and the dashboard activity feed read
+ * the same rows and want them after they've been read.
+ */
 export function markAllRead() {
   return apiPatch(API.notifications(), { markAllRead: true });
-}
-
-/** Delete a single notification by ID. */
-export function remove(id: string) {
-  return apiDelete(API.notifications(), { id });
-}
-
-/** Delete all notifications for the current user. */
-export function clearAll() {
-  return apiDelete(API.notifications());
 }

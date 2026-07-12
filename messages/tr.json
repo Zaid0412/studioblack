@@ -438,11 +438,7 @@
   "notifications": {
     "title": "Bildirimler",
     "subtitle": "Proje etkinliklerinizden haberdar olun",
-    "markAllRead": "Tümünü Okundu İşaretle",
-    "noNotifications": "Yeni bildirim yok",
-    "today": "Bugün",
-    "yesterday": "Dün",
-    "earlier": "Daha Önce",
+    "noNotifications": "Hepsi okundu",
     "allCaughtUpToast": "Hepsi tamam!",
     "allCaughtUpDescription": "Tüm bildirimler okundu olarak işaretlendi.",
     "invitationSent": "Davet gönderildi",
@@ -462,12 +458,7 @@
     "rolePM": "Proje Yöneticisi",
     "roleArchitect": "Mimar",
     "clearAll": "Tümünü temizle",
-    "clearAllConfirm": "Tüm bildirimleri silmek istediğinizden emin misiniz?",
-    "all": "Tümü",
-    "unread": "Okunmamış",
-    "invitations": "Davetler",
-    "noUnread": "Hepsi okundu",
-    "noInvitations": "Bekleyen davet yok"
+    "clearAllConfirm": "Tüm bildirimler okundu olarak işaretlensin mi? Denetim geçmişinizde kalacaklar."
   },
   "settings": {
     "title": "Kullanıcı Ayarları",

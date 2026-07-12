@@ -1,33 +1,26 @@
 import { getPool } from "@/lib/db";
 
-/** Get unread notification count for a user. */
-export async function getUnreadNotificationCount(userId: string) {
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM notification WHERE user_id = $1 AND read = false`,
-    [userId]
-  );
-  return rows[0].count as number;
-}
-
 /**
- * Get a user's *unread* notifications (most recent 50), with project name.
+ * Get a user's notifications (most recent 50), with project name.
  *
- * The bell is a queue of what still needs attention, not a history: reading a
- * notification is how it leaves the list. Read rows are kept — they still feed
- * the dashboard activity feed via `getRecentActivity`, which deliberately does
- * not filter on `read`.
+ * `unreadOnly` is the bell's view: it is a queue of what still needs attention,
+ * and reading a notification is how it leaves the list. It must stay a caller's
+ * choice rather than being baked in here — /audit reads the same rows precisely
+ * because it wants the history, read ones included.
  */
-export async function getNotifications(userId: string) {
+export async function getNotifications(
+  userId: string,
+  { unreadOnly = false }: { unreadOnly?: boolean } = {}
+) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT n.*, p.name AS project_name
      FROM notification n
      LEFT JOIN project p ON p.id = n.project_id
-     WHERE n.user_id = $1 AND n.read = false
+     WHERE n.user_id = $1 AND ($2::boolean = false OR n.read = false)
      ORDER BY n.created_at DESC
      LIMIT 50`,
-    [userId]
+    [userId, unreadOnly]
   );
   return rows;
 }
@@ -66,19 +59,4 @@ export async function markNotificationsReadByIds(
     `UPDATE notification SET read = true WHERE user_id = $1 AND id = ANY($2::uuid[])`,
     [userId, ids]
   );
-}
-
-/** Delete a single notification by ID. */
-export async function deleteNotification(userId: string, id: string) {
-  const pool = getPool();
-  await pool.query(`DELETE FROM notification WHERE user_id = $1 AND id = $2`, [
-    userId,
-    id,
-  ]);
-}
-
-/** Delete all notifications for a user. */
-export async function deleteAllNotifications(userId: string) {
-  const pool = getPool();
-  await pool.query(`DELETE FROM notification WHERE user_id = $1`, [userId]);
 }

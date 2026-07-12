@@ -537,6 +537,24 @@ body[data-scroll-locked]:not(:has([data-state="open"][role="dialog"])) {
   .stagger-children > * {
     animation: none !important;
   }
+  /* tailwindcss-animate's classes, used by every Radix wrapper (popover,
+     dialog, dropdown, select, tooltip). They ship no reduced-motion guard of
+     their own, and `motion-reduce:animate-none` loses to the
+     `data-[state=…]:animate-out` variant on specificity, so cover them here. */
+  .animate-in,
+  .animate-out {
+    animation: none !important;
+  }
+}
+
+/* Notification panel exit. Clicking a notification closes the panel and
+   navigates in the same beat, and at the popover default the panel just blinks
+   away. Set here rather than with `duration-300` because tailwindcss-animate's
+   `animate-out` ignores Tailwind v4 duration utilities (they only map to
+   `transition-duration` in v4) — the same reason the sheet above hand-writes
+   its animation. Unlayered, so it wins over the utility that sets 150ms. */
+[data-notif-panel][data-state="closed"] {
+  animation-duration: 300ms;
 }
 
 /* Auth pages — cascade hero + form sections in. Children stay hidden until the

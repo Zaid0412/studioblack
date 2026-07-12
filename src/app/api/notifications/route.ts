@@ -1,29 +1,23 @@
 import { NextResponse } from "next/server";
 import {
-  getUnreadNotificationCount,
   getNotifications,
   markAllNotificationsRead,
   markNotificationsReadByIds,
-  deleteNotification,
-  deleteAllNotifications,
 } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import {
-  parseRequest,
-  patchNotificationsSchema,
-  deleteNotificationsSchema,
-} from "@/lib/validations";
+import { parseRequest, patchNotificationsSchema } from "@/lib/validations";
 
-/** GET /api/notifications — list notifications for current user. */
+/**
+ * GET /api/notifications — list notifications for the current user.
+ *
+ * `?unread=true` is the notification bell, which shows only what still needs
+ * attention. Without it you get the full history, which is what /audit wants.
+ * The two are separate SWR keys on purpose: the bell optimistically drops rows
+ * from its cache as you read them, and that must not reach into the audit log.
+ */
 export const GET = withAuth({}, async (req, { user }) => {
-  const { searchParams } = req.nextUrl;
-
-  if (searchParams.get("unread") === "true") {
-    const count = await getUnreadNotificationCount(user.id);
-    return NextResponse.json({ count });
-  }
-
-  const rows = await getNotifications(user.id);
+  const unreadOnly = req.nextUrl.searchParams.get("unread") === "true";
+  const rows = await getNotifications(user.id, { unreadOnly });
   return NextResponse.json(rows);
 });
 
@@ -39,23 +33,6 @@ export const PATCH = withAuth({}, async (req, { user }) => {
     await markAllNotificationsRead(user.id);
   } else if (body.ids?.length) {
     await markNotificationsReadByIds(user.id, body.ids);
-  }
-
-  return NextResponse.json({ success: true });
-});
-
-/** DELETE /api/notifications — delete notifications. Pass { id } for single, omit for all. */
-export const DELETE = withAuth({}, async (req, { user }) => {
-  const parsed = await parseRequest(req, deleteNotificationsSchema);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error }, { status: 400 });
-  }
-  const body = parsed.data;
-
-  if (body.id) {
-    await deleteNotification(user.id, body.id);
-  } else {
-    await deleteAllNotifications(user.id);
   }
 
   return NextResponse.json({ success: true });

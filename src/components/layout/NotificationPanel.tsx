@@ -14,12 +14,8 @@ import { Button } from "@/components/ui/button";
 import { RefreshButton } from "@/components/ui/RefreshButton";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/lib/formatTime";
-import {
-  useNotifications,
-  isSyntheticNotification,
-} from "@/hooks/useNotifications";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useStaggerReveal } from "@/hooks/useStaggerReveal";
-import { notificationDestination } from "@/lib/notificationDestination";
 import type { Notification } from "@/types";
 
 /**
@@ -57,7 +53,6 @@ export function NotificationPanel() {
   const {
     loading,
     notifications,
-    unreadCount,
     loadingIds,
     pendingInviteIds,
     refresh,
@@ -88,9 +83,9 @@ export function NotificationPanel() {
           aria-label="Notifications"
         >
           <Bell className="w-5 h-5" />
-          {unreadCount > 0 && (
+          {notifications.length > 0 && (
             <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-text-on-accent text-[10px] font-bold">
-              {unreadCount > 99 ? "99+" : unreadCount}
+              {notifications.length}
             </span>
           )}
         </button>
@@ -99,10 +94,12 @@ export function NotificationPanel() {
         align="end"
         sideOffset={8}
         collisionPadding={16}
-        // Clicking a notification closes the panel and navigates at once, and at
-        // the shared 150ms default the panel just blinks out. Slower on the way
-        // out only -- the open stays snappy.
-        className="w-[calc(100vw-2rem)] lg:w-[420px] p-0 border-border-default bg-bg-primary rounded-xl overflow-hidden data-[state=closed]:duration-300 motion-reduce:animate-none"
+        // The slower exit lives in globals.css keyed off this attribute, not on
+        // a `duration-*` utility: tailwindcss-animate's animate-out ignores
+        // Tailwind v4 duration utilities (v4 only maps them to
+        // transition-duration). Same reason the sheet hand-writes its own.
+        data-notif-panel
+        className="w-[calc(100vw-2rem)] lg:w-[420px] p-0 border-border-default bg-bg-primary rounded-xl overflow-hidden"
       >
         {/* Header */}
         <div className="flex items-center justify-between h-[52px] px-4 lg:px-5">
@@ -156,14 +153,12 @@ export function NotificationPanel() {
                 />
               ))}
 
-              {notifications.length > 0 && (
-                <button
-                  onClick={handleClearAll}
-                  className="text-xs text-text-muted hover:text-red-400 transition-colors pt-1 pb-1 cursor-pointer text-center"
-                >
-                  {t("clearAll")}
-                </button>
-              )}
+              <button
+                onClick={handleClearAll}
+                className="text-xs text-text-muted hover:text-red-400 transition-colors pt-1 pb-1 cursor-pointer text-center"
+              >
+                {t("clearAll")}
+              </button>
             </div>
           )}
         </div>
@@ -189,19 +184,17 @@ function NotificationCard({
   isInvite: boolean;
   isLoading: boolean;
   onClick: () => void;
-  onAccept?: () => void;
-  onReject?: () => void;
+  onAccept: () => void;
+  onReject: () => void;
   t: (key: string) => string;
 }) {
   const Icon = typeIcons[notification.type] ?? Bell;
-  const isInvitation = isInvite && notification.type === "invitation";
 
-  // Only dress the card up as a button when the click actually does something:
-  // navigate somewhere, or dismiss a real row. A received invitation does
-  // neither -- its accept/decline buttons are the interaction.
-  const interactive =
-    notificationDestination(notification) !== null ||
-    !isSyntheticNotification(notification.id);
+  // A received invitation is the one card whose body does nothing: accept and
+  // decline are the interaction. Everything else dismisses on click, so only
+  // that one is left undressed as a button. `pendingInviteIds` is populated
+  // exclusively from received invitations, so `isInvite` already says this.
+  const interactive = !isInvite;
 
   const buttonProps = interactive
     ? {
@@ -221,7 +214,7 @@ function NotificationCard({
     <div
       data-anim-item
       className={cn(
-        "group rounded-xl border border-border-default transition-colors",
+        "rounded-xl border border-border-default transition-colors",
         interactive && "cursor-pointer hover:border-accent/60"
       )}
       {...buttonProps}
@@ -250,7 +243,7 @@ function NotificationCard({
         </div>
 
         {/* Invitation actions */}
-        {isInvitation && (
+        {isInvite && (
           <div className="flex gap-2 mt-2.5">
             <Button
               size="sm"
@@ -258,7 +251,7 @@ function NotificationCard({
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
-                onAccept?.();
+                onAccept();
               }}
             >
               {isLoading ? "..." : t("accept")}
@@ -270,7 +263,7 @@ function NotificationCard({
               disabled={isLoading}
               onClick={(e) => {
                 e.stopPropagation();
-                onReject?.();
+                onReject();
               }}
             >
               {t("decline")}

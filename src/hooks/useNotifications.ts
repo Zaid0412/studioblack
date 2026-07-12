@@ -3,6 +3,7 @@ import useSWR from "swr";
 import { toast } from "@/components/ui/useToast";
 import { authClient } from "@/lib/authClient";
 import { notifications as notificationsApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { POLLING_INTERVAL_MS } from "@/lib/constants";
 import { notificationDestination } from "@/lib/notificationDestination";
 import { usePageVisibility } from "@/hooks/usePageVisibility";
@@ -27,7 +28,7 @@ const ORG_SETTINGS_HREF = "/settings?section=organization";
  * from the notification table, so their ids are synthetic and they have no row
  * to mark read or delete.
  */
-export function isSyntheticNotification(id: string): boolean {
+function isSyntheticNotification(id: string): boolean {
   return id.startsWith("recv-") || id.startsWith("sent-");
 }
 
@@ -57,11 +58,14 @@ export function useNotifications({
   );
 
   // -- DB notifications (SWR with auto-polling) --
+  // The unread-only key, which is deliberately NOT the key /audit uses: this
+  // hook optimistically drops rows from its cache as they're read, and that
+  // must not reach into the audit history.
   const {
     data: dbRows = [],
     isLoading: dbLoading,
     mutate: mutateDbNotifs,
-  } = useSWR<DbNotificationRow[]>("/api/notifications", {
+  } = useSWR<DbNotificationRow[]>(API.notificationsUnread(), {
     refreshInterval: isVisible ? POLLING_INTERVAL_MS : 0,
   });
 
@@ -71,8 +75,13 @@ export function useNotifications({
     const allNotifs: Notification[] = [];
     const idMap = new Map<string, string>();
 
-    const { data: received } =
-      await authClient.organization.listUserInvitations();
+    // Independent calls -- serializing them doubles the fetcher's latency, and
+    // it runs on mount, on every poll and on every focus revalidation.
+    const [{ data: received }, { data: orgData }] = await Promise.all([
+      authClient.organization.listUserInvitations(),
+      authClient.organization.getFullOrganization(),
+    ]);
+
     if (received) {
       for (const inv of received) {
         if (inv.status !== "pending") continue;
@@ -82,15 +91,12 @@ export function useNotifications({
           title: t("invitationReceived"),
           description: `${inv.organizationName ?? inv.organizationId} — ${roleLabel(inv.role ?? "member")}`,
           type: "invitation",
-          read: false,
           createdAt: new Date(inv.createdAt).toISOString(),
         });
         idMap.set(notifId, inv.id);
       }
     }
 
-    const { data: orgData } =
-      await authClient.organization.getFullOrganization();
     if (orgData?.invitations) {
       for (const inv of orgData.invitations) {
         if (inv.status !== "pending") continue;
@@ -101,7 +107,6 @@ export function useNotifications({
           title: t("invitationSent"),
           description: `${inv.email} — ${roleLabel(inv.role ?? "member")}`,
           type: "invitation",
-          read: false,
           createdAt: new Date(inv.createdAt).toISOString(),
           href: ORG_SETTINGS_HREF,
         });
@@ -148,7 +153,6 @@ export function useNotifications({
         title: r.title,
         description:
           r.description + (r.project_name ? ` · ${r.project_name}` : ""),
-        read: r.read,
         createdAt: r.created_at,
         projectId: r.project_id ?? undefined,
         taskId: r.task_id ?? undefined,
@@ -167,34 +171,29 @@ export function useNotifications({
     [invitationNotifs, dbNotifs]
   );
 
-  // Everything in the list is unread by construction -- the API only returns
-  // unread rows, and invitations are always actionable.
-  const unreadCount = notifications.length;
-
   const handleNotificationClick = (notification: Notification) => {
-    // Leave first. Dropping the row from the cache re-renders the list (and
-    // replays its entrance stagger), so doing that before the panel closes
-    // reads as the bell "reloading" under your cursor. Awaiting markRead here
-    // would also hold the panel open for a network round-trip.
-    const destination = notificationDestination(notification);
-    if (destination) {
-      onClose();
-      onNavigate(destination);
-    }
-
+    // A received invitation is acted on via its own buttons; the card body does
+    // nothing. Everything else dismisses.
     if (isSyntheticNotification(notification.id)) return;
 
+    // Close first. Dropping the row re-renders the list (and replays its
+    // entrance stagger), so doing that with the panel still open reads as the
+    // bell "reloading" under your cursor. Closing unconditionally -- not only
+    // when there's a destination -- is what keeps that true for a notification
+    // that has nowhere to go.
+    onClose();
+    const destination = notificationDestination(notification);
+    if (destination) onNavigate(destination);
+
     // Reading is how a notification leaves the bell, so drop it rather than
-    // flagging it -- the next fetch won't return it anyway. This settles behind
-    // the closed panel. The refetch is fired only once the server has actually
-    // recorded the read, or it would race and hand the row straight back.
+    // flagging it -- the unread query won't return it again. On failure it
+    // wasn't actually read, so put it back by revalidating.
     mutateDbNotifs((prev) => prev?.filter((r) => r.id !== notification.id), {
       revalidate: false,
     });
     void notificationsApi
       .markRead([notification.id])
-      .catch(() => {})
-      .finally(() => window.dispatchEvent(new Event("notifications-changed")));
+      .catch(() => mutateDbNotifs());
   };
 
   /**
@@ -301,8 +300,9 @@ export function useNotifications({
 
   return {
     loading,
+    // Everything here is unread by construction: the API returns only unread
+    // rows and invitations are always actionable, so the list IS the count.
     notifications,
-    unreadCount,
     loadingIds,
     pendingInviteIds,
     refresh,

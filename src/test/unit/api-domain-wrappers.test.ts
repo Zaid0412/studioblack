@@ -453,28 +453,6 @@ describe("notifications", () => {
       body: JSON.stringify({ markAllRead: true }),
     });
   });
-
-  it("remove — sends DELETE with the notification ID", async () => {
-    mockFetch.mockResolvedValue(okJson({}));
-
-    await notifications.remove("n-1");
-
-    expect(mockFetch).toHaveBeenCalledWith("/api/notifications", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: "n-1" }),
-    });
-  });
-
-  it("clearAll — sends DELETE with no body", async () => {
-    mockFetch.mockResolvedValue(okJson({}));
-
-    await notifications.clearAll();
-
-    expect(mockFetch).toHaveBeenCalledWith("/api/notifications", {
-      method: "DELETE",
-    });
-  });
 });
 
 // ── projects ────────────────────────────────────────────────────────────────
