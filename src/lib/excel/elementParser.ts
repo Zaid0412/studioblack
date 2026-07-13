@@ -291,7 +291,7 @@ export async function parseElementSheet(
       if (byKey.currency) {
         const cur = byKey.currency.trim().toUpperCase();
         if (cur.length !== 3) {
-          errors.push("Currency must be a 3-letter code (e.g. USD, EUR, TRY)");
+          errors.push("Currency must be a 3-letter code (e.g. INR, USD, EUR)");
         } else values.currency = cur;
       }
 

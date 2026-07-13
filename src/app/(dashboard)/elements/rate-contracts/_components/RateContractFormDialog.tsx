@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -13,6 +12,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Lock } from "lucide-react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";

@@ -727,7 +727,7 @@ const updatedAtToken = z.string().min(1);
 
 export const createBoqSchema = z.object({
   title: trimmedString.max(255),
-  currency: z.string().length(3).optional(),
+  currency: z.string().length(3).default(DEFAULT_CURRENCY),
   exchangeRate: z.coerce.number().positive().finite().optional(),
   contingencyPct: boqPercent.optional(),
   vatPct: boqPercent.optional(),
@@ -1116,7 +1116,7 @@ export const createVendorSchema = z.object({
   vendorCode: z.string().max(50).optional(),
   status: z.enum(VENDOR_STATUSES).optional(),
   paymentTerms: z.string().max(100).optional(),
-  currency: z.string().length(3).optional(),
+  currency: z.string().length(3).default(DEFAULT_CURRENCY),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
   gstin: z.string().max(20).optional(),
@@ -1387,7 +1387,7 @@ export const createRateContractSchema = z
     startDate: isoDate,
     endDate: isoDate,
     agreementSignedDate: isoDate.nullable().optional(),
-    currency: z.string().length(3).optional(),
+    currency: z.string().length(3).default(DEFAULT_CURRENCY),
     paymentTerms: z.string().max(100).optional().nullable(),
     attachments: attachmentRefListField,
     termsAndConditions: z.string().max(10_000).optional().nullable(),

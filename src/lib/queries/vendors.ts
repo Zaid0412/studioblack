@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import type {
   Vendor,
   VendorWithRelations,
@@ -404,7 +405,7 @@ export async function createVendor(
          addresses, notes, created_by
        )
        VALUES ($1, $2, $3, $4, COALESCE($5, 'active'),
-               $6, COALESCE($7, 'USD'), COALESCE($8, false), $9,
+               $6, $7, COALESCE($8, false), $9,
                $10, $11, COALESCE($12, false),
                COALESCE($13::text[], '{}'::text[]),
                COALESCE($14::jsonb[], '{}'::jsonb[]), $15, $16)
@@ -416,7 +417,7 @@ export async function createVendor(
         input.vendorCode ?? null,
         input.status ?? null,
         input.paymentTerms ?? null,
-        input.currency ?? null,
+        input.currency ?? DEFAULT_CURRENCY,
         input.vatRegistered ?? null,
         input.vatNumber ?? null,
         input.gstin ?? null,

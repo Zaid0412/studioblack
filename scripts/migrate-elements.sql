@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS element (
   category_id UUID REFERENCES element_category(id) ON DELETE SET NULL,
   unit VARCHAR(30) NOT NULL,
   unit_cost NUMERIC(12,2) NOT NULL DEFAULT 0,
-  currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+  currency VARCHAR(3) NOT NULL DEFAULT 'INR',
   material_cost NUMERIC(12,2),
   labour_cost NUMERIC(12,2),
   overhead_pct NUMERIC(5,2) DEFAULT 0,

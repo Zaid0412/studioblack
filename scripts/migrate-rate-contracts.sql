@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS rate_contract (
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
   agreement_signed_date DATE,
-  currency VARCHAR(3) DEFAULT 'USD',
+  currency VARCHAR(3) DEFAULT 'INR',
   payment_terms VARCHAR(100),
   agreement_url TEXT,
   terms_and_conditions TEXT,

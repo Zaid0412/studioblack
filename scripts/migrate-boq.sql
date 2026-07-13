@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS boq (
   version INTEGER DEFAULT 1,
   status VARCHAR(30) NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft','submitted_to_client','client_approved','locked','superseded')),
-  currency VARCHAR(3) DEFAULT 'USD',
+  currency VARCHAR(3) DEFAULT 'INR',
   exchange_rate NUMERIC(10,4) DEFAULT 1,
   contingency_pct NUMERIC(5,2) DEFAULT 0,
   vat_pct NUMERIC(5,2) DEFAULT 0,

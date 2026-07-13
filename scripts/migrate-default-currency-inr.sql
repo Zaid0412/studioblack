@@ -5,9 +5,15 @@
 -- reinterpret every stored amount rather than convert it. Old rows keep USD and
 -- keep rendering as USD; only rows created from now on default to INR.
 --
--- The app almost always sends an explicit currency (see DEFAULT_CURRENCY in
--- src/lib/constants.ts), so these DEFAULTs are the backstop for any insert that
--- omits the column — they must not disagree with the app.
+-- The app always sends an explicit currency (see DEFAULT_CURRENCY in
+-- src/lib/constants.ts), so these DEFAULTs are a backstop for an insert that
+-- omits the column rather than something exercised in practice — but they must
+-- not disagree with the app.
+--
+-- Only needed for already-provisioned databases: the base CREATE TABLE scripts
+-- now declare DEFAULT 'INR' directly, so a fresh bootstrap doesn't need this.
+--
+-- Run: psql $DATABASE_URL -f scripts/migrate-default-currency-inr.sql
 
 BEGIN;
 

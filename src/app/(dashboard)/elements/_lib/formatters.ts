@@ -1,10 +1,10 @@
-import { DEFAULT_CURRENCY } from "@/lib/constants";
-
-/** Format a pg NUMERIC string to a localised money display. */
-export function formatMoney(
-  value: string | number,
-  currency = DEFAULT_CURRENCY
-): string {
+/**
+ * Format a pg NUMERIC string to a localised money display.
+ *
+ * `currency` is required on purpose: every row carries its own, and defaulting
+ * it would let a caller silently render a USD row in the app's default currency.
+ */
+export function formatMoney(value: string | number, currency: string): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (!Number.isFinite(num)) return "—";
   try {

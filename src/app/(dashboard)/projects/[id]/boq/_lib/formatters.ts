@@ -1,4 +1,3 @@
-import { DEFAULT_CURRENCY } from "@/lib/constants";
 import {
   BOQ_ITEM_PHASE_TRANSITIONS,
   type BoqItemPhase,
@@ -196,10 +195,16 @@ export function toNum(value: string | number | null | undefined): number {
   return isFinite(n) ? n : 0;
 }
 
-/** Format a value as a currency string using `Intl.NumberFormat`, falling back to `<CODE> <amount>` on unknown ISO codes. */
+/**
+ * Format a value as a currency string using `Intl.NumberFormat`, falling back to
+ * `<CODE> <amount>` on unknown ISO codes.
+ *
+ * `currency` is required on purpose: every row carries its own, and defaulting
+ * it would let a caller silently render a USD row in the app's default currency.
+ */
 export function formatCurrency(
   value: string | number,
-  currency: string = DEFAULT_CURRENCY
+  currency: string
 ): string {
   const n = toNum(value);
   try {
@@ -216,7 +221,7 @@ export function formatCurrency(
 /** Currency formatter for nullable rate fields — shows "—" when unset. */
 export function formatOptionalCurrency(
   value: string | number | null,
-  currency: string = DEFAULT_CURRENCY
+  currency: string
 ): string {
   return value === null ? "—" : formatCurrency(value, currency);
 }

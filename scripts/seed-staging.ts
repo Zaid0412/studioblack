@@ -26,6 +26,7 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
 import { generateBetterAuthId } from "../src/lib/queries/helpers";
 import { createProjectWithPhases } from "../src/lib/queries/projects";
+import { DEFAULT_CURRENCY } from "../src/lib/constants";
 
 const USERS = [
   {
@@ -314,8 +315,18 @@ async function seed() {
     for (const e of ELEMENTS) {
       await pool.query(
         `INSERT INTO element (org_id, code, name, description, category_id, unit, unit_cost, currency, margin_pct, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'USD', 15, $8)`,
-        [orgId, e.code, e.name, e.desc ?? null, e.cat, e.unit, e.cost, ownerId]
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 15, $9)`,
+        [
+          orgId,
+          e.code,
+          e.name,
+          e.desc ?? null,
+          e.cat,
+          e.unit,
+          e.cost,
+          DEFAULT_CURRENCY,
+          ownerId,
+        ]
       );
     }
     console.log(`✅ ${ELEMENTS.length} elements\n`);
@@ -368,8 +379,8 @@ async function seed() {
     for (const v of VENDORS) {
       const { rows: vRows } = await pool.query<{ id: string }>(
         `INSERT INTO vendor (org_id, company_name, vendor_code, status, currency, created_by)
-         VALUES ($1, $2, $3, 'active', 'USD', $4) RETURNING id`,
-        [orgId, v.name, v.code, ownerId]
+         VALUES ($1, $2, $3, 'active', $4, $5) RETURNING id`,
+        [orgId, v.name, v.code, DEFAULT_CURRENCY, ownerId]
       );
       const vendorId = vRows[0]!.id;
       const linkedUserId = v.contact.userEmail
@@ -674,9 +685,14 @@ async function seed() {
       `INSERT INTO boq
        (project_id, title, version, status, currency, exchange_rate,
         contingency_pct, vat_pct, minimum_margin_pct, created_by)
-       VALUES ($1, $2, 1, 'draft', 'USD', 1, 5, 18, 10, $3)
+       VALUES ($1, $2, 1, 'draft', $3, 1, 5, 18, 10, $4)
        RETURNING id`,
-      [firstProjectId, "Casa Belluno Villa — BOQ V1", boqCreatorId]
+      [
+        firstProjectId,
+        "Casa Belluno Villa — BOQ V1",
+        DEFAULT_CURRENCY,
+        boqCreatorId,
+      ]
     );
     const boqId = boqRows[0]!.id;
 

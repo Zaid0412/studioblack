@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS vendor (
     CHECK (status IN ('active','inactive','blacklisted','pending_approval')),
   rating NUMERIC(3,1) DEFAULT 0 CHECK (rating >= 0 AND rating <= 5),
   payment_terms VARCHAR(100),
-  currency VARCHAR(3) DEFAULT 'USD',
+  currency VARCHAR(3) DEFAULT 'INR',
   vat_registered BOOLEAN DEFAULT false,
   vat_number VARCHAR(50),
   -- AES-256-GCM envelope: { version, encrypted, iv, tag }. Never queried directly;

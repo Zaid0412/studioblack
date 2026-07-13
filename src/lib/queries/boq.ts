@@ -222,7 +222,7 @@ export interface CreateBoqInput {
   createdBy?: string | null;
 }
 
-/** Insert a new BOQ row for a project. Defaults: USD, 0% contingency/VAT, 10% minimum margin. */
+/** Insert a new BOQ row for a project. Defaults: the app default currency, 0% contingency/VAT, 10% minimum margin. */
 export async function createBoq(
   projectId: string,
   input: CreateBoqInput
