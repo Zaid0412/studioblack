@@ -20,6 +20,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
 import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { cn } from "@/lib/utils";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
@@ -258,6 +259,18 @@ export function RateContractItemPicker({
               selectableDepth={SERVICE_AREA_DEPTH}
               clearable={false}
               placeholder={t("itemPickerAreaPlaceholder")}
+              // Inline create builds the whole Category › Sub-category › Service
+              // Area chain, like the element and vendor pickers. Without this it
+              // falls back to the generic category dialog, which deliberately
+              // can't reach level 3 — i.e. can't create what this picker accepts.
+              renderCreate={({ open, onOpenChange, onCreated }) => (
+                <ServiceAreaDialog
+                  open={open}
+                  tree={catData?.tree ?? []}
+                  onOpenChange={onOpenChange}
+                  onCreated={onCreated}
+                />
+              )}
             />
           </div>
 

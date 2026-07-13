@@ -13,7 +13,11 @@ import {
   type CategoryFormSubmit,
   type CategoryFormValues,
 } from "@/components/elements/CategoryForm";
-import type { CategoryOption } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import {
+  parentCategoryOptions,
+  type CategoryOption,
+} from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import { CATEGORY_LEVEL } from "@/lib/categoryCode";
 import type { ElementCategoryNode } from "@/types";
 
 interface Props {
@@ -26,9 +30,8 @@ interface Props {
    * parent's code_prefix.
    */
   presetParent?: ElementCategoryNode | null;
+  /** The full flattened tree. Filtered to Categories for the free picker. */
   parentOptions: CategoryOption[];
-  /** IDs that cannot be selected as parent (self + descendants when editing). */
-  disabledParentIds?: string[];
   submitting: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: CategoryFormSubmit) => Promise<void> | void;
@@ -45,7 +48,6 @@ export function CategoryEditDialog({
   editing,
   presetParent,
   parentOptions,
-  disabledParentIds,
   submitting,
   onOpenChange,
   onSubmit,
@@ -69,13 +71,24 @@ export function CategoryEditDialog({
         }
       : undefined;
 
+  // The parent is only the user's to choose from the generic "New category"
+  // entry point. Creating from a row's `+` fixes it to that row; editing fixes
+  // it because the API cannot reparent at all (`parent_id` isn't in
+  // `CATEGORY_COLS`) — the old dropdown accepted the change, dropped it, and
+  // still rebased the code onto the parent you'd picked.
+  const fixedParentId = editing
+    ? editing.parent_id
+    : (presetParent?.id ?? null);
+  const lockParent = mode === "edit" || !!presetParent;
+  const fixedParent = parentOptions.find((o) => o.id === fixedParentId) ?? null;
+
   const title =
     mode === "edit"
       ? tCommon("edit")
       : presetParent
-        ? // A child of a level-1 category is a sub-category; a child of a
-          // level-2 sub-category is a service area (the leaf, level 3).
-          presetParent.level === 1
+        ? // A child of a Category is a Sub-category; a child of a Sub-category
+          // is a Service Area (the leaf).
+          presetParent.level === CATEGORY_LEVEL
           ? t("newSubcategoryUnder", { parent: presetParent.name })
           : t("newServiceAreaUnder", { parent: presetParent.name })
         : t("newCategory");
@@ -89,8 +102,9 @@ export function CategoryEditDialog({
         </DialogHeader>
         <CategoryForm
           initial={initial}
-          parentOptions={parentOptions}
-          disabledParentIds={disabledParentIds}
+          parentOptions={parentCategoryOptions(parentOptions)}
+          lockParent={lockParent}
+          fixedParent={fixedParent}
           submitting={submitting}
           onSubmit={onSubmit}
           onCancel={() => onOpenChange(false)}

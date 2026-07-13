@@ -26,6 +26,9 @@ export const UNCATEGORIZED_PREFIX = "GEN";
  */
 export const SERVICE_AREA_LEVEL = 3;
 
+/** `element_category.level` of a top-level Category — the root of every path. */
+export const CATEGORY_LEVEL = 1;
+
 /** `element_category.code_prefix` is VARCHAR(20). */
 export const CATEGORY_CODE_MAX = 20;
 

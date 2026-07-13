@@ -30,6 +30,7 @@ import { useStaggerReveal } from "@/hooks/useStaggerReveal";
 import { useCanManageCategories } from "@/hooks/useCanManageCategories";
 import type { ElementCategoryNode } from "@/types";
 import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
 import { CategoryTemplatesDialog } from "@/app/(dashboard)/elements/_components/CategoryTemplatesDialog";
@@ -329,9 +330,6 @@ export default function CategoriesPage() {
   }
 
   const subtreeCountForDelete = deleting ? subtreeElementCount(deleting) : 0;
-  const disabledParentIds = editing
-    ? [editing.id, ...collectDescendants(editing)]
-    : [];
   const presetParent = presetParentId
     ? (flat.find((r) => r.node.id === presetParentId)?.node ?? null)
     : null;
@@ -416,7 +414,7 @@ export default function CategoriesPage() {
                         key={node.id}
                         node={node}
                         depth={depth}
-                        canAddChild={node.level < 3}
+                        canAddChild={node.level < SERVICE_AREA_LEVEL}
                         hasChildren={hasChildren}
                         isLastSibling={isLastSibling}
                         isCollapsed={collapsedIds.has(node.id)}
@@ -441,7 +439,6 @@ export default function CategoriesPage() {
         editing={editing}
         presetParent={presetParent}
         parentOptions={flattenCategories(tree)}
-        disabledParentIds={disabledParentIds}
         submitting={submitting}
         onOpenChange={setDialogOpen}
         onSubmit={handleSubmit}

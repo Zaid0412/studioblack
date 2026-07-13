@@ -852,6 +852,7 @@
     "categoryNamePlaceholder": "e.g. Flooring, Tiles, Paint",
     "categoryParent": "Parent",
     "categoryParentNone": "None (root)",
+    "categoryParentHint": "No parent creates a Category. Pick one to create a Sub-category under it. Service Areas are added from the + on a Sub-category row.",
     "categoryCodeSegment": "Code",
     "categoryCodeSegmentPlaceholder": "e.g. BASE",
     "categoryCodeComposed": "Full code: {code}",
