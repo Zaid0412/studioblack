@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import useSWR from "swr";
 import { Plus, X, Save } from "lucide-react";
 import {
@@ -96,7 +97,7 @@ const INITIAL: FormState = {
   sectionId: BOQ_NO_SECTION_ID,
   description: "",
   unit: DEFAULT_UNIT,
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   quantity: "1",
   unitCost: "0",
   marginPct: "15",

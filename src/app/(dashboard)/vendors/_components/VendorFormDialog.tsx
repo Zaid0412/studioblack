@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { useTranslations } from "next-intl";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -104,7 +105,7 @@ const EMPTY: FormState = {
   vendorCode: "",
   status: "active",
   paymentTerms: "",
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   vatRegistered: false,
   vatNumber: "",
   gstin: "",
@@ -177,7 +178,7 @@ function vendorToForm(v: VendorWithRelations): FormState {
     vendorCode: v.vendor_code ?? "",
     status: v.status,
     paymentTerms: v.payment_terms ?? "",
-    currency: v.currency ?? "USD",
+    currency: v.currency ?? DEFAULT_CURRENCY,
     vatRegistered: v.vat_registered,
     vatNumber: v.vat_number ?? "",
     gstin: v.gstin ?? "",

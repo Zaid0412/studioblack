@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { useTranslations } from "next-intl";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import {
@@ -142,7 +143,7 @@ export function VendorQuoteSubmitDialog({
   // The RFQ itself carries no currency — only a submitted quote does. For a
   // fresh submission there's nothing to read yet, so fall back to the same
   // default the API applies server-side (see quote schema in lib/validations).
-  const currency = existing?.currency ?? "USD";
+  const currency = existing?.currency ?? DEFAULT_CURRENCY;
 
   const grandTotal = useMemo(() => {
     let sum = 0;

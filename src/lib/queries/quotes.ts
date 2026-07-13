@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { getUsersByIds } from "./users";
 import type {
   QuoteEvidence,
@@ -844,7 +845,7 @@ export async function submitOrUpdateQuote(
         vendorId,
         version,
         input.validUntil ?? null,
-        input.currency ?? "USD",
+        input.currency ?? DEFAULT_CURRENCY,
         input.deliveryPeriod ?? null,
         input.paymentTerms ?? null,
         input.inclusions ?? null,

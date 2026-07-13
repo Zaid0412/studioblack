@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -1112,7 +1113,9 @@ describe("createElementSchema", () => {
       name: "Paint",
       unit: "m2",
       unitCost: 120,
-      currency: "USD",
+      // Pre-filled, not pinned — assert against the constant so changing the
+      // default doesn't need this test edited, only the constant.
+      currency: DEFAULT_CURRENCY,
     });
   });
 
@@ -1538,11 +1541,11 @@ describe("ALLOWED_UNITS", () => {
 });
 
 describe("submitQuoteSchema (F10)", () => {
-  it("accepts a minimal valid quote and defaults currency to USD", () => {
+  it("accepts a minimal valid quote and pre-fills the default currency", () => {
     const data = expectPass(submitQuoteSchema, {
       items: [{ rfqItemId: VALID_UUID, unitPrice: 50 }],
     });
-    expect(data.currency).toBe("USD");
+    expect(data.currency).toBe(DEFAULT_CURRENCY);
   });
 
   it("rejects empty items array", () => {

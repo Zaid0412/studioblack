@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { withAuth } from "@/lib/withAuth";
 import {
   writeElementSheet,
@@ -54,7 +55,7 @@ function buildSampleRows(): WritableElement[] {
       description: "Glazed porcelain, rectified edges",
       unit: "m2",
       unit_cost: "45.00",
-      currency: "USD",
+      currency: DEFAULT_CURRENCY,
       material_cost: "30.00",
       labour_cost: "10.00",
       overhead_pct: "5.00",
@@ -76,7 +77,7 @@ function buildSampleRows(): WritableElement[] {
       description: null,
       unit: "lm",
       unit_cost: "12.00",
-      currency: "USD",
+      currency: DEFAULT_CURRENCY,
       material_cost: null,
       labour_cost: null,
       overhead_pct: null,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -79,7 +80,7 @@ const EMPTY: FormState = {
   startDate: "",
   endDate: "",
   agreementSignedDate: "",
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   paymentTerms: "",
   attachments: [],
   termsAndConditions: "",

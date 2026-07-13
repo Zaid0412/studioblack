@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { DEFAULT_PAGE_LIMIT } from "@/lib/constants";
+import { DEFAULT_PAGE_LIMIT, DEFAULT_CURRENCY } from "@/lib/constants";
 import {
   buildCategoryLevelMap,
   buildCategoryPathMap,
@@ -390,7 +390,7 @@ export async function createElement(
           input.categoryId ?? null,
           input.unit,
           input.unitCost,
-          input.currency ?? "USD",
+          input.currency ?? DEFAULT_CURRENCY,
           input.materialCost ?? null,
           input.labourCost ?? null,
           input.overheadPct ?? null,
@@ -986,7 +986,7 @@ async function tryInsertElementRow(
       categoryId,
       row.unit,
       row.unitCost,
-      row.currency ?? "USD",
+      row.currency ?? DEFAULT_CURRENCY,
       row.materialCost ?? null,
       row.labourCost ?? null,
       row.overheadPct ?? null,

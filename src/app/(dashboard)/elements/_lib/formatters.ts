@@ -1,5 +1,10 @@
+import { DEFAULT_CURRENCY } from "@/lib/constants";
+
 /** Format a pg NUMERIC string to a localised money display. */
-export function formatMoney(value: string | number, currency = "USD"): string {
+export function formatMoney(
+  value: string | number,
+  currency = DEFAULT_CURRENCY
+): string {
   const num = typeof value === "string" ? parseFloat(value) : value;
   if (!Number.isFinite(num)) return "—";
   try {

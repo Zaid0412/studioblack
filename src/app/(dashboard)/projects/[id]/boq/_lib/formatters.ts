@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import {
   BOQ_ITEM_PHASE_TRANSITIONS,
   type BoqItemPhase,
@@ -198,7 +199,7 @@ export function toNum(value: string | number | null | undefined): number {
 /** Format a value as a currency string using `Intl.NumberFormat`, falling back to `<CODE> <amount>` on unknown ISO codes. */
 export function formatCurrency(
   value: string | number,
-  currency: string = "USD"
+  currency: string = DEFAULT_CURRENCY
 ): string {
   const n = toNum(value);
   try {
@@ -215,7 +216,7 @@ export function formatCurrency(
 /** Currency formatter for nullable rate fields — shows "—" when unset. */
 export function formatOptionalCurrency(
   value: string | number | null,
-  currency: string = "USD"
+  currency: string = DEFAULT_CURRENCY
 ): string {
   return value === null ? "—" : formatCurrency(value, currency);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -105,7 +106,7 @@ const EMPTY_FORM: ElementFormValues = {
   categoryId: null,
   unit: "m2",
   unitCost: "",
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   materialCost: "",
   labourCost: "",
   overheadPct: "",

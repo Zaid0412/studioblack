@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_CONTENT_LENGTH } from "@/lib/constants";
+import { DEFAULT_CURRENCY, MAX_CONTENT_LENGTH } from "@/lib/constants";
 import { MAX_UPLOAD_SIZE } from "@/lib/fileUtils";
 
 // ─── Shared constants ───────────────────────────────────────────────────────
@@ -611,7 +611,7 @@ export const createElementSchema = z.object({
   categoryId: uuid,
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,
-  currency: z.string().trim().length(3).default("USD"),
+  currency: z.string().trim().length(3).default(DEFAULT_CURRENCY),
   materialCost: nonNegativeMoney.optional(),
   labourCost: nonNegativeMoney.optional(),
   overheadPct: percent.optional(),
@@ -1693,7 +1693,7 @@ export type QuoteEvidenceInput = z.infer<typeof quoteEvidenceSchema>;
 
 export const submitQuoteSchema = z.object({
   validUntil: z.string().date().optional().nullable(),
-  currency: z.enum(QUOTE_CURRENCIES).default("USD"),
+  currency: z.enum(QUOTE_CURRENCIES).default(DEFAULT_CURRENCY),
   deliveryPeriod: z.string().trim().max(100).optional().nullable(),
   paymentTerms: z.string().trim().max(100).optional().nullable(),
   inclusions: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),

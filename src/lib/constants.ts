@@ -27,3 +27,13 @@ export const MAX_CONTENT_LENGTH = 5_000;
 
 /** Default pagination limit when no explicit limit is provided. */
 export const DEFAULT_PAGE_LIMIT = 200;
+
+/**
+ * Currency every money field is pre-filled with. Users can change it per record
+ * — `CurrencySelect` offers the full ISO 4217 list.
+ *
+ * This is the *default for new rows only*. Existing rows keep whatever currency
+ * they were saved with; changing this must never rewrite them, or the number in
+ * the column would silently start meaning something else.
+ */
+export const DEFAULT_CURRENCY = "INR";
