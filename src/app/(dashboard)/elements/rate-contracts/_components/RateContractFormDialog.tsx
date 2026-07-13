@@ -13,6 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Lock } from "lucide-react";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
+import {
+  ServiceAreaField,
+  useCategoryTree,
+} from "@/components/elements/ServiceAreaField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -56,6 +60,8 @@ interface Props {
 interface FormState {
   vendorId: string;
   name: string;
+  /** The Service Area the contract covers. Required. */
+  categoryId: string | null;
   startDate: string;
   endDate: string;
   agreementSignedDate: string;
@@ -77,6 +83,7 @@ interface FormState {
 const EMPTY: FormState = {
   vendorId: "",
   name: "",
+  categoryId: null,
   startDate: "",
   endDate: "",
   agreementSignedDate: "",
@@ -110,6 +117,7 @@ function contractToForm(c: RateContract): FormState {
   return {
     vendorId: c.vendor_id,
     name: c.name,
+    categoryId: c.category_id,
     startDate: toDateInput(c.start_date),
     endDate: toDateInput(c.end_date),
     agreementSignedDate: toDateInput(c.agreement_signed_date),
@@ -172,6 +180,12 @@ export function RateContractFormDialog({
   );
   const vendors = vendorData?.rows ?? [];
 
+  // `loaded` guards the submit gate: until the tree arrives nothing resolves to
+  // a Service Area, and blocking Save on a contract that already has one would
+  // be wrong.
+  const { isServiceAreaId, loaded: categoriesLoaded } = useCategoryTree(open);
+  const serviceAreaChosen = isServiceAreaId(values.categoryId);
+
   // Optional project scope — a contract is usually org-wide, so this can be left unset.
   const { data: projectData } = useSWR<{ id: string; name: string }[]>(
     open ? API.projects() : null
@@ -201,9 +215,13 @@ export function RateContractFormDialog({
     disabled: isLocked,
   });
 
+  // A locked (active) contract can only edit the allow-listed fields, and the
+  // Service Area isn't one of them — so don't block saving those on it. Anything
+  // else, including a grandfathered contract being edited, must supply one.
   const canSubmit =
     values.vendorId &&
     values.name.trim() &&
+    (isLocked || (categoriesLoaded && serviceAreaChosen)) &&
     values.startDate &&
     values.endDate &&
     !submitting;
@@ -230,9 +248,15 @@ export function RateContractFormDialog({
       if (isLocked && editing) {
         saved = await rcApi.update(editing.id, editableFields);
       } else {
+        // `canSubmit` already guarantees this on the unlocked path; the guard is
+        // what lets TS see it.
+        const categoryId = values.categoryId;
+        if (!categoryId) return;
+
         const fullFields = {
           ...editableFields,
           name: values.name.trim(),
+          categoryId,
           startDate: values.startDate,
           endDate: values.endDate,
           agreementSignedDate: values.agreementSignedDate || null,
@@ -307,6 +331,19 @@ export function RateContractFormDialog({
                 onChange={(e) => set("name", e.target.value)}
                 required
                 maxLength={255}
+                disabled={isLocked}
+              />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("lockedFieldHint")}>
+              {/* Contracts predating this field point at nothing (or, in one
+                  case, a level-1 category). They still open — they just can't
+                  be saved until an area is chosen. */}
+              <ServiceAreaField
+                label={t("serviceArea")}
+                value={values.categoryId}
+                onChange={(id) => set("categoryId", id)}
+                requiredHint={t("serviceAreaRequired")}
+                enabled={open}
                 disabled={isLocked}
               />
             </LockHint>

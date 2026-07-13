@@ -106,6 +106,8 @@ describe("POST /api/rate-contracts", () => {
   const validBody = {
     vendorId: VENDOR_ID,
     name: "Carpentry 2026",
+    // Required: a rate contract covers a Service Area.
+    categoryId: CATEGORY_ID,
     startDate: "2026-01-01",
     endDate: "2026-12-31",
   };
@@ -125,6 +127,37 @@ describe("POST /api/rate-contracts", () => {
         targetId: RC_ID,
       })
     );
+  });
+
+  // The schema can only see that a UUID was sent; that it names a level-3
+  // Service Area (and belongs to this org) is checked in requireServiceArea.
+  it("rejects a missing categoryId", async () => {
+    const { categoryId: _omit, ...noCategory } = validBody;
+    const res = await CREATE(
+      buildRequest("/api/rate-contracts", {
+        method: "POST",
+        body: noCategory,
+      })
+    );
+    const { status } = await parseResponse(res);
+    expect(status).toBe(400);
+    expect(createRateContract).not.toHaveBeenCalled();
+  });
+
+  // requireServiceArea is mocked out here, so this only pins the ROUTE's
+  // error mapping — that a category rejection reaches the client as a 400 with
+  // its real message, rather than a 500 or a flattened "Database error". The
+  // level check itself is unit-tested against requireServiceArea.
+  it("surfaces a category rejection as a 400 with its message", async () => {
+    vi.mocked(createRateContract).mockRejectedValue(
+      new Error("Category must be a Service Area")
+    );
+    const res = await CREATE(
+      buildRequest("/api/rate-contracts", { method: "POST", body: validBody })
+    );
+    const { status, body } = await parseResponse<{ error: string }>(res);
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category must be a Service Area");
   });
 
   it("rejects endDate before startDate", async () => {

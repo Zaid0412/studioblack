@@ -1503,6 +1503,8 @@
     "vendor": "Vendor",
     "vendorPickerPlaceholder": "Pick a vendor",
     "contractName": "Name",
+    "serviceArea": "Service Area",
+    "serviceAreaRequired": "A rate contract must cover a Service Area",
     "startDate": "Start date",
     "endDate": "End date",
     "agreementSignedDate": "Agreement signed",

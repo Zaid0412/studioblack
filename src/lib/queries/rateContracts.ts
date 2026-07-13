@@ -19,7 +19,7 @@ import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
 import { toIso } from "@/lib/formatTime";
 import { mapPgError } from "./_pgErrors";
-import { getNextSequenceNumber } from "./sequences";
+import { getNextSequenceNumber, requireServiceArea } from "./sequences";
 
 export interface RateContractFilters {
   search?: string;
@@ -57,6 +57,8 @@ const RATE_CONTRACT_SORT_SQL: Record<
 };
 
 interface RateContractFieldsInput {
+  /** The Service Area the contract covers. Required on create. */
+  categoryId?: string;
   agreementSignedDate?: string | null;
   currency?: string;
   paymentTerms?: string | null;
@@ -76,6 +78,8 @@ interface RateContractFieldsInput {
 export interface CreateRateContractInput extends RateContractFieldsInput {
   vendorId: string;
   name: string;
+  /** Required, and must be a Service Area (level 3). */
+  categoryId: string;
   startDate: string;
   endDate: string;
 }
@@ -89,6 +93,7 @@ export interface UpdateRateContractInput extends RateContractFieldsInput {
 
 const HEADER_UPDATE_COLS: Record<string, string> = {
   name: "name",
+  categoryId: "category_id",
   startDate: "start_date",
   endDate: "end_date",
   agreementSignedDate: "agreement_signed_date",
@@ -180,13 +185,17 @@ export async function listRateContracts(
       rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
+      rc.category_id,
       rc.created_by, rc.created_at, rc.updated_at,
+      c.name AS category_name,
+      c.code_prefix AS category_code,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
       COALESCE(i.cnt, 0)::int AS item_count,
       COUNT(*) OVER() AS total
     FROM rate_contract rc
     JOIN vendor v ON v.id = rc.vendor_id
+    LEFT JOIN element_category c ON c.id = rc.category_id
     -- LATERAL per-row count (idx_rate_contract_item_contract) instead of a
     -- GROUP BY over all rate_contract_item across every tenant.
     LEFT JOIN LATERAL (
@@ -224,9 +233,12 @@ export async function getRateContractById(
       rc.payment_terms, rc.attachments, rc.terms_and_conditions, rc.notes,
       rc.contract_type, rc.credit_period_days, rc.delivery_terms,
       rc.price_basis, rc.renewal_date,
+      rc.category_id,
       rc.project_id, rc.tax_included, rc.tax_percentage,
       rc.submitted_at, rc.approved_by, rc.approved_at, rc.review_note,
       rc.created_by, rc.created_at, rc.updated_at,
+      c.name AS category_name,
+      c.code_prefix AS category_code,
       v.company_name AS vendor_name,
       v.kyc_status AS vendor_kyc_status,
       approver.name AS approved_by_name,
@@ -269,6 +281,7 @@ export async function getRateContractById(
       ) AS item_count
     FROM rate_contract rc
     JOIN vendor v ON v.id = rc.vendor_id
+    LEFT JOIN element_category c ON c.id = rc.category_id
     LEFT JOIN "user" approver ON approver.id = rc.approved_by
     LEFT JOIN project proj ON proj.id = rc.project_id
     WHERE rc.id = $1 AND rc.org_id = $2
@@ -604,6 +617,11 @@ export async function createRateContract(
   input: CreateRateContractInput
 ): Promise<RateContract> {
   const pool = getPool();
+
+  // Same gate the element library uses: rejects a missing category, a Category
+  // or Sub-category, and — because it is org-scoped — another org's id.
+  await requireServiceArea(pool, orgId, input.categoryId);
+
   const contractNumber = await getNextSequenceNumber(orgId, "RC");
 
   try {
@@ -615,13 +633,15 @@ export async function createRateContract(
          terms_and_conditions, notes, created_by,
          contract_type, credit_period_days, delivery_terms,
          price_basis, renewal_date,
-         project_id, tax_included, tax_percentage
+         project_id, tax_included, tax_percentage,
+         category_id
        )
        VALUES ($1, $2, $3, $4, 'draft',
                $5, $6, $7,
                $8, $9, $10::jsonb, $11, $12, $13,
                $14, $15, $16, $17, $18,
-               $19, COALESCE($20, false), $21)
+               $19, COALESCE($20, false), $21,
+               $22)
        RETURNING *`,
       [
         orgId,
@@ -645,6 +665,7 @@ export async function createRateContract(
         input.projectId ?? null,
         input.taxIncluded ?? null,
         input.taxPercentage ?? null,
+        input.categoryId,
       ]
     );
     return rows[0] as RateContract;
@@ -695,6 +716,24 @@ export async function updateRateContract(
       if (offenders.length > 0) {
         await client.query("ROLLBACK");
         return { ok: false, reason: "active_locked" };
+      }
+    }
+
+    // A grandfathered contract heals here — the form can't save without a
+    // Service Area, and this is what makes that true of the API too.
+    //
+    // Returned as a reason rather than thrown: this function's catch funnels
+    // everything through `mapPgError`, which has no idea what a plain Error is
+    // and would flatten "Category must be a Service Area" to "Database error".
+    if (patch.categoryId !== undefined) {
+      try {
+        await requireServiceArea(client, orgId, patch.categoryId);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        return {
+          ok: false,
+          reason: err instanceof Error ? err.message : "Invalid category",
+        };
       }
     }
 

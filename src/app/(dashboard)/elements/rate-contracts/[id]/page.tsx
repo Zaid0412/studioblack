@@ -296,6 +296,16 @@ export default function RateContractDetailPage({ params }: Props) {
             </span>
           </div>
         </Field>
+        {data.category_name && (
+          <Field label={t("serviceArea")}>
+            <span className="text-sm text-text-primary">
+              {data.category_name}
+              {data.category_code && (
+                <span className="text-text-muted"> ({data.category_code})</span>
+              )}
+            </span>
+          </Field>
+        )}
         <Field label={t("currency")}>
           <span className="text-sm text-text-primary">{data.currency}</span>
         </Field>

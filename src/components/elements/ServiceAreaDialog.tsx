@@ -358,12 +358,15 @@ function RungFields({
 
       {parentReady && creating && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Both are mandatory — `rungReady` gates Save on a name AND a code
+              segment for every rung being created. */}
           <Input
             label={t("categoryNameLabel")}
             placeholder={namePlaceholder}
             value={rung.name}
             onChange={(e) => onChange({ ...rung, name: e.target.value })}
             maxLength={150}
+            required
           />
           <Input
             label={t("categoryCodeSegment")}
@@ -376,6 +379,7 @@ function RungFields({
               })
             }
             maxLength={maxSegmentLength(parentPrefix)}
+            required
           />
         </div>
       )}

@@ -19,12 +19,27 @@ describe("createRateContractSchema", () => {
   const valid = {
     vendorId: VENDOR_ID,
     name: "Carpentry 2026",
+    // Required: a rate contract covers a Service Area. That it names a *level-3*
+    // one is checked server-side in requireServiceArea — a schema can't know the
+    // org's taxonomy.
+    categoryId: CATEGORY_ID,
     startDate: "2026-01-01",
     endDate: "2026-12-31",
   };
 
   it("accepts a minimal valid input", () => {
     expect(parseBody(createRateContractSchema, valid).success).toBe(true);
+  });
+
+  it("rejects a missing categoryId", () => {
+    const { categoryId: _omit, ...noCategory } = valid;
+    expect(parseBody(createRateContractSchema, noCategory).success).toBe(false);
+  });
+
+  it("rejects a null categoryId — an edit must not strip the Service Area", () => {
+    expect(
+      parseBody(updateRateContractSchema, { categoryId: null }).success
+    ).toBe(false);
   });
 
   it("accepts contract type, price basis, and commercial terms", () => {
