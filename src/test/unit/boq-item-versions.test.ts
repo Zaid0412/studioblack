@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
 
 import { updateBoqItem, getBoqItemVersions } from "@/lib/queries/boq";
 
+const ORG_ID = "org-test-001";
 const ITEM_ID = "660e8400-e29b-41d4-a716-446655440001";
 const TOKEN = "2026-06-30T00:00:00.000Z";
 const ACTOR = "user-pm";
@@ -24,7 +25,7 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
   it("snapshots into boq_item_version on a material edit, with a derived reason", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: ITEM_ID, quantity: 15 }] });
 
-    await updateBoqItem(ITEM_ID, TOKEN, { quantity: 15 }, ACTOR);
+    await updateBoqItem(ITEM_ID, ORG_ID, TOKEN, { quantity: 15 }, ACTOR);
 
     const [sql, params] = mockQuery.mock.calls[0];
     expect(String(sql)).toContain("INSERT INTO boq_item_version");
@@ -39,6 +40,7 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
 
     await updateBoqItem(
       ITEM_ID,
+      ORG_ID,
       TOKEN,
       { quantity: 20, changeReason: "specification", changeNote: "extra unit" },
       ACTOR
@@ -53,7 +55,13 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
   it("does NOT version a trivial (non-material) edit", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: ITEM_ID }] });
 
-    await updateBoqItem(ITEM_ID, TOKEN, { notes: "just a note" }, ACTOR);
+    await updateBoqItem(
+      ITEM_ID,
+      ORG_ID,
+      TOKEN,
+      { notes: "just a note" },
+      ACTOR
+    );
 
     const params = mockQuery.mock.calls[0][1] as unknown[];
     // shouldVersion=false and no reason string in the params
@@ -66,7 +74,7 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
   it("flips client_approved AND ready_for_procurement back to sent_to_client on a material edit (RFQ-4a)", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: ITEM_ID, quantity: 15 }] });
 
-    await updateBoqItem(ITEM_ID, TOKEN, { quantity: 15 }, ACTOR);
+    await updateBoqItem(ITEM_ID, ORG_ID, TOKEN, { quantity: 15 }, ACTOR);
 
     const sql = String(mockQuery.mock.calls[0][0]);
     // The re-open CASE must cover both terminal-ish phases, not just client_approved.
@@ -78,7 +86,13 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
   it("does NOT touch phase on a trivial (non-material) edit (RFQ-4a)", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ id: ITEM_ID }] });
 
-    await updateBoqItem(ITEM_ID, TOKEN, { notes: "just a note" }, ACTOR);
+    await updateBoqItem(
+      ITEM_ID,
+      ORG_ID,
+      TOKEN,
+      { notes: "just a note" },
+      ACTOR
+    );
 
     const sql = String(mockQuery.mock.calls[0][0]);
     expect(sql).not.toMatch(/phase = CASE/);
@@ -90,6 +104,7 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
       .mockResolvedValueOnce({ rows: [{ "?column?": 1 }] }); // row still exists
     const conflict = await updateBoqItem(
       ITEM_ID,
+      ORG_ID,
       TOKEN,
       { quantity: 1 },
       ACTOR
@@ -99,7 +114,13 @@ describe("updateBoqItem — change versioning (RFQ-3a)", () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] }); // row gone
-    const gone = await updateBoqItem(ITEM_ID, TOKEN, { quantity: 1 }, ACTOR);
+    const gone = await updateBoqItem(
+      ITEM_ID,
+      ORG_ID,
+      TOKEN,
+      { quantity: 1 },
+      ACTOR
+    );
     expect(gone).toEqual({ ok: false, reason: "not_found" });
   });
 });

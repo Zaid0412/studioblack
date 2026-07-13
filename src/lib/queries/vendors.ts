@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
+import { requireServiceAreas } from "./sequences";
 import type {
   Vendor,
   VendorWithRelations,
@@ -460,6 +461,14 @@ export async function createVendor(
     }
 
     if (input.trades?.length) {
+      // A vendor may declare zero trades — but a trade that IS declared names a
+      // Service Area, not a whole Sub-category. Validated as a batch: one query
+      // for the list, not one per row.
+      await requireServiceAreas(
+        client,
+        orgId,
+        input.trades.map((t) => t.categoryId)
+      );
       for (const t of input.trades) {
         await client.query(
           `INSERT INTO vendor_trade (vendor_id, category_id, proficiency_level, notes)
@@ -571,6 +580,11 @@ export async function updateVendor(
     }
 
     if (patch.trades !== undefined) {
+      await requireServiceAreas(
+        client,
+        orgId,
+        patch.trades.map((t) => t.categoryId)
+      );
       await client.query(`DELETE FROM vendor_trade WHERE vendor_id = $1`, [
         vendorId,
       ]);

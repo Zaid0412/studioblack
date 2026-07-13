@@ -138,6 +138,33 @@ export async function requireServiceArea(
 }
 
 /**
+ * The list form of `requireServiceArea`, for the surfaces that write many rows
+ * at once — vendor trades, rate-contract items. One query for the whole batch
+ * rather than one per row, and it throws the same two messages.
+ */
+export async function requireServiceAreas(
+  executor: Executor,
+  orgId: string,
+  categoryIds: readonly string[]
+): Promise<void> {
+  const ids = [...new Set(categoryIds)];
+  if (ids.length === 0) return;
+
+  const { rows } = await executor.query<{ id: string; level: number }>(
+    `SELECT id, level FROM element_category
+      WHERE org_id = $1 AND id = ANY($2::uuid[])`,
+    [orgId, ids]
+  );
+
+  // A missing row is either a bad id or another org's — same answer either way,
+  // and deliberately not distinguishable from the outside.
+  if (rows.length !== ids.length) throw new Error("Category not found");
+  if (rows.some((r) => r.level !== SERVICE_AREA_LEVEL)) {
+    throw new Error("Category must be a Service Area");
+  }
+}
+
+/**
  * Fast-forward the counter past every code already issued under `prefix`.
  *
  * The Excel import inserts the codes it is given verbatim and never advances

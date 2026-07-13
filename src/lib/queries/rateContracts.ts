@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
+import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import type {
   RateContract,
   RateContractListRow,
@@ -903,16 +904,22 @@ export async function addRateContractItems(
     }
     const contractCurrency = contract.rows[0].currency as string;
 
-    // Every item targets a service area: validate the categories exist in this
-    // org so a stale/invalid id returns a clean reason instead of a raw FK 500.
+    // Every item targets a service area — validate that literally, not just
+    // that the category exists. The level comes from the same SELECT that was
+    // already checking existence, so the gate is free.
     const categoryIds = [...new Set(items.map((i) => i.categoryId))];
-    const categoryRows = await client.query(
-      `SELECT id FROM element_category WHERE org_id = $1 AND id = ANY($2::uuid[])`,
+    const categoryRows = await client.query<{ id: string; level: number }>(
+      `SELECT id, level FROM element_category
+        WHERE org_id = $1 AND id = ANY($2::uuid[])`,
       [orgId, categoryIds]
     );
     if (categoryRows.rows.length !== categoryIds.length) {
       await client.query("ROLLBACK");
       return { ok: false, reason: "category_not_found" };
+    }
+    if (categoryRows.rows.some((r) => r.level !== SERVICE_AREA_LEVEL)) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "category_not_service_area" };
     }
 
     // Validate element overrides only (service-area rates carry no element):

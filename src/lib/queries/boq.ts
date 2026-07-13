@@ -3,7 +3,11 @@ import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
-import { getNextSequenceNumber, nextSequenceNumbers } from "./sequences";
+import {
+  getNextSequenceNumber,
+  nextSequenceNumbers,
+  requireServiceArea,
+} from "./sequences";
 import {
   elementAncestorCategoryIdsSql,
   categoryAncestorCategoryIdsSql,
@@ -823,8 +827,12 @@ export async function reorderBoqSections(
 export interface CreateBoqItemInput {
   sectionId?: string | null;
   elementId?: string | null;
-  /** Direct service-area link (any tree level). Classifies free-text lines. */
-  categoryId?: string | null;
+  /**
+   * The Service Area the line sits under. Required on the user-facing create
+   * path; optional here because the internal callers that snapshot it from an
+   * element (`elementRowToBoqItemInput`) may hit a grandfathered NULL.
+   */
+  categoryId?: string;
   /** Provenance — set by the create flow, not user-editable. Defaults to 'custom'. */
   source?: BoqItemSource;
   rateContractItemId?: string | null;
@@ -940,8 +948,11 @@ export async function createBoqItem(
 
 export interface UpdateBoqItemInput {
   sectionId?: string | null;
-  /** Reclassify the line's service area. Internal — not a material change. */
-  categoryId?: string | null;
+  /**
+   * Move the line to another Service Area. Non-nullable: an edit may reclassify
+   * it, not strip it back to unclassified.
+   */
+  categoryId?: string;
   itemCode?: string;
   name?: string | null;
   description?: string;
@@ -1079,10 +1090,17 @@ export type UpdateBoqItemOutcome =
  */
 export async function updateBoqItem(
   itemId: string,
+  orgId: string,
   expectedUpdatedAt: string,
   input: UpdateBoqItemInput,
   actorUserId: string | null
 ): Promise<UpdateBoqItemOutcome> {
+  // A grandfathered line heals here: the drawer can't save without a Service
+  // Area, and this is what makes that true of the API too.
+  if (input.categoryId !== undefined) {
+    await requireServiceArea(getPool(), orgId, input.categoryId);
+  }
+
   const setClauses: string[] = [];
   const values: unknown[] = [];
   let i = 1;
@@ -1587,7 +1605,11 @@ function elementRowToBoqItemInput(
   return {
     sectionId: opts.sectionId,
     elementId: opts.elementId,
-    categoryId: e.category_id ?? null,
+    // The line inherits the element's Service Area — which is why adding from
+    // the library needs no manual pick. `?? undefined` because a grandfathered
+    // element may still have none; the line is then created unclassified, the
+    // same as it is today, rather than the whole add failing.
+    categoryId: e.category_id ?? undefined,
     source: rc ? "rate_contract" : "library",
     rateContractItemId: opts.rateContractItemId ?? null,
     itemCode: e.code,
@@ -2236,8 +2258,9 @@ export async function getElementsByCodeMap(
     id: string;
     code: string;
     name: string;
+    category_id: string | null;
   }>(
-    `SELECT DISTINCT ON (code) id, code, name
+    `SELECT DISTINCT ON (code) id, code, name, category_id
        FROM element
       WHERE org_id = $1 AND is_active = true
       ORDER BY code, version_number DESC`,
@@ -2485,7 +2508,8 @@ export async function bulkInsertBoqItems(
              client_rate, budget_rate,
              length, breadth, height, dimension_unit,
              notes, client_notes,
-             sort_order, is_provisional
+             sort_order, is_provisional,
+             category_id
            ) VALUES (
              $1, $2::uuid, $3::uuid,
              CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
@@ -2495,7 +2519,8 @@ export async function bulkInsertBoqItems(
              $14::numeric, $15::numeric,
              $16::numeric, $17::numeric, $18::numeric, COALESCE($19, 'm'),
              $20, $21,
-             $22::int, COALESCE($23, false)
+             $22::int, COALESCE($23, false),
+             $24::uuid
            )`,
           [
             boqId,
@@ -2521,6 +2546,7 @@ export async function bulkInsertBoqItems(
             row.clientNotes ?? null,
             sortOrder,
             row.isProvisional ?? null,
+            row.categoryId,
           ]
         );
         result.inserted += 1;

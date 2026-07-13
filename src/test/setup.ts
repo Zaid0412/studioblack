@@ -414,6 +414,10 @@ vi.mock("@/lib/queries", () => ({
     section_totals: [],
   }),
   getNextSequenceNumber: vi.fn().mockResolvedValue("BOQ-2026-001"),
+  // The Service Area gate. Resolves (i.e. passes) by default — a test that
+  // wants the rejection path mocks the throw itself.
+  requireServiceArea: vi.fn().mockResolvedValue("FIN-WAL-PNT"),
+  requireServiceAreas: vi.fn().mockResolvedValue(undefined),
   // BOQ Excel import/export (Feature 6)
   getElementsByCodeMap: vi.fn().mockResolvedValue(new Map()),
   getBoqForExport: vi.fn().mockResolvedValue(null),

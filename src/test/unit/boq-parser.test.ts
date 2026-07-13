@@ -3,10 +3,12 @@ import ExcelJS from "exceljs";
 import { parseBoqSheet } from "@/lib/excel/boqParser";
 import { writeBoqSheet } from "@/lib/excel/boqWriter";
 import type { BoqElementLite, BoqItemWithComputed, BoqSection } from "@/types";
+import { SERVICE_AREA_CHAIN, SERVICE_AREA_PATH } from "../helpers";
 
 const HEADERS = [
   "Section",
   "Item Code",
+  "Category Path",
   "Description",
   "Unit",
   "Quantity",
@@ -20,6 +22,12 @@ const HEADERS = [
   "Is Provisional",
 ];
 
+/**
+ * Every BOQ line must name a Service Area now. Rows are written without the
+ * Category Path cell and it's spliced in at index 2 (right after Item Code), so
+ * the existing positional fixtures stay readable — a test that cares about the
+ * path passes its own `headers` and full rows instead.
+ */
 async function sheetBuffer(
   rows: (string | number | null | undefined)[][],
   headers: (string | null)[] = HEADERS
@@ -27,11 +35,20 @@ async function sheetBuffer(
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("BOQ");
   ws.addRow(headers);
-  for (const r of rows) ws.addRow(r);
+  const withPath = headers === HEADERS;
+  for (const r of rows) {
+    ws.addRow(
+      withPath ? [...r.slice(0, 2), SERVICE_AREA_PATH_CELL, ...r.slice(2)] : r
+    );
+  }
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 const EMPTY_MAP = new Map<string, BoqElementLite>();
+
+/** The leaf of SERVICE_AREA_CHAIN, as an Excel "A > B > C" cell. */
+const SERVICE_AREA_PATH_CELL = SERVICE_AREA_PATH.join(" > ");
+const SERVICE_AREA_ID = "cat-pt";
 
 // Filler UUIDs for round-trip tests — the writer/parser path doesn't
 // touch these; only the values that travel through Excel matter.
@@ -43,7 +60,7 @@ describe("parseBoqSheet", () => {
     const buf = await sheetBuffer([
       ["Concrete", "BOQ-001", "100mm slab", "m2", 50, 45],
     ]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.missingColumns).toEqual([]);
     expect(res.rows).toHaveLength(1);
@@ -65,7 +82,7 @@ describe("parseBoqSheet", () => {
       ["Concrete", "", "Item", "m2", null, 45], // missing Quantity
       ["Concrete", "", "Item", "m2", 50, null], // missing Unit Cost
     ]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows).toHaveLength(4);
     expect(res.rows.every((r) => r.status === "error")).toBe(true);
@@ -77,7 +94,7 @@ describe("parseBoqSheet", () => {
 
   it("rejects units outside the ALLOWED_UNITS enum", async () => {
     const buf = await sheetBuffer([["", "", "Item", "zzz", 1, 1]]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("error");
     expect(res.rows[0].errors.join(" ")).toMatch(/Unit "zzz"/);
@@ -85,7 +102,7 @@ describe("parseBoqSheet", () => {
 
   it("treats unit input case-insensitively", async () => {
     const buf = await sheetBuffer([["", "", "Item", "M2", 1, 1]]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.unit).toBe("m2");
@@ -93,7 +110,7 @@ describe("parseBoqSheet", () => {
 
   it("warns on ambiguous decimal-comma (e.g. '1,234')", async () => {
     const buf = await sheetBuffer([["", "", "Item", "m2", "1,234", 5]]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.quantity).toBeCloseTo(1.234);
@@ -105,20 +122,92 @@ describe("parseBoqSheet", () => {
       [["desc only"]],
       ["Description"] // missing Unit + Quantity + Unit Cost
     );
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.missingColumns).toEqual(
       expect.arrayContaining(["Unit", "Quantity", "Unit Cost"])
     );
   });
 
+  // ── Service Area (required) ───────────────────────────────────────────────
+
+  it("rejects a row with no Category Path and no element to inherit from", async () => {
+    // Built raw: `sheetBuffer` splices the path in for the default headers,
+    // and a blank path is exactly what this asserts on.
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("BOQ");
+    ws.addRow(HEADERS);
+    ws.addRow(["", "", "", "Free-text line", "m2", 1, 10]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
+    expect(res.rows[0].status).toBe("error");
+    expect(
+      res.rows[0].errors.some((e) => e.includes("Category Path is required"))
+    ).toBe(true);
+  });
+
+  it("rejects a Category Path that names a Sub-category", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("BOQ");
+    ws.addRow(HEADERS);
+    ws.addRow(["", "", "Finishes > Wall Finishes", "Line", "m2", 1, 10]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
+    expect(res.rows[0].status).toBe("error");
+    expect(
+      res.rows[0].errors.some((e) => e.includes("not a Service Area"))
+    ).toBe(true);
+  });
+
+  // The whole point of linking by Item Code: a library line needs no path.
+  it("inherits the Service Area from the element its Item Code links to", async () => {
+    const map = new Map<string, BoqElementLite>([
+      [
+        "WAL-PNT-001",
+        {
+          id: "el-1",
+          code: "WAL-PNT-001",
+          name: "White Paint",
+          category_id: SERVICE_AREA_ID,
+        },
+      ],
+    ]);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("BOQ");
+    ws.addRow(HEADERS);
+    ws.addRow(["", "WAL-PNT-001", "", "Paint", "m2", 1, 10]);
+    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+
+    const res = await parseBoqSheet(buf, map, SERVICE_AREA_CHAIN);
+    expect(res.rows[0].status).toBe("valid");
+    expect(res.rows[0].parsed?.categoryId).toBe(SERVICE_AREA_ID);
+  });
+
   it("parses a Service Charge % column when present", async () => {
     // Header includes the new column; verify it round-trips into the parsed row.
     const buf = await sheetBuffer(
-      [["", "", "Item", "m2", 1, 10, null, null, null, 7.5, 12]],
+      [
+        [
+          "",
+          "",
+          SERVICE_AREA_PATH_CELL,
+          "Item",
+          "m2",
+          1,
+          10,
+          null,
+          null,
+          null,
+          7.5,
+          12,
+        ],
+      ],
       [
         "Section",
         "Item Code",
+        "Category Path",
         "Description",
         "Unit",
         "Quantity",
@@ -130,7 +219,7 @@ describe("parseBoqSheet", () => {
         "Margin %",
       ]
     );
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.serviceChargePct).toBe(7.5);
@@ -143,7 +232,7 @@ describe("parseBoqSheet", () => {
     const buf = await sheetBuffer([
       ["Concrete", "BOQ-001", "100mm slab", "m2", 50, 45],
     ]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.serviceChargePct).toBeUndefined();
@@ -157,20 +246,28 @@ describe("parseBoqSheet", () => {
     ws.addRow(["Item", "m2", 1, 1, "x"]);
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.unknownColumns).toContain("Mystery");
   });
 
   it("links rows to elements when itemCode matches the provided map", async () => {
     const map = new Map<string, BoqElementLite>([
-      ["WAL-PNT-001", { id: "el-1", code: "WAL-PNT-001", name: "White Paint" }],
+      [
+        "WAL-PNT-001",
+        {
+          id: "el-1",
+          code: "WAL-PNT-001",
+          name: "White Paint",
+          category_id: SERVICE_AREA_ID,
+        },
+      ],
     ]);
     const buf = await sheetBuffer([
       ["Finishes", "WAL-PNT-001", "Paint", "m2", 1, 1],
     ]);
 
-    const res = await parseBoqSheet(buf, map);
+    const res = await parseBoqSheet(buf, map, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].linkedElement).toMatchObject({
@@ -184,7 +281,7 @@ describe("parseBoqSheet", () => {
       ["", "", "A", "m2", 1, 1, "", "", "", "", "", "", "yes"],
       ["", "", "B", "m2", 1, 1, "", "", "", "", "", "", "no"],
     ]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].parsed?.isProvisional).toBe(true);
     expect(res.rows[1].parsed?.isProvisional).toBe(false);
@@ -194,7 +291,7 @@ describe("parseBoqSheet", () => {
     const buf = await sheetBuffer([
       ["", "", "A", "m2", 1, 1, "", "", "", "", "", "", "maybe"],
     ]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("error");
     expect(res.rows[0].errors.join(" ")).toMatch(/Is Provisional/);
@@ -202,7 +299,7 @@ describe("parseBoqSheet", () => {
 
   it("enforces Overhead %/Margin % 0–100 bounds", async () => {
     const buf = await sheetBuffer([["", "", "A", "m2", 1, 1, "", "", 150, ""]]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows[0].status).toBe("error");
     expect(res.rows[0].errors.join(" ")).toMatch(/Overhead %/);
@@ -213,7 +310,7 @@ describe("parseBoqSheet", () => {
     wb.addWorksheet("BOQ");
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     expect(res.rows).toEqual([]);
     expect(res.missingColumns.length).toBeGreaterThan(0);
@@ -224,7 +321,7 @@ describe("parseBoqSheet", () => {
       ["", "", "A", "m2", 1, 1],
       ["", "", "B", "m2", 2, 2],
     ]);
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
     // Header is Excel row 1, so first data row is 2. `rowNumber` carries
     // the Excel row everywhere — preview, parsed.rowNumber (sent to confirm),
@@ -238,6 +335,7 @@ describe("parseBoqSheet", () => {
 describe("parseBoqSheet — dimensions", () => {
   const HEADERS_WITH_DIMS = [
     "Item Code",
+    "Category Path",
     "Description",
     "Unit",
     "Quantity",
@@ -251,10 +349,20 @@ describe("parseBoqSheet — dimensions", () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("BOQ");
     ws.addRow(HEADERS_WITH_DIMS);
-    ws.addRow(["", "Concrete footing", "m3", 1.875, 200, 2.5, 1.5, 0.5]);
+    ws.addRow([
+      "",
+      SERVICE_AREA_PATH_CELL,
+      "Concrete footing",
+      "m3",
+      1.875,
+      200,
+      2.5,
+      1.5,
+      0.5,
+    ]);
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.length).toBe(2.5);
     expect(res.rows[0].parsed?.breadth).toBe(1.5);
@@ -265,10 +373,20 @@ describe("parseBoqSheet — dimensions", () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("BOQ");
     ws.addRow(HEADERS_WITH_DIMS);
-    ws.addRow(["", "Tile area", "m2", 15, 45, 5, 3, ""]);
+    ws.addRow([
+      "",
+      SERVICE_AREA_PATH_CELL,
+      "Tile area",
+      "m2",
+      15,
+      45,
+      5,
+      3,
+      "",
+    ]);
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.length).toBe(5);
     expect(res.rows[0].parsed?.breadth).toBe(3);
@@ -279,10 +397,10 @@ describe("parseBoqSheet — dimensions", () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("BOQ");
     ws.addRow(HEADERS_WITH_DIMS);
-    ws.addRow(["", "Bad row", "m3", 1, 1, -1, 1, 1]);
+    ws.addRow(["", SERVICE_AREA_PATH_CELL, "Bad row", "m3", 1, 1, -1, 1, 1]);
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("error");
     expect(res.rows[0].errors.join(" ")).toMatch(/Length/);
   });
@@ -296,6 +414,9 @@ describe("writeBoqSheet → parseBoqSheet round-trip — dimensions", () => {
       id: FAKE_ITEM_ID,
       boq_id: FAKE_BOQ_ID,
       section_id: null,
+      // The writer emits this as a "A > B > C" Category Path, which the parser
+      // then requires — that's the round-trip these tests exist to protect.
+      category_id: SERVICE_AREA_ID,
       element_id: null,
       item_code: "BOQ-001",
       description: "Concrete footing M25",
@@ -347,9 +468,10 @@ describe("writeBoqSheet → parseBoqSheet round-trip — dimensions", () => {
     const buf = await writeBoqSheet({
       items: [makeItem({})],
       sections: SECTIONS,
+      categories: SERVICE_AREA_CHAIN,
     });
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows).toHaveLength(1);
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.length).toBe(2.5);
@@ -361,9 +483,10 @@ describe("writeBoqSheet → parseBoqSheet round-trip — dimensions", () => {
     const buf = await writeBoqSheet({
       items: [makeItem({ length: null, breadth: null, height: null })],
       sections: SECTIONS,
+      categories: SERVICE_AREA_CHAIN,
     });
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("valid");
     expect(res.rows[0].parsed?.length).toBeUndefined();
     expect(res.rows[0].parsed?.breadth).toBeUndefined();
@@ -374,9 +497,10 @@ describe("writeBoqSheet → parseBoqSheet round-trip — dimensions", () => {
     const buf = await writeBoqSheet({
       items: [makeItem({ length: "5", breadth: "3", height: null })],
       sections: SECTIONS,
+      categories: SERVICE_AREA_CHAIN,
     });
 
-    const res = await parseBoqSheet(buf, EMPTY_MAP);
+    const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].parsed?.length).toBe(5);
     expect(res.rows[0].parsed?.breadth).toBe(3);
     expect(res.rows[0].parsed?.height).toBeUndefined();

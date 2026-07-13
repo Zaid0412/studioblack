@@ -181,8 +181,28 @@ describe("reorderSectionsSchema", () => {
 // ── createBoqItemSchema ──────────────────────────────────────────────────────
 
 describe("createBoqItemSchema", () => {
+  // A BOQ line must sit under a Service Area — it's what matches it to rate
+  // contracts and drives vendor suggestion. The *level* is checked server-side
+  // in requireServiceArea; a schema can't see the org's taxonomy.
+  it("rejects a missing categoryId", () => {
+    expectFail(createBoqItemSchema, {
+      description: "Tile laying",
+      unit: "m2",
+      quantity: 10,
+      unitCost: 45,
+    });
+  });
+
+  it("rejects a null categoryId — an edit must not strip the Service Area", () => {
+    expectFail(updateBoqItemSchema, {
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      categoryId: null,
+    });
+  });
+
   it("accepts minimal valid input", () => {
     const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "Tile laying",
       unit: "m2",
     });
@@ -191,6 +211,7 @@ describe("createBoqItemSchema", () => {
 
   it("accepts all optional cost fields", () => {
     const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "X",
       unit: "m2",
       quantity: 100,
@@ -207,6 +228,7 @@ describe("createBoqItemSchema", () => {
 
   it("coerces numeric strings for money and quantity", () => {
     const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "X",
       unit: "m2",
       quantity: "10.5",
@@ -218,6 +240,7 @@ describe("createBoqItemSchema", () => {
 
   it("accepts null cost fields", () => {
     expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "X",
       unit: "m2",
       materialCost: null,
@@ -227,6 +250,7 @@ describe("createBoqItemSchema", () => {
 
   it("accepts an optional name and trims whitespace", () => {
     const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "X",
       unit: "m2",
       name: "  Lobby Marble Counter  ",
@@ -236,6 +260,7 @@ describe("createBoqItemSchema", () => {
 
   it("accepts an explicit null name (clears the field)", () => {
     const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "X",
       unit: "m2",
       name: null,
@@ -308,6 +333,7 @@ describe("createBoqItemSchema", () => {
 
   it("accepts decimal length / breadth / height values", () => {
     const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "Concrete footing M25",
       unit: "m3",
       length: 2.5,
@@ -321,6 +347,7 @@ describe("createBoqItemSchema", () => {
 
   it("accepts null dimension values (omitted dimensions)", () => {
     expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
       description: "Pipework run",
       unit: "lm",
       length: 12,

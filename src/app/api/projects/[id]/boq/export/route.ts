@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/withAuth";
 import {
   getBoqByProject,
   getBoqForExport,
+  getCategoryTree,
   getProjectById,
 } from "@/lib/queries";
 import { writeBoqSheet } from "@/lib/excel/boqWriter";
@@ -18,7 +19,10 @@ export const GET = withAuth(
     projectAccess: true,
     rateLimit: { limit: 10, windowMs: 60_000 },
   },
-  async (_req, _ctx, params) => {
+  async (_req, { orgId }, params) => {
+    if (!orgId) {
+      return NextResponse.json({ error: "No organisation" }, { status: 400 });
+    }
     const header = await getBoqByProject(params.id);
     if (!header) {
       return NextResponse.json(
@@ -27,15 +31,16 @@ export const GET = withAuth(
       );
     }
 
-    const [boq, project] = await Promise.all([
+    const [boq, project, categories] = await Promise.all([
       getBoqForExport(header.id),
       getProjectById(params.id),
+      getCategoryTree(orgId),
     ]);
     if (!boq) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 });
     }
 
-    const buffer = await writeBoqSheet(boq);
+    const buffer = await writeBoqSheet({ ...boq, categories });
 
     const stamp = new Date().toISOString().slice(0, 10);
     const projectSlug = project?.name ? slug(project.name) : "project";

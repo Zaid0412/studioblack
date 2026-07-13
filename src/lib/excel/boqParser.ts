@@ -3,8 +3,16 @@ import type {
   BoqParseResult,
   ParsedBoqRow,
   ParsedBoqValues,
+  ElementCategory,
 } from "@/types";
 import { ALLOWED_UNITS } from "@/lib/validations";
+import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
+import {
+  buildCategoryLevelMap,
+  buildCategoryPathMap,
+  normalizeCategorySegment,
+  notAServiceAreaError,
+} from "./elementParser";
 import {
   buildParseEnvelope,
   cellBool,
@@ -34,6 +42,7 @@ const MAX_DATA_ROWS = 5_000;
 const TEMPLATE_COLUMNS = {
   sectionTitle: "Section",
   itemCode: "Item Code",
+  categoryPath: "Category Path",
   description: "Description",
   unit: "Unit",
   quantity: "Quantity",
@@ -58,6 +67,7 @@ type TemplateKey = keyof typeof TEMPLATE_COLUMNS;
 
 const REQUIRED_COLUMNS: readonly TemplateKey[] = [
   "description",
+  "categoryPath",
   "unit",
   "quantity",
   "unitCost",
@@ -114,8 +124,13 @@ export const BOQ_TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
  */
 export async function parseBoqSheet(
   buffer: Buffer,
-  elementsByCode: Map<string, BoqElementLite>
+  elementsByCode: Map<string, BoqElementLite>,
+  categories: Array<
+    Pick<ElementCategory, "id" | "name" | "parent_id" | "level">
+  >
 ): Promise<BoqParseResult> {
+  const pathMap = buildCategoryPathMap(categories);
+  const levelById = buildCategoryLevelMap(categories);
   const loaded = await loadAndResolveHeaders(buffer, TEMPLATE);
   if (!loaded) {
     return emptyParseEnvelope<TemplateKey, ParsedBoqRow>(TEMPLATE);
@@ -222,6 +237,39 @@ export async function parseBoqSheet(
       let linkedElement: BoqElementLite | undefined;
       if (values.itemCode) {
         linkedElement = elementsByCode.get(values.itemCode);
+      }
+
+      // ── Service Area (required). A row whose Item Code links to a library
+      //    element inherits that element's — so the path column is only needed
+      //    for free-text lines.
+      const inherited = linkedElement?.category_id ?? null;
+      if (!byKey.categoryPath) {
+        if (inherited) {
+          values.categoryId = inherited;
+        } else {
+          errors.push(
+            "Category Path is required — give the full path to a Service Area, e.g. 'Kitchen > Cabinets > Base Cabinets' (or use an Item Code that matches a library element)"
+          );
+        }
+      } else {
+        const segments = byKey.categoryPath.split(">").map((x) => x.trim());
+        if (segments.length === 0 || segments.some((x) => x.length === 0)) {
+          errors.push(
+            "Category Path has empty segments — use 'A > B > C' with non-empty labels"
+          );
+        } else {
+          const key = segments.map(normalizeCategorySegment).join(" > ");
+          const resolved = pathMap.get(key);
+          if (!resolved) {
+            errors.push(
+              `Category path "${segments.join(" > ")}" not found in this org`
+            );
+          } else if (levelById.get(resolved) !== SERVICE_AREA_LEVEL) {
+            errors.push(notAServiceAreaError(segments));
+          } else {
+            values.categoryId = resolved;
+          }
+        }
       }
 
       const hasErrors = errors.length > 0;

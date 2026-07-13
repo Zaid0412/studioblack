@@ -340,6 +340,27 @@ describe("POST /api/rate-contracts/[id]/items", () => {
     expect(res.status).toBe(400);
   });
 
+  // The UI already restricts the picker to Service Areas; this is the server
+  // gate it was missing, so a level-1 id sent directly is rejected too.
+  it("rejects an item whose category is not a Service Area", async () => {
+    vi.mocked(addRateContractItems).mockResolvedValue({
+      ok: false,
+      reason: "category_not_service_area",
+    });
+    const res = await ADD_ITEMS(
+      buildRequest(`/api/rate-contracts/${RC_ID}/items`, {
+        method: "POST",
+        body,
+      }),
+      buildParams({ id: RC_ID })
+    );
+    const { status, body: resBody } = await parseResponse<{ error: string }>(
+      res
+    );
+    expect(status).toBe(400);
+    expect(resBody.error).toBe("Category must be a Service Area");
+  });
+
   it("rejects with 400 on currency mismatch", async () => {
     vi.mocked(addRateContractItems).mockResolvedValue({
       ok: false,

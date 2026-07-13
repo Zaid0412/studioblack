@@ -16,8 +16,11 @@ const notFound = () => notFoundResponse("Item not found in this project");
 
 export const PATCH = withAuth(
   { blockedRoles: ["client"], projectAccess: true },
-  async (req, { user }, params) => {
+  async (req, { user, orgId }, params) => {
     const { id, itemId } = params;
+    if (!orgId) {
+      return NextResponse.json({ error: "No organisation" }, { status: 400 });
+    }
 
     if (!(await verifyBoqItemOwnership(itemId, id))) return notFound();
 
@@ -27,9 +30,23 @@ export const PATCH = withAuth(
     }
     const { updatedAt, ...fields } = parsed.data;
 
-    const outcome = await updateBoqItem(itemId, updatedAt, fields, user.id);
-    if (outcome.ok) return NextResponse.json(outcome.item);
-    return optimisticFailureResponse(outcome.reason);
+    try {
+      const outcome = await updateBoqItem(
+        itemId,
+        orgId,
+        updatedAt,
+        fields,
+        user.id
+      );
+      if (outcome.ok) return NextResponse.json(outcome.item);
+      return optimisticFailureResponse(outcome.reason);
+    } catch (err) {
+      // requireServiceArea throws a plain Error — surface its message rather
+      // than letting it escape as a 500.
+      const message =
+        err instanceof Error ? err.message : "Failed to update item";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
   }
 );
 
