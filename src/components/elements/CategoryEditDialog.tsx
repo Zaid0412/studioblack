@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -84,6 +85,7 @@ export function CategoryEditDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{t("categoryDialogHint")}</DialogDescription>
         </DialogHeader>
         <CategoryForm
           initial={initial}

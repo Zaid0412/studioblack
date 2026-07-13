@@ -2,29 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Save, X } from "lucide-react";
+import { mutate as globalMutate } from "swr";
+import { Check, ChevronDown, Plus, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { toast } from "@/components/ui/useToast";
 import { elementCategories as categoriesApi } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import {
   composeCategoryCode,
   maxSegmentLength,
   normalizeCodeSegment,
 } from "@/lib/categoryCode";
+import { cn } from "@/lib/utils";
 import type { ElementCategoryNode } from "@/types";
 
 /** Sentinel for "I'm creating this level rather than picking an existing one". */
@@ -139,6 +137,11 @@ export function ServiceAreaDialog({
 
       const id = leafIds[0];
       if (!id) throw new Error(t("serviceAreaCreateFailed"));
+
+      // Refresh the tree BEFORE handing the id back: the picker renders from
+      // this cache, so selecting an id it hasn't seen yet would leave the field
+      // looking empty until SWR happened to revalidate on its own.
+      await globalMutate(API.elementCategories());
       onCreated(id);
     } catch (err) {
       toast({
@@ -156,6 +159,7 @@ export function ServiceAreaDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("newServiceArea")}</DialogTitle>
+          <DialogDescription>{t("newServiceAreaHint")}</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -255,8 +259,10 @@ function RungFields({
   onPick,
 }: RungProps) {
   const t = useTranslations("elements");
+  const tCommon = useTranslations("common");
   const pickable = options.length > 0;
   const creating = !pickable || rung.pick === NEW;
+  const picked = options.find((o) => o.id === rung.pick);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -265,31 +271,102 @@ function RungFields({
       </label>
 
       {parentReady && pickable && (
-        <Select value={rung.pick} onValueChange={onPick}>
-          <SelectTrigger>
-            <SelectValue placeholder={t("categoryParentNone")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NEW}>{newLabel}</SelectItem>
-            {options.map((opt) => (
-              <SelectItem key={opt.id} value={opt.id}>
-                {opt.name}
-                {opt.code_prefix ? ` (${opt.code_prefix})` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableDropdown
+          minContentWidth={280}
+          maxListHeight={240}
+          isEmpty={false}
+          headerSlot={(close) => (
+            <button
+              type="button"
+              onClick={() => {
+                onPick?.(NEW);
+                close();
+              }}
+              className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              {newLabel}
+            </button>
+          )}
+          trigger={
+            <button
+              type="button"
+              className="flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+            >
+              <span className="truncate">
+                {picked ? (
+                  <>
+                    {picked.name}
+                    {picked.code_prefix ? ` (${picked.code_prefix})` : ""}
+                  </>
+                ) : (
+                  <span className="text-accent">{newLabel}</span>
+                )}
+              </span>
+              <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />
+            </button>
+          }
+        >
+          {(query, close) => {
+            const filtered = query
+              ? options.filter((o) =>
+                  `${o.name} ${o.code_prefix ?? ""}`
+                    .toLowerCase()
+                    .includes(query)
+                )
+              : options;
+            if (filtered.length === 0) {
+              return (
+                <p className="px-3 py-4 text-sm text-text-muted text-center">
+                  {tCommon("noResults")}
+                </p>
+              );
+            }
+            return filtered.map((opt) => {
+              const selected = rung.pick === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    onPick?.(opt.id);
+                    close();
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
+                    selected && "text-accent"
+                  )}
+                >
+                  <span className="w-4 shrink-0">
+                    {selected && <Check className="h-4 w-4" />}
+                  </span>
+                  <span className="truncate">
+                    {opt.name}
+                    {opt.code_prefix ? (
+                      <span className="text-text-muted">
+                        {" "}
+                        ({opt.code_prefix})
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            });
+          }}
+        </SearchableDropdown>
       )}
 
       {parentReady && creating && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Input
+            label={t("categoryNameLabel")}
             placeholder={namePlaceholder}
             value={rung.name}
             onChange={(e) => onChange({ ...rung, name: e.target.value })}
             maxLength={150}
           />
           <Input
+            label={t("categoryCodeSegment")}
             placeholder={t("categoryCodeSegmentPlaceholder")}
             value={rung.segment}
             onChange={(e) =>
