@@ -172,7 +172,7 @@ export function RateContractList({
         }`}
       >
         <div className="rounded-[10px] bg-bg-secondary border border-border-default overflow-hidden">
-          <div className="hidden lg:grid grid-cols-[140px_1fr_180px_120px_120px_120px_80px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
+          <div className="hidden lg:grid grid-cols-[140px_1fr_160px_150px_120px_110px_90px_60px] gap-4 px-4 py-3 border-b border-border-default text-xs font-medium text-text-muted uppercase tracking-wide">
             <SortableHeaderButton
               sortKey="contract_number"
               config={sortConfig}
@@ -190,6 +190,7 @@ export function RateContractList({
               {t("colName")}
             </SortableHeaderButton>
             <div>{t("colVendor")}</div>
+            <div>{t("colServiceArea")}</div>
             <SortableHeaderButton
               sortKey="status"
               config={sortConfig}
@@ -227,7 +228,7 @@ export function RateContractList({
                   key={c.id}
                   data-anim-item
                   href={`/elements/rate-contracts/${c.id}`}
-                  className="grid grid-cols-1 lg:grid-cols-[140px_1fr_180px_120px_120px_120px_80px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors"
+                  className="grid grid-cols-1 lg:grid-cols-[140px_1fr_160px_150px_120px_110px_90px_60px] gap-2 lg:gap-4 px-4 py-3 border-b border-border-default last:border-b-0 hover:bg-bg-elevated transition-colors"
                 >
                   <div className="font-mono text-sm text-text-primary truncate">
                     {c.contract_number}
@@ -237,6 +238,13 @@ export function RateContractList({
                   </div>
                   <div className="text-sm text-text-secondary truncate">
                     {c.vendor_name}
+                  </div>
+                  {/* Contracts predating the field have no area — say so rather
+                      than rendering an empty cell. */}
+                  <div className="text-sm text-text-secondary truncate">
+                    {c.category_name ?? (
+                      <span className="text-text-muted">—</span>
+                    )}
                   </div>
                   <div>
                     <RateContractStatusBadge status={c.status} />

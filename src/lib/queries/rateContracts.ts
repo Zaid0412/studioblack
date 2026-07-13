@@ -628,20 +628,20 @@ export async function createRateContract(
     const { rows } = await pool.query(
       `INSERT INTO rate_contract (
          org_id, vendor_id, contract_number, name, status,
-         category_id,
          start_date, end_date, agreement_signed_date,
          currency, payment_terms, attachments,
          terms_and_conditions, notes, created_by,
          contract_type, credit_period_days, delivery_terms,
          price_basis, renewal_date,
-         project_id, tax_included, tax_percentage
+         project_id, tax_included, tax_percentage,
+         category_id
        )
        VALUES ($1, $2, $3, $4, 'draft',
-               $22,
                $5, $6, $7,
                $8, $9, $10::jsonb, $11, $12, $13,
                $14, $15, $16, $17, $18,
-               $19, COALESCE($20, false), $21)
+               $19, COALESCE($20, false), $21,
+               $22)
        RETURNING *`,
       [
         orgId,
@@ -703,12 +703,6 @@ export async function updateRateContract(
     }
     const current = cur.rows[0] as RateContract;
 
-    // A grandfathered contract heals here: the form can't save without a
-    // Service Area, and this is what makes that true of the API too.
-    if (patch.categoryId !== undefined) {
-      await requireServiceArea(client, orgId, patch.categoryId);
-    }
-
     if (current.status === "active") {
       const ALLOWED_AFTER_ACTIVE = new Set([
         "notes",
@@ -722,6 +716,24 @@ export async function updateRateContract(
       if (offenders.length > 0) {
         await client.query("ROLLBACK");
         return { ok: false, reason: "active_locked" };
+      }
+    }
+
+    // A grandfathered contract heals here — the form can't save without a
+    // Service Area, and this is what makes that true of the API too.
+    //
+    // Returned as a reason rather than thrown: this function's catch funnels
+    // everything through `mapPgError`, which has no idea what a plain Error is
+    // and would flatten "Category must be a Service Area" to "Database error".
+    if (patch.categoryId !== undefined) {
+      try {
+        await requireServiceArea(client, orgId, patch.categoryId);
+      } catch (err) {
+        await client.query("ROLLBACK");
+        return {
+          ok: false,
+          reason: err instanceof Error ? err.message : "Invalid category",
+        };
       }
     }
 

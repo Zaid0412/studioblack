@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -13,13 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import { Lock } from "lucide-react";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
-import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
-import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import {
-  SERVICE_AREA_DEPTH,
-  flattenCategories,
-  isServiceArea,
-} from "@/app/(dashboard)/elements/_lib/categoryUtils";
+  ServiceAreaField,
+  useCategoryTree,
+} from "@/components/elements/ServiceAreaField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -49,7 +46,7 @@ import {
   RATE_CONTRACT_TYPE_ICONS,
   RATE_CONTRACT_PRICE_BASIS_ICONS,
 } from "@/lib/rateContractLabels";
-import type { ElementCategoryNode, RateContract } from "@/types";
+import type { RateContract } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 
@@ -174,7 +171,6 @@ export function RateContractFormDialog({
   onSaved,
 }: Props) {
   const t = useTranslations("rateContracts");
-  const tElements = useTranslations("elements");
   const tCommon = useTranslations("common");
   const [values, setValues] = useState<FormState>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
@@ -184,15 +180,11 @@ export function RateContractFormDialog({
   );
   const vendors = vendorData?.rows ?? [];
 
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    open ? API.elementCategories() : null
-  );
-  // Memoized so the `?? []` doesn't mint a fresh array identity each render.
-  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
-  const serviceAreaChosen = isServiceArea(
-    useMemo(() => flattenCategories(categoryTree), [categoryTree]),
-    values.categoryId
-  );
+  // `loaded` guards the submit gate: until the tree arrives nothing resolves to
+  // a Service Area, and blocking Save on a contract that already has one would
+  // be wrong.
+  const { isServiceAreaId, loaded: categoriesLoaded } = useCategoryTree(open);
+  const serviceAreaChosen = isServiceAreaId(values.categoryId);
 
   // Optional project scope — a contract is usually org-wide, so this can be left unset.
   const { data: projectData } = useSWR<{ id: string; name: string }[]>(
@@ -229,7 +221,7 @@ export function RateContractFormDialog({
   const canSubmit =
     values.vendorId &&
     values.name.trim() &&
-    (isLocked || serviceAreaChosen) &&
+    (isLocked || (categoriesLoaded && serviceAreaChosen)) &&
     values.startDate &&
     values.endDate &&
     !submitting;
@@ -343,37 +335,17 @@ export function RateContractFormDialog({
               />
             </LockHint>
             <LockHint active={isLocked} hint={t("lockedFieldHint")}>
-              <div className="flex flex-col gap-1.5">
-                <CategorySelect
-                  label={t("serviceArea")}
-                  value={values.categoryId}
-                  onChange={(id) => set("categoryId", id)}
-                  tree={categoryTree}
-                  selectableDepth={SERVICE_AREA_DEPTH}
-                  clearable={false}
-                  placeholder={tElements("serviceAreaPlaceholder")}
-                  renderCreate={({
-                    open,
-                    onOpenChange: setOpen,
-                    onCreated,
-                  }) => (
-                    <ServiceAreaDialog
-                      open={open}
-                      tree={categoryTree}
-                      onOpenChange={setOpen}
-                      onCreated={onCreated}
-                    />
-                  )}
-                />
-                {/* Contracts predating this field point at nothing (or, in one
-                    case, a level-1 category). They still open — they just can't
-                    be saved until an area is chosen. Say why. */}
-                {!isLocked && !serviceAreaChosen && (
-                  <p className="text-xs text-warning">
-                    {t("serviceAreaRequired")}
-                  </p>
-                )}
-              </div>
+              {/* Contracts predating this field point at nothing (or, in one
+                  case, a level-1 category). They still open — they just can't
+                  be saved until an area is chosen. */}
+              <ServiceAreaField
+                label={t("serviceArea")}
+                value={values.categoryId}
+                onChange={(id) => set("categoryId", id)}
+                requiredHint={t("serviceAreaRequired")}
+                enabled={open}
+                disabled={isLocked}
+              />
             </LockHint>
             <LockHint active={isLocked} hint={t("lockedFieldHint")}>
               <DatePicker label={t("startDate")} {...dateProps("startDate")} />

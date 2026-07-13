@@ -49,6 +49,8 @@ interface Props {
   allowCreate?: boolean;
   /** Trigger sizing — `"sm"` matches filter-bar controls. Default `"default"`. */
   size?: "default" | "sm";
+  /** Read-only: the trigger won't open. Mirrors the other form controls. */
+  disabled?: boolean;
 }
 
 interface FlatOption {
@@ -103,6 +105,7 @@ export function CategorySelect({
   allowCreate = true,
   renderCreate,
   size = "default",
+  disabled = false,
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -155,10 +158,12 @@ export function CategorySelect({
         trigger={
           <button
             type="button"
+            disabled={disabled}
             className={cn(
               "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input text-sm text-text-primary",
               size === "sm" ? "px-3 py-2" : "px-4 py-3",
-              "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30"
+              "focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/30",
+              disabled && "opacity-60 cursor-not-allowed"
             )}
           >
             <span className="flex items-center gap-2 truncate">

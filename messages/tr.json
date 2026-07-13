@@ -1505,7 +1505,6 @@
     "contractName": "İsim",
     "serviceArea": "Hizmet Alanı",
     "serviceAreaRequired": "Bir birim fiyat sözleşmesi bir Hizmet Alanı kapsamalıdır",
-    "colServiceAreaHeader": "Hizmet Alanı",
     "startDate": "Başlangıç tarihi",
     "endDate": "Bitiş tarihi",
     "agreementSignedDate": "Sözleşme imza tarihi",

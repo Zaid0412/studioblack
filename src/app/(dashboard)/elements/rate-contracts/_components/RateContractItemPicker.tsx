@@ -20,6 +20,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { cn } from "@/lib/utils";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import { elements as elementsApi } from "@/lib/api";
@@ -244,11 +245,17 @@ export function RateContractItemPicker({
             <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               {t("itemPickerAddArea")}
             </label>
+            {/* The label says "service area", so only let one be picked —
+                `minDepth={1}` used to admit a Sub-category too, which is why a
+                level-1 node ended up on an existing contract. Ancestors stay
+                visible (greyed) for context, matching the element + header
+                pickers. Existing off-level items are untouched; this only gates
+                what can be added from here. */}
             <CategorySelect
               value={null}
               onChange={(id) => addDraft(id)}
               tree={catData?.tree ?? []}
-              minDepth={1}
+              selectableDepth={SERVICE_AREA_DEPTH}
               clearable={false}
               placeholder={t("itemPickerAreaPlaceholder")}
             />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -30,17 +30,14 @@ import {
 } from "@/components/ui/sheet";
 import { type ElementUnit } from "@/lib/validations";
 import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
-import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
-import { API } from "@/lib/api/routes";
-import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
-import { CategorySelect } from "./CategorySelect";
-import { AvailableRatesPanel } from "./AvailableRatesPanel";
 import {
-  SERVICE_AREA_DEPTH,
-  categoryPrefixOf,
-  flattenCategories,
-  isServiceArea,
-} from "../_lib/categoryUtils";
+  ServiceAreaField,
+  useCategoryTree,
+} from "@/components/elements/ServiceAreaField";
+import { API } from "@/lib/api/routes";
+import type { Element, ElementWithDetails } from "@/types";
+import { AvailableRatesPanel } from "./AvailableRatesPanel";
+import { categoryPrefixOf } from "../_lib/categoryUtils";
 import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
@@ -200,20 +197,8 @@ export function ElementFormDialog({
   const tCommon = useTranslations("common");
   const [values, setValues] = useState<ElementFormValues>(EMPTY_FORM);
 
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    API.elementCategories()
-  );
-  // Memoized so the `?? []` doesn't mint a fresh array — and a fresh identity —
-  // on every render, which would defeat the memo below.
-  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
-
-  // Walking the tree allocates a label per node, and this re-renders on every
-  // keystroke in the form — so key it off the tree, not the render.
-  const options = useMemo(
-    () => flattenCategories(categoryTree),
-    [categoryTree]
-  );
-  const serviceAreaChosen = isServiceArea(options, values.categoryId);
+  const { options, isServiceAreaId } = useCategoryTree();
+  const serviceAreaChosen = isServiceAreaId(values.categoryId);
 
   // The code is assigned server-side on save, so a new element can only preview
   // the prefix it will get. An existing element keeps showing its own code —
@@ -370,33 +355,15 @@ export function ElementFormDialog({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <CategorySelect
-                  label={t("fieldServiceArea")}
-                  value={values.categoryId}
-                  onChange={(id) => setField("categoryId", id)}
-                  tree={categoryTree}
-                  selectableDepth={SERVICE_AREA_DEPTH}
-                  clearable={false}
-                  placeholder={t("serviceAreaPlaceholder")}
-                  renderCreate={({ open, onOpenChange, onCreated }) => (
-                    <ServiceAreaDialog
-                      open={open}
-                      tree={categoryTree}
-                      onOpenChange={onOpenChange}
-                      onCreated={onCreated}
-                    />
-                  )}
-                />
-                {/* Grandfathered elements point at a Category or Sub-category.
-                    The picker still shows it, but Save stays blocked until a
-                    Service Area is chosen — say why rather than just disabling. */}
-                {!serviceAreaChosen && (
-                  <p className="text-xs text-warning">
-                    {t("serviceAreaRequired")}
-                  </p>
-                )}
-              </div>
+              {/* Grandfathered elements point at a Category or Sub-category.
+                  The picker still shows it, but Save stays blocked until a
+                  Service Area is chosen — the field says why. */}
+              <ServiceAreaField
+                label={t("fieldServiceArea")}
+                value={values.categoryId}
+                onChange={(id) => setField("categoryId", id)}
+                requiredHint={t("serviceAreaRequired")}
+              />
 
               <UnitSelect
                 label={t("fieldUnit")}

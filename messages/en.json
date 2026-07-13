@@ -1505,7 +1505,6 @@
     "contractName": "Name",
     "serviceArea": "Service Area",
     "serviceAreaRequired": "A rate contract must cover a Service Area",
-    "colServiceAreaHeader": "Service Area",
     "startDate": "Start date",
     "endDate": "End date",
     "agreementSignedDate": "Agreement signed",

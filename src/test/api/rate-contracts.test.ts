@@ -144,7 +144,11 @@ describe("POST /api/rate-contracts", () => {
     expect(createRateContract).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the category is not a Service Area", async () => {
+  // requireServiceArea is mocked out here, so this only pins the ROUTE's
+  // error mapping — that a category rejection reaches the client as a 400 with
+  // its real message, rather than a 500 or a flattened "Database error". The
+  // level check itself is unit-tested against requireServiceArea.
+  it("surfaces a category rejection as a 400 with its message", async () => {
     vi.mocked(createRateContract).mockRejectedValue(
       new Error("Category must be a Service Area")
     );
