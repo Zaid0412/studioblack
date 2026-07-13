@@ -35,7 +35,8 @@ import {
   ServiceAreaField,
   useCategoryTree,
 } from "@/components/elements/ServiceAreaField";
-import type { BoqItemPhase } from "@/lib/validations";
+import type { BoqItemPhase, ElementUnit } from "@/lib/validations";
+import { UnitSelect } from "@/components/ui/UnitSelect";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { BoqEditableCell } from "./BoqEditableCell";
@@ -278,7 +279,8 @@ function buildPatch(
         patch.itemCode = draft.itemCode.trim();
         break;
       case "unit":
-        patch.unit = draft.unit.trim();
+        // Always on-enum: the field is a `UnitSelect`, which can only emit one.
+        patch.unit = draft.unit.trim() as ElementUnit;
         break;
       case "notes":
         patch.notes = draft.notes.trim() || null;
@@ -714,12 +716,11 @@ export function BoqItemDrawer({
                   onSave={(next) => setField({ itemCode: next })}
                   inputClassName="font-mono"
                 />
-                <EditableField
+                <UnitSelect
                   label="Unit"
                   disabled={fieldsDisabled}
-                  value={draft.unit}
-                  display={draft.unit}
-                  onSave={(next) => setField({ unit: next })}
+                  value={draft.unit as ElementUnit}
+                  onChange={(next) => setField({ unit: next })}
                 />
               </div>
               {!isExternal && (

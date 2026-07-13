@@ -48,7 +48,8 @@ import type {
   BoqSummary,
   UserRole,
 } from "@/types";
-import { type BoqItemPhase } from "@/lib/validations";
+import { type BoqItemPhase, type ElementUnit } from "@/lib/validations";
+import { UnitSelect } from "@/components/ui/UnitSelect";
 import { isExternalViewer } from "@/lib/roles";
 import {
   BOQ_NO_SECTION_ID,
@@ -897,13 +898,15 @@ const BoqItemRow = memo(function BoqItemRow({
           <BoqSourceBadge source={item.source} />
         </span>
       )}
-      <BoqEditableCell
-        value={item.unit}
-        display={item.unit}
+      {/* A picker, not a free-text cell: this column was the one unit input in
+          the app that didn't clamp to ALLOWED_UNITS, which is how a line ended
+          up as "nos" — accepted here, then rejected by its own BOQ's re-import. */}
+      <UnitSelect
+        value={item.unit as ElementUnit}
+        onChange={(next) => save({ unit: next })}
         disabled={!editable}
-        onSave={(next) => save({ unit: next })}
-        className="text-xs text-text-muted"
-        ariaLabel={`Unit for ${item.item_code}`}
+        compact
+        triggerClassName="border-none bg-transparent px-0 text-xs text-text-muted hover:bg-surface-hover"
       />
       <BoqEditableCell
         value={item.quantity}

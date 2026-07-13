@@ -825,17 +825,17 @@ export const reorderSectionsSchema = z.object({
 });
 
 /**
- * `unit` is intentionally loose `string ≤ 30` rather than `z.enum(ALLOWED_UNITS)`
- * on both create and update.
+ * `unit` is `z.enum(ALLOWED_UNITS)` on both create and update.
  *
- * The "Add line item" dialog and the BOQ Excel import both clamp input to the
- * enum (via `UnitSelect` and `boqImportRowSchema` respectively), so new
- * data lands on the enum. The schemas stay loose so legacy rows whose unit
- * predates the current enum (or carries a custom string) can still be
- * edited via PATCH without forcing a backfill — the user can fix the
- * value in the UI without the API rejecting unrelated edits.
+ * It used to be a loose `string ≤ 30` so that legacy rows carrying an off-enum
+ * unit stayed editable without a backfill — with a note to tighten it "once the
+ * data is known clean". That door let the BOQ items API write any string, while
+ * `UnitSelect` and `boqImportRowSchema` clamped every other entry point; the one
+ * row that came through it (`nos`) then broke its BOQ's export→re-import, because
+ * the parser rejects what the API had accepted.
  *
- * Tighten to `z.enum(ALLOWED_UNITS)` once the data is known clean.
+ * `scripts/migrate-boq-unit-nos-to-no.sql` rewrites that row, and both databases
+ * are now verified free of off-enum units — so the enum locks nothing out.
  */
 export const createBoqItemSchema = z.object({
   sectionId: optionalUuid.nullable(),
@@ -848,7 +848,7 @@ export const createBoqItemSchema = z.object({
   itemCode: z.string().trim().max(50).optional(),
   name: z.string().trim().max(255).nullable().optional(),
   description: trimmedString,
-  unit: trimmedString.max(30),
+  unit: z.enum(ALLOWED_UNITS),
   quantity: quantity.optional(),
   unitCost: money.optional(),
   materialCost: money.optional().nullable(),
@@ -896,7 +896,7 @@ export const updateBoqItemSchema = z.object({
   itemCode: z.string().trim().max(50).optional(),
   name: z.string().trim().max(255).nullable().optional(),
   description: z.string().trim().min(1).optional(),
-  unit: z.string().trim().min(1).max(30).optional(),
+  unit: z.enum(ALLOWED_UNITS).optional(),
   quantity: quantity.optional(),
   unitCost: money.optional(),
   materialCost: money.nullable().optional(),

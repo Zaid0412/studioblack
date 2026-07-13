@@ -1,0 +1,30 @@
+-- Rewrite the stray `nos` unit to `no`, then the app schema tightens to the enum.
+--
+-- `no` is the Number unit ("10 nos. of X" → singular "no."). One BOQ line —
+-- "Cabinet hardware fixtures" — carries the plural `nos`, which is not in
+-- ALLOWED_UNITS. It is the same unit; only the string differs.
+--
+-- How it got in: `createBoqItemSchema.unit` / `updateBoqItemSchema.unit` were
+-- `string ≤ 30` rather than `z.enum(ALLOWED_UNITS)`. The UI (UnitSelect) and the
+-- Excel import (boqImportRowSchema) both clamp to the enum, but the BOQ items API
+-- did not — so any string could be written through it. That is why this is a
+-- one-off and not a pattern: it never came from a normal UI flow.
+--
+-- What it broke: the row renders a bare `nos` in the Unit picker (no label), and
+-- a BOQ export containing it cannot be re-imported — the parser rejects `nos` as
+-- not allowed, so the round-trip the export file promises fails on that line.
+--
+-- ── DEPLOY ORDERING ────────────────────────────────────────────────────
+-- Run this BEFORE OR WITH the code deploy that tightens the schema. After the
+-- tighten, a row whose unit is off-enum can no longer be PATCHed at all — the
+-- loose schema was what kept such rows editable.
+--
+-- Verified before writing: `nos` is the ONLY off-enum unit in either database
+-- (dev and prod), across boq_item, element and rate_contract_item. There is
+-- nothing else for the tightened enum to lock out.
+--
+-- Idempotent (no-op on second run).
+--
+-- Run: psql $DATABASE_URL -f scripts/migrate-boq-unit-nos-to-no.sql
+
+UPDATE boq_item SET unit = 'no' WHERE unit = 'nos';
