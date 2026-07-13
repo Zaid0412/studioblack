@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
-import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
+import { serviceAreaCreate } from "@/components/elements/ServiceAreaDialog";
 import { useCategoryTree } from "@/hooks/useCategoryTree";
 import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
@@ -57,14 +57,7 @@ export function ServiceAreaField({
         // when locked — that one is a call to action.)
         required
         placeholder={t("serviceAreaPlaceholder")}
-        renderCreate={({ open, onOpenChange, onCreated }) => (
-          <ServiceAreaDialog
-            open={open}
-            tree={tree}
-            onOpenChange={onOpenChange}
-            onCreated={onCreated}
-          />
-        )}
+        renderCreate={serviceAreaCreate(tree)}
       />
       {!disabled && loaded && !isServiceAreaId(value) && (
         <p className="text-xs text-warning">{requiredHint}</p>

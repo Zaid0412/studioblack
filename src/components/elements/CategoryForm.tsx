@@ -47,24 +47,23 @@ interface Props {
   initial?: Partial<CategoryFormValues>;
   /**
    * Selectable parents. Hosts pass top-level Categories only
-   * (`parentCategoryOptions`), so this form creates a Category or a
-   * Sub-category — never a Service Area. Also used to resolve a parent's
-   * `codePrefix`, so it must still contain `fixedParent` when that is set.
+   * (`parentCategoryOptions`), so the picker creates a Category or a
+   * Sub-category — never a Service Area.
    */
   parentOptions: CategoryOption[];
   /**
-   * Parent is decided by the caller and cannot be changed here: creating from a
-   * row's `+` (the row IS the parent), or editing (the API can't reparent — see
-   * `CATEGORY_COLS`). Rendered as text instead of a picker, because a dropdown
-   * that silently discards your choice is worse than no dropdown.
+   * Present ⇒ the parent is the caller's decision, not the user's: creating
+   * from a row's `+` (the row IS the parent), or editing (the API cannot
+   * reparent — `parent_id` isn't in `CATEGORY_COLS`). Rendered as text rather
+   * than a picker, because a dropdown that discards your choice is worse than
+   * no dropdown.
+   *
+   * Wrapped so "locked to no parent" (`{ parent: null }`, a top-level Category)
+   * stays distinguishable from "not locked" (`undefined`). The option is passed
+   * rather than looked up because a locked parent may be a Sub-category, which
+   * `parentOptions` deliberately excludes.
    */
-  lockParent?: boolean;
-  /**
-   * The locked parent — `null` means "no parent" (a top-level Category). Passed
-   * as the option rather than looked up, because a locked parent may be a
-   * Sub-category, which `parentOptions` deliberately excludes.
-   */
-  fixedParent?: CategoryOption | null;
+  fixedParent?: { parent: CategoryOption | null };
   submitting: boolean;
   onSubmit: (values: CategoryFormSubmit) => Promise<void> | void;
   onCancel: () => void;
@@ -86,8 +85,7 @@ const EMPTY: CategoryFormValues = {
 export function CategoryForm({
   initial,
   parentOptions,
-  lockParent = false,
-  fixedParent = null,
+  fixedParent,
   submitting,
   onSubmit,
   onCancel,
@@ -120,8 +118,8 @@ export function CategoryForm({
   // A locked parent may be a Sub-category, which `parentOptions` excludes — so
   // read its prefix off the option we were handed rather than looking it up.
   const prefixOf = (id: string | null) =>
-    lockParent
-      ? (fixedParent?.codePrefix?.trim() ?? null)
+    fixedParent
+      ? (fixedParent.parent?.codePrefix?.trim() ?? null)
       : categoryPrefixOf(parentOptions, id);
   const parentPrefix = prefixOf(values.parentId);
   const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
@@ -172,9 +170,9 @@ export function CategoryForm({
           <label className="text-[13px] font-medium text-text-secondary">
             {t("categoryParent")}
           </label>
-          {lockParent ? (
+          {fixedParent ? (
             <p className="flex min-h-9 items-center text-sm text-text-primary">
-              {fixedParent?.label ?? t("categoryParentNone")}
+              {fixedParent.parent?.label ?? t("categoryParentNone")}
             </p>
           ) : (
             <>

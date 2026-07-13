@@ -50,14 +50,16 @@ describe("CategoryForm — parent field", () => {
    * `code_prefix`, so a dropdown here silently corrupted the code.
    */
   it("renders the parent as text, with no picker, when locked", () => {
-    renderForm({ lockParent: true, fixedParent: CABINETS });
+    renderForm({ fixedParent: { parent: CABINETS } });
 
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.getByText("Kitchen › Cabinets")).toBeTruthy();
   });
 
+  // `{ parent: null }` is "locked to no parent" (editing a root Category) —
+  // distinct from `undefined`, which is "the user may choose".
   it("shows the 'no parent' label when locked to a root category", () => {
-    renderForm({ lockParent: true, fixedParent: null });
+    renderForm({ fixedParent: { parent: null } });
 
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.getByText("categoryParentNone")).toBeTruthy();
@@ -67,8 +69,7 @@ describe("CategoryForm — parent field", () => {
   // `parentOptions` (that list is Categories only), so it can't be looked up.
   it("composes the code onto the locked parent's prefix", () => {
     renderForm({
-      lockParent: true,
-      fixedParent: CABINETS,
+      fixedParent: { parent: CABINETS },
       initial: { name: "Base Units", codePrefix: "KIT-CAB-BASE" },
     });
 

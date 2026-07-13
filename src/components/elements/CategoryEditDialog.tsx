@@ -76,11 +76,11 @@ export function CategoryEditDialog({
   // it because the API cannot reparent at all (`parent_id` isn't in
   // `CATEGORY_COLS`) — the old dropdown accepted the change, dropped it, and
   // still rebased the code onto the parent you'd picked.
-  const fixedParentId = editing
-    ? editing.parent_id
-    : (presetParent?.id ?? null);
-  const lockParent = mode === "edit" || !!presetParent;
-  const fixedParent = parentOptions.find((o) => o.id === fixedParentId) ?? null;
+  const lockedParentId = editing ? editing.parent_id : presetParent?.id;
+  const fixedParent =
+    lockedParentId === undefined
+      ? undefined
+      : { parent: parentOptions.find((o) => o.id === lockedParentId) ?? null };
 
   const title =
     mode === "edit"
@@ -103,7 +103,6 @@ export function CategoryEditDialog({
         <CategoryForm
           initial={initial}
           parentOptions={parentCategoryOptions(parentOptions)}
-          lockParent={lockParent}
           fixedParent={fixedParent}
           submitting={submitting}
           onSubmit={onSubmit}
