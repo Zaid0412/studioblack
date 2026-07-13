@@ -1,6 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { getPool } from "@/lib/db";
-import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
+import { SERVICE_AREA_LEVEL, UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
 import { escapeSqlLike } from "./helpers";
 
 /**
@@ -100,6 +100,40 @@ export async function elementCodePrefix(
     [categoryId, orgId]
   );
   const prefix = rows[0]?.code_prefix?.trim();
+  return prefix ? prefix : UNCATEGORIZED_PREFIX;
+}
+
+/**
+ * Resolve the code prefix of the Service Area an element is being filed under,
+ * rejecting anything that isn't one. This — not the form — is what enforces the
+ * rule; the picker is a convenience.
+ *
+ * Scoped to the org, so it also refuses another org's category id. Without that
+ * check an element could point at a foreign category and leak its names through
+ * `getElementById`'s `category_path`.
+ *
+ * Throws "Category not found" (missing, or another org's) or
+ * "Category must be a Service Area" (a Category or Sub-category).
+ */
+export async function requireServiceArea(
+  executor: Executor,
+  orgId: string,
+  categoryId: string
+): Promise<string> {
+  const { rows } = await executor.query<{
+    level: number;
+    code_prefix: string | null;
+  }>(
+    `SELECT level, code_prefix FROM element_category
+      WHERE id = $1 AND org_id = $2`,
+    [categoryId, orgId]
+  );
+  const category = rows[0];
+  if (!category) throw new Error("Category not found");
+  if (category.level !== SERVICE_AREA_LEVEL) {
+    throw new Error("Category must be a Service Area");
+  }
+  const prefix = category.code_prefix?.trim();
   return prefix ? prefix : UNCATEGORIZED_PREFIX;
 }
 

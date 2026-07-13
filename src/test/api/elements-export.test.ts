@@ -2,26 +2,14 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getElementsForExport, getCategoryTree } from "@/lib/queries";
 import { GET as GET_EXPORT } from "@/app/api/elements/export/route";
 import { parseElementSheet } from "@/lib/excel/elementParser";
-import { buildRequest, mockSession, setupAuth } from "../helpers";
+import {
+  buildRequest,
+  mockSession,
+  setupAuth,
+  SERVICE_AREA_CHAIN,
+} from "../helpers";
 import { mocks } from "../setup";
-import type { Element, ElementCategory } from "@/types";
-
-function makeCategory(id: string, name: string): ElementCategory {
-  return {
-    id,
-    org_id: "org-test-001",
-    name,
-    parent_id: null,
-    level: 1,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-  };
-}
+import type { Element } from "@/types";
 
 function makeElement(overrides: Partial<Element> = {}): Element {
   return {
@@ -30,7 +18,7 @@ function makeElement(overrides: Partial<Element> = {}): Element {
     code: "A-01",
     name: "Test",
     description: null,
-    category_id: null,
+    category_id: "cat-pt",
     unit: "m2",
     unit_cost: "10",
     currency: "USD",
@@ -51,15 +39,19 @@ function makeElement(overrides: Partial<Element> = {}): Element {
   };
 }
 
+// Elements must sit under a Service Area, so the export writes a full path and
+// the round-trip needs the same tree to resolve it back.
+const CATEGORIES = SERVICE_AREA_CHAIN;
+
 const pmSession = mockSession();
 const clientSession = mockSession({ role: "client" });
 
 beforeEach(() => {
   vi.clearAllMocks();
   setupAuth(mocks.auth, pmSession);
-  vi.mocked(getCategoryTree).mockResolvedValue([
-    { ...makeCategory("cat-f", "Finishes"), element_count: 0 },
-  ]);
+  vi.mocked(getCategoryTree).mockResolvedValue(
+    CATEGORIES.map((c) => ({ ...c, element_count: 0 }))
+  );
 });
 
 describe("GET /api/elements/export", () => {
@@ -110,7 +102,7 @@ describe("GET /api/elements/export", () => {
     // Feed the exported bytes back through the parser to catch writer/parser
     // drift (missing template column, wrong label, numFmt changing cell type).
     const arrayBuf = await res.arrayBuffer();
-    const parse = await parseElementSheet(Buffer.from(arrayBuf), []);
+    const parse = await parseElementSheet(Buffer.from(arrayBuf), CATEGORIES);
 
     expect(parse.missingColumns).toEqual([]);
     expect(parse.duplicateColumns ?? []).toEqual([]);

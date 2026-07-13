@@ -23,6 +23,24 @@ interface Props {
    * shows every level.
    */
   minDepth?: number;
+  /**
+   * Like `minDepth`, but shallower nodes are still *shown* — greyed out and
+   * unclickable — instead of hidden. Use this when the ancestors are the only
+   * thing that makes the leaves readable (an element must sit under a Service
+   * Area, but "Base Cabinets" means nothing without "Kitchen › Cabinets" above
+   * it), and when an existing value may itself be too shallow: a hidden option
+   * would vanish from the trigger, a disabled one still renders.
+   */
+  selectableDepth?: number;
+  /**
+   * Rendered in place of the default "New category" dialog. The picker owns the
+   * open state and selects whatever `onCreated` hands back.
+   */
+  renderCreate?: (props: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onCreated: (id: string) => void;
+  }) => React.ReactNode;
   /** Trigger text when nothing is selected. Defaults to the "Uncategorized" label. */
   placeholder?: string;
   /** Show the in-dropdown "Uncategorized" reset option. Default true. */
@@ -79,9 +97,11 @@ export function CategorySelect({
   tree,
   label,
   minDepth = 0,
+  selectableDepth = 0,
   placeholder,
   clearable = true,
   allowCreate = true,
+  renderCreate,
   size = "default",
 }: Props) {
   const t = useTranslations("elements");
@@ -98,6 +118,11 @@ export function CategorySelect({
     onChange(created.id);
     setCreateOpen(false);
   });
+
+  const selectCreated = (id: string) => {
+    onChange(id);
+    setCreateOpen(false);
+  };
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -122,7 +147,7 @@ export function CategorySelect({
                   className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  {t("newCategory")}
+                  {renderCreate ? t("newServiceArea") : t("newCategory")}
                 </button>
               )
             : undefined
@@ -189,16 +214,28 @@ export function CategorySelect({
               ) : (
                 filtered.map((opt) => {
                   const selected = value === opt.id;
+                  // Too shallow to pick, but still rendered: the ancestors are
+                  // what make the leaves legible, and an existing value that is
+                  // itself too shallow must stay visible in the trigger.
+                  const pickable = opt.depth >= selectableDepth;
                   return (
                     <button
                       key={opt.id}
                       type="button"
+                      disabled={!pickable}
                       onClick={() => {
                         onChange(opt.id);
                         close();
                       }}
                       className={cn(
-                        "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
+                        "flex items-center gap-2 w-full px-3 py-2 text-sm text-left",
+                        pickable
+                          ? "hover:bg-bg-elevated"
+                          : // Dim the whole row, not just the text — the category
+                            // icon is colour-coded, so leaving it at full opacity
+                            // keeps an unpickable row competing with the ones you
+                            // can actually choose.
+                            "cursor-default text-text-muted opacity-50",
                         selected && "text-accent"
                       )}
                       style={{ paddingLeft: `${12 + opt.depth * 12}px` }}
@@ -238,16 +275,23 @@ export function CategorySelect({
         }}
       </SearchableDropdown>
 
-      {allowCreate && (
-        <CategoryEditDialog
-          open={createOpen}
-          mode="create"
-          parentOptions={flattenCategories(tree)}
-          submitting={submitting}
-          onOpenChange={setCreateOpen}
-          onSubmit={handleCreate}
-        />
-      )}
+      {allowCreate &&
+        (renderCreate ? (
+          renderCreate({
+            open: createOpen,
+            onOpenChange: setCreateOpen,
+            onCreated: selectCreated,
+          })
+        ) : (
+          <CategoryEditDialog
+            open={createOpen}
+            mode="create"
+            parentOptions={flattenCategories(tree)}
+            submitting={submitting}
+            onOpenChange={setCreateOpen}
+            onSubmit={handleCreate}
+          />
+        ))}
     </div>
   );
 }

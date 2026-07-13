@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import {
   elementCodePrefix,
   nextElementCodes,
+  requireServiceArea,
   syncElementCounter,
 } from "@/lib/queries/sequences";
 
@@ -61,6 +62,52 @@ describe("elementCodePrefix", () => {
       CAT,
       ORG,
     ]);
+  });
+});
+
+// The gate that actually enforces "elements sit under a Service Area" — the
+// picker is a convenience, this is the rule.
+describe("requireServiceArea", () => {
+  it("returns the Service Area's path code", async () => {
+    const { executor } = stubExecutor([
+      { level: 3, code_prefix: "KIT-CAB-BASE" },
+    ]);
+    await expect(requireServiceArea(executor, ORG, CAT)).resolves.toBe(
+      "KIT-CAB-BASE"
+    );
+  });
+
+  it("rejects a Category (level 1)", async () => {
+    const { executor } = stubExecutor([{ level: 1, code_prefix: "KIT" }]);
+    await expect(requireServiceArea(executor, ORG, CAT)).rejects.toThrow(
+      "Category must be a Service Area"
+    );
+  });
+
+  it("rejects a Sub-category (level 2)", async () => {
+    const { executor } = stubExecutor([{ level: 2, code_prefix: "KIT-CAB" }]);
+    await expect(requireServiceArea(executor, ORG, CAT)).rejects.toThrow(
+      "Category must be a Service Area"
+    );
+  });
+
+  // Scoped to the org, so a foreign category id reads as missing rather than
+  // resolving — which is also what stops an element pointing at another org's
+  // taxonomy and leaking its names back through `category_path`.
+  it("rejects a category the org doesn't own", async () => {
+    const { executor, query } = stubExecutor([]);
+    await expect(requireServiceArea(executor, ORG, CAT)).rejects.toThrow(
+      "Category not found"
+    );
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("org_id = $2"), [
+      CAT,
+      ORG,
+    ]);
+  });
+
+  it("falls back to GEN when a Service Area somehow carries no code", async () => {
+    const { executor } = stubExecutor([{ level: 3, code_prefix: null }]);
+    await expect(requireServiceArea(executor, ORG, CAT)).resolves.toBe("GEN");
   });
 });
 

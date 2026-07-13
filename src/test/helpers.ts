@@ -3,6 +3,7 @@
  */
 import { NextRequest } from "next/server";
 import { vi } from "vitest";
+import type { ElementCategory } from "@/types";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -178,6 +179,56 @@ export function createTestFile(
   const buffer = new ArrayBuffer(sizeBytes);
   return new File([buffer], name, { type });
 }
+
+// ── Element categories ──────────────────────────────────────────────────────
+
+/** Build one `element_category` row. `level` 1/2/3 = Category / Sub / Service Area. */
+export function mockCategory(
+  overrides: Partial<ElementCategory> & {
+    id: string;
+    name: string;
+    level: 1 | 2 | 3;
+  }
+): ElementCategory {
+  return {
+    org_id: TEST_ORG_ID,
+    parent_id: null,
+    code_prefix: null,
+    sort_order: 0,
+    icon: null,
+    color: null,
+    is_active: true,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+/**
+ * A full Category → Sub-category → Service Area chain. Elements must sit under
+ * a Service Area, so almost every element fixture needs one of these — sharing
+ * it keeps the four suites that import elements from each inventing their own.
+ */
+export const SERVICE_AREA_CHAIN: ElementCategory[] = [
+  mockCategory({ id: "cat-f", name: "Finishes", level: 1, code_prefix: "FIN" }),
+  mockCategory({
+    id: "cat-wf",
+    name: "Wall Finishes",
+    parent_id: "cat-f",
+    level: 2,
+    code_prefix: "FIN-WAL",
+  }),
+  mockCategory({
+    id: "cat-pt",
+    name: "Paint",
+    parent_id: "cat-wf",
+    level: 3,
+    code_prefix: "FIN-WAL-PNT",
+  }),
+];
+
+/** The `Category Path` cell value that resolves to SERVICE_AREA_CHAIN's leaf. */
+export const SERVICE_AREA_PATH = ["Finishes", "Wall Finishes", "Paint"];
 
 // ── Async helpers ───────────────────────────────────────────────────────────
 

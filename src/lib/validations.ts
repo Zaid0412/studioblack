@@ -601,10 +601,14 @@ const percent = z.number().min(0).max(100).finite();
 
 // `code` is absent by design: the server assigns it from the category's path
 // code + a sequence (`KIT-CAB-BASE-0001`) and never lets it be edited.
+//
+// `categoryId` is required and must name a Service Area (level 3) — the server
+// enforces the level in `requireServiceArea`, which a UUID check can't. It is
+// non-nullable on update too, so an edit can't strip an element's category.
 export const createElementSchema = z.object({
   name: trimmedString.max(255),
   description: z.string().trim().optional(),
-  categoryId: optionalUuid,
+  categoryId: uuid,
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,
   currency: z.string().trim().length(3).default("USD"),
@@ -683,7 +687,9 @@ export const importElementRowSchema = z.object({
   // max, a crafted row with a 10 MB description × 10k rows = 100 GB of
   // JSON, which would blow through the body limit before any handler runs.
   description: z.string().trim().max(2000).optional(),
-  categoryPath: z.array(z.string().trim().min(1)).optional(),
+  // Required, and must resolve to a Service Area — checked against the org's
+  // tree in `bulkUpsertElements`, since a schema can't know the taxonomy.
+  categoryPath: z.array(z.string().trim().min(1)).min(1),
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,
   currency: z.string().trim().length(3).optional(),

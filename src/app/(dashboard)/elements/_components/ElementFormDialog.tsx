@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -29,11 +29,17 @@ import {
 } from "@/components/ui/sheet";
 import { type ElementUnit } from "@/lib/validations";
 import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
+import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
 import { API } from "@/lib/api/routes";
 import type { Element, ElementCategoryNode, ElementWithDetails } from "@/types";
 import { CategorySelect } from "./CategorySelect";
 import { AvailableRatesPanel } from "./AvailableRatesPanel";
-import { categoryPrefixOf, flattenCategories } from "../_lib/categoryUtils";
+import {
+  SERVICE_AREA_DEPTH,
+  categoryPrefixOf,
+  flattenCategories,
+  isServiceArea,
+} from "../_lib/categoryUtils";
 import { formatMoney } from "../_lib/formatters";
 
 interface Attribute {
@@ -157,6 +163,7 @@ interface Props {
   onSubmit: (
     values: Omit<
       ElementFormValues,
+      | "categoryId"
       | "unitCost"
       | "materialCost"
       | "labourCost"
@@ -166,6 +173,8 @@ interface Props {
       | "clientRate"
       | "budgetRate"
     > & {
+      /** Non-null: submit is gated on a Service Area being chosen. */
+      categoryId: string;
       unitCost: number;
       materialCost?: number;
       labourCost?: number;
@@ -193,15 +202,28 @@ export function ElementFormDialog({
   const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
     API.elementCategories()
   );
-  const categoryTree = catData?.tree ?? [];
+  // Memoized so the `?? []` doesn't mint a fresh array — and a fresh identity —
+  // on every render, which would defeat the memo below.
+  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
 
-  // The code is assigned server-side on save, so a new element can only show
-  // the prefix it will get — the category's path code, or GEN when
-  // uncategorized. An existing element shows the code it already holds.
+  // Walking the tree allocates a label per node, and this re-renders on every
+  // keystroke in the form — so key it off the tree, not the render.
+  const options = useMemo(
+    () => flattenCategories(categoryTree),
+    [categoryTree]
+  );
+  const serviceAreaChosen = isServiceArea(options, values.categoryId);
+
+  // The code is assigned server-side on save, so a new element can only preview
+  // the prefix it will get. An existing element keeps showing its own code —
+  // unless it's grandfathered and about to be recoded, in which case showing it
+  // would be showing a code that's one save away from being wrong.
   const previewPrefix =
-    categoryPrefixOf(flattenCategories(categoryTree), values.categoryId) ??
-    UNCATEGORIZED_PREFIX;
-  const codePreview = editing ? editing.code : `${previewPrefix}-••••`;
+    categoryPrefixOf(options, values.categoryId) ?? UNCATEGORIZED_PREFIX;
+  const keepsCode =
+    !!editing &&
+    (!serviceAreaChosen || editing.code.startsWith(`${previewPrefix}-`));
+  const codePreview = keepsCode ? editing.code : `${previewPrefix}-••••`;
 
   const [showHistory, setShowHistory] = useState(false);
   // v1 elements have no history — skip the fetch and the toggle entirely.
@@ -255,6 +277,9 @@ export function ElementFormDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Save is disabled without one, so this only fires on a stray Enter key.
+    if (!values.categoryId || !serviceAreaChosen) return;
+
     const toNumber = (s: string) =>
       s === "" ? undefined : Number.parseFloat(s);
     await onSubmit({
@@ -344,12 +369,33 @@ export function ElementFormDialog({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <CategorySelect
-                label={t("fieldCategory")}
-                value={values.categoryId}
-                onChange={(id) => setField("categoryId", id)}
-                tree={categoryTree}
-              />
+              <div className="flex flex-col gap-1.5">
+                <CategorySelect
+                  label={t("fieldServiceArea")}
+                  value={values.categoryId}
+                  onChange={(id) => setField("categoryId", id)}
+                  tree={categoryTree}
+                  selectableDepth={SERVICE_AREA_DEPTH}
+                  clearable={false}
+                  placeholder={t("serviceAreaPlaceholder")}
+                  renderCreate={({ open, onOpenChange, onCreated }) => (
+                    <ServiceAreaDialog
+                      open={open}
+                      tree={categoryTree}
+                      onOpenChange={onOpenChange}
+                      onCreated={onCreated}
+                    />
+                  )}
+                />
+                {/* Grandfathered elements point at a Category or Sub-category.
+                    The picker still shows it, but Save stays blocked until a
+                    Service Area is chosen — say why rather than just disabling. */}
+                {!serviceAreaChosen && (
+                  <p className="text-xs text-warning">
+                    {t("serviceAreaRequired")}
+                  </p>
+                )}
+              </div>
 
               <UnitSelect
                 label={t("fieldUnit")}
@@ -566,7 +612,7 @@ export function ElementFormDialog({
                 {tCommon("cancel")}
               </Button>
             </SheetClose>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !serviceAreaChosen}>
               <Save className="w-4 h-4" />
               {submitting ? tCommon("loading") : tCommon("save")}
             </Button>

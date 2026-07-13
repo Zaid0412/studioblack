@@ -40,10 +40,16 @@ export function reorder(parentId: string | null, orderedIds: string[]) {
   });
 }
 
-/** Bulk-create starter categories. Idempotent — skips already-existing names. */
+/**
+ * Bulk-create a chain (or a whole starter taxonomy). Idempotent — a node whose
+ * name already exists under the same parent is reused, and its missing children
+ * are still created. `leafIds` are the resolved ids of the deepest node of each
+ * chain, in the order supplied, whether created here or already present.
+ */
 export function bulkCreate(data: BulkInput) {
-  return apiPost<{ created: ElementCategory[]; skipped: string[] }>(
-    API.elementCategoriesBulk(),
-    data
-  );
+  return apiPost<{
+    created: ElementCategory[];
+    skipped: string[];
+    leafIds: string[];
+  }>(API.elementCategoriesBulk(), data);
 }

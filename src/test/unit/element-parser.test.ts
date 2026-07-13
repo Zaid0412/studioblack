@@ -7,36 +7,15 @@ import {
   TEMPLATE_COLUMN_LABELS,
 } from "@/lib/excel/elementParser";
 import type { ElementCategory } from "@/types";
+import { SERVICE_AREA_CHAIN, mockCategory } from "../helpers";
 
 // ── Test fixtures ───────────────────────────────────────────────────────────
 
-function makeCategory(
-  id: string,
-  name: string,
-  parent_id: string | null,
-  level: 1 | 2 | 3
-): ElementCategory {
-  return {
-    id,
-    org_id: "org-1",
-    name,
-    parent_id,
-    level,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2026-01-01T00:00:00Z",
-    updated_at: "2026-01-01T00:00:00Z",
-  };
-}
-
+// The shared Category → Sub-category → Service Area chain, plus a bare Category
+// so the "path names a Category, not a Service Area" case has a target.
 const CATEGORIES: ElementCategory[] = [
-  makeCategory("cat-f", "Finishes", null, 1),
-  makeCategory("cat-wf", "Wall Finishes", "cat-f", 2),
-  makeCategory("cat-pt", "Paint", "cat-wf", 3),
-  makeCategory("cat-fl", "Flooring", null, 1),
+  ...SERVICE_AREA_CHAIN,
+  mockCategory({ id: "cat-fl", name: "Flooring", level: 1 }),
 ];
 
 async function buildSheet(
@@ -91,13 +70,14 @@ describe("parseElementSheet — client_rate / budget_rate", () => {
     const headers = [
       TEMPLATE_COLUMN_LABELS.code,
       TEMPLATE_COLUMN_LABELS.name,
+      TEMPLATE_COLUMN_LABELS.categoryPath,
       TEMPLATE_COLUMN_LABELS.unit,
       TEMPLATE_COLUMN_LABELS.unitCost,
       TEMPLATE_COLUMN_LABELS.clientRate,
       TEMPLATE_COLUMN_LABELS.budgetRate,
     ];
     const buf = await buildSheet(headers, [
-      ["X-1", "Item", "m2", 100, 175, 85],
+      ["X-1", "Item", "Finishes > Wall Finishes > Paint", "m2", 100, 175, 85],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("valid");
@@ -109,12 +89,15 @@ describe("parseElementSheet — client_rate / budget_rate", () => {
     const headers = [
       TEMPLATE_COLUMN_LABELS.code,
       TEMPLATE_COLUMN_LABELS.name,
+      TEMPLATE_COLUMN_LABELS.categoryPath,
       TEMPLATE_COLUMN_LABELS.unit,
       TEMPLATE_COLUMN_LABELS.unitCost,
       TEMPLATE_COLUMN_LABELS.clientRate,
       TEMPLATE_COLUMN_LABELS.budgetRate,
     ];
-    const buf = await buildSheet(headers, [["X-2", "Item", "m2", 100, "", ""]]);
+    const buf = await buildSheet(headers, [
+      ["X-2", "Item", "Finishes > Wall Finishes > Paint", "m2", 100, "", ""],
+    ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("valid");
     expect(result.rows[0].parsed?.clientRate).toBeUndefined();
@@ -125,11 +108,14 @@ describe("parseElementSheet — client_rate / budget_rate", () => {
     const headers = [
       TEMPLATE_COLUMN_LABELS.code,
       TEMPLATE_COLUMN_LABELS.name,
+      TEMPLATE_COLUMN_LABELS.categoryPath,
       TEMPLATE_COLUMN_LABELS.unit,
       TEMPLATE_COLUMN_LABELS.unitCost,
       TEMPLATE_COLUMN_LABELS.clientRate,
     ];
-    const buf = await buildSheet(headers, [["X-3", "Item", "m2", 100, -10]]);
+    const buf = await buildSheet(headers, [
+      ["X-3", "Item", "Finishes > Wall Finishes > Paint", "m2", 100, -10],
+    ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("error");
     expect(result.rows[0].errors.join(" ")).toMatch(/client rate/i);
@@ -185,7 +171,19 @@ describe("parseElementSheet", () => {
   it("lists unknown columns as warnings", async () => {
     const buf = await buildSheet(
       [...HEADERS, "Mystery Col"],
-      [["A", "B", "Flooring", "m2", 1, "USD", 0, "", "???"]]
+      [
+        [
+          "A",
+          "B",
+          "Finishes > Wall Finishes > Paint",
+          "m2",
+          1,
+          "USD",
+          0,
+          "",
+          "???",
+        ],
+      ]
     );
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.unknownColumns).toContain("Mystery Col");
@@ -193,7 +191,7 @@ describe("parseElementSheet", () => {
 
   it("errors on disallowed unit", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "xyz", 1, "USD", 0, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "xyz", 1, "USD", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     const row = result.rows[0];
@@ -204,7 +202,7 @@ describe("parseElementSheet", () => {
 
   it("errors on negative unit cost", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", -5, "USD", 0, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "m2", -5, "USD", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     const row = result.rows[0];
@@ -214,7 +212,7 @@ describe("parseElementSheet", () => {
 
   it("errors when overhead percent is out of range", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", 10, "USD", 150, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "m2", 10, "USD", 150, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     const row = result.rows[0];
@@ -236,7 +234,7 @@ describe("parseElementSheet", () => {
     // Case-sensitive lookup — "FINISHES" no longer resolves to "Finishes".
     // Preserves the ability to distinguish e.g. "PVC" from "Pvc".
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "FINISHES > wall finishes", "m2", 10, "USD", 0, ""],
+      ["A", "B", "FINISHES > wall finishes > paint", "m2", 10, "USD", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     const row = result.rows[0];
@@ -246,18 +244,75 @@ describe("parseElementSheet", () => {
 
   it("resolves category path with exact case", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Finishes > Wall Finishes", "m2", 10, "USD", 0, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "m2", 10, "USD", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     const row = result.rows[0];
     expect(row.status).toBe("valid");
-    expect(row.parsed?.categoryPath).toEqual(["Finishes", "Wall Finishes"]);
+    expect(row.parsed?.categoryPath).toEqual([
+      "Finishes",
+      "Wall Finishes",
+      "Paint",
+    ]);
+  });
+
+  // An element must sit under a Service Area (level 3), so a path that stops at
+  // a Category or Sub-category is a real path pointing at the wrong thing —
+  // worth its own message, not "not found".
+  it("rejects a path that resolves to a Category", async () => {
+    const buf = await buildSheet(HEADERS, [
+      ["A", "B", "Flooring", "m2", 10, "USD", 0, ""],
+    ]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    const row = result.rows[0];
+    expect(row.status).toBe("error");
+    expect(row.errors.some((e) => e.includes("not a Service Area"))).toBe(true);
+  });
+
+  it("rejects a path that resolves to a Sub-category", async () => {
+    const buf = await buildSheet(HEADERS, [
+      ["A", "B", "Finishes > Wall Finishes", "m2", 10, "USD", 0, ""],
+    ]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    const row = result.rows[0];
+    expect(row.status).toBe("error");
+    expect(row.errors.some((e) => e.includes("not a Service Area"))).toBe(true);
+  });
+
+  it("rejects a blank category path", async () => {
+    const buf = await buildSheet(HEADERS, [
+      ["A", "B", "", "m2", 10, "USD", 0, ""],
+    ]);
+    const result = await parseElementSheet(buf, CATEGORIES);
+    const row = result.rows[0];
+    expect(row.status).toBe("error");
+    expect(
+      row.errors.some((e) => e.includes("Category Path is required"))
+    ).toBe(true);
   });
 
   it("flags duplicate codes within the sheet", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["DUP-1", "First", "Flooring", "m2", 10, "USD", 0, ""],
-      ["DUP-1", "Second", "Flooring", "m2", 10, "USD", 0, ""],
+      [
+        "DUP-1",
+        "First",
+        "Finishes > Wall Finishes > Paint",
+        "m2",
+        10,
+        "USD",
+        0,
+        "",
+      ],
+      [
+        "DUP-1",
+        "Second",
+        "Finishes > Wall Finishes > Paint",
+        "m2",
+        10,
+        "USD",
+        0,
+        "",
+      ],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("valid");
@@ -267,7 +322,16 @@ describe("parseElementSheet", () => {
 
   it("accepts numeric cells for cost fields", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", 12.75, "USD", 5.5, ""],
+      [
+        "A",
+        "B",
+        "Finishes > Wall Finishes > Paint",
+        "m2",
+        12.75,
+        "USD",
+        5.5,
+        "",
+      ],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].parsed?.unitCost).toBe(12.75);
@@ -307,7 +371,16 @@ describe("parseElementSheet cell extraction", () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Elements");
     ws.addRow(HEADERS);
-    const row = ws.addRow(["A", "B", "Flooring", "m2", null, "USD", 0, ""]);
+    const row = ws.addRow([
+      "A",
+      "B",
+      "Finishes > Wall Finishes > Paint",
+      "m2",
+      null,
+      "USD",
+      0,
+      "",
+    ]);
     // Column 5 is "Unit Cost" — write a formula that evaluates to 12.
     row.getCell(5).value = { formula: "10+2", result: 12 };
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
@@ -320,7 +393,16 @@ describe("parseElementSheet cell extraction", () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Elements");
     ws.addRow(HEADERS);
-    const row = ws.addRow(["A", "B", "Flooring", "m2", null, "USD", 0, ""]);
+    const row = ws.addRow([
+      "A",
+      "B",
+      "Finishes > Wall Finishes > Paint",
+      "m2",
+      null,
+      "USD",
+      0,
+      "",
+    ]);
     // Simulate =1/0 with error payload on .result.
     row.getCell(5).value = {
       formula: "1/0",
@@ -341,7 +423,16 @@ describe("parseElementSheet cell extraction", () => {
     headerRow.getCell(1).value = {
       richText: [{ text: "Code" }],
     } as ExcelJS.CellRichTextValue;
-    ws.addRow(["R1", "B", "Flooring", "m2", 10, "USD", 0, ""]);
+    ws.addRow([
+      "R1",
+      "B",
+      "Finishes > Wall Finishes > Paint",
+      "m2",
+      10,
+      "USD",
+      0,
+      "",
+    ]);
     const buf = Buffer.from(await wb.xlsx.writeBuffer());
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.missingColumns).toEqual([]);
@@ -353,7 +444,7 @@ describe("parseElementSheet cell extraction", () => {
     // cross-platform round-trip through a non-UTF-8 editor.
     const bomHeaders = HEADERS.map((h, i) => (i === 0 ? `\uFEFF ${h} ` : h));
     const buf = await buildSheet(bomHeaders, [
-      ["A", "B", "Flooring", "m2", 10, "USD", 0, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "m2", 10, "USD", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.missingColumns).toEqual([]);
@@ -362,7 +453,16 @@ describe("parseElementSheet cell extraction", () => {
 
   it("parses Turkish-locale decimal strings (comma as decimal)", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", "12,5", "TRY", "10,25", ""],
+      [
+        "A",
+        "B",
+        "Finishes > Wall Finishes > Paint",
+        "m2",
+        "12,5",
+        "TRY",
+        "10,25",
+        "",
+      ],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("valid");
@@ -372,7 +472,16 @@ describe("parseElementSheet cell extraction", () => {
 
   it("parses European mixed thousands/decimal (1.234,56 → 1234.56)", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", "1.234,56", "EUR", 0, ""],
+      [
+        "A",
+        "B",
+        "Finishes > Wall Finishes > Paint",
+        "m2",
+        "1.234,56",
+        "EUR",
+        0,
+        "",
+      ],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].parsed?.unitCost).toBe(1234.56);
@@ -383,7 +492,16 @@ describe("parseElementSheet cell extraction", () => {
     // decimal to match the Turkey-market default but flags the row so the
     // preview can surface a "check this" notice.
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", "1,234", "TRY", 0, ""],
+      [
+        "A",
+        "B",
+        "Finishes > Wall Finishes > Paint",
+        "m2",
+        "1,234",
+        "TRY",
+        0,
+        "",
+      ],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].status).toBe("valid");
@@ -394,7 +512,7 @@ describe("parseElementSheet cell extraction", () => {
 
   it("does not warn on unambiguous single-comma/2-digit values (1,5)", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", "1,5", "TRY", 0, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "m2", "1,5", "TRY", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.rows[0].parsed?.unitCost).toBe(1.5);
@@ -422,7 +540,19 @@ describe("parseElementSheet diagnostics", () => {
   it("surfaces duplicate template headers", async () => {
     const buf = await buildSheet(
       [...HEADERS, "Code"],
-      [["A", "B", "Flooring", "m2", 10, "USD", 0, "", "DUPE-Z"]]
+      [
+        [
+          "A",
+          "B",
+          "Finishes > Wall Finishes > Paint",
+          "m2",
+          10,
+          "USD",
+          0,
+          "",
+          "DUPE-Z",
+        ],
+      ]
     );
     const result = await parseElementSheet(buf, CATEGORIES);
     expect(result.duplicateColumns ?? []).toContain("Code");
@@ -430,7 +560,7 @@ describe("parseElementSheet diagnostics", () => {
 
   it("exposes excelRowNumber pointing at the 1-based sheet row", async () => {
     const buf = await buildSheet(HEADERS, [
-      ["A", "B", "Flooring", "m2", 10, "USD", 0, ""],
+      ["A", "B", "Finishes > Wall Finishes > Paint", "m2", 10, "USD", 0, ""],
     ]);
     const result = await parseElementSheet(buf, CATEGORIES);
     // Header is row 1, first data row is Excel row 2.

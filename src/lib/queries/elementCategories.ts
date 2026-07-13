@@ -184,7 +184,10 @@ interface SeedItem {
  * VALUES order, so `RETURNING *` aligns 1:1 with the pending list.
  *
  * Returns the rows actually inserted plus the skipped paths so the UI can
- * surface "X created, Y skipped (already existed)".
+ * surface "X created, Y skipped (already existed)", and `leafIds` — the
+ * resolved id of the deepest node of each supplied chain, whether it was
+ * created here or already existed. The Service Area builder needs that id to
+ * select the category it just made; the "restore defaults" caller ignores it.
  *
  * NOTE: inserts intentionally do NOT route through `createCategory` — that
  * helper opens its own pool connection and would break the BEGIN/COMMIT held
@@ -193,7 +196,11 @@ interface SeedItem {
 export async function bulkCreateCategoriesFromTemplates(
   orgId: string,
   templates: readonly BulkCategoryNode[]
-): Promise<{ created: ElementCategory[]; skipped: string[] }> {
+): Promise<{
+  created: ElementCategory[];
+  skipped: string[];
+  leafIds: string[];
+}> {
   const pool = getPool();
   const client = await pool.connect();
   const created: ElementCategory[] = [];
@@ -233,6 +240,9 @@ export async function bulkCreateCategoriesFromTemplates(
     // Flatten the templates into levels 1..3, keeping each node's parent link
     // so a child can read its parent's resolved id after the parent's level.
     const levels: SeedItem[][] = [[], [], []];
+    // The deepest node of each chain — its id is what the Service Area builder
+    // selects once the chain is in place.
+    const leaves: SeedItem[] = [];
     const collect = (
       node: BulkCategoryNode,
       parent: SeedItem | null,
@@ -242,10 +252,12 @@ export async function bulkCreateCategoriesFromTemplates(
       if (level > 3) return;
       const item: SeedItem = { node, parent, path };
       levels[level - 1].push(item);
-      if (node.children) {
+      if (node.children && node.children.length > 0) {
         for (const child of node.children) {
           collect(child, item, level + 1, `${path} / ${child.name}`);
         }
+      } else {
+        leaves.push(item);
       }
     };
     for (const top of templates) collect(top, null, 1, top.name);
@@ -343,7 +355,13 @@ export async function bulkCreateCategoriesFromTemplates(
     }
 
     await client.query("COMMIT");
-    return { created, skipped };
+    // Every leaf resolves to an id — inserted, pre-existing, or an intra-batch
+    // duplicate — unless its parent couldn't be placed, which the level loop
+    // skips. filter(Boolean) rather than assert, so a partial payload degrades.
+    const leafIds = leaves
+      .map((l) => l.id)
+      .filter((id): id is string => id !== undefined);
+    return { created, skipped, leafIds };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;

@@ -1,4 +1,5 @@
 import type { ElementCategory } from "@/types";
+import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
 import {
   buildParseEnvelope,
@@ -22,7 +23,8 @@ export interface ParsedElementValues {
   code?: string;
   name: string;
   description?: string;
-  categoryPath?: string[];
+  /** Required: an element must sit under a Service Area. */
+  categoryPath: string[];
   unit: ElementUnit;
   unitCost: number;
   currency?: string;
@@ -97,7 +99,12 @@ const TEMPLATE_COLUMNS = {
 
 type TemplateKey = keyof typeof TEMPLATE_COLUMNS;
 
-const REQUIRED_COLUMNS: TemplateKey[] = ["name", "unit", "unitCost"];
+const REQUIRED_COLUMNS: TemplateKey[] = [
+  "name",
+  "categoryPath",
+  "unit",
+  "unitCost",
+];
 
 /** Case-insensitive lookup from normalized header label → template key. */
 const HEADER_TO_KEY: Map<string, TemplateKey> = new Map(
@@ -161,9 +168,28 @@ export function buildCategoryPathMap(
   return map;
 }
 
+/**
+ * categoryId → tree level. Both the preview parser and the bulk-upsert writer
+ * need it to reject a path that doesn't name a Service Area.
+ */
+export function buildCategoryLevelMap(
+  categories: Array<Pick<ElementCategory, "id" | "level">>
+): Map<string, number> {
+  return new Map(categories.map((c) => [c.id, c.level]));
+}
+
+/**
+ * Shared message for the level check. The parser rejects at preview time and
+ * `bulkUpsertElements` rejects again at write time (the write path is reachable
+ * without the preview) — so the two must not drift apart.
+ */
+export function notAServiceAreaError(path: string[]): string {
+  return `Category path "${path.join(" > ")}" is not a Service Area — elements must sit under one`;
+}
+
 /** Inverse map: categoryId → `["root", "child", "leaf"]` for the export writer. */
 export function buildCategoryPathById(
-  categories: ElementCategory[]
+  categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
 ): Map<string, string[]> {
   const byId = new Map(categories.map((c) => [c.id, c]));
   const map = new Map<string, string[]>();
@@ -199,6 +225,7 @@ export async function parseElementSheet(
 
   const { worksheet, resolution } = loaded;
   const pathMap = buildCategoryPathMap(categories);
+  const levelById = buildCategoryLevelMap(categories);
   const rows: ParsedElementRow[] = [];
   // Case-sensitive: the DB `element.code` column is VARCHAR (not CITEXT)
   // and uniqueness is enforced at the app layer against the exact literal,
@@ -277,8 +304,12 @@ export async function parseElementSheet(
         if (tags.length > 0) values.tags = tags;
       }
 
-      // ── Category path
-      if (byKey.categoryPath) {
+      // ── Category path (required — an element must sit under a Service Area)
+      if (!byKey.categoryPath) {
+        errors.push(
+          "Category Path is required — give the full path to a Service Area, e.g. 'Kitchen > Cabinets > Base Cabinets'"
+        );
+      } else {
         const rawSegments = byKey.categoryPath.split(">").map((s) => s.trim());
         const hasEmptySegment = rawSegments.some((s) => s.length === 0);
         if (rawSegments.length === 0 || hasEmptySegment) {
@@ -289,10 +320,13 @@ export async function parseElementSheet(
           const lookupKey = rawSegments
             .map(normalizeCategorySegment)
             .join(" > ");
-          if (!pathMap.has(lookupKey)) {
+          const resolved = pathMap.get(lookupKey);
+          if (!resolved) {
             errors.push(
               `Category path "${rawSegments.join(" > ")}" not found in this org`
             );
+          } else if (levelById.get(resolved) !== SERVICE_AREA_LEVEL) {
+            errors.push(notAServiceAreaError(rawSegments));
           } else {
             values.categoryPath = rawSegments;
           }

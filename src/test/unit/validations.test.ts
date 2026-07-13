@@ -1104,6 +1104,7 @@ describe("createElementSchema", () => {
   it("accepts minimal valid input", () => {
     const data = expectPass(createElementSchema, {
       name: "Paint",
+      categoryId: VALID_UUID,
       unit: "m2",
       unitCost: 120,
     });
@@ -1121,6 +1122,7 @@ describe("createElementSchema", () => {
     const data = expectPass(createElementSchema, {
       code: "HACK-9999",
       name: "Paint",
+      categoryId: VALID_UUID,
       unit: "m2",
       unitCost: 120,
     });
@@ -1151,10 +1153,26 @@ describe("createElementSchema", () => {
     expect(data.tags).toEqual(["a", "b"]);
   });
 
+  // An element must sit under a Service Area. The schema can only insist a
+  // category is *given* — that it's level 3 is checked server-side against the
+  // org's tree, in requireServiceArea.
+  it("rejects a missing categoryId", () => {
+    expectFail(createElementSchema, {
+      name: "Paint",
+      unit: "m2",
+      unitCost: 120,
+    });
+  });
+
+  it("rejects a null categoryId — an edit must not strip the category", () => {
+    expectFail(updateElementSchema, { categoryId: null });
+  });
+
   it("rejects unit not in ALLOWED_UNITS", () => {
     expectFail(createElementSchema, {
       code: "X",
       name: "X",
+      categoryId: VALID_UUID,
       unit: "bananas",
       unitCost: 10,
     });
@@ -1182,6 +1200,7 @@ describe("createElementSchema", () => {
   it("trims name whitespace", () => {
     const data = expectPass(createElementSchema, {
       name: "  Name  ",
+      categoryId: VALID_UUID,
       unit: "m2",
       unitCost: 10,
     });
@@ -1212,6 +1231,7 @@ describe("createElementSchema", () => {
     const data = expectPass(createElementSchema, {
       code: "X",
       name: "X",
+      categoryId: VALID_UUID,
       unit: "m2",
       unitCost: 10,
       clientRate: 250,
@@ -1225,6 +1245,7 @@ describe("createElementSchema", () => {
     const data = expectPass(createElementSchema, {
       code: "X",
       name: "X",
+      categoryId: VALID_UUID,
       unit: "m2",
       unitCost: 10,
       clientRate: null,
