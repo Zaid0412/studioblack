@@ -214,43 +214,27 @@ export function CategorySelect({
               ) : (
                 filtered.map((opt) => {
                   const selected = value === opt.id;
+                  // Too shallow to pick, but still rendered: the ancestors are
+                  // what make the leaves legible, and an existing value that is
+                  // itself too shallow must stay visible in the trigger.
                   const pickable = opt.depth >= selectableDepth;
-                  const indent = { paddingLeft: `${12 + opt.depth * 12}px` };
-
-                  // Too shallow to pick, but still rendered — the ancestors are
-                  // what make the leaves legible ("Base Cabinets" means nothing
-                  // without "Kitchen › Cabinets" above it), and an existing
-                  // value that is itself too shallow must stay visible in the
-                  // trigger. Demoted to a quiet section header so the rows you
-                  // CAN pick are the only ones that read as options.
-                  if (!pickable) {
-                    return (
-                      <div
-                        key={opt.id}
-                        style={indent}
-                        className={cn(
-                          "flex items-center gap-2 px-3 pt-2.5 pb-1 select-none",
-                          "text-[11px] font-medium uppercase tracking-wide text-text-muted/70"
-                        )}
-                      >
-                        <span className="truncate">{opt.name}</span>
-                      </div>
-                    );
-                  }
-
                   return (
                     <button
                       key={opt.id}
                       type="button"
+                      disabled={!pickable}
                       onClick={() => {
                         onChange(opt.id);
                         close();
                       }}
                       className={cn(
-                        "flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-bg-elevated",
+                        "flex items-center gap-2 w-full px-3 py-2 text-sm text-left",
+                        pickable
+                          ? "hover:bg-bg-elevated"
+                          : "cursor-default text-text-muted",
                         selected && "text-accent"
                       )}
-                      style={indent}
+                      style={{ paddingLeft: `${12 + opt.depth * 12}px` }}
                     >
                       <span className="w-4 shrink-0">
                         {selected && <Check className="h-4 w-4" />}
@@ -261,16 +245,13 @@ export function CategorySelect({
                         size={14}
                       />
                       {/* Row shows the node's own name; hierarchy is conveyed by
-                          indentation (L1 emphasised when it's selectable at all).
-                          While searching, the full breadcrumb path is surfaced to
-                          disambiguate matches. */}
+                          indentation (L1 emphasised). While searching, the full
+                          breadcrumb path is surfaced to disambiguate matches. */}
                       <span className="flex min-w-0 flex-col">
                         <span
                           className={cn(
                             "truncate",
-                            opt.depth === 0 &&
-                              selectableDepth === 0 &&
-                              "font-semibold"
+                            opt.depth === 0 && "font-semibold"
                           )}
                         >
                           {opt.name}
