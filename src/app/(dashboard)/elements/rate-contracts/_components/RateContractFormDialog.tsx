@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 import {
@@ -13,6 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { Lock } from "lucide-react";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
+import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
+import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import {
+  SERVICE_AREA_DEPTH,
+  flattenCategories,
+  isServiceArea,
+} from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -42,7 +49,7 @@ import {
   RATE_CONTRACT_TYPE_ICONS,
   RATE_CONTRACT_PRICE_BASIS_ICONS,
 } from "@/lib/rateContractLabels";
-import type { RateContract } from "@/types";
+import type { ElementCategoryNode, RateContract } from "@/types";
 import type { VendorListRow } from "@/lib/api/vendors";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 
@@ -56,6 +63,8 @@ interface Props {
 interface FormState {
   vendorId: string;
   name: string;
+  /** The Service Area the contract covers. Required. */
+  categoryId: string | null;
   startDate: string;
   endDate: string;
   agreementSignedDate: string;
@@ -77,6 +86,7 @@ interface FormState {
 const EMPTY: FormState = {
   vendorId: "",
   name: "",
+  categoryId: null,
   startDate: "",
   endDate: "",
   agreementSignedDate: "",
@@ -110,6 +120,7 @@ function contractToForm(c: RateContract): FormState {
   return {
     vendorId: c.vendor_id,
     name: c.name,
+    categoryId: c.category_id,
     startDate: toDateInput(c.start_date),
     endDate: toDateInput(c.end_date),
     agreementSignedDate: toDateInput(c.agreement_signed_date),
@@ -163,6 +174,7 @@ export function RateContractFormDialog({
   onSaved,
 }: Props) {
   const t = useTranslations("rateContracts");
+  const tElements = useTranslations("elements");
   const tCommon = useTranslations("common");
   const [values, setValues] = useState<FormState>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
@@ -171,6 +183,16 @@ export function RateContractFormDialog({
     open ? `${API.vendors()}?limit=200` : null
   );
   const vendors = vendorData?.rows ?? [];
+
+  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
+    open ? API.elementCategories() : null
+  );
+  // Memoized so the `?? []` doesn't mint a fresh array identity each render.
+  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
+  const serviceAreaChosen = isServiceArea(
+    useMemo(() => flattenCategories(categoryTree), [categoryTree]),
+    values.categoryId
+  );
 
   // Optional project scope — a contract is usually org-wide, so this can be left unset.
   const { data: projectData } = useSWR<{ id: string; name: string }[]>(
@@ -201,9 +223,13 @@ export function RateContractFormDialog({
     disabled: isLocked,
   });
 
+  // A locked (active) contract can only edit the allow-listed fields, and the
+  // Service Area isn't one of them — so don't block saving those on it. Anything
+  // else, including a grandfathered contract being edited, must supply one.
   const canSubmit =
     values.vendorId &&
     values.name.trim() &&
+    (isLocked || serviceAreaChosen) &&
     values.startDate &&
     values.endDate &&
     !submitting;
@@ -230,9 +256,15 @@ export function RateContractFormDialog({
       if (isLocked && editing) {
         saved = await rcApi.update(editing.id, editableFields);
       } else {
+        // `canSubmit` already guarantees this on the unlocked path; the guard is
+        // what lets TS see it.
+        const categoryId = values.categoryId;
+        if (!categoryId) return;
+
         const fullFields = {
           ...editableFields,
           name: values.name.trim(),
+          categoryId,
           startDate: values.startDate,
           endDate: values.endDate,
           agreementSignedDate: values.agreementSignedDate || null,
@@ -309,6 +341,39 @@ export function RateContractFormDialog({
                 maxLength={255}
                 disabled={isLocked}
               />
+            </LockHint>
+            <LockHint active={isLocked} hint={t("lockedFieldHint")}>
+              <div className="flex flex-col gap-1.5">
+                <CategorySelect
+                  label={t("serviceArea")}
+                  value={values.categoryId}
+                  onChange={(id) => set("categoryId", id)}
+                  tree={categoryTree}
+                  selectableDepth={SERVICE_AREA_DEPTH}
+                  clearable={false}
+                  placeholder={tElements("serviceAreaPlaceholder")}
+                  renderCreate={({
+                    open,
+                    onOpenChange: setOpen,
+                    onCreated,
+                  }) => (
+                    <ServiceAreaDialog
+                      open={open}
+                      tree={categoryTree}
+                      onOpenChange={setOpen}
+                      onCreated={onCreated}
+                    />
+                  )}
+                />
+                {/* Contracts predating this field point at nothing (or, in one
+                    case, a level-1 category). They still open — they just can't
+                    be saved until an area is chosen. Say why. */}
+                {!isLocked && !serviceAreaChosen && (
+                  <p className="text-xs text-warning">
+                    {t("serviceAreaRequired")}
+                  </p>
+                )}
+              </div>
             </LockHint>
             <LockHint active={isLocked} hint={t("lockedFieldHint")}>
               <DatePicker label={t("startDate")} {...dateProps("startDate")} />

@@ -1109,6 +1109,11 @@ export interface RateContract {
   delivery_terms: string | null;
   price_basis: RateContractPriceBasis | null;
   renewal_date: string | null;
+  /**
+   * The Service Area this contract covers. Required on write; nullable in the
+   * DB only because contracts predating the rule are grandfathered.
+   */
+  category_id: string | null;
   /** Optional project scope — null = org-wide (the usual case). */
   project_id: string | null;
   /** Whether the agreed rates are tax-inclusive. */
@@ -1158,6 +1163,9 @@ export interface RateContractListRow extends RateContract {
   vendor_name: string;
   vendor_kyc_status: VendorKycStatus;
   item_count: number;
+  /** Joined from the contract's Service Area. Null for grandfathered rows. */
+  category_name: string | null;
+  category_code: string | null;
 }
 
 export interface RateContractWithDetails extends RateContractListRow {

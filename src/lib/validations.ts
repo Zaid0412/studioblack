@@ -1384,6 +1384,9 @@ export const createRateContractSchema = z
   .object({
     vendorId: uuid,
     name: trimmedString.max(255),
+    // Required, and must be a Service Area — the level is checked server-side
+    // in `requireServiceArea`, which a UUID check can't see.
+    categoryId: uuid,
     startDate: isoDate,
     endDate: isoDate,
     agreementSignedDate: isoDate.nullable().optional(),
@@ -1409,6 +1412,9 @@ export const createRateContractSchema = z
 export const updateRateContractSchema = z
   .object({
     name: z.string().trim().min(1).max(255).optional(),
+    // Non-nullable: an edit may move the contract to another Service Area, but
+    // it may not strip it back to none.
+    categoryId: uuid.optional(),
     startDate: isoDate.optional(),
     endDate: isoDate.optional(),
     agreementSignedDate: isoDate.nullable().optional(),
