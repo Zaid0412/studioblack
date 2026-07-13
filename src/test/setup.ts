@@ -417,7 +417,10 @@ vi.mock("@/lib/queries", () => ({
   // The Service Area gate. Resolves (i.e. passes) by default — a test that
   // wants the rejection path mocks the throw itself.
   requireServiceArea: vi.fn().mockResolvedValue("FIN-WAL-PNT"),
-  requireServiceAreas: vi.fn().mockResolvedValue(undefined),
+  requireServiceAreas: vi.fn().mockResolvedValue(new Map()),
+  checkServiceAreas: vi
+    .fn()
+    .mockResolvedValue({ ok: true, prefixes: new Map() }),
   // BOQ Excel import/export (Feature 6)
   getElementsByCodeMap: vi.fn().mockResolvedValue(new Map()),
   getBoqForExport: vi.fn().mockResolvedValue(null),

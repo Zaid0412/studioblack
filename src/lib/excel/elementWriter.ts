@@ -1,10 +1,7 @@
 import ExcelJS from "exceljs";
 import type { Element, ElementCategory } from "@/types";
-import {
-  TEMPLATE_COLUMN_LABELS,
-  TEMPLATE_COLUMN_ORDER,
-  buildCategoryPathById,
-} from "./elementParser";
+import { TEMPLATE_COLUMN_LABELS, TEMPLATE_COLUMN_ORDER } from "./elementParser";
+import { buildCategoryPathById } from "./categoryPaths";
 
 /**
  * Subset of `Element` fields actually emitted to the sheet. Lets callers

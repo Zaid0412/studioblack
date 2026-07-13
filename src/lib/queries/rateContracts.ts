@@ -1,6 +1,5 @@
 import { getPool } from "@/lib/db";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
-import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import type {
   RateContract,
   RateContractListRow,
@@ -20,7 +19,11 @@ import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
 import { toIso } from "@/lib/formatTime";
 import { mapPgError } from "./_pgErrors";
-import { getNextSequenceNumber, requireServiceArea } from "./sequences";
+import {
+  checkServiceAreas,
+  getNextSequenceNumber,
+  requireServiceArea,
+} from "./sequences";
 
 export interface RateContractFilters {
   search?: string;
@@ -905,21 +908,16 @@ export async function addRateContractItems(
     const contractCurrency = contract.rows[0].currency as string;
 
     // Every item targets a service area — validate that literally, not just
-    // that the category exists. The level comes from the same SELECT that was
-    // already checking existence, so the gate is free.
-    const categoryIds = [...new Set(items.map((i) => i.categoryId))];
-    const categoryRows = await client.query<{ id: string; level: number }>(
-      `SELECT id, level FROM element_category
-        WHERE org_id = $1 AND id = ANY($2::uuid[])`,
-      [orgId, categoryIds]
+    // that the category exists. The non-throwing form, because we owe the
+    // caller a typed reason and this transaction a ROLLBACK.
+    const categories = await checkServiceAreas(
+      client,
+      orgId,
+      items.map((i) => i.categoryId)
     );
-    if (categoryRows.rows.length !== categoryIds.length) {
+    if (!categories.ok) {
       await client.query("ROLLBACK");
-      return { ok: false, reason: "category_not_found" };
-    }
-    if (categoryRows.rows.some((r) => r.level !== SERVICE_AREA_LEVEL)) {
-      await client.query("ROLLBACK");
-      return { ok: false, reason: "category_not_service_area" };
+      return { ok: false, reason: categories.reason };
     }
 
     // Validate element overrides only (service-area rates carry no element):

@@ -4,6 +4,7 @@ import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
 import {
+  checkServiceAreas,
   getNextSequenceNumber,
   nextSequenceNumbers,
   requireServiceArea,
@@ -2393,6 +2394,26 @@ export async function bulkInsertBoqItems(
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1::text))`, [
       `boq:${boqId}`,
     ]);
+
+    // The import is a write path like any other, so it gets the same gate. The
+    // parse-time check in `boqParser` is advisory — confirm takes the rows from
+    // the client, and a crafted payload could otherwise file a line under a
+    // Category, a Sub-category, or another org's node entirely.
+    const categories = await checkServiceAreas(
+      client,
+      orgId,
+      rows.map((r) => r.categoryId)
+    );
+    if (!categories.ok) {
+      const invalid = new Set(categories.invalidIds);
+      const badRow = rows.find((r) => invalid.has(r.categoryId));
+      throw new ImportRowError(
+        badRow?.rowNumber ?? rows[0].rowNumber,
+        categories.reason === "category_not_found"
+          ? "Category not found"
+          : "Category must be a Service Area"
+      );
+    }
 
     if (strategy === "replace") {
       const { rowCount } = await client.query(

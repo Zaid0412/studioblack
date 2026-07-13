@@ -22,33 +22,33 @@ const HEADERS = [
   "Is Provisional",
 ];
 
+/** The leaf of SERVICE_AREA_CHAIN, as an Excel "A > B > C" cell. */
+const SERVICE_AREA_PATH_CELL = SERVICE_AREA_PATH.join(" > ");
+const SERVICE_AREA_ID = "cat-pt";
+
 /**
- * Every BOQ line must name a Service Area now. Rows are written without the
- * Category Path cell and it's spliced in at index 2 (right after Item Code), so
- * the existing positional fixtures stay readable — a test that cares about the
- * path passes its own `headers` and full rows instead.
+ * Every BOQ line must name a Service Area now. By default a valid Category Path
+ * cell is spliced into each row at index 2 (right after Item Code), so the
+ * positional fixtures that predate the column stay readable. A test that cares
+ * about the path itself passes `injectPath: false` and writes the cell out.
  */
 async function sheetBuffer(
   rows: (string | number | null | undefined)[][],
-  headers: (string | null)[] = HEADERS
+  headers: (string | null)[] = HEADERS,
+  { injectPath = true }: { injectPath?: boolean } = {}
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("BOQ");
   ws.addRow(headers);
-  const withPath = headers === HEADERS;
   for (const r of rows) {
     ws.addRow(
-      withPath ? [...r.slice(0, 2), SERVICE_AREA_PATH_CELL, ...r.slice(2)] : r
+      injectPath ? [...r.slice(0, 2), SERVICE_AREA_PATH_CELL, ...r.slice(2)] : r
     );
   }
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 const EMPTY_MAP = new Map<string, BoqElementLite>();
-
-/** The leaf of SERVICE_AREA_CHAIN, as an Excel "A > B > C" cell. */
-const SERVICE_AREA_PATH_CELL = SERVICE_AREA_PATH.join(" > ");
-const SERVICE_AREA_ID = "cat-pt";
 
 // Filler UUIDs for round-trip tests — the writer/parser path doesn't
 // touch these; only the values that travel through Excel matter.
@@ -120,7 +120,8 @@ describe("parseBoqSheet", () => {
   it("reports missing required columns on an incomplete header row", async () => {
     const buf = await sheetBuffer(
       [["desc only"]],
-      ["Description"] // missing Unit + Quantity + Unit Cost
+      ["Description"], // missing Unit + Quantity + Unit Cost
+      { injectPath: false }
     );
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
@@ -132,13 +133,11 @@ describe("parseBoqSheet", () => {
   // ── Service Area (required) ───────────────────────────────────────────────
 
   it("rejects a row with no Category Path and no element to inherit from", async () => {
-    // Built raw: `sheetBuffer` splices the path in for the default headers,
-    // and a blank path is exactly what this asserts on.
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BOQ");
-    ws.addRow(HEADERS);
-    ws.addRow(["", "", "", "Free-text line", "m2", 1, 10]);
-    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const buf = await sheetBuffer(
+      [["", "", "", "Free-text line", "m2", 1, 10]],
+      HEADERS,
+      { injectPath: false }
+    );
 
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("error");
@@ -148,11 +147,11 @@ describe("parseBoqSheet", () => {
   });
 
   it("rejects a Category Path that names a Sub-category", async () => {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BOQ");
-    ws.addRow(HEADERS);
-    ws.addRow(["", "", "Finishes > Wall Finishes", "Line", "m2", 1, 10]);
-    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const buf = await sheetBuffer(
+      [["", "", "Finishes > Wall Finishes", "Line", "m2", 1, 10]],
+      HEADERS,
+      { injectPath: false }
+    );
 
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("error");
@@ -174,11 +173,11 @@ describe("parseBoqSheet", () => {
         },
       ],
     ]);
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BOQ");
-    ws.addRow(HEADERS);
-    ws.addRow(["", "WAL-PNT-001", "", "Paint", "m2", 1, 10]);
-    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const buf = await sheetBuffer(
+      [["", "WAL-PNT-001", "", "Paint", "m2", 1, 10]],
+      HEADERS,
+      { injectPath: false }
+    );
 
     const res = await parseBoqSheet(buf, map, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("valid");
@@ -217,7 +216,8 @@ describe("parseBoqSheet", () => {
         "Overhead %",
         "Service Charge %",
         "Margin %",
-      ]
+      ],
+      { injectPath: false }
     );
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
 
@@ -346,21 +346,23 @@ describe("parseBoqSheet — dimensions", () => {
   ];
 
   it("parses Length / Breadth / Height when all three are filled", async () => {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BOQ");
-    ws.addRow(HEADERS_WITH_DIMS);
-    ws.addRow([
-      "",
-      SERVICE_AREA_PATH_CELL,
-      "Concrete footing",
-      "m3",
-      1.875,
-      200,
-      2.5,
-      1.5,
-      0.5,
-    ]);
-    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const buf = await sheetBuffer(
+      [
+        [
+          "",
+          SERVICE_AREA_PATH_CELL,
+          "Concrete footing",
+          "m3",
+          1.875,
+          200,
+          2.5,
+          1.5,
+          0.5,
+        ],
+      ],
+      HEADERS_WITH_DIMS,
+      { injectPath: false }
+    );
 
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("valid");
@@ -370,21 +372,11 @@ describe("parseBoqSheet — dimensions", () => {
   });
 
   it("accepts partial dimensions (only Length + Breadth)", async () => {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BOQ");
-    ws.addRow(HEADERS_WITH_DIMS);
-    ws.addRow([
-      "",
-      SERVICE_AREA_PATH_CELL,
-      "Tile area",
-      "m2",
-      15,
-      45,
-      5,
-      3,
-      "",
-    ]);
-    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const buf = await sheetBuffer(
+      [["", SERVICE_AREA_PATH_CELL, "Tile area", "m2", 15, 45, 5, 3, ""]],
+      HEADERS_WITH_DIMS,
+      { injectPath: false }
+    );
 
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("valid");
@@ -394,11 +386,11 @@ describe("parseBoqSheet — dimensions", () => {
   });
 
   it("rejects negative dimensions", async () => {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("BOQ");
-    ws.addRow(HEADERS_WITH_DIMS);
-    ws.addRow(["", SERVICE_AREA_PATH_CELL, "Bad row", "m3", 1, 1, -1, 1, 1]);
-    const buf = Buffer.from(await wb.xlsx.writeBuffer());
+    const buf = await sheetBuffer(
+      [["", SERVICE_AREA_PATH_CELL, "Bad row", "m3", 1, 1, -1, 1, 1]],
+      HEADERS_WITH_DIMS,
+      { injectPath: false }
+    );
 
     const res = await parseBoqSheet(buf, EMPTY_MAP, SERVICE_AREA_CHAIN);
     expect(res.rows[0].status).toBe("error");

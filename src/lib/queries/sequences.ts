@@ -103,65 +103,98 @@ export async function elementCodePrefix(
   return prefix ? prefix : UNCATEGORIZED_PREFIX;
 }
 
-/**
- * Resolve the code prefix of the Service Area an element is being filed under,
- * rejecting anything that isn't one. This — not the form — is what enforces the
- * rule; the picker is a convenience.
- *
- * Scoped to the org, so it also refuses another org's category id. Without that
- * check an element could point at a foreign category and leak its names through
- * `getElementById`'s `category_path`.
- *
- * Throws "Category not found" (missing, or another org's) or
- * "Category must be a Service Area" (a Category or Sub-category).
- */
-export async function requireServiceArea(
-  executor: Executor,
-  orgId: string,
-  categoryId: string
-): Promise<string> {
-  const { rows } = await executor.query<{
-    level: number;
-    code_prefix: string | null;
-  }>(
-    `SELECT level, code_prefix FROM element_category
-      WHERE id = $1 AND org_id = $2`,
-    [categoryId, orgId]
-  );
-  const category = rows[0];
-  if (!category) throw new Error("Category not found");
-  if (category.level !== SERVICE_AREA_LEVEL) {
-    throw new Error("Category must be a Service Area");
-  }
-  const prefix = category.code_prefix?.trim();
-  return prefix ? prefix : UNCATEGORIZED_PREFIX;
-}
+export type ServiceAreaFailure =
+  | "category_not_found"
+  | "category_not_service_area";
+
+const SERVICE_AREA_ERRORS: Record<ServiceAreaFailure, string> = {
+  category_not_found: "Category not found",
+  category_not_service_area: "Category must be a Service Area",
+};
 
 /**
- * The list form of `requireServiceArea`, for the surfaces that write many rows
- * at once — vendor trades, rate-contract items. One query for the whole batch
- * rather than one per row, and it throws the same two messages.
+ * The one place the "must be a Service Area" rule is checked. Every write path
+ * that accepts a user-picked category goes through this — the pickers are a
+ * convenience, this is the enforcement.
+ *
+ * Scoped to the org, so it also refuses another org's category id. Without that
+ * check a row could point at a foreign category and leak its names back through
+ * any read that joins `element_category` (`getElementById`'s `category_path`,
+ * the BOQ item library join).
+ *
+ * Non-throwing, because the batch callers sit inside a transaction they have to
+ * roll back with a typed reason. `requireServiceArea`/`requireServiceAreas` are
+ * the throwing wrappers.
  */
-export async function requireServiceAreas(
+export async function checkServiceAreas(
   executor: Executor,
   orgId: string,
   categoryIds: readonly string[]
-): Promise<void> {
+): Promise<
+  | { ok: true; prefixes: Map<string, string> }
+  | { ok: false; reason: ServiceAreaFailure; invalidIds: string[] }
+> {
   const ids = [...new Set(categoryIds)];
-  if (ids.length === 0) return;
+  if (ids.length === 0) return { ok: true, prefixes: new Map() };
 
-  const { rows } = await executor.query<{ id: string; level: number }>(
-    `SELECT id, level FROM element_category
+  const { rows } = await executor.query<{
+    id: string;
+    level: number;
+    code_prefix: string | null;
+  }>(
+    `SELECT id, level, code_prefix FROM element_category
       WHERE org_id = $1 AND id = ANY($2::uuid[])`,
     [orgId, ids]
   );
 
   // A missing row is either a bad id or another org's — same answer either way,
   // and deliberately not distinguishable from the outside.
-  if (rows.length !== ids.length) throw new Error("Category not found");
-  if (rows.some((r) => r.level !== SERVICE_AREA_LEVEL)) {
-    throw new Error("Category must be a Service Area");
+  const found = new Set(rows.map((r) => r.id));
+  const missing = ids.filter((id) => !found.has(id));
+  if (missing.length > 0) {
+    return { ok: false, reason: "category_not_found", invalidIds: missing };
   }
+
+  const wrongLevel = rows.filter((r) => r.level !== SERVICE_AREA_LEVEL);
+  if (wrongLevel.length > 0) {
+    return {
+      ok: false,
+      reason: "category_not_service_area",
+      invalidIds: wrongLevel.map((r) => r.id),
+    };
+  }
+
+  return {
+    ok: true,
+    prefixes: new Map(
+      rows.map((r) => [r.id, r.code_prefix?.trim() || UNCATEGORIZED_PREFIX])
+    ),
+  };
+}
+
+/**
+ * The throwing form, for the surfaces that write many rows at once — vendor
+ * trades, rate-contract items, the BOQ import. One query for the whole batch
+ * rather than one per row.
+ */
+export async function requireServiceAreas(
+  executor: Executor,
+  orgId: string,
+  categoryIds: readonly string[]
+): Promise<Map<string, string>> {
+  const result = await checkServiceAreas(executor, orgId, categoryIds);
+  if (!result.ok) throw new Error(SERVICE_AREA_ERRORS[result.reason]);
+  return result.prefixes;
+}
+
+/** Single-category form. Returns the Service Area's code prefix. */
+export async function requireServiceArea(
+  executor: Executor,
+  orgId: string,
+  categoryId: string
+): Promise<string> {
+  const prefixes = await requireServiceAreas(executor, orgId, [categoryId]);
+  return prefixes.get(categoryId) ?? UNCATEGORIZED_PREFIX;
 }
 
 /**

@@ -731,11 +731,7 @@ export function BoqItemDrawer({
                       {item.category_name ?? "—"}
                     </span>
                   ) : (
-                    /* Lines predating the rule have no Service Area (or a
-                       level-1 one). They open fine — Save is what's blocked
-                       until one is chosen. */
                     <ServiceAreaField
-                      label=""
                       value={draft.categoryId || null}
                       onChange={(id) => setField({ categoryId: id ?? "" })}
                       requiredHint={tRc("serviceAreaRequiredLine")}
@@ -1014,9 +1010,7 @@ export function BoqItemDrawer({
                 <Button
                   type="button"
                   disabled={
-                    !dirty ||
-                    saving ||
-                    (!fieldsDisabled && categoriesLoaded && !serviceAreaChosen)
+                    !dirty || saving || (categoriesLoaded && !serviceAreaChosen)
                   }
                   onClick={handleSave}
                 >

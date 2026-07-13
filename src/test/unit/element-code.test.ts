@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Pool } from "pg";
 import {
+  checkServiceAreas,
   elementCodePrefix,
   nextElementCodes,
   requireServiceArea,
@@ -70,7 +71,7 @@ describe("elementCodePrefix", () => {
 describe("requireServiceArea", () => {
   it("returns the Service Area's path code", async () => {
     const { executor } = stubExecutor([
-      { level: 3, code_prefix: "KIT-CAB-BASE" },
+      { id: CAT, level: 3, code_prefix: "KIT-CAB-BASE" },
     ]);
     await expect(requireServiceArea(executor, ORG, CAT)).resolves.toBe(
       "KIT-CAB-BASE"
@@ -78,14 +79,18 @@ describe("requireServiceArea", () => {
   });
 
   it("rejects a Category (level 1)", async () => {
-    const { executor } = stubExecutor([{ level: 1, code_prefix: "KIT" }]);
+    const { executor } = stubExecutor([
+      { id: CAT, level: 1, code_prefix: "KIT" },
+    ]);
     await expect(requireServiceArea(executor, ORG, CAT)).rejects.toThrow(
       "Category must be a Service Area"
     );
   });
 
   it("rejects a Sub-category (level 2)", async () => {
-    const { executor } = stubExecutor([{ level: 2, code_prefix: "KIT-CAB" }]);
+    const { executor } = stubExecutor([
+      { id: CAT, level: 2, code_prefix: "KIT-CAB" },
+    ]);
     await expect(requireServiceArea(executor, ORG, CAT)).rejects.toThrow(
       "Category must be a Service Area"
     );
@@ -99,15 +104,59 @@ describe("requireServiceArea", () => {
     await expect(requireServiceArea(executor, ORG, CAT)).rejects.toThrow(
       "Category not found"
     );
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("org_id = $2"), [
-      CAT,
+    expect(query).toHaveBeenCalledWith(expect.stringContaining("org_id = $1"), [
       ORG,
+      [CAT],
     ]);
   });
 
   it("falls back to GEN when a Service Area somehow carries no code", async () => {
-    const { executor } = stubExecutor([{ level: 3, code_prefix: null }]);
+    const { executor } = stubExecutor([
+      { id: CAT, level: 3, code_prefix: null },
+    ]);
     await expect(requireServiceArea(executor, ORG, CAT)).resolves.toBe("GEN");
+  });
+});
+
+// The batch form the list surfaces use — vendor trades, rate-contract items,
+// the BOQ import. Same rule, one query for the whole set.
+describe("checkServiceAreas", () => {
+  const CAT2 = "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22";
+
+  it("names the ids that aren't Service Areas", async () => {
+    const { executor } = stubExecutor([
+      { id: CAT, level: 3, code_prefix: "KIT-CAB-BASE" },
+      { id: CAT2, level: 2, code_prefix: "KIT-CAB" },
+    ]);
+    await expect(
+      checkServiceAreas(executor, ORG, [CAT, CAT2])
+    ).resolves.toEqual({
+      ok: false,
+      reason: "category_not_service_area",
+      invalidIds: [CAT2],
+    });
+  });
+
+  it("names the ids the org doesn't own", async () => {
+    const { executor } = stubExecutor([
+      { id: CAT, level: 3, code_prefix: "KIT-CAB-BASE" },
+    ]);
+    await expect(
+      checkServiceAreas(executor, ORG, [CAT, CAT2])
+    ).resolves.toEqual({
+      ok: false,
+      reason: "category_not_found",
+      invalidIds: [CAT2],
+    });
+  });
+
+  it("dedupes, and doesn't query for an empty list", async () => {
+    const { executor, query } = stubExecutor([]);
+    await expect(checkServiceAreas(executor, ORG, [])).resolves.toEqual({
+      ok: true,
+      prefixes: new Map(),
+    });
+    expect(query).not.toHaveBeenCalled();
   });
 });
 

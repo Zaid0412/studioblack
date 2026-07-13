@@ -78,7 +78,7 @@ interface FormState {
   notes: string;
   saveAsElement: boolean;
   /**
-   * Service area for the line (any tree level). Classifies the BOQ item so it
+   * The line's Service Area (level 3 — required). Classifies the BOQ item so it
    * matches rate contracts / drives vendor suggestion even when it's free-text
    * (not saved to the library). Reused as the element's category when saving.
    */
@@ -158,7 +158,6 @@ export function BoqCreateItemSheet({
   const [manualQty, setManualQty] = useState(false);
 
   const { isServiceAreaId } = useCategoryTree(open);
-  const serviceAreaChosen = isServiceAreaId(v.categoryId);
 
   useEffect(() => {
     if (!open) return;
@@ -337,9 +336,10 @@ export function BoqCreateItemSheet({
       return;
     }
 
-    // Every line, not just the ones saved to the library.
+    // Every line, not just the ones saved to the library. The guard narrows
+    // `categoryId` to a non-null id for the two payloads below.
     const categoryId = v.categoryId;
-    if (!categoryId || !serviceAreaChosen) {
+    if (!isServiceAreaId(categoryId)) {
       toast({
         title: "Service Area required",
         description:

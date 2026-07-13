@@ -6,13 +6,11 @@ import type {
   ElementCategory,
 } from "@/types";
 import { ALLOWED_UNITS } from "@/lib/validations";
-import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import {
   buildCategoryLevelMap,
   buildCategoryPathMap,
-  normalizeCategorySegment,
-  notAServiceAreaError,
-} from "./elementParser";
+  resolveCategoryPathCell,
+} from "./categoryPaths";
 import {
   buildParseEnvelope,
   cellBool,
@@ -252,24 +250,13 @@ export async function parseBoqSheet(
           );
         }
       } else {
-        const segments = byKey.categoryPath.split(">").map((x) => x.trim());
-        if (segments.length === 0 || segments.some((x) => x.length === 0)) {
-          errors.push(
-            "Category Path has empty segments — use 'A > B > C' with non-empty labels"
-          );
-        } else {
-          const key = segments.map(normalizeCategorySegment).join(" > ");
-          const resolved = pathMap.get(key);
-          if (!resolved) {
-            errors.push(
-              `Category path "${segments.join(" > ")}" not found in this org`
-            );
-          } else if (levelById.get(resolved) !== SERVICE_AREA_LEVEL) {
-            errors.push(notAServiceAreaError(segments));
-          } else {
-            values.categoryId = resolved;
-          }
-        }
+        const resolved = resolveCategoryPathCell(
+          byKey.categoryPath,
+          pathMap,
+          levelById
+        );
+        if (resolved.ok) values.categoryId = resolved.id;
+        else errors.push(resolved.error);
       }
 
       const hasErrors = errors.length > 0;

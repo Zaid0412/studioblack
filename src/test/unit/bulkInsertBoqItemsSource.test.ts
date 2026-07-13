@@ -25,6 +25,7 @@ async function realBulkInsertBoqItems(
 
 const ORG = "org-test-001";
 const BOQ_ID = "550e8400-e29b-41d4-a716-446655440000";
+const SERVICE_AREA = "44444444-4444-4444-8444-444444444444";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -38,6 +39,7 @@ describe("bulkInsertBoqItems — source derivation", () => {
     mocks.db.query
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
       .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [{ id: SERVICE_AREA, level: 3 }] }) // Service Area gate
       .mockResolvedValueOnce({ rows: [] }) // existing sections
       .mockResolvedValueOnce({
         // SELECT element by code — only LIB-1 exists
@@ -52,6 +54,7 @@ describe("bulkInsertBoqItems — source derivation", () => {
       {
         rowNumber: 2,
         itemCode: "LIB-1",
+        categoryId: SERVICE_AREA,
         description: "Linked to library",
         unit: "m2",
         quantity: 5,
@@ -60,6 +63,7 @@ describe("bulkInsertBoqItems — source derivation", () => {
       {
         rowNumber: 3,
         itemCode: "CUSTOM-1",
+        categoryId: SERVICE_AREA,
         description: "Custom row, no match",
         unit: "nos",
         quantity: 1,
@@ -84,5 +88,67 @@ describe("bulkInsertBoqItems — source derivation", () => {
     // Param $3 (element_id) is the lib id for the matched row, null otherwise.
     expect((inserts[0]![1] as unknown[])[2]).toBe("lib-element-id");
     expect((inserts[1]![1] as unknown[])[2]).toBeNull();
+  });
+});
+
+/**
+ * Confirm takes its rows from the client, so the parse-time path check is only
+ * advisory — without a gate here, a crafted payload could file a line under a
+ * Category, a Sub-category, or another org's node entirely.
+ */
+describe("bulkInsertBoqItems — Service Area gate", () => {
+  it("rolls back when a row names a category that isn't a Service Area", async () => {
+    mocks.db.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [{ id: SERVICE_AREA, level: 2 }] }) // a Sub-category
+      .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+
+    const result = await realBulkInsertBoqItems(BOQ_ID, ORG, [
+      {
+        rowNumber: 7,
+        categoryId: SERVICE_AREA,
+        description: "Filed under a Sub-category",
+        unit: "m2",
+        quantity: 1,
+        unitCost: 1,
+      },
+    ]);
+
+    expect(result.rolledBack).toBe(true);
+    expect(result.inserted).toBe(0);
+    expect(result.failed).toEqual([
+      { rowNumber: 7, error: "Category must be a Service Area" },
+    ]);
+    expect(
+      mocks.db.query.mock.calls.some(
+        (c) => typeof c[0] === "string" && c[0].includes("INSERT INTO boq_item")
+      )
+    ).toBe(false);
+  });
+
+  // The org filter in the gate is what stops a foreign category id from
+  // resolving — the FK alone is global and would happily accept it.
+  it("rolls back when a row names a category the org doesn't own", async () => {
+    mocks.db.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rows: [] }) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // gate: org-scoped SELECT finds nothing
+      .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
+
+    const result = await realBulkInsertBoqItems(BOQ_ID, ORG, [
+      {
+        rowNumber: 3,
+        categoryId: SERVICE_AREA,
+        description: "Another org's category",
+        unit: "m2",
+        quantity: 1,
+        unitCost: 1,
+      },
+    ]);
+
+    expect(result.failed).toEqual([
+      { rowNumber: 3, error: "Category not found" },
+    ]);
   });
 });

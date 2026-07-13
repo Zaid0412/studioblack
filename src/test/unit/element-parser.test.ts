@@ -2,10 +2,12 @@ import { describe, it, expect, beforeAll } from "vitest";
 import ExcelJS from "exceljs";
 import {
   parseElementSheet,
-  buildCategoryPathMap,
-  buildCategoryPathById,
   TEMPLATE_COLUMN_LABELS,
 } from "@/lib/excel/elementParser";
+import {
+  buildCategoryPathMap,
+  buildCategoryPathById,
+} from "@/lib/excel/categoryPaths";
 import type { ElementCategory } from "@/types";
 import { SERVICE_AREA_CHAIN, mockCategory } from "../helpers";
 

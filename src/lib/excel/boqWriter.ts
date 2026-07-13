@@ -4,7 +4,7 @@ import {
   BOQ_TEMPLATE_COLUMN_LABELS,
   BOQ_TEMPLATE_COLUMN_ORDER,
 } from "./boqParser";
-import { buildCategoryPathById } from "./elementParser";
+import { buildCategoryPathById } from "./categoryPaths";
 
 export interface BoqExportInput {
   items: BoqItemWithComputed[];

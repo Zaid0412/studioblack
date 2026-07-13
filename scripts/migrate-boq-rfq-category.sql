@@ -6,6 +6,11 @@
 -- snapshot on rfq_item. category_id may point at any level of the tree (leaf is
 -- NOT enforced — ancestor expansion in the matcher covers upward matching).
 -- Backfills existing rows from their linked element's category. Additive.
+--
+-- SUPERSEDED: a Service Area (level 3) is now required on every BOQ write —
+-- enforced at the app layer (`checkServiceAreas`), not by a constraint, so the
+-- rows that predate the rule keep reading and heal on their next save. The
+-- column stays nullable for exactly that reason.
 
 BEGIN;
 

@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import useSWR from "swr";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,9 +16,9 @@ import { VENDOR_PROFICIENCY_ICONS } from "@/lib/vendorLabels";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
-import { API } from "@/lib/api/routes";
+import { useCategoryTree } from "@/hooks/useCategoryTree";
 import { VENDOR_PROFICIENCIES } from "@/lib/validations";
-import type { ElementCategoryNode, VendorProficiency } from "@/types";
+import type { VendorProficiency } from "@/types";
 
 export interface TradeDraft {
   categoryId: string | null;
@@ -51,10 +50,7 @@ interface Props {
  */
 export function VendorTradesEditor({ trades, onChange }: Props) {
   const t = useTranslations("vendors");
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    API.elementCategories()
-  );
-  const tree = useMemo(() => catData?.tree ?? [], [catData]);
+  const { tree } = useCategoryTree();
 
   const usedIds = useMemo(
     () =>
