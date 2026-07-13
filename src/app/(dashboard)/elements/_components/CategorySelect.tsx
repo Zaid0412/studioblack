@@ -231,7 +231,11 @@ export function CategorySelect({
                         "flex items-center gap-2 w-full px-3 py-2 text-sm text-left",
                         pickable
                           ? "hover:bg-bg-elevated"
-                          : "cursor-default text-text-muted",
+                          : // Dim the whole row, not just the text — the category
+                            // icon is colour-coded, so leaving it at full opacity
+                            // keeps an unpickable row competing with the ones you
+                            // can actually choose.
+                            "cursor-default text-text-muted opacity-50",
                         selected && "text-accent"
                       )}
                       style={{ paddingLeft: `${12 + opt.depth * 12}px` }}
