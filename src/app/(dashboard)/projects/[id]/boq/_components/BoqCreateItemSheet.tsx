@@ -526,6 +526,7 @@ export function BoqCreateItemSheet({
               onChange={(id) => set("categoryId", id)}
               tree={categoryTree}
               selectableDepth={v.saveAsElement ? SERVICE_AREA_DEPTH : 0}
+              required={v.saveAsElement}
               renderCreate={
                 v.saveAsElement
                   ? ({ open, onOpenChange, onCreated }) => (

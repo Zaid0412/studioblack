@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Check, ChevronDown, Plus } from "lucide-react";
+import { FieldLabel } from "@/components/ui/FieldLabel";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
@@ -51,6 +52,8 @@ interface Props {
   size?: "default" | "sm";
   /** Read-only: the trigger won't open. Mirrors the other form controls. */
   disabled?: boolean;
+  /** Marks the label with the same `*` the other form controls use. */
+  required?: boolean;
 }
 
 interface FlatOption {
@@ -106,6 +109,7 @@ export function CategorySelect({
   renderCreate,
   size = "default",
   disabled = false,
+  required = false,
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
@@ -129,11 +133,7 @@ export function CategorySelect({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {label && (
-        <label className="text-[13px] font-medium text-text-secondary">
-          {label}
-        </label>
-      )}
+      {label && <FieldLabel required={required}>{label}</FieldLabel>}
       <SearchableDropdown
         minContentWidth={280}
         maxListHeight={240}
@@ -159,6 +159,11 @@ export function CategorySelect({
           <button
             type="button"
             disabled={disabled}
+            // No `aria-required` here: it isn't valid on a button role, and the
+            // trigger isn't a combobox (it opens a popover, and doesn't carry
+            // aria-expanded/aria-controls). So the `*` is currently visual only.
+            // Giving this the real combobox semantics is a SearchableDropdown
+            // change, not an asterisk change.
             className={cn(
               "flex items-center justify-between w-full rounded-lg border border-border-default bg-bg-input text-sm text-text-primary",
               size === "sm" ? "px-3 py-2" : "px-4 py-3",

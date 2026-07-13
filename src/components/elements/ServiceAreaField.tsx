@@ -51,6 +51,10 @@ export function ServiceAreaField({
         selectableDepth={SERVICE_AREA_DEPTH}
         clearable={false}
         disabled={disabled}
+        // Always marked: the asterisk states that the record needs one, which
+        // stays true while the field is locked. (The *hint* below is suppressed
+        // when locked — that one is a call to action.)
+        required
         placeholder={t("serviceAreaPlaceholder")}
         renderCreate={({ open, onOpenChange, onCreated }) => (
           <ServiceAreaDialog
