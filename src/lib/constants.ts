@@ -27,3 +27,18 @@ export const MAX_CONTENT_LENGTH = 5_000;
 
 /** Default pagination limit when no explicit limit is provided. */
 export const DEFAULT_PAGE_LIMIT = 200;
+
+/**
+ * Currency every money field is pre-filled with. Users can change it per record
+ * — most forms offer the full ISO 4217 list via `CurrencySelect`; vendor quotes
+ * are restricted to `QUOTE_CURRENCIES`, which must therefore contain this value.
+ *
+ * This is the *default for new rows only*. Existing rows keep whatever currency
+ * they were saved with; changing this must never rewrite them, or the number in
+ * the column would silently start meaning something else.
+ *
+ * App-wide, not per-org. If a second studio ever bills in another currency this
+ * needs to become an org setting — route new reads through here so that's a
+ * one-file change.
+ */
+export const DEFAULT_CURRENCY = "INR";

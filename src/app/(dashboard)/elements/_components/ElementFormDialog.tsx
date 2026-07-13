@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/TagInput";
@@ -105,7 +106,7 @@ const EMPTY_FORM: ElementFormValues = {
   categoryId: null,
   unit: "m2",
   unitCost: "",
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   materialCost: "",
   labourCost: "",
   overheadPct: "",

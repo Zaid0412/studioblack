@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -142,7 +143,7 @@ export function VendorQuoteSubmitDialog({
   // The RFQ itself carries no currency — only a submitted quote does. For a
   // fresh submission there's nothing to read yet, so fall back to the same
   // default the API applies server-side (see quote schema in lib/validations).
-  const currency = existing?.currency ?? "USD";
+  const currency = existing?.currency ?? DEFAULT_CURRENCY;
 
   const grandTotal = useMemo(() => {
     let sum = 0;

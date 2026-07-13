@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS vendor_quote (
   submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   valid_until DATE,
   -- Currency placeholder; multi-currency support deferred (see F4.5 notes).
-  currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+  currency VARCHAR(3) NOT NULL DEFAULT 'INR',
   delivery_period VARCHAR(100),
   payment_terms VARCHAR(100),
   inclusions TEXT,

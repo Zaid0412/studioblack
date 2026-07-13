@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -1112,7 +1113,12 @@ describe("createElementSchema", () => {
       name: "Paint",
       unit: "m2",
       unitCost: 120,
-      currency: "USD",
+      // Pinned to the literal, not DEFAULT_CURRENCY: asserting the constant
+      // against a schema written as `.default(DEFAULT_CURRENCY)` would compare
+      // the same import to itself and pass no matter what it held. Having to
+      // edit this line is the point — it's the tripwire on an accidental change
+      // to the default currency of a money field.
+      currency: "INR",
     });
   });
 
@@ -1538,11 +1544,12 @@ describe("ALLOWED_UNITS", () => {
 });
 
 describe("submitQuoteSchema (F10)", () => {
-  it("accepts a minimal valid quote and defaults currency to USD", () => {
+  it("accepts a minimal valid quote and defaults currency to INR", () => {
     const data = expectPass(submitQuoteSchema, {
       items: [{ rfqItemId: VALID_UUID, unitPrice: 50 }],
     });
-    expect(data.currency).toBe("USD");
+    // Literal, not the constant — see the note in createElementSchema above.
+    expect(data.currency).toBe("INR");
   });
 
   it("rejects empty items array", () => {

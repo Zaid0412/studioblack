@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { FormDialog } from "@/components/ui/FormDialog";
@@ -30,7 +31,7 @@ export function BoqCreateDialog({
 }: BoqCreateDialogProps) {
   const { createBoq } = useBoqMutations(projectId);
   const [title, setTitle] = useState(defaultTitle);
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [contingencyPct, setContingencyPct] = useState("5");
   const [vatPct, setVatPct] = useState("0");
   const [minimumMarginPct, setMinimumMarginPct] = useState("10");

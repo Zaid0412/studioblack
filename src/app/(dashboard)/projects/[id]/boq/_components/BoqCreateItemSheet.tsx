@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -96,7 +97,7 @@ const INITIAL: FormState = {
   sectionId: BOQ_NO_SECTION_ID,
   description: "",
   unit: DEFAULT_UNIT,
-  currency: "USD",
+  currency: DEFAULT_CURRENCY,
   quantity: "1",
   unitCost: "0",
   marginPct: "15",

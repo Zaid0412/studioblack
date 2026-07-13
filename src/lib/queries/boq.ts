@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
@@ -221,7 +222,7 @@ export interface CreateBoqInput {
   createdBy?: string | null;
 }
 
-/** Insert a new BOQ row for a project. Defaults: USD, 0% contingency/VAT, 10% minimum margin. */
+/** Insert a new BOQ row for a project. Defaults: the app default currency, 0% contingency/VAT, 10% minimum margin. */
 export async function createBoq(
   projectId: string,
   input: CreateBoqInput
@@ -237,7 +238,7 @@ export async function createBoq(
     [
       projectId,
       input.title,
-      input.currency ?? "USD",
+      input.currency ?? DEFAULT_CURRENCY,
       input.exchangeRate ?? 1,
       input.contingencyPct ?? 0,
       input.vatPct ?? 0,

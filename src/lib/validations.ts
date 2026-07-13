@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_CONTENT_LENGTH } from "@/lib/constants";
+import { DEFAULT_CURRENCY, MAX_CONTENT_LENGTH } from "@/lib/constants";
 import { MAX_UPLOAD_SIZE } from "@/lib/fileUtils";
 
 // ─── Shared constants ───────────────────────────────────────────────────────
@@ -611,7 +611,7 @@ export const createElementSchema = z.object({
   categoryId: uuid,
   unit: z.enum(ALLOWED_UNITS),
   unitCost: nonNegativeMoney,
-  currency: z.string().trim().length(3).default("USD"),
+  currency: z.string().trim().length(3).default(DEFAULT_CURRENCY),
   materialCost: nonNegativeMoney.optional(),
   labourCost: nonNegativeMoney.optional(),
   overheadPct: percent.optional(),
@@ -727,7 +727,7 @@ const updatedAtToken = z.string().min(1);
 
 export const createBoqSchema = z.object({
   title: trimmedString.max(255),
-  currency: z.string().length(3).optional(),
+  currency: z.string().length(3).default(DEFAULT_CURRENCY),
   exchangeRate: z.coerce.number().positive().finite().optional(),
   contingencyPct: boqPercent.optional(),
   vatPct: boqPercent.optional(),
@@ -1116,7 +1116,7 @@ export const createVendorSchema = z.object({
   vendorCode: z.string().max(50).optional(),
   status: z.enum(VENDOR_STATUSES).optional(),
   paymentTerms: z.string().max(100).optional(),
-  currency: z.string().length(3).optional(),
+  currency: z.string().length(3).default(DEFAULT_CURRENCY),
   vatRegistered: z.boolean().optional(),
   vatNumber: z.string().max(50).optional(),
   gstin: z.string().max(20).optional(),
@@ -1387,7 +1387,7 @@ export const createRateContractSchema = z
     startDate: isoDate,
     endDate: isoDate,
     agreementSignedDate: isoDate.nullable().optional(),
-    currency: z.string().length(3).optional(),
+    currency: z.string().length(3).default(DEFAULT_CURRENCY),
     paymentTerms: z.string().max(100).optional().nullable(),
     attachments: attachmentRefListField,
     termsAndConditions: z.string().max(10_000).optional().nullable(),
@@ -1693,7 +1693,7 @@ export type QuoteEvidenceInput = z.infer<typeof quoteEvidenceSchema>;
 
 export const submitQuoteSchema = z.object({
   validUntil: z.string().date().optional().nullable(),
-  currency: z.enum(QUOTE_CURRENCIES).default("USD"),
+  currency: z.enum(QUOTE_CURRENCIES).default(DEFAULT_CURRENCY),
   deliveryPeriod: z.string().trim().max(100).optional().nullable(),
   paymentTerms: z.string().trim().max(100).optional().nullable(),
   inclusions: z.string().trim().max(MAX_CONTENT_LENGTH).optional().nullable(),

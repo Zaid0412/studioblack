@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import type {
   RateContract,
   RateContractListRow,
@@ -618,7 +619,7 @@ export async function createRateContract(
        )
        VALUES ($1, $2, $3, $4, 'draft',
                $5, $6, $7,
-               COALESCE($8, 'USD'), $9, $10::jsonb, $11, $12, $13,
+               $8, $9, $10::jsonb, $11, $12, $13,
                $14, $15, $16, $17, $18,
                $19, COALESCE($20, false), $21)
        RETURNING *`,
@@ -630,7 +631,7 @@ export async function createRateContract(
         input.startDate,
         input.endDate,
         input.agreementSignedDate ?? null,
-        input.currency ?? null,
+        input.currency ?? DEFAULT_CURRENCY,
         input.paymentTerms ?? null,
         attachmentsJson(input.attachments),
         input.termsAndConditions ?? null,

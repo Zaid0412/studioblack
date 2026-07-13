@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -65,7 +66,7 @@ export function ManualQuoteDialog({
   const [vendorId, setVendorId] = useState(preselectedVendorId ?? "");
   const [source, setSource] = useState<string>("email");
   const [receivedDate, setReceivedDate] = useState<Date | undefined>(undefined);
-  const [currency, setCurrency] = useState<string>("USD");
+  const [currency, setCurrency] = useState<string>(DEFAULT_CURRENCY);
   const [prices, setPrices] = useState<Map<string, string>>(new Map());
   const [validUntil, setValidUntil] = useState<Date | undefined>(undefined);
   const [deliveryPeriod, setDeliveryPeriod] = useState("");
@@ -90,7 +91,7 @@ export function ManualQuoteDialog({
       const line = existing?.items.find((li) => li.rfq_item_id === it.id);
       map.set(it.id, line ? String(line.unit_price) : "");
     }
-    const initCurrency = existing?.currency ?? "USD";
+    const initCurrency = existing?.currency ?? DEFAULT_CURRENCY;
     const initDelivery = existing?.delivery_period ?? "";
     const initPayment = existing?.payment_terms ?? "";
     const initNotes = existing?.notes ?? "";
