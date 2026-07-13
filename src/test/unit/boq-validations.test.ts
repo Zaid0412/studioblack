@@ -209,6 +209,24 @@ describe("createBoqItemSchema", () => {
     expect(data.description).toBe("Tile laying");
   });
 
+  // The API used to take any string ≤30 here while every other entry point
+  // clamped to the enum, so "nos" got written and then broke that BOQ's
+  // export→re-import — the parser rejects what the API had accepted.
+  it("rejects a unit outside ALLOWED_UNITS", () => {
+    expectFail(createBoqItemSchema, {
+      categoryId: VALID_UUID,
+      description: "Cabinet hardware fixtures",
+      unit: "nos",
+    });
+  });
+
+  it("rejects an off-enum unit on update too", () => {
+    expectFail(updateBoqItemSchema, {
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      unit: "nos",
+    });
+  });
+
   it("accepts all optional cost fields", () => {
     const data = expectPass(createBoqItemSchema, {
       categoryId: VALID_UUID,

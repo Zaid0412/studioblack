@@ -11,6 +11,9 @@ interface Props {
   label?: string;
   required?: boolean;
   disabled?: boolean;
+  /** Compact, code-only trigger — for the inline BOQ table cell. */
+  compact?: boolean;
+  triggerClassName?: string;
 }
 
 /** Searchable dropdown for the allowed element units (m2, lm, no, …) with translated labels. */
@@ -20,6 +23,8 @@ export function UnitSelect({
   label,
   required,
   disabled,
+  compact,
+  triggerClassName,
 }: Props) {
   const t = useTranslations("elements");
 
@@ -41,6 +46,9 @@ export function UnitSelect({
       required={required}
       disabled={disabled}
       codeColumnClassName="w-14"
+      triggerSize={compact ? "sm" : "md"}
+      hideTriggerName={compact}
+      triggerClassName={triggerClassName}
     />
   );
 }
