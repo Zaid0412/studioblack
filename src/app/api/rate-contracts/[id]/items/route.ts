@@ -54,6 +54,12 @@ export const POST = withAuth(
           { status: 400 }
         );
       }
+      if (result.reason === "category_not_service_area") {
+        return NextResponse.json(
+          { error: "Category must be a Service Area" },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ error: result.reason }, { status: 400 });
     }
     void logAuditSafe({

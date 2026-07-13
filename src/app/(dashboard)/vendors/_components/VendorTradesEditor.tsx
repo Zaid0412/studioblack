@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import useSWR from "swr";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +14,11 @@ import {
 } from "@/components/ui/select";
 import { VENDOR_PROFICIENCY_ICONS } from "@/lib/vendorLabels";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
-import { API } from "@/lib/api/routes";
+import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
+import { useCategoryTree } from "@/hooks/useCategoryTree";
 import { VENDOR_PROFICIENCIES } from "@/lib/validations";
-import type { ElementCategoryNode, VendorProficiency } from "@/types";
+import type { VendorProficiency } from "@/types";
 
 export interface TradeDraft {
   categoryId: string | null;
@@ -40,15 +41,16 @@ interface Props {
  * Vendor service-area picker. Labelled "Service areas" in the UI, but the
  * underlying entity is the `vendor_trade` table (vendor ↔ element_category
  * mapping with proficiency) — the internal `trade` naming is kept to avoid a
- * rename migration. `minDepth={1}` limits picks to sub-categories + leaf
- * service areas (top-level categories excluded).
+ * rename migration.
+ *
+ * A vendor may declare ZERO service areas — the list is optional. But a row
+ * that IS added names a Service Area (level 3), not a whole Sub-category, which
+ * `minDepth={1}` used to allow. A vendor covering all of "Cabinets" lists each
+ * area under it; that's what the list is for.
  */
 export function VendorTradesEditor({ trades, onChange }: Props) {
   const t = useTranslations("vendors");
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    API.elementCategories()
-  );
-  const tree = useMemo(() => catData?.tree ?? [], [catData]);
+  const { tree } = useCategoryTree();
 
   const usedIds = useMemo(
     () =>
@@ -95,7 +97,15 @@ export function VendorTradesEditor({ trades, onChange }: Props) {
                   value={tr.categoryId}
                   onChange={(id) => update(i, { categoryId: id })}
                   tree={tree}
-                  minDepth={1}
+                  selectableDepth={SERVICE_AREA_DEPTH}
+                  renderCreate={({ open, onOpenChange, onCreated }) => (
+                    <ServiceAreaDialog
+                      open={open}
+                      tree={tree}
+                      onOpenChange={onOpenChange}
+                      onCreated={onCreated}
+                    />
+                  )}
                 />
                 <Select
                   value={tr.proficiencyLevel}

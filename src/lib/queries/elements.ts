@@ -7,7 +7,7 @@ import {
   buildCategoryPathMap,
   normalizeCategorySegment,
   notAServiceAreaError,
-} from "@/lib/excel/elementParser";
+} from "@/lib/excel/categoryPaths";
 import type {
   Element,
   ElementAttribute,

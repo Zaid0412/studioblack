@@ -29,10 +29,12 @@ import type {
   AvailableRate,
   BoqItemWithComputed,
   BoqSection,
-  ElementCategoryNode,
   UserRole,
 } from "@/types";
-import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import {
+  ServiceAreaField,
+  useCategoryTree,
+} from "@/components/elements/ServiceAreaField";
 import type { BoqItemPhase } from "@/lib/validations";
 import { isExternalViewer } from "@/lib/roles";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
@@ -284,7 +286,10 @@ function buildPatch(
         patch.clientNotes = draft.clientNotes.trim() || null;
         break;
       case "categoryId":
-        patch.categoryId = draft.categoryId || null;
+        // Non-nullable now: an edit may move the line to another Service Area,
+        // not clear it. `dirty` only flags this field when it actually changed,
+        // and Save is blocked while it's empty.
+        if (draft.categoryId) patch.categoryId = draft.categoryId;
         break;
       case "quantity":
         patch.quantity = parseFloat(draft.quantity);
@@ -362,16 +367,19 @@ export function BoqItemDrawer({
       ? API.boqItemRates(projectId, item.id)
       : null
   );
-  // Service-area tree for the reclassify picker (studio-only).
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    open && !isExternal ? API.elementCategories() : null
-  );
-  const categoryTree = catData?.tree ?? [];
   // Buffered edit state. Seeded when a new item opens; NOT re-seeded on SWR
   // revalidation, so a background refresh can't clobber in-progress edits.
   const [draft, setDraft] = useState<DrawerDraft>(() =>
     item ? seedDraft(item) : EMPTY_DRAFT
   );
+
+  // Lines predating the rule carry no Service Area (or a level-1 one). They
+  // open fine; Save is what's blocked until one is chosen.
+  const { isServiceAreaId, loaded: categoriesLoaded } = useCategoryTree(
+    open && !isExternal
+  );
+  const serviceAreaChosen = isServiceAreaId(draft.categoryId || null);
+
   const [saving, setSaving] = useState(false);
   // RFQ-3d: in-flight state + confirm for the remove-from-scope action.
   const [excluding, setExcluding] = useState(false);
@@ -723,10 +731,10 @@ export function BoqItemDrawer({
                       {item.category_name ?? "—"}
                     </span>
                   ) : (
-                    <CategorySelect
+                    <ServiceAreaField
                       value={draft.categoryId || null}
                       onChange={(id) => setField({ categoryId: id ?? "" })}
-                      tree={categoryTree}
+                      requiredHint={tRc("serviceAreaRequiredLine")}
                     />
                   )}
                 </div>
@@ -1001,7 +1009,9 @@ export function BoqItemDrawer({
               {canEdit && (
                 <Button
                   type="button"
-                  disabled={!dirty || saving}
+                  disabled={
+                    !dirty || saving || (categoriesLoaded && !serviceAreaChosen)
+                  }
                   onClick={handleSave}
                 >
                   {saving ? "Saving..." : "Save"}

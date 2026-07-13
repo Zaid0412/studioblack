@@ -3,8 +3,14 @@ import type {
   BoqParseResult,
   ParsedBoqRow,
   ParsedBoqValues,
+  ElementCategory,
 } from "@/types";
 import { ALLOWED_UNITS } from "@/lib/validations";
+import {
+  buildCategoryLevelMap,
+  buildCategoryPathMap,
+  resolveCategoryPathCell,
+} from "./categoryPaths";
 import {
   buildParseEnvelope,
   cellBool,
@@ -34,6 +40,7 @@ const MAX_DATA_ROWS = 5_000;
 const TEMPLATE_COLUMNS = {
   sectionTitle: "Section",
   itemCode: "Item Code",
+  categoryPath: "Category Path",
   description: "Description",
   unit: "Unit",
   quantity: "Quantity",
@@ -58,6 +65,7 @@ type TemplateKey = keyof typeof TEMPLATE_COLUMNS;
 
 const REQUIRED_COLUMNS: readonly TemplateKey[] = [
   "description",
+  "categoryPath",
   "unit",
   "quantity",
   "unitCost",
@@ -114,8 +122,13 @@ export const BOQ_TEMPLATE_COLUMN_ORDER: TemplateKey[] = Object.keys(
  */
 export async function parseBoqSheet(
   buffer: Buffer,
-  elementsByCode: Map<string, BoqElementLite>
+  elementsByCode: Map<string, BoqElementLite>,
+  categories: Array<
+    Pick<ElementCategory, "id" | "name" | "parent_id" | "level">
+  >
 ): Promise<BoqParseResult> {
+  const pathMap = buildCategoryPathMap(categories);
+  const levelById = buildCategoryLevelMap(categories);
   const loaded = await loadAndResolveHeaders(buffer, TEMPLATE);
   if (!loaded) {
     return emptyParseEnvelope<TemplateKey, ParsedBoqRow>(TEMPLATE);
@@ -222,6 +235,28 @@ export async function parseBoqSheet(
       let linkedElement: BoqElementLite | undefined;
       if (values.itemCode) {
         linkedElement = elementsByCode.get(values.itemCode);
+      }
+
+      // ── Service Area (required). A row whose Item Code links to a library
+      //    element inherits that element's — so the path column is only needed
+      //    for free-text lines.
+      const inherited = linkedElement?.category_id ?? null;
+      if (!byKey.categoryPath) {
+        if (inherited) {
+          values.categoryId = inherited;
+        } else {
+          errors.push(
+            "Category Path is required — give the full path to a Service Area, e.g. 'Kitchen > Cabinets > Base Cabinets' (or use an Item Code that matches a library element)"
+          );
+        }
+      } else {
+        const resolved = resolveCategoryPathCell(
+          byKey.categoryPath,
+          pathMap,
+          levelById
+        );
+        if (resolved.ok) values.categoryId = resolved.id;
+        else errors.push(resolved.error);
       }
 
       const hasErrors = errors.length > 0;

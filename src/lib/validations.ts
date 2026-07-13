@@ -840,9 +840,11 @@ export const reorderSectionsSchema = z.object({
 export const createBoqItemSchema = z.object({
   sectionId: optionalUuid.nullable(),
   elementId: optionalUuid.nullable(),
-  // Direct service-area link. Classifies free-text lines (no element) so they
-  // still match rate contracts / drive vendor suggestion. Any tree level.
-  categoryId: optionalUuid.nullable(),
+  // Required, and must be a Service Area — it is what makes a line match rate
+  // contracts and drive vendor suggestion, so an unclassified line silently
+  // gets neither. The *level* is checked server-side in `requireServiceArea`;
+  // a schema can't see the org's taxonomy.
+  categoryId: uuid,
   itemCode: z.string().trim().max(50).optional(),
   name: z.string().trim().max(255).nullable().optional(),
   description: trimmedString,
@@ -888,7 +890,9 @@ export type BoqItemChangeReason = (typeof BOQ_ITEM_CHANGE_REASONS)[number];
 export const updateBoqItemSchema = z.object({
   updatedAt: updatedAtToken,
   sectionId: z.string().uuid().nullable().optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  // Non-nullable: an edit may move the line to another Service Area, but may
+  // not strip it back to unclassified.
+  categoryId: uuid.optional(),
   itemCode: z.string().trim().max(50).optional(),
   name: z.string().trim().max(255).nullable().optional(),
   description: z.string().trim().min(1).optional(),
@@ -998,6 +1002,9 @@ export const boqImportRowSchema = z.object({
   rowNumber: z.number().int().min(1),
   sectionTitle: z.string().trim().max(255).optional(),
   itemCode: z.string().trim().max(50).optional(),
+  // Resolved by the parser — from the row's Category Path, or inherited from
+  // the element its Item Code links to. Required either way.
+  categoryId: uuid,
   description: z.string().trim().min(1).max(2000),
   unit: z.enum(ALLOWED_UNITS),
   quantity: z.coerce.number().min(0).finite(),

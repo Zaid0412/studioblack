@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
+  requireServiceArea,
   createBoqItem,
   updateBoqItem,
   deleteBoqItem,
@@ -32,6 +33,7 @@ import type { BoqItemWithComputed } from "@/types";
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
 const PROJECT_ID = "proj-1";
+const CATEGORY_ID = "44444444-4444-4444-8444-444444444444";
 const BOQ_ID = "550e8400-e29b-41d4-a716-446655440000";
 const SECTION_ID = "550e8400-e29b-41d4-a716-446655440001";
 const ITEM_ID = "550e8400-e29b-41d4-a716-446655440003";
@@ -97,6 +99,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       method: "POST",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         description: "Laying tiles",
         unit: "m2",
         quantity: 10,
@@ -131,12 +134,64 @@ describe("POST /api/projects/[id]/boq/items", () => {
     expect(status).toBe(400);
   });
 
+  // The schema can only see that a UUID was sent; that it names a level-3
+  // Service Area (and belongs to this org) is checked in requireServiceArea.
+  it("returns 400 without a categoryId", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+    expect(createBoqItem).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the category is not a Service Area", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(requireServiceArea).mockRejectedValueOnce(
+      new Error("Category must be a Service Area")
+    );
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category must be a Service Area");
+    expect(createBoqItem).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when BOQ not owned by project", async () => {
     vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
       method: "POST",
-      body: { boqId: BOQ_ID, description: "x", unit: "m2" },
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "x",
+        unit: "m2",
+      },
     });
     const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
     const { status } = await parseResponse(res);
@@ -164,6 +219,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       method: "POST",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         description: "x",
         unit: "m2",
         quantity: -5,
@@ -181,7 +237,12 @@ describe("POST /api/projects/[id]/boq/items", () => {
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
       method: "POST",
-      body: { boqId: BOQ_ID, description: "x", unit: "m2" },
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "x",
+        unit: "m2",
+      },
     });
     const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
     const { status } = await parseResponse(res);
@@ -197,6 +258,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       method: "POST",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         description: "Concrete footing M25",
         unit: "m3",
         quantity: 1.875,
@@ -228,6 +290,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       method: "POST",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         description: "x",
         unit: "m2",
         length: -1,
@@ -247,6 +310,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       method: "POST",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         description: "Engineered oak",
         unit: "m2",
         quantity: 8.2,
@@ -274,6 +338,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
       method: "POST",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         description: "x",
         unit: "m2",
         dimensionUnit: "cm",
@@ -313,6 +378,7 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
     expect(body.description).toBe("Renamed");
     expect(updateBoqItem).toHaveBeenCalledWith(
       ITEM_ID,
+      "org-test-001",
       UPDATED_AT,
       expect.objectContaining({ description: "Renamed" }),
       expect.any(String)
@@ -345,6 +411,7 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
     expect(status).toBe(200);
     expect(updateBoqItem).toHaveBeenCalledWith(
       ITEM_ID,
+      "org-test-001",
       UPDATED_AT,
       expect.objectContaining({ dimensionUnit: "ft" }),
       expect.any(String)
@@ -384,7 +451,9 @@ describe("PATCH /api/projects/[id]/boq/items/[itemId]", () => {
     await PATCH_ITEM(req, buildParams({ id: PROJECT_ID, itemId: ITEM_ID }));
 
     const call = vi.mocked(updateBoqItem).mock.calls[0];
-    const fields = call[2];
+    // (itemId, orgId, updatedAt, fields, actorId) — orgId is what scopes the
+    // Service Area check to this org.
+    const fields = call[3];
     expect(fields).not.toHaveProperty("updatedAt");
     expect(fields.quantity).toBe(20);
   });
@@ -642,6 +711,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       method: "PATCH",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         sectionId: SECTION_ID,
         orderedIds: [ITEM_ID_2, ITEM_ID],
       },
@@ -664,6 +734,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       method: "PATCH",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         sectionId: null,
         orderedIds: [ITEM_ID],
       },
@@ -686,6 +757,53 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
     expect(status).toBe(400);
   });
 
+  // The schema can only see that a UUID was sent; that it names a level-3
+  // Service Area (and belongs to this org) is checked in requireServiceArea.
+  it("returns 400 without a categoryId", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+    expect(createBoqItem).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the category is not a Service Area", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(requireServiceArea).mockRejectedValueOnce(
+      new Error("Category must be a Service Area")
+    );
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category must be a Service Area");
+    expect(createBoqItem).not.toHaveBeenCalled();
+  });
+
   it("returns 404 when BOQ not owned by project", async () => {
     vi.mocked(verifyBoqOwnership).mockResolvedValue(false);
 
@@ -693,6 +811,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       method: "PATCH",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         sectionId: SECTION_ID,
         orderedIds: [ITEM_ID],
       },
@@ -710,6 +829,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       method: "PATCH",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         sectionId: "not-uuid",
         orderedIds: [ITEM_ID],
       },
@@ -728,6 +848,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
       method: "PATCH",
       body: {
         boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
         sectionId: SECTION_ID,
         orderedIds: [ITEM_ID],
       },
@@ -840,6 +961,53 @@ describe("POST /api/projects/[id]/boq/items/from-element", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
+  });
+
+  // The schema can only see that a UUID was sent; that it names a level-3
+  // Service Area (and belongs to this org) is checked in requireServiceArea.
+  it("returns 400 without a categoryId", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+    expect(createBoqItem).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the category is not a Service Area", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(requireServiceArea).mockRejectedValueOnce(
+      new Error("Category must be a Service Area")
+    );
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category must be a Service Area");
+    expect(createBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
@@ -1005,6 +1173,53 @@ describe("POST /api/projects/[id]/boq/items/from-elements", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
+  });
+
+  // The schema can only see that a UUID was sent; that it names a level-3
+  // Service Area (and belongs to this org) is checked in requireServiceArea.
+  it("returns 400 without a categoryId", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(400);
+    expect(createBoqItem).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the category is not a Service Area", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(requireServiceArea).mockRejectedValueOnce(
+      new Error("Category must be a Service Area")
+    );
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "Laying tiles",
+        unit: "m2",
+        quantity: 10,
+        unitCost: 100,
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ error: string }>(res);
+
+    expect(status).toBe(400);
+    expect(body.error).toBe("Category must be a Service Area");
+    expect(createBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 404 when BOQ not owned by project", async () => {

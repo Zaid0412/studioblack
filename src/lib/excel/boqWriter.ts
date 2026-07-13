@@ -1,13 +1,16 @@
 import ExcelJS from "exceljs";
-import type { BoqItemWithComputed, BoqSection } from "@/types";
+import type { BoqItemWithComputed, BoqSection, ElementCategory } from "@/types";
 import {
   BOQ_TEMPLATE_COLUMN_LABELS,
   BOQ_TEMPLATE_COLUMN_ORDER,
 } from "./boqParser";
+import { buildCategoryPathById } from "./categoryPaths";
 
 export interface BoqExportInput {
   items: BoqItemWithComputed[];
   sections: BoqSection[];
+  /** Resolves each line's Service Area to a "A > B > C" path for the sheet. */
+  categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>;
 }
 
 /**
@@ -21,6 +24,9 @@ export interface BoqExportInput {
  */
 export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
   const sectionById = new Map(boq.sections.map((s) => [s.id, s]));
+  // Category Path is a required import column, so the export must emit it or an
+  // exported sheet couldn't be re-imported — the round-trip this file promises.
+  const pathById = buildCategoryPathById(boq.categories);
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "StudioBlack";
@@ -40,6 +46,9 @@ export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
     ws.addRow({
       sectionTitle: section?.title ?? "",
       itemCode: item.item_code,
+      categoryPath: item.category_id
+        ? (pathById.get(item.category_id) ?? []).join(" > ")
+        : "",
       description: item.description,
       unit: item.unit,
       quantity: toNumber(item.quantity),

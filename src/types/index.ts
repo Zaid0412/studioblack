@@ -851,6 +851,8 @@ export interface BoqElementLite {
   id: string;
   code: string;
   name: string;
+  /** The element's Service Area — an import row linked by code inherits it. */
+  category_id: string | null;
 }
 
 /** Allowed BOQ units — single source of truth is `ALLOWED_UNITS` in validations.ts. */
@@ -864,6 +866,12 @@ export interface ParsedBoqValues {
   rowNumber: number;
   sectionTitle?: string;
   itemCode?: string;
+  /**
+   * The Service Area the line sits under — required. Either supplied as a
+   * `Category Path` cell, or inherited from the element the row's Item Code
+   * links to.
+   */
+  categoryId: string;
   description: string;
   unit: BoqUnit;
   quantity: number;

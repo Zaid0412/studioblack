@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/withAuth";
-import { getBoqByProject, getElementsByCodeMap } from "@/lib/queries";
+import {
+  getBoqByProject,
+  getCategoryTree,
+  getElementsByCodeMap,
+} from "@/lib/queries";
 import { parseBoqSheet } from "@/lib/excel/boqParser";
 import { validateXlsxUpload } from "@/lib/excel/uploadGuard";
 import { BOQ_IMPORT_MAX_BYTES } from "@/lib/validations";
@@ -38,10 +42,19 @@ export const POST = withAuth(
       );
     }
 
-    const elementsByCode = await getElementsByCodeMap(orgId);
+    // The tree resolves each row's Category Path, and lets a row linked to a
+    // library element by Item Code inherit that element's Service Area.
+    const [elementsByCode, categories] = await Promise.all([
+      getElementsByCodeMap(orgId),
+      getCategoryTree(orgId),
+    ]);
 
     try {
-      const result = await parseBoqSheet(upload.buffer, elementsByCode);
+      const result = await parseBoqSheet(
+        upload.buffer,
+        elementsByCode,
+        categories
+      );
       return NextResponse.json({ ...result, boqId: boq.id });
     } catch (err) {
       const message =

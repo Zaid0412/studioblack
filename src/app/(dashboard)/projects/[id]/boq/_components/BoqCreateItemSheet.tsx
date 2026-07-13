@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import useSWR from "swr";
 import { Plus, X, Save } from "lucide-react";
 import {
   Sheet,
@@ -22,16 +21,12 @@ import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { elements as elementsApi, ApiError } from "@/lib/api";
-import { API } from "@/lib/api/routes";
-import type { BoqSection, ElementCategoryNode } from "@/types";
+import type { BoqSection } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
-import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import {
-  SERVICE_AREA_DEPTH,
-  flattenCategories,
-  isServiceArea,
-} from "@/app/(dashboard)/elements/_lib/categoryUtils";
-import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
+  ServiceAreaField,
+  useCategoryTree,
+} from "@/components/elements/ServiceAreaField";
 import {
   BOQ_NO_SECTION_ID,
   convertDimensions,
@@ -83,7 +78,7 @@ interface FormState {
   notes: string;
   saveAsElement: boolean;
   /**
-   * Service area for the line (any tree level). Classifies the BOQ item so it
+   * The line's Service Area (level 3 — required). Classifies the BOQ item so it
    * matches rate contracts / drives vendor suggestion even when it's free-text
    * (not saved to the library). Reused as the element's category when saving.
    */
@@ -162,19 +157,7 @@ export function BoqCreateItemSheet({
   // the sheet opens.
   const [manualQty, setManualQty] = useState(false);
 
-  const { data: catData } = useSWR<{ tree: ElementCategoryNode[] }>(
-    open ? API.elementCategories() : null
-  );
-  // Memoized so the `?? []` doesn't mint a fresh array identity each render,
-  // which would defeat the memo below.
-  const categoryTree = useMemo(() => catData?.tree ?? [], [catData?.tree]);
-  // This sheet re-renders on every keystroke and every dimension change, and
-  // the walk allocates a label per node — so key it off the tree.
-  const categoryOptions = useMemo(
-    () => flattenCategories(categoryTree),
-    [categoryTree]
-  );
-  const serviceAreaChosen = isServiceArea(categoryOptions, v.categoryId);
+  const { isServiceAreaId } = useCategoryTree(open);
 
   useEffect(() => {
     if (!open) return;
@@ -353,37 +336,37 @@ export function BoqCreateItemSheet({
       return;
     }
 
-    if (v.saveAsElement) {
-      if (!trimmedName) {
-        toast({
-          title: "Name required",
-          description: "A name is required to save as an element.",
-          variant: "error",
-        });
-        return;
-      }
-      // A BOQ item may sit at any level of the tree; a library element may not.
-      // Same picker, so the constraint only applies when the box is ticked.
-      if (!serviceAreaChosen) {
-        toast({
-          title: "Service Area required",
-          description:
-            "Library elements must sit under a Service Area. Pick one, or untick 'save as element'.",
-          variant: "error",
-        });
-        return;
-      }
+    // Every line, not just the ones saved to the library. The guard narrows
+    // `categoryId` to a non-null id for the two payloads below.
+    const categoryId = v.categoryId;
+    if (!isServiceAreaId(categoryId)) {
+      toast({
+        title: "Service Area required",
+        description:
+          "A BOQ line must sit under a Service Area — it's what matches it to rate contracts and vendors.",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (v.saveAsElement && !trimmedName) {
+      toast({
+        title: "Name required",
+        description: "A name is required to save as an element.",
+        variant: "error",
+      });
+      return;
     }
 
     setSubmitting(true);
     try {
       let elementId: string | null = null;
 
-      if (v.saveAsElement && v.categoryId) {
+      if (v.saveAsElement) {
         const element = await elementsApi.create({
           name: trimmedName,
           description: trimmedDesc,
-          categoryId: v.categoryId,
+          categoryId,
           unit: v.unit,
           unitCost: num(v.unitCost, 0),
           currency: v.currency,
@@ -413,7 +396,7 @@ export function BoqCreateItemSheet({
         boqId,
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
         elementId,
-        categoryId: v.categoryId ?? null,
+        categoryId,
         itemCode: trimmedCode || undefined,
         // Persist even when `saveAsElement` is off — the BOQ item's own
         // `name` is what the drawer shows when there's no linked element.
@@ -516,29 +499,16 @@ export function BoqCreateItemSheet({
               nextSortOrder={sections.length}
             />
 
-            {/* Classifies the line so it can match rate contracts / vendor
-                suggestion, even when it's free-text. A BOQ item may sit at any
-                level of the tree — but if it's also being saved to the library,
-                the element it becomes must sit under a Service Area. */}
-            <CategorySelect
+            {/* Required on every line, not just the ones going to the library:
+                the Service Area is what makes a line match rate contracts and
+                drive vendor suggestion, so an unclassified line silently gets
+                neither. Lines added FROM the library inherit their element's. */}
+            <ServiceAreaField
               label="Service area"
               value={v.categoryId}
               onChange={(id) => set("categoryId", id)}
-              tree={categoryTree}
-              selectableDepth={v.saveAsElement ? SERVICE_AREA_DEPTH : 0}
-              required={v.saveAsElement}
-              renderCreate={
-                v.saveAsElement
-                  ? ({ open, onOpenChange, onCreated }) => (
-                      <ServiceAreaDialog
-                        open={open}
-                        tree={categoryTree}
-                        onOpenChange={onOpenChange}
-                        onCreated={onCreated}
-                      />
-                    )
-                  : undefined
-              }
+              requiredHint="A BOQ line must sit under a Service Area"
+              enabled={open}
             />
 
             {/* Description */}

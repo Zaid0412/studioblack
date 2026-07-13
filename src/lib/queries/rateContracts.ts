@@ -19,7 +19,11 @@ import { RATE_CONTRACT_TRANSITIONS } from "@/lib/validations";
 import { escapeSqlLike } from "./helpers";
 import { toIso } from "@/lib/formatTime";
 import { mapPgError } from "./_pgErrors";
-import { getNextSequenceNumber, requireServiceArea } from "./sequences";
+import {
+  checkServiceAreas,
+  getNextSequenceNumber,
+  requireServiceArea,
+} from "./sequences";
 
 export interface RateContractFilters {
   search?: string;
@@ -903,16 +907,17 @@ export async function addRateContractItems(
     }
     const contractCurrency = contract.rows[0].currency as string;
 
-    // Every item targets a service area: validate the categories exist in this
-    // org so a stale/invalid id returns a clean reason instead of a raw FK 500.
-    const categoryIds = [...new Set(items.map((i) => i.categoryId))];
-    const categoryRows = await client.query(
-      `SELECT id FROM element_category WHERE org_id = $1 AND id = ANY($2::uuid[])`,
-      [orgId, categoryIds]
+    // Every item targets a service area — validate that literally, not just
+    // that the category exists. The non-throwing form, because we owe the
+    // caller a typed reason and this transaction a ROLLBACK.
+    const categories = await checkServiceAreas(
+      client,
+      orgId,
+      items.map((i) => i.categoryId)
     );
-    if (categoryRows.rows.length !== categoryIds.length) {
+    if (!categories.ok) {
       await client.query("ROLLBACK");
-      return { ok: false, reason: "category_not_found" };
+      return { ok: false, reason: categories.reason };
     }
 
     // Validate element overrides only (service-area rates carry no element):

@@ -1,6 +1,10 @@
 import type { ElementCategory } from "@/types";
-import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import { ALLOWED_UNITS, type ElementUnit } from "@/lib/validations";
+import {
+  buildCategoryLevelMap,
+  buildCategoryPathMap,
+  resolveCategoryPathCell,
+} from "./categoryPaths";
 import {
   buildParseEnvelope,
   emptyParseEnvelope,
@@ -133,80 +137,6 @@ const OPTIONAL_STRING_FIELDS = [
   ["drawingRef", "Drawing Ref", 255],
 ] as const;
 
-/**
- * Normalize a category path segment for lookup. Unlike headers, category
- * names are case-sensitive by design ("PVC" ≠ "Pvc"); we only trim and
- * collapse inner whitespace.
- */
-export function normalizeCategorySegment(s: string): string {
-  return s
-    .replace(/^\uFEFF/, "")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-// ── Category resolution ─────────────────────────────────────────────────────
-
-/** Build a `"root > child > leaf"` → categoryId map for path lookup. */
-export function buildCategoryPathMap(
-  categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
-): Map<string, string> {
-  const byId = new Map(categories.map((c) => [c.id, c]));
-  const map = new Map<string, string>();
-  for (const cat of categories) {
-    const parts: string[] = [cat.name];
-    let parentId = cat.parent_id;
-    while (parentId) {
-      const parent = byId.get(parentId);
-      if (!parent) break;
-      parts.unshift(parent.name);
-      parentId = parent.parent_id;
-    }
-    const key = parts.map(normalizeCategorySegment).join(" > ");
-    map.set(key, cat.id);
-  }
-  return map;
-}
-
-/**
- * categoryId → tree level. Both the preview parser and the bulk-upsert writer
- * need it to reject a path that doesn't name a Service Area.
- */
-export function buildCategoryLevelMap(
-  categories: Array<Pick<ElementCategory, "id" | "level">>
-): Map<string, number> {
-  return new Map(categories.map((c) => [c.id, c.level]));
-}
-
-/**
- * Shared message for the level check. The parser rejects at preview time and
- * `bulkUpsertElements` rejects again at write time (the write path is reachable
- * without the preview) — so the two must not drift apart.
- */
-export function notAServiceAreaError(path: string[]): string {
-  return `Category path "${path.join(" > ")}" is not a Service Area — elements must sit under one`;
-}
-
-/** Inverse map: categoryId → `["root", "child", "leaf"]` for the export writer. */
-export function buildCategoryPathById(
-  categories: Array<Pick<ElementCategory, "id" | "name" | "parent_id">>
-): Map<string, string[]> {
-  const byId = new Map(categories.map((c) => [c.id, c]));
-  const map = new Map<string, string[]>();
-  for (const cat of categories) {
-    const parts: string[] = [cat.name];
-    let parentId = cat.parent_id;
-    while (parentId) {
-      const parent = byId.get(parentId);
-      if (!parent) break;
-      parts.unshift(parent.name);
-      parentId = parent.parent_id;
-    }
-    map.set(cat.id, parts);
-  }
-  return map;
-}
-
 // ── Parse ───────────────────────────────────────────────────────────────────
 
 /**
@@ -310,27 +240,13 @@ export async function parseElementSheet(
           "Category Path is required — give the full path to a Service Area, e.g. 'Kitchen > Cabinets > Base Cabinets'"
         );
       } else {
-        const rawSegments = byKey.categoryPath.split(">").map((s) => s.trim());
-        const hasEmptySegment = rawSegments.some((s) => s.length === 0);
-        if (rawSegments.length === 0 || hasEmptySegment) {
-          errors.push(
-            "Category Path has empty segments — use 'A > B > C' with non-empty labels"
-          );
-        } else {
-          const lookupKey = rawSegments
-            .map(normalizeCategorySegment)
-            .join(" > ");
-          const resolved = pathMap.get(lookupKey);
-          if (!resolved) {
-            errors.push(
-              `Category path "${rawSegments.join(" > ")}" not found in this org`
-            );
-          } else if (levelById.get(resolved) !== SERVICE_AREA_LEVEL) {
-            errors.push(notAServiceAreaError(rawSegments));
-          } else {
-            values.categoryPath = rawSegments;
-          }
-        }
+        const resolved = resolveCategoryPathCell(
+          byKey.categoryPath,
+          pathMap,
+          levelById
+        );
+        if (resolved.ok) values.categoryPath = resolved.segments;
+        else errors.push(resolved.error);
       }
 
       // ── Duplicate code within the sheet

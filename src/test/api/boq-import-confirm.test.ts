@@ -38,6 +38,9 @@ const clientSession = mockSession({ role: "client" });
 
 const goodRow = {
   rowNumber: 1,
+  // Resolved by the parser (from a Category Path, or inherited from the row's
+  // linked element) — required by the time it reaches confirm.
+  categoryId: "44444444-4444-4444-8444-444444444444",
   description: "Slab 100mm",
   unit: "m2",
   quantity: 50,

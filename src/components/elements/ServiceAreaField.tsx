@@ -9,7 +9,8 @@ import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtil
 interface Props {
   value: string | null;
   onChange: (id: string | null) => void;
-  label: string;
+  /** Omitted inside a table row, where the column header is the label. */
+  label?: string;
   /** Shown under the field when nothing valid is picked. */
   requiredHint: string;
   /** Only fetch the tree while the host dialog is open. */

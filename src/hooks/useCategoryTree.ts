@@ -34,8 +34,10 @@ export function useCategoryTree(enabled = true) {
     [tree]
   );
 
+  // A type guard, so a host that gates its submit on this also gets the
+  // non-null narrowing it needs to send the id.
   const isServiceAreaId = useCallback(
-    (id: string | null) => isServiceArea(options, id),
+    (id: string | null): id is string => isServiceArea(options, id),
     [options]
   );
 

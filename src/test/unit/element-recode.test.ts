@@ -52,7 +52,7 @@ describe("updateElement — re-code on category change", () => {
   it("reissues a grandfathered GEN code under its new Service Area", async () => {
     queue([
       { rows: [] }, // BEGIN
-      { rows: [{ level: 3, code_prefix: "KIT-CAB-BASE" }] }, // requireServiceArea
+      { rows: [{ id: SERVICE_AREA, level: 3, code_prefix: "KIT-CAB-BASE" }] }, // requireServiceArea
       { rows: [{ code: "GEN-0001" }] }, // current code — stale
       { rows: [{ current_value: 6 }] }, // counter bump
       { rows: [] }, // advisory lock
@@ -72,7 +72,7 @@ describe("updateElement — re-code on category change", () => {
   it("leaves the code alone when it already sits under that Service Area", async () => {
     queue([
       { rows: [] }, // BEGIN
-      { rows: [{ level: 3, code_prefix: "KIT-CAB-BASE" }] }, // requireServiceArea
+      { rows: [{ id: SERVICE_AREA, level: 3, code_prefix: "KIT-CAB-BASE" }] }, // requireServiceArea
       { rows: [{ code: "KIT-CAB-BASE-0002" }] }, // current code — already correct
       { rows: [{ id: ELEMENT_ID }] }, // UPDATE
       { rows: [] }, // attributes
@@ -96,7 +96,7 @@ describe("updateElement — re-code on category change", () => {
   it("refuses to move an element under a Sub-category", async () => {
     queue([
       { rows: [] }, // BEGIN
-      { rows: [{ level: 2, code_prefix: "KIT-CAB" }] }, // requireServiceArea
+      { rows: [{ id: SERVICE_AREA, level: 2, code_prefix: "KIT-CAB" }] }, // requireServiceArea
       { rows: [] }, // ROLLBACK
     ]);
 

@@ -2,20 +2,33 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import ExcelJS from "exceljs";
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/projects/[id]/boq/import/route";
-import { getBoqByProject, getElementsByCodeMap } from "@/lib/queries";
+import {
+  getBoqByProject,
+  getCategoryTree,
+  getElementsByCodeMap,
+} from "@/lib/queries";
 import {
   mockSession,
   setupAuth,
   parseResponse,
   BASE_URL,
   buildParams,
+  SERVICE_AREA_CHAIN,
+  SERVICE_AREA_PATH,
 } from "../helpers";
 import { mocks } from "../setup";
 
 const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
 const BOQ_ID = "22222222-2222-4222-8222-222222222222";
 
-const HEADERS = ["Description", "Unit", "Quantity", "Unit Cost"];
+const HEADERS = [
+  "Category Path",
+  "Description",
+  "Unit",
+  "Quantity",
+  "Unit Cost",
+];
+const SERVICE_AREA_CELL = SERVICE_AREA_PATH.join(" > ");
 
 async function sheetBuffer(
   rows: (string | number | null)[][],
@@ -78,11 +91,16 @@ beforeEach(() => {
   setupAuth(mocks.auth, pmSession);
   stubBoq("draft");
   vi.mocked(getElementsByCodeMap).mockResolvedValue(new Map());
+  vi.mocked(getCategoryTree).mockResolvedValue(
+    SERVICE_AREA_CHAIN.map((c) => ({ ...c, element_count: 0 }))
+  );
 });
 
 describe("POST /api/projects/[id]/boq/import", () => {
   it("parses a valid sheet and returns rows + boqId", async () => {
-    const buf = await sheetBuffer([["Slab 100mm", "m2", 50, 45]]);
+    const buf = await sheetBuffer([
+      [SERVICE_AREA_CELL, "Slab 100mm", "m2", 50, 45],
+    ]);
     const file = new File([buf], "boq.xlsx", {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
