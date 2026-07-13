@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { DEFAULT_CURRENCY } from "@/lib/constants";
+import { DEFAULT_CURRENCY, DEFAULT_ELEMENT_UNIT } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,6 +29,7 @@ import {
 } from "@/components/elements/ServiceAreaField";
 import {
   BOQ_NO_SECTION_ID,
+  DEFAULT_DIMENSION_UNIT,
   convertDimensions,
   formatFeetInches,
   parseDimensionValue,
@@ -37,8 +38,6 @@ import {
 } from "../_lib/formatters";
 import { BoqDimensionUnitToggle } from "./BoqDimensionUnitToggle";
 import { BoqSectionSelect } from "./BoqSectionSelect";
-
-const DEFAULT_UNIT: ElementUnit = "no";
 
 interface Attribute {
   attribute_key: string;
@@ -91,7 +90,7 @@ const INITIAL: FormState = {
   name: "",
   sectionId: BOQ_NO_SECTION_ID,
   description: "",
-  unit: DEFAULT_UNIT,
+  unit: DEFAULT_ELEMENT_UNIT,
   currency: DEFAULT_CURRENCY,
   quantity: "1",
   unitCost: "0",
@@ -105,7 +104,7 @@ const INITIAL: FormState = {
   length: "",
   breadth: "",
   height: "",
-  dimensionUnit: "m",
+  dimensionUnit: DEFAULT_DIMENSION_UNIT,
   specReference: "",
   drawingRef: "",
   drawingFileUrl: null,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_CURRENCY } from "@/lib/constants";
+import { DEFAULT_CURRENCY, DEFAULT_ELEMENT_UNIT } from "@/lib/constants";
 import { withAuth } from "@/lib/withAuth";
 import {
   writeElementSheet,
@@ -53,7 +53,7 @@ function buildSampleRows(): WritableElement[] {
       code: "SAMPLE-001",
       name: "Porcelain Floor Tile 600x600",
       description: "Glazed porcelain, rectified edges",
-      unit: "m2",
+      unit: DEFAULT_ELEMENT_UNIT,
       unit_cost: "45.00",
       currency: DEFAULT_CURRENCY,
       material_cost: "30.00",

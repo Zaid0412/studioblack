@@ -241,6 +241,14 @@ export function parseOptionalNumber(input: string): number | null {
 export const DIMENSION_UNITS = ["m", "ft"] as const;
 export type DimensionUnit = (typeof DIMENSION_UNITS)[number];
 
+/**
+ * What the dimension toggle starts on for a NEW line. Distinct from the column
+ * default: rows written before this (and any import that omits the column) are
+ * stored as 'm', and are still *read* as 'm' — flipping this would silently
+ * reinterpret their length/breadth/height.
+ */
+export const DEFAULT_DIMENSION_UNIT: DimensionUnit = "ft";
+
 export const FT_TO_M = 0.3048;
 export const M_TO_FT = 1 / FT_TO_M;
 

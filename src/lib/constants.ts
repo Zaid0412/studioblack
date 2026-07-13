@@ -42,3 +42,11 @@ export const DEFAULT_PAGE_LIMIT = 200;
  * one-file change.
  */
 export const DEFAULT_CURRENCY = "INR";
+
+/**
+ * The unit a new element or BOQ line starts on. Same shape of decision as
+ * `DEFAULT_CURRENCY` — a product default, not a schema one, so it lives here
+ * rather than as a `.default()` on the Zod schema: an import that omits the
+ * Unit column should still fail rather than silently become square feet.
+ */
+export const DEFAULT_ELEMENT_UNIT = "sqft";

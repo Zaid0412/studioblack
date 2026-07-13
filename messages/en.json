@@ -820,9 +820,9 @@
     "attributeUnit": "Unit",
     "unitLabels": {
       "m2": "Square metre",
-      "sqft": "Square foot",
+      "sqft": "Square feet",
       "m3": "Cubic metre",
-      "cuft": "Cubic foot",
+      "cuft": "Cubic feet",
       "lm": "Linear metre",
       "no": "Number (No.)",
       "item": "Item",
