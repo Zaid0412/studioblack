@@ -19,9 +19,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import { ServiceAreaSelect } from "@/components/elements/ServiceAreaSelect";
 import { serviceAreaCreate } from "@/components/elements/ServiceAreaDialog";
-import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { cn } from "@/lib/utils";
 import { toIsoDate, fromIsoDate } from "@/lib/formatDate";
 import { elements as elementsApi } from "@/lib/api";
@@ -246,18 +245,15 @@ export function RateContractItemPicker({
             <label className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               {t("itemPickerAddArea")}
             </label>
-            {/* The label says "service area", so only let one be picked —
-                `minDepth={1}` used to admit a Sub-category too, which is why a
-                level-1 node ended up on an existing contract. Ancestors stay
-                visible (greyed) for context, matching the element + header
-                pickers. Existing off-level items are untouched; this only gates
-                what can be added from here. */}
-            <CategorySelect
+            {/* Used as an action, not a field: it holds no value, so every open
+                starts back at the Category level and picking a leaf adds a draft
+                row below rather than filling the trigger in. Existing off-level
+                items on old contracts are untouched — this only gates what can
+                be added from here. */}
+            <ServiceAreaSelect
               value={null}
               onChange={(id) => addDraft(id)}
               tree={catData?.tree ?? []}
-              selectableDepth={SERVICE_AREA_DEPTH}
-              clearable={false}
               placeholder={t("itemPickerAreaPlaceholder")}
               // Inline create builds the whole Category › Sub-category › Service
               // Area chain — the generic category form deliberately can't reach

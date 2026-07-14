@@ -295,15 +295,11 @@ export function VendorFormDialog({
             isSecondary: c.isSecondary,
             receivesRfq: c.receivesRfq,
           })),
-        trades: values.trades
-          .filter((tr): tr is TradeDraft & { categoryId: string } =>
-            Boolean(tr.categoryId)
-          )
-          .map((tr) => ({
-            categoryId: tr.categoryId,
-            proficiencyLevel: tr.proficiencyLevel,
-            notes: opt(tr.notes),
-          })),
+        trades: values.trades.map((tr) => ({
+          categoryId: tr.categoryId,
+          proficiencyLevel: tr.proficiencyLevel,
+          notes: opt(tr.notes),
+        })),
       });
     } catch (err) {
       // Validation/conflict errors carry the offending `field` → flag that

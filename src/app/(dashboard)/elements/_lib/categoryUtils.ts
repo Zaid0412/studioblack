@@ -3,11 +3,17 @@ import type { ElementCategoryNode } from "@/types";
 
 export interface CategoryOption {
   id: string;
+  /** The node's own name — what a picker row shows once the path is implied. */
+  name: string;
   label: string;
+  /** The names above it, own name last: `["Kitchen", "Cabinets", "Base"]`. */
+  path: string[];
   /** Full path code (`KIT-CAB`) — what a child's code is composed onto. */
   codePrefix: string | null;
   /** 0-indexed tree depth: 0 = Category, 1 = Sub-category, 2 = Service Area. */
   depth: number;
+  icon: string | null;
+  color: string | null;
 }
 
 /**
@@ -41,15 +47,59 @@ export function flattenCategories(
       const nextPath = [...path, node.name];
       out.push({
         id: node.id,
+        name: node.name,
         label: nextPath.join(" › "),
+        path: nextPath,
         codePrefix: node.code_prefix,
         depth,
+        icon: node.icon,
+        color: node.color,
       });
       if (node.children.length > 0) walk(node.children, nextPath, depth + 1);
     }
   };
   walk(tree, [], 0);
   return out;
+}
+
+/**
+ * Where a node sits in the tree, expressed as the drill-down cursor that shows
+ * it: the Category you must be inside, and the Sub-category under that (null at
+ * the top). Note this resolves *to the node's own list*, not to its parent —
+ * a Category resolves to itself, so a picker seeded with it lands on its
+ * Sub-categories; a Service Area resolves to its Sub-category, so a picker
+ * seeded with it lands on its siblings with itself among them.
+ */
+export interface CategoryLocation {
+  category: ElementCategoryNode;
+  sub: ElementCategoryNode | null;
+  depth: number;
+}
+
+/**
+ * Index every node by id → the cursor that reveals it. This is what lets a
+ * picker open *where the current value lives* rather than back at the root,
+ * at any depth — including a grandfathered value that names a Category or
+ * Sub-category instead of a Service Area, where landing on that node's children
+ * is exactly the list the user has to choose from to fix the record.
+ *
+ * An id that isn't in the tree is absent from the map; callers fall back to the
+ * root, which is also what happens while the tree is still loading.
+ */
+export function buildCategoryIndex(
+  tree: ElementCategoryNode[]
+): Map<string, CategoryLocation> {
+  const index = new Map<string, CategoryLocation>();
+  for (const category of tree) {
+    index.set(category.id, { category, sub: null, depth: 0 });
+    for (const sub of category.children) {
+      index.set(sub.id, { category, sub, depth: 1 });
+      for (const area of sub.children) {
+        index.set(area.id, { category, sub, depth: 2 });
+      }
+    }
+  }
+  return index;
 }
 
 /**

@@ -1,10 +1,9 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import { ServiceAreaSelect } from "@/components/elements/ServiceAreaSelect";
 import { serviceAreaCreate } from "@/components/elements/ServiceAreaDialog";
 import { useCategoryTree } from "@/hooks/useCategoryTree";
-import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
 interface Props {
   value: string | null;
@@ -22,14 +21,12 @@ interface Props {
  * Pick the Service Area something belongs to, and build one inline if it
  * doesn't exist yet.
  *
- * The picker deliberately still *shows* Categories and Sub-categories — greyed
- * out — because a leaf like "Base Cabinets" is unreadable without "Kitchen ›
- * Cabinets" above it, and because a grandfathered record pointing at a shallower
- * node must keep displaying its current value rather than showing blank.
- *
  * The hint only appears once the tree has loaded: until then nothing can be
  * resolved to a Service Area, and flashing "this is required" at a record that
- * already has one is a lie.
+ * already has one is a lie. It is what a grandfathered record — one pointing at
+ * a Category rather than a Service Area — shows instead of silently passing;
+ * the picker still renders that value, and opens on the children it must be
+ * replaced with.
  */
 export function ServiceAreaField({
   value,
@@ -44,13 +41,11 @@ export function ServiceAreaField({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <CategorySelect
+      <ServiceAreaSelect
         label={label}
         value={value}
         onChange={onChange}
         tree={tree}
-        selectableDepth={SERVICE_AREA_DEPTH}
-        clearable={false}
         disabled={disabled}
         // Always marked: the asterisk states that the record needs one, which
         // stays true while the field is locked. (The *hint* below is suppressed

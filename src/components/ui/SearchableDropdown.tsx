@@ -18,6 +18,13 @@ interface SearchableDropdownProps {
    */
   headerSlot?: ReactNode | ((close: () => void) => ReactNode);
   /**
+   * Rendered between the search input and the scroll area — pinned, so it
+   * doesn't scroll away with the list, and outside the `isEmpty` branch, so it
+   * survives an empty one. A drill-down breadcrumb needs both: it is how you
+   * climb back out of a branch that turned out to be empty.
+   */
+  subheaderSlot?: (query: string, close: () => void) => ReactNode;
+  /**
    * Called with the lowercased, trimmed query string and a `close()`
    * callback. Parent owns filtering and decides when selections should
    * dismiss the popover.
@@ -29,6 +36,8 @@ interface SearchableDropdownProps {
   minContentWidth?: number;
   maxListHeight?: number;
   align?: "start" | "center" | "end";
+  /** Fires on open and on close. The popover still owns its own open state. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -45,12 +54,14 @@ interface SearchableDropdownProps {
 export function SearchableDropdown({
   trigger,
   headerSlot,
+  subheaderSlot,
   children,
   isEmpty,
   emptyLabel,
   minContentWidth = 260,
   maxListHeight = 280,
   align = "start",
+  onOpenChange,
 }: SearchableDropdownProps) {
   const t = useTranslations("common");
   const [open, setOpen] = useState(false);
@@ -65,6 +76,7 @@ export function SearchableDropdown({
       onOpenChange={(o) => {
         setOpen(o);
         if (!o) setQuery("");
+        onOpenChange?.(o);
       }}
     >
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -88,6 +100,7 @@ export function SearchableDropdown({
               autoFocus
             />
           </div>
+          {subheaderSlot?.(normalizedQuery, close)}
           <div
             className="overflow-y-auto py-1"
             style={{ maxHeight: maxListHeight }}
