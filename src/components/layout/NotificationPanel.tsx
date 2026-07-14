@@ -266,7 +266,7 @@ function NotificationCard({
                 onReject();
               }}
             >
-              {t("decline")}
+              {t("reject")}
             </Button>
           </div>
         )}

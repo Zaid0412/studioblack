@@ -2,6 +2,7 @@
   "common": {
     "appName": "StudioBlack",
     "loading": "Yükleniyor...",
+    "notes": "Notlar",
     "save": "Kaydet",
     "cancel": "İptal",
     "delete": "Sil",
@@ -853,6 +854,7 @@
     "categoryParent": "Üst kategori",
     "categoryParentNone": "Yok (kök)",
     "categoryParentHint": "Üst kategori seçilmezse bir Kategori oluşturulur. Birini seçerseniz onun altında bir Alt kategori oluşturulur. Hizmet Alanları, bir Alt kategori satırındaki + ile eklenir.",
+    "categoryCodePrefix": "Kod",
     "categoryCodeSegment": "Kod",
     "categoryCodeSegmentPlaceholder": "örn. BASE",
     "categoryCodeComposed": "Tam kod: {code}",

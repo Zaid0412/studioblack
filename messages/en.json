@@ -2,6 +2,7 @@
   "common": {
     "appName": "StudioBlack",
     "loading": "Loading...",
+    "notes": "Notes",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -853,6 +854,7 @@
     "categoryParent": "Parent",
     "categoryParentNone": "None (root)",
     "categoryParentHint": "No parent creates a Category. Pick one to create a Sub-category under it. Service Areas are added from the + on a Sub-category row.",
+    "categoryCodePrefix": "Code",
     "categoryCodeSegment": "Code",
     "categoryCodeSegmentPlaceholder": "e.g. BASE",
     "categoryCodeComposed": "Full code: {code}",

@@ -394,13 +394,13 @@ export default function CategoriesPage() {
                       <th className="text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pr-3">
                         {t("categoryName")}
                       </th>
-                      <th className="text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
+                      <th className="truncate text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
                         {t("categoryCodePrefix")}
                       </th>
-                      <th className="text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
+                      <th className="truncate text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
                         {t("colCategoryElements")}
                       </th>
-                      <th className="text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
+                      <th className="truncate text-left text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 px-3">
                         {t("colUpdated")}
                       </th>
                       <th className="text-right text-[11px] font-medium text-text-muted uppercase tracking-wider py-2 pl-3">
