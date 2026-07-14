@@ -131,24 +131,23 @@ describe("ServiceAreaSelect", () => {
     expect(screen.queryByText("Joinery")).toBeNull();
   });
 
-  it("leads the trigger with the Service Area, ancestors clipping first", () => {
+  /**
+   * The trigger shows the Service Area and nothing else. Rendering the whole
+   * path there clipped from the *end*, which cut the one part the user chose;
+   * and the ancestors are the path they just walked to get here, so the trigger
+   * spending its width on them buys nothing.
+   */
+  it("shows only the Service Area on the closed trigger", () => {
     renderSelect({ value: "base" });
 
-    // The whole path still reads as one string — that's the sr-only span, and
-    // it's why splitting the label visually didn't wreck the accessible name.
+    // Still the full path to assistive tech — the sr-only span — so dropping
+    // the ancestors visually doesn't drop the context entirely.
     const trigger = screen.getByRole("button", {
       name: /Kitchen › Cabinets › Base Units/,
     });
 
-    // jsdom has no layout, so clipping priority can only be pinned structurally:
-    // the leaf is its own element and holds its width, while the ancestors are
-    // the ones carrying `truncate`.
-    expect(within(trigger).getByText("Base Units").className).toContain(
-      "shrink-0"
-    );
-    expect(
-      within(trigger).getByText(/^Kitchen › Cabinets ›$/).className
-    ).toContain("truncate");
+    expect(within(trigger).getByText("Base Units")).toBeDefined();
+    expect(within(trigger).queryByText(/^Kitchen › Cabinets ›$/)).toBeNull();
   });
 
   it("opens on the current value's siblings, with it selected", () => {

@@ -45,9 +45,16 @@ interface TriggerProps {
  */
 export function CategoryPathLabel({
   path,
+  leafOnly = false,
   className,
 }: {
   path: string[];
+  /**
+   * Drop the ancestors from the visible line. For the closed trigger, where the
+   * user just walked the path to get here and only needs to read back what they
+   * landed on — the drill itself is where the hierarchy is shown.
+   */
+  leafOnly?: boolean;
   className?: string;
 }) {
   const ancestors = path.slice(0, -1);
@@ -55,9 +62,10 @@ export function CategoryPathLabel({
     <span className={cn("flex min-w-0 items-baseline gap-1", className)}>
       {/* An accessible name is the element's text nodes concatenated, each one
           trimmed — so the split below would be read aloud as "Cabinets ›Base
-          Cabinets". Give assistive tech the path whole, and hide the pieces. */}
+          Cabinets". Give assistive tech the path whole (even when it's hidden
+          visually), and hide the pieces. */}
       <span className="sr-only">{joinCategoryPath(path)}</span>
-      {ancestors.length > 0 && (
+      {!leafOnly && ancestors.length > 0 && (
         <span aria-hidden className="truncate text-text-muted">
           {joinCategoryPath(ancestors)} ›
         </span>
@@ -103,7 +111,7 @@ export const CategoryTrigger = forwardRef<HTMLButtonElement, TriggerProps>(
               color={selected.color}
               size={14}
             />
-            <CategoryPathLabel path={selected.path} />
+            <CategoryPathLabel path={selected.path} leafOnly />
           </>
         ) : (
           <span className="truncate text-text-muted">{placeholder}</span>
