@@ -6,11 +6,20 @@ import { Check, ChevronDown, Plus } from "lucide-react";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
-import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
-import { useCreateCategory } from "@/hooks/useCreateCategory";
 import type { ElementCategoryNode } from "@/types";
-import { flattenCategories } from "../_lib/categoryUtils";
 import { cn } from "@/lib/utils";
+
+/**
+ * The create dialog a picker delegates to. Creating is always delegated — the
+ * picker owns the open state and selects whatever `onCreated` hands back, but
+ * it never decides *what* gets created. Every caller today builds a Service
+ * Area (`serviceAreaCreate`); a picker that wants no create passes none.
+ */
+export type CategoryCreateRender = (props: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: (id: string) => void;
+}) => React.ReactNode;
 
 interface Props {
   value: string | null;
@@ -33,20 +42,13 @@ interface Props {
    * would vanish from the trigger, a disabled one still renders.
    */
   selectableDepth?: number;
-  /**
-   * Rendered in place of the default "New category" dialog. The picker owns the
-   * open state and selects whatever `onCreated` hands back.
-   */
-  renderCreate?: (props: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onCreated: (id: string) => void;
-  }) => React.ReactNode;
+  /** The create dialog. Omit it and the picker has no create affordance. */
+  renderCreate?: CategoryCreateRender;
   /** Trigger text when nothing is selected. Defaults to the "Uncategorized" label. */
   placeholder?: string;
   /** Show the in-dropdown "Uncategorized" reset option. Default true. */
   clearable?: boolean;
-  /** Show the "New category" quick-create header. Default true; set false for filter use. */
+  /** Show the quick-create header. Default true; set false for filter use. */
   allowCreate?: boolean;
   /** Trigger sizing — `"sm"` matches filter-bar controls. Default `"default"`. */
   size?: "default" | "sm";
@@ -121,10 +123,9 @@ export function CategorySelect({
   );
   const selectedOption = value ? options.find((o) => o.id === value) : null;
 
-  const { submitting, handleCreate } = useCreateCategory((created) => {
-    onChange(created.id);
-    setCreateOpen(false);
-  });
+  // Create is delegated: without a dialog to open, the affordance would be a
+  // button that does nothing.
+  const canCreate = allowCreate && !!renderCreate;
 
   const selectCreated = (id: string) => {
     onChange(id);
@@ -139,7 +140,7 @@ export function CategorySelect({
         maxListHeight={240}
         isEmpty={false}
         headerSlot={
-          allowCreate
+          canCreate
             ? (close) => (
                 <button
                   type="button"
@@ -150,7 +151,7 @@ export function CategorySelect({
                   className="flex items-center gap-2 px-3 py-2.5 text-sm text-accent hover:bg-accent/10 border-b border-border-default transition-colors"
                 >
                   <Plus className="h-4 w-4" />
-                  {renderCreate ? t("newServiceArea") : t("newCategory")}
+                  {t("newServiceArea")}
                 </button>
               )
             : undefined
@@ -285,23 +286,12 @@ export function CategorySelect({
         }}
       </SearchableDropdown>
 
-      {allowCreate &&
-        (renderCreate ? (
-          renderCreate({
-            open: createOpen,
-            onOpenChange: setCreateOpen,
-            onCreated: selectCreated,
-          })
-        ) : (
-          <CategoryEditDialog
-            open={createOpen}
-            mode="create"
-            parentOptions={flattenCategories(tree)}
-            submitting={submitting}
-            onOpenChange={setCreateOpen}
-            onSubmit={handleCreate}
-          />
-        ))}
+      {canCreate &&
+        renderCreate?.({
+          open: createOpen,
+          onOpenChange: setCreateOpen,
+          onCreated: selectCreated,
+        })}
     </div>
   );
 }

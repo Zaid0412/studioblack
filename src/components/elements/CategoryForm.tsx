@@ -45,9 +45,25 @@ export interface CategoryFormSubmit {
 
 interface Props {
   initial?: Partial<CategoryFormValues>;
+  /**
+   * Selectable parents. Hosts pass top-level Categories only
+   * (`parentCategoryOptions`), so the picker creates a Category or a
+   * Sub-category — never a Service Area.
+   */
   parentOptions: CategoryOption[];
-  /** IDs that cannot be selected as parent (e.g. self or descendants when editing). */
-  disabledParentIds?: string[];
+  /**
+   * Present ⇒ the parent is the caller's decision, not the user's: creating
+   * from a row's `+` (the row IS the parent), or editing (the API cannot
+   * reparent — `parent_id` isn't in `CATEGORY_COLS`). Rendered as a disabled
+   * input rather than a picker, because a dropdown that discards your choice is
+   * worse than no dropdown.
+   *
+   * Wrapped so "locked to no parent" (`{ parent: null }`, a top-level Category)
+   * stays distinguishable from "not locked" (`undefined`). The option is passed
+   * rather than looked up because a locked parent may be a Sub-category, which
+   * `parentOptions` deliberately excludes.
+   */
+  fixedParent?: { parent: CategoryOption | null };
   submitting: boolean;
   onSubmit: (values: CategoryFormSubmit) => Promise<void> | void;
   onCancel: () => void;
@@ -69,7 +85,7 @@ const EMPTY: CategoryFormValues = {
 export function CategoryForm({
   initial,
   parentOptions,
-  disabledParentIds = [],
+  fixedParent,
   submitting,
   onSubmit,
   onCancel,
@@ -98,7 +114,13 @@ export function CategoryForm({
   // codes are built from this, so a hand-typed path that didn't sit under its
   // parent would silently break them. State holds the composed code; the
   // segment is derived for display, so a parent switch re-bases it for free.
-  const prefixOf = (id: string | null) => categoryPrefixOf(parentOptions, id);
+  //
+  // A locked parent may be a Sub-category, which `parentOptions` excludes — so
+  // read its prefix off the option we were handed rather than looking it up.
+  const prefixOf = (id: string | null) =>
+    fixedParent
+      ? (fixedParent.parent?.codePrefix?.trim() ?? null)
+      : categoryPrefixOf(parentOptions, id);
   const parentPrefix = prefixOf(values.parentId);
   const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
 
@@ -128,8 +150,6 @@ export function CategoryForm({
     });
   };
 
-  const disabled = new Set(disabledParentIds);
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -146,31 +166,37 @@ export function CategoryForm({
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-medium text-text-secondary">
-            {t("categoryParent")}
-          </label>
-          <Select
-            value={values.parentId ?? NONE}
-            onValueChange={(v) => selectParent(v === NONE ? null : v)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("categoryParentNone")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>{t("categoryParentNone")}</SelectItem>
-              {parentOptions.map((opt) => (
-                <SelectItem
-                  key={opt.id}
-                  value={opt.id}
-                  disabled={disabled.has(opt.id)}
-                >
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {fixedParent ? (
+          <Input
+            label={t("categoryParent")}
+            value={fixedParent.parent?.label ?? t("categoryParentNone")}
+            disabled
+            readOnly
+          />
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("categoryParent")}
+            </label>
+            <Select
+              value={values.parentId ?? NONE}
+              onValueChange={(v) => selectParent(v === NONE ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("categoryParentNone")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t("categoryParentNone")}</SelectItem>
+                {parentOptions.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-text-muted">{t("categoryParentHint")}</p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Input

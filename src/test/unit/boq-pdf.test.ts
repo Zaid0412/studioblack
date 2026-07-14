@@ -9,8 +9,25 @@
 import { describe, it, expect, vi } from "vitest";
 import type { BoqItemWithComputed } from "@/types";
 
+/**
+ * These tests render real PDFs, which is genuinely slow — and slower still when
+ * the other workers are saturating the CPU. On the 5s default the two heaviest
+ * cases (the multi-group render, and the one that renders twice) intermittently
+ * time out, which reads as a flaky failure rather than the resource problem it
+ * is. Same 20s ceiling the other `importActual` suites already use.
+ */
+vi.setConfig({ testTimeout: 20000 });
+
+/**
+ * Resolved once, not per test: `importActual` bypasses the module cache the
+ * global `@/lib/boq/pdf` stub lives in, so calling it in each test re-ran the
+ * module's top-level work every time.
+ */
+const realPdf =
+  vi.importActual<typeof import("@/lib/boq/pdf")>("@/lib/boq/pdf");
+
 async function importReal() {
-  return vi.importActual<typeof import("@/lib/boq/pdf")>("@/lib/boq/pdf");
+  return realPdf;
 }
 
 function mkItem(

@@ -23,6 +23,7 @@ import {
   normalizeCodeSegment,
 } from "@/lib/categoryCode";
 import { cn } from "@/lib/utils";
+import type { CategoryCreateRender } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import type { ElementCategoryNode } from "@/types";
 
 /** Sentinel for "I'm creating this level rather than picking an existing one". */
@@ -34,6 +35,29 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** Receives the id of the Service Area, created or reused. */
   onCreated: (id: string) => void;
+}
+
+/**
+ * `renderCreate` for a `CategorySelect` whose values are Service Areas — which
+ * is every one of them (elements, vendor trades, rate-contract items). The
+ * generic category form deliberately can't reach level 3, so a picker that
+ * accepts only Service Areas has to create them through this chain builder.
+ *
+ * Exists so the three call sites don't each re-thread the same four props.
+ */
+export function serviceAreaCreate(
+  tree: ElementCategoryNode[]
+): CategoryCreateRender {
+  return function ServiceAreaCreate({ open, onOpenChange, onCreated }) {
+    return (
+      <ServiceAreaDialog
+        open={open}
+        tree={tree}
+        onOpenChange={onOpenChange}
+        onCreated={onCreated}
+      />
+    );
+  };
 }
 
 interface Rung {

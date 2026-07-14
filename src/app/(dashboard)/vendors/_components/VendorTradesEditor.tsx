@@ -15,7 +15,7 @@ import {
 import { VENDOR_PROFICIENCY_ICONS } from "@/lib/vendorLabels";
 import { CategorySelect } from "@/app/(dashboard)/elements/_components/CategorySelect";
 import { SERVICE_AREA_DEPTH } from "@/app/(dashboard)/elements/_lib/categoryUtils";
-import { ServiceAreaDialog } from "@/components/elements/ServiceAreaDialog";
+import { serviceAreaCreate } from "@/components/elements/ServiceAreaDialog";
 import { useCategoryTree } from "@/hooks/useCategoryTree";
 import { VENDOR_PROFICIENCIES } from "@/lib/validations";
 import type { VendorProficiency } from "@/types";
@@ -98,14 +98,7 @@ export function VendorTradesEditor({ trades, onChange }: Props) {
                   onChange={(id) => update(i, { categoryId: id })}
                   tree={tree}
                   selectableDepth={SERVICE_AREA_DEPTH}
-                  renderCreate={({ open, onOpenChange, onCreated }) => (
-                    <ServiceAreaDialog
-                      open={open}
-                      tree={tree}
-                      onOpenChange={onOpenChange}
-                      onCreated={onCreated}
-                    />
-                  )}
+                  renderCreate={serviceAreaCreate(tree)}
                 />
                 <Select
                   value={tr.proficiencyLevel}
