@@ -49,11 +49,12 @@ describe("CategoryForm — parent field", () => {
    * where the API ignores `parent_id` entirely but still applies the rebased
    * `code_prefix`, so a dropdown here silently corrupted the code.
    */
-  it("renders the parent as text, with no picker, when locked", () => {
+  it("renders the parent as a disabled input, with no picker, when locked", () => {
     renderForm({ fixedParent: { parent: CABINETS } });
 
     expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.getByText("Kitchen › Cabinets")).toBeTruthy();
+    const parent = screen.getByDisplayValue("Kitchen › Cabinets");
+    expect((parent as HTMLInputElement).disabled).toBe(true);
   });
 
   // `{ parent: null }` is "locked to no parent" (editing a root Category) —
@@ -62,7 +63,7 @@ describe("CategoryForm — parent field", () => {
     renderForm({ fixedParent: { parent: null } });
 
     expect(screen.queryByRole("combobox")).toBeNull();
-    expect(screen.getByText("categoryParentNone")).toBeTruthy();
+    expect(screen.getByDisplayValue("categoryParentNone")).toBeTruthy();
   });
 
   // The locked parent is the source of the code prefix — it isn't in

@@ -54,9 +54,9 @@ interface Props {
   /**
    * Present ⇒ the parent is the caller's decision, not the user's: creating
    * from a row's `+` (the row IS the parent), or editing (the API cannot
-   * reparent — `parent_id` isn't in `CATEGORY_COLS`). Rendered as text rather
-   * than a picker, because a dropdown that discards your choice is worse than
-   * no dropdown.
+   * reparent — `parent_id` isn't in `CATEGORY_COLS`). Rendered as a disabled
+   * input rather than a picker, because a dropdown that discards your choice is
+   * worse than no dropdown.
    *
    * Wrapped so "locked to no parent" (`{ parent: null }`, a top-level Category)
    * stays distinguishable from "not locked" (`undefined`). The option is passed
@@ -166,40 +166,37 @@ export function CategoryForm({
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[13px] font-medium text-text-secondary">
-            {t("categoryParent")}
-          </label>
-          {fixedParent ? (
-            <p className="flex min-h-9 items-center text-sm text-text-primary">
-              {fixedParent.parent?.label ?? t("categoryParentNone")}
-            </p>
-          ) : (
-            <>
-              <Select
-                value={values.parentId ?? NONE}
-                onValueChange={(v) => selectParent(v === NONE ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("categoryParentNone")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>
-                    {t("categoryParentNone")}
+        {fixedParent ? (
+          <Input
+            label={t("categoryParent")}
+            value={fixedParent.parent?.label ?? t("categoryParentNone")}
+            disabled
+            readOnly
+          />
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[13px] font-medium text-text-secondary">
+              {t("categoryParent")}
+            </label>
+            <Select
+              value={values.parentId ?? NONE}
+              onValueChange={(v) => selectParent(v === NONE ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("categoryParentNone")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t("categoryParentNone")}</SelectItem>
+                {parentOptions.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    {opt.label}
                   </SelectItem>
-                  {parentOptions.map((opt) => (
-                    <SelectItem key={opt.id} value={opt.id}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-text-muted">
-                {t("categoryParentHint")}
-              </p>
-            </>
-          )}
-        </div>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-text-muted">{t("categoryParentHint")}</p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <Input
