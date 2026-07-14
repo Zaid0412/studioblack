@@ -17,6 +17,18 @@ export interface CategoryOption {
 }
 
 /**
+ * What sits between the names of a category path. Shared because a picker
+ * renders the path split into pieces to control what clips first, while the
+ * accessible name renders it whole — and the two have to agree.
+ */
+export const CATEGORY_PATH_SEPARATOR = " › ";
+
+/** `["Kitchen", "Cabinets"]` → `"Kitchen › Cabinets"`. */
+export function joinCategoryPath(path: string[]): string {
+  return path.join(CATEGORY_PATH_SEPARATOR);
+}
+
+/**
  * Tree depth of a Service Area — where elements must sit.
  *
  * `level` (from the DB) is the real invariant; `depth` is a rendering concern
@@ -48,7 +60,7 @@ export function flattenCategories(
       out.push({
         id: node.id,
         name: node.name,
-        label: nextPath.join(" › "),
+        label: joinCategoryPath(nextPath),
         path: nextPath,
         codePrefix: node.code_prefix,
         depth,

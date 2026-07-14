@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { VENDOR_PROFICIENCY_ICONS } from "@/lib/vendorLabels";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
+import { CategoryPathLabel } from "@/components/elements/CategoryPickerParts";
 import { ServiceAreaSelect } from "@/components/elements/ServiceAreaSelect";
 import { serviceAreaCreate } from "@/components/elements/ServiceAreaDialog";
 import { useCategoryTree } from "@/hooks/useCategoryTree";
@@ -139,11 +140,18 @@ export function VendorTradesEditor({ trades, onChange }: Props) {
                   color={option?.color}
                   size={14}
                 />
-                {/* The full path, not the bare leaf: "Base Cabinets" on its own
-                    doesn't say which of them it is. */}
-                <span className="flex-1 truncate text-sm text-text-primary">
-                  {option?.label ?? tr.categoryId}
-                </span>
+                {/* The path is kept: "Base Cabinets" alone doesn't say which of
+                    them it is. `option` is missing only while the tree loads. */}
+                {option ? (
+                  <CategoryPathLabel
+                    path={option.path}
+                    className="flex-1 text-sm text-text-primary"
+                  />
+                ) : (
+                  <span className="min-w-0 flex-1 truncate text-sm text-text-primary">
+                    {tr.categoryId}
+                  </span>
+                )}
                 <ProficiencySelect
                   value={tr.proficiencyLevel}
                   onChange={(p) => setProficiency(i, p)}

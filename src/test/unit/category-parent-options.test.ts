@@ -6,27 +6,7 @@ import {
   parentCategoryOptions,
 } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import type { ElementCategoryNode } from "@/types";
-
-const node = (
-  id: string,
-  name: string,
-  level: 1 | 2 | 3,
-  children: ElementCategoryNode[] = []
-): ElementCategoryNode =>
-  ({
-    id,
-    name,
-    level,
-    parent_id: null,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-    children,
-  }) as ElementCategoryNode;
+import { categoryNode as node } from "@/test/fixtures/categoryTree";
 
 // Kitchen › Cabinets › Base Units, plus a second root with no children.
 const TREE: ElementCategoryNode[] = [

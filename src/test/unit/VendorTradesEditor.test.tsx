@@ -1,52 +1,28 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, fireEvent, screen, cleanup } from "@testing-library/react";
+import {
+  render,
+  fireEvent,
+  screen,
+  cleanup,
+  within,
+} from "@testing-library/react";
 
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 
-import type { ElementCategoryNode } from "@/types";
-
-const node = (
-  id: string,
-  name: string,
-  level: 1 | 2 | 3,
-  children: ElementCategoryNode[] = []
-): ElementCategoryNode =>
-  ({
-    id,
-    name,
-    level,
-    parent_id: null,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-    children,
-  }) as ElementCategoryNode;
-
-const TREE: ElementCategoryNode[] = [
-  node("kit", "Kitchen", 1, [
-    node("cab", "Cabinets", 2, [
-      node("base", "Base Units", 3),
-      node("wall", "Wall Units", 3),
-    ]),
-  ]),
-];
-
 // The editor reads the tree through SWR; the picker's own drill is covered by
-// ServiceAreaSelect.test.tsx, so here we only need the tree to resolve.
+// ServiceAreaSelect.test.tsx, so here we only need the tree to resolve. Imported
+// inside the factory because `vi.mock` is hoisted above the module's imports.
 vi.mock("@/hooks/useCategoryTree", async () => {
   const { flattenCategories } =
     await import("@/app/(dashboard)/elements/_lib/categoryUtils");
+  const { CATEGORY_TREE } = await import("@/test/fixtures/categoryTree");
   return {
     useCategoryTree: () => ({
-      tree: TREE,
-      options: flattenCategories(TREE),
+      tree: CATEGORY_TREE,
+      options: flattenCategories(CATEGORY_TREE),
       isServiceAreaId: () => true,
       loaded: true,
     }),
@@ -70,14 +46,18 @@ function renderEditor(trades: TradeDraft[] = []) {
   return onChange;
 }
 
-/** Drill the composer's picker down to a leaf and pick it. */
+/**
+ * Drill the composer's picker down to a leaf and pick it. Queries by role, not
+ * text: an assigned chip names its leaf too, so `getByText` goes ambiguous the
+ * moment the vendor already covers the area we're picking.
+ */
 function pick(leaf: string) {
   fireEvent.click(
     screen.getByRole("button", { name: /serviceAreaPlaceholder/ })
   );
-  fireEvent.click(screen.getByText("Kitchen"));
-  fireEvent.click(screen.getByText("Cabinets"));
-  fireEvent.click(screen.getByText(leaf));
+  fireEvent.click(screen.getByRole("button", { name: "Kitchen" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cabinets" }));
+  fireEvent.click(screen.getByRole("button", { name: leaf }));
 }
 
 const addButton = () => screen.getByRole("button", { name: /addTrade/ });
@@ -120,11 +100,14 @@ describe("VendorTradesEditor", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("lists an assigned area by its full path, not the bare leaf name", () => {
+  // The area is what's being listed, so it leads; the path is context, kept
+  // because "Base Units" alone doesn't say which Base Units.
+  it("lists an assigned area with the service area leading its path", () => {
     renderEditor([BASE]);
 
-    // "Base Units" alone doesn't say which Base Units.
-    expect(screen.getByText("Kitchen › Cabinets › Base Units")).toBeDefined();
+    const chip = screen.getByRole("listitem");
+    expect(chip.textContent).toContain("Kitchen › Cabinets › Base Units");
+    expect(within(chip).getByText("Base Units")).toBeDefined();
     expect(screen.queryByText("noTrades")).toBeNull();
   });
 

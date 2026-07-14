@@ -3,7 +3,10 @@
 import { forwardRef, type ReactNode } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { CategoryIcon } from "@/components/elements/CategoryIcon";
-import type { CategoryOption } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import {
+  joinCategoryPath,
+  type CategoryOption,
+} from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,6 +28,46 @@ interface TriggerProps {
   /** Filter-bar sizing, to match the controls beside it. */
   compact?: boolean;
   disabled?: boolean;
+}
+
+/**
+ * A category path as one line, with the node you actually chose doing the
+ * talking.
+ *
+ * The ancestors are context, not the answer — so they render muted and are the
+ * first thing to go when space runs out, while the node itself never clips.
+ * Rendering the path as one plain string got this exactly backwards: CSS
+ * truncates the *end*, so "Kitchen › Cabinets › Base Cabinets" in a narrow field
+ * became "Kitchen › Cabinets …" — everything except the part you picked.
+ *
+ * Takes the raw path rather than a picker option, so anything holding one can
+ * use it — including `category_path` straight off the API.
+ */
+export function CategoryPathLabel({
+  path,
+  className,
+}: {
+  path: string[];
+  className?: string;
+}) {
+  const ancestors = path.slice(0, -1);
+  return (
+    <span className={cn("flex min-w-0 items-baseline gap-1", className)}>
+      {/* An accessible name is the element's text nodes concatenated, each one
+          trimmed — so the split below would be read aloud as "Cabinets ›Base
+          Cabinets". Give assistive tech the path whole, and hide the pieces. */}
+      <span className="sr-only">{joinCategoryPath(path)}</span>
+      {ancestors.length > 0 && (
+        <span aria-hidden className="truncate text-text-muted">
+          {joinCategoryPath(ancestors)} ›
+        </span>
+      )}
+      {/* `max-w-full` so it can still ellipsize if it alone overflows. */}
+      <span aria-hidden className="max-w-full shrink-0 truncate font-medium">
+        {path.at(-1)}
+      </span>
+    </span>
+  );
 }
 
 /**
@@ -52,7 +95,7 @@ export const CategoryTrigger = forwardRef<HTMLButtonElement, TriggerProps>(
       )}
       {...props}
     >
-      <span className="flex items-center gap-2 truncate">
+      <span className="flex min-w-0 items-center gap-2">
         {selected ? (
           <>
             <CategoryIcon
@@ -60,10 +103,10 @@ export const CategoryTrigger = forwardRef<HTMLButtonElement, TriggerProps>(
               color={selected.color}
               size={14}
             />
-            <span className="truncate">{selected.label}</span>
+            <CategoryPathLabel path={selected.path} />
           </>
         ) : (
-          <span className="text-text-muted">{placeholder}</span>
+          <span className="truncate text-text-muted">{placeholder}</span>
         )}
       </span>
       <ChevronDown className="h-4 w-4 text-text-muted shrink-0" />

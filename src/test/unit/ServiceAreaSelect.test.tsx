@@ -13,46 +13,7 @@ vi.mock("next-intl", () => ({
 }));
 
 import { ServiceAreaSelect } from "@/components/elements/ServiceAreaSelect";
-import type { ElementCategoryNode } from "@/types";
-
-const node = (
-  id: string,
-  name: string,
-  level: 1 | 2 | 3,
-  children: ElementCategoryNode[] = []
-): ElementCategoryNode =>
-  ({
-    id,
-    name,
-    level,
-    parent_id: null,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-    children,
-  }) as ElementCategoryNode;
-
-/**
- * "Base Units" appears under two different parents — the case a flat list of
- * leaf names cannot disambiguate, and the reason search matches on the path.
- * "Countertops" is deliberately childless: a branch can be a dead end.
- */
-const TREE: ElementCategoryNode[] = [
-  node("kit", "Kitchen", 1, [
-    node("cab", "Cabinets", 2, [
-      node("base", "Base Units", 3),
-      node("wall", "Wall Units", 3),
-    ]),
-    node("ctp", "Countertops", 2),
-  ]),
-  node("joi", "Joinery", 1, [
-    node("fur", "Furniture", 2, [node("jbase", "Base Units", 3)]),
-  ]),
-];
+import { CATEGORY_TREE as TREE } from "@/test/fixtures/categoryTree";
 
 function open() {
   fireEvent.click(
@@ -168,6 +129,26 @@ describe("ServiceAreaSelect", () => {
     // Back where we left off — Kitchen's sub-categories, not the root.
     expect(screen.getByText("Cabinets")).toBeDefined();
     expect(screen.queryByText("Joinery")).toBeNull();
+  });
+
+  it("leads the trigger with the Service Area, ancestors clipping first", () => {
+    renderSelect({ value: "base" });
+
+    // The whole path still reads as one string — that's the sr-only span, and
+    // it's why splitting the label visually didn't wreck the accessible name.
+    const trigger = screen.getByRole("button", {
+      name: /Kitchen › Cabinets › Base Units/,
+    });
+
+    // jsdom has no layout, so clipping priority can only be pinned structurally:
+    // the leaf is its own element and holds its width, while the ancestors are
+    // the ones carrying `truncate`.
+    expect(within(trigger).getByText("Base Units").className).toContain(
+      "shrink-0"
+    );
+    expect(
+      within(trigger).getByText(/^Kitchen › Cabinets ›$/).className
+    ).toContain("truncate");
   });
 
   it("opens on the current value's siblings, with it selected", () => {
