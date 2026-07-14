@@ -7,6 +7,8 @@
  */
 
 import ExcelJS from "exceljs";
+import { Readable } from "stream";
+import type { SpreadsheetFormat } from "./uploadGuard";
 
 // ── Safety caps ────────────────────────────────────────────────────────────
 /** Hard cap on columns scanned per sheet — guards against bombs. */
@@ -175,22 +177,33 @@ export interface LoadedSheet<TKey extends string> {
 }
 
 /**
- * Open an xlsx buffer, take the first worksheet, read its header row, and
+ * Open a spreadsheet buffer, take the first worksheet, read its header row, and
  * resolve the header labels against the supplied template. Returns `null`
  * when the workbook has no worksheet — callers return their own empty
  * envelope. The template's required columns are reported as `missingColumns`.
+ *
+ * CSV goes through ExcelJS too (`workbook.csv.read`), which yields the same
+ * `Worksheet` the xlsx path does — so every parser downstream of here is
+ * format-blind and needed no changes to accept one.
  */
 export async function loadAndResolveHeaders<TKey extends string>(
   buffer: Buffer,
-  template: TemplateConfig<TKey>
+  template: TemplateConfig<TKey>,
+  format: SpreadsheetFormat = "xlsx"
 ): Promise<LoadedSheet<TKey> | null> {
   const workbook = new ExcelJS.Workbook();
-  // @types/node v24 made Buffer generic over ArrayBufferLike; exceljs's
-  // d.ts still declares the legacy shape. Runtime accepts either.
-  await workbook.xlsx.load(
-    buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]
-  );
-  const worksheet = workbook.worksheets[0];
+  let worksheet: ExcelJS.Worksheet | undefined;
+
+  if (format === "csv") {
+    worksheet = await workbook.csv.read(Readable.from(buffer));
+  } else {
+    // @types/node v24 made Buffer generic over ArrayBufferLike; exceljs's
+    // d.ts still declares the legacy shape. Runtime accepts either.
+    await workbook.xlsx.load(
+      buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]
+    );
+    worksheet = workbook.worksheets[0];
+  }
   if (!worksheet) return null;
 
   const headerRow = worksheet.getRow(1);

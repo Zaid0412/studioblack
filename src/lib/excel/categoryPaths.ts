@@ -53,7 +53,20 @@ export function buildCategoryPathById(
   return new Map(categories.map((c) => [c.id, ancestryOf(c, byId)]));
 }
 
-function ancestryOf(
+/**
+ * The identity of a path, for matching a sheet row against the live tree.
+ *
+ * Case-insensitive, unlike `normalizeCategorySegment` — a *lookup* of an
+ * existing category is exact ("PVC" ≠ "Pvc"), but the importer is deciding
+ * whether two names are the *same node*, and there a capitalisation fix must
+ * read as an edit rather than as "delete this and make a new one".
+ */
+export function categoryKey(names: string[]): string {
+  return names.map((n) => n.trim().toLowerCase()).join(" > ");
+}
+
+/** A node's full name path, root first. */
+export function ancestryOf(
   cat: Pick<ElementCategory, "name" | "parent_id">,
   byId: Map<string, Pick<ElementCategory, "name" | "parent_id">>
 ): string[] {

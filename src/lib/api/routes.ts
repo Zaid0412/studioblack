@@ -92,6 +92,9 @@ export const API = {
   elementCategory:          (id: string)                  => `/api/element-categories/${id}`,
   elementCategoriesReorder: ()                            => "/api/element-categories/reorder",
   elementCategoriesBulk:    ()                            => "/api/element-categories/bulk",
+  elementCategoriesImport:  ()                            => "/api/element-categories/import",
+  elementCategoriesImportConfirm: ()                      => "/api/element-categories/import/confirm",
+  elementCategoriesImportTemplate: ()                     => "/api/element-categories/import/template",
 
   // ── Elements ────────────────────────────────────
   elements:                 ()                            => "/api/elements",

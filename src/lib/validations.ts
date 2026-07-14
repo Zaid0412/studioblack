@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEFAULT_CURRENCY, MAX_CONTENT_LENGTH } from "@/lib/constants";
+import { CATEGORY_CODE_MAX, SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import { MAX_UPLOAD_SIZE } from "@/lib/fileUtils";
 
 // ─── Shared constants ───────────────────────────────────────────────────────
@@ -564,6 +565,38 @@ export type BulkCategoryNode = z.infer<typeof bulkCategoryNode>;
 export const reorderCategoriesSchema = z.object({
   parentId: z.string().uuid().nullable(),
   orderedIds: z.array(uuid).min(1),
+});
+
+// ─── Category spreadsheet import ───────────────────────────────────────────
+
+/** A taxonomy is a small sheet — far smaller than an element library. */
+export const CATEGORY_IMPORT_MAX_BYTES = 2 * 1024 * 1024;
+
+/**
+ * One rung of an imported chain. The server re-validates every row rather than
+ * trusting the preview it handed out — the client could have edited it.
+ */
+export const importCategoryNodeSchema = z.object({
+  name: z.string().trim().min(1).max(150),
+  codePrefix: z
+    .string()
+    .trim()
+    .max(CATEGORY_CODE_MAX)
+    .nullable()
+    .optional()
+    .transform((v) => v || null),
+});
+
+export const importCategoriesSchema = z.object({
+  /**
+   * A chain, top-level first. It may stop at any rung: the tree allows a
+   * Category with no Sub-categories and a Sub-category with no Service Areas, so
+   * a sheet that couldn't express them would drop them on a round-trip.
+   */
+  paths: z
+    .array(z.array(importCategoryNodeSchema).min(1).max(SERVICE_AREA_LEVEL))
+    .min(1)
+    .max(5000),
 });
 
 // ─── Elements (/api/elements) ───────────────────────────────────────────────

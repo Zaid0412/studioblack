@@ -6,7 +6,13 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     /** Offending input path for validation/conflict errors, when the API supplies it. */
-    public field?: string
+    public field?: string,
+    /**
+     * The raw error body. Some conflicts are only actionable as structured data
+     * — a blocked category import has to hand back *which* categories are still
+     * in use, and what is holding each one.
+     */
+    public details?: unknown
   ) {
     super(message);
     this.name = "ApiError";
@@ -20,7 +26,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     throw new ApiError(
       res.status,
       body.error || body.message || `Request failed (${res.status})`,
-      typeof body.field === "string" ? body.field : undefined
+      typeof body.field === "string" ? body.field : undefined,
+      body
     );
   }
   // 204 No Content or empty body — expected for DELETE and some POST responses
