@@ -23,7 +23,7 @@ import {
   normalizeCodeSegment,
 } from "@/lib/categoryCode";
 import { cn } from "@/lib/utils";
-import type { CategoryCreateRender } from "@/app/(dashboard)/elements/_components/CategorySelect";
+import type { CategoryCreateRender } from "@/components/elements/ServiceAreaSelect";
 import type { ElementCategoryNode } from "@/types";
 
 /** Sentinel for "I'm creating this level rather than picking an existing one". */
@@ -38,10 +38,10 @@ interface Props {
 }
 
 /**
- * `renderCreate` for a `CategorySelect` whose values are Service Areas — which
- * is every one of them (elements, vendor trades, rate-contract items). The
- * generic category form deliberately can't reach level 3, so a picker that
- * accepts only Service Areas has to create them through this chain builder.
+ * `renderCreate` for a `ServiceAreaSelect` — used by elements, vendor trades and
+ * rate-contract items alike. The generic category form deliberately can't reach
+ * level 3, so a picker that accepts only Service Areas has to create them
+ * through this chain builder.
  *
  * Exists so the three call sites don't each re-thread the same four props.
  */

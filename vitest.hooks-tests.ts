@@ -20,6 +20,8 @@ export const HOOK_TEST_FILES = [
   "src/test/unit/hooks-ui-components.test.tsx",
   "src/test/unit/TagInput.test.tsx",
   "src/test/unit/CategoryForm.test.tsx",
+  "src/test/unit/ServiceAreaSelect.test.tsx",
+  "src/test/unit/VendorTradesEditor.test.tsx",
   "src/test/unit/SearchableDropdown.test.tsx",
   "src/test/unit/BoqEditableCell.test.tsx",
   "src/test/unit/FilePreview.test.tsx",

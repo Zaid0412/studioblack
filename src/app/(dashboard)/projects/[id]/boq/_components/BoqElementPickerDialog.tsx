@@ -42,28 +42,9 @@ import { buildCategoryMap } from "@/lib/elementCategories";
 import { BOQ_NO_SECTION_ID, formatCurrency } from "../_lib/formatters";
 import { BoqSectionSelect } from "./BoqSectionSelect";
 import { BoqRateContractPicker } from "./BoqRateContractPicker";
+import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 
 const FILTER_ALL = "__all__";
-
-interface FlatCategory {
-  id: string;
-  label: string;
-}
-
-function flattenCategories(
-  tree: ElementCategoryNode[],
-  depth = 0
-): FlatCategory[] {
-  const out: FlatCategory[] = [];
-  const indent = "  ".repeat(depth);
-  for (const node of tree) {
-    out.push({ id: node.id, label: `${indent}${node.name}` });
-    if (node.children.length > 0) {
-      out.push(...flattenCategories(node.children, depth + 1));
-    }
-  }
-  return out;
-}
 
 interface BoqElementPickerDialogProps {
   open: boolean;
@@ -154,7 +135,7 @@ export function BoqElementPickerDialog({
     () => (catData?.tree ? buildCategoryMap(catData.tree) : new Map()),
     [catData]
   );
-  const categoryOptions = useMemo<FlatCategory[]>(
+  const categoryOptions = useMemo(
     () => (catData?.tree ? flattenCategories(catData.tree) : []),
     [catData]
   );

@@ -1,31 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildCategoryIndex,
   flattenCategories,
   isServiceArea,
   parentCategoryOptions,
 } from "@/app/(dashboard)/elements/_lib/categoryUtils";
 import type { ElementCategoryNode } from "@/types";
-
-const node = (
-  id: string,
-  name: string,
-  level: 1 | 2 | 3,
-  children: ElementCategoryNode[] = []
-): ElementCategoryNode =>
-  ({
-    id,
-    name,
-    level,
-    parent_id: null,
-    code_prefix: null,
-    sort_order: 0,
-    icon: null,
-    color: null,
-    is_active: true,
-    created_at: "2024-01-01T00:00:00Z",
-    updated_at: "2024-01-01T00:00:00Z",
-    children,
-  }) as ElementCategoryNode;
+import { categoryNode as node } from "@/test/fixtures/categoryTree";
 
 // Kitchen › Cabinets › Base Units, plus a second root with no children.
 const TREE: ElementCategoryNode[] = [
@@ -67,5 +48,49 @@ describe("parentCategoryOptions", () => {
 
   it("is empty when the org has no categories yet", () => {
     expect(parentCategoryOptions(flattenCategories([]))).toEqual([]);
+  });
+});
+
+describe("flattenCategories", () => {
+  it("carries the node's own name and its path, not just the breadcrumb", () => {
+    const base = flattenCategories(TREE).find((o) => o.id === "base");
+
+    expect(base?.name).toBe("Base Units");
+    expect(base?.label).toBe("Kitchen › Cabinets › Base Units");
+    expect(base?.path).toEqual(["Kitchen", "Cabinets", "Base Units"]);
+  });
+});
+
+/**
+ * The index is the drill cursor: it answers "what list do I open to reveal this
+ * node?", which is why a Category resolves to itself (open its Sub-categories)
+ * rather than to nothing.
+ */
+describe("buildCategoryIndex", () => {
+  const index = buildCategoryIndex(TREE);
+
+  it("locates a Service Area under both its ancestors", () => {
+    const loc = index.get("base");
+    expect(loc?.category.id).toBe("kit");
+    expect(loc?.sub?.id).toBe("cab");
+    expect(loc?.depth).toBe(2);
+  });
+
+  it("resolves a Sub-category to itself, so a picker opens on its areas", () => {
+    const loc = index.get("cab");
+    expect(loc?.category.id).toBe("kit");
+    expect(loc?.sub?.id).toBe("cab");
+    expect(loc?.depth).toBe(1);
+  });
+
+  it("resolves a Category to itself, with no Sub-category above it", () => {
+    const loc = index.get("kit");
+    expect(loc?.category.id).toBe("kit");
+    expect(loc?.sub).toBeNull();
+    expect(loc?.depth).toBe(0);
+  });
+
+  it("has no entry for an id outside the tree — callers fall back to the root", () => {
+    expect(index.get("deleted")).toBeUndefined();
   });
 });

@@ -101,6 +101,64 @@ describe("SearchableDropdown", () => {
     expect(screen.queryByText("should not render")).toBeNull();
   });
 
+  // The drill-down breadcrumb lives here: it must stay put while the list
+  // scrolls, and survive a branch that turned out to be empty — that is the one
+  // case where you most need a way back out.
+  it("renders subheaderSlot with the live query, even when empty", () => {
+    const { rerender } = render(
+      <SearchableDropdown
+        isEmpty={false}
+        subheaderSlot={(query) => <div>crumb:{query || "root"}</div>}
+        trigger={<button type="button">open</button>}
+      >
+        {() => <div>a row</div>}
+      </SearchableDropdown>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    expect(screen.getByText("crumb:root")).toBeDefined();
+
+    fireEvent.change(screen.getByPlaceholderText("search"), {
+      target: { value: "Ki" },
+    });
+    // Normalized the same way the list receives it.
+    expect(screen.getByText("crumb:ki")).toBeDefined();
+
+    rerender(
+      <SearchableDropdown
+        isEmpty={true}
+        emptyLabel="nothing here"
+        subheaderSlot={() => <div>crumb still here</div>}
+        trigger={<button type="button">open</button>}
+      >
+        {() => <div>a row</div>}
+      </SearchableDropdown>
+    );
+    expect(screen.getByText("nothing here")).toBeDefined();
+    expect(screen.getByText("crumb still here")).toBeDefined();
+  });
+
+  it("reports open and close through onOpenChange", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <SearchableDropdown
+        isEmpty={false}
+        onOpenChange={onOpenChange}
+        trigger={<button type="button">open</button>}
+      >
+        {() => <div>a row</div>}
+      </SearchableDropdown>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "open" }));
+    expect(onOpenChange).toHaveBeenLastCalledWith(true);
+
+    fireEvent.keyDown(screen.getByPlaceholderText("search"), {
+      key: "Escape",
+      code: "Escape",
+    });
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("resets search query when the popover closes", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "select unit" }));

@@ -22,10 +22,12 @@ export function CategoryIcon({
 }: CategoryIconProps) {
   const Resolved =
     (icon && (icons as Record<string, LucideIcon>)[icon]) || null;
+  // Never shrink: every call site sits in a flex row beside truncating text,
+  // and a squashed icon reads as a rendering fault rather than as tight space.
   if (!Resolved) {
     return (
       <Folder
-        className={cn("text-text-muted", className)}
+        className={cn("shrink-0 text-text-muted", className)}
         size={size}
         aria-hidden
       />
@@ -33,7 +35,7 @@ export function CategoryIcon({
   }
   return (
     <Resolved
-      className={className}
+      className={cn("shrink-0", className)}
       size={size}
       style={color ? { color } : undefined}
       aria-hidden
