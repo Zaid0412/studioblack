@@ -519,6 +519,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     <div className="px-4 lg:px-10 py-6 flex flex-col gap-5">
       <BoqHeader
         title={boq.title}
+        boqNumber={boq.boq_number}
         version={boq.version}
         currency={boq.currency}
         itemCount={boq.items.length}

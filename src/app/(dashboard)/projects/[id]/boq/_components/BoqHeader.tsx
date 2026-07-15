@@ -8,6 +8,8 @@ import { phaseToLabel, phaseToVariant } from "../_lib/formatters";
 
 interface BoqHeaderProps {
   title: string;
+  /** BOQ business reference — `P2026-001-BOQ-001`. */
+  boqNumber?: string | null;
   version: number;
   currency: string;
   itemCount: number;
@@ -39,6 +41,7 @@ const PHASE_ORDER: BoqItemPhase[] = [
 /** Sticky title row showing BOQ identity + per-phase item counts. */
 export function BoqHeader({
   title,
+  boqNumber,
   version,
   currency,
   itemCount,
@@ -53,6 +56,12 @@ export function BoqHeader({
           {title}
         </h2>
         <div className="flex items-center gap-2 flex-wrap text-xs text-text-muted">
+          {boqNumber && (
+            <>
+              <span className="font-mono text-text-secondary">{boqNumber}</span>
+              <span>·</span>
+            </>
+          )}
           <span>v{version}</span>
           <span>·</span>
           <span>{currency}</span>
