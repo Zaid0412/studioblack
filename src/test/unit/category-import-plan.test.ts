@@ -178,6 +178,28 @@ describe("planCategoryImport", () => {
     ]);
   });
 
+  // Two same-named siblings are indistinguishable by path, and there's no DB
+  // unique constraint — so refuse loudly rather than shadow one and maybe delete
+  // it unchecked.
+  it("refuses when the live tree has a duplicate name path", async () => {
+    const dupe = [
+      ...EXISTING,
+      {
+        id: "kit2",
+        name: "Kitchen",
+        parent_id: null,
+        level: 1,
+        code_prefix: "KT2",
+      },
+    ];
+    // Only the tree query is reached — it throws before the reference count.
+    mocks.db.query.mockResolvedValueOnce({ rows: dupe });
+
+    await expect(planCategoryImport(ORG, [KITCHEN_CHAIN])).rejects.toThrow(
+      /Duplicate category: Kitchen/
+    );
+  });
+
   // The sheet names paths, not ids — matching has to be case-blind or a
   // capitalisation fix would read as "delete this and make a new one".
   it("matches names case-insensitively", async () => {

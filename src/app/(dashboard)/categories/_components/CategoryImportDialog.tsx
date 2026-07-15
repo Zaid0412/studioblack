@@ -126,8 +126,13 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const panel = useAutoHeight<HTMLDivElement>();
+  // The dialog stays mounted across close, so a slow parse could resolve after
+  // a reset and repopulate a closed dialog. Each upload gets a fresh token;
+  // reset invalidates any in-flight one.
+  const requestToken = useRef<object>({});
 
   const reset = () => {
+    requestToken.current = {};
     setBusy(false);
     setParse(null);
     setResult(null);
@@ -144,6 +149,17 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
 
   const plan: CategoryImportPlan | null = parse?.plan ?? null;
   const rowErrors = parse?.rows.filter((r) => r.status === "error") ?? [];
+
+  // The removals to reason about. A 409 means the server blocked one the preview
+  // thought was free (a concurrent write in between); fold its real reference
+  // counts in, so `effectivelyKept` force-keeps it and it isn't sent for
+  // deletion again — otherwise the retry would resend the same payload and loop.
+  const deletes = useMemo(() => {
+    if (!plan) return [];
+    if (!serverBlocked?.length) return plan.deletes;
+    const raced = new Map(serverBlocked.map((d) => [d.id, d]));
+    return plan.deletes.map((d) => raced.get(d.id) ?? d);
+  }, [plan, serverBlocked]);
 
   // Every node named in the sheet, with the code segment it arrived with — the
   // base an edit overrides, and what lets a parent's edit recompose its
@@ -206,18 +222,27 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
   const effectivelyKept = (d: CategoryImportDelete) =>
     kept.has(d.id) || isBlocked(d);
 
-  const removedCount =
-    plan?.deletes.filter((d) => !effectivelyKept(d)).length ?? 0;
+  const removedCount = deletes.filter((d) => !effectivelyKept(d)).length;
 
   const hasInvalidCode =
     !!plan &&
     [...plan.creates, ...plan.updates].some((c) => codeFor(c.path).error);
 
+  // Whether the import would do anything right now — after keeps are applied.
   const hasChanges =
     !!plan &&
     (plan.creates.length > 0 || plan.updates.length > 0 || removedCount > 0);
 
-  const noChanges = !!plan && rowErrors.length === 0 && !hasChanges;
+  // Whether the sheet was a no-op to begin with. Kept over `hasChanges` for the
+  // empty-state check so that keeping the last removal disables the button
+  // rather than yanking the whole preview out from under the user.
+  const planIsEmpty =
+    !!plan &&
+    plan.creates.length === 0 &&
+    plan.updates.length === 0 &&
+    plan.deletes.length === 0;
+
+  const noChanges = planIsEmpty && rowErrors.length === 0;
   const canImport =
     !!plan && rowErrors.length === 0 && !hasInvalidCode && hasChanges;
 
@@ -228,9 +253,12 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
       toast({ title: t("categoryImportTooLarge"), variant: "error" });
       return;
     }
+    const token = (requestToken.current = {});
     setBusy(true);
     try {
       const parsed = await categoriesApi.validateImport(file);
+      // Bail if the dialog was reset/closed while we were parsing.
+      if (requestToken.current !== token) return;
       setParse(parsed);
       setCodeEdits({});
       setKept(new Set());
@@ -265,7 +293,7 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
         )
       );
     }
-    for (const d of plan?.deletes ?? []) {
+    for (const d of deletes) {
       if (!effectivelyKept(d)) continue;
       // A kept removal's ancestors may be in the sheet (edited) or not (use the
       // code it already had). Prefer the sheet's, fall back to the stored one.
@@ -309,14 +337,6 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
       setBusy(false);
     }
   };
-
-  // A race-blocked removal can't be dropped; fold it in so the row shows locked.
-  const deletes = useMemo(() => {
-    if (!plan) return [];
-    if (!serverBlocked?.length) return plan.deletes;
-    const raced = new Map(serverBlocked.map((d) => [d.id, d]));
-    return plan.deletes.map((d) => raced.get(d.id) ?? d);
-  }, [plan, serverBlocked]);
 
   const view = result
     ? "result"

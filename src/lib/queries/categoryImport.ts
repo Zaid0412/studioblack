@@ -150,9 +150,26 @@ async function liveByKey(db: Querier, orgId: string) {
   const byKey = new Map<string, (typeof rows)[number] & { path: string[] }>();
   for (const category of rows) {
     const path = ancestryOf(category, byId);
-    byKey.set(categoryKey(path), { ...category, path });
+    const key = categoryKey(path);
+    // Identity is the name path, so two same-named siblings are indistinguishable
+    // here — one would shadow the other, and a dropped-in-the-sheet shadow would
+    // be deleted without a reference check. There's no DB unique constraint to
+    // lean on, so refuse loudly rather than corrupt silently. (Not reachable for
+    // a seeded org; possible if a duplicate was hand-created.)
+    if (byKey.has(key)) {
+      throw new DuplicateCategoryError(path.join(" › "));
+    }
+    byKey.set(key, { ...category, path });
   }
   return byKey;
+}
+
+/** The org has two categories sharing a name path — import can't tell them apart. */
+export class DuplicateCategoryError extends Error {
+  constructor(readonly path: string) {
+    super(`Duplicate category: ${path}`);
+    this.name = "DuplicateCategoryError";
+  }
 }
 
 /**

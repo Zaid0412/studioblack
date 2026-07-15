@@ -3,6 +3,7 @@ import { withAuth } from "@/lib/withAuth";
 import {
   applyCategoryImport,
   CategoryImportBlockedError,
+  DuplicateCategoryError,
 } from "@/lib/queries/categoryImport";
 import { importCategoriesSchema } from "@/lib/validations";
 
@@ -53,6 +54,16 @@ export const POST = withAuth(
       if (err instanceof CategoryImportBlockedError) {
         return NextResponse.json(
           { error: "Some categories are still in use", blocked: err.blocked },
+          { status: 409 }
+        );
+      }
+      // A user-fixable data problem — two categories share a name path — not a
+      // server fault. Tell them which one.
+      if (err instanceof DuplicateCategoryError) {
+        return NextResponse.json(
+          {
+            error: `Two categories share the path "${err.path}". Rename one, then import.`,
+          },
           { status: 409 }
         );
       }
