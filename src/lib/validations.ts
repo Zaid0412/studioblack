@@ -341,11 +341,8 @@ export const updateProjectSchema = z.object({
   pmIds: z.array(z.string().min(1)).optional(),
 });
 
-export const togglePhaseSchema = z.object({
-  enabled: z.boolean(),
-});
-
-export const toggleStepSchema = z.object({
+/** Body for the phase/step visibility toggles. */
+export const toggleEnabledSchema = z.object({
   enabled: z.boolean(),
 });
 

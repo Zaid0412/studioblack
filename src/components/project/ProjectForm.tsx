@@ -203,6 +203,61 @@ export function MemberPicker({
   );
 }
 
+/** The project's client picker — shared by ProjectForm and the Team & Access section. */
+export function ClientSelect({
+  clients,
+  email,
+  onChange,
+  t,
+  hint,
+}: {
+  clients: OrgMember[];
+  email: string;
+  onChange: (email: string, name: string) => void;
+  t: (key: string, values?: Record<string, string>) => string;
+  hint?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[13px] font-medium text-text-secondary">
+        {t("client")}
+      </label>
+      {clients.length === 0 ? (
+        <p className="text-xs text-text-muted">{t("noClients")}</p>
+      ) : (
+        <Select
+          value={
+            clients.find((c) => c.user.email === email)?.user.id ?? "__none__"
+          }
+          onValueChange={(v) => {
+            if (v === "__none__") {
+              onChange("", "");
+              return;
+            }
+            const selected = clients.find((c) => c.user.id === v);
+            if (selected) onChange(selected.user.email, selected.user.name);
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={t("selectClient")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">{t("noClientSelected")}</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.user.id} value={c.user.id}>
+                {c.user.name} ({c.user.email})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {hint && clients.length > 0 && (
+        <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
+      )}
+    </div>
+  );
+}
+
 /** Shared project form for create and edit modes. */
 export function ProjectForm({
   mode,
@@ -255,48 +310,16 @@ export function ProjectForm({
 
   function renderClientSelect({ hint }: { hint?: boolean } = {}) {
     return (
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[13px] font-medium text-text-secondary">
-          {t("client")}
-        </label>
-        {clients.length === 0 ? (
-          <p className="text-xs text-text-muted">{t("noClients")}</p>
-        ) : (
-          <Select
-            value={
-              clients.find((c) => c.user.email === form.clientEmail)?.user.id ??
-              "__none__"
-            }
-            onValueChange={(v) => {
-              if (v === "__none__") {
-                updateField("clientEmail", "");
-                updateField("clientName", "");
-                return;
-              }
-              const selected = clients.find((c) => c.user.id === v);
-              if (selected) {
-                updateField("clientEmail", selected.user.email);
-                updateField("clientName", selected.user.name);
-              }
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("selectClient")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">{t("noClientSelected")}</SelectItem>
-              {clients.map((c) => (
-                <SelectItem key={c.user.id} value={c.user.id}>
-                  {c.user.name} ({c.user.email})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        {hint && clients.length > 0 && (
-          <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
-        )}
-      </div>
+      <ClientSelect
+        clients={clients}
+        email={form.clientEmail}
+        onChange={(email, name) => {
+          updateField("clientEmail", email);
+          updateField("clientName", name);
+        }}
+        t={t}
+        hint={hint}
+      />
     );
   }
 

@@ -6,15 +6,8 @@ import useSWR from "swr";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "@/components/ui/useToast";
-import { MemberPicker } from "@/components/project/ProjectForm";
+import { MemberPicker, ClientSelect } from "@/components/project/ProjectForm";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
@@ -134,47 +127,15 @@ export function TeamAccessSection({ projectId }: { projectId: string }) {
             onToggle={(id) => toggle(setSelectedArchitects, id)}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-text-secondary">
-              {t("client")}
-            </label>
-            {clients.length === 0 ? (
-              <p className="text-xs text-text-muted">{t("noClients")}</p>
-            ) : (
-              <Select
-                value={
-                  clients.find((c) => c.user.email === clientEmail)?.user.id ??
-                  "__none__"
-                }
-                onValueChange={(v) => {
-                  if (v === "__none__") {
-                    setClientEmail("");
-                    setClientName("");
-                    return;
-                  }
-                  const sel = clients.find((c) => c.user.id === v);
-                  if (sel) {
-                    setClientEmail(sel.user.email);
-                    setClientName(sel.user.name);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("selectClient")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">
-                    {t("noClientSelected")}
-                  </SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.user.id} value={c.user.id}>
-                      {c.user.name} ({c.user.email})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          <ClientSelect
+            clients={clients}
+            email={clientEmail}
+            onChange={(email, name) => {
+              setClientEmail(email);
+              setClientName(name);
+            }}
+            t={t}
+          />
         </div>
       </Card>
 

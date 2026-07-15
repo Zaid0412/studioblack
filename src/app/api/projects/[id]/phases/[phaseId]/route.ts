@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { setPhaseEnabled } from "@/lib/queries";
 import { withAuth } from "@/lib/withAuth";
-import { parseRequest, togglePhaseSchema } from "@/lib/validations";
+import { parseRequest, toggleEnabledSchema } from "@/lib/validations";
 
 /** PATCH /api/projects/[id]/phases/[phaseId] — enable/disable a phase (non-destructive). */
 export const PATCH = withAuth(
@@ -9,7 +9,7 @@ export const PATCH = withAuth(
   async (req, _ctx, params) => {
     const { id, phaseId } = params;
 
-    const parsed = await parseRequest(req, togglePhaseSchema);
+    const parsed = await parseRequest(req, toggleEnabledSchema);
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }

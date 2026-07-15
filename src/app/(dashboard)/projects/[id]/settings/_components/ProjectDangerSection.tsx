@@ -30,7 +30,9 @@ export function ProjectDangerSection({ projectId }: { projectId: string }) {
   async function handleArchive() {
     setArchiving(true);
     try {
-      await projects.update(projectId, { status: "archived" });
+      // The existing soft-delete endpoint archives (status='archived') — the
+      // same path the project list's archive uses.
+      await projects.remove(projectId);
       await mutate(API.projects());
       toast({ title: t("archivedToast"), variant: "success" });
       router.push("/projects");

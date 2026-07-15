@@ -29,26 +29,10 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
   const steps = project?.steps ?? [];
   const enabledPhaseCount = phases.filter((p) => p.enabled).length;
 
-  async function togglePhase(phase: DbPhase, enabled: boolean) {
-    setPendingId(phase.id);
+  async function toggle(id: string, run: () => Promise<unknown>) {
+    setPendingId(id);
     try {
-      await projects.setPhaseEnabled(projectId, phase.id, enabled);
-      await mutate(API.project(projectId));
-    } catch (err) {
-      toast({
-        title: tc("error"),
-        description: err instanceof Error ? err.message : t("saveFailed"),
-        variant: "error",
-      });
-    } finally {
-      setPendingId(null);
-    }
-  }
-
-  async function toggleStep(step: DbStep, enabled: boolean) {
-    setPendingId(step.id);
-    try {
-      await projects.setStepEnabled(projectId, step.id, enabled);
+      await run();
       await mutate(API.project(projectId));
     } catch (err) {
       toast({
@@ -92,7 +76,11 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
                 <div key={phase.id} className="flex flex-col gap-1">
                   <ToggleSwitch
                     checked={phase.enabled}
-                    onChange={(checked) => togglePhase(phase, checked)}
+                    onChange={(checked) =>
+                      toggle(phase.id, () =>
+                        projects.setPhaseEnabled(projectId, phase.id, checked)
+                      )
+                    }
                     label={phase.name}
                     disabled={pendingId === phase.id || isLastEnabled}
                   />
@@ -120,7 +108,11 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
                 <div key={step.id} className="flex flex-col gap-1">
                   <ToggleSwitch
                     checked={step.enabled}
-                    onChange={(checked) => toggleStep(step, checked)}
+                    onChange={(checked) =>
+                      toggle(step.id, () =>
+                        projects.setStepEnabled(projectId, step.id, checked)
+                      )
+                    }
                     label={step.name}
                     disabled={pendingId === step.id || isDesign}
                   />
