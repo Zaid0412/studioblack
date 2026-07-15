@@ -439,6 +439,7 @@
     "workflowHelp": "Bu projenin ihtiyaç duymadığı aşamaları veya adımları gizleyin. Devre dışı bırakmak yalnızca sekmeyi gizler — tüm veriler korunur ve istediğiniz zaman yeniden etkinleştirilebilir.",
     "phasesLabel": "Tasarım aşamaları",
     "stepsLabel": "İş akışı adımları",
+    "comingSoon": "Yakında",
     "stepsEmptyTitle": "İş akışı adımı yok",
     "stepsEmptyDescription": "Bu proje, iş akışı adımları eklenmeden önce oluşturuldu; bu yüzden yapılandırılacak adımı yok. Yeni projeler tüm Keşif → Finans akışını alır.",
     "lastPhaseHint": "En az bir aşama etkin kalmalıdır.",

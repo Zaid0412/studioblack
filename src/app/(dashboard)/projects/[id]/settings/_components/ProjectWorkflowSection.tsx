@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
 import { Workflow, Layers, ListChecks, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { toast } from "@/components/ui/useToast";
@@ -72,6 +73,10 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
   const phases = project?.phases ?? [];
   const steps = project?.steps ?? [];
   const enabledPhaseCount = phases.filter((p) => p.enabled).length;
+  // Only these three workflow stages have a real tab today; the rest exist as
+  // labels but aren't wired up, so we don't offer a (no-op) toggle for them.
+  const liveSteps = steps.filter((s) => LIVE_STEP_NAMES.has(s.name));
+  const comingSoonSteps = steps.filter((s) => !LIVE_STEP_NAMES.has(s.name));
 
   async function toggle(id: string, run: () => Promise<unknown>) {
     setPendingId(id);
@@ -152,7 +157,7 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
             />
           ) : (
             <div className="flex flex-col">
-              {steps.map((step) => {
+              {liveSteps.map((step) => {
                 const isDesign = step.name === "Design";
                 return (
                   <ToggleRow
@@ -170,6 +175,22 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
                   />
                 );
               })}
+
+              {comingSoonSteps.length > 0 && (
+                <div className="mt-2 flex flex-col gap-1 border-t border-border-default pt-3">
+                  {comingSoonSteps.map((step) => (
+                    <div
+                      key={step.id}
+                      className="flex items-center justify-between gap-3 px-3 py-2"
+                    >
+                      <span className="text-sm text-text-muted">
+                        {step.name}
+                      </span>
+                      <Badge variant="draft">{t("comingSoon")}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -177,3 +198,6 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
     </SettingsSection>
   );
 }
+
+/** Workflow stages with a real tab today; the rest are label-only. */
+const LIVE_STEP_NAMES = new Set(["Design", "BOQ", "Order"]);

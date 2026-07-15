@@ -439,6 +439,7 @@
     "workflowHelp": "Hide phases or steps this project doesn't need. Disabling only hides the tab — all data is kept and can be re-enabled anytime.",
     "phasesLabel": "Design phases",
     "stepsLabel": "Workflow steps",
+    "comingSoon": "Coming soon",
     "stepsEmptyTitle": "No workflow steps",
     "stepsEmptyDescription": "This project was created before workflow steps existed, so it has none to configure. New projects get the full Recce → Finance workflow.",
     "lastPhaseHint": "At least one phase must stay enabled.",

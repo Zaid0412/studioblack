@@ -240,6 +240,9 @@ export default function ProjectDetailLayout({
           projectId={id}
           phaseCounts={phaseCounts}
           showBoq={boqEnabled}
+          disabledStepNames={(project?.steps ?? [])
+            .filter((s) => !s.enabled)
+            .map((s) => s.name)}
         />
       )}
 
