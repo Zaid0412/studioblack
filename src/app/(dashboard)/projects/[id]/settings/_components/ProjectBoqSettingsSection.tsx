@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
+import { lineIncrementSchema } from "@/lib/validations";
 
 /** Per-project BOQ settings — currently just the line-number increment. */
 export function ProjectBoqSettingsSection({
@@ -30,8 +31,8 @@ export function ProjectBoqSettingsSection({
   }, [project]);
 
   async function handleSave() {
-    const n = Number(value);
-    if (!Number.isInteger(n) || n < 2 || n > 1000) {
+    const parsed = lineIncrementSchema.safeParse(Number(value));
+    if (!parsed.success) {
       toast({
         title: t("incrementInvalidTitle"),
         description: t("incrementInvalidDescription"),
@@ -39,6 +40,7 @@ export function ProjectBoqSettingsSection({
       });
       return;
     }
+    const n = parsed.data;
     setSaving(true);
     try {
       await projects.update(projectId, { lineIncrement: n });

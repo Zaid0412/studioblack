@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { SettingsNavLink } from "@/components/settings/SettingsNavLink";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import { ProjectDetailsSection } from "./_components/ProjectDetailsSection";
@@ -53,6 +54,18 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
   const requested = searchParams.get("section") as SectionId | null;
   const active: SectionId =
     navItems.find((s) => s.id === requested)?.id ?? "details";
+
+  // Until the project-scoped role resolves to PM, show a skeleton rather than
+  // flashing the sections (a non-PM is redirected by the effect above).
+  if (role !== "pm") {
+    return (
+      <div className="flex flex-col gap-6 max-w-[800px]">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full rounded-lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in duration-300 ease-out motion-reduce:animate-none flex flex-col gap-6">

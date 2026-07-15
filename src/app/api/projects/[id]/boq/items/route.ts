@@ -37,11 +37,8 @@ export const POST = withAuth(
         ? await insertBoqItemBetween(
             result.boqId,
             orgId,
-            {
-              ...itemInput,
-              anchorItemId,
-              position: insertPosition ?? "below",
-            },
+            { itemId: anchorItemId, position: insertPosition ?? "below" },
+            itemInput,
             { allowRenumber }
           )
         : await createBoqItem(result.boqId, orgId, itemInput);

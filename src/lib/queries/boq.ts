@@ -1088,24 +1088,24 @@ async function insertBounds(
 export async function insertBoqItemBetween(
   boqId: string,
   orgId: string,
-  input: CreateBoqItemInput & {
-    anchorItemId: string;
-    position: "above" | "below";
-  },
+  anchor: { itemId: string; position: "above" | "below" },
+  input: CreateBoqItemInput,
   opts: { allowRenumber?: boolean } = {}
 ): Promise<BoqItemWithComputed> {
   const pool = getPool();
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Serialize inserts into this BOQ: two concurrent mid-list inserts would
+    // otherwise read the same neighbours, compute the same midpoint, and write
+    // a duplicate line number (there's no unique constraint on
+    // (boq_id, line_number)). Same xact-lock convention as element codes.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      `boq-lines:${boqId}`,
+    ]);
     const increment = await getProjectIncrement(client, boqId);
 
-    let b = await insertBounds(
-      client,
-      boqId,
-      input.anchorItemId,
-      input.position
-    );
+    let b = await insertBounds(client, boqId, anchor.itemId, anchor.position);
     const mid = (lo: number, hi: number) => lo + Math.floor((hi - lo) / 2);
     let newLine: number;
     if (b.hi === null) {
@@ -1126,7 +1126,7 @@ export async function insertBoqItemBetween(
           WHERE bi.id = t.id`,
         [boqId, b.sectionId, increment]
       );
-      b = await insertBounds(client, boqId, input.anchorItemId, input.position);
+      b = await insertBounds(client, boqId, anchor.itemId, anchor.position);
       newLine = mid(b.lo, b.hi ?? b.lo + increment);
     }
 

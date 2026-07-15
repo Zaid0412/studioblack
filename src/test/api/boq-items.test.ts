@@ -148,7 +148,8 @@ describe("POST /api/projects/[id]/boq/items", () => {
     expect(insertBoqItemBetween).toHaveBeenCalledWith(
       BOQ_ID,
       "org-test-001",
-      expect.objectContaining({ anchorItemId: ITEM_ID, position: "above" }),
+      { itemId: ITEM_ID, position: "above" },
+      expect.objectContaining({ description: "Inserted line" }),
       { allowRenumber: undefined }
     );
   });

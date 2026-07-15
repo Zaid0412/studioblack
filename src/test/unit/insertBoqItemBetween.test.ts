@@ -21,9 +21,8 @@ vi.mock("@/lib/db", () => ({
 import { insertBoqItemBetween, NeedsRenumberError } from "@/lib/queries/boq";
 
 const ANCHOR = "anchor-1";
+const anchor = { itemId: ANCHOR, position: "below" as const };
 const input = {
-  anchorItemId: ANCHOR,
-  position: "below" as const,
   categoryId: "cat-1",
   description: "x",
   unit: "m2",
@@ -88,7 +87,7 @@ describe("insertBoqItemBetween", () => {
       neighbor: { line_number: 20 },
     });
 
-    await insertBoqItemBetween("boq-1", "org-1", input);
+    await insertBoqItemBetween("boq-1", "org-1", anchor, input);
 
     const params = insertParams()!;
     expect(params[24]).toBe(1); // $25 sort_order = anchor + 1
@@ -102,7 +101,7 @@ describe("insertBoqItemBetween", () => {
       neighbor: null,
     });
 
-    await insertBoqItemBetween("boq-1", "org-1", input);
+    await insertBoqItemBetween("boq-1", "org-1", anchor, input);
 
     expect(insertParams()![28]).toBe(40);
   });
@@ -114,9 +113,9 @@ describe("insertBoqItemBetween", () => {
       neighbor: { line_number: 11 },
     });
 
-    await expect(insertBoqItemBetween("boq-1", "org-1", input)).rejects.toThrow(
-      NeedsRenumberError
-    );
+    await expect(
+      insertBoqItemBetween("boq-1", "org-1", anchor, input)
+    ).rejects.toThrow(NeedsRenumberError);
     expect(insertParams()).toBeUndefined(); // nothing inserted
   });
 
@@ -128,7 +127,7 @@ describe("insertBoqItemBetween", () => {
       afterRenumber: { line_number: 20 }, // gap reopened by the re-spacing
     });
 
-    await insertBoqItemBetween("boq-1", "org-1", input, {
+    await insertBoqItemBetween("boq-1", "org-1", anchor, input, {
       allowRenumber: true,
     });
 
