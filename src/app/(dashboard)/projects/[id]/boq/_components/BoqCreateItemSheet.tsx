@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { Plus, X, Save } from "lucide-react";
 import {
   Sheet,
@@ -22,6 +23,7 @@ import { toast } from "@/components/ui/useToast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { elements as elementsApi, ApiError } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 import { isNeedsRenumberError, type CreateItemPayload } from "@/lib/api/boq";
 import type { BoqSection } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
@@ -173,14 +175,24 @@ export function BoqCreateItemSheet({
 
   const { isServiceAreaId } = useCategoryTree(open);
 
+  // Project-level BOQ defaults (Settings → BOQ) pre-fill a new line's unit and
+  // service charge; null falls back to INITIAL's global defaults.
+  const { data: project } = useSWR<{
+    default_unit: string | null;
+    default_service_charge_pct: string | null;
+  }>(API.project(projectId));
+
   useEffect(() => {
     if (!open) return;
     setV({
       ...INITIAL,
       sectionId: defaultSectionId ?? BOQ_NO_SECTION_ID,
+      unit: (project?.default_unit ?? INITIAL.unit) as ElementUnit,
+      serviceChargePct:
+        project?.default_service_charge_pct ?? INITIAL.serviceChargePct,
     });
     setManualQty(false);
-  }, [open, defaultSectionId]);
+  }, [open, defaultSectionId, project]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setV((prev) => ({ ...prev, [key]: value }));

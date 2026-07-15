@@ -269,8 +269,17 @@ export async function createBoq(
 
     const {
       rows: [project],
-    } = await client.query<{ org_id: string; project_number: string | null }>(
-      `SELECT org_id, project_number FROM project WHERE id = $1`,
+    } = await client.query<{
+      org_id: string;
+      project_number: string | null;
+      default_currency: string | null;
+      default_vat_pct: string | null;
+      default_contingency_pct: string | null;
+      default_min_margin_pct: string | null;
+    }>(
+      `SELECT org_id, project_number, default_currency, default_vat_pct,
+              default_contingency_pct, default_min_margin_pct
+         FROM project WHERE id = $1`,
       [projectId]
     );
     if (!project) throw new Error("Project not found");
@@ -296,11 +305,11 @@ export async function createBoq(
         projectId,
         boqNumber,
         input.title,
-        input.currency ?? DEFAULT_CURRENCY,
+        input.currency ?? project.default_currency ?? DEFAULT_CURRENCY,
         input.exchangeRate ?? 1,
-        input.contingencyPct ?? 0,
-        input.vatPct ?? 0,
-        input.minimumMarginPct ?? 10,
+        input.contingencyPct ?? project.default_contingency_pct ?? 0,
+        input.vatPct ?? project.default_vat_pct ?? 0,
+        input.minimumMarginPct ?? project.default_min_margin_pct ?? 10,
         input.clientId ?? null,
         input.architectId ?? null,
         input.notes ?? null,

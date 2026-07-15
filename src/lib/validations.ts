@@ -277,6 +277,31 @@ export const updateTaskSchema = z.object({
  */
 export const lineIncrementSchema = z.number().int().min(2).max(1000);
 
+/**
+ * Per-project BOQ defaults that pre-fill new BOQs/items. All nullable — null
+ * means "fall back to the global default". Currency/unit are validated loosely
+ * here (the UI uses CurrencySelect/UnitSelect); the four percents share the same
+ * 0–100 rule as line-item percents.
+ */
+const boqDefaultFields = {
+  defaultCurrency: z.string().trim().length(3).optional().nullable(),
+  defaultUnit: z.string().trim().max(30).optional().nullable(),
+  defaultVatPct: z.coerce.number().min(0).max(100).optional().nullable(),
+  defaultContingencyPct: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .nullable(),
+  defaultMinMarginPct: z.coerce.number().min(0).max(100).optional().nullable(),
+  defaultServiceChargePct: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .nullable(),
+};
+
 export const createProjectSchema = z.object({
   name: trimmedString,
   clientName: optionalString,
@@ -290,6 +315,7 @@ export const createProjectSchema = z.object({
   city: optionalString,
   state: optionalString,
   lineIncrement: lineIncrementSchema.optional(),
+  ...boqDefaultFields,
   phases: z.array(z.string()).optional(),
   architectIds: z.array(z.string().min(1)).optional(),
   pmIds: z.array(z.string().min(1)).optional(),
@@ -309,9 +335,18 @@ export const updateProjectSchema = z.object({
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
   lineIncrement: lineIncrementSchema.optional(),
+  ...boqDefaultFields,
   architectIds: z.array(z.string().min(1)).optional(),
   /** PM membership list. Min length enforced at route level (1+) for non-empty syncs. */
   pmIds: z.array(z.string().min(1)).optional(),
+});
+
+export const togglePhaseSchema = z.object({
+  enabled: z.boolean(),
+});
+
+export const toggleStepSchema = z.object({
+  enabled: z.boolean(),
 });
 
 // ─── Notifications (/api/notifications) ─────────────────────────────────────

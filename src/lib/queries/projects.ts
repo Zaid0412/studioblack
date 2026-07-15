@@ -251,6 +251,69 @@ export async function getProjectSteps(projectId: string) {
   return rows;
 }
 
+/**
+ * Enable/disable a phase's visibility (non-destructive — data is preserved).
+ * Refuses to disable the last enabled phase, so a project always shows at
+ * least one.
+ */
+export async function setPhaseEnabled(
+  projectId: string,
+  phaseId: string,
+  enabled: boolean
+) {
+  const pool = getPool();
+
+  if (!enabled) {
+    const { rows } = await pool.query(
+      `SELECT COUNT(*) FROM project_phase WHERE project_id = $1 AND enabled AND id != $2`,
+      [projectId, phaseId]
+    );
+    if (Number(rows[0].count) === 0) {
+      throw new Error("At least one phase must stay enabled");
+    }
+  }
+
+  const {
+    rows: [updated],
+  } = await pool.query(
+    `UPDATE project_phase SET enabled = $3, updated_at = now() WHERE id = $2 AND project_id = $1 RETURNING *`,
+    [projectId, phaseId, enabled]
+  );
+  return updated || null;
+}
+
+/**
+ * Enable/disable a workflow step's visibility (non-destructive). Refuses to
+ * disable the Design step — the project's phases hang off it via
+ * `project_phase.step_id`.
+ */
+export async function setStepEnabled(
+  projectId: string,
+  stepId: string,
+  enabled: boolean
+) {
+  const pool = getPool();
+
+  if (!enabled) {
+    const { rows } = await pool.query(
+      `SELECT name FROM project_step WHERE id = $1 AND project_id = $2`,
+      [stepId, projectId]
+    );
+    if (rows[0]?.name === "Design") {
+      throw new Error("The Design step cannot be disabled");
+    }
+  }
+
+  const {
+    rows: [updated],
+  } = await pool.query(
+    // project_step has no updated_at column (unlike project_phase).
+    `UPDATE project_step SET enabled = $3 WHERE id = $2 AND project_id = $1 RETURNING *`,
+    [projectId, stepId, enabled]
+  );
+  return updated || null;
+}
+
 // ---------------------------------------------------------------------------
 // Project mutations
 // ---------------------------------------------------------------------------
@@ -269,6 +332,12 @@ const PROJECT_COLS = new Set([
   "city",
   "state",
   "line_increment",
+  "default_currency",
+  "default_unit",
+  "default_vat_pct",
+  "default_contingency_pct",
+  "default_min_margin_pct",
+  "default_service_charge_pct",
 ]);
 
 /**
@@ -391,6 +460,20 @@ export async function deleteProject(projectId: string): Promise<boolean> {
     `UPDATE project SET status = 'archived', updated_at = now() WHERE id = $1 AND status != 'archived'`,
     [projectId]
   );
+  return (rowCount ?? 0) > 0;
+}
+
+/**
+ * Permanently delete a project and everything under it. All `project_id` FKs are
+ * ON DELETE CASCADE (boq→items, rfq, phases, steps, members, attachments,
+ * comments, approvals, tasks, docs); only `rate_contract.project_id` is SET NULL.
+ * Destructive and irreversible — the route restricts this to org owners.
+ */
+export async function hardDeleteProject(projectId: string): Promise<boolean> {
+  const pool = getPool();
+  const { rowCount } = await pool.query(`DELETE FROM project WHERE id = $1`, [
+    projectId,
+  ]);
   return (rowCount ?? 0) > 0;
 }
 

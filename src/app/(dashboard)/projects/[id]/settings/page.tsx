@@ -7,6 +7,9 @@ import { useTranslations } from "next-intl";
 import {
   SlidersHorizontal,
   ListOrdered,
+  Users,
+  Workflow,
+  TriangleAlert,
   ArrowLeft,
   type LucideIcon,
 } from "lucide-react";
@@ -16,8 +19,11 @@ import { SettingsNavLink } from "@/components/settings/SettingsNavLink";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import { ProjectDetailsSection } from "./_components/ProjectDetailsSection";
 import { ProjectBoqSettingsSection } from "./_components/ProjectBoqSettingsSection";
+import { TeamAccessSection } from "./_components/TeamAccessSection";
+import { ProjectWorkflowSection } from "./_components/ProjectWorkflowSection";
+import { ProjectDangerSection } from "./_components/ProjectDangerSection";
 
-type SectionId = "details" | "boq";
+type SectionId = "details" | "team" | "boq" | "workflow" | "danger";
 
 /** Per-project settings — vertical nav, section chosen via `?section=`. */
 export default function ProjectSettingsPage({
@@ -45,10 +51,18 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
     if (role && role !== "pm") router.replace(`/projects/${projectId}`);
   }, [role, projectId, router]);
 
-  type NavEntry = { id: SectionId; label: string; icon: LucideIcon };
+  type NavEntry = {
+    id: SectionId;
+    label: string;
+    icon: LucideIcon;
+    danger?: boolean;
+  };
   const navItems: NavEntry[] = [
     { id: "details", label: t("nav.details"), icon: SlidersHorizontal },
+    { id: "team", label: t("nav.team"), icon: Users },
     { id: "boq", label: t("nav.boq"), icon: ListOrdered },
+    { id: "workflow", label: t("nav.workflow"), icon: Workflow },
+    { id: "danger", label: t("nav.danger"), icon: TriangleAlert, danger: true },
   ];
 
   const requested = searchParams.get("section") as SectionId | null;
@@ -88,6 +102,7 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
               icon={s.icon}
               label={s.label}
               isActive={s.id === active}
+              danger={s.danger}
             />
           ))}
         </nav>
@@ -96,10 +111,18 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
           key={active}
           className="min-w-0 max-w-[800px] animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out motion-reduce:animate-none"
         >
-          {active === "details" ? (
+          {active === "details" && (
             <ProjectDetailsSection projectId={projectId} />
-          ) : (
+          )}
+          {active === "team" && <TeamAccessSection projectId={projectId} />}
+          {active === "boq" && (
             <ProjectBoqSettingsSection projectId={projectId} />
+          )}
+          {active === "workflow" && (
+            <ProjectWorkflowSection projectId={projectId} />
+          )}
+          {active === "danger" && (
+            <ProjectDangerSection projectId={projectId} />
           )}
         </div>
       </div>

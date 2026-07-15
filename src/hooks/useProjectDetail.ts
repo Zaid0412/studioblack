@@ -100,10 +100,13 @@ export function useProjectDetail(
   const initialLoading = projectLoading;
   const error = !!projectError;
 
-  // Set initial phase when project data arrives
+  // Set initial phase when project data arrives — default to the first
+  // *enabled* phase so a disabled phase (hidden from PhaseTabs) never ends
+  // up silently selected.
   useEffect(() => {
     if (project?.phases?.length && !activePhaseId) {
-      setActivePhaseId(project.phases[0].id);
+      const firstEnabled = project.phases.find((p) => p.enabled);
+      if (firstEnabled) setActivePhaseId(firstEnabled.id);
     }
   }, [project, activePhaseId]);
 

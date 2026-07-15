@@ -24,6 +24,9 @@ export const API = {
   // ── Projects ────────────────────────────────────
   projects:              ()                            => "/api/projects",
   project:               (id: string)                  => `/api/projects/${id}`,
+  projectPermanent:      (id: string)                  => `/api/projects/${id}/permanent`,
+  projectPhase:          (id: string, phaseId: string)  => `/api/projects/${id}/phases/${phaseId}`,
+  projectStep:           (id: string, stepId: string)   => `/api/projects/${id}/steps/${stepId}`,
 
   // ── Project → Attachments ──────────────────────
   attachments:           (pid: string)                 => `/api/projects/${pid}/attachments`,

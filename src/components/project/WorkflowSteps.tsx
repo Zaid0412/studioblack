@@ -5,6 +5,7 @@ interface Step {
   name: string;
   step_order: number;
   status: string; // "pending" | "in_progress" | "completed"
+  enabled: boolean;
 }
 
 interface WorkflowStepsProps {
@@ -31,15 +32,16 @@ const dotStyle: Record<string, { dot: string; line: string; label: string }> = {
 
 /** Horizontal workflow step bar — 7 steps with colored dots and connecting lines. */
 export function WorkflowSteps({ steps }: WorkflowStepsProps) {
+  const visibleSteps = steps.filter((step) => step.enabled);
   return (
     <div className="flex items-center gap-1.5">
-      {steps.map((step, i) => {
+      {visibleSteps.map((step, i) => {
         const style = dotStyle[step.status] || dotStyle.pending;
         return (
           <div key={step.id} className="flex items-center gap-1.5">
             <div className={style.dot} />
             <span className={style.label}>{step.name}</span>
-            {i < steps.length - 1 && <div className={style.line} />}
+            {i < visibleSteps.length - 1 && <div className={style.line} />}
           </div>
         );
       })}

@@ -69,6 +69,11 @@ interface ProjectFormProps {
   pms?: OrgMember[];
   /** Client org members for the client selector dropdown */
   clients?: OrgMember[];
+  /**
+   * Show the client / PM / architect pickers. Off in the project Settings →
+   * Details section, where access lives in its own Team & Access section.
+   */
+  showAccessFields?: boolean;
   onSubmit: (data: ProjectFormData) => void | Promise<void>;
   onCancel: () => void;
   submitting: boolean;
@@ -97,7 +102,7 @@ interface MemberPickerProps {
  * dropdown state + click-outside handler so the parent form doesn't have to
  * track one set per picker.
  */
-function MemberPicker({
+export function MemberPicker({
   label,
   placeholder,
   emptyText,
@@ -205,6 +210,7 @@ export function ProjectForm({
   architects,
   pms,
   clients = [],
+  showAccessFields = true,
   onSubmit,
   onCancel,
   submitting,
@@ -374,9 +380,9 @@ export function ProjectForm({
           </div>
         )}
 
-        {mode === "edit" && renderClientSelect()}
+        {showAccessFields && mode === "edit" && renderClientSelect()}
 
-        {pms && (
+        {showAccessFields && pms && (
           <MemberPicker
             label={t("assignPMs") || "Assign PMs"}
             placeholder={
@@ -391,14 +397,16 @@ export function ProjectForm({
           />
         )}
 
-        <MemberPicker
-          label={t("assignTeam")}
-          placeholder={t("assignTeamPlaceholder")}
-          emptyText={t("noArchitects")}
-          members={architects}
-          selectedIds={form.selectedArchitects}
-          onToggle={(id) => toggleListMember("selectedArchitects", id)}
-        />
+        {showAccessFields && (
+          <MemberPicker
+            label={t("assignTeam")}
+            placeholder={t("assignTeamPlaceholder")}
+            emptyText={t("noArchitects")}
+            members={architects}
+            selectedIds={form.selectedArchitects}
+            onToggle={(id) => toggleListMember("selectedArchitects", id)}
+          />
+        )}
 
         <Input
           label={t("address")}
@@ -462,7 +470,9 @@ export function ProjectForm({
         </div>
 
         {/* Client — create mode places it after scope */}
-        {mode === "create" && renderClientSelect({ hint: true })}
+        {showAccessFields &&
+          mode === "create" &&
+          renderClientSelect({ hint: true })}
 
         {children}
 

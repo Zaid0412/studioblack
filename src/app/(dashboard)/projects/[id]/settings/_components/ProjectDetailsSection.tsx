@@ -4,15 +4,11 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
-import { Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { Button } from "@/components/ui/button";
-import { DeleteProjectDialog } from "../../../_components/DeleteProjectDialog";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
-import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import {
   ProjectForm,
   type ProjectFormData,
@@ -47,20 +43,14 @@ export function ProjectDetailsSection({ projectId }: { projectId: string }) {
   const router = useRouter();
   const t = useTranslations("editProject");
   const tc = useTranslations("common");
+  // Access (PM/architect/client) lives in the Team & Access section now; the
+  // Details form only edits the project's own fields.
   const { members: architects } = useOrgMembers();
-  const { members: clients } = useOrgMembers({ roleFilter: "client" });
-  const { members: pmCandidates } = useOrgMembers({
-    roleFilter: ["owner", "admin", "member"],
-  });
-  const userRoleContext = useUserRoleContext();
-  const isOwner = userRoleContext?.orgRole === "owner";
 
   const { data: project, isLoading: loading } = useSWR<ProjectData>(
     API.project(projectId)
   );
   const [saving, setSaving] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const initialData = useMemo(() => {
     if (!project) return undefined;
@@ -94,8 +84,6 @@ export function ProjectDetailsSection({ projectId }: { projectId: string }) {
     try {
       await projects.update(projectId, {
         name: data.name.trim(),
-        clientName: data.clientName?.trim() || null,
-        clientEmail: data.clientEmail.trim() || null,
         deadline: data.deadline?.toISOString().split("T")[0] || null,
         scope: data.scope.trim() || null,
         areaSqft: data.areaSqft ? Number(data.areaSqft) : null,
@@ -103,8 +91,6 @@ export function ProjectDetailsSection({ projectId }: { projectId: string }) {
         address: data.address.trim() || null,
         city: data.city.trim() || null,
         state: data.state.trim() || null,
-        architectIds: data.selectedArchitects,
-        ...(isOwner ? { pmIds: data.selectedPMs } : {}),
       });
       toast({
         title: t("updatedToast"),
@@ -120,28 +106,6 @@ export function ProjectDetailsSection({ projectId }: { projectId: string }) {
       });
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      await projects.remove(projectId);
-      toast({
-        title: t("deletedToast"),
-        description: t("deletedDescription", { name: project?.name || "" }),
-        variant: "error",
-      });
-      router.push("/projects");
-    } catch {
-      toast({
-        title: tc("error"),
-        description: "Failed to delete project",
-        variant: "error",
-      });
-    } finally {
-      setDeleting(false);
-      setDeleteOpen(false);
     }
   }
 
@@ -164,36 +128,13 @@ export function ProjectDetailsSection({ projectId }: { projectId: string }) {
       mode="edit"
       initialData={initialData}
       architects={architects}
-      pms={isOwner ? pmCandidates : undefined}
-      clients={clients}
+      showAccessFields={false}
       onSubmit={handleSave}
       onCancel={() => router.push(`/projects/${projectId}`)}
       submitting={saving}
       t={t}
       tc={tc}
       submitLabel={t("saveChanges")}
-      footerExtra={
-        <>
-          <Button
-            type="button"
-            variant="danger"
-            className="w-full lg:w-auto"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="w-4 h-4" />
-            {t("deleteProject")}
-          </Button>
-          <DeleteProjectDialog
-            open={deleteOpen}
-            onOpenChange={setDeleteOpen}
-            title={t("deleteTitle", { name: project.name })}
-            description={t("deleteDescription")}
-            confirmLabel={t("deleteConfirm")}
-            confirming={deleting}
-            onConfirm={handleDelete}
-          />
-        </>
-      }
     />
   );
 }

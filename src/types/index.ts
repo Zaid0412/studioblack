@@ -189,6 +189,8 @@ export interface DbPhase {
   name: string;
   phase_order: number;
   status?: string;
+  /** Non-destructive visibility flag — disabled phases hide their tab but keep their data. */
+  enabled: boolean;
 }
 
 /** Workflow step record. */
@@ -197,6 +199,8 @@ export interface DbStep {
   name: string;
   step_order: number;
   status: string;
+  /** Non-destructive visibility flag — disabled steps hide their stepper entry but keep their data. */
+  enabled: boolean;
 }
 
 /** Project team member record. */
@@ -224,6 +228,12 @@ export interface DbProjectDetail {
   city: string | null;
   state: string | null;
   line_increment: number;
+  default_currency: string | null;
+  default_unit: string | null;
+  default_vat_pct: string | null;
+  default_contingency_pct: string | null;
+  default_min_margin_pct: string | null;
+  default_service_charge_pct: string | null;
   created_at: string;
   phases: DbPhase[];
   members: DbMember[];

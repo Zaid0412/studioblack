@@ -272,6 +272,29 @@ describe("updateProjectSchema", () => {
     expectFail(updateProjectSchema, { lineIncrement: 5000 });
   });
 
+  it("accepts BOQ defaults within bounds", () => {
+    expectPass(updateProjectSchema, {
+      defaultCurrency: "USD",
+      defaultUnit: "m2",
+      defaultVatPct: 18,
+      defaultContingencyPct: 5,
+      defaultMinMarginPct: 12,
+      defaultServiceChargePct: 3,
+    });
+  });
+
+  it("accepts null BOQ defaults (fall back to global)", () => {
+    expectPass(updateProjectSchema, {
+      defaultVatPct: null,
+      defaultCurrency: null,
+    });
+  });
+
+  it("rejects out-of-range BOQ default percents", () => {
+    expectFail(updateProjectSchema, { defaultVatPct: 150 });
+    expectFail(updateProjectSchema, { defaultContingencyPct: -1 });
+  });
+
   it("allows nullable fields", () => {
     const data = expectPass(updateProjectSchema, {
       clientName: null,
