@@ -204,6 +204,7 @@ export default function ProjectDetailLayout({
       {showHeader && (
         <ProjectHeader
           projectName={project.name}
+          projectNumber={project.project_number}
           description={undefined}
           onRefresh={refreshAll}
           actions={headerActions}

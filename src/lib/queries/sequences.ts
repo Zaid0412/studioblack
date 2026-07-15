@@ -60,27 +60,63 @@ export async function getNextSequenceNumber(
 }
 
 /**
- * Bulk-advance the sequence counter and return N formatted codes in order.
- *
- * Runs against a transaction `client` (not the pool) so a ROLLBACK in the
- * surrounding import reverses the sequence advance. Otherwise a partially-
- * applied import would burn codes permanently and leave gaps that show up on
- * client-facing invoices.
+ * The document types that hang off a project number. Each becomes the middle
+ * segment of a business reference — `P2026-001-BOQ-001`, `P2026-001-RFQ-001`, …
+ * Only BOQ and RFQ are wired today; the rest are reserved so the format is
+ * settled before those entities get built.
  */
-export async function nextSequenceNumbers(
-  client: PoolClient,
-  orgId: string,
-  prefix: string,
-  count: number
-): Promise<string[]> {
-  if (count <= 0) return [];
+export const DOC_TYPES = {
+  BOQ: "BOQ",
+  RFQ: "RFQ",
+  VQ: "VQ",
+  AWD: "AWD",
+  PO: "PO",
+  GRN: "GRN",
+  SRN: "SRN",
+  VIN: "VIN",
+  CINV: "CINV",
+  CO: "CO",
+  SNG: "SNG",
+  QIN: "QIN",
+  PAY: "PAY",
+  CPAY: "CPAY",
+} as const;
+
+export type DocType = (typeof DOC_TYPES)[keyof typeof DOC_TYPES];
+
+/**
+ * Claim the next project number for an org — `P2026-001`. Per-org, per-year: the
+ * sequence restarts each January, so the year is baked into the number and read
+ * back off it. The `P` glues straight onto the year (no separator), unlike the
+ * document sequences.
+ */
+export async function nextProjectNumber(
+  executor: Executor,
+  orgId: string
+): Promise<string> {
   const year = new Date().getUTCFullYear();
-  const end = await bumpSequenceCounter(client, orgId, prefix, year, count);
-  const start = end - count + 1;
-  return Array.from(
-    { length: count },
-    (_, i) => `${prefix}-${year}-${String(start + i).padStart(3, "0")}`
-  );
+  const n = await bumpSequenceCounter(executor, orgId, "P", year, 1);
+  return `P${year}-${String(n).padStart(3, "0")}`;
+}
+
+/**
+ * Claim the next business document number under a project — `P2026-001-BOQ-001`.
+ * The counter is keyed on the whole `${projectNumber}-${type}` prefix with
+ * `year = 0`: it never resets, because the year already lives in the project
+ * number, and it counts independently per project and per type.
+ *
+ * The prefix must fit `sequence_counter.prefix` (VARCHAR(20)); the longest type
+ * is `CPAY`, so `P2026-001-CPAY` (14 chars) is the practical ceiling.
+ */
+export async function nextDocumentNumber(
+  executor: Executor,
+  orgId: string,
+  projectNumber: string,
+  type: DocType
+): Promise<string> {
+  const prefix = `${projectNumber}-${type}`;
+  const n = await bumpSequenceCounter(executor, orgId, prefix, NO_YEAR, 1);
+  return `${prefix}-${String(n).padStart(3, "0")}`;
 }
 
 /**

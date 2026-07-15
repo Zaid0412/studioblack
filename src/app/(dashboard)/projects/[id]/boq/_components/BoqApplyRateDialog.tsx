@@ -86,7 +86,10 @@ export function BoqApplyRateDialog({
           <DialogTitle>{t("applyDialogTitle")}</DialogTitle>
           <DialogDescription>
             {t("applyDialogDescription", {
-              item: item?.item_code || item?.name || "",
+              item:
+                item?.name ||
+                item?.item_code ||
+                (item ? `Line ${item.line_number}` : ""),
             })}
           </DialogDescription>
         </DialogHeader>

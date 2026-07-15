@@ -12,7 +12,7 @@ import type {
 } from "@/types";
 import { escapeSqlLike } from "./helpers";
 import { BOQ_SELL_PRICE_SQL } from "./boq";
-import { nextSequenceNumbers } from "./sequences";
+import { DOC_TYPES, nextDocumentNumber } from "./sequences";
 import { mapPgError } from "./_pgErrors";
 import { AUDIT_ACTIONS } from "@/lib/auditConstants";
 import {
@@ -857,14 +857,19 @@ export async function createRfqDraft(
   try {
     await client.query("BEGIN");
 
-    const { rows: projectRows } = await client.query<{ org_id: string }>(
-      `SELECT org_id FROM project WHERE id = $1`,
-      [projectId]
-    );
+    const { rows: projectRows } = await client.query<{
+      org_id: string;
+      project_number: string | null;
+    }>(`SELECT org_id, project_number FROM project WHERE id = $1`, [projectId]);
     const orgId = projectRows[0]?.org_id;
     if (!orgId) {
       await client.query("ROLLBACK");
       throw new Error("Project not found");
+    }
+    const projectNumber = projectRows[0]?.project_number;
+    if (!projectNumber) {
+      await client.query("ROLLBACK");
+      throw new Error(`Project ${projectId} has no project_number`);
     }
 
     // Verify every BOQ item belongs to this project's BOQ. Run inside tx
@@ -897,10 +902,15 @@ export async function createRfqDraft(
       );
     }
 
-    // Use the tx-bound sequence helper so a later ROLLBACK reverses the
-    // sequence advance — otherwise a failed RFQ create burns a number and
-    // leaves a visible gap in client-facing RFQ IDs.
-    const [rfqNumber] = await nextSequenceNumbers(client, orgId, "RFQ", 1);
+    // The RFQ number is rooted in the project (P2026-001-RFQ-001). Use the
+    // tx-bound sequence helper so a later ROLLBACK reverses the advance —
+    // otherwise a failed RFQ create burns a number and leaves a visible gap.
+    const rfqNumber = await nextDocumentNumber(
+      client,
+      orgId,
+      projectNumber,
+      DOC_TYPES.RFQ
+    );
 
     const { rows: rfqRows } = await client.query<Rfq>(
       `INSERT INTO rfq (

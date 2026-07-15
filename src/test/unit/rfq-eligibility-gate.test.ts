@@ -42,8 +42,10 @@ const eligibilityCall = () =>
  */
 function wire(eligibleCount: number) {
   mockClientQuery.mockImplementation((sql: string) => {
-    if (/SELECT org_id FROM project/.test(sql))
-      return Promise.resolve({ rows: [{ org_id: "org-1" }] });
+    if (/SELECT org_id, project_number FROM project/.test(sql))
+      return Promise.resolve({
+        rows: [{ org_id: "org-1", project_number: "P2026-001" }],
+      });
     // addRfqItems' rfq FOR UPDATE lookup (draft, same project).
     if (/FROM rfq r/.test(sql))
       return Promise.resolve({

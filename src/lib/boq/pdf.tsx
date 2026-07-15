@@ -144,6 +144,8 @@ type PricedItem = RenderItem & { _rate: number; _total: number };
 
 export interface RenderBoqPdfInput {
   projectName: string;
+  /** BOQ business reference — `P2026-001-BOQ-001`. Shown in the header. */
+  boqNumber?: string | null;
   boqTitle: string;
   currency: string;
   comment?: string | null;
@@ -198,6 +200,7 @@ const LOGO_BUFFER = fs.readFileSync(
 
 function BoqPdfDocument({
   projectName,
+  boqNumber,
   boqTitle,
   currency,
   comment,
@@ -223,7 +226,9 @@ function BoqPdfDocument({
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
           <Image src={LOGO_BUFFER} style={styles.logo} />
           <View style={styles.headerRight}>
-            <Text style={styles.titleSmall}>BILL OF QUANTITIES</Text>
+            <Text style={styles.titleSmall}>
+              BILL OF QUANTITIES{boqNumber ? ` · ${boqNumber}` : ""}
+            </Text>
             <Text style={styles.titleLarge}>{boqTitle}</Text>
           </View>
         </View>
@@ -253,7 +258,7 @@ function BoqPdfDocument({
               <Text>{group.title}</Text>
             </View>
             <View style={styles.tableHeader}>
-              <Text style={styles.colCode}>Code</Text>
+              <Text style={styles.colCode}>Line</Text>
               <Text style={styles.colName}>Item</Text>
               <Text style={styles.colDesc}>Description</Text>
               <Text style={styles.colUnit}>Unit</Text>
@@ -263,7 +268,7 @@ function BoqPdfDocument({
             </View>
             {group.items.map((it) => (
               <View key={it.id} style={styles.row} wrap={false}>
-                <Text style={styles.colCode}>{it.item_code}</Text>
+                <Text style={styles.colCode}>{it.line_number}</Text>
                 <Text style={styles.colName}>
                   {it.name ?? it.element_name ?? ""}
                 </Text>

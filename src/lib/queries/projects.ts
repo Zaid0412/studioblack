@@ -1,5 +1,6 @@
 import { getPool } from "@/lib/db";
 import { PROJECT_PHASES, PROJECT_STEPS } from "@/lib/constants";
+import { nextProjectNumber } from "./sequences";
 
 // ---------------------------------------------------------------------------
 // Project CRUD
@@ -44,12 +45,16 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
       clientName = rows[0]?.name ?? input.clientEmail.split("@")[0];
     }
 
+    // Claim the project's business reference (P2026-001) inside the transaction,
+    // so a rollback returns the number instead of burning it.
+    const projectNumber = await nextProjectNumber(client, input.orgId);
+
     // Insert project
     const {
       rows: [project],
     } = await client.query(
-      `INSERT INTO project (name, client_name, client_email, category, deadline, scope, area_sqft, estimation_inr, address, city, state, org_id, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `INSERT INTO project (name, client_name, client_email, category, deadline, scope, area_sqft, estimation_inr, address, city, state, org_id, created_by, project_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         input.name,
@@ -65,6 +70,7 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
         input.state || null,
         input.orgId,
         input.createdBy,
+        projectNumber,
       ]
     );
 

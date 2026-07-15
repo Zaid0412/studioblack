@@ -519,6 +519,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
     <div className="px-4 lg:px-10 py-6 flex flex-col gap-5">
       <BoqHeader
         title={boq.title}
+        boqNumber={boq.boq_number}
         version={boq.version}
         currency={boq.currency}
         itemCount={boq.items.length}
@@ -649,7 +650,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           deleteItemTarget ? (
             <>
               <span className="font-medium text-text-primary">
-                {deleteItemTarget.item_code}
+                Line {deleteItemTarget.line_number}
               </span>
               {` — ${deleteItemTarget.description}. This can't be undone.`}
             </>
@@ -673,7 +674,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
           rfqBlockedItem ? (
             <>
               <span className="font-medium text-text-primary">
-                {rfqBlockedItem.item_code}
+                Line {rfqBlockedItem.line_number}
               </span>
               {` is on an RFQ, so it can't be deleted. Remove it from scope — the line stays for history, drops out of totals, and the RFQ shows it as removed.`}
             </>

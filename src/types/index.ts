@@ -211,6 +211,7 @@ export interface DbMember {
 export interface DbProjectDetail {
   id: string;
   name: string;
+  project_number: string | null;
   client_name: string | null;
   client_email: string | null;
   category: string;
@@ -232,6 +233,7 @@ export interface DbProjectDetail {
 export interface DbProjectRow {
   id: string;
   name: string;
+  project_number: string | null;
   client_name: string | null;
   client_email: string | null;
   category: string;
@@ -640,6 +642,8 @@ export interface ElementWithDetails extends Element {
 export interface Boq {
   id: string;
   project_id: string;
+  /** Business reference — `P2026-001-BOQ-001`. Null only on pre-numbering rows. */
+  boq_number: string | null;
   title: string;
   version: number;
   currency: string;
@@ -684,7 +688,17 @@ export interface BoqItem {
    * null) so it can still match rate contracts / drive vendor suggestion.
    */
   category_id: string | null;
-  item_code: string;
+  /**
+   * The item's gapped line number within its section (`10, 20, 30…`). Combined
+   * with the BOQ's `boq_number` this is the line's business reference
+   * (`P2026-001-BOQ-001 / Line 20`).
+   */
+  line_number: number;
+  /**
+   * A linked element's code (or an import-supplied code) — no longer the item's
+   * business number, so a custom line without a linked element is null.
+   */
+  item_code: string | null;
   /** Optional user-supplied label. Drawer / detail UIs prefer this over `element_name`. */
   name: string | null;
   description: string;
@@ -818,7 +832,7 @@ export interface BoqItemVersion {
  */
 export interface BoqBulkItemRef {
   id: string;
-  item_code: string;
+  line_number: number;
   description: string;
 }
 

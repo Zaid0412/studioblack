@@ -358,7 +358,7 @@ export function BoqTable({
                   />
                 </div>
               )}
-              <div>Code</div>
+              <div>Line</div>
               <div>Description</div>
               {!isExternal && <div>{t("columnSource")}</div>}
               <div>Unit</div>
@@ -826,6 +826,10 @@ const BoqItemRow = memo(function BoqItemRow({
       ? GRID_COLS_WITH_SELECT
       : GRID_COLS;
 
+  // A stable label for a11y — the line is now the item's identity, and
+  // `item_code` may be blank on a custom line.
+  const lineRef = `line ${item.line_number}`;
+
   return (
     <div
       data-anim-item
@@ -836,7 +840,7 @@ const BoqItemRow = memo(function BoqItemRow({
           <Checkbox
             checked={isSelected ?? false}
             onCheckedChange={() => onToggleSelected?.(item.id)}
-            aria-label={`Select ${item.item_code}`}
+            aria-label={`Select ${lineRef}`}
           />
         </div>
       )}
@@ -845,13 +849,13 @@ const BoqItemRow = memo(function BoqItemRow({
           type="button"
           onClick={() => onOpen(item)}
           className="text-xs text-text-muted font-mono truncate text-left hover:text-accent cursor-pointer focus:outline-none focus-visible:text-accent"
-          aria-label={`Open details for ${item.item_code}`}
+          aria-label={`Open details for ${lineRef}`}
         >
-          {item.item_code}
+          {item.line_number}
         </button>
       ) : (
         <span className="text-xs text-text-muted font-mono truncate">
-          {item.item_code}
+          {item.line_number}
         </span>
       )}
       <span className="flex flex-col gap-0.5 min-w-0">
@@ -878,7 +882,7 @@ const BoqItemRow = memo(function BoqItemRow({
             disabled={!editable}
             onSave={(next) => save({ description: next })}
             className="text-text-primary min-w-0"
-            ariaLabel={`Description for ${item.item_code}`}
+            ariaLabel={`Description for ${lineRef}`}
           />
         </span>
         {item.element_name && item.element_name !== item.description && (
@@ -917,7 +921,7 @@ const BoqItemRow = memo(function BoqItemRow({
         disabled={!editable}
         onSave={(next) => save({ quantity: parseFloat(next) })}
         className="tabular-nums text-text-primary"
-        ariaLabel={`Quantity for ${item.item_code}`}
+        ariaLabel={`Quantity for ${lineRef}`}
       />
       {!isExternal && (
         <BoqEditableCell
@@ -929,7 +933,7 @@ const BoqItemRow = memo(function BoqItemRow({
           disabled={!editable}
           onSave={(next) => save({ unitCost: parseFloat(next) })}
           className="tabular-nums text-text-primary"
-          ariaLabel={`Unit cost for ${item.item_code}`}
+          ariaLabel={`Unit cost for ${lineRef}`}
         />
       )}
       {!isExternal && (
@@ -952,7 +956,7 @@ const BoqItemRow = memo(function BoqItemRow({
             disabled={!editable}
             onSave={(next) => save({ marginPct: parseFloat(next) })}
             className="tabular-nums"
-            ariaLabel={`Margin for ${item.item_code}`}
+            ariaLabel={`Margin for ${lineRef}`}
           />
         </span>
       )}
@@ -969,7 +973,7 @@ const BoqItemRow = memo(function BoqItemRow({
           disabled={!editable}
           onSave={(next) => save({ clientRate: parseOptionalNumber(next) })}
           className="tabular-nums text-text-primary"
-          ariaLabel={`Client rate for ${item.item_code}`}
+          ariaLabel={`Client rate for ${lineRef}`}
         />
       )}
       {!isExternal && (
@@ -993,7 +997,7 @@ const BoqItemRow = memo(function BoqItemRow({
             disabled={!editable}
             onSave={(next) => save({ budgetRate: parseOptionalNumber(next) })}
             className="tabular-nums"
-            ariaLabel={`Budget rate for ${item.item_code}`}
+            ariaLabel={`Budget rate for ${lineRef}`}
           />
         </span>
       )}
@@ -1010,7 +1014,7 @@ const BoqItemRow = memo(function BoqItemRow({
           <DropdownMenu>
             <DropdownMenuTrigger
               className="p-1 rounded hover:bg-bg-elevated text-text-muted hover:text-text-primary cursor-pointer"
-              aria-label={`Actions for ${item.item_code}`}
+              aria-label={`Actions for ${lineRef}`}
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>

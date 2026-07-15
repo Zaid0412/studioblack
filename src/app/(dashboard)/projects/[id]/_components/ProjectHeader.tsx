@@ -7,6 +7,8 @@ import { RefreshButton } from "@/components/ui/RefreshButton";
 
 interface ProjectHeaderProps {
   projectName: string;
+  /** The project's business reference (P2026-001), shown beside the name. */
+  projectNumber?: string | null;
   /** Optional description shown below the project name. */
   description?: string;
   onRefresh?: () => void | Promise<void>;
@@ -27,6 +29,7 @@ interface ProjectHeaderProps {
 /** Project detail page header with breadcrumb and project name. */
 export function ProjectHeader({
   projectName,
+  projectNumber,
   description,
   onRefresh,
   backPath = "/projects",
@@ -69,9 +72,16 @@ export function ProjectHeader({
           </span>
         )}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <h1 className="text-xl lg:text-[26px] font-bold text-text-primary font-[family-name:var(--font-cabinet)] truncate">
-            {projectName}
-          </h1>
+          <div className="flex items-baseline gap-2.5 min-w-0">
+            <h1 className="text-xl lg:text-[26px] font-bold text-text-primary font-[family-name:var(--font-cabinet)] truncate">
+              {projectName}
+            </h1>
+            {projectNumber && (
+              <span className="font-mono text-xs text-text-muted shrink-0">
+                {projectNumber}
+              </span>
+            )}
+          </div>
           {onRefresh && (
             <div className="shrink-0 lg:hidden">
               <RefreshButton onRefresh={onRefresh} />
