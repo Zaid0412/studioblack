@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import useSWR, { mutate } from "swr";
+import useSWR from "swr";
 import { Workflow, Layers, ListChecks, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,9 +65,11 @@ function ToggleRow({
 export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
   const t = useTranslations("projectSettings");
   const tc = useTranslations("common");
-  const { data: project, isLoading } = useSWR<ProjectWorkflowData>(
-    API.project(projectId)
-  );
+  const {
+    data: project,
+    isLoading,
+    mutate: mutateProject,
+  } = useSWR<ProjectWorkflowData>(API.project(projectId));
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   const phases = project?.phases ?? [];
@@ -78,11 +80,35 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
   const liveSteps = steps.filter((s) => LIVE_STEP_NAMES.has(s.name));
   const comingSoonSteps = steps.filter((s) => !LIVE_STEP_NAMES.has(s.name));
 
-  async function toggle(id: string, run: () => Promise<unknown>) {
+  /**
+   * Optimistic toggle: flip the row in the SWR cache immediately (instant feel),
+   * fire the PATCH in the background, and roll back if it fails. No full refetch.
+   */
+  async function toggle(
+    kind: "phases" | "steps",
+    id: string,
+    enabled: boolean,
+    run: () => Promise<unknown>
+  ) {
+    // Flip only this row's `enabled`, preserving the rest of the project payload
+    // (the same SWR key backs the whole project detail).
+    const flip = <T extends { id: string; enabled: boolean }>(arr: T[]) =>
+      arr.map((e) => (e.id === id ? { ...e, enabled } : e));
+    const patch = (data?: ProjectWorkflowData): ProjectWorkflowData => ({
+      ...(data as ProjectWorkflowData),
+      phases:
+        kind === "phases" ? flip(data?.phases ?? []) : (data?.phases ?? []),
+      steps: kind === "steps" ? flip(data?.steps ?? []) : (data?.steps ?? []),
+    });
     setPendingId(id);
     try {
-      await run();
-      await mutate(API.project(projectId));
+      await mutateProject(
+        async (current) => {
+          await run();
+          return patch(current);
+        },
+        { optimisticData: patch, rollbackOnError: true, revalidate: false }
+      );
     } catch (err) {
       toast({
         title: tc("error"),
@@ -130,7 +156,7 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
                   pending={pendingId === phase.id}
                   lockedHint={isLastEnabled ? t("lastPhaseHint") : undefined}
                   onChange={(checked) =>
-                    toggle(phase.id, () =>
+                    toggle("phases", phase.id, checked, () =>
                       projects.setPhaseEnabled(projectId, phase.id, checked)
                     )
                   }
@@ -168,7 +194,7 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
                     pending={pendingId === step.id}
                     lockedHint={isDesign ? t("designStepHint") : undefined}
                     onChange={(checked) =>
-                      toggle(step.id, () =>
+                      toggle("steps", step.id, checked, () =>
                         projects.setStepEnabled(projectId, step.id, checked)
                       )
                     }
