@@ -28,6 +28,7 @@ export interface CategoryParseResponse extends CategoryParseResult {
 }
 
 export type {
+  CategoryImportDelete,
   CategoryImportPlan,
   CategoryImportResult,
   CategoryPath,

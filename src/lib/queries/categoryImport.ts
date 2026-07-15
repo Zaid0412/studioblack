@@ -43,6 +43,13 @@ export interface CategoryImportUpdate {
 export interface CategoryImportDelete {
   id: string;
   path: string[];
+  /**
+   * The node's full chain, each rung with its stored code — everything needed
+   * to put it back. "Keep this" in the UI means re-adding this chain to what
+   * gets sent, so a removal the user changes their mind about (or one that's
+   * blocked) survives without them re-editing the sheet.
+   */
+  chain: { name: string; codePrefix: string | null }[];
   /** What still points at this category. */
   references: CategoryReferences;
 }
@@ -214,9 +221,19 @@ export async function planCategoryImport(
     doomed.map((c) => c.id)
   );
 
+  // Each ancestor prefix's stored code, so a kept removal can be put back whole.
+  const codeAlong = (path: string[]) =>
+    path.map((_, i) => ({
+      name: path[i],
+      codePrefix:
+        existingByKey.get(categoryKey(path.slice(0, i + 1)))?.code_prefix ??
+        null,
+    }));
+
   const deletes: CategoryImportDelete[] = doomed.map((category) => ({
     id: category.id,
     path: category.path,
+    chain: codeAlong(category.path),
     references: references.get(category.id) ?? { ...EMPTY_REFERENCES },
   }));
 
