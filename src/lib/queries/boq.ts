@@ -277,6 +277,8 @@ export async function createBoq(
       default_contingency_pct: string | null;
       default_min_margin_pct: string | null;
     }>(
+      // The default_* columns come from migrate-project-boq-defaults.sql — that
+      // migration must be applied before/with this deploy or this SELECT throws.
       `SELECT org_id, project_number, default_currency, default_vat_pct,
               default_contingency_pct, default_min_margin_pct
          FROM project WHERE id = $1`,

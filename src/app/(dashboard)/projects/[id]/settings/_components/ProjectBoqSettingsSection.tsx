@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { ListOrdered, Hash, Percent } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -87,6 +87,9 @@ export function ProjectBoqSettingsSection({
         defaultMinMarginPct: pctOrNull(minMargin),
         defaultServiceChargePct: pctOrNull(serviceCharge),
       });
+      // Keep the shared project cache in sync so revisiting the tab (or the BOQ
+      // create dialog/sheet that seed from these defaults) sees the saved values.
+      await mutate(API.project(projectId));
       toast({ title: t("savedToast"), variant: "success" });
     } catch {
       toast({

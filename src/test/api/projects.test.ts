@@ -8,9 +8,11 @@ import {
   createProjectWithPhases,
   updateProject,
   deleteProject,
+  hardDeleteProject,
 } from "@/lib/queries";
 import { GET, POST } from "@/app/api/projects/route";
 import { GET as GET_BY_ID, PATCH, DELETE } from "@/app/api/projects/[id]/route";
+import { DELETE as DELETE_PERMANENT } from "@/app/api/projects/[id]/permanent/route";
 import {
   buildRequest,
   buildParams,
@@ -609,5 +611,70 @@ describe("DELETE /api/projects/[id]", () => {
 
     expect(status).toBe(200);
     expect(deleteProject).toHaveBeenCalledWith("proj-1");
+  });
+});
+
+// The hard delete is irreversible and cascades to all project data, so it is
+// restricted to the org owner — PMs (even project-scoped) can only archive.
+describe("DELETE /api/projects/[id]/permanent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("org owner can permanently delete", async () => {
+    const session = mockSession();
+    setupAuth(mocks.auth, session);
+    const { getMemberRole, getOrgRole } = await import("@/lib/queries");
+    vi.mocked(getMemberRole).mockResolvedValue("owner");
+    vi.mocked(getOrgRole).mockResolvedValue("owner");
+    vi.mocked(hardDeleteProject).mockResolvedValue(true);
+
+    const req = buildRequest("/api/projects/proj-1/permanent", {
+      method: "DELETE",
+    });
+    const res = await DELETE_PERMANENT(req, buildParams({ id: "proj-1" }));
+    const { status, body } = await parseResponse(res);
+
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ success: true });
+    expect(hardDeleteProject).toHaveBeenCalledWith("proj-1");
+  });
+
+  it("non-owner PM gets 403 and does not delete", async () => {
+    // A project-scoped PM (architect promoted on this project) passes the PM
+    // gate but is not the org owner, so the hard delete is refused.
+    const session = mockSession({ role: "architect" });
+    setupAuth(mocks.auth, session);
+    const { getMemberRole, getOrgRole, isProjectPm } =
+      await import("@/lib/queries");
+    vi.mocked(getMemberRole).mockResolvedValue("member");
+    vi.mocked(isProjectPm).mockResolvedValue(true);
+    vi.mocked(getOrgRole).mockResolvedValue("admin");
+
+    const req = buildRequest("/api/projects/proj-1/permanent", {
+      method: "DELETE",
+    });
+    const res = await DELETE_PERMANENT(req, buildParams({ id: "proj-1" }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(403);
+    expect(hardDeleteProject).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the project is already gone", async () => {
+    const session = mockSession();
+    setupAuth(mocks.auth, session);
+    const { getMemberRole, getOrgRole } = await import("@/lib/queries");
+    vi.mocked(getMemberRole).mockResolvedValue("owner");
+    vi.mocked(getOrgRole).mockResolvedValue("owner");
+    vi.mocked(hardDeleteProject).mockResolvedValue(false);
+
+    const req = buildRequest("/api/projects/proj-999/permanent", {
+      method: "DELETE",
+    });
+    const res = await DELETE_PERMANENT(req, buildParams({ id: "proj-999" }));
+    const { status } = await parseResponse(res);
+
+    expect(status).toBe(404);
   });
 });

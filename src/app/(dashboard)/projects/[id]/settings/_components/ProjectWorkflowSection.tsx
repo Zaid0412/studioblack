@@ -90,6 +90,9 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
     enabled: boolean,
     run: () => Promise<unknown>
   ) {
+    // Only optimistically patch a loaded cache — never let `patch(undefined)`
+    // overwrite the full project payload with a phases/steps-only object.
+    if (!project) return;
     // Flip only this row's `enabled`, preserving the rest of the project payload
     // (the same SWR key backs the whole project detail).
     const flip = <T extends { id: string; enabled: boolean }>(arr: T[]) =>
@@ -225,5 +228,10 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
   );
 }
 
-/** Workflow stages with a real tab today; the rest are label-only. */
+/**
+ * Workflow stages with a real tab today; the rest are label-only ("coming
+ * soon"). Keyed by the step's `name` — these match the fixed `PROJECT_STEPS`
+ * constants, so if steps ever become renameable/localized this (and the live
+ * stepper's `disabledStepNames` check) must switch to a stable key.
+ */
 const LIVE_STEP_NAMES = new Set(["Design", "BOQ", "Order"]);

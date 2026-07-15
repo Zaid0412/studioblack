@@ -299,6 +299,8 @@ export async function setStepEnabled(
       `SELECT name FROM project_step WHERE id = $1 AND project_id = $2`,
       [stepId, projectId]
     );
+    // Keyed by name — safe while steps are the fixed PROJECT_STEPS; revisit if
+    // steps ever become renameable.
     if (rows[0]?.name === "Design") {
       throw new Error("The Design step cannot be disabled");
     }

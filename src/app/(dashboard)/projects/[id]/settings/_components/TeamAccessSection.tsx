@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import useSWR from "swr";
+import useSWR, { mutate } from "swr";
 import { Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,9 @@ export function TeamAccessSection({ projectId }: { projectId: string }) {
         clientEmail: clientEmail || null,
         clientName: clientName || null,
       });
+      // Refresh the shared project cache so the members/client don't revert to
+      // the pre-save snapshot when the user revisits this tab.
+      await mutate(API.project(projectId));
       toast({ title: tc("save"), variant: "success" });
     } catch {
       toast({
