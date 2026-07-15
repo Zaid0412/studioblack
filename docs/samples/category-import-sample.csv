@@ -1,0 +1,94 @@
+Category,Category Code,Sub-category,Sub-category Code,Service Area,Service Area Code
+Lighting,LGT,Ambient,AMB,Downlights,DWN
+Lighting,LGT,Ambient,AMB,LED Strip Lights,STR
+Lighting,LGT,Decorative,DEC,Chandeliers,CHD
+Lighting,LGT,Decorative,DEC,Pendant Lights,PEN
+Lighting,LGT,Outdoor,OUT,Facade Lighting,FCD
+Lighting,LGT,Outdoor,OUT,Landscape Lighting,LND
+Kitchen,KIT,Cabinets,CAB,Base Cabinets,BASE
+Kitchen,KIT,Cabinets,CAB,Wall Cabinets,WALL
+Kitchen,KIT,Cabinets,CAB,Tall Units,TALL
+Kitchen,KIT,Cabinets,CAB,Kitchen Islands,ISL
+Kitchen,KIT,Cabinets,CAB,Corner Units,CORNER
+Kitchen,KIT,Cabinets,CAB,Pantry Units,PAN
+Kitchen,KIT,Countertops,CTR,Granite Countertops,GRN
+Kitchen,KIT,Accessories,ACS,Kitchen Hardware,HDW
+Kitchen,KIT,Appliances,APP,Hobs & Cooktops,HOB
+Kitchen,KIT,Appliances,APP,Chimneys/Hoods,HOD
+Kitchen,KIT,Appliances,APP,Built-in Ovens,OVN
+Joinery & Carpentry,JOIN,Wardrobes,WRD,Sliding Wardrobes,SLD
+Joinery & Carpentry,JOIN,Wardrobes,WRD,Hinged Wardrobes,HNG
+Joinery & Carpentry,JOIN,Furniture,FUR,TV Units,TV
+Joinery & Carpentry,JOIN,Furniture,FUR,Study Tables,STY
+Joinery & Carpentry,JOIN,Furniture,FUR,Reception Counters,RCP
+Joinery & Carpentry,JOIN,Paneling,PNL,Wall Paneling,WAL
+Joinery & Carpentry,JOIN,Shelving,SHL,Decorative Shelving,DEC
+Joinery & Carpentry,JOIN,Doors,DRS,Wooden Doors,WOD
+Flooring,FLR,Tiles,TIL,Porcelain Tiles,POR
+Flooring,FLR,Tiles,TIL,Ceramic Tiles,CER
+Flooring,FLR,Stone,STN,Marble Flooring,MRB
+Flooring,FLR,Stone,STN,Granite Flooring,GRN
+Flooring,FLR,Wood,WOD,Engineered Wood Flooring,ENG
+Flooring,FLR,Wood,WOD,Laminate Flooring,LAM
+Flooring,FLR,Vinyl,VIN,SPC Flooring,SPC
+Flooring,FLR,Skirting,SKR,PVC Skirting,PVC
+Ceilings,CLG,Gypsum,GYP,Gypsum False Ceiling,FLS
+Ceilings,CLG,Gypsum,GYP,Bulkheads,BLK
+Ceilings,CLG,Metal,MTL,Metal Grid Ceiling,GRD
+Ceilings,CLG,Wood,WOD,Wooden Ceiling Panels,PNL
+Paint & Finishes,FIN,Paint,PNT,Interior Painting,INT
+Paint & Finishes,FIN,Paint,PNT,Exterior Painting,EXT
+Paint & Finishes,FIN,Polish,POL,PU Polish,PU
+Paint & Finishes,FIN,Polish,POL,Duco Finish,DUC
+Paint & Finishes,FIN,Wall Coverings,WAL,Wallpaper,WPP
+Paint & Finishes,FIN,Texture,TXT,Decorative Texture Finish,DEC
+"Doors, Windows & Glass",DWG,Doors,DRS,Flush Doors,FLS
+"Doors, Windows & Glass",DWG,Doors,DRS,Fire Rated Doors,FIR
+"Doors, Windows & Glass",DWG,Windows,WIN,UPVC Windows,UPV
+"Doors, Windows & Glass",DWG,Windows,WIN,Aluminium Windows,ALU
+"Doors, Windows & Glass",DWG,Glass,GLS,Toughened Glass,TGH
+"Doors, Windows & Glass",DWG,Partitions,PAR,Office Glass Partitions,OFC
+"Doors, Windows & Glass",DWG,Partitions,PAR,Shower Partitions,SHW
+Electrical,ELC,Wiring,WIR,Power Wiring,PWR
+Electrical,ELC,Wiring,WIR,Lighting Wiring,LGT
+Electrical,ELC,Panels,PNL,Distribution Boards,DB
+Electrical,ELC,Switches,SWT,Modular Switches,MOD
+Electrical,ELC,Low Voltage,ELV,Data Cabling,DAT
+Electrical,ELC,Low Voltage,ELV,CCTV Systems,CCTV
+Electrical,ELC,Low Voltage,ELV,Access Control Systems,ACS
+Plumbing & Sanitary,PLB,Piping,PIP,Water Supply Piping,WTR
+Plumbing & Sanitary,PLB,Piping,PIP,Drainage Piping,DRN
+Plumbing & Sanitary,PLB,Fixtures,FIX,WC Installation,WC
+Plumbing & Sanitary,PLB,Fixtures,FIX,Wash Basins,BSN
+Plumbing & Sanitary,PLB,Fixtures,FIX,Shower Systems,SHW
+Plumbing & Sanitary,PLB,Pumps,PMP,Booster Pumps,BST
+HVAC,HVAC,Air Conditioning,AC,Split AC Systems,SPL
+HVAC,HVAC,Air Conditioning,AC,VRF Systems,VRF
+HVAC,HVAC,Ducting,DCT,GI Ducting,GAL
+HVAC,HVAC,Ventilation,VNT,Exhaust Systems,EXH
+HVAC,HVAC,Ventilation,VNT,Fresh Air Systems,FRS
+Fire & Safety,FIRE,Fire Fighting,FFT,Sprinkler Systems,SPR
+Fire & Safety,FIRE,Fire Fighting,FFT,Hose Reel Systems,HRE
+Fire & Safety,FIRE,Detection,DET,Smoke Detectors,SMK
+Fire & Safety,FIRE,Detection,DET,Fire Alarm Systems,ALM
+Fire & Safety,FIRE,Emergency,EMG,Emergency Lighting,LGT
+Civil & Masonry,CIV,Masonry,MAS,Brickwork,BRK
+Civil & Masonry,CIV,Masonry,MAS,Blockwork,BLK
+Civil & Masonry,CIV,Plastering,PLS,Wall Plastering,WAL
+Civil & Masonry,CIV,Concrete,CON,RCC Works,RCC
+Civil & Masonry,CIV,Demolition,DEM,Interior Demolition,INT
+Metal & Fabrication,MET,Steel,STE,Structural Steel,STR
+Metal & Fabrication,MET,Railings,RAI,Stainless Railings,SS
+Metal & Fabrication,MET,Railings,RAI,Mild Steel Railings,MS
+Metal & Fabrication,MET,Fabrication,FAB,Pergolas,PRG
+Metal & Fabrication,MET,Fabrication,FAB,Custom Fabrication,CUS
+FF&E,FFE,Furniture,FUR,Sofas,SOF
+FF&E,FFE,Furniture,FUR,Beds,BED
+FF&E,FFE,Furniture,FUR,Dining Tables,DIN
+FF&E,FFE,Office,OFC,Office Chairs,CHR
+FF&E,FFE,Office,OFC,Office Desks,DSK
+FF&E,FFE,Decor,DEC,Artwork,ART
+FF&E,FFE,Decor,DEC,Mirrors,MRR
+Smart Home,SMT,Automation,AUT,Occupancy Sensors,OCC
+Smart Home,SMT,Automation,AUT,Smart Switches,SWT
+Smart Home,SMT,Audio Visual,AV,Ceiling Speakers,SPK

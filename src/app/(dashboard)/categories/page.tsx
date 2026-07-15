@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate as globalMutate } from "swr";
-import { Plus, Sparkles } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -33,7 +33,7 @@ import { flattenCategories } from "@/app/(dashboard)/elements/_lib/categoryUtils
 import { SERVICE_AREA_LEVEL } from "@/lib/categoryCode";
 import { CategoryTableRow } from "./_components/CategoryTableRow";
 import { CategoryEditDialog } from "@/components/elements/CategoryEditDialog";
-import { CategoryTemplatesDialog } from "@/app/(dashboard)/elements/_components/CategoryTemplatesDialog";
+import { CategoryImportDialog } from "./_components/CategoryImportDialog";
 import { DeleteConfirmDialog } from "./_components/DeleteConfirmDialog";
 import type { CategoryFormSubmit } from "@/components/elements/CategoryForm";
 
@@ -186,7 +186,7 @@ export default function CategoriesPage() {
   const [deleting, setDeleting] = useState<ElementCategoryNode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [starterOpen, setStarterOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const activeDescendantIds = useMemo(() => {
     if (!activeId) return new Set<string>();
@@ -344,10 +344,10 @@ export default function CategoriesPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setStarterOpen(true)}
+              onClick={() => setImportOpen(true)}
             >
-              <Sparkles className="w-4 h-4" />
-              {t("starterUseSet")}
+              <Upload className="w-4 h-4" />
+              {t("categoryImportAction")}
             </Button>
             <Button type="button" onClick={() => openCreate(null)}>
               <Plus className="w-4 h-4" />
@@ -455,10 +455,7 @@ export default function CategoriesPage() {
         onConfirm={handleDelete}
       />
 
-      <CategoryTemplatesDialog
-        open={starterOpen}
-        onOpenChange={setStarterOpen}
-      />
+      <CategoryImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
