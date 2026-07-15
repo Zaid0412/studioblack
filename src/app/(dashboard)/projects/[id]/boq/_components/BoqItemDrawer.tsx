@@ -218,7 +218,7 @@ function seedDraft(item: BoqItemWithComputed): DrawerDraft {
   return {
     name: resolvedName,
     description: item.description,
-    itemCode: item.item_code,
+    itemCode: item.item_code ?? "",
     unit: item.unit,
     quantity: String(item.quantity ?? ""),
     unitCost: String(item.unit_cost ?? ""),
@@ -615,7 +615,8 @@ export function BoqItemDrawer({
         <SheetContent>
           <SheetHeader>
             <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
-              {item.item_code}
+              Line {item.line_number}
+              {item.item_code && <span>· {item.item_code}</span>}
               {section && <span>· {section.title}</span>}
             </div>
             <SheetTitle>{item.description}</SheetTitle>
@@ -709,10 +710,10 @@ export function BoqItemDrawer({
               />
               <div className="grid grid-cols-2 gap-3">
                 <EditableField
-                  label="Item code"
+                  label="Element code"
                   disabled={fieldsDisabled}
                   value={draft.itemCode}
-                  display={draft.itemCode}
+                  display={draft.itemCode || "—"}
                   onSave={(next) => setField({ itemCode: next })}
                   inputClassName="font-mono"
                 />

@@ -1,12 +1,12 @@
 import type { Pool, PoolClient } from "pg";
-import { DEFAULT_CURRENCY } from "@/lib/constants";
+import { BOQ_LINE_INCREMENT, DEFAULT_CURRENCY } from "@/lib/constants";
 import { getPool } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { mapPgError } from "./_pgErrors";
 import {
   checkServiceAreas,
-  getNextSequenceNumber,
-  nextSequenceNumbers,
+  DOC_TYPES,
+  nextDocumentNumber,
   requireServiceArea,
 } from "./sequences";
 import {
@@ -227,35 +227,73 @@ export interface CreateBoqInput {
   createdBy?: string | null;
 }
 
-/** Insert a new BOQ row for a project. Defaults: the app default currency, 0% contingency/VAT, 10% minimum margin. */
+/**
+ * Insert a new BOQ row for a project. Defaults: the app default currency, 0%
+ * contingency/VAT, 10% minimum margin.
+ *
+ * The BOQ's business reference (`P2026-001-BOQ-001`) is claimed here from the
+ * per-project document sequence, so it runs in a transaction: the counter bump
+ * and the insert commit together, and a rollback returns the number.
+ */
 export async function createBoq(
   projectId: string,
   input: CreateBoqInput
 ): Promise<Boq> {
   const pool = getPool();
-  const { rows } = await pool.query<Boq>(
-    `INSERT INTO boq (
-       project_id, title, currency, exchange_rate,
-       contingency_pct, vat_pct, minimum_margin_pct,
-       client_id, architect_id, notes, client_notes, created_by
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-     RETURNING *`,
-    [
-      projectId,
-      input.title,
-      input.currency ?? DEFAULT_CURRENCY,
-      input.exchangeRate ?? 1,
-      input.contingencyPct ?? 0,
-      input.vatPct ?? 0,
-      input.minimumMarginPct ?? 10,
-      input.clientId ?? null,
-      input.architectId ?? null,
-      input.notes ?? null,
-      input.clientNotes ?? null,
-      input.createdBy ?? null,
-    ]
-  );
-  return rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const {
+      rows: [project],
+    } = await client.query<{ org_id: string; project_number: string | null }>(
+      `SELECT org_id, project_number FROM project WHERE id = $1`,
+      [projectId]
+    );
+    if (!project) throw new Error("Project not found");
+    if (!project.project_number) {
+      throw new Error(`Project ${projectId} has no project_number`);
+    }
+
+    const boqNumber = await nextDocumentNumber(
+      client,
+      project.org_id,
+      project.project_number,
+      DOC_TYPES.BOQ
+    );
+
+    const { rows } = await client.query<Boq>(
+      `INSERT INTO boq (
+         project_id, boq_number, title, currency, exchange_rate,
+         contingency_pct, vat_pct, minimum_margin_pct,
+         client_id, architect_id, notes, client_notes, created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING *`,
+      [
+        projectId,
+        boqNumber,
+        input.title,
+        input.currency ?? DEFAULT_CURRENCY,
+        input.exchangeRate ?? 1,
+        input.contingencyPct ?? 0,
+        input.vatPct ?? 0,
+        input.minimumMarginPct ?? 10,
+        input.clientId ?? null,
+        input.architectId ?? null,
+        input.notes ?? null,
+        input.clientNotes ?? null,
+        input.createdBy ?? null,
+      ]
+    );
+
+    await client.query("COMMIT");
+    return rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Latest non-superseded BOQ for a project (highest version), or null if none exists. */
@@ -619,15 +657,15 @@ export async function getBoqItemHistory(opts: {
   }
   const itemLookup = new Map<
     string,
-    { id: string; item_code: string; description: string }
+    { id: string; line_number: number; description: string }
   >();
   if (bulkItemIds.size > 0) {
     const { rows: itemRows } = await pool.query<{
       id: string;
-      item_code: string;
+      line_number: number;
       description: string;
     }>(
-      `SELECT id::text, item_code, description
+      `SELECT id::text, line_number, description
        FROM boq_item
        WHERE id = ANY($1::uuid[])`,
       [Array.from(bulkItemIds)]
@@ -865,12 +903,16 @@ export interface CreateBoqItemInput {
 }
 
 /**
- * Insert a BOQ item, auto-generating its `item_code` from the org sequence when
- * none is supplied. Pass `executor` (a transaction client) to run the insert
- * inside a caller-owned transaction — `addElementsToBoq` uses this so a batch is
- * atomic and each row's in-tx `MAX(sort_order)` sees the prior inserts. The
- * `item_code` sequence advance runs on the same `executor`, so a ROLLBACK
- * reverses it (no burned codes / gaps).
+ * Insert a BOQ item. `item_code` is no longer a per-item business number — the
+ * item's business reference is its BOQ's number plus the `line_number` assigned
+ * here (`P2026-001-BOQ-001 / Line 20`). `item_code` now only carries a linked
+ * element's code (or an import-supplied code), so a custom line with none is
+ * left blank.
+ *
+ * The `line_number` is the next gap-of-`BOQ_LINE_INCREMENT` in the item's
+ * section. Pass `executor` (a transaction client) to run the insert inside a
+ * caller-owned transaction — `addElementsToBoq` uses this so a batch is atomic
+ * and each row's in-tx `MAX(line_number)` sees the prior inserts.
  */
 export async function createBoqItem(
   boqId: string,
@@ -878,9 +920,7 @@ export async function createBoqItem(
   input: CreateBoqItemInput,
   executor: Pool | PoolClient = getPool()
 ): Promise<BoqItemWithComputed> {
-  const itemCode = input.itemCode?.trim()
-    ? input.itemCode.trim()
-    : await getNextSequenceNumber(orgId, "BOQ", executor);
+  const itemCode = input.itemCode?.trim() || null;
 
   // Explicit ::numeric / ::int casts on numeric placeholders. Without them
   // pg infers the type from `COALESCE($N, 0)` as INTEGER (because the literal
@@ -895,7 +935,7 @@ export async function createBoqItem(
          client_rate, budget_rate,
          length, breadth, height, dimension_unit,
          notes, client_notes,
-         sort_order, is_provisional, is_excluded, category_id
+         sort_order, line_number, is_provisional, is_excluded, category_id
        ) VALUES (
          $1, $2::uuid, $3, COALESCE($4, 'custom'), $5::uuid,
          $6, $7, $8, $9,
@@ -905,6 +945,7 @@ export async function createBoqItem(
          $19::numeric, $20::numeric, $21::numeric, COALESCE($22, 'm'),
          $23, $24,
          COALESCE($25::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
+         (SELECT COALESCE(MAX(line_number), 0) + ${BOQ_LINE_INCREMENT} FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid),
          COALESCE($26, false), COALESCE($27, false), $28::uuid
        )
        RETURNING *
@@ -1469,6 +1510,12 @@ export async function moveBoqItem(
                 AND section_id IS NOT DISTINCT FROM $1::uuid),
              -1
            ) + 1,
+           line_number = COALESCE(
+             (SELECT MAX(line_number) FROM boq_item
+              WHERE boq_id = bi.boq_id
+                AND section_id IS NOT DISTINCT FROM $1::uuid),
+             0
+           ) + ${BOQ_LINE_INCREMENT},
            updated_at = now()
        WHERE bi.id = $2
          AND date_trunc('milliseconds', bi.updated_at)
@@ -1551,7 +1598,11 @@ export async function deleteBoqItem(
   }
 }
 
-/** Reorder items within a section (or the BOQ root if sectionId is null). */
+/**
+ * Reorder items within a section (or the BOQ root if sectionId is null). Both
+ * the internal `sort_order` (0-based) and the displayed `line_number` (gapped
+ * `10, 20, 30…`) are rewritten from the new position so they stay in lockstep.
+ */
 export async function reorderBoqItems(
   boqId: string,
   sectionId: string | null,
@@ -1560,7 +1611,9 @@ export async function reorderBoqItems(
   const pool = getPool();
   await pool.query(
     `UPDATE boq_item
-     SET sort_order = data.pos, updated_at = now()
+     SET sort_order = data.pos,
+         line_number = (data.pos + 1) * ${BOQ_LINE_INCREMENT},
+         updated_at = now()
      FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
      WHERE boq_item.id = data.id
        AND boq_item.boq_id = $3
@@ -1897,25 +1950,32 @@ export async function moveBoqItemsBulk(
       }
     }
 
-    // 3. Compute the starting sort_order in the target bucket.
+    // 3. Compute the starting sort_order and line_number in the target bucket.
     //    Null-safe equality via IS NOT DISTINCT FROM.
-    const { rows: sortRows } = await client.query<{ next: number }>(
-      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next
+    const { rows: sortRows } = await client.query<{
+      next: number;
+      next_line: number;
+    }>(
+      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next,
+              COALESCE(MAX(line_number), 0) + ${BOQ_LINE_INCREMENT} AS next_line
        FROM boq_item
        WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid`,
       [boqId, targetSectionId]
     );
     const baseSort = sortRows[0].next;
+    const baseLine = sortRows[0].next_line;
 
-    // 4. Move all items in one statement. `array_position` is 1-based,
-    //    so the first item gets baseSort, second baseSort+1, etc.
+    // 4. Move all items in one statement. `array_position` is 1-based, so the
+    //    first item gets baseSort/baseLine, and each subsequent item steps by 1
+    //    (sort_order) and by BOQ_LINE_INCREMENT (line_number).
     await client.query(
       `UPDATE boq_item
        SET section_id = $1,
-           sort_order = $2 + array_position($3::uuid[], id) - 1,
+           sort_order = $2 + array_position($4::uuid[], id) - 1,
+           line_number = $3 + (array_position($4::uuid[], id) - 1) * ${BOQ_LINE_INCREMENT},
            updated_at = now()
-       WHERE id = ANY($3::uuid[])`,
-      [targetSectionId, baseSort, itemIds]
+       WHERE id = ANY($4::uuid[])`,
+      [targetSectionId, baseSort, baseLine, itemIds]
     );
 
     // 5. Re-fetch the moved rows with computed columns, in the same
@@ -2311,7 +2371,12 @@ export async function getBoqItemsForPdf(
   boqId: string,
   itemIds: readonly string[]
 ): Promise<{
-  boq: { title: string; currency: string; vat_pct: string };
+  boq: {
+    title: string;
+    boq_number: string | null;
+    currency: string;
+    vat_pct: string;
+  };
   project: { name: string; client_email: string | null };
   items: Array<BoqItemWithComputed & { section_title: string | null }>;
 } | null> {
@@ -2320,12 +2385,13 @@ export async function getBoqItemsForPdf(
   const [headerRes, itemsRes] = await Promise.all([
     pool.query<{
       title: string;
+      boq_number: string | null;
       currency: string;
       vat_pct: string;
       project_name: string;
       client_email: string | null;
     }>(
-      `SELECT b.title, b.currency, b.vat_pct,
+      `SELECT b.title, b.boq_number, b.currency, b.vat_pct,
               p.name AS project_name, p.client_email
        FROM boq b
        JOIN project p ON p.id = b.project_id
@@ -2347,7 +2413,12 @@ export async function getBoqItemsForPdf(
   if (headerRes.rows.length === 0) return null;
   const h = headerRes.rows[0];
   return {
-    boq: { title: h.title, currency: h.currency, vat_pct: h.vat_pct },
+    boq: {
+      title: h.title,
+      boq_number: h.boq_number,
+      currency: h.currency,
+      vat_pct: h.vat_pct,
+    },
     project: { name: h.project_name, client_email: h.client_email },
     items: itemsRes.rows,
   };
@@ -2462,16 +2533,6 @@ export async function bulkInsertBoqItems(
       }
     }
 
-    // Bulk-advance sequence for any rows missing `itemCode`.
-    const blankCount = rows.filter((r) => !r.itemCode?.trim()).length;
-    const generatedCodes = await nextSequenceNumbers(
-      client,
-      orgId,
-      "BOQ",
-      blankCount
-    );
-    let genIdx = 0;
-
     // Prefetch element ids so we don't round-trip per row.
     const codes = Array.from(
       new Set(
@@ -2492,18 +2553,24 @@ export async function bulkInsertBoqItems(
       elementIdByCode = new Map(elemRows.map((r) => [r.code, r.id]));
     }
 
-    // Starting sort_order inside each section.
+    // Starting sort_order and line_number inside each section.
     const { rows: sortRows } = await client.query<{
       section_id: string | null;
       max: number | null;
+      max_line: number | null;
     }>(
-      `SELECT section_id, MAX(sort_order) AS max
+      `SELECT section_id, MAX(sort_order) AS max, MAX(line_number) AS max_line
          FROM boq_item WHERE boq_id = $1 GROUP BY section_id`,
       [boqId]
     );
     const nextSortBySection = new Map<string | null, number>();
+    const nextLineBySection = new Map<string | null, number>();
     for (const row of sortRows) {
       nextSortBySection.set(row.section_id, (row.max ?? -1) + 1);
+      nextLineBySection.set(
+        row.section_id,
+        (row.max_line ?? 0) + BOQ_LINE_INCREMENT
+      );
     }
 
     for (const row of rows) {
@@ -2512,10 +2579,16 @@ export async function bulkInsertBoqItems(
         ? (sectionIdByLowerTitle.get(title.toLowerCase()) ?? null)
         : null;
 
-      const itemCode = row.itemCode?.trim() || generatedCodes[genIdx++];
-      const elementId = elementIdByCode.get(itemCode) ?? null;
+      // `item_code` now only carries a linked element's code; a custom row
+      // without one is left blank.
+      const itemCode = row.itemCode?.trim() || null;
+      const elementId = itemCode
+        ? (elementIdByCode.get(itemCode) ?? null)
+        : null;
       const sortOrder = nextSortBySection.get(sectionId) ?? 0;
       nextSortBySection.set(sectionId, sortOrder + 1);
+      const lineNumber = nextLineBySection.get(sectionId) ?? BOQ_LINE_INCREMENT;
+      nextLineBySection.set(sectionId, lineNumber + BOQ_LINE_INCREMENT);
 
       try {
         await client.query(
@@ -2530,7 +2603,7 @@ export async function bulkInsertBoqItems(
              length, breadth, height, dimension_unit,
              notes, client_notes,
              sort_order, is_provisional,
-             category_id
+             category_id, line_number
            ) VALUES (
              $1, $2::uuid, $3::uuid,
              CASE WHEN $3::uuid IS NULL THEN 'custom' ELSE 'library' END,
@@ -2541,7 +2614,7 @@ export async function bulkInsertBoqItems(
              $16::numeric, $17::numeric, $18::numeric, COALESCE($19, 'm'),
              $20, $21,
              $22::int, COALESCE($23, false),
-             $24::uuid
+             $24::uuid, $25::int
            )`,
           [
             boqId,
@@ -2568,6 +2641,7 @@ export async function bulkInsertBoqItems(
             sortOrder,
             row.isProvisional ?? null,
             row.categoryId,
+            lineNumber,
           ]
         );
         result.inserted += 1;

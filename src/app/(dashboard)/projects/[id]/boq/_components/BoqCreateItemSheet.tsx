@@ -466,12 +466,12 @@ export function BoqCreateItemSheet({
               />
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 self-start">
                 <label className="flex flex-col gap-1.5">
-                  <span className={labelCls}>Item code</span>
+                  <span className={labelCls}>Element code</span>
                   <Input
                     value={v.itemCode}
                     onChange={(e) => set("itemCode", e.target.value)}
                     maxLength={50}
-                    placeholder="auto-generated"
+                    placeholder="Optional"
                   />
                 </label>
                 <label className="flex flex-col gap-1.5">

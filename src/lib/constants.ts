@@ -50,3 +50,11 @@ export const DEFAULT_CURRENCY = "INR";
  * Unit column should still fail rather than silently become square feet.
  */
 export const DEFAULT_ELEMENT_UNIT = "sqft";
+
+/**
+ * The gap between consecutive BOQ line numbers (10, 20, 30…). Lines are numbered
+ * in multiples of this so a row can be inserted between two neighbours without
+ * renumbering the rest. A product default, not a schema one — a future per-BOQ
+ * or per-org override would route through here.
+ */
+export const BOQ_LINE_INCREMENT = 10;

@@ -45,7 +45,7 @@ export async function writeBoqSheet(boq: BoqExportInput): Promise<Buffer> {
     const section = item.section_id ? sectionById.get(item.section_id) : null;
     ws.addRow({
       sectionTitle: section?.title ?? "",
-      itemCode: item.item_code,
+      itemCode: item.item_code ?? "",
       categoryPath: item.category_id
         ? (pathById.get(item.category_id) ?? []).join(" > ")
         : "",

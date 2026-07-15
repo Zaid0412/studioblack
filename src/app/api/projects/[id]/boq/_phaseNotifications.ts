@@ -126,6 +126,7 @@ export async function notifyPhaseRecipients(opts: {
         try {
           pdfBuffer = await renderBoqPdf({
             projectName: pdfData.project.name,
+            boqNumber: pdfData.boq.boq_number,
             boqTitle: pdfData.boq.title,
             currency: pdfData.boq.currency,
             comment,

@@ -33,9 +33,16 @@ export function ProjectCard({
         onClick={onClick}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-text-primary truncate">
-            {project.name}
-          </span>
+          <div className="flex flex-col min-w-0">
+            {project.project_number && (
+              <span className="font-mono text-[11px] text-text-muted">
+                {project.project_number}
+              </span>
+            )}
+            <span className="text-sm font-semibold text-text-primary truncate">
+              {project.name}
+            </span>
+          </div>
           <div className="flex items-center gap-2 shrink-0">
             <Badge variant={statusToBadgeVariant(project.status)}>
               <span className="capitalize">{project.status}</span>
@@ -71,9 +78,16 @@ export function ProjectCard({
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-semibold text-text-primary line-clamp-2">
-          {project.name}
-        </span>
+        <div className="flex flex-col min-w-0">
+          {project.project_number && (
+            <span className="font-mono text-[11px] text-text-muted">
+              {project.project_number}
+            </span>
+          )}
+          <span className="text-sm font-semibold text-text-primary line-clamp-2">
+            {project.name}
+          </span>
+        </div>
         <ProjectDropdown
           project={project}
           isStaff={isStaff}

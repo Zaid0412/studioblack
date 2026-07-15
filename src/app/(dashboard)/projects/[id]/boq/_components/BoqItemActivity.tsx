@@ -361,7 +361,7 @@ function BatchItemRow({
   const content = (
     <>
       <span className="font-semibold text-text-primary tabular-nums shrink-0 w-16 truncate">
-        {item.item_code}
+        Line {item.line_number}
       </span>
       <span className="text-text-secondary truncate">{item.description}</span>
       {isCurrent && (
