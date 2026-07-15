@@ -895,7 +895,6 @@
     "categoryImportCodeInvalid": "Harf veya rakam kullanın",
     "categoryImportCodeTooLong": "Çok uzun (en fazla {max})",
     "categoryImportNoCode": "kod yok",
-    "categoryImportWas": "önceki: {code}",
     "categoryImportKeep": "Koru",
     "categoryImportKeptLocked": "Hâlâ kullanımda — korunuyor",
     "categoryImportWillRemove": "Kaldırılacak",

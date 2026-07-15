@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { mutate as globalMutate } from "swr";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   FileSpreadsheet,
   Loader2,
@@ -50,6 +51,33 @@ interface Props {
 }
 
 type Tab = "added" | "updated" | "removed";
+
+/** A view that fades/slides in when it mounts, so a step change isn't a jump. */
+const ENTER =
+  "animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out motion-reduce:animate-none";
+
+/**
+ * Track a box's own height so a wrapper can transition to it. The tabs render
+ * lists of different lengths, so the dialog jumped between them — measuring the
+ * active panel and animating a fixed-height wrapper to it smooths the swap.
+ *
+ * A callback ref, not a stored one: the measured node is remounted whenever the
+ * view changes (it lives behind a keyed wrapper), and the observer has to follow
+ * it there rather than cling to a node that's been detached.
+ */
+function useAutoHeight<T extends HTMLElement>() {
+  const [height, setHeight] = useState<number>();
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((node: T | null) => {
+    observer.current?.disconnect();
+    if (!node) return;
+    const ro = new ResizeObserver(() => setHeight(node.offsetHeight));
+    ro.observe(node);
+    observer.current = ro;
+    setHeight(node.offsetHeight);
+  }, []);
+  return { ref, height };
+}
 
 /** A removal is off the table if the user kept it, or if it can't go at all. */
 const isBlocked = (d: CategoryImportDelete) =>
@@ -97,6 +125,7 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
   >(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const panel = useAutoHeight<HTMLDivElement>();
 
   const reset = () => {
     setBusy(false);
@@ -289,6 +318,18 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
     return plan.deletes.map((d) => raced.get(d.id) ?? d);
   }, [plan, serverBlocked]);
 
+  const view = result
+    ? "result"
+    : busy
+      ? "busy"
+      : !parse
+        ? "upload"
+        : rowErrors.length > 0
+          ? "errors"
+          : noChanges
+            ? "empty"
+            : "preview";
+
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-w-2xl">
@@ -297,169 +338,189 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
           <DialogDescription>{t("categoryImportSubtitle")}</DialogDescription>
         </DialogHeader>
 
-        {result ? (
-          <ResultView
-            result={result}
-            onClose={() => close(false)}
-            closeLabel={tCommon("close")}
-            t={t}
-          />
-        ) : busy ? (
-          <div className="flex flex-col items-center gap-3 py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-text-secondary" />
-            <p className="text-sm text-text-secondary">{tCommon("loading")}</p>
-          </div>
-        ) : !parse ? (
-          <UploadView
-            dragOver={dragOver}
-            setDragOver={setDragOver}
-            fileInputRef={fileInputRef}
-            onFiles={handleFile}
-            templateHref={categoriesApi.downloadImportTemplate()}
-            t={t}
-          />
-        ) : rowErrors.length > 0 ? (
-          <div className="flex flex-col gap-4">
-            <Banner tone="error" title={t("categoryImportRowErrors")}>
-              <ul className="flex flex-col gap-1">
-                {rowErrors.slice(0, 10).map((row) => (
-                  <li key={row.rowNumber}>
-                    <span className="font-medium">
-                      {t("categoryImportRowLabel", { row: row.excelRowNumber })}
-                    </span>{" "}
-                    — {row.errors.join("; ")}
-                  </li>
-                ))}
-              </ul>
-            </Banner>
-            <Footer onBack={reset} t={t}>
-              <span />
-            </Footer>
-          </div>
-        ) : noChanges ? (
-          <EmptyState
-            icon={<CheckCircle2 className="h-10 w-10 text-success" />}
-            title={t("categoryImportNoChangesTitle")}
-            body={t("categoryImportNoChangesBody")}
-            action={
-              <Button type="button" variant="secondary" onClick={reset}>
-                {t("categoryImportChooseAnother")}
-              </Button>
-            }
-          />
-        ) : (
-          plan && (
-            <div className="flex flex-col gap-4">
-              <SummaryChips
-                added={plan.creates.length}
-                updated={plan.updates.length}
-                removed={removedCount}
-                t={t}
-              />
-
-              <Tabs
-                value={tab}
-                onValueChange={(v) => setTab(v as Tab)}
-                className="flex flex-col gap-3"
-              >
-                <TabsList>
-                  <TabsTrigger value="added" disabled={!plan.creates.length}>
-                    {t("categoryImportCreated")} ({plan.creates.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="updated" disabled={!plan.updates.length}>
-                    {t("categoryImportUpdated")} ({plan.updates.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="removed" disabled={!deletes.length}>
-                    {t("categoryImportDeleted")} ({deletes.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                <div className="max-h-[45vh] overflow-y-auto pr-1">
-                  <TabsContent value="added">
-                    <RowList>
-                      {plan.creates.map((c) => (
-                        <CodeRow
-                          key={categoryKey(c.path)}
-                          tone="added"
-                          path={c.path}
-                          segment={effectiveSegment(categoryKey(c.path))}
-                          composed={codeFor(c.path)}
-                          onSegment={(v) =>
-                            setCodeEdits((e) => ({
-                              ...e,
-                              [categoryKey(c.path)]: v,
-                            }))
-                          }
-                          t={t}
-                        />
-                      ))}
-                    </RowList>
-                  </TabsContent>
-
-                  <TabsContent value="updated">
-                    <RowList>
-                      {plan.updates.map((u) => (
-                        <CodeRow
-                          key={categoryKey(u.path)}
-                          tone="updated"
-                          path={u.path}
-                          segment={effectiveSegment(categoryKey(u.path))}
-                          composed={codeFor(u.path)}
-                          previous={u.previousCodePrefix}
-                          onSegment={(v) =>
-                            setCodeEdits((e) => ({
-                              ...e,
-                              [categoryKey(u.path)]: v,
-                            }))
-                          }
-                          t={t}
-                        />
-                      ))}
-                    </RowList>
-                  </TabsContent>
-
-                  <TabsContent value="removed">
-                    <RowList>
-                      {deletes.map((d) => (
-                        <RemovalRow
-                          key={d.id}
-                          delete={d}
-                          blocked={isBlocked(d)}
-                          kept={effectivelyKept(d)}
-                          onKeep={(keep) =>
-                            setKept((s) => {
-                              const next = new Set(s);
-                              if (keep) next.add(d.id);
-                              else next.delete(d.id);
-                              return next;
-                            })
-                          }
-                          t={t}
-                        />
-                      ))}
-                    </RowList>
-                  </TabsContent>
-                </div>
-              </Tabs>
-
-              <p className="flex items-start gap-1.5 text-xs text-text-muted">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {t("categoryImportCodeNote")}
+        {/* Keyed on the view so each step change (esp. "choose another file" →
+            upload) fades in, rather than snapping. Edits keep the same key, so
+            typing a code doesn't remount the preview. */}
+        <div key={view} className={ENTER}>
+          {result ? (
+            <ResultView
+              result={result}
+              onClose={() => close(false)}
+              closeLabel={tCommon("close")}
+              t={t}
+            />
+          ) : busy ? (
+            <div className="flex flex-col items-center gap-3 py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-text-secondary" />
+              <p className="text-sm text-text-secondary">
+                {tCommon("loading")}
               </p>
-
+            </div>
+          ) : !parse ? (
+            <UploadView
+              dragOver={dragOver}
+              setDragOver={setDragOver}
+              fileInputRef={fileInputRef}
+              onFiles={handleFile}
+              templateHref={categoriesApi.downloadImportTemplate()}
+              t={t}
+            />
+          ) : rowErrors.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              <Banner tone="error" title={t("categoryImportRowErrors")}>
+                <ul className="flex flex-col gap-1">
+                  {rowErrors.slice(0, 10).map((row) => (
+                    <li key={row.rowNumber}>
+                      <span className="font-medium">
+                        {t("categoryImportRowLabel", {
+                          row: row.excelRowNumber,
+                        })}
+                      </span>{" "}
+                      — {row.errors.join("; ")}
+                    </li>
+                  ))}
+                </ul>
+              </Banner>
               <Footer onBack={reset} t={t}>
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={confirm}
-                  disabled={!canImport}
-                >
-                  {t("categoryImportConfirmCount")}
-                </Button>
+                <span />
               </Footer>
             </div>
-          )
-        )}
+          ) : noChanges ? (
+            <EmptyState
+              icon={<CheckCircle2 className="h-10 w-10 text-success" />}
+              title={t("categoryImportNoChangesTitle")}
+              body={t("categoryImportNoChangesBody")}
+              action={
+                <Button type="button" variant="secondary" onClick={reset}>
+                  {t("categoryImportChooseAnother")}
+                </Button>
+              }
+            />
+          ) : (
+            plan && (
+              <div className="flex flex-col gap-4">
+                <SummaryChips
+                  added={plan.creates.length}
+                  updated={plan.updates.length}
+                  removed={removedCount}
+                  t={t}
+                />
+
+                <Tabs
+                  value={tab}
+                  onValueChange={(v) => setTab(v as Tab)}
+                  className="flex flex-col gap-3"
+                >
+                  <TabsList>
+                    <TabsTrigger value="added" disabled={!plan.creates.length}>
+                      {t("categoryImportCreated")} ({plan.creates.length})
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="updated"
+                      disabled={!plan.updates.length}
+                    >
+                      {t("categoryImportUpdated")} ({plan.updates.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="removed" disabled={!deletes.length}>
+                      {t("categoryImportDeleted")} ({deletes.length})
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <div
+                    style={panel.height ? { height: panel.height } : undefined}
+                    className="overflow-hidden transition-[height] duration-200 ease-out motion-reduce:transition-none"
+                  >
+                    <div
+                      ref={panel.ref}
+                      className="max-h-[45vh] overflow-y-auto pr-1"
+                    >
+                      <TabsContent value="added">
+                        <RowList>
+                          {plan.creates.map((c) => (
+                            <CodeRow
+                              key={categoryKey(c.path)}
+                              tone="added"
+                              path={c.path}
+                              segment={effectiveSegment(categoryKey(c.path))}
+                              composed={codeFor(c.path)}
+                              onSegment={(v) =>
+                                setCodeEdits((e) => ({
+                                  ...e,
+                                  [categoryKey(c.path)]: v,
+                                }))
+                              }
+                              t={t}
+                            />
+                          ))}
+                        </RowList>
+                      </TabsContent>
+
+                      <TabsContent value="updated">
+                        <RowList>
+                          {plan.updates.map((u) => (
+                            <CodeRow
+                              key={categoryKey(u.path)}
+                              tone="updated"
+                              path={u.path}
+                              segment={effectiveSegment(categoryKey(u.path))}
+                              composed={codeFor(u.path)}
+                              previous={u.previousCodePrefix}
+                              onSegment={(v) =>
+                                setCodeEdits((e) => ({
+                                  ...e,
+                                  [categoryKey(u.path)]: v,
+                                }))
+                              }
+                              t={t}
+                            />
+                          ))}
+                        </RowList>
+                      </TabsContent>
+
+                      <TabsContent value="removed">
+                        <RowList>
+                          {deletes.map((d) => (
+                            <RemovalRow
+                              key={d.id}
+                              delete={d}
+                              blocked={isBlocked(d)}
+                              kept={effectivelyKept(d)}
+                              onKeep={(keep) =>
+                                setKept((s) => {
+                                  const next = new Set(s);
+                                  if (keep) next.add(d.id);
+                                  else next.delete(d.id);
+                                  return next;
+                                })
+                              }
+                              t={t}
+                            />
+                          ))}
+                        </RowList>
+                      </TabsContent>
+                    </div>
+                  </div>
+                </Tabs>
+
+                <p className="flex items-start gap-1.5 text-xs text-text-muted">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {t("categoryImportCodeNote")}
+                </p>
+
+                <Footer onBack={reset} t={t}>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={confirm}
+                    disabled={!canImport}
+                  >
+                    {t("categoryImportConfirmCount")}
+                  </Button>
+                </Footer>
+              </div>
+            )
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -631,44 +692,50 @@ function CodeRow({
   onSegment: (v: string) => void;
   t: T;
 }) {
+  const noCode = t("categoryImportNoCode");
+  const changed = previous !== undefined && previous !== composed.codePrefix;
+
   return (
     <li
       className={cn(
-        "flex flex-col gap-1.5 rounded-lg border-l-2 bg-bg-elevated px-3 py-2",
+        "flex items-start justify-between gap-3 rounded-lg border-l-2 bg-bg-elevated px-3 py-2",
         tone === "added" ? "border-l-success" : "border-l-warning"
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-sm text-text-primary">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="truncate text-sm text-text-primary">
           {joinCategoryPath(path)}
         </span>
-        <div className="flex shrink-0 items-center gap-2">
-          <Input
-            value={segment}
-            onChange={(e) => onSegment(e.target.value)}
-            placeholder={t("categoryImportCodePlaceholder")}
-            className="h-8 w-28 py-1 text-xs uppercase"
-            aria-label={t("categoryImportCodeLabel")}
-          />
-        </div>
-      </div>
-      <div className="flex items-center gap-2 text-xs">
         {composed.error ? (
-          <span className="text-error">{composed.error}</span>
-        ) : (
-          <>
-            <span className="font-mono text-text-muted">
-              {composed.codePrefix ?? t("categoryImportNoCode")}
+          <span className="text-xs text-error">{composed.error}</span>
+        ) : changed ? (
+          // Before → after, so a code change reads at a glance.
+          <span className="flex items-center gap-1.5 font-mono text-sm">
+            <span className="text-text-muted line-through decoration-text-muted/40">
+              {previous ?? noCode}
             </span>
-            {previous !== undefined && previous !== composed.codePrefix && (
-              <span className="text-text-muted">
-                {t("categoryImportWas", {
-                  code: previous ?? t("categoryImportNoCode"),
-                })}
-              </span>
-            )}
-          </>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 text-text-muted" />
+            <span className="font-semibold text-warning">
+              {composed.codePrefix ?? noCode}
+            </span>
+          </span>
+        ) : (
+          <span className="font-mono text-sm text-text-secondary">
+            {composed.codePrefix ?? noCode}
+          </span>
         )}
+      </div>
+      <div className="flex shrink-0 flex-col gap-1">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
+          {t("categoryImportCodeLabel")}
+        </span>
+        <Input
+          value={segment}
+          onChange={(e) => onSegment(e.target.value)}
+          placeholder={t("categoryImportCodePlaceholder")}
+          className="h-8 w-28 py-1 text-xs uppercase"
+          aria-label={t("categoryImportCodeLabel")}
+        />
       </div>
     </li>
   );

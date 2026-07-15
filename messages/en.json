@@ -895,7 +895,6 @@
     "categoryImportCodeInvalid": "Use letters or digits",
     "categoryImportCodeTooLong": "Too long (max {max})",
     "categoryImportNoCode": "no code",
-    "categoryImportWas": "was {code}",
     "categoryImportKeep": "Keep",
     "categoryImportKeptLocked": "Still in use — kept",
     "categoryImportWillRemove": "Will be removed",
