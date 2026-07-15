@@ -22,7 +22,7 @@ import { toast } from "@/components/ui/useToast";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { elements as elementsApi, ApiError } from "@/lib/api";
-import type { CreateItemPayload } from "@/lib/api/boq";
+import { isNeedsRenumberError, type CreateItemPayload } from "@/lib/api/boq";
 import type { BoqSection } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import {
@@ -440,12 +440,7 @@ export function BoqCreateItemSheet({
         await createItem(payload);
       } catch (err) {
         // Insert hit a full section — ask before renumbering, then retry.
-        if (
-          err instanceof ApiError &&
-          err.status === 409 &&
-          (err.details as { needsRenumber?: boolean } | undefined)
-            ?.needsRenumber
-        ) {
+        if (isNeedsRenumberError(err)) {
           setRenumberPayload(payload);
           return;
         }

@@ -397,6 +397,7 @@
   },
   "projectSettings": {
     "title": "Project Settings",
+    "backToProject": "Back to project",
     "nav": {
       "details": "Details",
       "boq": "BOQ"

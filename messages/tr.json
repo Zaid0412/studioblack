@@ -397,6 +397,7 @@
   },
   "projectSettings": {
     "title": "Proje Ayarları",
+    "backToProject": "Projeye dön",
     "nav": {
       "details": "Ayrıntılar",
       "boq": "Keşif"

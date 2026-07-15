@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import type { BoqItemPhase } from "@/lib/validations";
@@ -10,6 +11,8 @@ interface BoqHeaderProps {
   title: string;
   /** BOQ business reference — `P2026-001-BOQ-001`. */
   boqNumber?: string | null;
+  /** When set, shows a "Line numbering" link to the project's BOQ settings. */
+  numberingSettingsHref?: string;
   version: number;
   currency: string;
   itemCount: number;
@@ -42,6 +45,7 @@ const PHASE_ORDER: BoqItemPhase[] = [
 export function BoqHeader({
   title,
   boqNumber,
+  numberingSettingsHref,
   version,
   currency,
   itemCount,
@@ -69,6 +73,18 @@ export function BoqHeader({
           <span>
             {itemCount} item{itemCount === 1 ? "" : "s"}
           </span>
+          {numberingSettingsHref && (
+            <>
+              <span>·</span>
+              <Link
+                href={numberingSettingsHref}
+                className="inline-flex items-center gap-1 hover:text-text-primary transition-colors"
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                Line numbering
+              </Link>
+            </>
+          )}
         </div>
       </div>
 

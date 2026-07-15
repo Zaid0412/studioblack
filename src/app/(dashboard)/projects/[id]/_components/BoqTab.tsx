@@ -535,6 +535,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       <BoqHeader
         title={boq.title}
         boqNumber={boq.boq_number}
+        numberingSettingsHref={
+          canEdit ? `/projects/${projectId}/settings?section=boq` : undefined
+        }
         version={boq.version}
         currency={boq.currency}
         itemCount={boq.items.length}

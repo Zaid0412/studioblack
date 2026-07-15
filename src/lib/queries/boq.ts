@@ -1106,12 +1106,13 @@ export async function insertBoqItemBetween(
       input.anchorItemId,
       input.position
     );
+    const mid = (lo: number, hi: number) => lo + Math.floor((hi - lo) / 2);
     let newLine: number;
     if (b.hi === null) {
       // Anchor is the section's last row — a plain append.
       newLine = b.lo + increment;
     } else if (b.hi - b.lo >= 2) {
-      newLine = b.lo + Math.floor((b.hi - b.lo) / 2);
+      newLine = mid(b.lo, b.hi);
     } else {
       // No integer between the neighbours.
       if (!opts.allowRenumber) throw new NeedsRenumberError();
@@ -1126,8 +1127,7 @@ export async function insertBoqItemBetween(
         [boqId, b.sectionId, increment]
       );
       b = await insertBounds(client, boqId, input.anchorItemId, input.position);
-      const hi = b.hi ?? b.lo + increment;
-      newLine = b.lo + Math.floor((hi - b.lo) / 2);
+      newLine = mid(b.lo, b.hi ?? b.lo + increment);
     }
 
     // Open the slot: everything at/after the insert position steps up one.
@@ -2123,20 +2123,18 @@ export async function moveBoqItemsBulk(
 
     // 3. Compute the starting sort_order and line_number in the target bucket.
     //    Null-safe equality via IS NOT DISTINCT FROM.
+    const incr = await getProjectIncrement(client, boqId);
     const { rows: sortRows } = await client.query<{
       next: number;
       max_line: number;
-      incr: number;
     }>(
       `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next,
-              COALESCE(MAX(line_number), 0) AS max_line,
-              ${projectIncrementSql("$1")} AS incr
+              COALESCE(MAX(line_number), 0) AS max_line
        FROM boq_item
        WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid`,
       [boqId, targetSectionId]
     );
     const baseSort = sortRows[0].next;
-    const incr = Number(sortRows[0].incr);
     const baseLine = Number(sortRows[0].max_line) + incr;
 
     // 4. Move all items in one statement. `array_position` is 1-based, so the

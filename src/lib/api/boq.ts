@@ -5,6 +5,7 @@ import {
   apiPatch,
   apiDelete,
   apiBlobWithHeaders,
+  ApiError,
 } from "./client";
 import { API } from "./routes";
 import type {
@@ -127,6 +128,19 @@ export type CreateItemPayload = z.infer<typeof createBoqItemSchema> & {
 /** Create a free-form BOQ item (not tied to a library element). */
 export function createItem(projectId: string, data: CreateItemPayload) {
   return apiPost<BoqItemWithComputed>(API.boqItems(projectId), data);
+}
+
+/**
+ * A 409 from the create endpoint meaning a mid-list insert found no gap to
+ * split — the caller should ask the user before retrying with `allowRenumber`.
+ */
+export function isNeedsRenumberError(err: unknown): boolean {
+  return (
+    err instanceof ApiError &&
+    err.status === 409 &&
+    (err.details as { needsRenumber?: boolean } | undefined)?.needsRenumber ===
+      true
+  );
 }
 
 /** Derived from the server Zod schema so the wire contract can't drift. */

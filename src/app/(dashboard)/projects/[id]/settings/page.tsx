@@ -4,9 +4,14 @@ import { Suspense, use, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { SlidersHorizontal, ListOrdered, type LucideIcon } from "lucide-react";
+import {
+  SlidersHorizontal,
+  ListOrdered,
+  ArrowLeft,
+  type LucideIcon,
+} from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { cn } from "@/lib/utils";
+import { SettingsNavLink } from "@/components/settings/SettingsNavLink";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
 import { ProjectDetailsSection } from "./_components/ProjectDetailsSection";
 import { ProjectBoqSettingsSection } from "./_components/ProjectBoqSettingsSection";
@@ -51,30 +56,27 @@ function ProjectSettingsInner({ projectId }: { projectId: string }) {
 
   return (
     <div className="animate-in fade-in duration-300 ease-out motion-reduce:animate-none flex flex-col gap-6">
+      <Link
+        href={`/projects/${projectId}`}
+        className="flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors cursor-pointer w-fit"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        {t("backToProject")}
+      </Link>
+
       <PageHeader title={t("title")} />
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
         <nav className="flex flex-col gap-1">
-          {navItems.map((s) => {
-            const Icon = s.icon;
-            const isActive = s.id === active;
-            return (
-              <Link
-                key={s.id}
-                href={`/projects/${projectId}/settings?section=${s.id}`}
-                scroll={false}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "bg-bg-elevated text-text-primary font-medium"
-                    : "text-text-secondary hover:bg-bg-elevated/60 hover:text-text-primary"
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {s.label}
-              </Link>
-            );
-          })}
+          {navItems.map((s) => (
+            <SettingsNavLink
+              key={s.id}
+              href={`/projects/${projectId}/settings?section=${s.id}`}
+              icon={s.icon}
+              label={s.label}
+              isActive={s.id === active}
+            />
+          ))}
         </nav>
 
         <div
