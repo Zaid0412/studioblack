@@ -24,6 +24,7 @@ export function create<T>(data: {
   address?: string;
   city?: string;
   state?: string;
+  lineIncrement?: number;
   phases?: { name: string }[];
   architectIds?: string[];
   pmIds?: string[];
@@ -45,6 +46,14 @@ export function update<T>(
     address?: string | null;
     city?: string | null;
     state?: string | null;
+    status?: string;
+    lineIncrement?: number;
+    defaultCurrency?: string | null;
+    defaultUnit?: string | null;
+    defaultVatPct?: number | null;
+    defaultContingencyPct?: number | null;
+    defaultMinMarginPct?: number | null;
+    defaultServiceChargePct?: number | null;
     architectIds?: string[];
     pmIds?: string[];
   }
@@ -52,7 +61,30 @@ export function update<T>(
   return apiPatch<T>(API.project(id), data);
 }
 
-/** Delete a project by ID. */
+/** Archive a project (soft, reversible). */
 export function remove(id: string) {
   return apiDelete(API.project(id));
+}
+
+/** Permanently delete a project and all its data (owner only, irreversible). */
+export function destroy(id: string) {
+  return apiDelete(API.projectPermanent(id));
+}
+
+/** Enable/disable a phase's visibility (non-destructive — data is preserved). */
+export function setPhaseEnabled<T>(
+  projectId: string,
+  phaseId: string,
+  enabled: boolean
+) {
+  return apiPatch<T>(API.projectPhase(projectId, phaseId), { enabled });
+}
+
+/** Enable/disable a workflow step's visibility (non-destructive). */
+export function setStepEnabled<T>(
+  projectId: string,
+  stepId: string,
+  enabled: boolean
+) {
+  return apiPatch<T>(API.projectStep(projectId, stepId), { enabled });
 }

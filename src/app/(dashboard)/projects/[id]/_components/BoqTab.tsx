@@ -78,6 +78,11 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const [createItemSection, setCreateItemSection] = useState<string | null>(
     null
   );
+  // Insert-between: the anchor row + side the create sheet inserts relative to.
+  const [insertAnchor, setInsertAnchor] = useState<{
+    itemId: string;
+    position: "above" | "below";
+  } | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerInitialSection, setPickerInitialSection] = useState<
     string | null
@@ -417,7 +422,17 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
   const canSelect = canEdit || role === "client";
 
   const openAddItem = (sectionId: string | null) => {
+    setInsertAnchor(null);
     setCreateItemSection(sectionId);
+    setCreateItemOpen(true);
+  };
+
+  const openInsertItem = (
+    item: BoqItemWithComputed,
+    position: "above" | "below"
+  ) => {
+    setInsertAnchor({ itemId: item.id, position });
+    setCreateItemSection(item.section_id ?? null);
     setCreateItemOpen(true);
   };
 
@@ -520,6 +535,9 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
       <BoqHeader
         title={boq.title}
         boqNumber={boq.boq_number}
+        numberingSettingsHref={
+          canEdit ? `/projects/${projectId}/settings?section=boq` : undefined
+        }
         version={boq.version}
         currency={boq.currency}
         itemCount={boq.items.length}
@@ -574,6 +592,7 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
         onDeleteItem={requestDeleteItem}
         onApplyRate={setApplyRateTarget}
         onMoveItem={moveItem}
+        onInsertItem={openInsertItem}
         onCreateAndMoveItem={setCreateAndMoveTarget}
         onSetItemPhase={handleSetItemPhase}
         selection={selection.selectionMode ? selection : undefined}
@@ -613,11 +632,16 @@ export function BoqTab({ projectId, projectName }: BoqTabProps) {
 
       <BoqCreateItemSheet
         open={createItemOpen}
-        onOpenChange={setCreateItemOpen}
+        onOpenChange={(open) => {
+          setCreateItemOpen(open);
+          if (!open) setInsertAnchor(null);
+        }}
         projectId={projectId}
         boqId={boq.id}
         sections={boq.sections}
         defaultSectionId={createItemSection}
+        anchorItemId={insertAnchor?.itemId ?? null}
+        insertPosition={insertAnchor?.position}
       />
 
       <BoqRenameSectionDialog

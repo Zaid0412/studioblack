@@ -63,6 +63,13 @@ export const PATCH = withAuth(
       "address",
       "city",
       "state",
+      "line_increment",
+      "default_currency",
+      "default_unit",
+      "default_vat_pct",
+      "default_contingency_pct",
+      "default_min_margin_pct",
+      "default_service_charge_pct",
     ];
 
     const fields: Record<string, unknown> = {};

@@ -69,6 +69,11 @@ interface ProjectFormProps {
   pms?: OrgMember[];
   /** Client org members for the client selector dropdown */
   clients?: OrgMember[];
+  /**
+   * Show the client / PM / architect pickers. Off in the project Settings →
+   * Details section, where access lives in its own Team & Access section.
+   */
+  showAccessFields?: boolean;
   onSubmit: (data: ProjectFormData) => void | Promise<void>;
   onCancel: () => void;
   submitting: boolean;
@@ -97,7 +102,7 @@ interface MemberPickerProps {
  * dropdown state + click-outside handler so the parent form doesn't have to
  * track one set per picker.
  */
-function MemberPicker({
+export function MemberPicker({
   label,
   placeholder,
   emptyText,
@@ -198,6 +203,61 @@ function MemberPicker({
   );
 }
 
+/** The project's client picker — shared by ProjectForm and the Team & Access section. */
+export function ClientSelect({
+  clients,
+  email,
+  onChange,
+  t,
+  hint,
+}: {
+  clients: OrgMember[];
+  email: string;
+  onChange: (email: string, name: string) => void;
+  t: (key: string, values?: Record<string, string>) => string;
+  hint?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[13px] font-medium text-text-secondary">
+        {t("client")}
+      </label>
+      {clients.length === 0 ? (
+        <p className="text-xs text-text-muted">{t("noClients")}</p>
+      ) : (
+        <Select
+          value={
+            clients.find((c) => c.user.email === email)?.user.id ?? "__none__"
+          }
+          onValueChange={(v) => {
+            if (v === "__none__") {
+              onChange("", "");
+              return;
+            }
+            const selected = clients.find((c) => c.user.id === v);
+            if (selected) onChange(selected.user.email, selected.user.name);
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={t("selectClient")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">{t("noClientSelected")}</SelectItem>
+            {clients.map((c) => (
+              <SelectItem key={c.user.id} value={c.user.id}>
+                {c.user.name} ({c.user.email})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {hint && clients.length > 0 && (
+        <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
+      )}
+    </div>
+  );
+}
+
 /** Shared project form for create and edit modes. */
 export function ProjectForm({
   mode,
@@ -205,6 +265,7 @@ export function ProjectForm({
   architects,
   pms,
   clients = [],
+  showAccessFields = true,
   onSubmit,
   onCancel,
   submitting,
@@ -249,48 +310,16 @@ export function ProjectForm({
 
   function renderClientSelect({ hint }: { hint?: boolean } = {}) {
     return (
-      <div className="flex flex-col gap-1.5">
-        <label className="text-[13px] font-medium text-text-secondary">
-          {t("client")}
-        </label>
-        {clients.length === 0 ? (
-          <p className="text-xs text-text-muted">{t("noClients")}</p>
-        ) : (
-          <Select
-            value={
-              clients.find((c) => c.user.email === form.clientEmail)?.user.id ??
-              "__none__"
-            }
-            onValueChange={(v) => {
-              if (v === "__none__") {
-                updateField("clientEmail", "");
-                updateField("clientName", "");
-                return;
-              }
-              const selected = clients.find((c) => c.user.id === v);
-              if (selected) {
-                updateField("clientEmail", selected.user.email);
-                updateField("clientName", selected.user.name);
-              }
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("selectClient")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">{t("noClientSelected")}</SelectItem>
-              {clients.map((c) => (
-                <SelectItem key={c.user.id} value={c.user.id}>
-                  {c.user.name} ({c.user.email})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        {hint && clients.length > 0 && (
-          <p className="text-xs text-text-muted">{t("clientEmailHint")}</p>
-        )}
-      </div>
+      <ClientSelect
+        clients={clients}
+        email={form.clientEmail}
+        onChange={(email, name) => {
+          updateField("clientEmail", email);
+          updateField("clientName", name);
+        }}
+        t={t}
+        hint={hint}
+      />
     );
   }
 
@@ -374,9 +403,9 @@ export function ProjectForm({
           </div>
         )}
 
-        {mode === "edit" && renderClientSelect()}
+        {showAccessFields && mode === "edit" && renderClientSelect()}
 
-        {pms && (
+        {showAccessFields && pms && (
           <MemberPicker
             label={t("assignPMs") || "Assign PMs"}
             placeholder={
@@ -391,14 +420,16 @@ export function ProjectForm({
           />
         )}
 
-        <MemberPicker
-          label={t("assignTeam")}
-          placeholder={t("assignTeamPlaceholder")}
-          emptyText={t("noArchitects")}
-          members={architects}
-          selectedIds={form.selectedArchitects}
-          onToggle={(id) => toggleListMember("selectedArchitects", id)}
-        />
+        {showAccessFields && (
+          <MemberPicker
+            label={t("assignTeam")}
+            placeholder={t("assignTeamPlaceholder")}
+            emptyText={t("noArchitects")}
+            members={architects}
+            selectedIds={form.selectedArchitects}
+            onToggle={(id) => toggleListMember("selectedArchitects", id)}
+          />
+        )}
 
         <Input
           label={t("address")}
@@ -462,7 +493,9 @@ export function ProjectForm({
         </div>
 
         {/* Client — create mode places it after scope */}
-        {mode === "create" && renderClientSelect({ hint: true })}
+        {showAccessFields &&
+          mode === "create" &&
+          renderClientSelect({ hint: true })}
 
         {children}
 

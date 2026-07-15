@@ -209,6 +209,27 @@ describe("createBoqItemSchema", () => {
     expect(data.description).toBe("Tile laying");
   });
 
+  it("accepts insert-between fields", () => {
+    const data = expectPass(createBoqItemSchema, {
+      categoryId: VALID_UUID,
+      description: "Inserted",
+      unit: "m2",
+      anchorItemId: VALID_UUID,
+      insertPosition: "above",
+      allowRenumber: true,
+    });
+    expect(data.insertPosition).toBe("above");
+  });
+
+  it("rejects an invalid insert position", () => {
+    expectFail(createBoqItemSchema, {
+      categoryId: VALID_UUID,
+      description: "Inserted",
+      unit: "m2",
+      insertPosition: "sideways",
+    });
+  });
+
   // The API used to take any string ≤30 here while every other entry point
   // clamped to the enum, so "nos" got written and then broke that BOQ's
   // export→re-import — the parser rejects what the API had accepted.

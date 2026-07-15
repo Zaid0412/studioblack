@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { DEFAULT_CURRENCY } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
@@ -8,6 +9,7 @@ import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { ApiError } from "@/lib/api";
+import { API } from "@/lib/api/routes";
 
 interface BoqCreateDialogProps {
   open: boolean;
@@ -36,6 +38,23 @@ export function BoqCreateDialog({
   const [vatPct, setVatPct] = useState("0");
   const [minimumMarginPct, setMinimumMarginPct] = useState("10");
   const [submitting, setSubmitting] = useState(false);
+
+  // Pre-fill from the project's BOQ defaults (Settings → BOQ) when set.
+  const { data: project } = useSWR<{
+    default_currency: string | null;
+    default_contingency_pct: string | null;
+    default_vat_pct: string | null;
+    default_min_margin_pct: string | null;
+  }>(API.project(projectId));
+  useEffect(() => {
+    if (!project) return;
+    if (project.default_currency) setCurrency(project.default_currency);
+    if (project.default_contingency_pct != null)
+      setContingencyPct(project.default_contingency_pct);
+    if (project.default_vat_pct != null) setVatPct(project.default_vat_pct);
+    if (project.default_min_margin_pct != null)
+      setMinimumMarginPct(project.default_min_margin_pct);
+  }, [project]);
 
   const parsePct = (v: string): number | undefined => {
     const n = parseFloat(v);

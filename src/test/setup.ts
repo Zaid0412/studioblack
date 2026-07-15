@@ -201,6 +201,9 @@ vi.mock("@/lib/queries", () => ({
   createProjectWithPhases: vi.fn(),
   updateProject: vi.fn(),
   deleteProject: vi.fn(),
+  hardDeleteProject: vi.fn(),
+  setPhaseEnabled: vi.fn(),
+  setStepEnabled: vi.fn(),
   getUsersByIds: vi.fn().mockResolvedValue([]),
   checkUserExistsByEmail: vi.fn().mockResolvedValue(false),
   getNotifications: vi.fn().mockResolvedValue([]),
@@ -386,6 +389,9 @@ vi.mock("@/lib/queries", () => ({
   deleteBoqSection: vi.fn().mockResolvedValue(true),
   reorderBoqSections: vi.fn().mockResolvedValue(undefined),
   createBoqItem: vi.fn(),
+  insertBoqItemBetween: vi.fn(),
+  // Real class so `err instanceof NeedsRenumberError` works in the route.
+  NeedsRenumberError: class NeedsRenumberError extends Error {},
   updateBoqItem: vi.fn().mockResolvedValue({ ok: false, reason: "not_found" }),
   getBoqItemVersions: vi.fn().mockResolvedValue([]),
   applyRateContractToBoqItem: vi

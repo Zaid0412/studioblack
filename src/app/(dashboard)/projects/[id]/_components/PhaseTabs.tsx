@@ -32,6 +32,7 @@ export function PhaseTabs({
   const activeRef = useRef<HTMLButtonElement>(null);
   const isFirstRender = useRef(true);
   const indicator = useSlidingIndicator(scrollRef, activePhaseId);
+  const visiblePhases = phases.filter((phase) => phase.enabled);
 
   useEffect(() => {
     if (activeRef.current && scrollRef.current) {
@@ -53,7 +54,7 @@ export function PhaseTabs({
         ref={scrollRef}
         className="relative flex rounded-xl border border-border-default overflow-x-auto scrollbar-none"
       >
-        {phases.map((phase) => {
+        {visiblePhases.map((phase) => {
           const isActive = phase.id === activePhaseId;
           const count = phaseCounts.get(phase.id) || 0;
           return (

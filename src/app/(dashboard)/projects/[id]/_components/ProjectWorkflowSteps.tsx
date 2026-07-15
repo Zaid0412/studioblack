@@ -26,6 +26,8 @@ interface ProjectWorkflowStepsProps {
   phaseCounts: Map<string, number>;
   /** Hide the BOQ + Order steps (e.g. for clients or when the feature is off). */
   showBoq: boolean;
+  /** Workflow steps disabled in project Settings — the matching tab is hidden. */
+  disabledStepNames?: string[];
 }
 
 const STATUS_DOT: Record<StepStatus, string> = {
@@ -48,12 +50,16 @@ export function ProjectWorkflowSteps({
   projectId,
   phaseCounts,
   showBoq,
+  disabledStepNames = [],
 }: ProjectWorkflowStepsProps) {
   const activeTab = useActiveProjectTab(projectId);
   const { boq, notFound } = useBoq(projectId);
   const { role } = useUserRole();
   const isStudio = isStudioUser(role);
-  const showOrder = showBoq && isStudio;
+  // A step disabled in Settings hides its tab. (Design can't be disabled.)
+  const showBoqStep = showBoq && !disabledStepNames.includes("BOQ");
+  const showOrder =
+    showBoqStep && isStudio && !disabledStepNames.includes("Order");
 
   // RFQ-count probe for the Order dot. Skipped for non-studio viewers (the
   // API 403s them) and when the Order step is hidden anyway. limit=1 to
@@ -103,7 +109,7 @@ export function ProjectWorkflowSteps({
       href: `/projects/${projectId}/designs`,
     },
   ];
-  if (showBoq) {
+  if (showBoqStep) {
     // Link straight to the first visible sub-tab so we skip the
     // intermediate /boq → /boq/my-scope redirect on every click. The
     // /boq route still redirects for bookmarks and external links.

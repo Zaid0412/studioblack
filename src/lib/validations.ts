@@ -270,6 +270,38 @@ export const updateTaskSchema = z.object({
 
 // ─── Projects (/api/projects) ───────────────────────────────────────────────
 
+/**
+ * BOQ line-number spacing. Min 2 so a mid-list insert always has an integer to
+ * split into. Shared by the project schemas and the settings form's client-side
+ * check so the two can't drift.
+ */
+export const lineIncrementSchema = z.number().int().min(2).max(1000);
+
+/**
+ * Per-project BOQ defaults that pre-fill new BOQs/items. All nullable — null
+ * means "fall back to the global default". Currency/unit are validated loosely
+ * here (the UI uses CurrencySelect/UnitSelect); the four percents share the same
+ * 0–100 rule as line-item percents.
+ */
+const boqDefaultFields = {
+  defaultCurrency: z.string().trim().length(3).optional().nullable(),
+  defaultUnit: z.string().trim().max(30).optional().nullable(),
+  defaultVatPct: z.coerce.number().min(0).max(100).optional().nullable(),
+  defaultContingencyPct: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .nullable(),
+  defaultMinMarginPct: z.coerce.number().min(0).max(100).optional().nullable(),
+  defaultServiceChargePct: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .nullable(),
+};
+
 export const createProjectSchema = z.object({
   name: trimmedString,
   clientName: optionalString,
@@ -282,6 +314,8 @@ export const createProjectSchema = z.object({
   address: optionalString,
   city: optionalString,
   state: optionalString,
+  lineIncrement: lineIncrementSchema.optional(),
+  ...boqDefaultFields,
   phases: z.array(z.string()).optional(),
   architectIds: z.array(z.string().min(1)).optional(),
   pmIds: z.array(z.string().min(1)).optional(),
@@ -300,9 +334,16 @@ export const updateProjectSchema = z.object({
   address: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
+  lineIncrement: lineIncrementSchema.optional(),
+  ...boqDefaultFields,
   architectIds: z.array(z.string().min(1)).optional(),
   /** PM membership list. Min length enforced at route level (1+) for non-empty syncs. */
   pmIds: z.array(z.string().min(1)).optional(),
+});
+
+/** Body for the phase/step visibility toggles. */
+export const toggleEnabledSchema = z.object({
+  enabled: z.boolean(),
 });
 
 // ─── Notifications (/api/notifications) ─────────────────────────────────────
@@ -904,6 +945,12 @@ export const createBoqItemSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).optional(),
   isProvisional: z.boolean().optional(),
   isExcluded: z.boolean().optional(),
+  // Insert-between: place the new line above/below an anchor row, taking the
+  // midpoint of the gap. `allowRenumber` lets the server re-space the section
+  // when the gap is exhausted (the UI asks first).
+  anchorItemId: optionalUuid,
+  insertPosition: z.enum(["above", "below"]).optional(),
+  allowRenumber: z.boolean().optional(),
 });
 
 /**

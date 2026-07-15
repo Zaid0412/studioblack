@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { createBoqItem, requireServiceArea } from "@/lib/queries";
+import {
+  createBoqItem,
+  insertBoqItemBetween,
+  NeedsRenumberError,
+  requireServiceArea,
+} from "@/lib/queries";
 import { getPool } from "@/lib/db";
 import { withAuth } from "@/lib/withAuth";
 import { createBoqItemSchema } from "@/lib/validations";
@@ -26,9 +31,24 @@ export const POST = withAuth(
       // *grandfathered* element to a BOQ fail outright.
       await requireServiceArea(getPool(), orgId, result.data.categoryId);
 
-      const item = await createBoqItem(result.boqId, orgId, result.data);
+      const { anchorItemId, insertPosition, allowRenumber, ...itemInput } =
+        result.data;
+      const item = anchorItemId
+        ? await insertBoqItemBetween(
+            result.boqId,
+            orgId,
+            { itemId: anchorItemId, position: insertPosition ?? "below" },
+            itemInput,
+            { allowRenumber }
+          )
+        : await createBoqItem(result.boqId, orgId, itemInput);
       return NextResponse.json(item, { status: 201 });
     } catch (err) {
+      // A full section with no gap left needs the user's OK to renumber — tell
+      // the client so it can ask and retry with allowRenumber.
+      if (err instanceof NeedsRenumberError) {
+        return NextResponse.json({ needsRenumber: true }, { status: 409 });
+      }
       // requireServiceArea throws a plain Error — surface its message rather
       // than letting it escape as a 500.
       const message =

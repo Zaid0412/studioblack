@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   requireServiceArea,
   createBoqItem,
+  insertBoqItemBetween,
+  NeedsRenumberError,
   updateBoqItem,
   deleteBoqItem,
   reorderBoqItems,
@@ -121,6 +123,61 @@ describe("POST /api/projects/[id]/boq/items", () => {
         unitCost: 100,
       })
     );
+  });
+
+  it("routes to insertBoqItemBetween when an anchor is given", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(insertBoqItemBetween).mockResolvedValue(fakeItem);
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "Inserted line",
+        unit: "m2",
+        anchorItemId: ITEM_ID,
+        insertPosition: "above",
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status } = await parseResponse<BoqItemWithComputed>(res);
+
+    expect(status).toBe(201);
+    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(insertBoqItemBetween).toHaveBeenCalledWith(
+      BOQ_ID,
+      "org-test-001",
+      { itemId: ITEM_ID, position: "above" },
+      expect.objectContaining({ description: "Inserted line" }),
+      { allowRenumber: undefined }
+    );
+  });
+
+  it("returns 409 needsRenumber when the section is full", async () => {
+    vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
+    vi.mocked(insertBoqItemBetween).mockRejectedValueOnce(
+      new NeedsRenumberError()
+    );
+
+    const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
+      method: "POST",
+      body: {
+        boqId: BOQ_ID,
+        categoryId: CATEGORY_ID,
+        description: "Inserted line",
+        unit: "m2",
+        anchorItemId: ITEM_ID,
+        insertPosition: "below",
+      },
+    });
+    const res = await POST_ITEM(req, buildParams({ id: PROJECT_ID }));
+    const { status, body } = await parseResponse<{ needsRenumber: boolean }>(
+      res
+    );
+
+    expect(status).toBe(409);
+    expect(body.needsRenumber).toBe(true);
   });
 
   it("returns 400 when boqId is missing", async () => {

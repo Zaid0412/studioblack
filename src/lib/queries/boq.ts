@@ -47,6 +47,29 @@ import type { z } from "zod";
 import type { boqImportRowSchema } from "@/lib/validations";
 
 /**
+ * SQL fragment resolving a BOQ's project's configured line increment (the gap
+ * BOQ line numbers are spaced by). `boqExpr` is the SQL expression for the BOQ
+ * id at the call site — a placeholder like `"$1"` or a column like `"bi.boq_id"`.
+ * It's a DB value, not user input, so an inline subquery is the safe form.
+ */
+const projectIncrementSql = (boqExpr: string) =>
+  `(SELECT pr.line_increment FROM boq pb JOIN project pr ON pr.id = pb.project_id WHERE pb.id = ${boqExpr})`;
+
+/** The line increment of a BOQ's project, for the JS-side stepping paths. */
+async function getProjectIncrement(
+  executor: Pool | PoolClient,
+  boqId: string
+): Promise<number> {
+  const { rows } = await executor.query<{ line_increment: number }>(
+    `SELECT pr.line_increment FROM boq pb
+       JOIN project pr ON pr.id = pb.project_id
+      WHERE pb.id = $1`,
+    [boqId]
+  );
+  return rows[0]?.line_increment ?? BOQ_LINE_INCREMENT;
+}
+
+/**
  * Computed cost columns for BOQ items, injected into SELECTs.
  *
  * Not stored as GENERATED columns because `margin_alert` depends on the parent
@@ -246,8 +269,19 @@ export async function createBoq(
 
     const {
       rows: [project],
-    } = await client.query<{ org_id: string; project_number: string | null }>(
-      `SELECT org_id, project_number FROM project WHERE id = $1`,
+    } = await client.query<{
+      org_id: string;
+      project_number: string | null;
+      default_currency: string | null;
+      default_vat_pct: string | null;
+      default_contingency_pct: string | null;
+      default_min_margin_pct: string | null;
+    }>(
+      // The default_* columns come from migrate-project-boq-defaults.sql — that
+      // migration must be applied before/with this deploy or this SELECT throws.
+      `SELECT org_id, project_number, default_currency, default_vat_pct,
+              default_contingency_pct, default_min_margin_pct
+         FROM project WHERE id = $1`,
       [projectId]
     );
     if (!project) throw new Error("Project not found");
@@ -273,11 +307,11 @@ export async function createBoq(
         projectId,
         boqNumber,
         input.title,
-        input.currency ?? DEFAULT_CURRENCY,
+        input.currency ?? project.default_currency ?? DEFAULT_CURRENCY,
         input.exchangeRate ?? 1,
-        input.contingencyPct ?? 0,
-        input.vatPct ?? 0,
-        input.minimumMarginPct ?? 10,
+        input.contingencyPct ?? project.default_contingency_pct ?? 0,
+        input.vatPct ?? project.default_vat_pct ?? 0,
+        input.minimumMarginPct ?? project.default_min_margin_pct ?? 10,
         input.clientId ?? null,
         input.architectId ?? null,
         input.notes ?? null,
@@ -898,6 +932,8 @@ export interface CreateBoqItemInput {
   notes?: string | null;
   clientNotes?: string | null;
   sortOrder?: number;
+  /** Explicit line number (insert-between). Omitted → appended as MAX + increment. */
+  lineNumber?: number;
   isProvisional?: boolean;
   isExcluded?: boolean;
 }
@@ -945,7 +981,7 @@ export async function createBoqItem(
          $19::numeric, $20::numeric, $21::numeric, COALESCE($22, 'm'),
          $23, $24,
          COALESCE($25::int, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid)),
-         (SELECT COALESCE(MAX(line_number), 0) + ${BOQ_LINE_INCREMENT} FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid),
+         COALESCE($29::int, (SELECT COALESCE(MAX(line_number), 0) FROM boq_item WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid) + ${projectIncrementSql("$1")}),
          COALESCE($26, false), COALESCE($27, false), $28::uuid
        )
        RETURNING *
@@ -983,9 +1019,155 @@ export async function createBoqItem(
       input.isProvisional ?? null,
       input.isExcluded ?? null,
       input.categoryId ?? null,
+      input.lineNumber ?? null,
     ]
   );
   return rows[0];
+}
+
+/**
+ * Thrown when a mid-list insert has no integer gap to split (e.g. between line
+ * 10 and 11). The caller surfaces this so the UI can ask before renumbering.
+ */
+export class NeedsRenumberError extends Error {
+  constructor() {
+    super("BOQ section has no room to insert; renumber required");
+    this.name = "NeedsRenumberError";
+  }
+}
+
+/** The insert slot: which section, the sort_order to take, and the bounding line numbers. */
+async function insertBounds(
+  executor: Pool | PoolClient,
+  boqId: string,
+  anchorItemId: string,
+  position: "above" | "below"
+): Promise<{
+  sectionId: string | null;
+  insertSort: number;
+  lo: number;
+  hi: number | null;
+}> {
+  const { rows } = await executor.query<{
+    section_id: string | null;
+    sort_order: number;
+    line_number: number;
+  }>(
+    `SELECT section_id, sort_order, line_number FROM boq_item WHERE id = $1 AND boq_id = $2`,
+    [anchorItemId, boqId]
+  );
+  if (!rows[0]) throw new Error("Anchor item not found");
+  const { section_id, sort_order: aSort, line_number: aLine } = rows[0];
+
+  if (position === "below") {
+    const { rows: next } = await executor.query<{ line_number: number }>(
+      `SELECT line_number FROM boq_item
+        WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid AND sort_order > $3
+        ORDER BY sort_order LIMIT 1`,
+      [boqId, section_id, aSort]
+    );
+    return {
+      sectionId: section_id,
+      insertSort: aSort + 1,
+      lo: aLine,
+      hi: next[0]?.line_number ?? null,
+    };
+  }
+  const { rows: prev } = await executor.query<{ line_number: number }>(
+    `SELECT line_number FROM boq_item
+      WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid AND sort_order < $3
+      ORDER BY sort_order DESC LIMIT 1`,
+    [boqId, section_id, aSort]
+  );
+  return {
+    sectionId: section_id,
+    insertSort: aSort,
+    lo: prev[0]?.line_number ?? 0,
+    hi: aLine,
+  };
+}
+
+/**
+ * Insert a BOQ item between two rows, giving it the midpoint line number so the
+ * neighbours keep theirs (no renumbering). `sort_order` of the rows at/after the
+ * slot is shifted by one to open the position.
+ *
+ * When there is no integer gap to split, throws `NeedsRenumberError` unless
+ * `opts.allowRenumber` is set — then the section is re-spaced to clean multiples
+ * of the increment first, reopening room.
+ */
+export async function insertBoqItemBetween(
+  boqId: string,
+  orgId: string,
+  anchor: { itemId: string; position: "above" | "below" },
+  input: CreateBoqItemInput,
+  opts: { allowRenumber?: boolean } = {}
+): Promise<BoqItemWithComputed> {
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Serialize inserts into this BOQ: two concurrent mid-list inserts would
+    // otherwise read the same neighbours, compute the same midpoint, and write
+    // a duplicate line number (there's no unique constraint on
+    // (boq_id, line_number)). Same xact-lock convention as element codes.
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      `boq-lines:${boqId}`,
+    ]);
+    const increment = await getProjectIncrement(client, boqId);
+
+    let b = await insertBounds(client, boqId, anchor.itemId, anchor.position);
+    const mid = (lo: number, hi: number) => lo + Math.floor((hi - lo) / 2);
+    let newLine: number;
+    if (b.hi === null) {
+      // Anchor is the section's last row — a plain append.
+      newLine = b.lo + increment;
+    } else if (b.hi - b.lo >= 2) {
+      newLine = mid(b.lo, b.hi);
+    } else {
+      // No integer between the neighbours.
+      if (!opts.allowRenumber) throw new NeedsRenumberError();
+      await client.query(
+        `UPDATE boq_item bi SET line_number = t.rn * $3, updated_at = now()
+           FROM (
+             SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, created_at) AS rn
+               FROM boq_item
+              WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid
+           ) t
+          WHERE bi.id = t.id`,
+        [boqId, b.sectionId, increment]
+      );
+      b = await insertBounds(client, boqId, anchor.itemId, anchor.position);
+      newLine = mid(b.lo, b.hi ?? b.lo + increment);
+    }
+
+    // Open the slot: everything at/after the insert position steps up one.
+    await client.query(
+      `UPDATE boq_item SET sort_order = sort_order + 1, updated_at = now()
+        WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid AND sort_order >= $3`,
+      [boqId, b.sectionId, b.insertSort]
+    );
+
+    const item = await createBoqItem(
+      boqId,
+      orgId,
+      {
+        ...input,
+        sectionId: b.sectionId,
+        sortOrder: b.insertSort,
+        lineNumber: newLine,
+      },
+      client
+    );
+
+    await client.query("COMMIT");
+    return item;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export interface UpdateBoqItemInput {
@@ -1515,7 +1697,7 @@ export async function moveBoqItem(
               WHERE boq_id = bi.boq_id
                 AND section_id IS NOT DISTINCT FROM $1::uuid),
              0
-           ) + ${BOQ_LINE_INCREMENT},
+           ) + ${projectIncrementSql("bi.boq_id")},
            updated_at = now()
        WHERE bi.id = $2
          AND date_trunc('milliseconds', bi.updated_at)
@@ -1612,7 +1794,7 @@ export async function reorderBoqItems(
   await pool.query(
     `UPDATE boq_item
      SET sort_order = data.pos,
-         line_number = (data.pos + 1) * ${BOQ_LINE_INCREMENT},
+         line_number = (data.pos + 1) * ${projectIncrementSql("$3")},
          updated_at = now()
      FROM (SELECT unnest($1::uuid[]) AS id, generate_series(0, $2::int) AS pos) data
      WHERE boq_item.id = data.id
@@ -1952,30 +2134,31 @@ export async function moveBoqItemsBulk(
 
     // 3. Compute the starting sort_order and line_number in the target bucket.
     //    Null-safe equality via IS NOT DISTINCT FROM.
+    const incr = await getProjectIncrement(client, boqId);
     const { rows: sortRows } = await client.query<{
       next: number;
-      next_line: number;
+      max_line: number;
     }>(
       `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next,
-              COALESCE(MAX(line_number), 0) + ${BOQ_LINE_INCREMENT} AS next_line
+              COALESCE(MAX(line_number), 0) AS max_line
        FROM boq_item
        WHERE boq_id = $1 AND section_id IS NOT DISTINCT FROM $2::uuid`,
       [boqId, targetSectionId]
     );
     const baseSort = sortRows[0].next;
-    const baseLine = sortRows[0].next_line;
+    const baseLine = Number(sortRows[0].max_line) + incr;
 
     // 4. Move all items in one statement. `array_position` is 1-based, so the
     //    first item gets baseSort/baseLine, and each subsequent item steps by 1
-    //    (sort_order) and by BOQ_LINE_INCREMENT (line_number).
+    //    (sort_order) and by the project's line increment (line_number).
     await client.query(
       `UPDATE boq_item
        SET section_id = $1,
            sort_order = $2 + array_position($4::uuid[], id) - 1,
-           line_number = $3 + (array_position($4::uuid[], id) - 1) * ${BOQ_LINE_INCREMENT},
+           line_number = $3 + (array_position($4::uuid[], id) - 1) * $5::int,
            updated_at = now()
        WHERE id = ANY($4::uuid[])`,
-      [targetSectionId, baseSort, baseLine, itemIds]
+      [targetSectionId, baseSort, baseLine, itemIds, incr]
     );
 
     // 5. Re-fetch the moved rows with computed columns, in the same
@@ -2563,14 +2746,12 @@ export async function bulkInsertBoqItems(
          FROM boq_item WHERE boq_id = $1 GROUP BY section_id`,
       [boqId]
     );
+    const increment = await getProjectIncrement(client, boqId);
     const nextSortBySection = new Map<string | null, number>();
     const nextLineBySection = new Map<string | null, number>();
     for (const row of sortRows) {
       nextSortBySection.set(row.section_id, (row.max ?? -1) + 1);
-      nextLineBySection.set(
-        row.section_id,
-        (row.max_line ?? 0) + BOQ_LINE_INCREMENT
-      );
+      nextLineBySection.set(row.section_id, (row.max_line ?? 0) + increment);
     }
 
     for (const row of rows) {
@@ -2587,8 +2768,8 @@ export async function bulkInsertBoqItems(
         : null;
       const sortOrder = nextSortBySection.get(sectionId) ?? 0;
       nextSortBySection.set(sectionId, sortOrder + 1);
-      const lineNumber = nextLineBySection.get(sectionId) ?? BOQ_LINE_INCREMENT;
-      nextLineBySection.set(sectionId, lineNumber + BOQ_LINE_INCREMENT);
+      const lineNumber = nextLineBySection.get(sectionId) ?? increment;
+      nextLineBySection.set(sectionId, lineNumber + increment);
 
       try {
         await client.query(

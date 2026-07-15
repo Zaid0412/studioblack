@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -14,7 +13,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { cn } from "@/lib/utils";
+import { SettingsNavLink } from "@/components/settings/SettingsNavLink";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useSettings } from "./_hooks/useSettings";
 import { ProfileSection } from "./_components/ProfileSection";
@@ -140,24 +139,15 @@ function SettingsPageInner() {
   }
 
   function renderNavLink(s: NavEntry) {
-    const Icon = s.icon;
-    const isActive = s.id === active;
     return (
-      <Link
+      <SettingsNavLink
         key={s.id}
         href={`/settings?section=${s.id}`}
-        scroll={false}
-        className={cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-          isActive
-            ? "bg-bg-elevated text-text-primary font-medium"
-            : "text-text-secondary hover:bg-bg-elevated/60 hover:text-text-primary",
-          s.danger && !isActive && "text-error/80 hover:text-error"
-        )}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        {s.label}
-      </Link>
+        icon={s.icon}
+        label={s.label}
+        isActive={s.id === active}
+        danger={s.danger}
+      />
     );
   }
 

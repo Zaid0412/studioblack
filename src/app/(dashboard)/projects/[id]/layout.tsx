@@ -12,7 +12,7 @@ import { useFlag } from "@/hooks/useFlag";
 import { useProjectDetail } from "@/hooks/useProjectDetail";
 import { Skeleton } from "@/components/ui/Skeleton";
 import Link from "next/link";
-import { ArrowRight, Edit } from "lucide-react";
+import { ArrowRight, Settings } from "lucide-react";
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { MetaBar } from "./_components/MetaBar";
 import { CommentsSection } from "./_components/CommentsSection";
@@ -181,20 +181,21 @@ export default function ProjectDetailLayout({
     </Link>
   ) : null;
 
-  // Edit Project lives in the shared header so it's reachable from every tab
-  // (Design / BOQ / Order), not just Design. Gated on the project-scoped role
-  // so an architect with a `project_member.role='pm'` row sees it too.
-  const editAction =
+  // Settings (project details + BOQ config) lives in the shared header so it's
+  // reachable from every tab (Design / BOQ / Order), not just Design. Gated on
+  // the project-scoped role so an architect with a `project_member.role='pm'`
+  // row sees it too.
+  const settingsAction =
     projectScopedRole === "pm" ? (
-      <Link href={`${base}/edit`} className={pillClass}>
-        <Edit className="w-3.5 h-3.5" />
-        <span>{tpd("editProject") || "Edit Project"}</span>
+      <Link href={`${base}/settings`} className={pillClass}>
+        <Settings className="w-3.5 h-3.5" />
+        <span>{tpd("settings") || "Settings"}</span>
       </Link>
     ) : null;
 
   const headerActions = (
     <>
-      {editAction}
+      {settingsAction}
       {documentsAction}
     </>
   );
@@ -239,6 +240,9 @@ export default function ProjectDetailLayout({
           projectId={id}
           phaseCounts={phaseCounts}
           showBoq={boqEnabled}
+          disabledStepNames={(project?.steps ?? [])
+            .filter((s) => !s.enabled)
+            .map((s) => s.name)}
         />
       )}
 
