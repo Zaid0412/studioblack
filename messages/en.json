@@ -398,6 +398,10 @@
   "projectSettings": {
     "title": "Project Settings",
     "backToProject": "Back to project",
+    "detailsHelp": "Name, client details, scope, and location for this project.",
+    "teamHelp": "Who manages, designs, and can view this project.",
+    "boqSectionHelp": "Numbering and defaults that pre-fill new BOQs and line items.",
+    "dangerHelp": "Archive to hide the project, or permanently delete it and its data.",
     "nav": {
       "details": "Details",
       "team": "Team & Access",
@@ -435,6 +439,8 @@
     "workflowHelp": "Hide phases or steps this project doesn't need. Disabling only hides the tab — all data is kept and can be re-enabled anytime.",
     "phasesLabel": "Design phases",
     "stepsLabel": "Workflow steps",
+    "stepsEmptyTitle": "No workflow steps",
+    "stepsEmptyDescription": "This project was created before workflow steps existed, so it has none to configure. New projects get the full Recce → Finance workflow.",
     "lastPhaseHint": "At least one phase must stay enabled.",
     "designStepHint": "The Design step can't be disabled — the design phases depend on it."
   },

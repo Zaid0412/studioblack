@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
+import { Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/useToast";
 import { MemberPicker, ClientSelect } from "@/components/project/ProjectForm";
+import { SettingsSection } from "./SettingsSection";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useOrgMembers } from "@/hooks/useOrgMembers";
@@ -28,6 +30,7 @@ interface ProjectAccess {
 /** Team & Access: who manages, designs, and can view the project. */
 export function TeamAccessSection({ projectId }: { projectId: string }) {
   const t = useTranslations("editProject");
+  const t2 = useTranslations("projectSettings");
   const tc = useTranslations("common");
   const { members: architects } = useOrgMembers();
   const { members: clients } = useOrgMembers({ roleFilter: "client" });
@@ -102,7 +105,16 @@ export function TeamAccessSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <SettingsSection
+      icon={Users}
+      title={t2("nav.team")}
+      description={t2("teamHelp")}
+      action={
+        <Button type="button" onClick={handleSave} disabled={saving}>
+          {saving ? tc("saving") : tc("save")}
+        </Button>
+      }
+    >
       <Card>
         <div className="flex flex-col gap-4">
           {isOwner && (
@@ -138,12 +150,6 @@ export function TeamAccessSection({ projectId }: { projectId: string }) {
           />
         </div>
       </Card>
-
-      <div>
-        <Button type="button" onClick={handleSave} disabled={saving}>
-          {saving ? tc("saving") : tc("save")}
-        </Button>
-      </div>
-    </div>
+    </SettingsSection>
   );
 }

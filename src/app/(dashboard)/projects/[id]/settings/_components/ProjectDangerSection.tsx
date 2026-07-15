@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
-import { Archive, Trash2 } from "lucide-react";
+import { Archive, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/useToast";
 import { DeleteProjectDialog } from "../../../_components/DeleteProjectDialog";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import { useUserRoleContext } from "@/contexts/UserRoleContext";
+import { SettingsSection } from "./SettingsSection";
 
 /** Danger Zone: archive (reversible) and permanent delete (owner only). */
 export function ProjectDangerSection({ projectId }: { projectId: string }) {
@@ -63,7 +64,12 @@ export function ProjectDangerSection({ projectId }: { projectId: string }) {
     "flex flex-col gap-3 rounded-xl border border-danger-border bg-danger-muted p-5";
 
   return (
-    <div className="flex flex-col gap-5">
+    <SettingsSection
+      icon={TriangleAlert}
+      title={t("nav.danger")}
+      description={t("dangerHelp")}
+      danger
+    >
       <div className={panel}>
         <div className="flex items-center gap-2">
           <Archive className="h-4 w-4 text-text-secondary" />
@@ -122,6 +128,6 @@ export function ProjectDangerSection({ projectId }: { projectId: string }) {
         confirming={deleting}
         onConfirm={handleDelete}
       />
-    </div>
+    </SettingsSection>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
+import { SlidersHorizontal } from "lucide-react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
@@ -13,6 +14,7 @@ import {
   ProjectForm,
   type ProjectFormData,
 } from "@/components/project/ProjectForm";
+import { SettingsSection } from "./SettingsSection";
 
 interface ProjectMember {
   user_id: string;
@@ -42,6 +44,7 @@ interface ProjectData {
 export function ProjectDetailsSection({ projectId }: { projectId: string }) {
   const router = useRouter();
   const t = useTranslations("editProject");
+  const ts = useTranslations("projectSettings");
   const tc = useTranslations("common");
   // Access (PM/architect/client) lives in the Team & Access section now; the
   // Details form only edits the project's own fields.
@@ -124,17 +127,23 @@ export function ProjectDetailsSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <ProjectForm
-      mode="edit"
-      initialData={initialData}
-      architects={architects}
-      showAccessFields={false}
-      onSubmit={handleSave}
-      onCancel={() => router.push(`/projects/${projectId}`)}
-      submitting={saving}
-      t={t}
-      tc={tc}
-      submitLabel={t("saveChanges")}
-    />
+    <SettingsSection
+      icon={SlidersHorizontal}
+      title={ts("nav.details")}
+      description={ts("detailsHelp")}
+    >
+      <ProjectForm
+        mode="edit"
+        initialData={initialData}
+        architects={architects}
+        showAccessFields={false}
+        onSubmit={handleSave}
+        onCancel={() => router.push(`/projects/${projectId}`)}
+        submitting={saving}
+        t={t}
+        tc={tc}
+        submitLabel={t("saveChanges")}
+      />
+    </SettingsSection>
   );
 }

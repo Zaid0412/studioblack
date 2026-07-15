@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR, { mutate } from "swr";
+import { Workflow, Layers, ListChecks, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
@@ -10,10 +11,53 @@ import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
 import type { DbPhase, DbStep } from "@/types";
+import { SettingsSection, SettingsEmpty } from "./SettingsSection";
 
 interface ProjectWorkflowData {
   phases: DbPhase[];
   steps: DbStep[];
+}
+
+/** One name + toggle row, with an optional locked reason under it. */
+function ToggleRow({
+  label,
+  checked,
+  disabled,
+  pending,
+  lockedHint,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  pending: boolean;
+  lockedHint?: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1 rounded-lg px-3 py-2.5 transition-colors hover:bg-bg-elevated/50">
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={`text-sm ${
+            checked ? "text-text-primary" : "text-text-muted"
+          }`}
+        >
+          {label}
+        </span>
+        <ToggleSwitch
+          checked={checked}
+          onChange={onChange}
+          disabled={disabled || pending}
+        />
+      </div>
+      {lockedHint && (
+        <span className="flex items-center gap-1 text-xs text-text-muted">
+          <Lock className="h-3 w-3" />
+          {lockedHint}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /** Per-project Phases & Workflow visibility — toggling hides the tab/stepper entry, never the data. */
@@ -56,40 +100,36 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-sm font-semibold text-text-primary">
-          {t("workflowTitle")}
-        </h2>
-        <p className="text-xs text-text-muted">{t("workflowHelp")}</p>
-      </div>
-
+    <SettingsSection
+      icon={Workflow}
+      title={t("workflowTitle")}
+      description={t("workflowHelp")}
+    >
       <Card>
-        <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t("phasesLabel")}
-          </h3>
-          <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-text-secondary" />
+            <h3 className="text-sm font-semibold text-text-primary">
+              {t("phasesLabel")}
+            </h3>
+          </div>
+          <div className="flex flex-col">
             {phases.map((phase) => {
               const isLastEnabled = phase.enabled && enabledPhaseCount <= 1;
               return (
-                <div key={phase.id} className="flex flex-col gap-1">
-                  <ToggleSwitch
-                    checked={phase.enabled}
-                    onChange={(checked) =>
-                      toggle(phase.id, () =>
-                        projects.setPhaseEnabled(projectId, phase.id, checked)
-                      )
-                    }
-                    label={phase.name}
-                    disabled={pendingId === phase.id || isLastEnabled}
-                  />
-                  {isLastEnabled && (
-                    <p className="text-xs text-text-muted">
-                      {t("lastPhaseHint")}
-                    </p>
-                  )}
-                </div>
+                <ToggleRow
+                  key={phase.id}
+                  label={phase.name}
+                  checked={phase.enabled}
+                  disabled={isLastEnabled}
+                  pending={pendingId === phase.id}
+                  lockedHint={isLastEnabled ? t("lastPhaseHint") : undefined}
+                  onChange={(checked) =>
+                    toggle(phase.id, () =>
+                      projects.setPhaseEnabled(projectId, phase.id, checked)
+                    )
+                  }
+                />
               );
             })}
           </div>
@@ -97,36 +137,43 @@ export function ProjectWorkflowSection({ projectId }: { projectId: string }) {
       </Card>
 
       <Card>
-        <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-text-primary">
-            {t("stepsLabel")}
-          </h3>
-          <div className="flex flex-col gap-3">
-            {steps.map((step) => {
-              const isDesign = step.name === "Design";
-              return (
-                <div key={step.id} className="flex flex-col gap-1">
-                  <ToggleSwitch
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-text-secondary" />
+            <h3 className="text-sm font-semibold text-text-primary">
+              {t("stepsLabel")}
+            </h3>
+          </div>
+          {steps.length === 0 ? (
+            <SettingsEmpty
+              icon={ListChecks}
+              title={t("stepsEmptyTitle")}
+              description={t("stepsEmptyDescription")}
+            />
+          ) : (
+            <div className="flex flex-col">
+              {steps.map((step) => {
+                const isDesign = step.name === "Design";
+                return (
+                  <ToggleRow
+                    key={step.id}
+                    label={step.name}
                     checked={step.enabled}
+                    disabled={isDesign}
+                    pending={pendingId === step.id}
+                    lockedHint={isDesign ? t("designStepHint") : undefined}
                     onChange={(checked) =>
                       toggle(step.id, () =>
                         projects.setStepEnabled(projectId, step.id, checked)
                       )
                     }
-                    label={step.name}
-                    disabled={pendingId === step.id || isDesign}
                   />
-                  {isDesign && (
-                    <p className="text-xs text-text-muted">
-                      {t("designStepHint")}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </Card>
-    </div>
+    </SettingsSection>
   );
 }

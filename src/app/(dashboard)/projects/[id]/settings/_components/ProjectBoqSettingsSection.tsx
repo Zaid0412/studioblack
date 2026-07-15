@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
+import { ListOrdered, Hash, Percent } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { UnitSelect } from "@/components/ui/UnitSelect";
+import { SettingsSection } from "./SettingsSection";
 import { toast } from "@/components/ui/useToast";
 import { projects } from "@/lib/api";
 import { API } from "@/lib/api/routes";
@@ -127,14 +129,28 @@ export function ProjectBoqSettingsSection({
   );
 
   return (
-    <div className="flex flex-col gap-5">
+    <SettingsSection
+      icon={ListOrdered}
+      title={t("nav.boq")}
+      description={t("boqSectionHelp")}
+      action={
+        <Button type="button" onClick={handleSave} disabled={saving}>
+          {saving ? tc("saving") : tc("save")}
+        </Button>
+      }
+    >
       <Card>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold text-text-primary">
-              {t("lineIncrementLabel")}
-            </h3>
-            <p className="text-xs text-text-muted">{t("lineIncrementHelp")}</p>
+          <div className="flex items-start gap-2">
+            <Hash className="mt-0.5 h-4 w-4 shrink-0 text-text-secondary" />
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-sm font-semibold text-text-primary">
+                {t("lineIncrementLabel")}
+              </h3>
+              <p className="text-xs text-text-muted">
+                {t("lineIncrementHelp")}
+              </p>
+            </div>
           </div>
           <Input
             type="number"
@@ -150,11 +166,14 @@ export function ProjectBoqSettingsSection({
 
       <Card>
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold text-text-primary">
-              {t("boqDefaultsLabel")}
-            </h3>
-            <p className="text-xs text-text-muted">{t("boqDefaultsHelp")}</p>
+          <div className="flex items-start gap-2">
+            <Percent className="mt-0.5 h-4 w-4 shrink-0 text-text-secondary" />
+            <div className="flex flex-col gap-0.5">
+              <h3 className="text-sm font-semibold text-text-primary">
+                {t("boqDefaultsLabel")}
+              </h3>
+              <p className="text-xs text-text-muted">{t("boqDefaultsHelp")}</p>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <CurrencySelect
@@ -178,12 +197,6 @@ export function ProjectBoqSettingsSection({
           </div>
         </div>
       </Card>
-
-      <div>
-        <Button type="button" onClick={handleSave} disabled={saving}>
-          {saving ? tc("saving") : tc("save")}
-        </Button>
-      </div>
-    </div>
+    </SettingsSection>
   );
 }

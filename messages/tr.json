@@ -398,6 +398,10 @@
   "projectSettings": {
     "title": "Proje Ayarları",
     "backToProject": "Projeye dön",
+    "detailsHelp": "Bu projenin adı, müşteri bilgileri, kapsamı ve konumu.",
+    "teamHelp": "Bu projeyi kimler yönetir, tasarlar ve görüntüleyebilir.",
+    "boqSectionHelp": "Yeni keşifleri ve satır kalemlerini önceden dolduran numaralandırma ve varsayılanlar.",
+    "dangerHelp": "Projeyi gizlemek için arşivleyin veya kalıcı olarak silin.",
     "nav": {
       "details": "Ayrıntılar",
       "team": "Ekip ve Erişim",
@@ -435,6 +439,8 @@
     "workflowHelp": "Bu projenin ihtiyaç duymadığı aşamaları veya adımları gizleyin. Devre dışı bırakmak yalnızca sekmeyi gizler — tüm veriler korunur ve istediğiniz zaman yeniden etkinleştirilebilir.",
     "phasesLabel": "Tasarım aşamaları",
     "stepsLabel": "İş akışı adımları",
+    "stepsEmptyTitle": "İş akışı adımı yok",
+    "stepsEmptyDescription": "Bu proje, iş akışı adımları eklenmeden önce oluşturuldu; bu yüzden yapılandırılacak adımı yok. Yeni projeler tüm Keşif → Finans akışını alır.",
     "lastPhaseHint": "En az bir aşama etkin kalmalıdır.",
     "designStepHint": "Tasarım adımı devre dışı bırakılamaz — tasarım aşamaları buna bağlıdır."
   },
