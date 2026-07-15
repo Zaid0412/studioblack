@@ -262,6 +262,16 @@ describe("updateProjectSchema", () => {
     }
   });
 
+  it("accepts a line increment within bounds", () => {
+    expectPass(updateProjectSchema, { lineIncrement: 25 });
+  });
+
+  it("rejects a line increment below 2 or non-integer", () => {
+    expectFail(updateProjectSchema, { lineIncrement: 1 });
+    expectFail(updateProjectSchema, { lineIncrement: 10.5 });
+    expectFail(updateProjectSchema, { lineIncrement: 5000 });
+  });
+
   it("allows nullable fields", () => {
     const data = expectPass(updateProjectSchema, {
       clientName: null,

@@ -19,8 +19,10 @@ import { FileUploadSlot } from "@/components/ui/FileUploadSlot";
 import { UnitSelect } from "@/components/ui/UnitSelect";
 import { CurrencySelect } from "@/components/ui/CurrencySelect";
 import { toast } from "@/components/ui/useToast";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
 import { elements as elementsApi, ApiError } from "@/lib/api";
+import type { CreateItemPayload } from "@/lib/api/boq";
 import type { BoqSection } from "@/types";
 import type { ElementUnit } from "@/lib/validations";
 import {
@@ -126,6 +128,12 @@ interface Props {
   sections: BoqSection[];
   /** Pre-selected section (e.g., opened from a section's menu). */
   defaultSectionId?: string | null;
+  /**
+   * Insert-between mode: place the new line above/below this anchor row (taking
+   * the midpoint of the gap) instead of appending to the section.
+   */
+  anchorItemId?: string | null;
+  insertPosition?: "above" | "below";
 }
 
 /**
@@ -146,10 +154,17 @@ export function BoqCreateItemSheet({
   boqId,
   sections,
   defaultSectionId,
+  anchorItemId,
+  insertPosition,
 }: Props) {
   const { createItem } = useBoqMutations(projectId);
   const [v, setV] = useState<FormState>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
+  const isInsert = !!anchorItemId;
+  // Set when an insert hit a full section — holds the payload to retry with
+  // allowRenumber once the user confirms.
+  const [renumberPayload, setRenumberPayload] =
+    useState<CreateItemPayload | null>(null);
   // Tracks whether the user has manually edited Qty in this session.
   // Once true, dimension edits stop overwriting Qty so a manual
   // override sticks for the rest of the session. Resets every time
@@ -391,7 +406,7 @@ export function BoqCreateItemSheet({
         elementId = element.id;
       }
 
-      await createItem({
+      const payload: CreateItemPayload = {
         boqId,
         sectionId: v.sectionId === BOQ_NO_SECTION_ID ? null : v.sectionId,
         elementId,
@@ -416,7 +431,26 @@ export function BoqCreateItemSheet({
         height: parseDimensionValue(v.height, v.dimensionUnit),
         dimensionUnit: v.dimensionUnit,
         notes: v.notes.trim() || null,
-      });
+        ...(anchorItemId
+          ? { anchorItemId, insertPosition: insertPosition ?? "below" }
+          : {}),
+      };
+
+      try {
+        await createItem(payload);
+      } catch (err) {
+        // Insert hit a full section — ask before renumbering, then retry.
+        if (
+          err instanceof ApiError &&
+          err.status === 409 &&
+          (err.details as { needsRenumber?: boolean } | undefined)
+            ?.needsRenumber
+        ) {
+          setRenumberPayload(payload);
+          return;
+        }
+        throw err;
+      }
 
       toast({
         title: v.saveAsElement ? "Item added & saved to library" : "Item added",
@@ -438,6 +472,27 @@ export function BoqCreateItemSheet({
     }
   };
 
+  const confirmRenumber = async () => {
+    if (!renumberPayload) return;
+    setSubmitting(true);
+    try {
+      await createItem({ ...renumberPayload, allowRenumber: true });
+      toast({ title: "Item inserted", variant: "success" });
+      setRenumberPayload(null);
+      onOpenChange(false);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast({
+          title: "Could not insert",
+          description: err.message,
+          variant: "error",
+        });
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const labelCls = "text-xs font-medium text-text-secondary";
   const requiredAsterisk = (
     <span className="text-danger" aria-hidden>
@@ -449,7 +504,11 @@ export function BoqCreateItemSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl lg:max-w-2xl">
         <SheetHeader>
-          <SheetTitle>Add BOQ item</SheetTitle>
+          <SheetTitle>
+            {isInsert
+              ? `Insert item ${insertPosition ?? "below"}`
+              : "Add BOQ item"}
+          </SheetTitle>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
@@ -871,6 +930,18 @@ export function BoqCreateItemSheet({
           </div>
         </form>
       </SheetContent>
+
+      <ConfirmDialog
+        open={renumberPayload !== null}
+        onOpenChange={(open) => {
+          if (!open) setRenumberPayload(null);
+        }}
+        title="No room to insert"
+        description="This section has no gap left between these lines. Renumber the section to clean, evenly-spaced line numbers and insert here?"
+        confirmLabel="Renumber & insert"
+        submitting={submitting}
+        onConfirm={confirmRenumber}
+      />
     </Sheet>
   );
 }

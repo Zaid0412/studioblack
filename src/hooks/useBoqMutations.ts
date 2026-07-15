@@ -192,7 +192,14 @@ export function useBoqMutations(projectId: string) {
         await globalMutate(key);
         return created;
       } catch (err) {
-        handleError(err, "Could not add item");
+        // A "no room to insert" conflict is handled by the caller (it prompts
+        // to renumber and retries), so don't toast a generic error over it.
+        const needsRenumber =
+          err instanceof ApiError &&
+          err.status === 409 &&
+          (err.details as { needsRenumber?: boolean } | undefined)
+            ?.needsRenumber === true;
+        if (!needsRenumber) handleError(err, "Could not add item");
         throw err;
       }
     },

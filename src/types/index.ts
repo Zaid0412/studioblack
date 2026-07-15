@@ -223,6 +223,7 @@ export interface DbProjectDetail {
   address: string | null;
   city: string | null;
   state: string | null;
+  line_increment: number;
   created_at: string;
   phases: DbPhase[];
   members: DbMember[];

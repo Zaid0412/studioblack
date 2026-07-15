@@ -18,6 +18,8 @@ interface CreateProjectInput {
   address?: string;
   city?: string;
   state?: string;
+  /** BOQ line-number spacing (default 10). */
+  lineIncrement?: number;
   /** Custom phase names. Falls back to PROJECT_PHASES if empty/omitted. */
   phases?: string[];
   orgId: string;
@@ -53,8 +55,8 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
     const {
       rows: [project],
     } = await client.query(
-      `INSERT INTO project (name, client_name, client_email, category, deadline, scope, area_sqft, estimation_inr, address, city, state, org_id, created_by, project_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      `INSERT INTO project (name, client_name, client_email, category, deadline, scope, area_sqft, estimation_inr, address, city, state, org_id, created_by, project_number, line_increment)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, COALESCE($15, 10))
        RETURNING *`,
       [
         input.name,
@@ -71,6 +73,7 @@ export async function createProjectWithPhases(input: CreateProjectInput) {
         input.orgId,
         input.createdBy,
         projectNumber,
+        input.lineIncrement ?? null,
       ]
     );
 
@@ -265,6 +268,7 @@ const PROJECT_COLS = new Set([
   "address",
   "city",
   "state",
+  "line_increment",
 ]);
 
 /**

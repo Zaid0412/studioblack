@@ -4,6 +4,7 @@
     "loading": "Loading...",
     "notes": "Notes",
     "save": "Save",
+    "saving": "Saving…",
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
@@ -240,6 +241,7 @@
     "sections": "Sections",
     "designReview": "Design Review",
     "editProject": "Edit Project",
+    "settings": "Settings",
     "actionsButton": "Upload Designs",
     "fileName": "Name of File",
     "fileType": "Type of File",
@@ -392,6 +394,19 @@
     "validationError": "Missing required field",
     "projectNameRequired": "Please enter a project name.",
     "categoryRequired": "Please select a project category."
+  },
+  "projectSettings": {
+    "title": "Project Settings",
+    "nav": {
+      "details": "Details",
+      "boq": "BOQ"
+    },
+    "lineIncrementLabel": "BOQ line increment",
+    "lineIncrementHelp": "The gap between BOQ line numbers (e.g. 10 → 10, 20, 30). Larger gaps leave more room to insert lines between existing ones.",
+    "savedToast": "Settings saved",
+    "saveFailed": "Failed to save settings",
+    "incrementInvalidTitle": "Invalid increment",
+    "incrementInvalidDescription": "Enter a whole number between 2 and 1000."
   },
   "editProject": {
     "title": "Edit Project",

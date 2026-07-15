@@ -63,6 +63,7 @@ export const PATCH = withAuth(
       "address",
       "city",
       "state",
+      "line_increment",
     ];
 
     const fields: Record<string, unknown> = {};

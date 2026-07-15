@@ -85,7 +85,8 @@ describe("addElementToBoq", () => {
     const insertCall = mocks.db.query.mock.calls[1]!;
     const params = insertCall[1] as unknown[];
     expect(insertCall[0]).toContain("INSERT INTO boq_item");
-    expect(params.length).toBe(28);
+    // 29th param is the optional explicit line_number (null on the append path).
+    expect(params.length).toBe(29);
     expect(params[3]).toBe("library"); // $4 source
     expect(params[4]).toBe(null); // $5 rate_contract_item_id
     expect(params[6]).toBe(null); // $7 name (not auto-copied from element)

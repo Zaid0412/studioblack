@@ -282,6 +282,8 @@ export const createProjectSchema = z.object({
   address: optionalString,
   city: optionalString,
   state: optionalString,
+  // Min 2 so a mid-list BOQ insert always has an integer to split into.
+  lineIncrement: z.number().int().min(2).max(1000).optional(),
   phases: z.array(z.string()).optional(),
   architectIds: z.array(z.string().min(1)).optional(),
   pmIds: z.array(z.string().min(1)).optional(),
@@ -300,6 +302,8 @@ export const updateProjectSchema = z.object({
   address: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   state: z.string().optional().nullable(),
+  // Min 2 so a mid-list BOQ insert always has an integer to split into.
+  lineIncrement: z.number().int().min(2).max(1000).optional(),
   architectIds: z.array(z.string().min(1)).optional(),
   /** PM membership list. Min length enforced at route level (1+) for non-empty syncs. */
   pmIds: z.array(z.string().min(1)).optional(),
@@ -904,6 +908,12 @@ export const createBoqItemSchema = z.object({
   sortOrder: z.coerce.number().int().min(0).optional(),
   isProvisional: z.boolean().optional(),
   isExcluded: z.boolean().optional(),
+  // Insert-between: place the new line above/below an anchor row, taking the
+  // midpoint of the gap. `allowRenumber` lets the server re-space the section
+  // when the gap is exhausted (the UI asks first).
+  anchorItemId: optionalUuid,
+  insertPosition: z.enum(["above", "below"]).optional(),
+  allowRenumber: z.boolean().optional(),
 });
 
 /**

@@ -104,6 +104,11 @@ interface BoqTableProps {
     item: BoqItemWithComputed,
     targetSectionId: string | null
   ) => Promise<BoqItemWithComputed | null | undefined>;
+  /** Insert a new line above/below `item`, taking the midpoint of the gap. */
+  onInsertItem?: (
+    item: BoqItemWithComputed,
+    position: "above" | "below"
+  ) => void;
   /** Surfaces "+ Create new section…" at the bottom of the row's Move sub-menu. */
   onCreateAndMoveItem?: (item: BoqItemWithComputed) => void;
   /**
@@ -199,6 +204,7 @@ export function BoqTable({
   onDeleteItem,
   onApplyRate,
   onMoveItem,
+  onInsertItem,
   onCreateAndMoveItem,
   onSetItemPhase,
   selection,
@@ -390,6 +396,7 @@ export function BoqTable({
               onDeleteItem={onDeleteItem}
               onApplyRate={onApplyRate}
               onMoveItem={onMoveItem}
+              onInsertItem={onInsertItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
               onRequestChangeComment={handleRequestChangeComment}
@@ -440,6 +447,7 @@ interface SectionListProps {
   onDeleteItem?: BoqTableProps["onDeleteItem"];
   onApplyRate?: BoqTableProps["onApplyRate"];
   onMoveItem?: BoqTableProps["onMoveItem"];
+  onInsertItem?: BoqTableProps["onInsertItem"];
   onCreateAndMoveItem?: BoqTableProps["onCreateAndMoveItem"];
   onSetItemPhase?: BoqTableProps["onSetItemPhase"];
   onRequestChangeComment?: (
@@ -569,6 +577,7 @@ function SectionBody({
   onDeleteItem,
   onApplyRate,
   onMoveItem,
+  onInsertItem,
   onCreateAndMoveItem,
   onSetItemPhase,
   onRequestChangeComment,
@@ -666,6 +675,7 @@ function SectionBody({
               onDeleteItem={onDeleteItem}
               onApplyRate={onApplyRate}
               onMoveItem={onMoveItem}
+              onInsertItem={onInsertItem}
               onCreateAndMoveItem={onCreateAndMoveItem}
               onSetItemPhase={onSetItemPhase}
               onRequestChangeComment={onRequestChangeComment}
@@ -707,6 +717,10 @@ interface BoqItemRowProps {
     item: BoqItemWithComputed,
     targetSectionId: string | null
   ) => Promise<BoqItemWithComputed | null | undefined>;
+  onInsertItem?: (
+    item: BoqItemWithComputed,
+    position: "above" | "below"
+  ) => void;
   /** All sections in this BOQ — surfaced in the row's "Move to section…" sub-menu. */
   sections: BoqSection[];
   /** When defined, renders a leading checkbox column. */
@@ -745,6 +759,7 @@ const BoqItemRow = memo(function BoqItemRow({
   onDeleteItem,
   onApplyRate,
   onMoveItem,
+  onInsertItem,
   isSelected,
   onToggleSelected,
   onCreateAndMoveItem,
@@ -803,8 +818,9 @@ const BoqItemRow = memo(function BoqItemRow({
   // Clients only get menu access for lifecycle actions; PMs/architects keep
   // their existing move/delete entries gated on `editable`.
   const canApplyRate = editable && !!onApplyRate && !!item.element_id;
+  const canInsert = editable && !!onInsertItem;
   const showMenu =
-    (editable && (onDeleteItem || canMove)) ||
+    (editable && (onDeleteItem || canMove || canInsert)) ||
     canChangeLifecycle ||
     canApplyRate;
   const currentSectionId = item.section_id ?? null;
@@ -1019,6 +1035,21 @@ const BoqItemRow = memo(function BoqItemRow({
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {canInsert && (
+                <>
+                  <DropdownMenuItem
+                    onSelect={() => onInsertItem!(item, "above")}
+                  >
+                    Insert item above
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => onInsertItem!(item, "below")}
+                  >
+                    Insert item below
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {canMove && (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>

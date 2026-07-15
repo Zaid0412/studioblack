@@ -4,6 +4,7 @@
     "loading": "Yükleniyor...",
     "notes": "Notlar",
     "save": "Kaydet",
+    "saving": "Kaydediliyor…",
     "cancel": "İptal",
     "delete": "Sil",
     "edit": "Düzenle",
@@ -240,6 +241,7 @@
     "sections": "Bölümler",
     "designReview": "Tasarım İnceleme",
     "editProject": "Projeyi Düzenle",
+    "settings": "Ayarlar",
     "actionsButton": "Tasarım Yükle",
     "fileName": "Dosya Adı",
     "fileType": "Dosya Türü",
@@ -392,6 +394,19 @@
     "validationError": "Eksik zorunlu alan",
     "projectNameRequired": "Lütfen bir proje adı girin.",
     "categoryRequired": "Lütfen bir proje kategorisi seçin."
+  },
+  "projectSettings": {
+    "title": "Proje Ayarları",
+    "nav": {
+      "details": "Ayrıntılar",
+      "boq": "Keşif"
+    },
+    "lineIncrementLabel": "Keşif satır artışı",
+    "lineIncrementHelp": "Keşif satır numaraları arasındaki boşluk (ör. 10 → 10, 20, 30). Daha büyük boşluklar, mevcut satırların arasına yeni satır eklemek için daha fazla yer bırakır.",
+    "savedToast": "Ayarlar kaydedildi",
+    "saveFailed": "Ayarlar kaydedilemedi",
+    "incrementInvalidTitle": "Geçersiz artış",
+    "incrementInvalidDescription": "2 ile 1000 arasında bir tam sayı girin."
   },
   "editProject": {
     "title": "Projeyi Düzenle",

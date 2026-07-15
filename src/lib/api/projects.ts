@@ -24,6 +24,7 @@ export function create<T>(data: {
   address?: string;
   city?: string;
   state?: string;
+  lineIncrement?: number;
   phases?: { name: string }[];
   architectIds?: string[];
   pmIds?: string[];
@@ -45,6 +46,7 @@ export function update<T>(
     address?: string | null;
     city?: string | null;
     state?: string | null;
+    lineIncrement?: number;
     architectIds?: string[];
     pmIds?: string[];
   }
