@@ -145,6 +145,7 @@ export function RfqIssueDialog({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
+          autoFocus
         />
 
         <div className="flex items-center justify-between gap-2 pb-1">
