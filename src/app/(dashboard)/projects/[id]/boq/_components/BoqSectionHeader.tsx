@@ -66,7 +66,7 @@ export function BoqSectionHeader({
 
   return (
     <div
-      className={`w-full flex items-center gap-2 ${selectionMode ? "pl-3" : "pl-4"} pr-5 py-3 bg-bg-elevated border-b border-border-default`}
+      className={`w-full flex items-center gap-2 ${selectionMode ? "pl-3" : "pl-4"} py-3 bg-bg-elevated border-b border-border-default`}
     >
       {selectionMode && (
         <div className="w-8 flex items-center justify-center shrink-0">
@@ -93,7 +93,7 @@ export function BoqSectionHeader({
         type="button"
         onClick={onToggle}
         aria-expanded={!collapsed}
-        className="flex-1 flex items-center gap-3 text-left hover:opacity-80 transition-opacity cursor-pointer"
+        className="flex-1 min-w-0 flex items-center gap-3 text-left hover:opacity-80 transition-opacity cursor-pointer"
       >
         <ChevronDown
           aria-hidden="true"
@@ -104,7 +104,11 @@ export function BoqSectionHeader({
         <span className="text-sm font-semibold text-text-primary flex-1 truncate">
           {title}
         </span>
-        <span className="text-xs text-text-muted">
+      </button>
+      {/* Summary + actions pinned to the right edge of the visible area, so they
+          stay reachable while the wide table scrolls horizontally. */}
+      <div className="sticky right-0 flex items-center gap-3 pl-4 pr-4 bg-bg-elevated border-l border-border-default shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]">
+        <span className="text-xs text-text-muted whitespace-nowrap">
           {itemCount} item{itemCount === 1 ? "" : "s"}
         </span>
         {visibleToClient === false && (
@@ -112,58 +116,64 @@ export function BoqSectionHeader({
             Internal
           </span>
         )}
-        <span className="text-sm font-semibold text-text-primary tabular-nums">
+        <span className="text-sm font-semibold text-text-primary tabular-nums whitespace-nowrap">
           {formatCurrency(sectionTotal, currency)}
         </span>
-      </button>
-      {hasMenu && (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="p-1 rounded hover:bg-bg-secondary/70 text-text-muted hover:text-text-primary cursor-pointer"
-            aria-label={`Actions for ${title}`}
-          >
-            <MoreVertical className="h-4 w-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {canAddItem && (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Add item here…</DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {onAddCustomItem && (
-                    <DropdownMenuItem onSelect={onAddCustomItem}>
-                      New custom item
-                    </DropdownMenuItem>
-                  )}
-                  {onAddFromLibrary && (
-                    <DropdownMenuItem onSelect={onAddFromLibrary}>
-                      From element library…
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )}
-            {canAddItem && (onRename || onToggleVisibility || onDelete) && (
-              <DropdownMenuSeparator />
-            )}
-            {onRename && (
-              <DropdownMenuItem onSelect={onRename}>Rename</DropdownMenuItem>
-            )}
-            {onToggleVisibility && (
-              <DropdownMenuItem onSelect={onToggleVisibility}>
-                {visibleToClient === false ? "Show to client" : "Mark internal"}
-              </DropdownMenuItem>
-            )}
-            {onDelete && (
-              <DropdownMenuItem
-                onSelect={onDelete}
-                className="text-error focus:text-error"
-              >
-                Delete section
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+        {hasMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="p-1 rounded hover:bg-bg-secondary/70 text-text-muted hover:text-text-primary cursor-pointer"
+              aria-label={`Actions for ${title}`}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canAddItem && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    Add item here…
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {onAddCustomItem && (
+                      <DropdownMenuItem onSelect={onAddCustomItem}>
+                        New custom item
+                      </DropdownMenuItem>
+                    )}
+                    {onAddFromLibrary && (
+                      <DropdownMenuItem onSelect={onAddFromLibrary}>
+                        From element library…
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              {canAddItem && (onRename || onToggleVisibility || onDelete) && (
+                <DropdownMenuSeparator />
+              )}
+              {onRename && (
+                <DropdownMenuItem onSelect={onRename}>
+                  Edit section…
+                </DropdownMenuItem>
+              )}
+              {onToggleVisibility && (
+                <DropdownMenuItem onSelect={onToggleVisibility}>
+                  {visibleToClient === false
+                    ? "Show to client"
+                    : "Mark internal"}
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  onSelect={onDelete}
+                  className="text-error focus:text-error"
+                >
+                  Delete section
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 }
