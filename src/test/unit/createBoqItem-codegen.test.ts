@@ -18,7 +18,9 @@ const CATEGORY_ID = "550e8400-e29b-41d4-a716-446655440009";
 const PREFIX = "KIT-CAB-BASE";
 
 const mockQuery = vi.fn();
-const executor = { query: mockQuery };
+// A transaction client (has `release`) — createBoqItem's generation branch
+// requires one, so the pool-shaped `{ query }` alone would be rejected.
+const executor = { query: mockQuery, release: () => {} };
 
 async function realCreateBoqItem(
   input: CreateBoqItemInput

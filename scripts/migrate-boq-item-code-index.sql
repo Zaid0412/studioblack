@@ -6,5 +6,9 @@
 -- namespace. That collision check (and the counter self-heal) filter
 -- `WHERE item_code = $code`, so index the column to keep every element / BOQ
 -- create off a sequential scan.
+--
+-- CONCURRENTLY so building it doesn't lock writes on boq_item. Run OUTSIDE a
+-- transaction (psql, not a wrapped migration) — `CREATE INDEX CONCURRENTLY`
+-- cannot run inside one.
 
-CREATE INDEX IF NOT EXISTS idx_boq_item_code ON boq_item(item_code);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_boq_item_code ON boq_item(item_code);

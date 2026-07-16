@@ -173,7 +173,8 @@ export function BoqCreateItemSheet({
   // the sheet opens.
   const [manualQty, setManualQty] = useState(false);
 
-  const { isServiceAreaId, options } = useCategoryTree(open);
+  const { isServiceAreaId, options, loaded: treeLoaded } =
+    useCategoryTree(open);
 
   // Project-level BOQ defaults (Settings → BOQ) pre-fill a new line's unit and
   // service charge; null falls back to INITIAL's global defaults.
@@ -504,10 +505,13 @@ export function BoqCreateItemSheet({
   };
 
   // Auto-assigned on save from the Service Area, like the Element Library —
-  // show the same `PREFIX-••••` preview once one is picked.
-  const codePreview = v.categoryId
-    ? `${categoryPrefixOf(options, v.categoryId) ?? UNCATEGORIZED_PREFIX}-••••`
-    : "";
+  // show the same `PREFIX-••••` preview once one is picked. Gated on the tree
+  // being loaded so a real Service Area never briefly previews as `GEN-••••`
+  // before its prefix is known.
+  const codePreview =
+    treeLoaded && v.categoryId
+      ? `${categoryPrefixOf(options, v.categoryId) ?? UNCATEGORIZED_PREFIX}-••••`
+      : "";
 
   const labelCls = "text-xs font-medium text-text-secondary";
   const requiredAsterisk = (
