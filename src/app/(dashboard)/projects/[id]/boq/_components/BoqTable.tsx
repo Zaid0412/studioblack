@@ -517,8 +517,16 @@ function SectionList(props: SectionListProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    // Indices come from the DISPLAYED (division-grouped) order, and the full new
-    // order is persisted — so dragging keeps sections filed under their division.
+    const activeGroup = realGroups.find((g) => g.id === String(active.id));
+    const overGroup = realGroups.find((g) => g.id === String(over.id));
+    if (!activeGroup || !overGroup) return;
+    // Sections only reorder within their own division — moving across divisions
+    // is done via the section's Edit dialog, not by dragging. A cross-division
+    // drop is rejected (snaps back) rather than silently re-filed.
+    if (activeGroup.divisionId !== overGroup.divisionId) return;
+    // Indices come from the DISPLAYED (division-grouped) order; the full new
+    // order is persisted, and same-division sections are contiguous, so the
+    // moved section stays in its division block.
     const ids = realGroups.map((g) => g.id);
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
