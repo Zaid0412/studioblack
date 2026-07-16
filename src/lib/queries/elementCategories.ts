@@ -6,7 +6,7 @@ import {
   codeSegmentOf,
   composeCategoryCode,
   dedupeSegment,
-  maxSegmentLength,
+  segmentCap,
   suggestCodeSegment,
 } from "@/lib/categoryCode";
 import type { BulkCategoryNode } from "@/lib/validations";
@@ -16,7 +16,7 @@ import type {
   ElementCategoryNode,
 } from "@/types";
 import { getCategoryCodeConfig } from "./categoryCodeConfig";
-import { isCategoryReferenced } from "./categoryImport";
+import { categoryRefExistsSql, isCategoryReferenced } from "./categoryImport";
 import { escapeSqlLike } from "./helpers";
 
 /**
@@ -49,10 +49,7 @@ function resolveCategoryCode(
   siblingPrefixes: (string | null)[],
   config: CategoryCodeConfig
 ): string | null {
-  const cap = Math.min(
-    config.code_max_length,
-    maxSegmentLength(parentPrefix) || config.code_max_length
-  );
+  const cap = segmentCap(parentPrefix, config.code_max_length);
   const takenSegments = siblingPrefixes
     .map((p) => codeSegmentOf(p, parentPrefix))
     .filter(Boolean);
@@ -117,15 +114,7 @@ export async function getCategoryTree(orgId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
     `SELECT c.*, COALESCE(e.cnt, 0)::int AS element_count,
-       EXISTS (
-         SELECT 1 FROM element            WHERE category_id = c.id
-         UNION ALL SELECT 1 FROM vendor_trade       WHERE category_id = c.id
-         UNION ALL SELECT 1 FROM boq_item           WHERE category_id = c.id
-         UNION ALL SELECT 1 FROM rfq_item           WHERE category_id = c.id
-         UNION ALL SELECT 1 FROM rate_contract      WHERE category_id = c.id
-         UNION ALL SELECT 1 FROM rate_contract_item WHERE category_id = c.id
-         LIMIT 1
-       ) AS in_use
+       EXISTS (${categoryRefExistsSql("c.id")} LIMIT 1) AS in_use
      FROM element_category c
      LEFT JOIN (
        SELECT category_id, COUNT(*)::int AS cnt

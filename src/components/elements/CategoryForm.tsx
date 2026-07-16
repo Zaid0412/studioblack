@@ -17,7 +17,7 @@ import { CategoryColorPicker } from "./CategoryColorPicker";
 import {
   codeSegmentOf,
   composeCategoryCode,
-  maxSegmentLength,
+  segmentCap,
   suggestCodeSegment,
 } from "@/lib/categoryCode";
 import {
@@ -139,30 +139,20 @@ export function CategoryForm({
   const parentPrefix = prefixOf(values.parentId);
   const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
 
-  // The per-segment cap: the org's max length, but never past the room left
-  // under the 20-char composed ceiling.
-  const segmentCap =
-    Math.min(config.code_max_length, maxSegmentLength(parentPrefix)) ||
-    config.code_max_length;
+  const cap = segmentCap(parentPrefix, config.code_max_length);
 
   // Auto-suggest the code from the name while creating and the user hasn't
   // touched the code field. Recomputes on name/parent change; the first keystroke
   // in the code field stops it.
   useEffect(() => {
     if (isEditing || codeTouched || !config.auto_generate) return;
-    const seg = suggestCodeSegment(values.name, segmentCap);
+    const seg = suggestCodeSegment(values.name, cap);
     setValues((v) => ({
       ...v,
       codePrefix: seg ? composeCategoryCode(parentPrefix, seg) : "",
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    values.name,
-    parentPrefix,
-    config.auto_generate,
-    segmentCap,
-    codeTouched,
-  ]);
+  }, [values.name, parentPrefix, config.auto_generate, cap, codeTouched]);
 
   /** Re-base the code onto the new parent, keeping the segment the user typed. */
   const selectParent = (parentId: string | null) =>
@@ -254,7 +244,7 @@ export function CategoryForm({
                 composeCategoryCode(parentPrefix, e.target.value)
               );
             }}
-            maxLength={segmentCap}
+            maxLength={cap}
             disabled={codeLocked}
             readOnly={codeLocked}
           />

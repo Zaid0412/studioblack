@@ -26,7 +26,7 @@ import {
 import { useCodeConfig } from "@/hooks/useCodeConfig";
 import { cn } from "@/lib/utils";
 import type { CategoryCreateRender } from "@/components/elements/ServiceAreaSelect";
-import type { ElementCategoryNode } from "@/types";
+import type { CategoryCodeConfig, ElementCategoryNode } from "@/types";
 
 /** Sentinel for "I'm creating this level rather than picking an existing one". */
 const NEW = "__new__";
@@ -72,6 +72,26 @@ interface Rung {
 const EMPTY_RUNG: Rung = { pick: NEW, name: "", segment: "" };
 
 /**
+ * Fill a new rung's code segment from its name when the org auto-generates and
+ * the user hasn't set one. Only fills an empty segment, so manual edits stick.
+ */
+function useAutoFillRung(
+  rung: Rung,
+  setRung: React.Dispatch<React.SetStateAction<Rung>>,
+  config: CategoryCodeConfig
+) {
+  useEffect(() => {
+    if (!config.auto_generate) return;
+    if (rung.pick !== NEW || !rung.name.trim() || rung.segment) return;
+    setRung((r) => ({
+      ...r,
+      segment: suggestCodeSegment(r.name, config.code_max_length),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rung.name, rung.pick, config.auto_generate, config.code_max_length]);
+}
+
+/**
  * Builds the Category → Sub-category → Service Area chain an element needs,
  * without leaving the element form.
  *
@@ -96,42 +116,11 @@ export function ServiceAreaDialog({
   const [serviceArea, setServiceArea] = useState<Rung>(EMPTY_RUNG);
   const [submitting, setSubmitting] = useState(false);
 
-  // Auto-suggest each new rung's code from its name when the org auto-generates
-  // and the user hasn't set one. Only fills an empty segment, so edits stick.
-  const autoFill =
-    (set: React.Dispatch<React.SetStateAction<Rung>>) => (rung: Rung) => {
-      if (!config.auto_generate) return;
-      if (rung.pick !== NEW || !rung.name.trim() || rung.segment) return;
-      set((r) => ({
-        ...r,
-        segment: suggestCodeSegment(r.name, config.code_max_length),
-      }));
-    };
-  useEffect(
-    () => autoFill(setCategory)(category),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [category.name, category.pick, config.auto_generate, config.code_max_length]
-  );
-  useEffect(
-    () => autoFill(setSubcategory)(subcategory),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      subcategory.name,
-      subcategory.pick,
-      config.auto_generate,
-      config.code_max_length,
-    ]
-  );
-  useEffect(
-    () => autoFill(setServiceArea)(serviceArea),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      serviceArea.name,
-      serviceArea.pick,
-      config.auto_generate,
-      config.code_max_length,
-    ]
-  );
+  // Auto-suggest each new rung's code from its name (when the org auto-generates
+  // and the user hasn't set one).
+  useAutoFillRung(category, setCategory, config);
+  useAutoFillRung(subcategory, setSubcategory, config);
+  useAutoFillRung(serviceArea, setServiceArea, config);
 
   useEffect(() => {
     if (!open) return;

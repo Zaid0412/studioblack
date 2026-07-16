@@ -46,7 +46,7 @@ export async function upsertCategoryCodeConfig(
   }
   if (cols.length === 0) return getCategoryCodeConfig(orgId);
 
-  const insertCols = cols.map((c) => `${c}`).join(", ");
+  const insertCols = cols.join(", ");
   const insertVals = cols.map((_, i) => `$${i + 2}`).join(", ");
   const updateSet = cols.map((c) => `${c} = EXCLUDED.${c}`).join(", ");
   const pool = getPool();

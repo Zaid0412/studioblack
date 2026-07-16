@@ -14,7 +14,6 @@ import {
 import { toast } from "@/components/ui/useToast";
 import { categoryCodeConfig as configApi } from "@/lib/api";
 import { useCodeConfig } from "@/hooks/useCodeConfig";
-import type { CategoryCodeConfig } from "@/types";
 
 /** One label + description + control row. */
 function Row({
@@ -60,11 +59,7 @@ export function CodingSection() {
     }
   }
 
-  const toggle = (
-    field: keyof CategoryCodeConfig,
-    apiKey: string,
-    value: boolean
-  ) => patch({ [apiKey]: value });
+  const toggle = (apiKey: string, value: boolean) => patch({ [apiKey]: value });
 
   if (isLoading && !loaded) {
     return <Skeleton className="h-64 w-full rounded-lg" />;
@@ -83,7 +78,7 @@ export function CodingSection() {
         <Row label={t("autoGenerate")} hint={t("autoGenerateHint")}>
           <ToggleSwitch
             checked={config.auto_generate}
-            onChange={(v) => toggle("auto_generate", "autoGenerate", v)}
+            onChange={(v) => toggle("autoGenerate", v)}
           />
         </Row>
 
@@ -108,23 +103,21 @@ export function CodingSection() {
         <Row label={t("forceUppercase")} hint={t("forceUppercaseHint")}>
           <ToggleSwitch
             checked={config.force_uppercase}
-            onChange={(v) => toggle("force_uppercase", "forceUppercase", v)}
+            onChange={(v) => toggle("forceUppercase", v)}
           />
         </Row>
 
         <Row label={t("preventDuplicates")} hint={t("preventDuplicatesHint")}>
           <ToggleSwitch
             checked={config.prevent_duplicates}
-            onChange={(v) =>
-              toggle("prevent_duplicates", "preventDuplicates", v)
-            }
+            onChange={(v) => toggle("preventDuplicates", v)}
           />
         </Row>
 
         <Row label={t("lockAfterUse")} hint={t("lockAfterUseHint")}>
           <ToggleSwitch
             checked={config.lock_after_use}
-            onChange={(v) => toggle("lock_after_use", "lockAfterUse", v)}
+            onChange={(v) => toggle("lockAfterUse", v)}
           />
         </Row>
       </Card>

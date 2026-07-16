@@ -7,6 +7,7 @@ import {
   dedupeSegment,
   maxSegmentLength,
   normalizeCodeSegment,
+  segmentCap,
   suggestCodeSegment,
   UNCATEGORIZED_PREFIX,
 } from "@/lib/categoryCode";
@@ -30,6 +31,19 @@ describe("suggestCodeSegment", () => {
   it("returns empty for an empty or symbol-only name", () => {
     expect(suggestCodeSegment("", 4)).toBe("");
     expect(suggestCodeSegment("--- ///", 4)).toBe("");
+  });
+});
+
+describe("segmentCap", () => {
+  it("uses the org max at the top level (ample room)", () => {
+    expect(segmentCap(null, 4)).toBe(4);
+  });
+  it("clamps to the room left under a long parent", () => {
+    // 20 - 17 - 1 = 2 chars of room, tighter than the org max of 4.
+    expect(segmentCap("A".repeat(17), 4)).toBe(2);
+  });
+  it("falls back to the org max when no room is left", () => {
+    expect(segmentCap("A".repeat(20), 4)).toBe(4);
   });
 });
 

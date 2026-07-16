@@ -99,6 +99,20 @@ export function maxSegmentLength(
 }
 
 /**
+ * The effective per-segment cap: the org's configured max length, but never
+ * past the room a segment has under the composed 20-char ceiling. Falls back to
+ * `maxLen` when no room is left (0), so a suggestion is still produced and the
+ * server's own check decides. The single source of this formula, shared by the
+ * server resolver and every code-entry surface.
+ */
+export function segmentCap(
+  parentPrefix: string | null | undefined,
+  maxLen: number
+): number {
+  return Math.min(maxLen, maxSegmentLength(parentPrefix)) || maxLen;
+}
+
+/**
  * Suggest a code segment from a category name — the auto-generation default
  * ("Kitchen" → `KIT`, "Base Cabinets" → `BASE`). Takes the first alphanumeric
  * word, uppercases it, and clamps to `maxLen`. It's only a suggestion the user
@@ -117,8 +131,9 @@ export function suggestCodeSegment(name: string, maxLen: number): string {
  * change that shared helper. Always strips non-alphanumerics.
  */
 export function applyCase(segment: string, forceUppercase: boolean): string {
-  const stripped = segment.replace(/[^A-Za-z0-9]/g, "");
-  return forceUppercase ? stripped.toUpperCase() : stripped;
+  return forceUppercase
+    ? normalizeCodeSegment(segment)
+    : segment.replace(/[^A-Za-z0-9]/g, "");
 }
 
 /**
