@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { FormDialog } from "@/components/ui/FormDialog";
 import { toast } from "@/components/ui/useToast";
 import { useBoqMutations } from "@/hooks/useBoqMutations";
+import { BoqDivisionSelect } from "./BoqDivisionSelect";
+import type { CreateSectionPayload } from "@/lib/api/boq";
 import type { BoqSection } from "@/types";
 
 interface BoqRenameSectionDialogProps {
@@ -14,7 +16,7 @@ interface BoqRenameSectionDialogProps {
   section: BoqSection | null;
 }
 
-/** Rename an existing BOQ section. No-ops if the title is unchanged. */
+/** Edit a BOQ section's title and division. No-ops when nothing changed. */
 export function BoqRenameSectionDialog({
   open,
   onOpenChange,
@@ -23,24 +25,33 @@ export function BoqRenameSectionDialog({
 }: BoqRenameSectionDialogProps) {
   const { updateSection } = useBoqMutations(projectId);
   const [title, setTitle] = useState("");
+  const [divisionId, setDivisionId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (open && section) setTitle(section.title);
+    if (open && section) {
+      setTitle(section.title);
+      setDivisionId(section.division_id);
+    }
   }, [open, section]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!section) return;
     const trimmed = title.trim();
-    if (!trimmed || trimmed === section.title) {
+
+    const patch: Partial<Omit<CreateSectionPayload, "boqId">> = {};
+    if (trimmed && trimmed !== section.title) patch.title = trimmed;
+    if (divisionId !== section.division_id) patch.divisionId = divisionId;
+    if (Object.keys(patch).length === 0) {
       onOpenChange(false);
       return;
     }
+
     setSubmitting(true);
     try {
-      await updateSection(section.id, { title: trimmed });
-      toast({ title: "Section renamed", variant: "success" });
+      await updateSection(section.id, patch);
+      toast({ title: "Section updated", variant: "success" });
       onOpenChange(false);
     } catch {
       // useBoqMutations already toasts.
@@ -53,19 +64,29 @@ export function BoqRenameSectionDialog({
     <FormDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Rename section"
+      title="Edit section"
       onSubmit={handleSubmit}
       submitting={submitting}
       submitLabel="Save"
       submittingLabel="Saving..."
     >
-      <Input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        maxLength={255}
-        required
-        autoFocus
-      />
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">Title</span>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={255}
+          required
+          autoFocus
+        />
+      </label>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-text-secondary">
+          Division
+        </span>
+        <BoqDivisionSelect value={divisionId} onChange={setDivisionId} />
+      </label>
     </FormDialog>
   );
 }

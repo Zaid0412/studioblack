@@ -25,6 +25,7 @@ export * from "./emailChange";
 export * from "./approvals";
 export * from "./elements";
 export * from "./elementCategories";
+export * from "./divisions";
 export * from "./boq";
 export * from "./vendors";
 export * from "./rateContracts";

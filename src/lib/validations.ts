@@ -608,6 +608,26 @@ export const reorderCategoriesSchema = z.object({
   orderedIds: z.array(uuid).min(1),
 });
 
+// ─── Divisions (/api/divisions) ────────────────────────────────────────────
+
+export const createDivisionSchema = z.object({
+  code: trimmedString.max(10),
+  name: trimmedString.max(150),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const updateDivisionSchema = z.object({
+  code: trimmedString.max(10).optional(),
+  name: trimmedString.max(150).optional(),
+  enabled: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+export const reorderDivisionsSchema = z.object({
+  orderedIds: z.array(uuid).min(1),
+});
+
 // ─── Category spreadsheet import ───────────────────────────────────────────
 
 /** A taxonomy is a small sheet — far smaller than an element library. */
@@ -880,6 +900,7 @@ export const setItemsPhaseSchema = z
 
 export const createBoqSectionSchema = z.object({
   title: trimmedString.max(255),
+  divisionId: optionalUuid.nullable(),
   description: z.string().optional().nullable(),
   sortOrder: z.coerce.number().int().min(0).optional(),
   budgetCap: money.optional().nullable(),
@@ -888,6 +909,7 @@ export const createBoqSectionSchema = z.object({
 
 export const updateBoqSectionSchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
+  divisionId: optionalUuid.nullable(),
   description: z.string().nullable().optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
   budgetCap: money.nullable().optional(),
@@ -1081,6 +1103,7 @@ export type BoqImportStrategy = (typeof BOQ_IMPORT_STRATEGIES)[number];
 export const boqImportRowSchema = z.object({
   rowNumber: z.number().int().min(1),
   sectionTitle: z.string().trim().max(255).optional(),
+  divisionName: z.string().trim().max(150).optional(),
   itemCode: z.string().trim().max(50).optional(),
   // Resolved by the parser — from the row's Category Path, or inherited from
   // the element its Item Code links to. Required either way.

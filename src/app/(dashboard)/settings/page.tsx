@@ -8,6 +8,7 @@ import {
   Lock,
   SlidersHorizontal,
   Building2,
+  Layers,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -21,12 +22,14 @@ import { PasswordSection } from "./_components/PasswordSection";
 import { PreferencesSection } from "./_components/PreferencesSection";
 import { DangerZoneSection } from "./_components/DangerZoneSection";
 import { OrganizationSection } from "./_components/OrganizationSection";
+import { DivisionsSection } from "./_components/DivisionsSection";
 
 type SectionId =
   | "profile"
   | "security"
   | "preferences"
   | "organization"
+  | "divisions"
   | "danger";
 
 /** Sectioned user settings — vertical nav, section chosen via `?section=`. */
@@ -69,6 +72,12 @@ function SettingsPageInner() {
       id: "organization",
       label: t("nav.organization"),
       icon: Building2,
+    });
+  if (isPM)
+    navItems.push({
+      id: "divisions",
+      label: t("nav.divisions"),
+      icon: Layers,
     });
   navItems.push({
     id: "danger",
@@ -124,6 +133,8 @@ function SettingsPageInner() {
         return <PreferencesSection />;
       case "organization":
         return <OrganizationSection />;
+      case "divisions":
+        return <DivisionsSection />;
       case "danger":
         return (
           <DangerZoneSection

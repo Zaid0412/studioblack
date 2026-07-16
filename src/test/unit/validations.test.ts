@@ -41,6 +41,9 @@ import {
   ATTACHMENT_REVIEW_STATUSES,
   PHASE_TASK_STATUSES,
   APPROVAL_DECISIONS,
+  createDivisionSchema,
+  updateDivisionSchema,
+  reorderDivisionsSchema,
 } from "@/lib/validations";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -58,6 +61,79 @@ function expectFail(schema: z.ZodType, data: unknown): string {
   expect(result.success).toBe(false);
   return (result as { success: false; error: string }).error;
 }
+
+// ── Division schemas ─────────────────────────────────────────────────────────
+
+describe("createDivisionSchema", () => {
+  it("accepts a code + name", () => {
+    const data = expectPass(createDivisionSchema, {
+      code: "CIV",
+      name: "Civil Works",
+    });
+    expect(data.code).toBe("CIV");
+  });
+
+  it("trims code and name", () => {
+    const data = expectPass(createDivisionSchema, {
+      code: "  CIV  ",
+      name: "  Civil Works  ",
+    });
+    expect(data.code).toBe("CIV");
+    expect(data.name).toBe("Civil Works");
+  });
+
+  it("rejects an empty code", () => {
+    expectFail(createDivisionSchema, { code: "", name: "Civil Works" });
+  });
+
+  it("rejects a code longer than 10 chars", () => {
+    expectFail(createDivisionSchema, {
+      code: "TOOLONGCODE1",
+      name: "Civil Works",
+    });
+  });
+
+  it("rejects a missing name", () => {
+    expectFail(createDivisionSchema, { code: "CIV" });
+  });
+});
+
+describe("updateDivisionSchema", () => {
+  it("accepts a partial update", () => {
+    const data = expectPass(updateDivisionSchema, { enabled: false });
+    expect(data.enabled).toBe(false);
+  });
+
+  it("accepts isDefault + sortOrder", () => {
+    const data = expectPass(updateDivisionSchema, {
+      isDefault: true,
+      sortOrder: 3,
+    });
+    expect(data.isDefault).toBe(true);
+    expect(data.sortOrder).toBe(3);
+  });
+
+  it("rejects a negative sortOrder", () => {
+    expectFail(updateDivisionSchema, { sortOrder: -1 });
+  });
+});
+
+describe("reorderDivisionsSchema", () => {
+  it("accepts a non-empty id list", () => {
+    const data = expectPass(reorderDivisionsSchema, {
+      orderedIds: [VALID_UUID],
+    });
+    expect(data.orderedIds).toHaveLength(1);
+  });
+
+  it("rejects an empty id list", () => {
+    expectFail(reorderDivisionsSchema, { orderedIds: [] });
+  });
+
+  it("rejects non-uuid ids", () => {
+    expectFail(reorderDivisionsSchema, { orderedIds: ["not-a-uuid"] });
+  });
+});
 
 // ── createTaskSchema ─────────────────────────────────────────────────────────
 

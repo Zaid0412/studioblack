@@ -521,6 +521,7 @@
       "security": "Güvenlik",
       "preferences": "Tercihler",
       "organization": "Organizasyon",
+      "divisions": "Bölümler",
       "danger": "Tehlike bölgesi"
     },
     "profile": "Profil",
@@ -742,6 +743,25 @@
     "priorityMedium": "Orta",
     "priorityHigh": "Yüksek",
     "priorityUrgent": "Acil"
+  },
+  "divisions": {
+    "title": "Bölümler",
+    "help": "BOQ kısımlarının üzerinde yer alan yeniden kullanılabilir gruplar. Yeniden adlandırın, devre dışı bırakın, sıralayın veya yeni projelere uygulanacakları belirleyin.",
+    "restore": "Varsayılanları geri yükle",
+    "restoredCount": "{count} varsayılan bölüm eklendi",
+    "restoredNone": "Tüm varsayılan bölümler zaten mevcut",
+    "reorder": "Bölümü yeniden sırala",
+    "code": "Kod",
+    "name": "Ad",
+    "default": "Varsayılan",
+    "enabled": "Etkin",
+    "add": "Ekle",
+    "codePlaceholder": "KOD",
+    "namePlaceholder": "Bölüm adı",
+    "empty": "Henüz bölüm yok. Aşağıdan bir tane ekleyin veya varsayılanları geri yükleyin.",
+    "deleteAction": "Sil",
+    "deleteTitle": "Bölümü sil",
+    "deleteConfirm": "\"{name}\" silinsin mi? Bu geri alınamaz. Bir BOQ tarafından hâlâ kullanılan bir bölüm silinemez — bunun yerine devre dışı bırakın."
   },
   "organisation": {
     "title": "Organizasyon",

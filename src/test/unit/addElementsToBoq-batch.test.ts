@@ -52,15 +52,27 @@ beforeEach(() => {
 
 describe("addElementsToBoq (batched, transactional)", () => {
   it("inserts every element in one transaction with a single batched fetch", async () => {
-    mocks.db.query
-      .mockResolvedValueOnce({ rows: [] }) // BEGIN
-      .mockResolvedValueOnce({ rows: [] }) // advisory lock
-      .mockResolvedValueOnce({
-        rows: [elementRow(EL_A, "EL-A"), elementRow(EL_B, "EL-B")],
-      }) // batched element fetch
-      .mockResolvedValueOnce({ rows: [{ id: "new-a", source: "library" }] }) // insert A
-      .mockResolvedValueOnce({ rows: [{ id: "new-b", source: "library" }] }) // insert B
-      .mockResolvedValueOnce({ rows: [] }); // COMMIT
+    // Route by SQL shape: after the two inserts the batch does one BOQ-wide
+    // renumber, then re-reads the inserted rows via ITEM_SELECT (that re-read is
+    // what the function returns).
+    mocks.db.query.mockImplementation((sql: string) => {
+      if (/FROM element WHERE .* ANY/s.test(sql))
+        return Promise.resolve({
+          rows: [elementRow(EL_A, "EL-A"), elementRow(EL_B, "EL-B")],
+        });
+      if (/INSERT INTO boq_item/.test(sql))
+        return Promise.resolve({ rows: [{ id: "new", source: "library" }] });
+      if (/SELECT pr\.line_increment FROM boq pb/.test(sql))
+        return Promise.resolve({ rows: [{ line_increment: 10 }] });
+      if (/SELECT bi\.\*/.test(sql))
+        return Promise.resolve({
+          rows: [
+            { id: "new-a", source: "library" },
+            { id: "new-b", source: "library" },
+          ],
+        });
+      return Promise.resolve({ rows: [] }); // BEGIN / lock / renumber / COMMIT
+    });
 
     const result = await realAddElementsToBoq(BOQ_ID, ORG, {
       sectionId: null,
@@ -80,8 +92,14 @@ describe("addElementsToBoq (batched, transactional)", () => {
     );
     expect(fetchCalls).toHaveLength(1);
     expect(fetchCalls[0]).toContain("org_id = $2");
-    // Bounded round-trips: BEGIN + lock + 1 fetch + 2 inserts + COMMIT = 6.
-    expect(mocks.db.query).toHaveBeenCalledTimes(6);
+    // One INSERT per element.
+    expect(
+      calls.filter((c) => c.includes("INSERT INTO boq_item"))
+    ).toHaveLength(2);
+    // The batch renumbers once (BOQ-wide) rather than per row.
+    expect(calls.filter((c) => c.includes("line_number = o.rn"))).toHaveLength(
+      1
+    );
   });
 
   it("rolls back and returns null when an element id is unresolved", async () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   requireServiceArea,
-  createBoqItem,
+  addBoqItem,
   insertBoqItemBetween,
   NeedsRenumberError,
   updateBoqItem,
@@ -95,7 +95,7 @@ beforeEach(() => {
 describe("POST /api/projects/[id]/boq/items", () => {
   it("creates an item", async () => {
     vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
-    vi.mocked(createBoqItem).mockResolvedValue(fakeItem);
+    vi.mocked(addBoqItem).mockResolvedValue(fakeItem);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
       method: "POST",
@@ -113,7 +113,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
 
     expect(status).toBe(201);
     expect(body.description).toBe("Laying tiles");
-    expect(createBoqItem).toHaveBeenCalledWith(
+    expect(addBoqItem).toHaveBeenCalledWith(
       BOQ_ID,
       "org-test-001",
       expect.objectContaining({
@@ -144,7 +144,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
     const { status } = await parseResponse<BoqItemWithComputed>(res);
 
     expect(status).toBe(201);
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
     expect(insertBoqItemBetween).toHaveBeenCalledWith(
       BOQ_ID,
       "org-test-001",
@@ -210,7 +210,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the category is not a Service Area", async () => {
@@ -235,7 +235,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
 
     expect(status).toBe(400);
     expect(body.error).toBe("Category must be a Service Area");
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
@@ -307,9 +307,9 @@ describe("POST /api/projects/[id]/boq/items", () => {
     expect(status).toBe(403);
   });
 
-  it("forwards length / breadth / height through to createBoqItem", async () => {
+  it("forwards length / breadth / height through to addBoqItem", async () => {
     vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
-    vi.mocked(createBoqItem).mockResolvedValue(fakeItem);
+    vi.mocked(addBoqItem).mockResolvedValue(fakeItem);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
       method: "POST",
@@ -329,7 +329,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(201);
-    expect(createBoqItem).toHaveBeenCalledWith(
+    expect(addBoqItem).toHaveBeenCalledWith(
       BOQ_ID,
       "org-test-001",
       expect.objectContaining({
@@ -359,9 +359,9 @@ describe("POST /api/projects/[id]/boq/items", () => {
     expect(status).toBe(400);
   });
 
-  it("forwards dimensionUnit='ft' through to createBoqItem", async () => {
+  it("forwards dimensionUnit='ft' through to addBoqItem", async () => {
     vi.mocked(verifyBoqOwnership).mockResolvedValue(true);
-    vi.mocked(createBoqItem).mockResolvedValue(fakeItem);
+    vi.mocked(addBoqItem).mockResolvedValue(fakeItem);
 
     const req = buildRequest(`/api/projects/${PROJECT_ID}/boq/items`, {
       method: "POST",
@@ -381,7 +381,7 @@ describe("POST /api/projects/[id]/boq/items", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(201);
-    expect(createBoqItem).toHaveBeenCalledWith(
+    expect(addBoqItem).toHaveBeenCalledWith(
       BOQ_ID,
       "org-test-001",
       expect.objectContaining({ dimensionUnit: "ft" })
@@ -833,7 +833,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the category is not a Service Area", async () => {
@@ -858,7 +858,7 @@ describe("PATCH /api/projects/[id]/boq/items/reorder", () => {
 
     expect(status).toBe(400);
     expect(body.error).toBe("Category must be a Service Area");
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
@@ -1039,7 +1039,7 @@ describe("POST /api/projects/[id]/boq/items/from-element", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the category is not a Service Area", async () => {
@@ -1064,7 +1064,7 @@ describe("POST /api/projects/[id]/boq/items/from-element", () => {
 
     expect(status).toBe(400);
     expect(body.error).toBe("Category must be a Service Area");
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 404 when BOQ not owned by project", async () => {
@@ -1251,7 +1251,7 @@ describe("POST /api/projects/[id]/boq/items/from-elements", () => {
     const { status } = await parseResponse(res);
 
     expect(status).toBe(400);
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 400 when the category is not a Service Area", async () => {
@@ -1276,7 +1276,7 @@ describe("POST /api/projects/[id]/boq/items/from-elements", () => {
 
     expect(status).toBe(400);
     expect(body.error).toBe("Category must be a Service Area");
-    expect(createBoqItem).not.toHaveBeenCalled();
+    expect(addBoqItem).not.toHaveBeenCalled();
   });
 
   it("returns 404 when BOQ not owned by project", async () => {

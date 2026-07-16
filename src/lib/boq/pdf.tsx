@@ -84,6 +84,18 @@ const styles = StyleSheet.create({
     fontFamily: FONT_BOLD,
     fontSize: 9,
   },
+  divisionBand: {
+    flexDirection: "row",
+    borderBottomWidth: 1.5,
+    borderBottomColor: "#0d0d0d",
+    paddingVertical: 3,
+    paddingHorizontal: 2,
+    marginTop: 12,
+    fontFamily: FONT_BOLD,
+    fontSize: 10,
+    color: "#0d0d0d",
+    textTransform: "uppercase",
+  },
   tableHeader: {
     flexDirection: "row",
     backgroundColor: "#e4e4e7",
@@ -172,12 +184,18 @@ function priceItem(item: RenderItem): { rate: number; total: number } {
 
 /**
  * Group items by section title, preserving input order. Items without
- * a section land under "Other items" so they still appear.
+ * a section land under "Other items" so they still appear. Each group also
+ * carries its division name (from the first item) so the renderer can band
+ * sections under their division.
  */
 function groupBySection(
   items: ReadonlyArray<PricedItem>
-): Array<{ title: string; items: PricedItem[] }> {
-  const groups: Array<{ title: string; items: PricedItem[] }> = [];
+): Array<{ title: string; division: string | null; items: PricedItem[] }> {
+  const groups: Array<{
+    title: string;
+    division: string | null;
+    items: PricedItem[];
+  }> = [];
   const index = new Map<string, number>();
   for (const item of items) {
     const title = item.section_title ?? "Other items";
@@ -185,7 +203,7 @@ function groupBySection(
     if (i === undefined) {
       i = groups.length;
       index.set(title, i);
-      groups.push({ title, items: [] });
+      groups.push({ title, division: item.division_name ?? null, items: [] });
     }
     groups[i].items.push(item);
   }
@@ -252,35 +270,46 @@ function BoqPdfDocument({
           </View>
         ) : null}
 
-        {groups.map((group, gi) => (
-          <View key={`g-${gi}`} wrap={false}>
-            <View style={styles.sectionHeader}>
-              <Text>{group.title}</Text>
-            </View>
-            <View style={styles.tableHeader}>
-              <Text style={styles.colCode}>Line</Text>
-              <Text style={styles.colName}>Item</Text>
-              <Text style={styles.colDesc}>Description</Text>
-              <Text style={styles.colUnit}>Unit</Text>
-              <Text style={styles.colQty}>Qty</Text>
-              <Text style={styles.colRate}>Rate ({currency})</Text>
-              <Text style={styles.colTotal}>Total ({currency})</Text>
-            </View>
-            {group.items.map((it) => (
-              <View key={it.id} style={styles.row} wrap={false}>
-                <Text style={styles.colCode}>{it.line_number}</Text>
-                <Text style={styles.colName}>
-                  {it.name ?? it.element_name ?? ""}
-                </Text>
-                <Text style={styles.colDesc}>{it.description ?? ""}</Text>
-                <Text style={styles.colUnit}>{it.unit}</Text>
-                <Text style={styles.colQty}>{formatQty(it.quantity)}</Text>
-                <Text style={styles.colRate}>{fmtMoney(it._rate)}</Text>
-                <Text style={styles.colTotal}>{fmtMoney(it._total)}</Text>
+        {groups.map((group, gi) => {
+          // Division band before the first section of each new division.
+          const showBand =
+            group.division !== null &&
+            (gi === 0 || groups[gi - 1].division !== group.division);
+          return (
+            <View key={`g-${gi}`} wrap={false}>
+              {showBand && (
+                <View style={styles.divisionBand}>
+                  <Text>{group.division}</Text>
+                </View>
+              )}
+              <View style={styles.sectionHeader}>
+                <Text>{group.title}</Text>
               </View>
-            ))}
-          </View>
-        ))}
+              <View style={styles.tableHeader}>
+                <Text style={styles.colCode}>Line</Text>
+                <Text style={styles.colName}>Item</Text>
+                <Text style={styles.colDesc}>Description</Text>
+                <Text style={styles.colUnit}>Unit</Text>
+                <Text style={styles.colQty}>Qty</Text>
+                <Text style={styles.colRate}>Rate ({currency})</Text>
+                <Text style={styles.colTotal}>Total ({currency})</Text>
+              </View>
+              {group.items.map((it) => (
+                <View key={it.id} style={styles.row} wrap={false}>
+                  <Text style={styles.colCode}>{it.line_number}</Text>
+                  <Text style={styles.colName}>
+                    {it.name ?? it.element_name ?? ""}
+                  </Text>
+                  <Text style={styles.colDesc}>{it.description ?? ""}</Text>
+                  <Text style={styles.colUnit}>{it.unit}</Text>
+                  <Text style={styles.colQty}>{formatQty(it.quantity)}</Text>
+                  <Text style={styles.colRate}>{fmtMoney(it._rate)}</Text>
+                  <Text style={styles.colTotal}>{fmtMoney(it._total)}</Text>
+                </View>
+              ))}
+            </View>
+          );
+        })}
 
         <View style={styles.grandTotal}>
           <Text style={styles.grandTotalLabel}>Grand Total</Text>

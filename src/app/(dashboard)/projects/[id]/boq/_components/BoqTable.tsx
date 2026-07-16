@@ -69,7 +69,9 @@ import {
 } from "../_lib/formatters";
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqSectionHeader } from "./BoqSectionHeader";
+import { BoqDivisionHeader } from "./BoqDivisionHeader";
 import { BoqSectionFooter } from "./BoqSectionFooter";
+import { useDivisions } from "@/hooks/useDivisions";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
 import { BoqEditableCell } from "./BoqEditableCell";
 import { BoqSourceBadge } from "./BoqSourceBadge";
@@ -153,6 +155,9 @@ interface SectionGroup {
   visibleToClient?: boolean;
   items: BoqItemWithComputed[];
   total: number;
+  /** The section's division (null = unassigned / no division). Drives the banding. */
+  divisionId: string | null;
+  divisionName: string | null;
 }
 
 // The Source column is narrow on purpose — it carries a single short badge.
@@ -248,6 +253,21 @@ export function BoqTable({
     []
   );
 
+  // Division library drives the section→division ordering + band labels. It's
+  // shared SWR (the section picker uses it too), so this is a cache hit.
+  const { byId: divisionById } = useDivisions({
+    enabled: !isExternalViewer(role),
+  });
+  const divisionRank = useCallback(
+    (divisionId: string | null): number => {
+      if (!divisionId) return Number.MAX_SAFE_INTEGER;
+      return (
+        divisionById.get(divisionId)?.sort_order ?? Number.MAX_SAFE_INTEGER
+      );
+    },
+    [divisionById]
+  );
+
   const visibleItems = useMemo(() => {
     if (!sourceFilter || sourceFilter.size === 0) return items;
     return items.filter((it) => sourceFilter.has(it.source));
@@ -285,9 +305,19 @@ export function BoqTable({
         section: null,
         items: unassigned,
         total: sectionTotalFromSummary(null),
+        divisionId: null,
+        divisionName: null,
       });
     }
-    for (const section of sections) {
+    // Sections ordered by their division (matching the server's continuous
+    // line-number order: division rank, then the section's own sort_order),
+    // so the run-length division bands rendered below line up with the numbers.
+    const orderedSections = [...sections].sort(
+      (a, b) =>
+        divisionRank(a.division_id) - divisionRank(b.division_id) ||
+        a.sort_order - b.sort_order
+    );
+    for (const section of orderedSections) {
       result.push({
         id: section.id,
         title: section.title,
@@ -295,10 +325,20 @@ export function BoqTable({
         visibleToClient: section.is_visible_to_client,
         items: bySection.get(section.id) ?? [],
         total: sectionTotalFromSummary(section.id),
+        divisionId: section.division_id,
+        divisionName: section.division_id
+          ? (divisionById.get(section.division_id)?.name ?? null)
+          : null,
       });
     }
     return result;
-  }, [sections, visibleItems, summary.section_totals]);
+  }, [
+    sections,
+    visibleItems,
+    summary.section_totals,
+    divisionRank,
+    divisionById,
+  ]);
 
   const chips = useMemo<BoqChipDescriptor[]>(
     () =>
@@ -465,7 +505,7 @@ interface SectionListProps {
 }
 
 function SectionList(props: SectionListProps) {
-  const { groups, sections, onReorderSections, sectionsEditable } = props;
+  const { groups, onReorderSections, sectionsEditable, currency } = props;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
@@ -478,7 +518,9 @@ function SectionList(props: SectionListProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const ids = sections.map((s) => s.id);
+    // Indices come from the DISPLAYED (division-grouped) order, and the full new
+    // order is persisted — so dragging keeps sections filed under their division.
+    const ids = realGroups.map((g) => g.id);
     const oldIndex = ids.indexOf(String(active.id));
     const newIndex = ids.indexOf(String(over.id));
     if (oldIndex < 0 || newIndex < 0) return;
@@ -488,6 +530,34 @@ function SectionList(props: SectionListProps) {
   const renderBody = (group: SectionGroup): ReactNode => (
     <SectionBody group={group} {...props} />
   );
+
+  // Emit a division band before the first section of each new division. Pure
+  // (index-based) so nothing is reassigned during render — the sections are
+  // already division-ordered, so a run-length comparison against the previous
+  // group is enough.
+  const withBand = (
+    group: SectionGroup,
+    index: number,
+    node: ReactNode
+  ): ReactNode => {
+    const showBand =
+      index === 0 || realGroups[index - 1].divisionId !== group.divisionId;
+    if (!showBand) return node;
+    const siblings = realGroups.filter(
+      (g) => g.divisionId === group.divisionId
+    );
+    return (
+      <div key={`band-${group.divisionId ?? "none"}`}>
+        <BoqDivisionHeader
+          name={group.divisionName ?? "No division"}
+          sectionCount={siblings.length}
+          divisionTotal={siblings.reduce((sum, g) => sum + g.total, 0)}
+          currency={currency}
+        />
+        {node}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col">
@@ -502,15 +572,21 @@ function SectionList(props: SectionListProps) {
             items={realGroups.map((g) => g.id)}
             strategy={verticalListSortingStrategy}
           >
-            {realGroups.map((group) => (
-              <SortableSection key={group.id} id={group.id}>
-                {renderBody(group)}
-              </SortableSection>
-            ))}
+            {realGroups.map((group, i) =>
+              withBand(
+                group,
+                i,
+                <SortableSection key={group.id} id={group.id}>
+                  {renderBody(group)}
+                </SortableSection>
+              )
+            )}
           </SortableContext>
         </DndContext>
       ) : (
-        realGroups.map((group) => <div key={group.id}>{renderBody(group)}</div>)
+        realGroups.map((group, i) =>
+          withBand(group, i, <div key={group.id}>{renderBody(group)}</div>)
+        )
       )}
     </div>
   );
