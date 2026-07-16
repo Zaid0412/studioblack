@@ -1,22 +1,16 @@
 "use client";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Check, ChevronDown } from "lucide-react";
+import { SearchableDropdown } from "@/components/ui/SearchableDropdown";
+import { cn } from "@/lib/utils";
 import { useDivisions } from "@/hooks/useDivisions";
-
-/** Sentinel for "no division" — Radix Select can't use an empty-string value. */
-const NO_DIVISION = "__none__";
+import type { Division } from "@/types";
 
 /**
- * Division picker for the section create/edit dialogs. Offers the enabled
- * divisions from the org library plus a "No division" option. A section that
- * already sits under a now-disabled division still shows it, so editing an
- * unrelated field doesn't silently drop the assignment.
+ * Searchable division picker for the section create/edit dialogs. Offers the
+ * enabled divisions from the org library (filter by code or name) plus a
+ * "No division" option. A section already filed under a now-disabled division
+ * still shows it, so editing an unrelated field doesn't silently drop it.
  */
 export function BoqDivisionSelect({
   value,
@@ -27,29 +21,104 @@ export function BoqDivisionSelect({
 }) {
   const { enabledDivisions, byId } = useDivisions();
 
-  // Keep a disabled-but-assigned division visible in the list.
-  const options = [...enabledDivisions];
+  // Keep a disabled-but-assigned division selectable/visible.
+  const options: Division[] = [...enabledDivisions];
   if (value && !options.some((d) => d.id === value)) {
     const current = byId.get(value);
     if (current) options.push(current);
   }
 
+  const selected = value ? byId.get(value) : null;
+  const selectedLabel = selected
+    ? `${selected.code} — ${selected.name}`
+    : "No division";
+
   return (
-    <Select
-      value={value ?? NO_DIVISION}
-      onValueChange={(v) => onChange(v === NO_DIVISION ? null : v)}
+    <SearchableDropdown
+      minContentWidth={280}
+      maxListHeight={240}
+      isEmpty={false}
+      trigger={
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center justify-between rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary",
+            "focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/30"
+          )}
+        >
+          <span className="truncate">{selectedLabel}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
+        </button>
+      }
     >
-      <SelectTrigger>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={NO_DIVISION}>No division</SelectItem>
-        {options.map((d) => (
-          <SelectItem key={d.id} value={d.id}>
-            {d.code} — {d.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      {(query, close) => {
+        const filtered = query
+          ? options.filter(
+              (d) =>
+                d.code.toLowerCase().includes(query) ||
+                d.name.toLowerCase().includes(query)
+            )
+          : options;
+        const showNone = !query || "no division".includes(query);
+        return (
+          <>
+            {showNone && (
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(null);
+                  close();
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-bg-elevated",
+                  value === null && "text-accent"
+                )}
+              >
+                <span className="w-4 shrink-0">
+                  {value === null && <Check className="h-4 w-4" />}
+                </span>
+                <span className="italic text-text-muted">No division</span>
+              </button>
+            )}
+            {filtered.length === 0 && !showNone ? (
+              <p className="px-3 py-4 text-center text-sm text-text-muted">
+                No matches
+              </p>
+            ) : (
+              filtered.map((d) => {
+                const isSelected = value === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => {
+                      onChange(d.id);
+                      close();
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-bg-elevated",
+                      isSelected && "text-accent"
+                    )}
+                  >
+                    <span className="w-4 shrink-0">
+                      {isSelected && <Check className="h-4 w-4" />}
+                    </span>
+                    <span className="font-mono text-xs text-text-muted">
+                      {d.code}
+                    </span>
+                    <span className="truncate">{d.name}</span>
+                    {!d.enabled && (
+                      <span className="ml-auto text-[10px] uppercase tracking-wide text-text-muted">
+                        disabled
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </>
+        );
+      }}
+    </SearchableDropdown>
   );
 }
