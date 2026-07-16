@@ -17,12 +17,14 @@ import { CategoryColorPicker } from "./CategoryColorPicker";
 import {
   codeSegmentOf,
   composeCategoryCode,
-  maxSegmentLength,
+  segmentCap,
+  suggestCodeSegment,
 } from "@/lib/categoryCode";
 import {
   categoryPrefixOf,
   type CategoryOption,
 } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import { useCodeConfig } from "@/hooks/useCodeConfig";
 
 const NONE = "__none__";
 
@@ -64,6 +66,10 @@ interface Props {
    * `parentOptions` deliberately excludes.
    */
   fixedParent?: { parent: CategoryOption | null };
+  /** Editing an existing category — disables auto-fill of the code from the name. */
+  isEditing?: boolean;
+  /** The category is referenced by live data — locks the code when the org opts in. */
+  inUse?: boolean;
   submitting: boolean;
   onSubmit: (values: CategoryFormSubmit) => Promise<void> | void;
   onCancel: () => void;
@@ -86,23 +92,32 @@ export function CategoryForm({
   initial,
   parentOptions,
   fixedParent,
+  isEditing = false,
+  inUse = false,
   submitting,
   onSubmit,
   onCancel,
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
+  const { config } = useCodeConfig();
 
   const [values, setValues] = useState<CategoryFormValues>({
     ...EMPTY,
     ...initial,
   });
+  // When editing, the code already exists — never auto-fill it from the name.
+  const [codeTouched, setCodeTouched] = useState(isEditing);
 
   useEffect(() => {
     setValues({ ...EMPTY, ...initial });
+    setCodeTouched(isEditing);
     // Only reset when switching between editing targets.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.name, initial?.parentId, initial?.codePrefix]);
+
+  // A category's code is locked once it's in use (when the org opts into it).
+  const codeLocked = isEditing && inUse && config.lock_after_use;
 
   const setField = <K extends keyof CategoryFormValues>(
     key: K,
@@ -124,6 +139,21 @@ export function CategoryForm({
   const parentPrefix = prefixOf(values.parentId);
   const codeSegment = codeSegmentOf(values.codePrefix, parentPrefix);
 
+  const cap = segmentCap(parentPrefix, config.code_max_length);
+
+  // Auto-suggest the code from the name while creating and the user hasn't
+  // touched the code field. Recomputes on name/parent change; the first keystroke
+  // in the code field stops it.
+  useEffect(() => {
+    if (isEditing || codeTouched || !config.auto_generate) return;
+    const seg = suggestCodeSegment(values.name, cap);
+    setValues((v) => ({
+      ...v,
+      codePrefix: seg ? composeCategoryCode(parentPrefix, seg) : "",
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.name, parentPrefix, config.auto_generate, cap, codeTouched]);
+
   /** Re-base the code onto the new parent, keeping the segment the user typed. */
   const selectParent = (parentId: string | null) =>
     setValues((v) => ({
@@ -144,7 +174,11 @@ export function CategoryForm({
     await onSubmit({
       name: values.name.trim(),
       parentId: values.parentId ?? undefined,
-      codePrefix: values.codePrefix.trim() || undefined,
+      // Only send a code the user actually chose. When untouched under
+      // auto-generate, omit it so the server generates + dedupes authoritatively.
+      codePrefix: codeTouched
+        ? values.codePrefix.trim() || undefined
+        : undefined,
       icon: values.icon ?? undefined,
       color: values.color ?? undefined,
     });
@@ -203,18 +237,23 @@ export function CategoryForm({
             label={t("categoryCodeSegment")}
             placeholder={t("categoryCodeSegmentPlaceholder")}
             value={codeSegment}
-            onChange={(e) =>
+            onChange={(e) => {
+              setCodeTouched(true);
               setField(
                 "codePrefix",
                 composeCategoryCode(parentPrefix, e.target.value)
-              )
-            }
-            maxLength={maxSegmentLength(parentPrefix)}
+              );
+            }}
+            maxLength={cap}
+            disabled={codeLocked}
+            readOnly={codeLocked}
           />
           <p className="text-xs text-text-muted">
-            {values.codePrefix
-              ? t("categoryCodeComposed", { code: values.codePrefix })
-              : t("categoryCodeHint")}
+            {codeLocked
+              ? t("categoryCodeLocked")
+              : values.codePrefix
+                ? t("categoryCodeComposed", { code: values.codePrefix })
+                : t("categoryCodeHint")}
           </p>
         </div>
       </div>

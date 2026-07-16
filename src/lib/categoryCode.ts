@@ -32,6 +32,19 @@ export const CATEGORY_LEVEL = 1;
 /** `element_category.code_prefix` is VARCHAR(20). */
 export const CATEGORY_CODE_MAX = 20;
 
+/**
+ * Defaults for an org with no `category_code_config` row. Lives here (a pure,
+ * client-safe module) rather than in the query module so client hooks can read
+ * it without pulling the `pg` driver into the browser bundle.
+ */
+export const CATEGORY_CODE_CONFIG_DEFAULTS = {
+  auto_generate: true,
+  code_max_length: 4,
+  force_uppercase: true,
+  prevent_duplicates: true,
+  lock_after_use: true,
+} as const;
+
 /** Path codes are uppercase alphanumeric segments joined by "-". */
 export function normalizeCodeSegment(segment: string): string {
   return segment.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -83,4 +96,64 @@ export function maxSegmentLength(
   const parent = parentPrefix?.trim();
   if (!parent) return CATEGORY_CODE_MAX;
   return Math.max(0, CATEGORY_CODE_MAX - parent.length - 1);
+}
+
+/**
+ * The effective per-segment cap: the org's configured max length, but never
+ * past the room a segment has under the composed 20-char ceiling. Falls back to
+ * `maxLen` when no room is left (0), so a suggestion is still produced and the
+ * server's own check decides. The single source of this formula, shared by the
+ * server resolver and every code-entry surface.
+ */
+export function segmentCap(
+  parentPrefix: string | null | undefined,
+  maxLen: number
+): number {
+  return Math.min(maxLen, maxSegmentLength(parentPrefix)) || maxLen;
+}
+
+/**
+ * Suggest a code segment from a category name — the auto-generation default
+ * ("Kitchen" → `KIT`, "Base Cabinets" → `BASE`). Takes the first alphanumeric
+ * word, uppercases it, and clamps to `maxLen`. It's only a suggestion the user
+ * can edit, so it need not match the curated seed codes exactly. Returns `""`
+ * for an empty or symbol-only name (the caller then leaves the field blank).
+ */
+export function suggestCodeSegment(name: string, maxLen: number): string {
+  const firstWord = name.match(/[A-Za-z0-9]+/)?.[0] ?? "";
+  return firstWord.toUpperCase().slice(0, Math.max(0, maxLen));
+}
+
+/**
+ * Apply the org's `force_uppercase` option to a raw segment. Kept separate from
+ * `normalizeCodeSegment` (which always uppercases and is relied on app-wide,
+ * including element-code composition) so the lowercase-allowed path doesn't
+ * change that shared helper. Always strips non-alphanumerics.
+ */
+export function applyCase(segment: string, forceUppercase: boolean): string {
+  return forceUppercase
+    ? normalizeCodeSegment(segment)
+    : segment.replace(/[^A-Za-z0-9]/g, "");
+}
+
+/**
+ * Make `segment` unique among its siblings' segments (case-insensitive). If it
+ * already collides, append an incrementing number, truncating the base so the
+ * result still fits `maxLen` (`BASE` → `BASE2`; at cap 4 → `BAS2`). Returns the
+ * segment unchanged when there's no collision.
+ */
+export function dedupeSegment(
+  segment: string,
+  takenSegments: Iterable<string>,
+  maxLen: number
+): string {
+  const taken = new Set(Array.from(takenSegments, (s) => s.toUpperCase()));
+  if (!segment || !taken.has(segment.toUpperCase())) return segment;
+  for (let n = 2; n < 1000; n++) {
+    const suffix = String(n);
+    const base = segment.slice(0, Math.max(0, maxLen - suffix.length));
+    const candidate = `${base}${suffix}`;
+    if (!taken.has(candidate.toUpperCase())) return candidate;
+  }
+  return segment;
 }

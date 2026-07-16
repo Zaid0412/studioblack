@@ -41,8 +41,10 @@ import {
   codeSegmentOf,
   composeCategoryCode,
   normalizeCodeSegment,
+  suggestCodeSegment,
 } from "@/lib/categoryCode";
 import { CATEGORY_IMPORT_MAX_BYTES } from "@/lib/validations";
+import { useCodeConfig } from "@/hooks/useCodeConfig";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -101,6 +103,7 @@ const isBlocked = (d: CategoryImportDelete) =>
 export function CategoryImportDialog({ open, onOpenChange }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
+  const { config } = useCodeConfig();
 
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -199,7 +202,12 @@ export function CategoryImportDialog({ open, onOpenChange }: Props) {
     for (const name of names) {
       acc.push(name);
       const raw = effectiveSegment(categoryKey(acc));
-      const seg = normalizeCodeSegment(raw);
+      // Fill a blank code from the name when the org auto-generates — the sheet's
+      // "auto-generate missing codes" behaviour. Still editable in the preview.
+      const seg =
+        !raw.trim() && config.auto_generate
+          ? suggestCodeSegment(name, config.code_max_length)
+          : normalizeCodeSegment(raw);
       let codePrefix: string | null = null;
       let error: string | null = null;
       if (raw.trim() && !seg) {

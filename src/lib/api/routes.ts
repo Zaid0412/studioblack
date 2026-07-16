@@ -90,6 +90,9 @@ export const API = {
   changeEmail:           ()                            => "/api/settings/change-email",
   verifyEmailChange:     ()                            => "/api/settings/verify-email-change",
 
+  // ── Category code config ────────────────────────
+  categoryCodeConfig:       ()                            => "/api/category-code-config",
+
   // ── Divisions ───────────────────────────────────
   divisions:                ()                            => "/api/divisions",
   division:                 (id: string)                  => `/api/divisions/${id}`,

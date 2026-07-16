@@ -628,6 +628,16 @@ export const reorderDivisionsSchema = z.object({
   orderedIds: z.array(uuid).min(1),
 });
 
+// ─── Category code config (/api/category-code-config) ──────────────────────
+
+export const updateCategoryCodeConfigSchema = z.object({
+  autoGenerate: z.boolean().optional(),
+  codeMaxLength: z.union([z.literal(3), z.literal(4), z.literal(5)]).optional(),
+  forceUppercase: z.boolean().optional(),
+  preventDuplicates: z.boolean().optional(),
+  lockAfterUse: z.boolean().optional(),
+});
+
 // ─── Category spreadsheet import ───────────────────────────────────────────
 
 /** A taxonomy is a small sheet — far smaller than an element library. */

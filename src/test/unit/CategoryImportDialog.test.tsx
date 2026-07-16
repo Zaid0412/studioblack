@@ -16,7 +16,12 @@ vi.mock("next-intl", () => ({
     vars ? `${key}:${JSON.stringify(vars)}` : key,
 }));
 vi.mock("@/components/ui/useToast", () => ({ toast: vi.fn() }));
-vi.mock("swr", () => ({ mutate: vi.fn() }));
+// Default `useSWR` too — the dialog now reads the coding config via useCodeConfig
+// (which falls back to defaults when data is undefined).
+vi.mock("swr", () => ({
+  default: () => ({ data: undefined, isLoading: false, mutate: vi.fn() }),
+  mutate: vi.fn(),
+}));
 vi.mock("@/lib/api", () => ({
   elementCategories: {
     validateImport: vi.fn(),
@@ -56,6 +61,13 @@ const KITCHEN: CategoryPath = [
   { name: "Kitchen", codePrefix: "KIT" },
   { name: "Cabinets", codePrefix: "KIT-CAB" },
   { name: "Base Units", codePrefix: "KIT-CAB-BASE" },
+];
+
+/** Same chain, but with no codes — the sheet left the code cells blank. */
+const KITCHEN_NO_CODES: CategoryPath = [
+  { name: "Kitchen", codePrefix: null },
+  { name: "Cabinets", codePrefix: null },
+  { name: "Base Units", codePrefix: null },
 ];
 
 function previewResponse({
@@ -136,6 +148,28 @@ describe("CategoryImportDialog", () => {
 
     // Composed onto the parent it was parsed under.
     expect(screen.getByText("KIT-CAB-BSE")).toBeDefined();
+  });
+
+  it("auto-generates codes for rows that left the code blank", async () => {
+    // Blank codes + auto-generate (the mocked config default) → the preview
+    // shows codes abbreviated from the names (Base Units → BASE, cap 4).
+    await upload(
+      previewResponse({
+        rows: [row(KITCHEN_NO_CODES)],
+        plan: {
+          creates: [
+            {
+              path: ["Kitchen", "Cabinets", "Base Units"],
+              codePrefix: null,
+              level: 3,
+            },
+          ],
+        },
+      }),
+      "KITC-CABI-BASE"
+    );
+
+    expect(screen.getByText("KITC-CABI-BASE")).toBeDefined();
   });
 
   it("flags a code that composes past the length cap and blocks import", async () => {

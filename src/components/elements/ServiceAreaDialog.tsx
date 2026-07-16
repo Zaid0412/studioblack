@@ -21,10 +21,12 @@ import {
   composeCategoryCode,
   maxSegmentLength,
   normalizeCodeSegment,
+  suggestCodeSegment,
 } from "@/lib/categoryCode";
+import { useCodeConfig } from "@/hooks/useCodeConfig";
 import { cn } from "@/lib/utils";
 import type { CategoryCreateRender } from "@/components/elements/ServiceAreaSelect";
-import type { ElementCategoryNode } from "@/types";
+import type { CategoryCodeConfig, ElementCategoryNode } from "@/types";
 
 /** Sentinel for "I'm creating this level rather than picking an existing one". */
 const NEW = "__new__";
@@ -70,6 +72,26 @@ interface Rung {
 const EMPTY_RUNG: Rung = { pick: NEW, name: "", segment: "" };
 
 /**
+ * Fill a new rung's code segment from its name when the org auto-generates and
+ * the user hasn't set one. Only fills an empty segment, so manual edits stick.
+ */
+function useAutoFillRung(
+  rung: Rung,
+  setRung: React.Dispatch<React.SetStateAction<Rung>>,
+  config: CategoryCodeConfig
+) {
+  useEffect(() => {
+    if (!config.auto_generate) return;
+    if (rung.pick !== NEW || !rung.name.trim() || rung.segment) return;
+    setRung((r) => ({
+      ...r,
+      segment: suggestCodeSegment(r.name, config.code_max_length),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rung.name, rung.pick, config.auto_generate, config.code_max_length]);
+}
+
+/**
  * Builds the Category → Sub-category → Service Area chain an element needs,
  * without leaving the element form.
  *
@@ -87,11 +109,18 @@ export function ServiceAreaDialog({
 }: Props) {
   const t = useTranslations("elements");
   const tCommon = useTranslations("common");
+  const { config } = useCodeConfig();
 
   const [category, setCategory] = useState<Rung>(EMPTY_RUNG);
   const [subcategory, setSubcategory] = useState<Rung>(EMPTY_RUNG);
   const [serviceArea, setServiceArea] = useState<Rung>(EMPTY_RUNG);
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-suggest each new rung's code from its name (when the org auto-generates
+  // and the user hasn't set one).
+  useAutoFillRung(category, setCategory, config);
+  useAutoFillRung(subcategory, setSubcategory, config);
+  useAutoFillRung(serviceArea, setServiceArea, config);
 
   useEffect(() => {
     if (!open) return;
@@ -116,10 +145,12 @@ export function ServiceAreaDialog({
     : composeCategoryCode(categoryPrefix, subcategory.segment);
   const serviceAreaPrefix = composeCategoryCode(subPrefix, serviceArea.segment);
 
-  // A picked rung needs nothing more; a new one needs both a name and a code
-  // segment. The Service Area is always new, so this covers it too.
+  // A picked rung needs nothing more; a new one needs a name, plus a code
+  // segment unless the org auto-generates it. The Service Area is always new, so
+  // this covers it too.
   const rungReady = (rung: Rung) =>
-    rung.pick !== NEW || (!!rung.name.trim() && !!rung.segment.trim());
+    rung.pick !== NEW ||
+    (!!rung.name.trim() && (!!rung.segment.trim() || config.auto_generate));
   const ready = [category, subcategory, serviceArea].every(rungReady);
 
   const selectCategory = (pick: string) => {
@@ -197,6 +228,7 @@ export function ServiceAreaDialog({
             newLabel={t("newCategory")}
             namePlaceholder={t("categoryNamePlaceholder")}
             parentReady
+            autoGenerate={config.auto_generate}
           />
 
           <RungFields
@@ -209,6 +241,7 @@ export function ServiceAreaDialog({
             newLabel={t("newSubcategory")}
             namePlaceholder={t("categoryNamePlaceholder")}
             parentReady={rungReady(category)}
+            autoGenerate={config.auto_generate}
           />
 
           {/* The Service Area is a rung with nothing to pick from — it is always
@@ -221,6 +254,7 @@ export function ServiceAreaDialog({
             parentPrefix={subPrefix}
             namePlaceholder={t("serviceAreaNamePlaceholder")}
             parentReady={rungReady(subcategory)}
+            autoGenerate={config.auto_generate}
           />
 
           <p className="text-xs text-text-muted">
@@ -260,6 +294,8 @@ interface RungProps {
   onChange: (next: Rung) => void;
   /** The rung above is settled, so this one can be filled in. */
   parentReady: boolean;
+  /** When the org auto-generates codes, the segment field isn't required. */
+  autoGenerate: boolean;
   newLabel?: string;
   onPick?: (pick: string) => void;
 }
@@ -279,6 +315,7 @@ function RungFields({
   namePlaceholder,
   onChange,
   parentReady,
+  autoGenerate,
   newLabel,
   onPick,
 }: RungProps) {
@@ -403,7 +440,7 @@ function RungFields({
               })
             }
             maxLength={maxSegmentLength(parentPrefix)}
-            required
+            required={!autoGenerate}
           />
         </div>
       )}

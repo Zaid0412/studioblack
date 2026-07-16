@@ -1,9 +1,84 @@
 import type { PoolClient } from "pg";
 import { getPool } from "@/lib/db";
-import { CATEGORY_CODE_MAX } from "@/lib/categoryCode";
+import {
+  CATEGORY_CODE_MAX,
+  applyCase,
+  codeSegmentOf,
+  composeCategoryCode,
+  dedupeSegment,
+  segmentCap,
+  suggestCodeSegment,
+} from "@/lib/categoryCode";
 import type { BulkCategoryNode } from "@/lib/validations";
-import type { ElementCategory, ElementCategoryNode } from "@/types";
+import type {
+  CategoryCodeConfig,
+  ElementCategory,
+  ElementCategoryNode,
+} from "@/types";
+import { getCategoryCodeConfig } from "./categoryCodeConfig";
+import { categoryRefExistsSql, isCategoryReferenced } from "./categoryImport";
 import { escapeSqlLike } from "./helpers";
+
+/**
+ * Resolve the `code_prefix` a category should be saved with, given the org's
+ * coding config. A supplied code is enforced (length/case, and rejected on a
+ * sibling collision when `prevent_duplicates` is on); an absent code is
+ * auto-generated from the name when `auto_generate` is on, deduped against the
+ * siblings, else left null (manual-entry mode). Always composed under the
+ * parent, so `assertCodeUnderParent`'s invariant holds by construction.
+ */
+export class DuplicateCodeError extends Error {
+  constructor(code: string) {
+    super(`The code "${code}" is already used by a sibling category`);
+    this.name = "DuplicateCodeError";
+  }
+}
+
+/** Thrown when a category's code change is blocked because it's already in use. */
+export class CategoryCodeLockedError extends Error {
+  constructor() {
+    super("This category's code is locked because it's already in use.");
+    this.name = "CategoryCodeLockedError";
+  }
+}
+
+function resolveCategoryCode(
+  suppliedPrefix: string | undefined,
+  name: string,
+  parentPrefix: string | null,
+  siblingPrefixes: (string | null)[],
+  config: CategoryCodeConfig
+): string | null {
+  const cap = segmentCap(parentPrefix, config.code_max_length);
+  const takenSegments = siblingPrefixes
+    .map((p) => codeSegmentOf(p, parentPrefix))
+    .filter(Boolean);
+
+  const supplied = suppliedPrefix?.trim();
+  if (supplied) {
+    const seg = applyCase(
+      codeSegmentOf(supplied, parentPrefix),
+      config.force_uppercase
+    ).slice(0, cap);
+    if (!seg) return null;
+    if (
+      config.prevent_duplicates &&
+      takenSegments.some((s) => s.toUpperCase() === seg.toUpperCase())
+    ) {
+      throw new DuplicateCodeError(composeCategoryCode(parentPrefix, seg));
+    }
+    return composeCategoryCode(parentPrefix, seg);
+  }
+
+  if (!config.auto_generate) return null;
+  const suggested = applyCase(
+    suggestCodeSegment(name, cap),
+    config.force_uppercase
+  );
+  if (!suggested) return null;
+  const seg = dedupeSegment(suggested, takenSegments, cap);
+  return composeCategoryCode(parentPrefix, seg);
+}
 
 /** Build a nested tree from flat category rows. */
 export function buildCategoryTree(
@@ -28,14 +103,18 @@ export function buildCategoryTree(
 }
 
 /**
- * Fetch all categories for an org with a per-node element count, ordered
- * for tree assembly. `element_count` covers the node's direct elements
- * (archived included) — aggregate for subtree counts client-side.
+ * Fetch all categories for an org with a per-node element count and an `in_use`
+ * flag, ordered for tree assembly. `element_count` covers the node's direct
+ * elements (archived included) — aggregate for subtree counts client-side.
+ * `in_use` is true when the category is referenced by any live data (elements,
+ * vendor trades, BOQ/RFQ items, rate contracts) — drives the "code locked once
+ * used" UI. The lateral EXISTS short-circuits per row over indexed columns.
  */
 export async function getCategoryTree(orgId: string) {
   const pool = getPool();
   const { rows } = await pool.query(
-    `SELECT c.*, COALESCE(e.cnt, 0)::int AS element_count
+    `SELECT c.*, COALESCE(e.cnt, 0)::int AS element_count,
+       EXISTS (${categoryRefExistsSql("c.id")} LIMIT 1) AS in_use
      FROM element_category c
      LEFT JOIN (
        SELECT category_id, COUNT(*)::int AS cnt
@@ -47,7 +126,10 @@ export async function getCategoryTree(orgId: string) {
      ORDER BY c.level, c.sort_order, c.name`,
     [orgId]
   );
-  return rows as (ElementCategory & { element_count: number })[];
+  return rows as (ElementCategory & {
+    element_count: number;
+    in_use: boolean;
+  })[];
 }
 
 /** Fetch a single category by ID. */
@@ -102,13 +184,43 @@ export async function createCategory(
 ) {
   const pool = getPool();
   const parentId = input.parentId ?? null;
+  const config = await getCategoryCodeConfig(orgId);
 
-  await assertCodeUnderParent(pool, orgId, parentId, input.codePrefix);
-
-  // Single query: derive level from parent, auto-increment sort_order if not given
+  // Resolve the code inside a transaction holding a per-(org, parent) advisory
+  // lock, with the sibling set read FOR UPDATE — so two concurrent creates under
+  // the same parent can't generate or accept the same code (there's no DB unique
+  // constraint on code_prefix).
+  const client = await pool.connect();
   let rows: ElementCategory[];
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      `cat-code:${orgId}:${parentId ?? "root"}`,
+    ]);
+
+    let parentPrefix: string | null = null;
+    if (parentId) {
+      const { rows: p } = await client.query<{ code_prefix: string | null }>(
+        `SELECT code_prefix FROM element_category WHERE id = $1 AND org_id = $2`,
+        [parentId, orgId]
+      );
+      parentPrefix = p[0]?.code_prefix?.trim() ?? null;
+    }
+    const { rows: sibs } = await client.query<{ code_prefix: string | null }>(
+      `SELECT code_prefix FROM element_category
+        WHERE org_id = $1 AND parent_id IS NOT DISTINCT FROM $2
+        FOR UPDATE`,
+      [orgId, parentId]
+    );
+    const codePrefix = resolveCategoryCode(
+      input.codePrefix,
+      input.name,
+      parentPrefix,
+      sibs.map((s) => s.code_prefix),
+      config
+    );
+
+    const result = await client.query<ElementCategory>(
       `INSERT INTO element_category (org_id, name, parent_id, level, code_prefix, sort_order, icon, color)
        SELECT $1, $2, $3,
          CASE WHEN $3::uuid IS NULL THEN 1
@@ -127,36 +239,40 @@ export async function createCategory(
         orgId,
         input.name,
         parentId,
-        input.codePrefix ?? null,
+        codePrefix,
         input.sortOrder ?? null,
         input.icon ?? null,
         input.color ?? null,
       ]
     );
     rows = result.rows;
+
+    if (rows.length === 0) {
+      // WHERE filtered out — parent not found or max depth exceeded.
+      await client.query("ROLLBACK");
+      if (parentId) {
+        const { rows: check } = await pool.query(
+          `SELECT level FROM element_category WHERE id = $1`,
+          [parentId]
+        );
+        if (check.length === 0) throw new Error("Parent category not found");
+        throw new Error("Maximum nesting depth reached");
+      }
+      throw new Error("Failed to create category");
+    }
+
+    await client.query("COMMIT");
+    return rows[0];
   } catch (err: unknown) {
-    // Handle DB constraint violations (e.g., chk_parent_level race condition)
+    await client.query("ROLLBACK").catch(() => {});
     const pgErr = err as { code?: string };
     if (pgErr.code === "23514")
       throw new Error("Maximum nesting depth reached");
     if (pgErr.code === "23503") throw new Error("Parent category not found");
     throw err;
+  } finally {
+    client.release();
   }
-
-  if (rows.length === 0) {
-    // The WHERE clause filtered out — either parent not found or max depth exceeded
-    if (parentId) {
-      const { rows: check } = await pool.query(
-        `SELECT level FROM element_category WHERE id = $1`,
-        [parentId]
-      );
-      if (check.length === 0) throw new Error("Parent category not found");
-      throw new Error("Maximum nesting depth reached");
-    }
-    throw new Error("Failed to create category");
-  }
-
-  return rows[0] as ElementCategory;
 }
 
 /** One node of the flattened template tree, linked to its parent for id resolution. */
@@ -455,6 +571,12 @@ export async function updateCategory(
       `SELECT 1 FROM element_category WHERE id = $1 AND org_id = $2 FOR UPDATE`,
       [id, orgId]
     );
+    // A code is editable before use, locked after — refuse the code change once
+    // the category is referenced by live data (when the org opts into it).
+    const config = await getCategoryCodeConfig(orgId, client);
+    if (config.lock_after_use && (await isCategoryReferenced(client, id))) {
+      throw new CategoryCodeLockedError();
+    }
     await assertCodeUnderParent(client, orgId, before[0].parent_id, nextPrefix);
 
     const { rows } = await client.query(query.sql, query.values);

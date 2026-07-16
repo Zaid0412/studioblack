@@ -522,6 +522,7 @@
       "preferences": "Preferences",
       "organization": "Organization",
       "divisions": "Divisions",
+      "coding": "Coding",
       "danger": "Danger zone"
     },
     "profile": "Profile",
@@ -744,6 +745,20 @@
     "priorityHigh": "High",
     "priorityUrgent": "Urgent"
   },
+  "coding": {
+    "title": "Coding",
+    "help": "How Category / Sub-Category / Service Area codes are generated across the element library.",
+    "autoGenerate": "Auto-generate codes",
+    "autoGenerateHint": "Suggest a code from the name (Kitchen → KIT). Turn off to require manual entry.",
+    "maxLength": "Max code length",
+    "maxLengthHint": "Characters per segment (3, 4, or 5).",
+    "forceUppercase": "Force uppercase",
+    "forceUppercaseHint": "Store codes in uppercase.",
+    "preventDuplicates": "Prevent duplicates",
+    "preventDuplicatesHint": "Reject or auto-number a code that clashes with a sibling.",
+    "lockAfterUse": "Lock after use",
+    "lockAfterUseHint": "Once a category is used by live data, its code can no longer be changed."
+  },
   "divisions": {
     "title": "Divisions",
     "help": "The reusable groups that sit above BOQ sections. Rename, disable, reorder, or set which apply to new projects.",
@@ -943,6 +958,7 @@
     "categoryCodeSegmentPlaceholder": "e.g. BASE",
     "categoryCodeComposed": "Full code: {code}",
     "categoryCodeHint": "Added to the parent's code",
+    "categoryCodeLocked": "Code is locked — this category is already in use",
     "categoryIcon": "Icon",
     "categoryColor": "Color",
     "categoryCreatedToast": "Category created",
