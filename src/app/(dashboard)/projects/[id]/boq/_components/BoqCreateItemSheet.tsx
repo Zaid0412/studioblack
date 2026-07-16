@@ -31,6 +31,8 @@ import {
   ServiceAreaField,
   useCategoryTree,
 } from "@/components/elements/ServiceAreaField";
+import { categoryPrefixOf } from "@/app/(dashboard)/elements/_lib/categoryUtils";
+import { UNCATEGORIZED_PREFIX } from "@/lib/categoryCode";
 import {
   BOQ_NO_SECTION_ID,
   DEFAULT_DIMENSION_UNIT,
@@ -171,7 +173,7 @@ export function BoqCreateItemSheet({
   // the sheet opens.
   const [manualQty, setManualQty] = useState(false);
 
-  const { isServiceAreaId } = useCategoryTree(open);
+  const { isServiceAreaId, options } = useCategoryTree(open);
 
   // Project-level BOQ defaults (Settings → BOQ) pre-fill a new line's unit and
   // service charge; null falls back to INITIAL's global defaults.
@@ -501,6 +503,12 @@ export function BoqCreateItemSheet({
     }
   };
 
+  // Auto-assigned on save from the Service Area, like the Element Library —
+  // show the same `PREFIX-••••` preview once one is picked.
+  const codePreview = v.categoryId
+    ? `${categoryPrefixOf(options, v.categoryId) ?? UNCATEGORIZED_PREFIX}-••••`
+    : "";
+
   const labelCls = "text-xs font-medium text-text-secondary";
   const requiredAsterisk = (
     <span className="text-danger" aria-hidden>
@@ -535,7 +543,7 @@ export function BoqCreateItemSheet({
                 <label className="flex flex-col gap-1.5">
                   <span className={labelCls}>Element code</span>
                   <Input
-                    value=""
+                    value={codePreview}
                     readOnly
                     disabled
                     placeholder="Auto-generated"

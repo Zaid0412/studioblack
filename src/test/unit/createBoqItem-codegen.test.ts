@@ -51,11 +51,6 @@ function wire(opts: { collisions?: number } = {}) {
       /RETURNING current_value/.test(sql)
     )
       return Promise.resolve({ rows: [{ current_value: ++counter }] });
-    // syncElementCounter's high-water read + its GREATEST upsert (no RETURNING).
-    if (/SELECT MAX\(suffix/.test(sql))
-      return Promise.resolve({ rows: [{ max_seq: String(counter) }] });
-    if (/INSERT INTO sequence_counter/.test(sql))
-      return Promise.resolve({ rows: [] });
     if (/pg_advisory_xact_lock/.test(sql)) return Promise.resolve({ rows: [] });
     // Collision check across element + boq_item — report a hit until spent.
     if (/SELECT 1 FROM element/.test(sql) && /FROM boq_item bi/.test(sql)) {
