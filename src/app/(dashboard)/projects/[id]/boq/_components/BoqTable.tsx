@@ -70,7 +70,6 @@ import {
 import { BoqChangeRequestDialog } from "./BoqChangeRequestDialog";
 import { BoqSectionHeader } from "./BoqSectionHeader";
 import { BoqDivisionHeader } from "./BoqDivisionHeader";
-import { BoqSectionFooter } from "./BoqSectionFooter";
 import { useDivisions } from "@/hooks/useDivisions";
 import { BoqSectionChips, type BoqChipDescriptor } from "./BoqSectionChips";
 import { BoqEditableCell } from "./BoqEditableCell";
@@ -769,13 +768,6 @@ function SectionBody({
               onOpen={onOpenItem}
             />
           ))}
-          {group.items.length > 0 && (
-            <BoqSectionFooter
-              itemCount={group.items.length}
-              sectionTotal={group.total}
-              currency={currency}
-            />
-          )}
         </div>
       </div>
     </div>
